@@ -1,4 +1,4 @@
-!#define DEFAULT
+#define DEFAULT
 module rIter_mod
    !
    ! This module actually handles the loop over the radial levels. It contains
@@ -841,11 +841,11 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: dLw, dLz, dLdw, dLddw, dmdw, dmz)
-      !$omp target update from(w_Rloc, z_Rloc, s_Rloc, &
-      !$omp&                 aj_Rloc, b_Rloc, &
-      !$omp&                 dw_Rloc, ddw_Rloc, &
-      !$omp&                 dz_Rloc, ds_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, &
-      !$omp&                 p_Rloc, xi_Rloc, phi_Rloc)
+!       !$omp target update from(w_Rloc, z_Rloc, s_Rloc, &
+!       !$omp&                 aj_Rloc, b_Rloc, &
+!       !$omp&                 dw_Rloc, ddw_Rloc, &
+!       !$omp&                 dz_Rloc, ds_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, &
+!       !$omp&                 p_Rloc, xi_Rloc, phi_Rloc)
       !$omp target update from(this%gsa)
 #endif
 
@@ -877,52 +877,63 @@ contains
 #ifndef DEFAULT
          if ( l_conv_nl .and. l_mag_LF ) then
             if ( nR>n_r_LCR ) then
-               !$omp target teams distribute parallel do
-               do nPhi=1,n_phi_max
-                  this%gsa%Advr(:,nPhi)=this%gsa%Advr(:,nPhi) + this%gsa%LFr(:,nPhi)
-                  this%gsa%Advt(:,nPhi)=this%gsa%Advt(:,nPhi) + this%gsa%LFt(:,nPhi)
-                  this%gsa%Advp(:,nPhi)=this%gsa%Advp(:,nPhi) + this%gsa%LFp(:,nPhi)
+               !$omp target teams distribute parallel do collapse(2)
+               do nLat=1,nlat_padded
+                  do nPhi=1,n_phi_max
+                     this%gsa%Advr(nLat,nPhi)=this%gsa%Advr(nLat,nPhi) + this%gsa%LFr(nLat,nPhi)
+                     this%gsa%Advt(nLat,nPhi)=this%gsa%Advt(nLat,nPhi) + this%gsa%LFt(nLat,nPhi)
+                     this%gsa%Advp(nLat,nPhi)=this%gsa%Advp(nLat,nPhi) + this%gsa%LFp(nLat,nPhi)
+                  end do
                end do
                !$omp end target teams distribute parallel do
             end if
          else if ( l_mag_LF ) then
             if ( nR > n_r_LCR ) then
-               !$omp target teams distribute parallel do
-               do nPhi=1,n_phi_max
-                  this%gsa%Advr(:,nPhi) = this%gsa%LFr(:,nPhi)
-                  this%gsa%Advt(:,nPhi) = this%gsa%LFt(:,nPhi)
-                  this%gsa%Advp(:,nPhi) = this%gsa%LFp(:,nPhi)
+               !$omp target teams distribute parallel do collapse(2)
+               do nLat=1,nlat_padded
+                  do nPhi=1,n_phi_max
+                     this%gsa%Advr(nLat,nPhi) = this%gsa%LFr(nLat,nPhi)
+                     this%gsa%Advt(nLat,nPhi) = this%gsa%LFt(nLat,nPhi)
+                     this%gsa%Advp(nLat,nPhi) = this%gsa%LFp(nLat,nPhi)
+                  end do
                end do
                !$omp end target teams distribute parallel do
             else
-               !$omp target teams distribute parallel do
-               do nPhi=1,n_phi_max
-                  this%gsa%Advr(:,nPhi)=0.0_cp
-                  this%gsa%Advt(:,nPhi)=0.0_cp
-                  this%gsa%Advp(:,nPhi)=0.0_cp
+               !$omp target teams distribute parallel do collapse(2)
+               do nLat=1,nlat_padded
+                  do nPhi=1,n_phi_max
+                     this%gsa%Advr(nLat,nPhi)=0.0_cp
+                     this%gsa%Advt(nLat,nPhi)=0.0_cp
+                     this%gsa%Advp(nLat,nPhi)=0.0_cp
+                  end do
                end do
                !$omp end target teams distribute parallel do
             end if
          end if
 
          if ( l_precession ) then
-            !$omp target teams distribute parallel do
-            do nPhi=1,n_phi_max
-               this%gsa%Advr(:,nPhi)=this%gsa%Advr(:,nPhi) + this%gsa%PCr(:,nPhi)
-               this%gsa%Advt(:,nPhi)=this%gsa%Advt(:,nPhi) + this%gsa%PCt(:,nPhi)
-               this%gsa%Advp(:,nPhi)=this%gsa%Advp(:,nPhi) + this%gsa%PCp(:,nPhi)
-            end do
-            !$omp end target teams distribute parallel do
+               !$omp target teams distribute parallel do collapse(2)
+               do nLat=1,nlat_padded
+                  do nPhi=1,n_phi_max
+                     this%gsa%Advr(nLat,nPhi)=this%gsa%Advr(nLat,nPhi) + this%gsa%PCr(nLat,nPhi)
+                     this%gsa%Advt(nLat,nPhi)=this%gsa%Advt(nLat,nPhi) + this%gsa%PCt(nLat,nPhi)
+                     this%gsa%Advp(nLat,nPhi)=this%gsa%Advp(nLat,nPhi) + this%gsa%PCp(nLat,nPhi)
+                  end do
+               end do
+               !$omp end target teams distribute parallel do
          end if
 
          if ( l_centrifuge ) then
-            !$omp target teams distribute parallel do
-            do nPhi=1,n_phi_max
-               this%gsa%Advr(:, nPhi)=this%gsa%Advr(:,nPhi) + this%gsa%CAr(:,nPhi)
-               this%gsa%Advt(:, nPhi)=this%gsa%Advt(:,nPhi) + this%gsa%CAt(:,nPhi)
-            end do
-            !$omp end target teams distribute parallel do
+               !$omp target teams distribute parallel do collapse(2)
+               do nLat=1,nlat_padded
+                  do nPhi=1,n_phi_max
+                     this%gsa%Advr(nLat, nPhi)=this%gsa%Advr(nLat,nPhi) + this%gsa%CAr(nLat,nPhi)
+                     this%gsa%Advt(nLat, nPhi)=this%gsa%Advt(nLat,nPhi) + this%gsa%CAt(nLat,nPhi)
+                  end do
+               end do
+               !$omp end target teams distribute parallel do
          end if
+
 #else
          !$omp target teams distribute parallel do
 #endif
