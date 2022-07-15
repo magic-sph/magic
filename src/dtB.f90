@@ -25,7 +25,11 @@ module dtB_mod
    use blocking, only: lo_map, st_map, lm2l, lm2m, lmP2lmPS, lmP2lmPA, &
                        lm2lmP, llmMag, ulmMag, llm, ulm
    use radial_spectra ! rBrSpec, rBpSpec
+#ifdef WITH_OMP_GPU
+   use sht, only: scal_to_SH, sht_lP_single, sht_lP_single_gpu, spat_to_sphertor
+#else
    use sht, only: scal_to_SH, sht_lP_single, spat_to_sphertor
+#endif
    use constants, only: two
    use radial_der, only: get_dr
 
@@ -271,6 +275,28 @@ contains
       end do
       !$omp end parallel do
 
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
+      !$omp&                            BpVtBtVpCot, BpVtBtVpSn2, BtVZsn2)
+      !$omp target update to(BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
+      !$omp&                 BpVtBtVpCot, BpVtBtVpSn2, BtVZsn2)
+
+      call spat_to_sphertor(sht_lP_single_gpu, BtVr, BpVr, BtVrLM, BpVrLM, l_max, .true.)
+      call spat_to_sphertor(sht_lP_single_gpu, BrVt, BrVp, BrVtLM, BrVpLM, l_max, .true.)
+
+      call scal_to_SH(sht_lP_single_gpu, BtVp, BtVpLM, l_max, .true.)
+      call scal_to_SH(sht_lP_single_gpu, BpVt, BpVtLM, l_max, .true.)
+
+      call scal_to_SH(sht_lP_single_gpu, BpVtBtVpCot, BpVtBtVpCotLM, l_max, .true.)
+      call scal_to_SH(sht_lP_single_gpu, BpVtBtVpsn2, BpVtBtVpsn2LM, l_max, .true.)
+
+      call scal_to_SH(sht_lP_single_gpu, BrVZ, BrVZLM, l_max, .true.)
+      call scal_to_SH(sht_lP_single_gpu, BtVZ, BtVZLM, l_max, .true.)
+      call scal_to_SH(sht_lP_single_gpu, BtVZsn2, BtVZsn2LM, l_max, .true.)
+
+      !$omp target exit data map(delete: BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
+      !$omp&                            BpVtBtVpCot, BtVZsn2)
+#else
       call spat_to_sphertor(sht_lP_single, BtVr, BpVr, BtVrLM, BpVrLM, l_max)
       call spat_to_sphertor(sht_lP_single, BrVt, BrVp, BrVtLM, BrVpLM, l_max)
 
@@ -283,7 +309,7 @@ contains
       call scal_to_SH(sht_lP_single, BrVZ, BrVZLM, l_max)
       call scal_to_SH(sht_lP_single, BtVZ, BtVZLM, l_max)
       call scal_to_SH(sht_lP_single, BtVZsn2, BtVZsn2LM, l_max)
-
+#endif
    end subroutine get_dtBLM
 !-----------------------------------------------------------------------
    subroutine get_dH_dtBLM(nR,BtVrLM,BpVrLM,BrVtLM,BrVpLM,BtVpLM,BpVtLM, &
