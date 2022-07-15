@@ -1,3 +1,4 @@
+!#define DEFAULT
 module rIter_mod
    !
    ! This module actually handles the loop over the radial levels. It contains
@@ -403,6 +404,9 @@ contains
          !--------- Calculation of magnetic field production and advection terms
          !          for graphic output:
          if ( l_dtB ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(this%dtB_arrays)
+#endif
             call get_dtBLM(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,       &
                  &         this%gsa%brc,this%gsa%btc,this%gsa%bpc,          &
                  &         this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,   &
@@ -412,6 +416,9 @@ contains
                  &         this%dtB_arrays%BpVtBtVpCotLM,                   &
                  &         this%dtB_arrays%BpVtBtVpSn2LM,                   &
                  &         this%dtB_arrays%BtVZsn2LM)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(this%dtB_arrays)
+#endif
          end if
 
 
@@ -579,10 +586,7 @@ contains
          end if
 
          if ( lRmsCalc ) then
-            call transform_to_grid_RMS(nR, p_Rloc(:,nR)) !--TODO: offload (& remove update of p_Rloc)
-#ifdef WITH_OMP_GPU
-            !$omp target update to(p_Rloc)
-#endif
+            call transform_to_grid_RMS(nR, p_Rloc(:,nR))
          end if
 
          !-- Pressure
@@ -785,9 +789,6 @@ contains
 #endif
             end if
          else if ( nBc == 2 ) then
-#ifdef WITH_OMP_GPU
-            !$omp target update from(this%gsa)
-#endif
             if ( nR == n_r_cmb ) then
                call v_rigid_boundary(nR, omega_ma, lDeriv, this%gsa%vrc,        &
                     &                this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
@@ -800,9 +801,6 @@ contains
                     &                this%gsa%dvrdpc, this%gsa%dvtdpc,        &
                     &                this%gsa%dvpdpc)
             end if
-#ifdef WITH_OMP_GPU
-            !$omp target update to(this%gsa)
-#endif
             if ( lDeriv ) then
 #ifdef WITH_OMP_GPU
                call torpol_to_spat(dLdw, ddw_Rloc(:,nR), dz_Rloc(:,nR), &
@@ -867,10 +865,70 @@ contains
 
       !-- Local variables
       integer :: nPhi
+#ifdef WITH_OMP_GPU
+      integer :: nLat
+      !$omp target update to(this%gsa)
+      !$omp target update to(this%nl_lm)
+#endif
 
       if ( l_conv_nl .or. l_mag_LF ) then
 
+#ifdef WITH_OMP_GPU
+#ifndef DEFAULT
+         if ( l_conv_nl .and. l_mag_LF ) then
+            if ( nR>n_r_LCR ) then
+               !$omp target teams distribute parallel do
+               do nPhi=1,n_phi_max
+                  this%gsa%Advr(:,nPhi)=this%gsa%Advr(:,nPhi) + this%gsa%LFr(:,nPhi)
+                  this%gsa%Advt(:,nPhi)=this%gsa%Advt(:,nPhi) + this%gsa%LFt(:,nPhi)
+                  this%gsa%Advp(:,nPhi)=this%gsa%Advp(:,nPhi) + this%gsa%LFp(:,nPhi)
+               end do
+               !$omp end target teams distribute parallel do
+            end if
+         else if ( l_mag_LF ) then
+            if ( nR > n_r_LCR ) then
+               !$omp target teams distribute parallel do
+               do nPhi=1,n_phi_max
+                  this%gsa%Advr(:,nPhi) = this%gsa%LFr(:,nPhi)
+                  this%gsa%Advt(:,nPhi) = this%gsa%LFt(:,nPhi)
+                  this%gsa%Advp(:,nPhi) = this%gsa%LFp(:,nPhi)
+               end do
+               !$omp end target teams distribute parallel do
+            else
+               !$omp target teams distribute parallel do
+               do nPhi=1,n_phi_max
+                  this%gsa%Advr(:,nPhi)=0.0_cp
+                  this%gsa%Advt(:,nPhi)=0.0_cp
+                  this%gsa%Advp(:,nPhi)=0.0_cp
+               end do
+               !$omp end target teams distribute parallel do
+            end if
+         end if
+
+         if ( l_precession ) then
+            !$omp target teams distribute parallel do
+            do nPhi=1,n_phi_max
+               this%gsa%Advr(:,nPhi)=this%gsa%Advr(:,nPhi) + this%gsa%PCr(:,nPhi)
+               this%gsa%Advt(:,nPhi)=this%gsa%Advt(:,nPhi) + this%gsa%PCt(:,nPhi)
+               this%gsa%Advp(:,nPhi)=this%gsa%Advp(:,nPhi) + this%gsa%PCp(:,nPhi)
+            end do
+            !$omp end target teams distribute parallel do
+         end if
+
+         if ( l_centrifuge ) then
+            !$omp target teams distribute parallel do
+            do nPhi=1,n_phi_max
+               this%gsa%Advr(:, nPhi)=this%gsa%Advr(:,nPhi) + this%gsa%CAr(:,nPhi)
+               this%gsa%Advt(:, nPhi)=this%gsa%Advt(:,nPhi) + this%gsa%CAt(:,nPhi)
+            end do
+            !$omp end target teams distribute parallel do
+         end if
+#else
+         !$omp target teams distribute parallel do
+#endif
+#else
          !$omp parallel do default(shared)
+#endif
          do nPhi=1,n_phi_max
             if ( l_conv_nl .and. l_mag_LF ) then
                if ( nR>n_r_LCR ) then
@@ -900,42 +958,97 @@ contains
                this%gsa%Advr(:, nPhi)=this%gsa%Advr(:,nPhi) + this%gsa%CAr(:,nPhi)
                this%gsa%Advt(:, nPhi)=this%gsa%Advt(:,nPhi) + this%gsa%CAt(:,nPhi)
             end if
-
          end do
+#ifdef WITH_OMP_GPU
+#ifdef DEFAULT
+         !$omp end target teams distribute parallel do
+#endif
+#else
          !$omp end parallel do
+#endif
 
+#ifdef WITH_OMP_GPU
+         call spat_to_qst(this%gsa%Advr, this%gsa%Advt, this%gsa%Advp, &
+              &           this%nl_lm%AdvrLM, this%nl_lm%AdvtLM,        &
+              &           this%nl_lm%AdvpLM, l_R(nR), .true.)
+#else
          call spat_to_qst(this%gsa%Advr, this%gsa%Advt, this%gsa%Advp, &
               &           this%nl_lm%AdvrLM, this%nl_lm%AdvtLM,        &
               &           this%nl_lm%AdvpLM, l_R(nR))
+#endif
       end if
 
       if ( l_heat ) then
+#ifdef WITH_OMP_GPU
+         call spat_to_qst(this%gsa%VSr, this%gsa%VSt, this%gsa%VSp, &
+              &           this%nl_lm%VSrLM, this%nl_lm%VStLM,       &
+              &           this%nl_lm%VSpLM, l_R(nR), .true.)
+#else
          call spat_to_qst(this%gsa%VSr, this%gsa%VSt, this%gsa%VSp, &
               &           this%nl_lm%VSrLM, this%nl_lm%VStLM,       &
               &           this%nl_lm%VSpLM, l_R(nR))
-
-         if ( l_anel ) call scal_to_SH(sht_lP, this%gsa%heatTerms, &
+#endif
+         if ( l_anel ) then
+#ifdef WITH_OMP_GPU
+            call scal_to_SH(sht_lP_gpu, this%gsa%heatTerms, &
+                            &          this%nl_lm%heatTermsLM, l_R(nR), .true.)
+#else
+            call scal_to_SH(sht_lP, this%gsa%heatTerms, &
                             &          this%nl_lm%heatTermsLM, l_R(nR))
+#endif
+         end if
       end if
+
       if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+         call spat_to_qst(this%gsa%VXir, this%gsa%VXit, this%gsa%VXip, &
+              &           this%nl_lm%VXirLM, this%nl_lm%VXitLM,        &
+              &           this%nl_lm%VXipLM, l_R(nR), .true.)
+#else
          call spat_to_qst(this%gsa%VXir, this%gsa%VXit, this%gsa%VXip, &
               &           this%nl_lm%VXirLM, this%nl_lm%VXitLM,        &
               &           this%nl_lm%VXipLM, l_R(nR))
+#endif
       end if
-      if( l_phase_field ) call scal_to_SH(sht_lP, this%gsa%phiTerms, &
-                               &          this%nl_lm%dphidtLM, l_R(nR))
+
+      if( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+         call scal_to_SH(sht_lP_gpu, this%gsa%phiTerms, &
+                            &          this%nl_lm%dphidtLM, l_R(nR), .true.)
+#else
+         call scal_to_SH(sht_lP, this%gsa%phiTerms, &
+                            &          this%nl_lm%dphidtLM, l_R(nR))
+#endif
+      end if
+
       if ( l_mag_nl ) then
          if ( nR>n_r_LCR ) then
+#ifdef WITH_OMP_GPU
+            call spat_to_qst(this%gsa%VxBr, this%gsa%VxBt, this%gsa%VxBp, &
+                 &           this%nl_lm%VxBrLM, this%nl_lm%VxBtLM,        &
+                 &           this%nl_lm%VxBpLM, l_R(nR), .true.)
+#else
             call spat_to_qst(this%gsa%VxBr, this%gsa%VxBt, this%gsa%VxBp, &
                  &           this%nl_lm%VxBrLM, this%nl_lm%VxBtLM,        &
                  &           this%nl_lm%VxBpLM, l_R(nR))
+#endif
          else
+#ifdef WITH_OMP_GPU
+            call spat_to_sphertor(sht_lP_single_gpu, this%gsa%VxBt, this%gsa%VxBp, &
+                 &                this%nl_lm%VxBtLM, this%nl_lm%VxBpLM, l_R(nR), .true.)
+#else
             call spat_to_sphertor(sht_lP_single, this%gsa%VxBt, this%gsa%VxBp, &
                  &                this%nl_lm%VxBtLM, this%nl_lm%VxBpLM, l_R(nR))
+#endif
          end if
       end if
 
       if ( lRmsCalc ) call transform_to_lm_RMS(nR, this%gsa%LFr)
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(this%gsa)
+      !$omp target update from(this%nl_lm)
+#endif
 
    end subroutine transform_to_lm_space
 !-------------------------------------------------------------------------------
