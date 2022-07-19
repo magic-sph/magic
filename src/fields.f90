@@ -330,10 +330,6 @@ contains
          allocate( xi_Rloc_container(lm_max,nRstart:nRstop,1:2) )
          xi_Rloc_container(:,:,:)=zero
          xi_Rloc(1:,nRstart:)  => xi_Rloc_container(1:lm_max,nRstart:nRstop,1)
-#ifdef WITH_OMP_GPU
-         !$omp target enter data map(alloc: xi_Rloc)
-         !$omp target update to(xi_Rloc)
-#endif
          dxi_Rloc(1:,nRstart:) => xi_Rloc_container(1:lm_max,nRstart:nRstop,2)
          bytes_allocated = bytes_allocated + &
          &                 2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
@@ -347,6 +343,10 @@ contains
          xi_Rloc(1:,1:)   => xi_Rloc_container(1:1,1:1,1)
          dxi_Rloc(1:,1:)  => xi_Rloc_container(1:1,1:1,2)
       end if
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: xi_Rloc)
+      !$omp target update to(xi_Rloc)
+#endif
 
       !-- Phase field
       if ( l_phase_field ) then
