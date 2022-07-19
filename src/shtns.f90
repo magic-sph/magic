@@ -1,4 +1,4 @@
-#define QUICK_TEST
+!#define QUICK_TEST
 module sht
    !
    ! This module contains is a wrapper of the SHTns routines used in MagIC
@@ -171,6 +171,7 @@ contains
       call shtns_robert_form(sht_lP, 1) ! Use Robert's form
 #ifdef WITH_OMP_GPU
       sht_lP_gpu = shtns_create(l_max+1, m_max/minc, minc, norm)
+      dist = int(lmP_max, kind=8)
       if ( l_batched_sh ) call shtns_set_batch(sht_lP_gpu, howmany, dist)
       call shtns_set_grid(sht_lP_gpu, layout_gpu, eps_polar, n_theta_max, n_phi_max)
       call shtns_robert_form(sht_lP_gpu, 1) ! Use Robert's form
