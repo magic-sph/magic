@@ -435,6 +435,9 @@ class AvgStack:
                     if key1 in newlut[key].keys():
                         arr1 = np.atleast_1d(newlut[key][key1])
                         self.lut[key][key1].append(arr1)
+                    else: #  Fill with -1 dummy arrays to make sure everything has the right size
+                        arr1 = -1 * np.ones(32)
+                        self.lut[key][key1].append(arr1)
 
     def load(self):
         """

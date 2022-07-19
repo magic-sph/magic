@@ -619,6 +619,38 @@ class MagicTOHemi(MagicSetup):
         if iplot:
             self.plot()
 
+    def __add__(self, new):
+        """
+        This is an intrinsic '+' method to stack to TO[n|s]hs.TAG files
+
+        .. note:: So far, this only works if the grid resolution does not change
+        """
+        out = copy.deepcopy(new)
+        if new.time[0] == self.time[-1]:
+            out.time = np.concatenate((self.time, new.time[1:]), axis=0)
+            out.vp = np.concatenate((self.vp, new.vp[1:, ...]), axis=0)
+            out.dvp = np.concatenate((self.dvp, new.dvp[1:, ...]), axis=0)
+            out.ddvp = np.concatenate((self.ddvp, new.ddvp[1:, ...]), axis=0)
+            out.tay = np.concatenate((self.tay, new.tay[1:, ...]), axis=0)
+            out.rstr = np.concatenate((self.rstr, new.rstr[1:, ...]), axis=0)
+            out.astr = np.concatenate((self.astr, new.astr[1:, ...]), axis=0)
+            out.viscstr = np.concatenate((self.viscstr, new.viscstr[1:, ...]), axis=0)
+            out.LF = np.concatenate((self.LF, new.LF[1:, ...]), axis=0)
+            out.Bs2 = np.concatenate((self.Bs2, new.Bs2[1:, ...]), axis=0)
+        else:
+            out.time = np.concatenate((self.time, new.time), axis=0)
+            out.vp = np.concatenate((self.vp, new.vp), axis=0)
+            out.dvp = np.concatenate((self.dvp, new.dvp), axis=0)
+            out.ddvp = np.concatenate((self.ddvp, new.ddvp), axis=0)
+            out.tay = np.concatenate((self.tay, new.tay), axis=0)
+            out.rstr = np.concatenate((self.rstr, new.rstr), axis=0)
+            out.astr = np.concatenate((self.astr, new.astr), axis=0)
+            out.viscstr = np.concatenate((self.viscstr, new.viscstr), axis=0)
+            out.LF = np.concatenate((self.LF, new.LF), axis=0)
+            out.Bs2 = np.concatenate((self.Bs2, new.Bs2), axis=0)
+
+        return out
+
     def plot(self):
         """
         Plotting function
