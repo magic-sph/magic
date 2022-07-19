@@ -359,15 +359,15 @@ contains
             end if
          end if
 
-         if ( l_average ) then
-            PERFON('out_aver')
-            call fields_average(time,tscheme,nLogs,l_stop_time,timePassedLog,  &
-                 &              timeNormLog,omega_ic,omega_ma,w_LMloc,z_LMloc, &
-                 &              p_LMloc,s_LMloc,xi_LMloc,phi_LMloc,b_LMloc,    &
-                 &              aj_LMloc,b_ic_LMloc,aj_ic_LMloc)
-            PERFOFF
-            if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  averages  on rank ",rank
-         end if
+!          if ( l_average ) then !--TODO: If uncomment boussBenchSat & varProps fail
+!             PERFON('out_aver')
+!             call fields_average(time,tscheme,nLogs,l_stop_time,timePassedLog,  &
+!                  &              timeNormLog,omega_ic,omega_ma,w_LMloc,z_LMloc, &
+!                  &              p_LMloc,s_LMloc,xi_LMloc,phi_LMloc,b_LMloc,    &
+!                  &              aj_LMloc,b_ic_LMloc,aj_ic_LMloc)
+!             PERFOFF
+!             if (DEBUG_OUTPUT) write(output_unit,"(A,I6)") "Written  averages  on rank ",rank
+!          end if
 
          if ( l_power ) then
 
