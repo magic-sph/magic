@@ -526,11 +526,11 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: dLw, dLz, dLdw, dLddw, dmdw, dmz)
       !$omp target update to(dLw, dLz, dLdw, dLddw, dmdw, dmz)
-      !$omp target update to(w_Rloc, z_Rloc, s_Rloc, &
-      !$omp&                 aj_Rloc, b_Rloc, &
-      !$omp&                 dw_Rloc, ddw_Rloc, &
-      !$omp&                 dz_Rloc, ds_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, &
-      !$omp&                 p_Rloc, xi_Rloc, phi_Rloc)
+      !$omp target update to(w_Rloc(:,nR), z_Rloc(:,nR), s_Rloc(:,nR), &
+      !$omp&                 aj_Rloc(:,nR), b_Rloc(:,nR), &
+      !$omp&                 dw_Rloc(:,nR), ddw_Rloc(:,nR), &
+      !$omp&                 dz_Rloc(:,nR), ds_Rloc(:,nR), db_Rloc(:,nR), ddb_Rloc(:,nR), dj_Rloc(:,nR), &
+      !$omp&                 p_Rloc(:,nR), xi_Rloc(:,nR), phi_Rloc(:,nR))
       !$omp target update to(this%gsa)
 #endif
 
@@ -841,11 +841,6 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: dLw, dLz, dLdw, dLddw, dmdw, dmz)
-!       !$omp target update from(w_Rloc, z_Rloc, s_Rloc, &
-!       !$omp&                 aj_Rloc, b_Rloc, &
-!       !$omp&                 dw_Rloc, ddw_Rloc, &
-!       !$omp&                 dz_Rloc, ds_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, &
-!       !$omp&                 p_Rloc, xi_Rloc, phi_Rloc)
       !$omp target update from(this%gsa)
 #endif
 
