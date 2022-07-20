@@ -241,6 +241,10 @@ contains
 
          call this%nl_lm%set_zero()
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(this%gsa)
+#endif
+
          if ( .not. l_onset ) then
             call lm2phy_counter%start_count()
             call this%transform_to_grid_space(nR, nBc, lViscBcCalc, lRmsCalc,       &
@@ -259,6 +263,9 @@ contains
 
             !-- Get nl loop for r.m.s. computation
             if ( l_RMS ) then
+#ifdef WITH_OMP_GPU
+               !$omp target update from(this%gsa)
+#endif
                call get_nl_RMS(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%dvrdrc,&
                     &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%dvtdrc,          &
                     &          this%gsa%dvtdpc,this%gsa%dvpdrc,this%gsa%dvpdpc,          &
@@ -273,6 +280,11 @@ contains
             this%nl_lm%VxBtLM(:)=zero
             this%nl_lm%VxBpLM(:)=zero
          end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(this%gsa)
+      !$omp target update from(this%nl_lm)
+#endif
 
          !---- Calculation of nonlinear products needed for conducting mantle or
          !     conducting inner core if free stress BCs are applied:
@@ -531,7 +543,6 @@ contains
       !$omp&                 dw_Rloc(:,nR), ddw_Rloc(:,nR), &
       !$omp&                 dz_Rloc(:,nR), ds_Rloc(:,nR), db_Rloc(:,nR), ddb_Rloc(:,nR), dj_Rloc(:,nR), &
       !$omp&                 p_Rloc(:,nR), xi_Rloc(:,nR), phi_Rloc(:,nR))
-      !$omp target update to(this%gsa)
 #endif
 
       call legPrep_qst(nR, w_Rloc(:,nR), ddw_Rloc(:,nR), z_Rloc(:,nR), dLw, dLddw, dLz)
@@ -841,7 +852,6 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: dLw, dLz, dLdw, dLddw, dmdw, dmz)
-      !$omp target update from(this%gsa)
 #endif
 
    end subroutine transform_to_grid_space
@@ -862,8 +872,6 @@ contains
       integer :: nPhi
 #ifdef WITH_OMP_GPU
       integer :: nLat
-      !$omp target update to(this%gsa)
-      !$omp target update to(this%nl_lm)
 #endif
 
       if ( l_conv_nl .or. l_mag_LF ) then
@@ -1050,11 +1058,6 @@ contains
       end if
 
       if ( lRmsCalc ) call transform_to_lm_RMS(nR, this%gsa%LFr)
-
-#ifdef WITH_OMP_GPU
-      !$omp target update from(this%gsa)
-      !$omp target update from(this%nl_lm)
-#endif
 
    end subroutine transform_to_lm_space
 !-------------------------------------------------------------------------------
