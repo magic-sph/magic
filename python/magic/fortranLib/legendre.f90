@@ -24,7 +24,7 @@ contains
       integer, intent(in) :: minc_in  ! Azimuthal symmetry
       integer, intent(in) :: n_theta_max_in ! Number of latitudinal grid point
       integer, intent(in) :: lm_max_in ! lm max
-      integer, intent(in), optional :: m_max_in
+      integer, intent(in) :: m_max_in
 
       !-- Local variables:
       integer ::  lm, lmP, l, m, lmP_max
@@ -40,11 +40,7 @@ contains
       lm_max = lm_max_in
       n_theta_max = n_theta_max_in
       n_phi_max = n_theta_max*2/minc
-      if ( present(m_max_in) ) then
-         m_max = m_max_in
-      else
-         m_max = (l_max/minc)*minc
-      end if
+      m_max = m_max_in
       n_m_max = m_max/minc+1
       lmP_max = lm_max+n_m_max
 
