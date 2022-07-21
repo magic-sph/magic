@@ -1773,7 +1773,7 @@ contains
 #endif
 
       !-- Now solve to finally get w
-      !$omp parallel default(shared) private(tag, req, start_lm, stop_lm, lm, n_r)
+      !$omp parallel default(shared) private(tag, req, start_lm, stop_lm, lm, n_r, nlm_block, lms_block)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
       !$omp barrier

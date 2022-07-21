@@ -8,7 +8,7 @@ module outMisc_mod
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use communications, only: gather_from_Rloc
+   use communications, only: gather_from_Rloc, gather_from_lo_to_rank0
    use truncation, only: l_max, n_r_max, nlat_padded, n_theta_max, n_r_maxMag, &
        &                 n_phi_max, lm_max, m_min, m_max, minc
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop, nRstartMag, nRstopMag
@@ -20,7 +20,7 @@ module outMisc_mod
    use blocking, only: llm, ulm, lo_map, lm2
    use radial_der, only: get_dr
    use mean_sd, only: mean_sd_type
-   use horizontal_data, only: gauss, theta_ord, n_theta_cal2ord, osn2, &
+   use horizontal_data, only: gauss, theta_ord, n_theta_cal2ord,  &
        &                      O_sin_theta_E2
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, l_hemi, &
        &            l_temperature_diff, l_chemical_conv, l_phase_field,    &
@@ -51,7 +51,7 @@ module outMisc_mod
    real(cp), allocatable :: HelASr(:,:), Hel2ASr(:,:)
    real(cp), allocatable :: HelnaASr(:,:), Helna2ASr(:,:)
    real(cp), allocatable :: HelEAASr(:)
-   complex(cp), allocatable :: pol_old(:)
+   complex(cp), allocatable :: coeff_old(:)
 
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
    &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
@@ -64,8 +64,6 @@ contains
       ! This subroutine handles the opening of some output diagnostic files that
       ! have to do with heat transfer, helicity, phase field or hemisphericity
       !
-
-      integer :: n_r_mid
 
       if (l_heat .or. l_chemical_conv) then
          call TMeanR%initialize(1,n_r_max)
@@ -132,19 +130,14 @@ contains
       end if
 
       if ( l_onset ) then
-         n_r_mid = int(n_r_max/2)
-         if ( nRstart <= n_r_mid .and. nRstop >= n_r_mid ) then
-            allocate(pol_old(lm_max) )
-            bytes_allocated=bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
-            pol_old(:)=zero
-         else
-            allocate(pol_old(1) )
-         end if
+         allocate(coeff_old(llm:ulm) )
+         bytes_allocated=bytes_allocated+(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+         coeff_old(:)=zero
          sym_file       ='growth_sym.'//tag
          asym_file      ='growth_asym.'//tag
          drift_sym_file ='drift_sym.'//tag
          drift_asym_file='drift_asym.'//tag
-         if ( nRstart <= n_r_mid .and. nRstop >= n_r_mid .and. (.not. l_save_out)) then
+         if ( rank == 0 .and. (.not. l_save_out)) then
             open(newunit=n_growth_sym_file, file=sym_file, status='new')
             open(newunit=n_growth_asym_file, file=asym_file, status='new')
             open(newunit=n_drift_sym_file, file=drift_sym_file, status='new')
@@ -160,8 +153,6 @@ contains
       ! heat.TAG, hel.TAG, hemi.TAG and phase.TAG
       !
 
-      integer :: n_r_mid
-
       if ( l_heat .or. l_chemical_conv ) then
          call TMeanR%finalize()
          call SMeanR%finalize()
@@ -170,9 +161,8 @@ contains
          call RhoMeanR%finalize()
       end if
       if ( l_onset ) then
-         n_r_mid = int(n_r_max/2)
-         deallocate( pol_old )
-         if ( nRstart <= n_r_mid .and. nRstop >= n_r_mid .and. (.not. l_save_out) ) then
+         deallocate( coeff_old )
+         if ( rank == 0 .and. (.not. l_save_out) ) then
             close(n_growth_sym_file)
             close(n_growth_asym_file)
             close(n_drift_sym_file)
@@ -803,7 +793,7 @@ contains
       real(cp) :: enAS(2) ! energy in North/South hemi at radius nR
       real(cp) :: vrabsAS(2)! abs(vr or Br) in North/South hemi at radius nR
       real(cp) :: en, vrabs, phiNorm, fac
-      integer :: nTheta, nPhi, nThetaNHS
+      integer :: nTheta, nPhi, nTh
 
       enAS(:)   =0.0_cp
       vrabsAS(:)=0.0_cp
@@ -814,25 +804,24 @@ contains
          fac = one
       end if
       !--- Helicity:
-      !$omp parallel do default(shared)           &
-      !$omp& private(nTheta,nThetaNHS,vrabs,en)   &
+      !$omp parallel do default(shared)   &
+      !$omp& private(nTheta,vrabs,en,nTh) &
       !$omp& reduction(+:enAS,vrabsAS)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nThetaNHS=(nTheta+1)/2
-
+            nTh=n_theta_cal2ord(nTheta)
             vrabs=fac*abs(vr(nTheta,nPhi))
-            en   =half*fac*(                                         &
-            &              or2(nR)*vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
-            &      osn2(nThetaNHS)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
-            &      osn2(nThetaNHS)*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
+            en   =half*fac*(                                                &
+            &                     or2(nR)*vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            &      O_sin_theta_E2(nTheta)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
+            &      O_sin_theta_E2(nTheta)*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
 
-            if ( mod(nTheta,2)  == 1 ) then ! Northern Hemisphere
-               enAS(1)   =enAS(1) +phiNorm*gauss(nThetaNHS)*en
-               vrabsAS(1)=vrabsAS(1) +phiNorm*gauss(nThetaNHS)*vrabs
+            if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
+               enAS(1)   =enAS(1) +phiNorm*gauss(nTheta)*en
+               vrabsAS(1)=vrabsAS(1) +phiNorm*gauss(nTheta)*vrabs
             else
-               enAS(2)   =enAS(2) +phiNorm*gauss(nThetaNHS)*en
-               vrabsAS(2)=vrabsAS(2) +phiNorm*gauss(nThetaNHS)*vrabs
+               enAS(2)   =enAS(2) +phiNorm*gauss(nTheta)*en
+               vrabsAS(2)=vrabsAS(2) +phiNorm*gauss(nTheta)*vrabs
             end if
          end do
       end do
@@ -861,7 +850,7 @@ contains
       real(cp), intent(in) :: dvtdr(:,:),dvpdr(:,:)
 
       !-- Local variables:
-      integer :: nTheta,nThetaNHS,nPhi
+      integer :: nTheta,nPhi,nTh
       real(cp) :: Helna,Hel,phiNorm
       real(cp) :: HelAS(2), Hel2AS(2), HelnaAS(2), Helna2AS(2), HelEAAS
       real(cp) :: vrna,vtna,vpna,cvrna,dvrdtna,dvrdpna,dvtdrna,dvpdrna
@@ -908,13 +897,13 @@ contains
 
       !--- Helicity:
       !$omp parallel do default(shared)                     &
-      !$omp& private(nTheta, nThetaNHS, nPhi, Hel, Helna)   &
+      !$omp& private(nTheta, nPhi, nTh, Hel, Helna)         &
       !$omp& private(vrna, cvrna, vtna, vpna)               &
       !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)    &
       !$omp& reduction(+:HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nThetaNHS = (nTheta+1)/2
+            nTh=n_theta_cal2ord(nTheta)
             vrna   =   vr(nTheta,nPhi)-vras(nTheta)
             cvrna  =  cvr(nTheta,nPhi)-cvras(nTheta)
             vtna   =   vt(nTheta,nPhi)-vtas(nTheta)
@@ -940,18 +929,18 @@ contains
             &                       vtna*( or2(nR)*dvrdpna-dvpdrna ) + &
             &                       vpna*( dvtdrna-or2(nR)*dvrdtna ) )
 
-            if ( mod(nTheta,2)  == 1 ) then ! Northern Hemisphere
-               HelAS(1)   =HelAS(1) +phiNorm*gauss(nThetaNHS)*Hel
-               Hel2AS(1)  =Hel2AS(1)+phiNorm*gauss(nThetaNHS)*Hel*Hel
-               HelnaAS(1) =HelnaAS(1) +phiNorm*gauss(nThetaNHS)*Helna
-               Helna2AS(1)=Helna2AS(1)+phiNorm*gauss(nThetaNHS)*Helna*Helna
-               HelEAAS    =HelEAAS +phiNorm*gauss(nThetaNHS)*Hel
+            if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
+               HelAS(1)   =HelAS(1) +phiNorm*gauss(nTheta)*Hel
+               Hel2AS(1)  =Hel2AS(1)+phiNorm*gauss(nTheta)*Hel*Hel
+               HelnaAS(1) =HelnaAS(1) +phiNorm*gauss(nTheta)*Helna
+               Helna2AS(1)=Helna2AS(1)+phiNorm*gauss(nTheta)*Helna*Helna
+               HelEAAS    =HelEAAS +phiNorm*gauss(nTheta)*Hel
             else
-               HelAS(2)   =HelAS(2) +phiNorm*gauss(nThetaNHS)*Hel
-               Hel2AS(2)  =Hel2AS(2)+phiNorm*gauss(nThetaNHS)*Hel*Hel
-               HelnaAS(2) =HelnaAS(2) +phiNorm*gauss(nThetaNHS)*Helna
-               Helna2AS(2)=Helna2AS(2)+phiNorm*gauss(nThetaNHS)*Helna*Helna
-               HelEAAS    =HelEAAS -phiNorm*gauss(nThetaNHS)*Hel
+               HelAS(2)   =HelAS(2) +phiNorm*gauss(nTheta)*Hel
+               Hel2AS(2)  =Hel2AS(2)+phiNorm*gauss(nTheta)*Hel*Hel
+               HelnaAS(2) =HelnaAS(2) +phiNorm*gauss(nTheta)*Helna
+               Helna2AS(2)=Helna2AS(2)+phiNorm*gauss(nTheta)*Helna*Helna
+               HelEAAS    =HelEAAS -phiNorm*gauss(nTheta)*Hel
             end if
          end do
       end do
@@ -982,30 +971,28 @@ contains
       real(cp) :: ekinS ! Kinetic energy in the solid phase
       real(cp) :: ekinL ! Kinetic energy in the liquid phase
       real(cp) :: volS  ! volume of the solid
-      integer :: nTheta,nPhi,nThetaNHS
+      integer :: nTheta,nPhi
 
       phiNorm=two*pi/real(n_phi_max,cp)
       ekinL=0.0_cp
       ekinS=0.0_cp
       volS =0.0_cp
 
-      !$omp parallel do default(shared)            &
-      !$omp& private(nTheta, nThetaNHS, nPhi,ekin) &
+      !$omp parallel do default(shared) &
+      !$omp& private(nTheta,nPhi,ekin)  &
       !$omp& reduction(+:ekinS,ekinL,volS)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nThetaNHS=(nTheta+1)/2
-
-            ekin = half*orho1(nR)*(                                      &
-            &          or2(nR)*        vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
-            &          osn2(nThetaNHS)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
-            &          osn2(nThetaNHS)*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
+            ekin = half*orho1(nR)*(                                         &
+            &          or2(nR)*           vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            &      O_sin_theta_E2(nTheta)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
+            &      O_sin_theta_E2(nTheta)*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
 
             if ( phi(nTheta,nPhi) >= half ) then
-               ekinS=ekinS+phiNorm*gauss(nThetaNHS)*ekin
-               volS =volS +phiNorm*gauss(nThetaNHS)*r(nR)*r(nR)
+               ekinS=ekinS+phiNorm*gauss(nTheta)*ekin
+               volS =volS +phiNorm*gauss(nTheta)*r(nR)*r(nR)
             else
-               ekinL=ekinL+phiNorm*gauss(nThetaNHS)*ekin
+               ekinL=ekinL+phiNorm*gauss(nTheta)*ekin
             end if
          end do
       end do
@@ -1017,86 +1004,99 @@ contains
 
    end subroutine get_ekin_solid_liquid
 !----------------------------------------------------------------------------------
-   subroutine get_onset(time, w, dt, l_log)
+   subroutine get_onset(time, w, dt, l_log, nLogs)
       !
       ! This subroutine is used to estimate the growth rate and the drifting
-      ! frequencies of a series of m modes for both equatiorlly-symmetric
+      ! frequencies of a series of m modes for both equatorially-symmetric
       ! and equatorially-antisymmetric modes. This is used to compute the critical
-      ! Rayleigh number.
+      ! Rayleigh number. This makes uses of the radial integration of the poloidal
+      ! potential at different (l,m) tuples.
       !
 
       real(cp),    intent(in) :: time  ! Time
       real(cp),    intent(in) :: dt    ! Timestep size
       logical,     intent(in) :: l_log ! Do we need to store outputs
-      complex(cp), intent(in) :: w(lm_max, nRstart:nRstop) ! Poloidal potential
+      integer,     intent(in) :: nLogs ! Do not write at the first time step
+      complex(cp), intent(in) :: w(llm:ulm, n_r_max) ! Poloidal potential
 
       !-- Local variables
       character(len=3) :: ad
-      complex(cp) :: drift(lm_max)
-      real(cp) :: growth(lm_max)
-      integer :: n_r_mid, lm, l, m
+      complex(cp) :: coeff, tau(llm:ulm)
+      real(cp) :: tmpr(n_r_max), tmpi(n_r_max)
+      real(cp) :: facR, facI
+      complex(cp), allocatable :: tau_glob(:)
+      integer :: lm, l, m
 
-      n_r_mid = int(n_r_max/2)
-
-      if ( nRstart <= n_r_mid .and. nRstop >= n_r_mid ) then
-         do lm=1,lm_max
-            if ( abs(w(lm,n_r_mid)) > 0.0_cp ) then
-               growth(lm)=(abs(w(lm,n_r_mid))-abs(pol_old(lm))) / &
-               &           abs(w(lm,n_r_mid)) /dt
-               drift(lm) =(w(lm,n_r_mid)-pol_old(lm)) / w(lm,n_r_mid) / dt
-            else
-               growth(lm)=0.0_cp
-               drift(lm) =0.0_cp
-            end if
-         end do
-
-         if ( l_log ) then
-            if ( l_save_out ) then
-               open(newunit=n_growth_sym_file, file=sym_file, status='unknown', &
-               &    position='append')
-               open(newunit=n_growth_asym_file, file=asym_file, status='unknown',   &
-               &    position='append')
-               open(newunit=n_drift_sym_file, file=drift_sym_file, status='unknown',   &
-               &    position='append')
-               open(newunit=n_drift_asym_file, file=drift_asym_file, status='unknown', &
-               &    position='append')
-            end if
-            ad='no'
-            do m=m_min,m_max,minc
-               if ( m == m_max .and. (.not. l_save_out)) ad='yes'
-               l =max(m,1)
-               lm=lm2(l,m)
-               if ( m == m_min ) then
-                  write(n_growth_sym_file, '(es16.8,es14.6)', advance=ad) &
-                  &     time, growth(lm)
-                  write(n_drift_sym_file, '(es16.8,es14.6)', advance=ad) &
-                  &     time, aimag(drift(lm))
-               else
-                  write(n_growth_sym_file, '(es14.6)', advance=ad) growth(lm)
-                  write(n_drift_sym_file, '(es14.6)', advance=ad) aimag(drift(lm))
-               end if
-               lm=lm2(l+1,m)
-               if ( m == m_min ) then
-                  write(n_growth_asym_file, '(es16.8,es14.6)', advance=ad) &
-                  &     time, growth(lm)
-                  write(n_drift_asym_file, '(es16.8,es14.6)', advance=ad) &
-                  &     time, aimag(drift(lm))
-               else
-                  write(n_growth_asym_file, '(es14.6)', advance=ad) growth(lm)
-                  write(n_drift_asym_file, '(es14.6)', advance=ad) aimag(drift(lm))
-               end if
-
-            end do
-            if ( l_save_out ) then
-               close(n_growth_sym_file)
-               close(n_growth_asym_file)
-               close(n_drift_sym_file)
-               close(n_drift_asym_file)
-            end if
+      do lm=llm,ulm
+         tmpr(:) = real(w(lm,:)) * r * r
+         tmpi(:) = aimag(w(lm,:)) * r * r
+         facR = rInt_R(tmpr, r, rscheme_oc)
+         facI = rInt_R(tmpi, r, rscheme_oc)
+         coeff = cmplx(facR, facI, kind=cp)
+         if ( abs(coeff) > 0.0_cp .and. abs(coeff_old(lm)) > 0.0_cp ) then
+            tau(lm) = cmplx((abs(coeff) - abs(coeff_old(lm)))/abs(coeff), &
+            &               aimag((coeff - coeff_old(lm))/coeff), kind=cp)/dt
+         else
+            tau(lm) = zero
          end if
+         coeff_old(lm) = coeff
+      end do
 
-         pol_old(:)=w(:,n_r_mid)
+      if ( l_log ) then
+         if ( rank == 0 ) then
+            allocate( tau_glob(lm_max) )
+         else
+            allocate( tau_glob(1) )
+         end if
+         call gather_from_lo_to_rank0(tau, tau_glob)
       end if
+
+      if ( rank == 0 .and. l_log .and. nLogs > 1 ) then
+         if ( l_save_out ) then
+            open(newunit=n_growth_sym_file, file=sym_file, status='unknown', &
+            &    position='append')
+            open(newunit=n_growth_asym_file, file=asym_file, status='unknown',   &
+            &    position='append')
+            open(newunit=n_drift_sym_file, file=drift_sym_file, status='unknown',   &
+            &    position='append')
+            open(newunit=n_drift_asym_file, file=drift_asym_file, status='unknown', &
+            &    position='append')
+         end if
+         ad='no'
+         do m=m_min,m_max,minc
+            if ( m == m_max .and. (.not. l_save_out)) ad='yes'
+            l =max(m,1)
+            lm=lm2(l,m)
+            if ( m == m_min ) then
+               write(n_growth_sym_file, '(es16.8,es14.6)', advance=ad) &
+               &     time, real(tau_glob(lm))
+               write(n_drift_sym_file, '(es16.8,es14.6)', advance=ad) &
+               &     time, aimag(tau_glob(lm))
+            else
+               write(n_growth_sym_file, '(es14.6)', advance=ad) real(tau_glob(lm))
+               write(n_drift_sym_file, '(es14.6)', advance=ad) aimag(tau_glob(lm))
+            end if
+            lm=lm2(l+1,m)
+            if ( m == m_min ) then
+               write(n_growth_asym_file, '(es16.8,es14.6)', advance=ad) &
+               &     time, real(tau_glob(lm))
+               write(n_drift_asym_file, '(es16.8,es14.6)', advance=ad) &
+               &     time, aimag(tau_glob(lm))
+            else
+               write(n_growth_asym_file, '(es14.6)', advance=ad) real(tau_glob(lm))
+               write(n_drift_asym_file, '(es14.6)', advance=ad) aimag(tau_glob(lm))
+            end if
+
+         end do
+         if ( l_save_out ) then
+            close(n_growth_sym_file)
+            close(n_growth_asym_file)
+            close(n_drift_sym_file)
+            close(n_drift_asym_file)
+         end if
+      end if
+
+      if ( l_log ) deallocate(tau_glob)
 
    end subroutine get_onset
 !----------------------------------------------------------------------------------

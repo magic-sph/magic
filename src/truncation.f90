@@ -46,7 +46,6 @@ module truncation
    integer :: lm_maxMag     ! Max. number of l/m combinations for magnetic field calculation
  
    !-- Movie memory control:
-   integer :: lMovieMem      ! Memory for movies
    integer :: ldtBMem        ! Memory for movie output
    integer :: lm_max_dtB     ! Number of l/m combinations for movie output
    integer :: n_r_max_dtB    ! Number of radial points for movie output

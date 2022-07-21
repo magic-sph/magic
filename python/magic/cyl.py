@@ -20,7 +20,7 @@ if buildSo:
 else:
     zavgMode = 'python'
 
-def sph2cyl_plane(data, rad, ns, nz):
+def sph2cyl_plane(data, rad, ns):
     """
     This function extrapolates a phi-slice of a spherical shell on
     a cylindrical grid
@@ -40,8 +40,6 @@ def sph2cyl_plane(data, rad, ns, nz):
     :type rad: numpy.ndarray
     :param ns: number of grid points in s direction
     :type ns: int
-    :param nz: number of grid points in z direction
-    :type nz: int
     :returns: a python tuple that contains two numpy.ndarray and a list (S,Z,output).
               S[nz,ns] is a meshgrid that contains the radial coordinate.
               Z[nz,ns] is a meshgrid that contains the vertical coordinate.
@@ -50,34 +48,48 @@ def sph2cyl_plane(data, rad, ns, nz):
     :rtype: tuple
     """
     ntheta, nr = data[0].shape
-
-    radius = rad[::-1]
-
     theta = np.linspace(0., np.pi, ntheta)
+    nz = 2*ns
 
-    Z, S = np.mgrid[-radius.max():radius.max():nz*1j,0:radius.max():ns*1j]
+    if zavgMode == 'f2py':
 
-    new_r = np.sqrt(S**2+Z**2).ravel()
-    new_theta = np.arctan2(S, Z).ravel()
-    ir = interp1d(radius, np.arange(len(radius)), bounds_error=False)
-    it = interp1d(theta, np.arange(len(theta)), bounds_error=False)
+        cylRad = np.linspace(0., rad[0], ns)
+        output = []
+        for dat in data:
+            Z, dat_cyl = sph_to_cyl(dat, rad, cylRad, theta)
+            output.append(dat_cyl)
 
-    new_ir = ir(new_r)
-    new_it = it(new_theta)
-    new_ir[new_r > radius.max()] = len(radius)-1.
-    new_ir[new_r < radius.min()] = 0.
+        return cylRad, Z, output
 
-    coords = np.array([new_it, new_ir])
+    else:
 
-    output = []
-    for dat in data:
-        dat_cyl = map_coordinates(dat[:, ::-1], coords, order=3)
-        dat_cyl[new_r > radius.max()] = 0.
-        dat_cyl[new_r < radius.min()] = 0.
-        dat_cyl = dat_cyl.reshape((nz, ns))
-        output.append(dat_cyl)
+        radius = rad[::-1]
 
-    return Z, S, output
+        theta = np.linspace(0., np.pi, ntheta)
+
+        Z, S = np.mgrid[-radius.max():radius.max():nz*1j,0:radius.max():ns*1j]
+
+        new_r = np.sqrt(S**2+Z**2).ravel()
+        new_theta = np.arctan2(S, Z).ravel()
+        ir = interp1d(radius, np.arange(len(radius)), bounds_error=False)
+        it = interp1d(theta, np.arange(len(theta)), bounds_error=False)
+
+        new_ir = ir(new_r)
+        new_it = it(new_theta)
+        new_ir[new_r > radius.max()] = len(radius)-1.
+        new_ir[new_r < radius.min()] = 0.
+
+        coords = np.array([new_it, new_ir])
+
+        output = []
+        for dat in data:
+            dat_cyl = map_coordinates(dat[:, ::-1], coords, order=3)
+            dat_cyl[new_r > radius.max()] = 0.
+            dat_cyl[new_r < radius.min()] = 0.
+            dat_cyl = dat_cyl.reshape((nz, ns))
+            output.append(dat_cyl)
+
+        return S, Z, output
 
 if zavgMode == 'f2py':
 

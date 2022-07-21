@@ -612,6 +612,8 @@ class TsLookUpTable:
             self.ekin_es_axi = self.ekin_pol_es_axi + self.ekin_tor_es_axi
             self.ekin_pol_naxi = self.ekin_pol-self.ekin_pol_axi
             self.ekin_tor_naxi = self.ekin_tor-self.ekin_tor_axi
+            self.ekin_es_naxi = self.ekin_es-self.ekin_es_axi
+            self.ekin_naxi = self.ekin_tot-self.ekin_pol_axi-self.ekin_tor_axi
         elif self.field == 'e_mag_oc':
             self.time = data[:, 0]
             self.emagoc_pol = data[:, 1]

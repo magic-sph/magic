@@ -5,7 +5,7 @@ module out_movie
    use communications, only: gt_OC, gather_all_from_lo_to_rank0
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, l_max,    &
        &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,  &
-       &                 n_r_ic_max, n_r_max, l_axi, nlat_padded
+       &                 n_r_ic_max, n_r_max, nlat_padded
    use movie_data, only: frames, n_movie_fields, n_movies, n_movie_surface, &
        &                 n_movie_const, n_movie_field_type,                 &
        &                 n_movie_field_start,n_movie_field_stop,            &
@@ -21,7 +21,7 @@ module out_movie
    use blocking, only: lm2l, lm2, llmMag, ulmMag
    use horizontal_data, only: O_sin_theta, sinTheta, cosTheta,    &
        &                      n_theta_cal2ord, O_sin_theta_E2,    &
-       &                      osn1, phi, theta_ord
+       &                      phi, theta_ord
    use fields, only: w_Rloc, b_Rloc, b_ic, bICB
    use sht, only: torpol_to_spat, toraxi_to_spat
    use logic, only: l_save_out, l_cond_ic, l_mag
@@ -704,6 +704,19 @@ contains
             n_theta=n_theta_cal2ord(n_theta_cal)
             frames(n_0+n_theta)=sr(n_theta_cal,n_phi_0)
             frames(n_180+n_theta)=sr(n_theta_cal,n_phi_180)
+         end do
+
+      else if ( n_field_type == 15 ) then ! vz
+
+         fac=or1(n_r)*orho1(n_r)*vScale
+         do n_theta_cal=1,n_theta_max
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=fac* ( cosTheta(n_theta_cal)*or1(n_r)* &
+            &                          vr(n_theta_cal,n_phi_0) -       &
+            &                          vt(n_theta_cal,n_phi_0) )
+            frames(n_180+n_theta)=fac* ( cosTheta(n_theta_cal)*or1(n_r)* &
+            &                            vr(n_theta_cal,n_phi_180) -     &
+            &                            vt(n_theta_cal,n_phi_180) )
          end do
 
       else if ( n_field_type == 109 ) then
@@ -1476,11 +1489,9 @@ contains
 
       !-- Local variables:
       integer :: n_theta         ! No. of theta
-      integer :: n_theta_nhs     ! Counter for thetas in north HS
       integer :: l,lm            ! Degree, counter for degree/order combinations
 
       real(cp) :: O_r              ! 1/r
-      real(cp) :: O_sint           ! 1/sin(theta)
       real(cp) :: tmpt(nlat_padded), tmpp(nlat_padded)
       complex(cp) :: Tl_AX(1:l_max+1)
 
@@ -1495,11 +1506,8 @@ contains
 
       call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:))
 
-      do n_theta=1,n_theta_max,2 ! loop over thetas in Northern HS
-         n_theta_nhs=(n_theta+1)/2
-         O_sint=osn1(n_theta_nhs)
-         sl(n_theta)  =O_sint*tmpp(n_theta)
-         sl(n_theta+1)=O_sint*tmpp(n_theta+1)
+      do n_theta=1,n_theta_max
+         sl(n_theta)=O_sin_theta(n_theta)*tmpp(n_theta)
       end do
 
    end subroutine get_sl
@@ -1525,12 +1533,10 @@ contains
 
       !-- Local variables:
       integer :: n_theta         ! No. of theta
-      integer :: n_theta_nhs     ! Counter for thetas in north HS
       integer :: l,lm            ! Degree, counter for degree/order combinations
 
       real(cp) :: r_ratio          ! r/r_ICB
       real(cp) :: O_r              ! 1/r
-      real(cp) :: O_sint           ! 1/sin(theta)
       real(cp) :: r_dep(l_max)     ! (r/r_ICB)**l / r_ICB
       real(cp) :: tmpt(nlat_padded), tmpp(nlat_padded)
       complex(cp) :: Tl_AX(1:l_max+1)
@@ -1561,11 +1567,8 @@ contains
 
       call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:))
 
-      do n_theta=1,n_theta_max,2 ! loop over thetas in Northern HS
-         n_theta_nhs=(n_theta+1)/2
-         O_sint=osn1(n_theta_nhs)
-         fl(n_theta)  =O_sint*tmpp(n_theta)
-         fl(n_theta+1)=O_sint*tmpp(n_theta+1)
+      do n_theta=1,n_theta_max
+         fl(n_theta)=O_sin_theta(n_theta)*tmpp(n_theta)
       end do
 
    end subroutine get_fl

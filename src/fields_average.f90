@@ -366,7 +366,7 @@ contains
 
             !-- This will be needed for the inner core
             if ( l_mag ) then
-               call gather_from_lo_to_rank0(b_ave_LMloc(llm,n_r_icb),bICB)
+               call gather_from_lo_to_rank0(b_ave_LMloc(:,n_r_icb),bICB)
             end if
 
             !-- MPI transposes from LMloc to Rloc

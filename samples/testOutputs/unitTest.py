@@ -66,7 +66,7 @@ class OutputTest(unittest.TestCase):
         cmd = '%s %s/input.nml' % (self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
-        cmd = 'cat e_kin.start e_mag_oc.start e_mag_ic.start dipole.start heat.start par.start power.start u_square.start > e_kin.test'
+        cmd = 'cat e_kin.start e_mag_oc.start e_mag_ic.start dipole.start heat.start par.start power.start u_square.start helicity.start hemi.start > e_kin.test'
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
 
     def tearDown(self):

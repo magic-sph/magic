@@ -8,7 +8,7 @@ module blocking
    use mem_alloc, only: memWrite, bytes_allocated
    use parallel_mod, only: nThreads, rank, n_procs, rank_with_l1m0, load, getBlocks
    use truncation, only: lmP_max, lm_max, l_max, n_theta_max, &
-       &                 minc, n_r_max, m_max, l_axi, m_min
+       &                 minc, n_r_max, m_max, m_min
    use logic, only: l_save_out, l_finite_diff, l_mag
    use output_data, only: n_log_file, log_file
    use LMmapping, only: mappings, allocate_mappings, deallocate_mappings,           &
@@ -52,7 +52,7 @@ module blocking
    integer, public, pointer :: lm22l(:,:,:)
    integer, public, pointer :: lm22m(:,:,:)
 
-   type(subblocks_mappings), public, target :: st_sub_map, lo_sub_map,sn_sub_map
+   type(subblocks_mappings), public, target :: st_sub_map, lo_sub_map
 
 
    !------------------------------------------------------------------------
@@ -462,40 +462,22 @@ contains
 
       lm =0
       lmP=0
-      if ( .not. l_axi ) then
-         do l=map%m_min,map%l_max
-            do m=map%m_min,min(map%m_max,l),minc
-               lm         =lm+1
-               map%lm2l(lm)   =l
-               map%lm2m(lm)   =m
-               map%lm2(l,m)   =lm
-
-               lmP        =lmP+1
-               map%lmP2l(lmP) = l
-               map%lmP2m(lmP) = m
-               map%lmP2(l,m)  =lmP
-               !if ( m == 0 ) l2lmPAS(l)=lmP
-               map%lm2lmP(lm) =lmP
-               map%lmP2lm(lmP)=lm
-            end do
-         end do
-      else
-         do l=map%m_min,map%l_max
-
+      do l=map%m_min,map%l_max
+         do m=map%m_min,min(map%m_max,l),minc
             lm         =lm+1
             map%lm2l(lm)   =l
-            map%lm2m(lm)   =0
-            map%lm2(l,0)   =lm
+            map%lm2m(lm)   =m
+            map%lm2(l,m)   =lm
 
             lmP        =lmP+1
             map%lmP2l(lmP) = l
-            map%lmP2m(lmP) = 0
-            map%lmP2(l,0)  =lmP
+            map%lmP2m(lmP) = m
+            map%lmP2(l,m)  =lmP
             !if ( m == 0 ) l2lmPAS(l)=lmP
             map%lm2lmP(lm) =lmP
             map%lmP2lm(lmP)=lm
          end do
-      end if
+      end do
       l=map%l_max+1    ! Extra l for lmP
       do m=map%m_min,map%m_max,minc
          lmP=lmP+1
@@ -663,49 +645,27 @@ contains
 
       lm=0
       lmP=0
-      if ( .not. l_axi ) then
-         do proc=0,n_procs-1
-            lm_balance(proc)%nStart=lm+1
-            do i_l=1,l_counter(proc)-1
-               l=l_list(proc,i_l)
-               !write(output_unit,"(3I3)") i_l,proc,l
-               do m=map%m_min,min(map%m_max,l),minc
-                  lm = lm+1
-                  map%lm2(l,m)=lm
-                  map%lm2l(lm)=l
-                  map%lm2m(lm)=m
-
-                  lmP = lmP+1
-                  map%lmP2(l,m)=lmP
-                  map%lmP2l(lmP)=l
-                  map%lmP2m(lmP)= m
-                  map%lm2lmP(lm)=lmP
-                  map%lmP2lm(lmP)=lm
-               end do
-            end do
-            lm_balance(proc)%nStop=lm
-         end do
-      else
-         do proc=0,n_procs-1
-            lm_balance(proc)%nStart=lm+1
-            do i_l=1,l_counter(proc)-1
-               l=l_list(proc,i_l)
+      do proc=0,n_procs-1
+         lm_balance(proc)%nStart=lm+1
+         do i_l=1,l_counter(proc)-1
+            l=l_list(proc,i_l)
+            !write(output_unit,"(3I3)") i_l,proc,l
+            do m=map%m_min,min(map%m_max,l),minc
                lm = lm+1
-               map%lm2(l,0)=lm
+               map%lm2(l,m)=lm
                map%lm2l(lm)=l
-               map%lm2m(lm)=0
+               map%lm2m(lm)=m
 
                lmP = lmP+1
-               map%lmP2(l,0)=lmP
+               map%lmP2(l,m)=lmP
                map%lmP2l(lmP)=l
                map%lmP2m(lmP)= m
                map%lm2lmP(lm)=lmP
                map%lmP2lm(lmP)=lm
             end do
-            lm_balance(proc)%nStop=lm
          end do
-
-      end if
+         lm_balance(proc)%nStop=lm
+      end do
 
       !-- Recalculate the number of data per rank
       do proc=0,n_procs-1

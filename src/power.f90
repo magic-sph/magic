@@ -18,7 +18,7 @@ module power
        &                          ChemFac, ThExpNb, ViscHeatFac
    use num_param, only: tScale, eScale
    use blocking, only: lo_map, st_map, llm, ulm, llmMag, ulmMag
-   use horizontal_data, only: dLh, gauss, cosn2, osn2
+   use horizontal_data, only: dLh, gauss, O_sin_theta_E2, cosn_theta_E2
    use logic, only: l_rot_ic, l_SRIC, l_rot_ma, l_SRMA, l_save_out, &
        &            l_conv, l_cond_ic, l_heat, l_mag,               &
        &            l_chemical_conv, l_anelastic_liquid
@@ -396,20 +396,18 @@ contains
       real(cp), intent(in) :: dvpdr(:,:),dvpdp(:,:)
 
       !-- Local variables:
-      integer :: nTheta,nPhi,nThetaNHS
+      integer :: nTheta,nPhi
       real(cp) :: vischeat,csn2,phiNorm,viscAS
 
       phiNorm=two*pi/real(n_phi_max,cp)
       viscAS=0.0_cp
 
-      !$omp parallel do default(shared)                   &
-      !$omp& private(nTheta,nThetaNHS,csn2,nPhi,vischeat) &
+      !$omp parallel do default(shared)         &
+      !$omp& private(nTheta,csn2,nPhi,vischeat) &
       !$omp& reduction(+:viscAS)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nThetaNHS=(nTheta+1)/2
-            csn2     =cosn2(nThetaNHS)
-            if ( mod(nTheta,2) == 0 ) csn2=-csn2 ! South, odd function in theta
+            csn2     =cosn_theta_E2(nTheta)
 
             vischeat=       or2(nR)*orho1(nR)*visc(nR)*(        &
             &     two*(                    dvrdr(nTheta,nPhi) - & ! (1)
@@ -424,7 +422,7 @@ contains
             &          ( two*              dvtdp(nTheta,nPhi) + &
             &                                cvr(nTheta,nPhi) - & ! (6)
             &      two*csn2*            vp(nTheta,nPhi) )**2  + &
-            &                               osn2(nThetaNHS) * ( &
+            &                        O_sin_theta_E2(nTheta) * ( &
             &         ( r(nR)*             dvtdr(nTheta,nPhi) - &
             &          (two+beta(nR)*r(nR))*  vt(nTheta,nPhi) + & ! (4)
             &     or1(nR)*           dvrdt(nTheta,nPhi) )**2  + &
@@ -433,7 +431,7 @@ contains
             &    or1(nR)*            dvrdp(nTheta,nPhi) )**2 )- &
             &    two*third*(  beta(nR)*     vr(nTheta,nPhi) )**2 )
 
-            viscAS=viscAS+phiNorm*gauss(nThetaNHS)*viscHeat
+            viscAS=viscAS+phiNorm*gauss(nTheta)*viscHeat
          end do
       end do
       !$omp end parallel do

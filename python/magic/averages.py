@@ -205,33 +205,51 @@ class AvgField:
 
         # Handle spectra
         self.lut['spectra'] = {}
-        for key in params['spectra'].keys():
-            sp = MagicSpectrum(field=key, datadir=datadir, iplot=False, tags=tags,
-                               quiet=True)
-            if hasattr(sp, 'index'): # Manage to read file
-                self.lut['spectra']['index'] = sp.index
+        if len(tags) > 0:
+            for key in params['spectra'].keys():
+                sp = MagicSpectrum(field=key, datadir=datadir, iplot=False, tags=tags,
+                                   quiet=True)
+                if hasattr(sp, 'index'): # Manage to read file
+                    self.lut['spectra']['index'] = sp.index
+                    for field in params['spectra'][key]:
+                        if hasattr(sp, field):
+                            self.lut['spectra'][field+'_spec_av'] = sp.__dict__[field]
+                            if std and hasattr(sp, field + '_SD'):
+                                self.lut['spectra'][field+'_spec_sd'] = \
+                                    sp.__dict__[field + '_SD']
+        else:  # Set parameters to -1
+            for key in params['spectra'].keys():
+                self.lut['spectra']['index'] = -1 * np.ones(32)
                 for field in params['spectra'][key]:
-                    if hasattr(sp, field):
-                        self.lut['spectra'][field+'_av'] = sp.__dict__[field]
-                        if std and hasattr(sp, field + '_SD'):
-                            self.lut['spectra'][field+'_sd'] = \
-                                sp.__dict__[field + '_SD']
+                    self.lut['spectra'][field+'_spec_av'] = -1 * np.ones(32)
+                    if std:
+                        self.lut['spectra'][field+'_spec_sd'] = -1 * np.ones(32)
 
         # Handle radial profiles
         self.lut['radial_profiles'] = {}
-        for key in params['radial_profiles'].keys():
-            rr = MagicRadial(field=key, datadir=datadir, iplot=False, tags=tags,
-                             quiet=True)
-            if hasattr(rr, 'radius'): # Manage to read file
-                self.lut['radial_profiles']['radius'] = rr.radius
+        if len(tags) > 0:
+            for key in params['radial_profiles'].keys():
+                rr = MagicRadial(field=key, datadir=datadir, iplot=False, tags=tags,
+                                 quiet=True)
+                if hasattr(rr, 'radius'): # Manage to read file
+                    self.lut['radial_profiles']['radius'] = rr.radius
+                    for field in params['radial_profiles'][key]:
+                        if hasattr(rr, field):
+                            self.lut['radial_profiles'][field+'_av'] = rr.__dict__[field]
+                            setattr(self, field+'R_av', rr.__dict__[field])
+                            if std and hasattr(rr, field + '_SD'):
+                                self.lut['radial_profiles'][field+'_sd'] = \
+                                    rr.__dict__[field + '_SD']
+                                setattr(self, field+'R_sd', rr.__dict__[field+'_SD'])
+        else:  # Set parameters to -1
+            for key in params['radial_profiles'].keys():
+                self.lut['radial_profiles']['radius'] = -1 * np.ones(33)
                 for field in params['radial_profiles'][key]:
-                    if hasattr(rr, field):
-                        self.lut['radial_profiles'][field+'_av'] = rr.__dict__[field]
-                        setattr(self, field+'R_av', rr.__dict__[field])
-                        if std and hasattr(rr, field + '_SD'):
-                            self.lut['radial_profiles'][field+'_sd'] = \
-                                rr.__dict__[field + '_SD']
-                            setattr(self, field+'R_sd', rr.__dict__[field+'_SD'])
+                    self.lut['radial_profiles'][field+'_av'] = -1 * np.ones(33)
+                    setattr(self, field+'R_av', rr.__dict__[field])
+                    if std and hasattr(rr, field + '_SD'):
+                        self.lut['radial_profiles'][field+'_sd'] = -1 * np.ones(33)
+                        setattr(self, field+'R_sd', rr.__dict__[field+'_SD'])
 
         # Write a json file
         if write:
@@ -359,6 +377,10 @@ class AvgStack:
                         a = AvgField(model=model, std=std)
                     if not hasattr(self, 'lut'):
                         self.lut = self.load()
+                        keys = ['spectra', 'radial_profiles']
+                        for key in keys:
+                            for key1 in self.lut[key].keys():
+                                self.lut[key][key1] = [np.atleast_1d(self.lut[key][key1])]
                     else:
                         lut = self.load()
                         self.merge(lut)
@@ -375,14 +397,20 @@ class AvgStack:
         """
         This routine creates a simpler namespace from the lookup table
         """
-
         keys = ['phys_params', 'num_params', 'time_series']
-
         for key in keys:
             if key in self.lut.keys():
                 for key1 in self.lut[key].keys():
                     setattr(self, key1, np.atleast_1d(self.lut[key][key1]))
 
+        keys = ['spectra', 'radial_profiles']
+        for key in keys:
+            if key in self.lut.keys():
+                for key1 in self.lut[key].keys():
+                    g = []
+                    for ff in self.lut[key][key1]:
+                        g.append(np.atleast_1d(ff))
+                    setattr(self, key1, g)
 
     def merge(self, newlut):
         """
@@ -399,6 +427,17 @@ class AvgStack:
                         arr = np.atleast_1d(self.lut[key][key1])
                         arr1 = np.atleast_1d(newlut[key][key1])
                         self.lut[key][key1] = np.concatenate((arr, arr1))
+
+        keys = ['spectra', 'radial_profiles']
+        for key in keys:
+            if key in newlut.keys() and key in self.lut.keys():
+                for key1 in self.lut[key].keys():
+                    if key1 in newlut[key].keys():
+                        arr1 = np.atleast_1d(newlut[key][key1])
+                        self.lut[key][key1].append(arr1)
+                    else: #  Fill with -1 dummy arrays to make sure everything has the right size
+                        arr1 = -1 * np.ones(32)
+                        self.lut[key][key1].append(arr1)
 
     def load(self):
         """

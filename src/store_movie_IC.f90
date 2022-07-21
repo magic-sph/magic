@@ -3,7 +3,7 @@ module out_movie_IC
    use precision_mod
    use truncation, only: minc, lm_maxMag, n_r_maxMag, n_r_ic_maxMag, &
        &                 n_phi_max, lm_max, n_r_ic_max, l_max,       &
-       &                 n_theta_max, l_axi, nlat_padded
+       &                 n_theta_max, nlat_padded
    use radial_data, only: n_r_icb
    use radial_functions, only: r_ic, r_ICB, O_r_ic2, O_r_ic
    use physical_parameters, only: LFfac

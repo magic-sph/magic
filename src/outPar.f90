@@ -13,7 +13,8 @@ module outPar_mod
    use logic, only: l_viscBcCalc, l_anel, l_fluxProfs, l_mag_nl, &
        &            l_perpPar, l_save_out, l_temperature_diff,   &
        &            l_anelastic_liquid, l_mag
-   use horizontal_data, only: gauss, osn2, gauss, O_sin_theta_E2, cosTheta, sn2
+   use horizontal_data, only: gauss, gauss, O_sin_theta_E2, cosTheta, &
+       &                      sinTheta_E2
    use fields, only: s_Rloc, ds_Rloc, p_Rloc, dp_Rloc
    use physical_parameters, only: ek, prmag, OhmLossFac, ViscHeatFac, &
        &                          opr, kbots, ktops, ThExpNb, ekScaled
@@ -491,7 +492,7 @@ contains
       !-- Local variables:
       real(cp) :: fkinAS,fconvAS,fviscAS,fresAS,fpoynAS
       real(cp) :: fkin,fconv,phiNorm,fvisc,fpoyn,fres
-      integer :: nTheta,nThetaNHS,nPhi
+      integer :: nTheta,nPhi
 
       phiNorm=two*pi/real(n_phi_max,cp)
 
@@ -499,12 +500,11 @@ contains
       fconvAS=0.0_cp
       fviscAS=0.0_cp
       fvisc  =0.0_cp
-      !$omp parallel do default(shared)                             &
-      !$omp& private(nTheta, nPhi, nThetaNHS, fconv, fkin, fvisc)   &
+      !$omp parallel do default(shared)                  &
+      !$omp& private(nTheta, nPhi, fconv, fkin, fvisc)   &
       !$omp& reduction(+:fkinAS,fconvAS,fviscAS)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nThetaNHS=(nTheta+1)/2
             if ( l_anelastic_liquid ) then
                fconv=vr(nTheta,nPhi)*sr(nTheta,nPhi)
             else
@@ -513,7 +513,7 @@ contains
                &          orho1(nr)*vr(nTheta,nPhi)*pr(nTheta,nPhi)
             end if
 
-            fkin=half*or2(nR)*orho2(nR)*(osn2(nThetaNHS)*(           &
+            fkin=half*or2(nR)*orho2(nR)*(O_sin_theta_E2(nTheta)*(    &
             &                  vt(nTheta,nPhi)*vt(nTheta,nPhi)  +    &
             &                  vp(nTheta,nPhi)*vp(nTheta,nPhi) )+    &
             &          or2(nR)*vr(nTheta,nPhi)*vr(nTheta,nPhi) )*    &
@@ -524,12 +524,12 @@ contains
                &                             dvrdr(nTheta,nPhi)             &
                & -(two*or1(nR)+two*third*beta(nR))*vr(nTheta,nPhi) )-       &
                &                       visc(nR)*orho1(nR)*vt(nTheta,nPhi)*  &
-               &                            osn2(nThetaNHS)* (              &
+               &                     O_sin_theta_E2(nTheta)* (              &
                &                       or2(nR)*dvrdt(nTheta,nPhi)           &
                &                              +dvtdr(nTheta,nPhi)           &
                &       -(two*or1(nR)+beta(nR))*vt(nTheta,nPhi) )  -         &
                &       visc(nR)*orho1(nR)*vp(nTheta,nPhi)*                  &
-               &                               osn2(nThetaNHS)* (           &
+               &                        O_sin_theta_E2(nTheta)* (           &
                &                       or2(nR)*dvrdp(nTheta,nPhi)           &
                &                              +dvpdr(nTheta,nPhi)           &
                &       -(two*or1(nR)+beta(nR))*vp(nTheta,nPhi) )
@@ -537,9 +537,9 @@ contains
                fvisc=0.0_cp
             end if
 
-            fkinAS = fkinAS+phiNorm*gauss(nThetaNHS)*fkin
-            fconvAS=fconvAS+phiNorm*gauss(nThetaNHS)*fconv
-            fviscAS=fviscAS+phiNorm*gauss(nThetaNHS)*fvisc
+            fkinAS = fkinAS+phiNorm*gauss(nTheta)*fkin
+            fconvAS=fconvAS+phiNorm*gauss(nTheta)*fconv
+            fviscAS=fviscAS+phiNorm*gauss(nTheta)*fvisc
          end do
       end do
       !$omp end parallel do
@@ -551,24 +551,23 @@ contains
       if ( l_mag_nl) then
          fresAS =0.0_cp
          fpoynAS=0.0_cp
-         !$omp parallel do default(shared)                      &
-         !$omp& private(nTheta, nPhi, nThetaNHS, fres, fpoyn)   &
+         !$omp parallel do default(shared)           &
+         !$omp& private(nTheta, nPhi, fres, fpoyn)   &
          !$omp& reduction(+:fresAS,fpoynAS)
          do nPhi=1,n_phi_max
             do nTheta=1,n_theta_max
-               nThetaNHS=(nTheta+1)/2
-               fres =osn2(nThetaNHS)*(                            &
+               fres =O_sin_theta_E2(nTheta)*(                     &
                &              cbt(nTheta,nPhi)*bp(nTheta,nPhi)  - &
                &              cbp(nTheta,nPhi)*bt(nTheta,nPhi) )
 
-               fpoyn=-orho1(nR)*or2(nR)*osn2(nThetaNHS)*(                     &
+               fpoyn=-orho1(nR)*or2(nR)*O_sin_theta_E2(nTheta)*(              &
                &           vp(nTheta,nPhi)*br(nTheta,nPhi)*bp(nTheta,nPhi)  - &
                &           vr(nTheta,nPhi)*bp(nTheta,nPhi)*bp(nTheta,nPhi)  - &
                &           vr(nTheta,nPhi)*bt(nTheta,nPhi)*bt(nTheta,nPhi)  + &
                &           vt(nTheta,nPhi)*br(nTheta,nPhi)*bt(nTheta,nPhi) )
 
-               fresAS = fresAS+phiNorm*gauss(nThetaNHS)*fres
-               fpoynAS=fpoynAS+phiNorm*gauss(nThetaNHS)*fpoyn
+               fresAS = fresAS+phiNorm*gauss(nTheta)*fres
+               fpoynAS=fpoynAS+phiNorm*gauss(nTheta)*fpoyn
             end do
          end do
          !$omp end parallel do
@@ -599,7 +598,7 @@ contains
 
       !-- Local variables:
       real(cp):: uhAS,duhAS,gradsAS,uh,duh,phiNorm,grads
-      integer :: nTheta,nPhi,nThetaNHS
+      integer :: nTheta,nPhi
 
       phiNorm=one/real(n_phi_max,cp)
       uhAS   =0.0_cp
@@ -607,12 +606,11 @@ contains
       gradsAS=0.0_cp
 
       !--- Horizontal velocity uh and duh/dr + (grad T)**2
-      !$omp parallel do default(shared)                       &
-      !$omp& private(nTheta, nThetaNHS, nPhi, uh, duh, grads) &
+      !$omp parallel do default(shared)            &
+      !$omp& private(nTheta, nPhi, uh, duh, grads) &
       !$omp& reduction(+:uhAS,duhAS,gradsAS)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nThetaNHS=(nTheta+1)/2
             uh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(     &
             &             vt(nTheta,nPhi)*vt(nTheta,nPhi)+    &
             &             vp(nTheta,nPhi)*vp(nTheta,nPhi)  )
@@ -627,11 +625,11 @@ contains
             &              dsdt(nTheta,nPhi)*dsdt(nTheta,nPhi)    &
             &             +dsdp(nTheta,nPhi)*dsdp(nTheta,nPhi) )
 
-            uhAS=uhAS+phiNorm*gauss(nThetaNHS)*sqrt(uh)
+            uhAS=uhAS+phiNorm*gauss(nTheta)*sqrt(uh)
             if (uh /= 0.0_cp) then
-               duhAS=duhAS+phiNorm*gauss(nThetaNHS)*abs(duh)/sqrt(uh)
+               duhAS=duhAS+phiNorm*gauss(nTheta)*abs(duh)/sqrt(uh)
             end if
-            gradsAS=gradsAS+phiNorm*gauss(nThetaNHS)*grads
+            gradsAS=gradsAS+phiNorm*gauss(nTheta)*grads
          end do
       end do
       !$omp end parallel do
@@ -661,7 +659,7 @@ contains
       real(cp) :: vras(n_theta_max),vtas(n_theta_max),vpas(n_theta_max),phiNorm
       real(cp) :: Eperp,Epar,Eperpaxi,Eparaxi
       real(cp) :: EperpAS,EparAS,EperpaxiAS,EparaxiAS
-      integer :: nTheta,nPhi,nThetaNHS
+      integer :: nTheta,nPhi
 
       phiNorm=one/real(n_phi_max,cp)
       EperpAS   =0.0_cp
@@ -682,39 +680,37 @@ contains
       vpas(:)=vpas(:)*phiNorm
 
       !$omp parallel do default(shared)                 &
-      !$omp& private(nTheta,nPhi,nThetaNHS)             &
+      !$omp& private(nTheta,nPhi)                       &
       !$omp& private(Eperp, Epar, Eperpaxi, Eparaxi)    &
       !$omp& reduction(+:EparAS,EperpAS,EparaxiAS,EperpaxiAS)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nThetaNHS=(nTheta+1)/2
-
-            Eperp=half*or2(nR)*orho2(nR)*(                                         &
-            &       or2(nR)*sn2(nThetaNHS)*      vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
-            &       (osn2(nThetaNHS)-one)*       vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
+            Eperp=half*or2(nR)*orho2(nR)*(        or2(nR)*sinTheta_E2(nTheta)*     &
+            &                                    vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            &       (O_sin_theta_E2(nTheta)-one)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
             &       two*or1(nR)*cosTheta(nTheta)*vr(nTheta,nPhi)*vt(nTheta,nPhi) + &
-            &       osn2(nThetaNHS)*             vp(nTheta,nPhi)*vp(nTheta,nPhi) )
+            &       O_sin_theta_E2(nTheta)*      vp(nTheta,nPhi)*vp(nTheta,nPhi) )
 
-            Epar =half*or2(nR)*orho2(nR)*(                                         &
-            &       or2(nR)*(one-sn2(nThetaNHS))*vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            Epar =half*or2(nR)*orho2(nR)*(   or2(nR)*(one-sinTheta_E2(nTheta))*    &
+            &                                    vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
             &                                    vt(nTheta,nPhi)*vt(nTheta,nPhi) - &
             &       two*or1(nR)*cosTheta(nTheta)*vr(nTheta,nPhi)*vt(nTheta,nPhi) )
 
-            Eperpaxi=half*or2(nR)*orho2(nR)*(                                  &
-            &         or2(nR)*sn2(nThetaNHS)*      vras(nTheta)*vras(nTheta) + &
-            &         (osn2(nThetaNHS)-one)*       vtas(nTheta)*vtas(nTheta) + &
+            Eperpaxi=half*or2(nR)*orho2(nR)*(     or2(nR)*sinTheta_E2(nTheta)* &
+            &                                      vras(nTheta)*vras(nTheta) + &
+            &         (O_sin_theta_E2(nTheta)-one)*vtas(nTheta)*vtas(nTheta) + &
             &         two*or1(nR)*cosTheta(nTheta)*vras(nTheta)*vtas(nTheta) + &
-            &         osn2(nThetaNHS)*             vpas(nTheta)*vpas(nTheta) )
+            &         O_sin_theta_E2(nTheta)*      vpas(nTheta)*vpas(nTheta) )
 
-            Eparaxi =half*or2(nR)*orho2(nR)*(                                  &
-            &         or2(nR)*(one-sn2(nThetaNHS))*vras(nTheta)*vras(nTheta) + &
+            Eparaxi =half*or2(nR)*orho2(nR)*(or2(nR)*(one-sinTheta_E2(nTheta))*&
+            &                                      vras(nTheta)*vras(nTheta) + &
             &                                      vtas(nTheta)*vtas(nTheta) - &
             &         two*or1(nR)*cosTheta(nTheta)*vras(nTheta)*vtas(nTheta) )
 
-            EperpAS   =   EperpAS+phiNorm*gauss(nThetaNHS)*Eperp
-            EparAS    =    EparAS+phiNorm*gauss(nThetaNHS)*Epar
-            EperpaxiAS=EperpaxiAS+phiNorm*gauss(nThetaNHS)*Eperpaxi
-            EparaxiAS = EparaxiAS+phiNorm*gauss(nThetaNHS)*Eparaxi
+            EperpAS   =   EperpAS+phiNorm*gauss(nTheta)*Eperp
+            EparAS    =    EparAS+phiNorm*gauss(nTheta)*Epar
+            EperpaxiAS=EperpaxiAS+phiNorm*gauss(nTheta)*Eperpaxi
+            EparaxiAS = EparaxiAS+phiNorm*gauss(nTheta)*Eparaxi
          end do
       end do
       !$omp end parallel do
