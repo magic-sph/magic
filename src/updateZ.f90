@@ -410,7 +410,7 @@ contains
 
                      if ( ampForce /= 0.0_cp ) then
                         rhs1(nR,2*lmB-1,threadid) = rhs1(nR,2*lmB-1,threadid)+ &
-                        &                           real(zForce(lm,nR))
+                        &                           real(zForce(lm1,nR))
                      end if
                   end do
 

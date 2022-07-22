@@ -31,7 +31,7 @@ module init_fields
        &                zero, one, two, three, four, third, half, sq4pi,&
        &                a_force, b_force
    use useful, only: abortRun
-   use sht, only: scal_to_SH
+   use sht, only: initialize_sht,finalize_sht,scal_to_SH
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
        &                          peakS, widthS, radratio, imagcon, opm,  &
        &                          sigma_ratio, O_sr, kbots, ktops, opr,   &
@@ -1524,8 +1524,9 @@ contains
             do nTheta=1,n_theta_max
                ! This is \hat{r}.curl(F) for toroidal equation
                ! where F = -a * s + b * s**2
-               zForce_spat(nTheta,nPhi) = ampForce * (-2.0_cp * a_force*cosTheta(nTheta) &
-               &                          + 3.0_cp * b_force * r(nR)*cosTheta(nTheta) &
+               zForce_spat(nTheta,nPhi) = ampForce * cosTheta(nTheta) * &
+               &                          (-2.0_cp * a_force &
+               &                          + 3.0_cp * b_force * r(nR) &
                &                          * sinTheta(nTheta))
             end do
          end do
