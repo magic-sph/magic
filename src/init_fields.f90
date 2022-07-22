@@ -31,7 +31,7 @@ module init_fields
        &                zero, one, two, three, four, third, half, sq4pi,&
        &                a_force, b_force
    use useful, only: abortRun
-   use sht, only: initialize_sht,finalize_sht,scal_to_SH
+   use sht, only: scal_to_SH
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
        &                          peakS, widthS, radratio, imagcon, opm,  &
        &                          sigma_ratio, O_sr, kbots, ktops, opr,   &
