@@ -133,7 +133,7 @@ contains
       allocate( rgrav(n_r_max), ogrun(n_r_max) )
       bytes_allocated = bytes_allocated+(22*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: or2, rho0, orho1)
+      !$omp target enter data map(alloc: or2, rho0, orho1, or1, or3, or4, r, otemp1, beta)
 #endif
 
       if ( l_chemical_conv ) then
@@ -147,6 +147,9 @@ contains
       allocate( visc(n_r_max),dLvisc(n_r_max),ddLvisc(n_r_max) )
       allocate( epscProf(n_r_max),divKtemp0(n_r_max) )
       bytes_allocated = bytes_allocated + 11*n_r_max*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: lambda, visc)
+#endif      
 
       !allocate ( l_R(nRstart:nRstop) )
       !bytes_allocated = bytes_allocated +(nRstop-nRstart+1)*SIZEOF_INTEGER
@@ -208,7 +211,8 @@ contains
       !
 
 #ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: or2, l_R, rho0, orho1)
+      !$omp target exit data map(delete: or2, l_R, rho0, orho1, &
+      !$omp&                             or1, or3, or4, r, otemp1, beta, lambda, visc)
 #endif
 
       deallocate( l_R )
