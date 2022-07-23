@@ -96,7 +96,8 @@ contains
       bytes_allocated = bytes_allocated+(10*lm_max+4*(l_max+1))*SIZEOF_DEF_REAL
 
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: O_sin_theta_E2, dLh, cosTheta, sinTheta_E2)
+      !$omp target enter data map(alloc: O_sin_theta_E2, dLh, cosTheta, sinTheta_E2, &
+      !$omp&                             phi, cosn_theta_E2, O_sin_theta)
 #endif
 
    end subroutine initialize_horizontal_data
@@ -107,7 +108,8 @@ contains
       !
 
 #ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: O_sin_theta_E2, dLh, cosTheta, sinTheta_E2)
+      !$omp target exit data map(delete: O_sin_theta_E2, dLh, cosTheta, sinTheta_E2, &
+      !$omp&                             phi, cosn_theta_E2, O_sin_theta)
 #endif
 
       deallocate( cosn_theta_E2, sinTheta, cosTheta, theta_ord, n_theta_cal2ord )
