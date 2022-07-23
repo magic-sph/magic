@@ -781,10 +781,11 @@ contains
       !$omp target update to(st_map)
 
       !-- From radial_functions
-      !$omp target update to(or2, l_R, rho0, orho1)
+      !$omp target update to(or2, l_R, rho0, orho1, or1, or3, or4, r, otemp1, beta, lambda, visc)
 
       !-- FRom horizontal_data
-      !$omp target update to(O_sin_theta_E2, dLh, cosTheta, sinTheta_E2)
+      !$omp target update to(O_sin_theta_E2, dLh, cosTheta, sinTheta_E2, &
+      !$omp&                 phi, cosn_theta_E2, O_sin_theta)
 #endif
 
    end subroutine preCalc
