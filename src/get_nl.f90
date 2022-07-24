@@ -1,4 +1,4 @@
-#define DEFAULT
+!#define DEFAULT
 module general_arrays_mod
 
    implicit none
