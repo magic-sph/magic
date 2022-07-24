@@ -95,16 +95,42 @@ module rIter_batched_mod
       procedure :: transform_to_lm_space
    end type rIter_batched_t
 
+   complex(cp), allocatable :: dLw(:,:), dLz(:,:), dLdw(:,:), dLddw(:,:), dmdw(:,:), dmz(:,:)
+
 contains
 
    subroutine initialize(this)
 
       class(rIter_batched_t) :: this
 
+#ifdef WITH_OMP_GPU
+      integer :: lm, nR
+      lm=0; nR=0
+#endif
+
       call this%gsa%initialize(nRstart,nRstop)
       if ( l_TO ) call this%TO_arrays%initialize()
       call this%dtB_arrays%initialize()
       call this%nl_lm%initialize(n_spec_space_lmP)
+
+      allocate(dLw(lm_max,nRstart:nRstop), dLz(lm_max,nRstart:nRstop))
+      allocate(dLdw(lm_max,nRstart:nRstop), dLddw(lm_nRmax,nRstart:nRstop))
+      allocate(dmdw(lm_max,nRstart:nRstop), dmz(lm_max,nRstart:nRstop))
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: dLw, dLz,) dLdw, dLddw, dmdw, dmz)
+      !$omp target teams distribute parallel do collapse(2
+      do lm = 1, lm_max
+         do nR=nRstart,nRstop
+            dLw(lm,nR)   = zero
+            dLz(lm,nR)   = zero
+            dLdw(lm,nR)  = zero
+            dLddw(lm,nR) = zero
+            dmdw(lm,nR)  = zero
+            dmz(lm,nR)   = zero
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+#endif
 
    end subroutine initialize
 !------------------------------------------------------------------------------
@@ -116,6 +142,11 @@ contains
       if ( l_TO ) call this%TO_arrays%finalize()
       call this%dtB_arrays%finalize()
       call this%nl_lm%finalize()
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: dLw, dLz, dLdw, dLddw, dmdw, dmz)
+#endif
+      deallocate( dLw, dLz, dLdw, dLddw, dmdw, dmz )
 
    end subroutine finalize
 !------------------------------------------------------------------------------
@@ -176,6 +207,14 @@ contains
       integer :: nR, nBc, idx1, idx2, idxh1, idxh2, idxm1, idxm2, idxa1, idxa2
       integer :: idxc1, idxc2, idxp1, idxp2
       logical :: lMagNlBc
+
+#ifdef WITH_OMP_GPU
+      !$omp target update to(w_Rloc, z_Rloc, s_Rloc, &
+      !$omp&                 aj_Rloc, b_Rloc, &
+      !$omp&                 dw_Rloc, ddw_Rloc, &
+      !$omp&                 dz_Rloc, ds_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, &
+      !$omp&                 p_Rloc, xi_Rloc, phi_Rloc)
+#endif
 
       if ( l_graph ) then
 #ifdef WITH_MPI
@@ -554,24 +593,10 @@ contains
 #ifdef WITH_OMP_GPU
       integer :: nLat
 #endif
-      complex(cp), allocatable :: dLw(:,:), dLz(:,:)
-      complex(cp), allocatable :: dLdw(:,:), dLddw(:,:)
-      complex(cp), allocatable :: dmdw(:,:), dmz(:,:)
 
       nR = 0
-      allocate(dLw(lm_max,nRstart:nRstop), dLz(lm_max,nRstart:nRstop))
-      allocate(dLdw(lm_max,nRstart:nRstop), dLddw(lm_max,nRstart:nRstop))
-      allocate(dmdw(lm_max,nRstart:nRstop), dmz(lm_max,nRstart:nRstop))
-      dLw=zero; dLz=zero; dLdw=zero; dLddw=zero; dmdw=zero; dmz=zero
-
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: dLw, dLz, dLdw, dLddw, dmdw, dmz)
-      !$omp target update to(dLw, dLz, dLdw, dLddw, dmdw, dmz)
-      !$omp target update to(w_Rloc, z_Rloc, s_Rloc, &
-      !$omp&                 aj_Rloc, b_Rloc, &
-      !$omp&                 dw_Rloc, ddw_Rloc, &
-      !$omp&                 dz_Rloc, ds_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, &
-      !$omp&                 p_Rloc, xi_Rloc, phi_Rloc)
+      nLat=0; nPhi=0
 #endif
 
       call legPrep_qst(w_Rloc, ddw_Rloc, z_Rloc, dLw, dLddw, dLz)
@@ -846,12 +871,6 @@ contains
 #endif
       end if
 
-#ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: dLw, dLz, dLdw, dLddw, dmdw, dmz)
-#endif
-
-      deallocate(dLw, dLz, dLdw, dLddw, dmdw, dmz)
-
    end subroutine transform_to_grid_space
 !-------------------------------------------------------------------------------
    subroutine transform_to_lm_space(this, nRl, nRu, lRmsCalc)
@@ -871,6 +890,7 @@ contains
       integer :: nPhi, nR
 #ifdef WITH_OMP_GPU
       integer :: nLat
+      nLat=0; nPhi=0
 #endif
 
       nR=0
