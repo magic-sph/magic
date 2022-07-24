@@ -1,4 +1,4 @@
-#define DEFAULT
+!#define DEFAULT
 module rIter_mod
    !
    ! This module actually handles the loop over the radial levels. It contains
@@ -79,16 +79,36 @@ module rIter_mod
       procedure :: transform_to_lm_space
    end type rIter_single_t
 
+   complex(cp), allocatable :: dLw(:), dLz(:), dLdw(:), dLddw(:), dmdw(:), dmz(:)
+
 contains
 
    subroutine initialize(this)
 
       class(rIter_single_t) :: this
 
+      !--
+      integer :: lm
+
       call this%gsa%initialize()
       if ( l_TO ) call this%TO_arrays%initialize()
       call this%dtB_arrays%initialize()
       call this%nl_lm%initialize(lmP_max)
+
+      allocate( dLw(lm_max), dLz(lm_max), dLdw(lm_max), dLddw(lm_max), dmdw(lm_max), dmz(lm_max) )
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: dLw, dLz, dLdw, dLddw, dmdw, dmz)
+      !$omp target teams distribute parallel do
+      do lm=1,lm_max
+         dLw(lm) = zero
+         dLz(lm) = zero
+         dLdw(lm) = zero
+         dLddw(lm) = zero
+         dmdw(lm) = zero
+         dmz(lm) = zero
+      end do
+      !$omp end target teams distribute parallel do
+#endif
 
    end subroutine initialize
 !------------------------------------------------------------------------------
@@ -100,6 +120,11 @@ contains
       if ( l_TO ) call this%TO_arrays%finalize()
       call this%dtB_arrays%finalize()
       call this%nl_lm%finalize()
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: dLw, dLz, dLdw, dLddw, dmdw, dmz)
+#endif
+      deallocate( dLw, dLz, dLdw, dLddw, dmdw, dmz )
 
    end subroutine finalize
 !------------------------------------------------------------------------------
@@ -159,6 +184,14 @@ contains
 
       integer :: nR, nBc
       logical :: lMagNlBc, l_bound, lDeriv
+
+#ifdef WITH_OMP_GPU
+      !$omp target update to(w_Rloc, z_Rloc, s_Rloc, &
+      !$omp&                 aj_Rloc, b_Rloc, &
+      !$omp&                 dw_Rloc, ddw_Rloc, &
+      !$omp&                 dz_Rloc, ds_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, &
+      !$omp&                 p_Rloc, xi_Rloc, phi_Rloc)
+#endif
 
       if ( l_graph ) then
 #ifdef WITH_MPI
@@ -530,20 +563,6 @@ contains
 #ifdef WITH_OMP_GPU
       integer :: nLat
 #endif
-      complex(cp) :: dLw(lm_max), dLz(lm_max), dLdw(lm_max), dLddw(lm_max)
-      complex(cp) :: dmdw(lm_max), dmz(lm_max)
-
-      dLw=zero; dLz=zero; dLdw=zero; dLddw=zero; dmdw=zero; dmz=zero
-
-#ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: dLw, dLz, dLdw, dLddw, dmdw, dmz)
-      !$omp target update to(dLw, dLz, dLdw, dLddw, dmdw, dmz)
-      !$omp target update to(w_Rloc(:,nR), z_Rloc(:,nR), s_Rloc(:,nR), &
-      !$omp&                 aj_Rloc(:,nR), b_Rloc(:,nR), &
-      !$omp&                 dw_Rloc(:,nR), ddw_Rloc(:,nR), &
-      !$omp&                 dz_Rloc(:,nR), ds_Rloc(:,nR), db_Rloc(:,nR), ddb_Rloc(:,nR), dj_Rloc(:,nR), &
-      !$omp&                 p_Rloc(:,nR), xi_Rloc(:,nR), phi_Rloc(:,nR))
-#endif
 
       call legPrep_qst(nR, w_Rloc(:,nR), ddw_Rloc(:,nR), z_Rloc(:,nR), dLw, dLddw, dLz)
       call legPrep_flow(nR, dw_Rloc(:,nR), z_Rloc(:,nR), dLdw, dmdw, dmz)
@@ -849,10 +868,6 @@ contains
 #endif
          end if
       end if
-
-#ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: dLw, dLz, dLdw, dLddw, dmdw, dmz)
-#endif
 
    end subroutine transform_to_grid_space
 !-------------------------------------------------------------------------------
