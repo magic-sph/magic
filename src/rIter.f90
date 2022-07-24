@@ -87,8 +87,10 @@ contains
 
       class(rIter_single_t) :: this
 
-      !--
+#ifdef WITH_OMP_GPU
       integer :: lm
+      lm=0
+#endif
 
       call this%gsa%initialize()
       if ( l_TO ) call this%TO_arrays%initialize()
