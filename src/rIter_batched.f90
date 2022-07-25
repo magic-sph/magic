@@ -114,11 +114,11 @@ contains
       call this%nl_lm%initialize(n_spec_space_lmP)
 
       allocate(dLw(lm_max,nRstart:nRstop), dLz(lm_max,nRstart:nRstop))
-      allocate(dLdw(lm_max,nRstart:nRstop), dLddw(lm_nRmax,nRstart:nRstop))
+      allocate(dLdw(lm_max,nRstart:nRstop), dLddw(lm_max,nRstart:nRstop))
       allocate(dmdw(lm_max,nRstart:nRstop), dmz(lm_max,nRstart:nRstop))
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: dLw, dLz,) dLdw, dLddw, dmdw, dmz)
-      !$omp target teams distribute parallel do collapse(2
+      !$omp target enter data map(alloc: dLw, dLz, dLdw, dLddw, dmdw, dmz)
+      !$omp target teams distribute parallel do collapse(2)
       do lm = 1, lm_max
          do nR=nRstart,nRstop
             dLw(lm,nR)   = zero
