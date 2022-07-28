@@ -1,4 +1,4 @@
-#define DEFAULT
+!#define DEFAULT
 module rIter_batched_mod
    !
    ! This module actually handles the loop over the radial levels. It contains
@@ -898,83 +898,48 @@ contains
       if ( l_conv_nl .or. l_mag_LF ) then
 #ifdef WITH_OMP_GPU
 #ifndef DEFAULT
-         !-- TODO: wrong results (diff > 70%) if use this version (as with get_nl)
-         if ( l_conv_nl .and. l_mag_LF ) then
-            if ( nR>n_r_LCR ) then
-               !$omp target teams distribute parallel do collapse(3)
-               do nLat=1,nlat_padded
-                  do nPhi=1,n_phi_max
-                     do nR=nRl,nRu
+         !$omp target teams distribute parallel do collapse(3)
+         do nLat=1,nlat_padded
+            do nR=nRl,nRu
+               do nPhi=1,n_phi_max
+                  if ( l_conv_nl .and. l_mag_LF ) then
+                     if ( nR>n_r_LCR ) then
                         this%gsa%Advr(nLat,nR,nPhi)=this%gsa%Advr(nLat,nR,nPhi) + &
                         &                        this%gsa%LFr(nLat,nR,nPhi)
                         this%gsa%Advt(nLat,nR,nPhi)=this%gsa%Advt(nLat,nR,nPhi) + &
                         &                        this%gsa%LFt(nLat,nR,nPhi)
                         this%gsa%Advp(nLat,nR,nPhi)=this%gsa%Advp(nLat,nR,nPhi) + &
                         &                        this%gsa%LFp(nLat,nR,nPhi)
-                     end do
-                  end do
-               end do
-               !$omp end target teams distribute parallel do
-            end if
-         else if ( l_mag_LF ) then
-            if ( nR > n_r_LCR ) then
-               !$omp target teams distribute parallel do collapse(3)
-               do nLat=1,nlat_padded
-                  do nPhi=1,n_phi_max
-                     do nR=nRl,nRu
-                     this%gsa%Advr(nLat,nR,nPhi) = this%gsa%LFr(nLat,nR,nPhi)
-                     this%gsa%Advt(nLat,nR,nPhi) = this%gsa%LFt(nLat,nR,nPhi)
-                     this%gsa%Advp(nLat,nR,nPhi) = this%gsa%LFp(nLat,nR,nPhi)
-                     end do
-                  end do
-               end do
-               !$omp end target teams distribute parallel do
-            else
-               !$omp target teams distribute parallel do collapse(3)
-               do nLat=1,nlat_padded
-                  do nPhi=1,n_phi_max
-                     do nR=nRl,nRu
-                     this%gsa%Advr(nLat,nR,nPhi)=0.0_cp
-                     this%gsa%Advt(nLat,nR,nPhi)=0.0_cp
-                     this%gsa%Advp(nLat,nR,nPhi)=0.0_cp
-                     end do
-                  end do
-               end do
-               !$omp end target teams distribute parallel do
-            end if
-         end if
-
-         if ( l_precession ) then
-            !$omp target teams distribute parallel do collapse(3)
-            do nLat=1,nlat_padded
-               do nPhi=1,n_phi_max
-                  do nR=nRl,nRu
+                     end if
+                  else if ( l_mag_LF ) then
+                     if ( nR > n_r_LCR ) then
+                        this%gsa%Advr(nLat,nR,nPhi) = this%gsa%LFr(nLat,nR,nPhi)
+                        this%gsa%Advt(nLat,nR,nPhi) = this%gsa%LFt(nLat,nR,nPhi)
+                        this%gsa%Advp(nLat,nR,nPhi) = this%gsa%LFp(nLat,nR,nPhi)
+                     else
+                        this%gsa%Advr(nLat,nR,nPhi)=0.0_cp
+                        this%gsa%Advt(nLat,nR,nPhi)=0.0_cp
+                        this%gsa%Advp(nLat,nR,nPhi)=0.0_cp
+                     end if
+                  end if
+                  if ( l_precession ) then
                      this%gsa%Advr(nLat,nR,nPhi)=this%gsa%Advr(nLat,nR,nPhi) + &
                      &                        this%gsa%PCr(nLat,nR,nPhi)
                      this%gsa%Advt(nLat,nR,nPhi)=this%gsa%Advt(nLat,nR,nPhi) + &
                      &                        this%gsa%PCt(nLat,nR,nPhi)
                      this%gsa%Advp(nLat,nR,nPhi)=this%gsa%Advp(nLat,nR,nPhi) + &
                      &                        this%gsa%PCp(nLat,nR,nPhi)
-                  end do
-               end do
-            end do
-            !$omp end target teams distribute parallel do
-         end if
-
-         if ( l_centrifuge ) then
-            !$omp target teams distribute parallel do collapse(3)
-            do nLat=1,nlat_padded
-               do nPhi=1,n_phi_max
-                  do nR=nRl,nRu
+                  end if
+                  if ( l_centrifuge ) then
                      this%gsa%Advr(nLat,nR,nPhi)=this%gsa%Advr(nLat,nR,nPhi) + &
                      &                        this%gsa%CAr(nLat,nR,nPhi)
                      this%gsa%Advt(nLat,nR,nPhi)=this%gsa%Advt(nLat,nR,nPhi) + &
                      &                        this%gsa%CAt(nLat,nR,nPhi)
-                  end do
+                  end if
                end do
             end do
-            !$omp end target teams distribute parallel do
-         end if
+         end do
+         !$omp end target teams distribute parallel do
 #else
          !$omp target teams distribute parallel do collapse(2)
 #endif

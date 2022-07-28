@@ -1000,12 +1000,26 @@ contains
 
 #ifdef WITH_OMP_GPU
 #ifndef DEFAULT
-      !-- TODO: wrong results (diff > 80%) if use this version
-      if ( l_mag_LF .and. nR>n_r_LCR ) then
-         !$omp target teams distribute parallel do !collapse(3)
-         do nLat=1,nlat_padded
+      !$omp target teams distribute parallel do collapse(3)
+      do nLat=1, nlat_padded
+         do nR=nRl, nRu
             do nPhi=1,n_phi_max
-               do nR=nRl, nRu
+
+               !-- If the computation of nBc does not work well here, we could
+               !-- also set the appropriate boundary values to zero after the loop
+               nBc = 0
+               if ( nR == n_r_cmb ) then
+                  nBc = ktopv
+               else if ( nR == n_r_icb ) then
+                  nBc = kbotv
+               end if
+               if ( l_parallel_solve .or. (l_single_matrix .and. l_temperature_diff) ) then
+                  ! We will need the nonlinear terms on ricb for the pressure l=m=0
+                  ! equation
+                  nBc=0
+               end if
+
+               if ( l_mag_LF .and. nR>n_r_LCR ) then
                   !------ Get the Lorentz force:
                   !---- LFr= r**2/(E*Pm) * ( curl(B)_t*B_p - curl(B)_p*B_t )
                   this%LFr(nLat,nR,nPhi)=  LFfac*O_sin_theta_E2(nLat) * (      &
@@ -1021,18 +1035,11 @@ contains
                   this%LFp(nLat,nR,nPhi)=  LFfac*or4(nR) * (                &
                   &        this%cbrc(nLat,nR,nPhi)*this%btc(nLat,nR,nPhi) -    &
                   &        this%cbtc(nLat,nR,nPhi)*this%brc(nLat,nR,nPhi) )
-               end do
-            end do
-         end do
-         !$omp end target teams distribute parallel do
-      end if      ! Lorentz force required ?
+               end if      ! Lorentz force required ?
 
-      if ( l_conv_nl ) then
-         if ( l_adv_curl ) then ! Advection is \curl{u} \times u
-            !$omp target teams distribute parallel do !collapse(3)
-            do nLat=1,nlat_padded
-               do nPhi=1,n_phi_max
-                  do nR=nRl, nRu
+               if ( l_conv_nl ) then
+
+                  if ( l_adv_curl ) then ! Advection is \curl{u} \times u
                      this%Advr(nLat,nR,nPhi)=  - O_sin_theta_E2(nLat) * (       &
                      &        this%cvtc(nLat,nR,nPhi)*this%vpc(nLat,nR,nPhi) -  &
                      &        this%cvpc(nLat,nR,nPhi)*this%vtc(nLat,nR,nPhi) )
@@ -1044,15 +1051,7 @@ contains
                      this%Advp(nLat,nR,nPhi)= -or4(nR)* (                    &
                      &        this%cvrc(nLat,nR,nPhi)*this%vtc(nLat,nR,nPhi) -  &
                      &        this%cvtc(nLat,nR,nPhi)*this%vrc(nLat,nR,nPhi) )
-                  end do
-               end do
-            end do
-            !$omp end target teams distribute parallel do
-         else ! Advection is u\grad u
-            !$omp target teams distribute parallel do !collapse(3)
-            do nLat=1,nlat_padded
-               do nPhi=1,n_phi_max
-                  do nR=nRl, nRu
+                  else ! Advection is u\grad u
                      !------ Get Advection:
                      this%Advr(nLat,nR,nPhi)=          -or2(nR)*orho1(nR) * (  &
                      &                                this%vrc(nLat,nR,nPhi) * &
@@ -1086,30 +1085,9 @@ contains
                      &                                      ( this%dvtdpc(nLat,nR,nPhi) + &
                      &                                      this%cvrc(nLat,nR,nPhi) )   - &
                      &                     this%vpc(nLat,nR,nPhi) * this%dvpdpc(nLat,nR,nPhi) )
-                  end do
-               end do
-            end do
-            !$omp end target teams distribute parallel do
-         end if
-      end if  ! Navier-Stokes nonlinear advection term ?
+                  end if
 
-      !$omp target teams distribute parallel do !collapse(3)
-      do nLat=1,nlat_padded
-         do nPhi=1,n_phi_max
-            do nR=nRl, nRu
-               !-- If the computation of nBc does not work well here, we could
-               !-- also set the appropriate boundary values to zero after the loop
-               nBc = 0
-               if ( nR == n_r_cmb ) then
-                  nBc = ktopv
-               else if ( nR == n_r_icb ) then
-                  nBc = kbotv
-               end if
-               if ( l_parallel_solve .or. (l_single_matrix .and. l_temperature_diff) ) then
-                  ! We will need the nonlinear terms on ricb for the pressure l=m=0
-                  ! equation
-                  nBc=0
-               end if
+               end if  ! Navier-Stokes nonlinear advection term ?
 
                if ( l_heat_nl .and. nBc == 0  ) then
                   !------ Get V S, the divergence of it is entropy advection:
@@ -1236,7 +1214,7 @@ contains
       end do
       !$omp end target teams distribute parallel do
 #else
-      !$omp target teams distribute parallel do
+      !$omp target teams distribute parallel do collapse(2)
 #endif
 #else
       !$omp parallel do default(shared) private(nR,nBc)
@@ -1449,7 +1427,6 @@ contains
 
             end if  ! Viscous heating and Ohmic losses ?
          end do
-
       end do
 #ifdef WITH_OMP_GPU
 #ifdef DEFAULT
