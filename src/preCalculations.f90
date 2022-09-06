@@ -351,7 +351,7 @@ contains
 
       eta_fac = 15.0_cp*pi/64.0_cp * (1.0_cp - radratio**6)/(1.0_cp-radratio**5)
       a_force = eta_fac / (r_cmb * (1.0_cp - eta_fac))
-      b_force = eta_fac / (r_cmb**2 * ( 1.0_cp - eta_fac ))
+      b_force = 1.0_cp / (r_cmb**2 * ( 1.0_cp - eta_fac ))
 
       !-- Set thermal boundary conditions for fixed temp. on both boundaries:
       !----- Extract tops and bots
