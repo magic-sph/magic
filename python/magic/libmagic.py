@@ -258,20 +258,22 @@ def avgField(time, field, tstart=None, std=False):
 
     if time[ind:].shape[0] == 1: # Only one entry in the array
         avgField = field[ind]
-        if std:
-            stdField = 0.
-            return avgField, stdField
-        else:
-            return avgField
+        stdField = 0.
     else:
-        fac = 1./(time[-1]-time[ind])
-        avgField = fac*np.trapz(field[ind:], time[ind:])
-
-        if std:
-            stdField = np.sqrt(fac*np.trapz((field[ind:]-avgField)**2, time[ind:]))
-            return avgField, stdField
+        if time[-1] == time[ind]: # Same time: this can happen for timestep.TAG
+            avgField = field[-1]
+            stdField = 0.
         else:
-            return avgField
+            fac = 1./(time[-1]-time[ind])
+            avgField = fac*np.trapz(field[ind:], time[ind:])
+            if std:
+                stdField = np.sqrt(fac*np.trapz((field[ind:]-avgField)**2,
+                                   time[ind:]))
+
+    if std:
+        return avgField, stdField
+    else:
+        return avgField
 
 def writeVpEq(par, tstart):
     """
