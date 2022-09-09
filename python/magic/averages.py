@@ -167,6 +167,11 @@ class AvgField:
         self.lut['time_series'] = {}
         for k, key in enumerate(params['time_series'].keys()):
             ts = MagicTs(field=key, datadir=datadir, all=True, tag=tag, iplot=False)
+            # Number of columns has been possibly modified for those files
+            if key == 'par' or key == 'geos' or key == 'heat' or key == 'dtVrms':
+                fix = True
+            else:
+                fix = False
             if hasattr(ts, 'time'): # Manage to read file
                 mask = np.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)), 1, 0)
                 ind = np.nonzero(mask)[0][0]
@@ -182,13 +187,16 @@ class AvgField:
                         if std and field != 'dt':
                             xmean, xstd = avgField(ts.time[ind:],
                                                    ts.__dict__[field][ind:],
-                                                   std=True)
+                                                   std=True,
+                                                   fix_missing_series=fix)
                             self.lut['time_series'][field+'_av'] = xmean
                             self.lut['time_series'][field+'_sd'] = xstd
                             setattr(self, field+'_av', xmean)
                             setattr(self, field+'_sd', xstd)
                         else:
-                            xmean = avgField(ts.time[ind:], ts.__dict__[field][ind:])
+                            xmean = avgField(ts.time[ind:],
+                                             ts.__dict__[field][ind:],
+                                             fix_missing_series=fix)
                             self.lut['time_series'][field+'_av'] = xmean
                             setattr(self, field+'_av', xmean)
             else:  # If parameters is absent then put it to -1
@@ -205,7 +213,18 @@ class AvgField:
 
         # Handle spectra
         self.lut['spectra'] = {}
+        # Determine whether file exists
         if len(tags) > 0:
+            file_exists = True
+            # If only one tag is retained but averaged file does not exist yet
+            if len(tags) == 1:
+                file = os.path.join(datadir, 'kin_spec_ave.' + tags[-1])
+                if not os.path.exists(file):
+                    file_exists = False
+        else:
+            file_exists = False
+
+        if file_exists:
             for key in params['spectra'].keys():
                 sp = MagicSpectrum(field=key, datadir=datadir, iplot=False, tags=tags,
                                    quiet=True)

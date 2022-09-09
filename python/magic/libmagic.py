@@ -231,7 +231,7 @@ def selectField(obj, field, labTex=True, ic=False):
 
     return data, data_ic, label
 
-def avgField(time, field, tstart=None, std=False):
+def avgField(time, field, tstart=None, std=False, fix_missing_series=False):
     """
     This subroutine computes the time-average (and the std) of a time series
 
@@ -247,6 +247,10 @@ def avgField(time, field, tstart=None, std=False):
     :type tstart: float
     :param std: when set to True, the standard deviation is also calculated
     :type std: bool
+    :param fix_missing_series: when set to True, data equal to zero are ignored,
+                               this is done in case new columns have been added
+                               to the time series
+    :type fix_missing_series: bool
     :returns: the time-averaged quantity
     :rtype: float
     """
@@ -255,6 +259,17 @@ def avgField(time, field, tstart=None, std=False):
         ind = np.nonzero(mask)[0][0]
     else: # the whole input array is taken!
         ind = 0
+
+    # Now suppose data were not stored in the first part of the run
+    # then the time series could look like 0,0,0,...,data,data,data
+    # In that case starting index needs to be overwritten
+    if field[ind] == 0 and fix_missing_series:
+        mask = np.where(field != 0, 1, 0)
+        mask = np.nonzero(mask)[0]
+        if len(mask) > 0:
+            ind1 = mask[0]
+            if ind1 > ind:
+                ind = ind1
 
     if time[ind:].shape[0] == 1: # Only one entry in the array
         avgField = field[ind]
