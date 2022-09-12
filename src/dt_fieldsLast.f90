@@ -14,7 +14,11 @@ module fieldsLast
        &            l_phase_field
    use constants, only: zero
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: bytes_allocated
+#endif
    use time_array
 
    implicit none
@@ -73,23 +77,69 @@ contains
       call lorentz_torque_ic_dt%initialize(nold, nexp, nimp)
       call lorentz_torque_ma_dt%initialize(nold, nexp, nimp)
 
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: domega_ma_dt, domega_ic_dt)
+      !$omp target update to(domega_ma_dt, domega_ic_dt)
+      !$omp target enter data map(alloc: lorentz_torque_ic_dt, lorentz_torque_ma_dt)
+      !$omp target update to(lorentz_torque_ic_dt, lorentz_torque_ma_dt)
+#endif
+
       if ( l_parallel_solve ) then
-         if ( l_heat ) call dsdt%initialize(1, lm_max, nRstart, nRstop, nold, nexp, &
-                            &               nimp, l_allocate_exp=.true.)
+         if ( l_heat ) then
+            call dsdt%initialize(1, lm_max, nRstart, nRstop, nold, nexp, &
+                               &               nimp, l_allocate_exp=.true.)
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dsdt)
+            !$omp target update to(dsdt)
+#endif
+         end if
+
          call dzdt%initialize(1, lm_max, nRstart, nRstop, nold, nexp, nimp, &
               &               l_allocate_exp=.true.)
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dzdt)
+         !$omp target update to(dzdt)
+#endif
          call dwdt%initialize(1, lm_max, nRstart, nRstop, nold, nexp, nimp, &
               &               l_allocate_exp=.true.)
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dwdt)
+         !$omp target update to(dwdt)
+#endif
+
          if ( (.not. l_double_curl) .or. l_RMS ) then
             call dpdt%initialize(1, lm_max, nRstart, nRstop, nold, nexp, nimp, &
                  &               l_allocate_exp=.true.)
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dpdt)
+            !$omp target update to(dpdt)
+#endif
          else
             allocate( dpdt%expl(1,1,nexp) ) ! For debug
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dpdt%expl)
+            !$omp target update to(dpdt%expl)
+#endif
          end if
-         if ( l_chemical_conv ) call dxidt%initialize(1, lm_max, nRstart,nRstop, nold, &
-                                     &                nexp, nimp, l_allocate_exp=.true.)
-         if ( l_phase_field ) call dphidt%initialize(1, lm_max, nRstart,nRstop, nold, &
-                                   &                 nexp, nimp, l_allocate_exp=.true.)
+
+         if ( l_chemical_conv ) then
+            call dxidt%initialize(1, lm_max, nRstart,nRstop, nold, &
+                                        &                nexp, nimp, l_allocate_exp=.true.)
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dxidt)
+            !$omp target update to(dxidt)
+#endif
+         end if
+
+         if ( l_phase_field ) then
+            call dphidt%initialize(1, lm_max, nRstart,nRstop, nold, &
+                                      &                 nexp, nimp, l_allocate_exp=.true.)
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dphidt)
+            !$omp target update to(dphidt)
+#endif
+         end if
+
          if ( l_mag .and. l_mag_par_solve ) then
             call dbdt%initialize(1, lm_maxMag, nRstartMag, nRstopMag, nold, nexp, nimp, &
                  &               l_allocate_exp=.true.)
@@ -99,21 +149,60 @@ contains
             call dbdt%initialize(llmMag, ulmMag, 1, n_r_maxMag, nold, nexp, nimp)
             call djdt%initialize(llmMag, ulmMag, 1, n_r_maxMag, nold, nexp, nimp)
          end if
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dbdt, djdt)
+         !$omp target update to(dbdt, djdt)
+#endif
       else
-         if ( l_heat ) call dsdt%initialize(llm, ulm, 1, n_r_max, nold, nexp, nimp)
+         if ( l_heat ) then
+            call dsdt%initialize(llm, ulm, 1, n_r_max, nold, nexp, nimp)
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dsdt)
+            !$omp target update to(dsdt)
+#endif
+         end if
+
          call dzdt%initialize(llm, ulm, 1, n_r_max, nold, nexp, nimp)
          call dwdt%initialize(llm, ulm, 1, n_r_max, nold, nexp, nimp)
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dzdt, dwdt)
+         !$omp target update to(dzdt, dwdt)
+#endif
+
          if ( (.not. l_double_curl) .or. l_RMS ) then
             call dpdt%initialize(llm, ulm, 1, n_r_max, nold, nexp, nimp)
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dpdt)
+            !$omp target update to(dpdt)
+#endif
          end if
+
          if ( l_mag ) then
             call dbdt%initialize(llmMag, ulmMag, 1, n_r_maxMag, nold, nexp, nimp)
             call djdt%initialize(llmMag, ulmMag, 1, n_r_maxMag, nold, nexp, nimp)
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dbdt, djdt)
+            !$omp target update to(dbdt, djdt)
+#endif
          end if
-         if ( l_chemical_conv ) call dxidt%initialize(llm, ulm, 1, n_r_max, nold, &
+
+         if ( l_chemical_conv ) then
+            call dxidt%initialize(llm, ulm, 1, n_r_max, nold, &
                                      &                nexp, nimp)
-         if ( l_phase_field ) call dphidt%initialize(llm, ulm, 1, n_r_max, nold, &
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dxidt)
+            !$omp target update to(dxidt)
+#endif
+         end if
+
+         if ( l_phase_field ) then
+            call dphidt%initialize(llm, ulm, 1, n_r_max, nold, &
                                    &                 nexp, nimp, l_allocate_exp=.true.)
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dphidt)
+            !$omp target update to(dphidt)
+#endif
+         end if
       end if
 
       if ( l_cond_ic ) then
@@ -121,6 +210,10 @@ contains
               &                  nexp, nimp, l_allocate_exp=.true.)
          call djdt_ic%initialize(llmMag, ulmMag, 1, n_r_ic_maxMag, nold, &
               &                  nexp, nimp, l_allocate_exp=.true.)
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dbdt_ic, djdt_ic)
+         !$omp target update to(dbdt_ic, djdt_ic)
+#endif
       end if
 
       if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
@@ -130,8 +223,17 @@ contains
                dflowdt_Rloc_container(:,:,:)=zero
                dbdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,1)
                djdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,2)
+#ifdef WITH_OMP_GPU
+               !$omp target enter data map(alloc: dbdt_Rloc, djdt_Rloc)
+               !$omp target update to(dbdt_Rloc, djdt_Rloc)
+#endif
             else
                allocate( dbdt_Rloc(1,1), djdt_Rloc(1,1) )
+               dbdt_Rloc(1,1)=zero; djdt_Rloc(1,1)=zero
+#ifdef WITH_OMP_GPU
+               !$omp target enter data map(alloc: dbdt_Rloc, djdt_Rloc)
+               !$omp target update to(dbdt_Rloc, djdt_Rloc)
+#endif
             end if
          else
             n_fields=3
@@ -141,12 +243,24 @@ contains
             dwdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,1)
             dzdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,2)
             dsdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,3)
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dwdt_Rloc, dzdt_Rloc, dsdt_Rloc)
+            !$omp target update to(dwdt_Rloc, dzdt_Rloc, dsdt_Rloc)
+#endif
             if ( l_mag .and. (.not. l_mag_par_solve) ) then
                dbdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,4)
                djdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,5)
+#ifdef WITH_OMP_GPU
+               !$omp target enter data map(alloc: dbdt_Rloc, djdt_Rloc)
+               !$omp target update to(dbdt_Rloc, djdt_Rloc)
+#endif
             end if
             allocate(dpdt_Rloc(lm_max,nRstart:nRstop))
             dpdt_Rloc(:,:)=zero
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dpdt_Rloc)
+            !$omp target update to(dpdt_Rloc)
+#endif
          end if
          allocate(dVxVhLM_Rloc(lm_max,nRstart:nRstop))
          allocate(dVSrLM_Rloc(lm_max,nRstart:nRstop))
@@ -157,6 +271,13 @@ contains
          bytes_allocated = bytes_allocated+                               &
          &                 6*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX+& 
          &                 3*lm_maxMag*(nRstopMag-nRstartMag+1)*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dVxVhLM_Rloc, dVSrLM_Rloc, dVxBhLM_Rloc)
+         !$omp target update to(dVxVhLM_Rloc, dVSrLM_Rloc, dVxBhLM_Rloc)
+         gpu_bytes_allocated = gpu_bytes_allocated+                               &
+         &                     6*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX+&
+         &                     3*lm_maxMag*(nRstopMag-nRstartMag+1)*SIZEOF_DEF_COMPLEX
+#endif
       else
          if ( l_double_curl ) then
             allocate( dflowdt_Rloc_container(lm_max,nRstart:nRstop,1:4) )
@@ -168,15 +289,29 @@ contains
             &                         dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,4)
             bytes_allocated = bytes_allocated+ &
             &                 4*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dwdt_Rloc, dzdt_Rloc, dpdt_Rloc, dVxVhLM_Rloc)
+            !$omp target update to(dwdt_Rloc, dzdt_Rloc, dpdt_Rloc, dVxVhLM_Rloc)
+            gpu_bytes_allocated = gpu_bytes_allocated+ &
+            &                     4*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+#endif
          else
             allocate( dflowdt_Rloc_container(lm_max,nRstart:nRstop,1:3) )
             dflowdt_Rloc_container(:,:,:)=zero
             dwdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,1)
             dzdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,2)
             dpdt_Rloc(1:,nRstart:) => dflowdt_Rloc_container(1:lm_max,nRstart:nRstop,3)
-            allocate( dVxVhLM_Rloc(1:1,1:1) )
+            !!allocate( dVxVhLM_Rloc(1:1,1:1) )
+            allocate( dVxVhLM_Rloc(lm_max,nRstart:nRstop) )
+            dVxVhLM_Rloc(:,:) = zero
             bytes_allocated = bytes_allocated+ &
-            &                 3*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+            &                 4*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dwdt_Rloc, dzdt_Rloc, dpdt_Rloc, dVxVhLM_Rloc)
+            !$omp target update to(dwdt_Rloc, dzdt_Rloc, dpdt_Rloc, dVxVhLM_Rloc)
+            gpu_bytes_allocated = gpu_bytes_allocated+ &
+            &                     4*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+#endif
          end if
 
          allocate( dsdt_Rloc_container(lm_max,nRstart:nRstop,1:2) )
@@ -185,6 +320,12 @@ contains
          dVSrLM_Rloc(1:,nRstart:) => dsdt_Rloc_container(1:lm_max,nRstart:nRstop,2)
          bytes_allocated = bytes_allocated+ &
          &                 2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dsdt_Rloc, dVSrLM_Rloc)
+         !$omp target update to(dsdt_Rloc, dVSrLM_Rloc)
+         gpu_bytes_allocated = gpu_bytes_allocated+ &
+         &                     2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+#endif
 
          ! the magnetic part
          allocate( dbdt_Rloc_container(lm_maxMag,nRstartMag:nRstopMag,1:3) )
@@ -197,6 +338,12 @@ contains
          &                    dbdt_Rloc_container(1:lm_maxMag,nRstartMag:nRstopMag,3)
          bytes_allocated = bytes_allocated+ &
          &                 3*lm_maxMag*(nRstopMag-nRstartMag+1)*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dbdt_Rloc, djdt_Rloc, dVxBhLM_Rloc)
+         !$omp target update to(dbdt_Rloc, djdt_Rloc, dVxBhLM_Rloc)
+         gpu_bytes_allocated = gpu_bytes_allocated+ &
+         &                     3*lm_maxMag*(nRstopMag-nRstartMag+1)*SIZEOF_DEF_COMPLEX
+#endif
       end if
 
       if ( l_chemical_conv ) then
@@ -204,6 +351,11 @@ contains
             allocate( dVXirLM_Rloc(lm_max,nRstart:nRstop) )
             dVXirLM_Rloc(:,:)=zero
             bytes_allocated = bytes_allocated+lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dVXirLM_Rloc)
+            !$omp target update to(dVXirLM_Rloc)
+            gpu_bytes_allocated = gpu_bytes_allocated+lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+#endif
          else
             allocate( dxidt_Rloc_container(lm_max,nRstart:nRstop,1:2) )
             dxidt_Rloc_container(:,:,:)=zero
@@ -211,19 +363,40 @@ contains
             dVXirLM_Rloc(1:,nRstart:) => dxidt_Rloc_container(1:lm_max,nRstart:nRstop,2)
             bytes_allocated = bytes_allocated+ &
             &                 2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dxidt_Rloc, dVXirLM_Rloc)
+            !$omp target update to(dxidt_Rloc, dVXirLM_Rloc)
+            gpu_bytes_allocated = gpu_bytes_allocated+ &
+            &                     2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+#endif
          end if
       else
          allocate( dxidt_Rloc_container(1,1,1:2) )
+         dxidt_Rloc_container(:,:,:)=zero
          dxidt_Rloc(1:,1:)   => dxidt_Rloc_container(1:1,1:1,1)
          dVXirLM_Rloc(1:,1:) => dxidt_Rloc_container(1:1,1:1,2)
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dxidt_Rloc, dVXirLM_Rloc)
+         !$omp target update to(dxidt_Rloc, dVXirLM_Rloc)
+#endif
       end if
 
       if ( l_phase_field ) then
          allocate( dphidt_Rloc(lm_max,nRstart:nRstop) )
          dphidt_Rloc(:,:)=zero
          bytes_allocated = bytes_allocated+lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dphidt_Rloc)
+         !$omp target update to(dphidt_Rloc)
+         gpu_bytes_allocated = gpu_bytes_allocated+lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+#endif
       else
          allocate( dphidt_Rloc(1:1,1:1) )
+         dphidt_Rloc(:,:)=zero
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dphidt_Rloc)
+         !$omp target update to(dphidt_Rloc)
+#endif
       end if
 
       ! The same arrays, but now the LM local part
@@ -236,6 +409,12 @@ contains
                djdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
                bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
                &                 SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+               !$omp target enter data map(alloc: dflowdt_LMloc_container)
+               !$omp target update to(dflowdt_LMloc_container)
+               gpu_bytes_allocated = gpu_bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
+               &                     SIZEOF_DEF_COMPLEX
+#endif
             end if
          else
             n_fields=3
@@ -248,19 +427,40 @@ contains
             dsdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,3,1:nexp)
             bytes_allocated = bytes_allocated+3*(ulm-llm+1)*n_r_max*nexp* &
             &                 SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dflowdt_LMloc_container)
+            !$omp target update to(dflowdt_LMloc_container)
+            gpu_bytes_allocated = gpu_bytes_allocated+3*(ulm-llm+1)*n_r_max*nexp* &
+            &                     SIZEOF_DEF_COMPLEX
+#endif
             if ( l_mag ) then
                dbdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,4,1:nexp)
                djdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,5,1:nexp)
                bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
                &                 SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+               gpu_bytes_allocated = gpu_bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
+               &                     SIZEOF_DEF_COMPLEX
+#endif
             end if
             if ( ((.not. l_double_curl) .or. l_RMS) ) then
                allocate( dpdt%expl(llm:ulm,n_r_max,nexp) )
                dpdt%expl(:,:,:)=zero
                bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*nexp* &
                &                 SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+               !$omp target enter data map(alloc: dpdt%expl)
+               !$omp target update to(dpdt%expl)
+               gpu_bytes_allocated = gpu_bytes_allocated+(ulm-llm+1)*n_r_max*nexp* &
+               &                     SIZEOF_DEF_COMPLEX
+#endif
             else
                allocate( dpdt%expl(1,1,nexp) ) ! To avoid debug
+               dpdt%expl(:,:,:)=zero
+#ifdef WITH_OMP_GPU
+               !$omp target enter data map(alloc: dpdt%expl)
+               !$omp target update to(dpdt%expl)
+#endif
             end if
          end if
       else ! This is either high-order F.D. or Cheb
@@ -273,25 +473,52 @@ contains
             dVxVhLM_LMloc(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,4,1:nexp)
             bytes_allocated = bytes_allocated+4*(ulm-llm+1)*n_r_max*nexp* &
             &                 SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dflowdt_LMloc_container)
+            !$omp target update to(dflowdt_LMloc_container)
+            gpu_bytes_allocated = gpu_bytes_allocated+4*(ulm-llm+1)*n_r_max*nexp* &
+            &                     SIZEOF_DEF_COMPLEX
+#endif
          else
             allocate(dflowdt_LMloc_container(llm:ulm,n_r_max,1:3,1:nexp))
             dflowdt_LMloc_container(:,:,:,:)=zero
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dflowdt_LMloc_container)
+            !$omp target update to(dflowdt_LMloc_container)
+#endif
             dwdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
             dzdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
             dpdt%expl(llm:,1:,1:) => dflowdt_LMloc_container(llm:ulm,1:n_r_max,3,1:nexp)
             allocate( dVxVhLM_LMloc(1,1,nexp) )
+            dVxVhLM_LMloc(:,:,:)=zero
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dVxVhLM_LMloc)
+            !$omp target update to(dVxVhLM_LMloc)
+#endif
             bytes_allocated = bytes_allocated+3*(ulm-llm+1)*n_r_max*nexp* &
             &                 SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+            gpu_bytes_allocated = gpu_bytes_allocated+3*(ulm-llm+1)*n_r_max*nexp* &
+            &                     SIZEOF_DEF_COMPLEX
+#endif
          end if
 
          allocate(dsdt_LMloc_container(llm:ulm,n_r_max,1:2,1:nexp))
          dsdt_LMloc_container(:,:,:,:)=zero
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dsdt_LMloc_container)
+         !$omp target update to(dsdt_LMloc_container)
+#endif
          if ( .not. l_parallel_solve ) then
             dsdt%expl(llm:,1:,1:) => dsdt_LMloc_container(llm:ulm,1:n_r_max,1,1:nexp)
          end if
          dVSrLM_LMloc(llm:,1:,1:) => dsdt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
          bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
          &                 SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+         gpu_bytes_allocated = gpu_bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
+         &                     SIZEOF_DEF_COMPLEX
+#endif
 
          allocate(dbdt_LMloc_container(llmMag:ulmMag,n_r_maxMag,1:3,1:nexp))
          dbdt_LMloc_container(:,:,:,:)=zero
@@ -301,6 +528,12 @@ contains
          &                         dbdt_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,3,1:nexp)
          bytes_allocated = bytes_allocated+ &
          &                 3*nexp*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dbdt_LMloc_container)
+         !$omp target update to(dbdt_LMloc_container)
+         gpu_bytes_allocated = gpu_bytes_allocated+ &
+         &                 3*nexp*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
+#endif
       end if
 
       if ( l_chemical_conv ) then
@@ -311,25 +544,52 @@ contains
             dVXirLM_LMloc(llm:,1:,1:) => dxidt_LMloc_container(llm:ulm,1:n_r_max,2,1:nexp)
             bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
             &                 SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU_
+            !$omp target enter data map(alloc: dxidt_LMloc_container)
+            !$omp target update to(dxidt_LMloc_container)
+            gpu_bytes_allocated = gpu_bytes_allocated+2*(ulm-llm+1)*n_r_max*nexp* &
+            &                 SIZEOF_DEF_COMPLEX
+#endif
          else
             allocate(dxidt_LMloc_container(1,1,1:2,1))
+            dxidt_LMloc_container(:,:,:,:)=zero
             !dxidt%expl(1:,1:,1:)   => dxidt_LMloc_container(1:1,1:1,1,1:)
             dVXirLM_LMloc(1:,1:,1:) => dxidt_LMloc_container(1:1,1:1,2,1:)
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dxidt_LMloc_container)
+            !$omp target update to(dxidt_LMloc_container)
+#endif
          end if
       else
          allocate(dxidt_LMloc_container(1,1,1:2,1:nexp))
          dxidt_LMloc_container(:,:,:,:)=zero
          dxidt%expl(1:,1:,1:)   => dxidt_LMloc_container(1:1,1:1,1,1:nexp)
          dVXirLM_LMloc(1:,1:,1:) => dxidt_LMloc_container(1:1,1:1,2,1:nexp)
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dxidt_LMloc_container)
+         !$omp target update to(dxidt_LMloc_container)
+#endif
       end if
 
-      if ( .not. l_phase_field ) allocate(dphidt%expl(1,1,1:nexp)) ! for debug
+      if ( .not. l_phase_field ) then
+         allocate(dphidt%expl(1,1,1:nexp)) ! for debug
+         dphidt%expl(:,:,:) = zero
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dphidt%expl)
+         !$omp target update to(dphidt%expl)
+#endif
+      end if
 
       ! Only when l_dt_cmb_field is requested
       ! There might be a way to allocate only when needed
       allocate ( dbdt_CMB_LMloc(llmMag:ulmMag) )
       dbdt_CMB_LMloc(:)=zero
       bytes_allocated = bytes_allocated+(ulmMag-llmMag+1)*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: dbdt_CMB_LMloc)
+      !$omp target update to(dbdt_CMB_LMloc)
+      gpu_bytes_allocated = gpu_bytes_allocated+(ulmMag-llmMag+1)*SIZEOF_DEF_COMPLEX
+#endif
 
    end subroutine initialize_fieldsLast
 !-------------------------------------------------------------------------------
@@ -339,43 +599,124 @@ contains
       !
 
       if ( (.not. l_parallel_solve) .and. (.not. l_mag_par_solve) ) then
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: dflowdt_LMloc_container)
+#endif
          deallocate( dflowdt_Rloc_container, dflowdt_LMloc_container )
       end if
+
       if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: dVxVhLM_Rloc)
+         !$omp target exit data map(delete: dVxBhLM_Rloc)
+         !$omp target exit data map(delete: dVSrLM_Rloc)
+#endif
          deallocate( dVxVhLM_Rloc, dVxBhLM_Rloc, dVSrLM_Rloc)
-         if (.not. l_parallel_solve ) deallocate( dpdt_Rloc )
+         if (.not. l_parallel_solve ) then
+#ifdef WITH_OMP_GPU
+            !$omp target exit data map(delete: dpdt_Rloc)
+#endif
+            deallocate( dpdt_Rloc )
+         end if
       else
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: dbdt_Rloc_container)
+         !$omp target exit data map(delete: dbdt_LMloc_container)
+#endif
          deallocate( dbdt_Rloc_container, dbdt_LMloc_container )
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: dsdt_Rloc_container)
+         !$omp target exit data map(delete: dsdt_LMloc_container)
+#endif
          deallocate( dsdt_Rloc_container, dsdt_LMloc_container )
-         if ( .not. l_double_curl ) deallocate( dVxVhLM_Rloc, dVxVhLM_LMloc )
+         if ( .not. l_double_curl ) then
+#ifdef WITH_OMP_GPU
+            !$omp target exit data map(delete: dVxVhLM_Rloc)
+            !$omp target exit data map(delete: dVxVhLM_LMloc)
+#endif
+            deallocate( dVxVhLM_Rloc, dVxVhLM_LMloc )
+         end if
       end if
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: dbdt_CMB_LMloc)
+#endif
       deallocate( dbdt_CMB_LMloc )
 
       if ( l_chemical_conv ) then
          if ( .not. l_parallel_solve ) then
+#ifdef WITH_OMP_GPU
+            !$omp target exit data map(delete: dxidt_Rloc_container)
+            !$omp target exit data map(delete: dxidt_LMloc_container)
+#endif
             deallocate( dxidt_Rloc_container, dxidt_LMloc_container )
          else
+#ifdef WITH_OMP_GPU
+            !$omp target exit data map(delete: dVXirLM_Rloc)
+#endif
             deallocate( dVXirLM_Rloc )
          end if
       end if
 
-      if ( l_phase_field ) deallocate( dphidt_Rloc )
+      if ( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: dphidt_Rloc)
+#endif
+         deallocate( dphidt_Rloc )
+      end if
 
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(release: lorentz_torque_ma_dt)
+         !$omp target exit data map(release: lorentz_torque_ic_dt)
+         !$omp target exit data map(release: domega_ma_dt)
+         !$omp target exit data map(release: domega_ic_dt)
+         !$omp target exit data map(release: dzdt)
+#endif
       call lorentz_torque_ma_dt%finalize()
       call lorentz_torque_ic_dt%finalize()
       call domega_ma_dt%finalize()
       call domega_ic_dt%finalize()
       call dzdt%finalize()
-      if ( .not. l_double_curl .or. l_RMS ) call dpdt%finalize()
+      if ( .not. l_double_curl .or. l_RMS ) then
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(release: dpdt)
+#endif
+         call dpdt%finalize()
+      end if
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(release: dwdt)
+#endif
       call dwdt%finalize()
-      if ( l_heat ) call dsdt%finalize()
-      if ( l_chemical_conv ) call dxidt%finalize()
-      if ( l_phase_field ) call dphidt%finalize()
+      if ( l_heat ) then
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(release: dsdt)
+#endif
+         call dsdt%finalize()
+      end if
+      if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(release: dxidt)
+#endif
+         call dxidt%finalize()
+      end if
+      if ( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(release: dphidt)
+#endif
+         call dphidt%finalize()
+      end if
       if ( l_mag ) then
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(release: dbdt)
+         !$omp target exit data map(release: djdt)
+#endif
          call dbdt%finalize()
          call djdt%finalize()
       end if
       if ( l_cond_ic ) then
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(release: djdt_ic)
+         !$omp target exit data map(release: djdt_ic)
+#endif
          call dbdt_ic%finalize()
          call djdt_ic%finalize()
       end if
