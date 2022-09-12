@@ -5,7 +5,11 @@ module blocking
 
    use iso_fortran_env, only: output_unit
    use precision_mod
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: memWrite, bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: memWrite, bytes_allocated
+#endif
    use parallel_mod, only: nThreads, rank, n_procs, rank_with_l1m0, load, getBlocks
    use truncation, only: lmP_max, lm_max, l_max, n_theta_max, &
        &                 minc, n_r_max, m_max, m_min
@@ -41,7 +45,6 @@ module blocking
 
    integer, public, pointer :: lm2lmP(:),lmP2lm(:)
 
-
    type(mappings), public, target :: st_map
    type(mappings), public, target :: lo_map
    type(load), public, allocatable :: lm_balance(:)
@@ -53,7 +56,6 @@ module blocking
    integer, public, pointer :: lm22m(:,:,:)
 
    type(subblocks_mappings), public, target :: st_sub_map, lo_sub_map
-
 
    !------------------------------------------------------------------------
    !  Following divides loops over points in theta-direction (index ic) into
@@ -95,12 +97,18 @@ contains
 
       integer :: n
       integer(lip) :: local_bytes_used
+#ifdef WITH_OMP_GPU
+      integer(lip) :: local_bytes_used_gpu
+#endif
       integer :: l1m0
 
       logical, parameter :: DEBUG_OUTPUT=.false.
       integer :: lm,l,m,sizeLMB
 
       local_bytes_used = bytes_allocated
+#ifdef WITH_OMP_GPU
+      local_bytes_used_gpu = gpu_bytes_allocated
+#endif
       call allocate_mappings(st_map,l_max,m_min,m_max,lm_max,lmP_max)
       call allocate_mappings(lo_map,l_max,m_min,m_max,lm_max,lmP_max)
       !call allocate_mappings(sn_map,l_max,lm_max,lmP_max)
@@ -213,9 +221,13 @@ contains
 
       local_bytes_used = bytes_allocated-local_bytes_used
       call memWrite('blocking.f90', local_bytes_used)
+#ifdef WITH_OMP_GPU
+      local_bytes_used_gpu = gpu_bytes_allocated-local_bytes_used_gpu
+      call memWrite('blocking.f90:GPU', local_bytes_used_gpu)
+#endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc : st_map)
+      !$omp target enter data map(alloc : lo_map, st_map, lo_sub_map, st_sub_map)
 #endif
 
    end subroutine initialize_blocking
@@ -223,7 +235,7 @@ contains
    subroutine finalize_blocking
 
 #ifdef WITH_OMP_GPU
-      !$omp target exit data map(release : st_map)
+      !$omp target exit data map(release : lo_map, st_map, lo_sub_map, st_sub_map)
 #endif
 
       call deallocate_mappings(st_map)
