@@ -23,17 +23,35 @@ module radial_functions
    use chebyshev, only: type_cheb_odd
    use finite_differences, only: type_fd
    use radial_der, only: get_dr
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: bytes_allocated
+#endif
    use useful, only: logWrite, abortRun
    use parallel_mod, only: rank
    use output_data, only: tag
    use num_param, only: alph1, alph2
+   use special, only: l_curr, fac_loop
+#ifdef WITH_OMP_GPU_OFF
+   use cosine_transform_gpu, only: gpu_costf_odd_t
+#endif
 
    implicit none
 
    private
 
    !-- arrays depending on r:
+#ifdef WITH_OMP_GPU
+   !$omp declare target (r, r_ic, O_r_ic, O_r_ic2, or1, or2, or3, or4, &
+   !$omp&                otemp1, rho0, temp0, dLtemp0, dentropy0, ddLtemp0, &
+   !$omp&                orho1, orho2, beta, dbeta, ddbeta, alpha0, dLalpha0, ddLalpha0, &
+   !$omp&                rgrav, ogrun, &
+   !$omp&                lambda, dLlambda, jVarCon, sigma, kappa, dLkappa, &
+   !$omp&                visc, dLvisc, ddLvisc, epscProf, divKtemp0, l_R, &
+   !$omp&                cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic, dr_top_ic, cheb_int, &
+   !$omp&                dxicond, gpu_chebt_ic) !-- Note: Compiler does not accept for rscheme_oc
+#endif
    real(cp), public, allocatable :: r(:)         ! radii
    real(cp), public, allocatable :: r_ic(:)      ! IC radii
    real(cp), public, allocatable :: O_r_ic(:)    ! Inverse of IC radii
@@ -75,6 +93,9 @@ module radial_functions
    real(cp), public, allocatable :: cheb_int(:)     ! Array for cheb integrals
    integer, public :: nDd_costf1                    ! Radii for transform
    type(costf_odd_t), public :: chebt_ic
+#ifdef WITH_OMP_GPU_OFF
+   type(gpu_costf_odd_t), public :: gpu_chebt_ic
+#endif
    type(costf_even_t), public :: chebt_ic_even
 
    !-- Radial scheme
@@ -133,13 +154,21 @@ contains
       allocate( rgrav(n_r_max), ogrun(n_r_max) )
       bytes_allocated = bytes_allocated+(22*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: or2, rho0, orho1, or1, or3, or4, r, otemp1, beta)
+      !$omp target enter data map(alloc: r, r_ic, O_r_ic, O_r_ic2, or1, or2, or3, or4, &
+      !$omp&                             otemp1, rho0, temp0, dLtemp0, dentropy0, ddLtemp0, &
+      !$omp&                             orho1, orho2, beta, dbeta, ddbeta, alpha0, dLalpha0, ddLalpha0, &
+      !$omp&                             rgrav, ogrun)
+      gpu_bytes_allocated = gpu_bytes_allocated+(21*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL !-- d2temp0 is not on GPU
 #endif
 
       if ( l_chemical_conv ) then
          allocate( dxicond(n_r_max) )
          dxicond(:)=0.0_cp
          bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc:dxicond)
+         gpu_bytes_allocated = gpu_bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+#endif
       end if
 
       allocate( lambda(n_r_max),dLlambda(n_r_max),jVarCon(n_r_max) )
@@ -148,17 +177,19 @@ contains
       allocate( epscProf(n_r_max),divKtemp0(n_r_max) )
       bytes_allocated = bytes_allocated + 11*n_r_max*SIZEOF_DEF_REAL
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: lambda, visc)
-#endif      
+      !$omp target enter data map(alloc: lambda, dLlambda, jVarCon, sigma, kappa, dLkappa, &
+      !$omp&                             visc, dLvisc, ddLvisc, epscProf, divKtemp0)
+      gpu_bytes_allocated = gpu_bytes_allocated + 11*n_r_max*SIZEOF_DEF_REAL
+#endif
 
       !allocate ( l_R(nRstart:nRstop) )
       !bytes_allocated = bytes_allocated +(nRstop-nRstart+1)*SIZEOF_INTEGER
       allocate ( l_R(1:n_r_max) )
+      bytes_allocated = bytes_allocated +n_r_max*SIZEOF_INTEGER
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: l_R)
+      gpu_bytes_allocated = gpu_bytes_allocated +n_r_max*SIZEOF_INTEGER
 #endif
-
-      bytes_allocated = bytes_allocated +n_r_max*SIZEOF_INTEGER
 
       if ( .not. l_full_sphere ) then
          nDi_costf1_ic=2*n_r_ic_max+2
@@ -172,17 +203,32 @@ contains
          allocate( cheb_int_ic(n_r_ic_max) )
          bytes_allocated = bytes_allocated + &
          &                 (3*n_r_ic_max*n_r_ic_max+n_r_ic_max)*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic)
+         gpu_bytes_allocated = gpu_bytes_allocated + &
+         &                 (3*n_r_ic_max*n_r_ic_max+n_r_ic_max)*SIZEOF_DEF_REAL
+#endif
 
          call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
-
+#ifdef WITH_OMP_GPU_OFF
+         call gpu_chebt_ic%initialize(n_r_ic_max,1,1)
+#endif
          allocate ( dr_top_ic(n_r_ic_max) )
          bytes_allocated = bytes_allocated+n_r_ic_max*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: dr_top_ic)
+         gpu_bytes_allocated = gpu_bytes_allocated+n_r_ic_max*SIZEOF_DEF_REAL
+#endif
       end if
 
       if ( .not. l_finite_diff ) then
 
          allocate( cheb_int(n_r_max) )         ! array for cheb integrals !
          bytes_allocated = bytes_allocated + n_r_max*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: cheb_int)
+         gpu_bytes_allocated = gpu_bytes_allocated + n_r_max*SIZEOF_DEF_REAL
+#endif
 
          allocate ( type_cheb_odd :: rscheme_oc )
 
@@ -201,7 +247,11 @@ contains
          n_in_2 = fd_order_bound
 
       end if
+
       call rscheme_oc%initialize(n_r_max,n_in,n_in_2)
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: rscheme_oc)
+#endif
 
    end subroutine initialize_radial_functions
 !------------------------------------------------------------------------------
@@ -211,8 +261,16 @@ contains
       !
 
 #ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: or2, l_R, rho0, orho1, &
-      !$omp&                             or1, or3, or4, r, otemp1, beta, lambda, visc)
+      !$omp target exit data map(delete: l_R, r, r_ic, O_r_ic, O_r_ic2, or1, or2, or3, or4, &
+      !$omp&                             otemp1, rho0, temp0, dLtemp0, dentropy0, &
+      !$omp&                             ddLtemp0, orho1, orho2, beta, dbeta, ddbeta, alpha0, &
+      !$omp&                             ddLalpha0, dLalpha0, rgrav, ogrun, &
+      !$omp&                             lambda, dLlambda, jVarCon, sigma, kappa, dLkappa, &
+      !$omp&                             visc, dLvisc, ddLvisc, epscProf, divKtemp0)
+
+      if ( l_curr ) then
+         !$omp target exit data map(delete : fac_loop)
+      end if
 #endif
 
       deallocate( l_R )
@@ -223,17 +281,36 @@ contains
       deallocate( lambda, dLlambda, jVarCon, sigma, kappa, dLkappa )
       deallocate( visc, dLvisc, ddLvisc, epscProf, divKtemp0 )
 
-      if ( l_chemical_conv ) deallocate(dxicond)
+      if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: dxicond)
+#endif
+         deallocate(dxicond)
+      end if
 
       if ( .not. l_full_sphere ) then
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: dr_top_ic, cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic)
+#endif
          deallocate( dr_top_ic )
          deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
          call chebt_ic%finalize()
+#ifdef WITH_OMP_GPU_OFF
+         call gpu_chebt_ic%finalize()
+#endif
          if ( n_r_ic_max > 0 .and. l_cond_ic ) call chebt_ic_even%finalize()
       end if
 
-      if ( .not. l_finite_diff ) deallocate( cheb_int )
+      if ( .not. l_finite_diff ) then
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: cheb_int)
+#endif
+         deallocate( cheb_int )
+      end if
 
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(release : rscheme_oc)
+#endif
       call rscheme_oc%finalize()
 
    end subroutine finalize_radial_functions
