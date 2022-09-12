@@ -38,20 +38,15 @@ module preCalculations
        &                          n_r_LCR, mode, tmagcon, oek, Bn,         &
        &                          ktopxi, kbotxi, epscxi, epscxi0, sc, osc,&
        &                          ChemFac, raxi, Po, prec_angle
-#ifdef WITH_OMP_GPU
-   use horizontal_data
-#else
    use horizontal_data, only: horizontal
-#endif
    use integration, only: rInt_R
    use useful, only: logWrite, abortRun
    use special, only: l_curr, fac_loop, loopRadRatio, amp_curr, Le
    use time_schemes, only: type_tscheme
 
 #ifdef WITH_OMP_GPU
-   use blocking, only: st_map
+   use blocking, only: lo_sub_map, lo_map, st_sub_map, st_map
 #endif
-
 
    implicit none
 
@@ -776,16 +771,40 @@ contains
 
       end if
 
+      !-- From radial_data
 #ifdef WITH_OMP_GPU
+      !$omp target update to(r, r_ic, O_r_ic, O_r_ic2, or1, or2, or3, or4, &
+      !$omp&                otemp1, rho0, temp0, dLtemp0, dentropy0, ddLtemp0, &
+      !$omp&                orho1, orho2, beta, dbeta, ddbeta, alpha0, dLalpha0, ddLalpha0, &
+      !$omp&                rgrav, ogrun, &
+      !$omp&                lambda, dLlambda, jVarCon, sigma, kappa, dLkappa, &
+      !$omp&                visc, dLvisc, ddLvisc, epscProf, divKtemp0, l_R)
+      if(.not. l_full_sphere) then
+         !$omp target update to(cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic, dr_top_ic)
+      endif
+      if(.not. l_finite_diff) then
+         !$omp target update to(cheb_int)
+      endif
+      if ( l_chemical_conv ) then
+         !$omp target update to(dxicond)
+      end if
+      !$omp target update to(rscheme_oc)
+#endif
+
+#ifdef WITH_OMP_GPU
+      if ( l_curr ) then
+         !$omp target enter data map(alloc : fac_loop)
+         !$omp target update to(fac_loop)
+      end if
+
+      !-- From init_fields
+      !$omp target update to(tops, bots)
+      if ( l_chemical_conv ) then
+         !$omp target update to(topxi, botxi)
+      end if
+
       !-- From blocking module
-      !$omp target update to(st_map)
-
-      !-- From radial_functions
-      !$omp target update to(or2, l_R, rho0, orho1, or1, or3, or4, r, otemp1, beta, lambda, visc)
-
-      !-- FRom horizontal_data
-      !$omp target update to(O_sin_theta_E2, dLh, cosTheta, sinTheta_E2, &
-      !$omp&                 phi, cosn_theta_E2, O_sin_theta)
+      !$omp target update to(lo_map, st_map, lo_sub_map, st_sub_map)
 #endif
 
    end subroutine preCalc
