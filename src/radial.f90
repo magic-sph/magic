@@ -50,7 +50,7 @@ module radial_functions
    !$omp&                lambda, dLlambda, jVarCon, sigma, kappa, dLkappa, &
    !$omp&                visc, dLvisc, ddLvisc, epscProf, divKtemp0, l_R, &
    !$omp&                cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic, dr_top_ic, cheb_int, &
-   !$omp&                dxicond, gpu_chebt_ic) !-- Note: Compiler does not accept for rscheme_oc
+   !$omp&                dxicond) !-- Note: Compiler does not accept for rscheme_oc
 #endif
    real(cp), public, allocatable :: r(:)         ! radii
    real(cp), public, allocatable :: r_ic(:)      ! IC radii
@@ -93,9 +93,6 @@ module radial_functions
    real(cp), public, allocatable :: cheb_int(:)     ! Array for cheb integrals
    integer, public :: nDd_costf1                    ! Radii for transform
    type(costf_odd_t), public :: chebt_ic
-#ifdef WITH_OMP_GPU_OFF
-   type(gpu_costf_odd_t), public :: gpu_chebt_ic
-#endif
    type(costf_even_t), public :: chebt_ic_even
 
    !-- Radial scheme
@@ -210,9 +207,7 @@ contains
 #endif
 
          call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
-#ifdef WITH_OMP_GPU_OFF
-         call gpu_chebt_ic%initialize(n_r_ic_max,1,1)
-#endif
+
          allocate ( dr_top_ic(n_r_ic_max) )
          bytes_allocated = bytes_allocated+n_r_ic_max*SIZEOF_DEF_REAL
 #ifdef WITH_OMP_GPU
@@ -295,9 +290,6 @@ contains
          deallocate( dr_top_ic )
          deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
          call chebt_ic%finalize()
-#ifdef WITH_OMP_GPU_OFF
-         call gpu_chebt_ic%finalize()
-#endif
          if ( n_r_ic_max > 0 .and. l_cond_ic ) call chebt_ic_even%finalize()
       end if
 
