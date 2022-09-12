@@ -15,11 +15,24 @@ module horizontal_data
    use fft
    use constants, only: pi, zero, one, two, half
    use precision_mod
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: bytes_allocated
+#endif
 
    implicit none
 
    private
+
+#ifdef WITH_OMP_GPU
+   !$omp declare target (n_theta_cal2ord,n_theta_ord2cal,theta_ord,                               &
+   !$omp&                sinTheta_E2,                                                             &
+   !$omp&                O_sin_theta,O_sin_theta_E2,cosn_theta_E2,sinTheta,cosTheta,              &
+   !$omp&                phi,gauss,dPl0Eq,dPhi,dLh,                                               &
+   !$omp&                dTheta1S,dTheta1A,dTheta2S,dTheta2A,dTheta3S,dTheta3A,dTheta4S,dTheta4A, &
+   !$omp&                hdif_B,hdif_V,hdif_S,hdif_Xi)
+#endif
 
    !-- Arrays depending on theta (colatitude):
    integer, public, allocatable :: n_theta_cal2ord(:)
@@ -69,6 +82,10 @@ contains
       allocate( cosTheta(nlat_padded) )
       bytes_allocated = bytes_allocated+2*n_theta_max*SIZEOF_INTEGER+&
       &                 (n_theta_max+6*nlat_padded)*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+      gpu_bytes_allocated = gpu_bytes_allocated+2*n_theta_max*SIZEOF_INTEGER+&
+      &                 (n_theta_max+6*nlat_padded)*SIZEOF_DEF_REAL
+#endif
       O_sin_theta(:)   =0.0_cp
       O_sin_theta_E2(:)=0.0_cp
       sinTheta(:)      =0.0_cp
@@ -79,11 +96,17 @@ contains
       !-- Phi (longitude)
       allocate( phi(n_phi_max) )
       bytes_allocated = bytes_allocated+n_phi_max*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+      gpu_bytes_allocated = gpu_bytes_allocated+n_phi_max*SIZEOF_DEF_REAL
+#endif
 
       !-- Legendres:
       allocate( gauss(n_theta_max) )
       allocate( dPl0Eq(l_max+1) )
       bytes_allocated = bytes_allocated+(n_theta_max+l_max+1)*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+      gpu_bytes_allocated = gpu_bytes_allocated+(n_theta_max+l_max+1)*SIZEOF_DEF_REAL
+#endif
 
       !-- Arrays depending on l and m:
       allocate( dPhi(lm_max), dLh(lm_max) )
@@ -94,10 +117,17 @@ contains
       allocate( hdif_B(0:l_max),hdif_V(0:l_max),hdif_S(0:l_max) )
       allocate( hdif_Xi(0:l_max) )
       bytes_allocated = bytes_allocated+(10*lm_max+4*(l_max+1))*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+      gpu_bytes_allocated = gpu_bytes_allocated+(10*lm_max+4*(l_max+1))*SIZEOF_DEF_REAL
+#endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: O_sin_theta_E2, dLh, cosTheta, sinTheta_E2, &
-      !$omp&                             phi, cosn_theta_E2, O_sin_theta)
+      !$omp target enter data map(alloc: n_theta_cal2ord,n_theta_ord2cal,theta_ord,                        &
+      !$omp&                      sinTheta_E2,                                                             &
+      !$omp&                      O_sin_theta,O_sin_theta_E2,cosn_theta_E2,sinTheta,cosTheta,              &
+      !$omp&                      phi,gauss,dPl0Eq,dPhi,dLh,                                               &
+      !$omp&                      dTheta1S,dTheta1A,dTheta2S,dTheta2A,dTheta3S,dTheta3A,dTheta4S,dTheta4A, &
+      !$omp&                      hdif_B,hdif_V,hdif_S,hdif_Xi)
 #endif
 
    end subroutine initialize_horizontal_data
@@ -108,8 +138,12 @@ contains
       !
 
 #ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: O_sin_theta_E2, dLh, cosTheta, sinTheta_E2, &
-      !$omp&                             phi, cosn_theta_E2, O_sin_theta)
+      !$omp target exit data map(delete: n_theta_cal2ord,n_theta_ord2cal,theta_ord,                       &
+      !$omp&                     sinTheta_E2,                                                             &
+      !$omp&                     O_sin_theta,O_sin_theta_E2,cosn_theta_E2,sinTheta,cosTheta,              &
+      !$omp&                     phi,gauss,dPl0Eq,dPhi,dLh,                                               &
+      !$omp&                     dTheta1S,dTheta1A,dTheta2S,dTheta2A,dTheta3S,dTheta3A,dTheta4S,dTheta4A, &
+      !$omp&                     hdif_B,hdif_V,hdif_S,hdif_Xi)
 #endif
 
       deallocate( cosn_theta_E2, sinTheta, cosTheta, theta_ord, n_theta_cal2ord )
@@ -285,6 +319,15 @@ contains
          end if
 
       end do
+
+#ifdef WITH_OMP_GPU
+      !$omp target update to(n_theta_cal2ord,theta_ord,                                               &
+      !$omp&                 sinTheta_E2,                                                             &
+      !$omp&                 O_sin_theta,O_sin_theta_E2,cosn_theta_E2,sinTheta,cosTheta,              &
+      !$omp&                 phi,gauss,dPl0Eq,dPhi,dLh,                                               &
+      !$omp&                 dTheta1S,dTheta1A,dTheta2S,dTheta2A,dTheta3S,dTheta3A,dTheta4S,dTheta4A, &
+      !$omp&                 hdif_B,hdif_V,hdif_S,hdif_Xi)
+#endif
 
    end subroutine horizontal
 !------------------------------------------------------------------------------
