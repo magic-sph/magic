@@ -11,7 +11,11 @@ module init_fields
    use truncation, only: n_r_max, n_r_maxMag,n_r_ic_max,lmP_max, m_min, &
        &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max,     &
        &                 minc,n_cheb_ic_max,lm_max, nlat_padded
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: bytes_allocated
+#endif
    use blocking, only: lo_map, st_map, llm, ulm, llmMag, ulmMag
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, &
        &                      phi, cosTheta, hdif_B
@@ -63,6 +67,9 @@ module init_fields
    integer, public, parameter :: n_s_bounds=20
    real(cp), public :: s_bot(4*n_s_bounds)  ! input variables for tops,bots
    real(cp), public :: s_top(4*n_s_bounds)
+#ifdef WITH_OMP_GPU
+   !$omp declare target (tops, bots)
+#endif
    complex(cp), public, allocatable :: tops(:,:)
    complex(cp), public, allocatable :: bots(:,:)
 
@@ -70,6 +77,9 @@ module init_fields
    integer, public, parameter :: n_xi_bounds=20
    real(cp), public :: xi_bot(4*n_xi_bounds)  ! input variables for topxi,botxi
    real(cp), public :: xi_top(4*n_xi_bounds)
+#ifdef WITH_OMP_GPU
+   !$omp declare target (topxi, botxi)
+#endif
    complex(cp), public, allocatable :: topxi(:,:)
    complex(cp), public, allocatable :: botxi(:,:)
 
@@ -118,6 +128,10 @@ contains
       bots(0,0)=one
       tops(0,0)=0.0_cp
       bytes_allocated = bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: tops, bots)
+      gpu_bytes_allocated = gpu_bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
+#endif
 
       if ( l_chemical_conv ) then
          allocate( topxi(0:l_max,0:m_max), botxi(0:l_max,0:m_max) )
@@ -126,6 +140,10 @@ contains
          botxi(0,0)=one
          topxi(0,0)=0.0_cp
          bytes_allocated = bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: topxi, botxi)
+         gpu_bytes_allocated = gpu_bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
+#endif
       end if
 
    end subroutine initialize_init_fields
@@ -134,8 +152,17 @@ contains
       !
       ! Memory deallocation
       !
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: tops, bots)
+#endif
       deallocate (tops, bots )
-      if ( l_chemical_conv ) deallocate( topxi, botxi )
+      if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map( delete : topxi, botxi )
+#endif
+         deallocate( topxi, botxi )
+      end if
 
    end subroutine finalize_init_fields
 !------------------------------------------------------------------------------
