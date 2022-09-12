@@ -635,6 +635,7 @@ class TsLookUpTable:
             self.emagic_tor = data[:, 2]
             self.emagic_pol_axi = data[:, 3]
             self.emagic_tor_axi = data[:, 4]
+            self.emagic_tot = self.emagic_pol + self.emagic_tor
         elif self.field == 'timestep':
             self.time = data[:, 0]
             self.dt = data[:, 1]
@@ -659,8 +660,8 @@ class TsLookUpTable:
             self.ratio_l11_cmb_as = data[:, 18] # (e_geo-e_es_geo)/e_geo
             self.ratio_l11_cmb_naxi = data[:, 19] # (e_geo-e_axi_geo)/e_geo
             self.epol_axi_cmb = (-self.ratio_cmb_naxi*self.ecmb+self.ecmb)
-            self.dip3 = self.epol_axi_cmb/self.ecmb
-            self.e_tot = self.e_dip/self.dipTot
+            self.epol_rel_cmb = self.epol_axi_cmb/self.ecmb
+            self.fdip = np.sqrt(self.dip_l11)
         elif self.field == 'AM':
             self.time = data[:, 0]
             self.am_oc_x = data[:, 1]
