@@ -1,13 +1,21 @@
 module dtB_arrays_mod
 
    use truncation, only: lmP_max_dtB
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: bytes_allocated
+#endif
    use precision_mod
    use constants, only: zero
 
    implicit none
 
    private
+
+#ifdef WITH_OMP_GPU
+   !$omp declare target (dtB_arrays_t)
+#endif
 
    type, public :: dtB_arrays_t
       !----- Local dtB output stuff:
@@ -37,7 +45,11 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: this)
+      gpu_bytes_allocated = gpu_bytes_allocated+ 11*lmP_max_dtB*SIZEOF_DEF_COMPLEX
 #endif
+
+      !--
+      call this%set_zero()
 
    end subroutine initialize
 !----------------------------------------------------------------------------
