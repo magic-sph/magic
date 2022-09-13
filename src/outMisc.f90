@@ -24,8 +24,8 @@ module outMisc_mod
        &                      O_sin_theta_E2
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, l_hemi, &
        &            l_temperature_diff, l_chemical_conv, l_phase_field,    &
-       &            l_mag, l_onset
-   use output_data, only: tag
+       &            l_mag, l_onset, l_grav
+   use output_data, only: tag, l_max_grav
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four, half, zero
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
        &                   deltaxicond
@@ -52,6 +52,8 @@ module outMisc_mod
    real(cp), allocatable :: HelnaASr(:,:), Helna2ASr(:,:)
    real(cp), allocatable :: HelEAASr(:)
    complex(cp), allocatable :: coeff_old(:)
+   real(cp), allocatable :: gravClm(:), gravSlm(:)
+   real(cp), allocatable :: kGrav(:,:), hGrav(:,:)
 
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
    &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
@@ -145,6 +147,12 @@ contains
          end if
       end if
 
+      if (l_grav) then
+         allocate(gravClm(l_max_grav-1))
+         allocate(gravSlm(l_max_grav-1))
+         call setGravCoeff()
+      end if
+
    end subroutine initialize_outMisc_mod
 !----------------------------------------------------------------------------------
    subroutine finalize_outMisc_mod()
@@ -169,12 +177,12 @@ contains
             close(n_drift_asym_file)
          end if
       end if
-      if ( l_hemi ) then 
+      if ( l_hemi ) then
          deallocate( hemi_ekin_r, hemi_vrabs_r )
          if ( l_mag ) deallocate( hemi_emag_r, hemi_brabs_r )
       end if
       if ( l_hel ) deallocate( HelASr, Hel2ASr, HelnaASr, Helna2ASr, HelEAASr )
-      
+
       if ( l_phase_field ) then
          deallocate( ekinSr, ekinLr, volSr )
          call PhiMeanR%finalize()
@@ -194,7 +202,7 @@ contains
 !----------------------------------------------------------------------------------
    subroutine outHemi(timeScaled)
       !
-      ! This function handles the writing of outputs related to hemisphericity of 
+      ! This function handles the writing of outputs related to hemisphericity of
       ! the kinetic and magnetic energy between Northern and Southern hemispheres.
       ! This is based on Wieland Dietrich's work (see Dietrich & Wicht, 2013).
       ! Outputs are stored in the time series hemi.TAG
@@ -1099,5 +1107,71 @@ contains
       if ( l_log ) deallocate(tau_glob)
 
    end subroutine get_onset
+
+   subroutine setGravCoeff()
+
+      real(cp), parameter :: fitOrder
+      real(cp), allocatable :: kcoeff(:), hcoeff(:)
+      integer :: i, l, n_kcoeff_file, n_hcoeff_file
+      character(len=72) :: kCoeff_file, hCoeff_file
+
+      fitOrder=5
+
+      allocate(kcoeff( (fitOrder+1) ))
+      allocate(hcoeff( (fitOrder+1) ))
+      allocate(kGrav(l_max_grav-1,n_r_max))
+      allocate(hGrav(l_max_grav-1,n_r_max))
+
+
+
+      kGrav(:,:) = 0.0_cp
+      hGrav(:,:) = 0.0_cp
+
+      do l=1,l_max_grav-1
+         kCoeff_file=''
+         do i=1,fitOrder+1
+            kGrav(l,:) = kGrav(l,:) + kcoeff(i)*r(:)**(i-1)
+            hGrav(l,:) = hGrav(l,:) + hcoeff(i)*r(:)**(i-1)
+         end do
+      end do
+
+   end subroutine setGravCoeff
+
+   subroutine outGrav(s,p,time)
+
+      complex(cp), intent(in) :: s(llm:ulm,n_r_max) ! Entropy
+      complex(cp), intent(in) :: p(llm:ulm,n_r_max) ! Pressure
+      real(cp),    intent(in) :: time
+      ! Local variables
+
+      integer :: l, m, lm
+      integer :: lm_max_grav
+      integer :: n_gravClm_file, n_gravSlm_file, n_press_file
+      character(len=72) :: gravClm_file, gravSlm_file, press_file, string
+
+      call dble2str(time,string)
+      gravClm_file='gravClm_t='//trim(string)//'.'//tag
+      gravSlm_file='gravSlm_t='//trim(string)//'.'//tag
+      press_file  ='pressCoeff_t='//trim(string)//'.'//tag
+
+      ! Max lm for gravity output, assuming minc=1
+      ! and m_max_grav = l_max_grav
+
+      lm_max_grav= l_max_grav*(l_max_grav+1)   &
+      &           -l_max_grav*(l_max_grav-1)/2 &
+      &           +1
+
+      do lm=llm,ulm
+         l = lo_map%lm2l(lm)
+         m = lo_map%lm2m(lm)
+
+         if (l < 2 .or. l > l_max_grav) then
+            continue
+         else
+            gravClm(l) =
+         end if
+
+      end do
+   end subroutine outGrav
 !----------------------------------------------------------------------------------
 end module outMisc_mod

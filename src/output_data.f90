@@ -8,10 +8,10 @@ module output_data
    implicit none
 
    private
- 
+
    !----- Identification of run:
    character(len=64), public :: runid
- 
+
    !----- Output time control:
    real(cp), public :: t_graph_start,t_graph_stop,dt_graph
    real(cp), public :: t_rst_start,t_rst_stop,dt_rst
@@ -24,6 +24,7 @@ module output_data
    real(cp), public :: t_TOmovie_start,t_TOmovie_stop,dt_TOmovie
    real(cp), public :: t_pot_start,t_pot_stop,dt_pot
    real(cp), public :: t_probe_start,t_probe_stop,dt_probe
+   real(cp), public :: t_grav_start,t_grav_stop,dt_grav
    integer, public :: n_graph_step,n_graphs,n_t_graph
    integer, public :: n_rst_step,n_rsts,n_t_rst,n_stores
    integer, public :: n_log_step,n_logs,n_t_log
@@ -33,8 +34,9 @@ module output_data
    integer, public :: n_movie_step,n_movie_frames,n_t_movie
    integer, public :: n_TO_step,n_TOs,n_t_TO
    integer, public :: n_TOmovie_step,n_TOmovie_frames,n_t_TOmovie
-   integer, public :: n_pot_step,n_pots,n_t_pot      
+   integer, public :: n_pot_step,n_pots,n_t_pot
    integer, public :: n_probe_step,n_probe_out,n_t_probe
+   integer, public :: n_grav_step,n_grav_out,n_t_grav
    integer, public, parameter :: n_time_hits=5000
    real(cp), public ::  t_graph(n_time_hits)
    real(cp), public ::  t_rst(n_time_hits)
@@ -47,7 +49,8 @@ module output_data
    real(cp), public ::  t_TOmovie(n_time_hits)
    real(cp), public ::  t_pot(n_time_hits)
    real(cp), public ::  t_probe(n_time_hits)
- 
+   real(cp), public ::  t_grav(n_time_hits)
+
    !----- Output radii and degrees for coeff files:
    integer, public :: n_coeff_r_max
    integer, public, allocatable :: n_coeff_r(:)
@@ -58,10 +61,11 @@ module output_data
    integer, public :: l_max_r
    integer, public :: n_r_step
    integer, public :: m_max_modes
- 
+   integer, public :: l_max_grav
+
    !----- Output files:
    integer, public :: n_log_file
- 
+
    character(len=55), public :: tag
    character(len=72), public :: log_file
    character(len=72), public :: lp_file
