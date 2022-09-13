@@ -22,7 +22,11 @@ module updateXi_mod
        &                 bulk_to_ghost
    use constants, only: zero, one, two
    use fields, only: work_LMloc
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: bytes_allocated
+#endif
    use useful, only: abortRun
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray
@@ -61,6 +65,10 @@ contains
 
       integer :: ll, n_bands
       integer, pointer :: nLMBs2(:)
+#ifdef WITH_OMP_GPU
+      logical :: use_gpu, use_pivot
+      use_gpu = .false.; use_pivot = .true.
+#endif
 
       if ( .not. l_parallel_solve ) then
          nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
@@ -76,18 +84,33 @@ contains
                n_bands = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
             end if
 
+#ifdef WITH_OMP_GPU
+            call xi0Mat%initialize(n_bands,n_r_max,use_pivot,use_gpu)
+            do ll=1,nLMBs2(1+rank)
+               call xiMat(ll)%initialize(n_bands,n_r_max,use_pivot,use_gpu)
+            end do
+#else
             call xi0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
             do ll=1,nLMBs2(1+rank)
                call xiMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
             end do
+#endif
          else
             allocate( type_densemat :: xiMat(nLMBs2(1+rank)) )
             allocate( type_densemat :: xi0Mat )
 
+#ifdef WITH_OMP_GPU
+            use_gpu = .true.
+            call xi0Mat%initialize(n_r_max,n_r_max,use_pivot,use_gpu)
+            do ll=1,nLMBs2(1+rank)
+               call xiMat(ll)%initialize(n_r_max,n_r_max,use_pivot,use_gpu)
+            end do
+#else
             call xi0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
             do ll=1,nLMBs2(1+rank)
                call xiMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
             end do
+#endif
          end if
 
 #ifdef WITH_PRECOND_S
@@ -108,6 +131,11 @@ contains
          allocate( rhs1(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
          bytes_allocated = bytes_allocated + n_r_max*lo_sub_map%sizeLMB2max*&
          &                 maxThreads*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: rhs1)
+         gpu_bytes_allocated = gpu_bytes_allocated + n_r_max*lo_sub_map%sizeLMB2max*&
+         &                 maxThreads*SIZEOF_DEF_COMPLEX
+#endif
       else ! Parallel solvers are requested
 
          !-- Create matrix
@@ -117,6 +145,11 @@ contains
          allocate( xi_ghost(lm_max, nRstart-1:nRstop+1) )
          bytes_allocated=bytes_allocated + lm_max*(nRstop-nRstart+3)*SIZEOF_DEF_COMPLEX
          xi_ghost(:,:)=zero
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: xi_ghost)
+         !$omp target update to(xi_ghost)
+         gpu_bytes_allocated=gpu_bytes_allocated + lm_max*(nRstop-nRstart+3)*SIZEOF_DEF_COMPLEX
+#endif
 
          allocate( fd_fac_top(0:l_max), fd_fac_bot(0:l_max) )
          bytes_allocated=bytes_allocated+(l_max+1)*SIZEOF_DEF_REAL
@@ -154,9 +187,15 @@ contains
 #ifdef WITH_PRECOND_S0
          deallocate(xi0Mat_fac)
 #endif
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: rhs1)
+#endif
          deallocate( rhs1 )
       else
          call xiMat_FD%finalize()
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: xi_ghost)
+#endif
          deallocate( fd_fac_top, fd_fac_bot, xi_ghost )
       end if
 
@@ -207,6 +246,7 @@ contains
       call tscheme%set_imex_rhs(work_LMloc, dxidt)
 
 #ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: rhs)
       !$omp single
       call solve_counter%start_count()
       !$omp end single
@@ -216,7 +256,6 @@ contains
          lmB=0
 
          !-- LU factorisation (big loop but hardly any work because of lXimat)
-         !-- No openMP GPU (hipSolver)
          do lm=1,sizeLMB2(nLMB2,nLMB)
             l1=lm22l(lm,nLMB2,nLMB)
 
@@ -238,7 +277,7 @@ contains
             end if
          end do
 
-         !-- Assemble RHS (amenable to OpenMP GPU)
+         !-- Assemble RHS
          do lm=1,sizeLMB2(nLMB2,nLMB)
             lm1=lm22lm(lm,nLMB2,nLMB)
             l1=lm22l(lm,nLMB2,nLMB)
@@ -283,7 +322,7 @@ contains
          end if
 
          lmB=0
-         !-- Loop to reassemble fields (OpenMP GPU possible)
+         !-- Loop to reassemble fields
          do lm=1,sizeLMB2(nLMB2,nLMB)
             lm1=lm22lm(lm,nLMB2,nLMB)
             l1=lm22l(lm,nLMB2,nLMB)
@@ -312,6 +351,7 @@ contains
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
+      !$omp target exit data map(delete: rhs)
 #else
       !$omp parallel default(shared)
 
@@ -843,14 +883,22 @@ contains
 #ifdef WITH_OMP_GPU
       start_lm=llm; stop_lm=ulm
 
+      !$omp target update to(dxi, work_LMloc)
+      !$omp target update to(xi)
+
       call dct_counter%start_count()
 
       call get_ddr(xi, dxi, work_LMloc, ulm-llm+1,start_lm-llm+1,  &
            &       stop_lm-llm+1,n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
-      if ( l_in_cheb ) call rscheme_oc%costf1(xi,ulm-llm+1,start_lm-llm+1, &
-                            &                 stop_lm-llm+1)
+      if ( l_in_cheb ) then
+         call rscheme_oc%costf1(xi,ulm-llm+1,start_lm-llm+1, &
+                               &                 stop_lm-llm+1,.true.)
+         !$omp target update from(xi)
+      end if
 
       call dct_counter%stop_count(l_increment=.false.)
+
+      !$omp target update from(dxi, work_LMloc)
 #else
       !$omp parallel default(shared)  private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
@@ -935,14 +983,13 @@ contains
       lm2l(1:lm_max) => st_map%lm2l
 
 #ifdef WITH_OMP_GPU
+      !$omp target update to(xig)
       start_lm=1; stop_lm=lm_max
-
       call dct_counter%start_count()
-
       call get_ddr_ghost(xig, dxi, work_Rloc, lm_max, start_lm, stop_lm,  nRstart, &
            &             nRstop, rscheme_oc)
-
       call dct_counter%stop_count(l_increment=.false.)
+      !$omp target update to(dxi, work_Rloc)
 #else
       !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l, dL)
       start_lm=1; stop_lm=lm_max
@@ -1478,9 +1525,14 @@ contains
       !-- Local variables:
       integer :: nR, l
       real(cp) :: dLh
+      real(cp) :: wimp_lin
+
+      !-- Copie into local variable
+      wimp_lin = tscheme%wimp_lin(1)
 
       !----- Bulk points
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp parallel default(shared) private(nR,l,dLh)
       !$omp do
@@ -1488,25 +1540,27 @@ contains
       do nR=1,n_r_max
          do l=0,l_max
             dLh=real(l*(l+1),kind=cp)
-            xiMat%diag(l,nR)=one-tscheme%wimp_lin(1)*osc*hdif(l)*(         &
+            xiMat%diag(l,nR)=one-wimp_lin*osc*hdif(l)*(         &
             &                                       rscheme_oc%ddr(nR,1) + &
             &           ( beta(nR)+two*or1(nR) )*    rscheme_oc%dr(nR,1) - &
             &                                        dLh*or2(nR) )
-            xiMat%low(l,nR)=-tscheme%wimp_lin(1)*osc*hdif(l)*(             &
+            xiMat%low(l,nR)=-wimp_lin*osc*hdif(l)*(             &
             &                                       rscheme_oc%ddr(nR,0) + &
             &           ( beta(nR)+two*or1(nR) )*    rscheme_oc%dr(nR,0) )
-            xiMat%up(l,nR) =-tscheme%wimp_lin(1)*osc*hdif(l)*(             &
+            xiMat%up(l,nR) =-wimp_lin*osc*hdif(l)*(             &
             &                                       rscheme_oc%ddr(nR,2) + &
             &           ( beta(nR)+two*or1(nR) )*    rscheme_oc%dr(nR,2) )
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #else
       !$omp end do
 #endif
 
       !----- Boundary conditions:
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
 #else
       !$omp do
 #endif
@@ -1542,6 +1596,7 @@ contains
          end if
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #else
       !$omp end do
       !$omp end parallel

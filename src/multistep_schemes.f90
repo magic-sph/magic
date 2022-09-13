@@ -421,7 +421,7 @@ contains
 
    end subroutine set_dt_array
 !------------------------------------------------------------------------------
-   subroutine set_imex_rhs(this, rhs, dfdt)
+   subroutine set_imex_rhs(this, rhs, dfdt, use_gpu)
       !
       ! This subroutine assembles the right-hand-side of an IMEX scheme
       !
@@ -430,47 +430,99 @@ contains
 
       !-- Input variables:
       type(type_tarray), intent(in) :: dfdt
+      logical, optional, intent(in) :: use_gpu
 
       !-- Output variable
       complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
 
       !-- Local variables
       integer :: n_o, n_r, start_lm, stop_lm
+      real(cp) :: wimp_local, wimp_lin_local, wexp_local
+      logical :: loc_use_gpu
+      loc_use_gpu = .false.
+#ifdef WITH_OMP_GPU
+      if(present(use_gpu)) then
+         loc_use_gpu = use_gpu
+      end if
+#endif
 
-      !$omp parallel default(shared) private(start_lm, stop_lm)
-      start_lm=dfdt%llm; stop_lm=dfdt%ulm
-      call get_openmp_blocks(start_lm,stop_lm)
-
-      do n_r=dfdt%nRstart,dfdt%nRstop
-         rhs(start_lm:stop_lm,n_r)=this%wimp(1)* &
-         &                          dfdt%old(start_lm:stop_lm,n_r,1)
-      end do
-
-      do n_o=2,this%nold
+      if(loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+         start_lm=dfdt%llm; stop_lm=dfdt%ulm
+         wimp_local = this%wimp(1)
+         !$omp target teams distribute parallel do
          do n_r=dfdt%nRstart,dfdt%nRstop
-            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+&
-            &       this%wimp(n_o)*dfdt%old(start_lm:stop_lm,n_r,n_o)
+            rhs(start_lm:stop_lm,n_r)=wimp_local* &
+            &                          dfdt%old(start_lm:stop_lm,n_r,1)
          end do
-      end do
+         !$omp end target teams distribute parallel do
 
-      do n_o=1,this%nimp
-         do n_r=dfdt%nRstart,dfdt%nRstop
-            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+  &
-            &               this%wimp_lin(n_o+1)*dfdt%impl(start_lm:stop_lm,n_r,n_o)
+         do n_o=2,this%nold
+            wimp_local = this%wimp(n_o)
+            !$omp target teams distribute parallel do
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+&
+               &       wimp_local*dfdt%old(start_lm:stop_lm,n_r,n_o)
+            end do
+            !$omp end target teams distribute parallel do
          end do
-      end do
 
-      do n_o=1,this%nexp
-         do n_r=dfdt%nRstart,dfdt%nRstop
-            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+   &
-            &               this%wexp(n_o)*dfdt%expl(start_lm:stop_lm,n_r,n_o)
+         do n_o=1,this%nimp
+            wimp_lin_local = this%wimp_lin(n_o+1)
+            !$omp target teams distribute parallel do
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+  &
+               &               wimp_lin_local*dfdt%impl(start_lm:stop_lm,n_r,n_o)
+            end do
+            !$omp end target teams distribute parallel do
          end do
-      end do
-      !$omp end parallel
+
+         do n_o=1,this%nexp
+            wexp_local = this%wexp(n_o)
+            !$omp target teams distribute parallel do
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+   &
+               &               wexp_local*dfdt%expl(start_lm:stop_lm,n_r,n_o)
+            end do
+            !$omp end target teams distribute parallel do
+         end do
+#endif
+      else
+         !$omp parallel default(shared) private(start_lm, stop_lm)
+         start_lm=dfdt%llm; stop_lm=dfdt%ulm
+         call get_openmp_blocks(start_lm,stop_lm)
+
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=this%wimp(1)* &
+            &                          dfdt%old(start_lm:stop_lm,n_r,1)
+         end do
+
+         do n_o=2,this%nold
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+&
+               &       this%wimp(n_o)*dfdt%old(start_lm:stop_lm,n_r,n_o)
+            end do
+         end do
+
+         do n_o=1,this%nimp
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+  &
+               &               this%wimp_lin(n_o+1)*dfdt%impl(start_lm:stop_lm,n_r,n_o)
+            end do
+         end do
+
+         do n_o=1,this%nexp
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+   &
+               &               this%wexp(n_o)*dfdt%expl(start_lm:stop_lm,n_r,n_o)
+            end do
+         end do
+         !$omp end parallel
+      end if
 
    end subroutine set_imex_rhs
 !------------------------------------------------------------------------------
-   subroutine set_imex_rhs_ghost(this, rhs, dfdt, start_lm, stop_lm, ng)
+   subroutine set_imex_rhs_ghost(this, rhs, dfdt, start_lm, stop_lm, ng, use_gpu)
       !
       ! This subroutine assembles the right-hand-side of an IMEX scheme for
       ! R-distributed arrays (finite difference with parallel solvers).
@@ -483,37 +535,87 @@ contains
       integer,           intent(in) :: start_lm ! Starting lm index
       integer,           intent(in) :: stop_lm  ! Stopping lm index
       integer,           intent(in) :: ng       ! Number of ghosts zones
+      logical, optional, intent(in) :: use_gpu
 
       !-- Output variable
       complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart-ng:dfdt%nRstop+ng)
 
       !-- Local variables
       integer :: n_o, n_r
+      real(cp) :: wimp_local, wimp_lin_local, wexp_local
+      logical :: loc_use_gpu
+      loc_use_gpu = .false.
+#ifdef WITH_OMP_GPU
+      if(present(use_gpu)) then
+         loc_use_gpu = use_gpu
+      end if
+#endif
 
-      do n_r=dfdt%nRstart,dfdt%nRstop
-         rhs(start_lm:stop_lm,n_r)=this%wimp(1)*dfdt%old(start_lm:stop_lm,n_r,1)
-      end do
-
-      do n_o=2,this%nold
+      if(loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+         wimp_local = this%wimp(1)
+         !$omp target teams distribute parallel do
          do n_r=dfdt%nRstart,dfdt%nRstop
-            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+&
-            &       this%wimp(n_o)*dfdt%old(start_lm:stop_lm,n_r,n_o)
+            rhs(start_lm:stop_lm,n_r)=wimp_local*dfdt%old(start_lm:stop_lm,n_r,1)
          end do
-      end do
+         !$omp end target teams distribute parallel do
 
-      do n_o=1,this%nimp
-         do n_r=dfdt%nRstart,dfdt%nRstop
-            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+  &
-            &               this%wimp_lin(n_o+1)*dfdt%impl(start_lm:stop_lm,n_r,n_o)
+         do n_o=2,this%nold
+            wimp_local = this%wimp(n_o)
+            !$omp target teams distribute parallel do
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+&
+               &       wimp_local*dfdt%old(start_lm:stop_lm,n_r,n_o)
+            end do
+            !$omp end target teams distribute parallel do
          end do
-      end do
 
-      do n_o=1,this%nexp
-         do n_r=dfdt%nRstart,dfdt%nRstop
-            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+   &
-            &               this%wexp(n_o)*dfdt%expl(start_lm:stop_lm,n_r,n_o)
+         do n_o=1,this%nimp
+            wimp_lin_local = this%wimp_lin(n_o+1)
+            !$omp target teams distribute parallel do
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+  &
+               &               wimp_lin_local*dfdt%impl(start_lm:stop_lm,n_r,n_o)
+            end do
+            !$omp end target teams distribute parallel do
          end do
-      end do
+
+         do n_o=1,this%nexp
+            wexp_local = this%wexp(n_o)
+            !$omp target teams distribute parallel do
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+   &
+               &               wexp_local*dfdt%expl(start_lm:stop_lm,n_r,n_o)
+            end do
+            !$omp end target teams distribute parallel do
+         end do
+#endif
+      else
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=this%wimp(1)*dfdt%old(start_lm:stop_lm,n_r,1)
+         end do
+
+         do n_o=2,this%nold
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+&
+               &       this%wimp(n_o)*dfdt%old(start_lm:stop_lm,n_r,n_o)
+            end do
+         end do
+
+         do n_o=1,this%nimp
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+  &
+               &               this%wimp_lin(n_o+1)*dfdt%impl(start_lm:stop_lm,n_r,n_o)
+            end do
+         end do
+
+         do n_o=1,this%nexp
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+   &
+               &               this%wexp(n_o)*dfdt%expl(start_lm:stop_lm,n_r,n_o)
+            end do
+         end do
+      end if
 
    end subroutine set_imex_rhs_ghost
 !------------------------------------------------------------------------------
@@ -551,7 +653,7 @@ contains
 
    end subroutine set_imex_rhs_scalar
 !------------------------------------------------------------------------------
-   subroutine rotate_imex(this, dfdt)
+   subroutine rotate_imex(this, dfdt, use_gpu)
       !
       ! This subroutine is used to roll the time arrays from one time step
       !
@@ -560,33 +662,69 @@ contains
 
       !-- Output variables:
       type(type_tarray), intent(inout) :: dfdt
+      logical, optional, intent(in) :: use_gpu
 
       !-- Local variables:
-            !-- Local variables:
       integer :: n_o, n_r, lm_start, lm_stop
+      logical :: loc_use_gpu
+      loc_use_gpu = .false.
+#ifdef WITH_OMP_GPU
+      if(present(use_gpu)) then
+         loc_use_gpu = use_gpu
+      end if
+#endif
 
-      !$omp parallel default(shared) private(lm_start,lm_stop)
-      lm_start=dfdt%llm; lm_stop=dfdt%ulm
-      call get_openmp_blocks(lm_start,lm_stop)
-
-      do n_o=this%nexp,2,-1
-         do n_r=dfdt%nRstart,dfdt%nRstop
-            dfdt%expl(lm_start:lm_stop,n_r,n_o)=dfdt%expl(lm_start:lm_stop,n_r,n_o-1)
+      if(loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+         lm_start=dfdt%llm; lm_stop=dfdt%ulm
+         do n_o=this%nexp,2,-1
+            !$omp target teams distribute parallel do
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               dfdt%expl(lm_start:lm_stop,n_r,n_o)=dfdt%expl(lm_start:lm_stop,n_r,n_o-1)
+            end do
+            !$omp end target teams distribute parallel do
          end do
-      end do
 
-      do n_o=this%nold,2,-1
-         do n_r=dfdt%nRstart,dfdt%nRstop
-            dfdt%old(lm_start:lm_stop,n_r,n_o)=dfdt%old(lm_start:lm_stop,n_r,n_o-1)
+         do n_o=this%nold,2,-1
+            !$omp target teams distribute parallel do
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               dfdt%old(lm_start:lm_stop,n_r,n_o)=dfdt%old(lm_start:lm_stop,n_r,n_o-1)
+            end do
+            !$omp end target teams distribute parallel do
          end do
-      end do
 
-      do n_o=this%nimp,2,-1
-         do n_r=dfdt%nRstart,dfdt%nRstop
-            dfdt%impl(lm_start:lm_stop,n_r,n_o)=dfdt%impl(lm_start:lm_stop,n_r,n_o-1)
+         do n_o=this%nimp,2,-1
+            !$omp target teams distribute parallel do
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               dfdt%impl(lm_start:lm_stop,n_r,n_o)=dfdt%impl(lm_start:lm_stop,n_r,n_o-1)
+            end do
+            !$omp end target teams distribute parallel do
          end do
-      end do
-      !$omp end parallel
+#endif
+      else
+         !$omp parallel default(shared) private(lm_start,lm_stop)
+         lm_start=dfdt%llm; lm_stop=dfdt%ulm
+         call get_openmp_blocks(lm_start,lm_stop)
+
+         do n_o=this%nexp,2,-1
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               dfdt%expl(lm_start:lm_stop,n_r,n_o)=dfdt%expl(lm_start:lm_stop,n_r,n_o-1)
+            end do
+         end do
+
+         do n_o=this%nold,2,-1
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               dfdt%old(lm_start:lm_stop,n_r,n_o)=dfdt%old(lm_start:lm_stop,n_r,n_o-1)
+            end do
+         end do
+
+         do n_o=this%nimp,2,-1
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               dfdt%impl(lm_start:lm_stop,n_r,n_o)=dfdt%impl(lm_start:lm_stop,n_r,n_o-1)
+            end do
+         end do
+         !$omp end parallel
+      end if
 
    end subroutine rotate_imex
 !------------------------------------------------------------------------------
@@ -672,10 +810,11 @@ contains
 
    end subroutine get_time_stage
 !------------------------------------------------------------------------------
-   subroutine assemble_imex(this, rhs, dfdt)
+   subroutine assemble_imex(this, rhs, dfdt, use_gpu)
 
       class(type_multistep) :: this
       type(type_tarray), intent(in) :: dfdt
+      logical, optional, intent(in) :: use_gpu
       complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
 
    end subroutine assemble_imex

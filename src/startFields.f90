@@ -346,10 +346,26 @@ contains
          if ( l_parallel_solve ) then
             call bulk_to_ghost(phi_Rloc, phi_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
             call exch_ghosts(phi_ghost, lm_max, nRstart, nRstop, 1)
+#ifdef WITH_OMP_GPU
+            !$omp target update to(phi_ghost)
+#endif
             call fill_ghosts_Phi(phi_ghost)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(phi_ghost)
+            !$omp target update to(dphidt)
+#endif
             call get_phase_rhs_imp_ghost(phi_ghost, dphidt, 1, .true.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dphidt)
+#endif
          else
+#ifdef WITH_OMP_GPU
+            !$omp target update to(phi_LMloc, dphidt)
+#endif
             call get_phase_rhs_imp(phi_LMloc, dphidt, 1, .true.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(phi_LMloc, dphidt)
+#endif
          end if
       end if
 

@@ -5,7 +5,11 @@ module radial_der
 
    use constants, only: zero, one, three
    use precision_mod
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc
+#endif
    use cosine_transform_odd
    use radial_scheme, only: type_rscheme
    use logic, only: l_finite_diff
@@ -50,6 +54,11 @@ contains
          allocate( work(1:ulm-llm+1,n_r_max) )
          bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL+&
          &                 n_r_max*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: work)
+         gpu_bytes_allocated = gpu_bytes_allocated+n_r_max*SIZEOF_DEF_REAL+&
+         &                     n_r_max*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+#endif
       end if
 
    end subroutine initialize_der_arrays
@@ -59,12 +68,17 @@ contains
       ! Deallocate work arrays
       !
 
-      if ( .not. l_finite_diff ) deallocate( work_1d_real, work )
+      if ( .not. l_finite_diff ) then
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: work)
+#endif
+         deallocate( work_1d_real, work )
+      end if
 
    end subroutine finalize_der_arrays
 !------------------------------------------------------------------------------
    subroutine get_dcheb_complex(f,df,n_f_max,n_f_start,n_f_stop, &
-              &                 n_r_max,n_cheb_max,d_fac)
+              &                 n_r_max,n_cheb_max,d_fac,use_gpu)
       !
       !  Returns Chebyshev coeffitients of first derivative df and second  
       !  derivative ddf for a function whose cheb-coeff. are given as     
@@ -79,6 +93,7 @@ contains
       integer,     intent(in) :: n_cheb_max ! Number of cheb modes
       complex(cp), intent(in) :: f(n_f_max,n_r_max)
       real(cp),    intent(in) :: d_fac      ! factor for interval mapping
+      logical, optional, intent(in) :: use_gpu
 
       !-- Output variables:
       complex(cp), intent(out) ::  df(n_f_max,n_r_max)
@@ -86,33 +101,81 @@ contains
       !-- Local variables:
       integer :: n_f,n_cheb
       real(cp) :: fac_cheb
-
-
-      !-- initialize derivatives:
-      do n_cheb=n_cheb_max,n_r_max
-         do n_f=n_f_start,n_f_stop
-            df(n_f,n_cheb)=zero
-         end do
-      end do
-
-      !-- First Coefficient
-      n_cheb  =n_cheb_max-1
-      if ( n_r_max == n_cheb_max ) then
-         fac_cheb=d_fac*real(n_cheb,kind=cp)
-      else
-         fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+      logical :: loc_use_gpu
+      loc_use_gpu = .false.
+#ifdef WITH_OMP_GPU
+      if( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
       end if
-      do n_f=n_f_start,n_f_stop
-         df(n_f,n_cheb)=fac_cheb*f(n_f,n_cheb+1)
-      end do
+#endif
 
-      !----- Recursion
-      do n_cheb=n_cheb_max-2,1,-1
-         fac_cheb=d_fac*real(2*n_cheb,kind=cp)
-         do n_f=n_f_start,n_f_stop
-            df(n_f,n_cheb)=df(n_f,n_cheb+2) + fac_cheb*f(n_f,n_cheb+1)
+      if ( loc_use_gpu ) then
+
+#ifdef WITH_OMP_GPU
+         !-- initialize derivatives:
+         !$omp target teams distribute parallel do collapse(2)
+         do n_cheb=n_cheb_max,n_r_max
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_cheb)=zero
+            end do
          end do
-      end do
+         !$omp end target teams distribute parallel do
+
+         !-- First Coefficient
+         n_cheb  =n_cheb_max-1
+         if ( n_r_max == n_cheb_max ) then
+            fac_cheb=d_fac*real(n_cheb,kind=cp)
+         else
+            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+         end if
+
+         !$omp target teams distribute parallel do
+         do n_f=n_f_start,n_f_stop
+            df(n_f,n_cheb)=fac_cheb*f(n_f,n_cheb+1)
+         end do
+         !$omp end target teams distribute parallel do
+
+         !----- Recursion
+         !$omp target teams distribute parallel do
+         do n_f=n_f_start,n_f_stop
+            !----- Recursion
+            do n_cheb=n_cheb_max-2,1,-1
+               fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+               df(n_f,n_cheb)=df(n_f,n_cheb+2) + fac_cheb*f(n_f,n_cheb+1)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+#endif
+
+      else
+
+         !-- initialize derivatives:
+         do n_cheb=n_cheb_max,n_r_max
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_cheb)=zero
+            end do
+         end do
+
+         !-- First Coefficient
+         n_cheb  =n_cheb_max-1
+         if ( n_r_max == n_cheb_max ) then
+            fac_cheb=d_fac*real(n_cheb,kind=cp)
+         else
+            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+         end if
+         do n_f=n_f_start,n_f_stop
+            df(n_f,n_cheb)=fac_cheb*f(n_f,n_cheb+1)
+         end do
+
+         !----- Recursion
+         do n_cheb=n_cheb_max-2,1,-1
+            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_cheb)=df(n_f,n_cheb+2) + fac_cheb*f(n_f,n_cheb+1)
+            end do
+         end do
+
+      end if
 
    end subroutine get_dcheb_complex
 !------------------------------------------------------------------------------
@@ -154,7 +217,7 @@ contains
    end subroutine get_dcheb_real_1d
 !------------------------------------------------------------------------------
    subroutine get_ddcheb(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
-              &          n_r_max,n_cheb_max,d_fac)
+              &          n_r_max,n_cheb_max,d_fac,use_gpu)
       !
       !  Returns Chebyshev coefficients of first derivative df and second  
       !  derivative ddf for a function whose cheb-coeff. are given as     
@@ -169,6 +232,7 @@ contains
       integer,     intent(in) :: n_cheb_max ! Number of cheb modes
       complex(cp), intent(in) :: f(n_f_max,n_r_max)
       real(cp),    intent(in) :: d_fac      ! factor for interval mapping
+      logical, optional, intent(in) :: use_gpu
     
       !-- Output variables:
       complex(cp), intent(out) ::  df(n_f_max,n_r_max)
@@ -177,40 +241,92 @@ contains
       !-- local variables:
       integer :: n_f,n_cheb
       real(cp) :: fac_cheb
-    
-      !----- initialize derivatives:
-      do n_cheb=n_cheb_max,n_r_max
+      logical :: loc_use_gpu
+      loc_use_gpu = .false.
+#ifdef WITH_OMP_GPU
+      if( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
+      end if
+#endif      
+      
+      if ( loc_use_gpu ) then
+
+#ifdef WITH_OMP_GPU
+         !----- initialize derivatives:
+         !$omp target teams
+         do n_cheb=n_cheb_max,n_r_max
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_cheb)=zero
+               ddf(n_f,n_cheb)=zero
+            end do
+         end do
+         !$omp end target teams
+
+         !-- First coefficients:
+         n_cheb=n_cheb_max-1
+         if ( n_cheb_max == n_r_max ) then
+            fac_cheb=d_fac*real(n_cheb,kind=cp)
+         else
+            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+         end if
+
+         !$omp target teams distribute parallel do
          do n_f=n_f_start,n_f_stop
-            df(n_f,n_cheb)=zero
+            df(n_f,n_cheb) =fac_cheb*f(n_f,n_cheb+1)
             ddf(n_f,n_cheb)=zero
          end do
-      end do
+         !$omp end target teams distribute parallel do         
 
-      !-- First coefficients:
-      n_cheb=n_cheb_max-1
-      if ( n_cheb_max == n_r_max ) then
-         fac_cheb=d_fac*real(n_cheb,kind=cp)
-      else
-         fac_cheb=d_fac*real(2*n_cheb,kind=cp)
-      end if
-      do n_f=n_f_start,n_f_stop
-         df(n_f,n_cheb) =fac_cheb*f(n_f,n_cheb+1)
-         ddf(n_f,n_cheb)=zero
-      end do
-    
-      !----- recursion
-      do n_cheb=n_cheb_max-2,1,-1
-         fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+         !----- recursion
+         !$omp target teams distribute parallel do
          do n_f=n_f_start,n_f_stop
-            df(n_f,n_cheb) = df(n_f,n_cheb+2) + fac_cheb* f(n_f,n_cheb+1)
-            ddf(n_f,n_cheb)=ddf(n_f,n_cheb+2) + fac_cheb*df(n_f,n_cheb+1)
+            do n_cheb=n_cheb_max-2,1,-1
+               fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+               df(n_f,n_cheb) = df(n_f,n_cheb+2) + fac_cheb* f(n_f,n_cheb+1)
+               ddf(n_f,n_cheb)=ddf(n_f,n_cheb+2) + fac_cheb*df(n_f,n_cheb+1)
+            end do
          end do
-      end do
+         !$omp end target teams distribute parallel do
+#endif
 
-   end subroutine get_ddcheb
+      else
+
+         !----- initialize derivatives:
+         do n_cheb=n_cheb_max,n_r_max
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_cheb)=zero
+               ddf(n_f,n_cheb)=zero
+            end do
+         end do
+
+         !-- First coefficients:
+         n_cheb=n_cheb_max-1
+         if ( n_cheb_max == n_r_max ) then
+            fac_cheb=d_fac*real(n_cheb,kind=cp)
+         else
+            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+         end if
+
+         do n_f=n_f_start,n_f_stop
+            df(n_f,n_cheb) =fac_cheb*f(n_f,n_cheb+1)
+            ddf(n_f,n_cheb)=zero
+         end do
+
+         !----- recursion
+         do n_cheb=n_cheb_max-2,1,-1
+            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_cheb) = df(n_f,n_cheb+2) + fac_cheb* f(n_f,n_cheb+1)
+               ddf(n_f,n_cheb)=ddf(n_f,n_cheb+2) + fac_cheb*df(n_f,n_cheb+1)
+            end do
+         end do
+
+      end if
+
+      end subroutine get_ddcheb
 !------------------------------------------------------------------------------
    subroutine get_dddcheb(f,df,ddf,dddf,n_f_max,n_f_start,n_f_stop, &
-              &           n_r_max,n_cheb_max,d_fac)
+              &           n_r_max,n_cheb_max,d_fac,use_gpu)
       !
       !  Returns chebychev coeffitiens of first derivative df and second  
       !  derivative ddf for a function whose cheb-coeff. are given as     
@@ -225,6 +341,7 @@ contains
       integer,     intent(in) :: n_cheb_max ! Number of cheb modes
       complex(cp), intent(in) :: f(n_f_max,n_r_max)
       real(cp),    intent(in) :: d_fac      ! factor for interval mapping
+      logical, optional, intent(in) :: use_gpu
 
       !-- Output variables:
       complex(cp), intent(out) :: df(n_f_max,n_r_max)
@@ -234,38 +351,91 @@ contains
       !-- Local variables:
       integer :: n_f,n_cheb
       real(cp) :: fac_cheb
+      logical :: loc_use_gpu
+      loc_use_gpu = .false.
+#ifdef WITH_OMP_GPU
+      if( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
+      end if
+#endif
 
-      !----- initialize derivatives:
-      do n_cheb=n_cheb_max,n_r_max
+      if ( loc_use_gpu ) then
+
+#ifdef WITH_OMP_GPU
+         !----- initialize derivatives:
+         !$omp target teams distribute parallel do collapse(2)
+         do n_cheb=n_cheb_max,n_r_max
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_cheb)  =zero
+               ddf(n_f,n_cheb) =zero
+               dddf(n_f,n_cheb)=zero
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+
+         !-- First coefficients
+         n_cheb=n_cheb_max-1
+         if ( n_cheb_max == n_r_max ) then
+            fac_cheb=d_fac*real(n_cheb,kind=cp)
+         else
+            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+         end if
+         !$omp target teams distribute parallel do
          do n_f=n_f_start,n_f_stop
-            df(n_f,n_cheb)  =zero
+            df(n_f,n_cheb)  =fac_cheb*f(n_f,n_cheb+1)
             ddf(n_f,n_cheb) =zero
             dddf(n_f,n_cheb)=zero
          end do
-      end do
+         !$omp end target teams distribute parallel do
 
-      !-- First coefficients
-      n_cheb=n_cheb_max-1
-      if ( n_cheb_max == n_r_max ) then
-         fac_cheb=d_fac*real(n_cheb,kind=cp)
-      else
-         fac_cheb=d_fac*real(2*n_cheb,kind=cp)
-      end if
-      do n_f=n_f_start,n_f_stop
-         df(n_f,n_cheb)  =fac_cheb*f(n_f,n_cheb+1)
-         ddf(n_f,n_cheb) =zero
-         dddf(n_f,n_cheb)=zero
-      end do
-
-      !----- Recursion
-      do n_cheb=n_cheb_max-2,1,-1
-         fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+         !----- Recursion
+         !$omp target teams distribute parallel do
          do n_f=n_f_start,n_f_stop
-            df(n_f,n_cheb)  =  df(n_f,n_cheb+2) + fac_cheb*  f(n_f,n_cheb+1)
-            ddf(n_f,n_cheb) = ddf(n_f,n_cheb+2) + fac_cheb* df(n_f,n_cheb+1)
-            dddf(n_f,n_cheb)=dddf(n_f,n_cheb+2) + fac_cheb*ddf(n_f,n_cheb+1)
+            do n_cheb=n_cheb_max-2,1,-1
+               fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+               df(n_f,n_cheb)  =  df(n_f,n_cheb+2) + fac_cheb*  f(n_f,n_cheb+1)
+               ddf(n_f,n_cheb) = ddf(n_f,n_cheb+2) + fac_cheb* df(n_f,n_cheb+1)
+               dddf(n_f,n_cheb)=dddf(n_f,n_cheb+2) + fac_cheb*ddf(n_f,n_cheb+1)
+            end do
          end do
-      end do
+         !$omp end target teams distribute parallel do
+#endif
+
+      else
+
+         !----- initialize derivatives:
+         do n_cheb=n_cheb_max,n_r_max
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_cheb)  =zero
+               ddf(n_f,n_cheb) =zero
+               dddf(n_f,n_cheb)=zero
+            end do
+         end do
+
+         !-- First coefficients
+         n_cheb=n_cheb_max-1
+         if ( n_cheb_max == n_r_max ) then
+            fac_cheb=d_fac*real(n_cheb,kind=cp)
+         else
+            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+         end if
+         do n_f=n_f_start,n_f_stop
+            df(n_f,n_cheb)  =fac_cheb*f(n_f,n_cheb+1)
+            ddf(n_f,n_cheb) =zero
+            dddf(n_f,n_cheb)=zero
+         end do
+
+         !----- Recursion
+         do n_cheb=n_cheb_max-2,1,-1
+            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_cheb)  =  df(n_f,n_cheb+2) + fac_cheb*  f(n_f,n_cheb+1)
+               ddf(n_f,n_cheb) = ddf(n_f,n_cheb+2) + fac_cheb* df(n_f,n_cheb+1)
+               dddf(n_f,n_cheb)=dddf(n_f,n_cheb+2) + fac_cheb*ddf(n_f,n_cheb+1)
+            end do
+         end do
+
+      end if
 
    end subroutine get_dddcheb
 !---------------------------------------------------------------------------
@@ -330,7 +500,7 @@ contains
    end subroutine get_dr_real_1d
 !------------------------------------------------------------------------------
    subroutine get_dr_complex(f,df,n_f_max,n_f_start,n_f_stop, &
-              &              n_r_max,r_scheme,nocopy,l_dct_in)
+              &              n_r_max,r_scheme,nocopy,l_dct_in,use_gpu)
       !
       !  Returns first radial derivative df of the input function f.      
       !  Array f(n_f_max,*) may contain several functions numbered by     
@@ -348,14 +518,21 @@ contains
       class(type_rscheme), intent(in) :: r_scheme
       logical, optional,   intent(in) :: nocopy
       logical, optional,   intent(in) :: l_dct_in
+      logical, optional,   intent(in) :: use_gpu
     
       !-- Output variables:
       complex(cp), intent(out) :: df(n_f_max,n_r_max)   ! first derivative of f
     
       !-- Local:
       integer :: n_r,n_f,od
-      logical :: copy_array, l_dct_in_loc
-    
+      logical :: copy_array, l_dct_in_loc, loc_use_gpu
+      loc_use_gpu = .false.
+#ifdef WITH_OMP_GPU
+      if( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
+      end if
+#endif
+
       if ( r_scheme%version == 'cheb' ) then
 
          if ( present(l_dct_in) ) then
@@ -371,78 +548,143 @@ contains
          end if
     
          if ( copy_array )  then
-            do n_r=1,n_r_max
-               do n_f=n_f_start,n_f_stop
-                  work(n_f,n_r)=f(n_f,n_r)
+            if(loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+               !$omp target teams distribute parallel do collapse(2)
+               do n_r=1,n_r_max
+                  do n_f=n_f_start,n_f_stop
+                     work(n_f,n_r)=f(n_f,n_r)
+                  end do
                end do
-            end do
+               !$omp end target teams distribute parallel do
+#endif
+            else
+               do n_r=1,n_r_max
+                  do n_f=n_f_start,n_f_stop
+                     work(n_f,n_r)=f(n_f,n_r)
+                  end do
+               end do
+            end if
        
             !-- Transform f to cheb space:
             if ( l_dct_in_loc ) then
-               call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop)
+               call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
             end if
           
             !-- Get derivatives:
             call get_dcheb(work,df,n_f_max,n_f_start,n_f_stop,n_r_max, &
-                 &         r_scheme%n_max,one)
+                 &         r_scheme%n_max,one,loc_use_gpu)
           
             !-- Transform back:
-            call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop)
+            call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
 
          else
 
             !-- Transform f to cheb space:
             if ( l_dct_in_loc ) then
-               call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop)
+               call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
             end if
           
             !-- Get derivatives:
             call get_dcheb(f,df,n_f_max,n_f_start,n_f_stop,n_r_max, &
-                 &         r_scheme%n_max,one)
+                 &         r_scheme%n_max,one,loc_use_gpu)
           
             !-- Transform back:
             if ( l_dct_in_loc ) then
-               call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop)
+               call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
             end if
-            call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop)
+            call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
 
          end if
        
          !-- New map:
-         do n_r=1,n_r_max
-            do n_f=n_f_start,n_f_stop
-               df(n_f,n_r)=r_scheme%drx(n_r)*df(n_f,n_r)
+         if(loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+            !$omp target teams distribute parallel do collapse(2)
+            do n_r=1,n_r_max
+               do n_f=n_f_start,n_f_stop
+                  df(n_f,n_r)=r_scheme%drx(n_r)*df(n_f,n_r)
+               end do
             end do
-         end do
+            !$omp end target teams distribute parallel do
+#endif
+         else
+            do n_r=1,n_r_max
+               do n_f=n_f_start,n_f_stop
+                  df(n_f,n_r)=r_scheme%drx(n_r)*df(n_f,n_r)
+               end do
+            end do
+         end if
 
       else
 
-         !-- Initialise to zero:
-         do n_r=1,n_r_max
-            do n_f=n_f_start,n_f_stop
-               df(n_f,n_r) =zero
-            end do
-         end do
+         if(loc_use_gpu) then
 
-         !-- Bulk points for 1st derivative
-         do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
-            do n_f=n_f_start,n_f_stop
-               do od=0,r_scheme%order
-                  df(n_f,n_r)=df(n_f,n_r)+r_scheme%dr(n_r,od)*f(n_f,n_r-r_scheme%order/2+od)
+#ifdef WITH_OMP_GPU
+            !-- Initialise to zero:
+            !$omp target teams distribute parallel do collapse(2)
+            do n_r=1,n_r_max
+               do n_f=n_f_start,n_f_stop
+                  df(n_f,n_r) =zero
                end do
             end do
-         end do
+            !$omp end target teams distribute parallel do
 
-         !-- Boundary points for 1st derivative
-         do n_r=1,r_scheme%order/2
-            do n_f=n_f_start,n_f_stop
-               do od=0,r_scheme%order_boundary
-                  df(n_f,n_r) = df(n_f,n_r)+r_scheme%dr_top(n_r,od) * f(n_f,od+1)
-                  df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
-                  &                       r_scheme%dr_bot(n_r,od)*f(n_f,n_r_max-od)
+            !-- Bulk points for 1st derivative
+            !$omp target teams distribute parallel do collapse(2)
+            do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
+               do n_f=n_f_start,n_f_stop
+                  do od=0,r_scheme%order
+                     df(n_f,n_r)=df(n_f,n_r)+r_scheme%dr(n_r,od)*f(n_f,n_r-r_scheme%order/2+od)
+                  end do
                end do
             end do
-         end do
+            !$omp end target teams distribute parallel do
+
+            !-- Boundary points for 1st derivative
+            !$omp target teams distribute parallel do
+            do n_r=1,r_scheme%order/2
+               do n_f=n_f_start,n_f_stop
+                  do od=0,r_scheme%order_boundary
+                     df(n_f,n_r) = df(n_f,n_r)+r_scheme%dr_top(n_r,od) * f(n_f,od+1)
+                     df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
+                     &                       r_scheme%dr_bot(n_r,od)*f(n_f,n_r_max-od)
+                  end do
+               end do
+            end do
+            !$omp end target teams distribute parallel do
+#endif
+
+        else
+
+            !-- Initialise to zero:
+            do n_r=1,n_r_max
+               do n_f=n_f_start,n_f_stop
+                  df(n_f,n_r) =zero
+               end do
+            end do
+
+            !-- Bulk points for 1st derivative
+            do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
+               do n_f=n_f_start,n_f_stop
+                  do od=0,r_scheme%order
+                     df(n_f,n_r)=df(n_f,n_r)+r_scheme%dr(n_r,od)*f(n_f,n_r-r_scheme%order/2+od)
+                  end do
+               end do
+            end do
+
+            !-- Boundary points for 1st derivative
+            do n_r=1,r_scheme%order/2
+               do n_f=n_f_start,n_f_stop
+                  do od=0,r_scheme%order_boundary
+                     df(n_f,n_r) = df(n_f,n_r)+r_scheme%dr_top(n_r,od) * f(n_f,od+1)
+                     df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
+                     &                       r_scheme%dr_bot(n_r,od)*f(n_f,n_r_max-od)
+                  end do
+               end do
+            end do
+
+        end if
 
       end if
 
@@ -467,7 +709,7 @@ contains
       integer,             intent(in) :: n_f_stop      ! last function to be treated
       class(type_rscheme), intent(in) :: r_scheme
       logical, optional,   intent(in) :: l_dct_in
-    
+
       !-- Output variables:
       complex(cp), intent(out) :: df(n_f_max,n_r_max)   ! first derivative of f
       complex(cp), intent(out) :: ddf(n_f_max,n_r_max)  ! second derivative of f
@@ -485,26 +727,35 @@ contains
          end if
     
          !-- Copy input functions:
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
+#endif
          do n_r=1,n_r_max
             do n_f=n_f_start,n_f_stop
                work(n_f,n_r)=f(n_f,n_r)
             end do
          end do
-    
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
+
          !-- Transform f to cheb space:
          if ( l_dct_in_loc ) then
-            call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop)
+            call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop,.true.)
          end if
     
          !-- Get derivatives:
          call get_ddcheb(work,df,ddf,n_f_max,n_f_start,n_f_stop, &
-              &          n_r_max,r_scheme%n_max,one)
+              &          n_r_max,r_scheme%n_max,one,.true.)
     
          !-- Transform back:
-         call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop)
-         call r_scheme%costf1(ddf,n_f_max,n_f_start,n_f_stop)
+         call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,.true.)
+         call r_scheme%costf1(ddf,n_f_max,n_f_start,n_f_stop,.true.)
     
          !-- New map:
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
+#endif
          do n_r=1,n_r_max
             do n_f=n_f_start,n_f_stop
                ddf(n_f,n_r)=r_scheme%ddrx(n_r)*df(n_f,n_r)+r_scheme%drx(n_r)* &
@@ -512,18 +763,30 @@ contains
                df(n_f,n_r) = r_scheme%drx(n_r)*df(n_f,n_r)
             end do
          end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
 
       else
 
          !-- Initialise to zero:
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
+#endif
          do n_r=1,n_r_max
             do n_f=n_f_start,n_f_stop
                df(n_f,n_r) =zero
                ddf(n_f,n_r)=zero
             end do
          end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
 
          !-- Bulk points for 1st and 2nd derivatives
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
+#endif
          do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
             do n_f=n_f_start,n_f_stop
                do od=0,r_scheme%order
@@ -532,8 +795,24 @@ contains
                end do
             end do
          end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
 
          !-- Boundary points for 1st derivative
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+         do n_f=n_f_start,n_f_stop
+            do n_r=1,r_scheme%order/2
+               do od=0,r_scheme%order_boundary
+                  df(n_f,n_r) = df(n_f,n_r)+r_scheme%dr_top(n_r,od) * f(n_f,od+1)
+                  df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
+                  &                       r_scheme%dr_bot(n_r,od)*f(n_f,n_r_max-od)
+               end do
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+#else
          do n_r=1,r_scheme%order/2
             do n_f=n_f_start,n_f_stop
                do od=0,r_scheme%order_boundary
@@ -543,8 +822,22 @@ contains
                end do
             end do
          end do
+#endif
 
          !-- Boundary points for 2nd derivative
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+         do n_f=n_f_start,n_f_stop
+            do n_r=1,r_scheme%order/2
+               do od=0,r_scheme%order_boundary+1
+                  ddf(n_f,n_r) = ddf(n_f,n_r)+r_scheme%ddr_top(n_r,od) * f(n_f,od+1)
+                  ddf(n_f,n_r_max-n_r+1) = ddf(n_f,n_r_max-n_r+1)+               &
+                  &                       r_scheme%ddr_bot(n_r,od)*f(n_f,n_r_max-od)
+               end do
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+#else
          do n_r=1,r_scheme%order/2
             do n_f=n_f_start,n_f_stop
                do od=0,r_scheme%order_boundary+1
@@ -554,6 +847,7 @@ contains
                end do
             end do
          end do
+#endif
 
       end if
 
@@ -597,27 +891,36 @@ contains
          end if
 
          !-- Copy input functions:
+#ifdef WITH_OMP_GPU_OFF
+         !$omp target teams distribute parallel do collapse(2)
+#endif
          do n_r=1,n_r_max
             do n_f=n_f_start,n_f_stop
                work(n_f,n_r)=f(n_f,n_r)
             end do
          end do
+#ifdef WITH_OMP_GPU_OFF
+         !$omp end target teams distribute parallel do
+#endif
 
          !-- Transform f to cheb space:
          if ( l_dct_in_loc ) then
-            call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop)
+            call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop,.false.) !-- TODO: Set to true
          end if
 
          !-- Get derivatives:
          call get_dddcheb(work,df,ddf,dddf,n_f_max,n_f_start,n_f_stop,  &
-              &           n_r_max,r_scheme%n_max,one)
+              &           n_r_max,r_scheme%n_max,one,.false.) !-- TODO: Set to true
 
          !-- Transform back:
-         call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop)
-         call r_scheme%costf1(ddf,n_f_max,n_f_start,n_f_stop)
-         call r_scheme%costf1(dddf,n_f_max,n_f_start,n_f_stop)
+         call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,.false.) !-- TODO: Set to true
+         call r_scheme%costf1(ddf,n_f_max,n_f_start,n_f_stop,.false.) !-- TODO: Set to true
+         call r_scheme%costf1(dddf,n_f_max,n_f_start,n_f_stop,.false.) !-- TODO: Set to true
 
          !-- New map:
+#ifdef WITH_OMP_GPU_OFF
+         !$omp target teams distribute parallel do collapse(2)
+#endif
          do n_r=1,n_r_max
             do n_f=n_f_start,n_f_stop
                dddf(n_f,n_r)=        r_scheme%dddrx(n_r)*df(n_f,n_r) +   &
@@ -630,10 +933,16 @@ contains
                df(n_f,n_r)  = r_scheme%drx(n_r)*df(n_f,n_r)
             end do
          end do
+#ifdef WITH_OMP_GPU_OFF
+         !$omp end target teams distribute parallel do
+#endif
 
       else
 
          !-- Initialise to zero:
+#ifdef WITH_OMP_GPU_OFF
+         !$omp target teams distribute parallel do collapse(2)
+#endif
          do n_r=1,n_r_max
             do n_f=n_f_start,n_f_stop
                df(n_f,n_r)  =zero
@@ -641,8 +950,14 @@ contains
                dddf(n_f,n_r)=zero
             end do
          end do
+#ifdef WITH_OMP_GPU_OFF
+         !$omp end target teams distribute parallel do
+#endif
 
          !-- Bulk points for 1st and 2nd derivatives
+#ifdef WITH_OMP_GPU_OFF
+         !$omp target teams distribute parallel do collapse(2)
+#endif
          do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
             do n_f=n_f_start,n_f_stop
                do od=0,r_scheme%order
@@ -651,8 +966,14 @@ contains
                end do
             end do
          end do
+#ifdef WITH_OMP_GPU_OFF
+         !$omp end target teams distribute parallel do
+#endif
 
          !-- Bulk points for 3rd derivative
+#ifdef WITH_OMP_GPU_OFF
+         !$omp target teams distribute parallel do collapse(2)
+#endif
          do n_r=2+r_scheme%order/2,n_r_max-r_scheme%order/2-1
             do n_f=n_f_start,n_f_stop
                do od=0,r_scheme%order+2
@@ -660,8 +981,14 @@ contains
                end do
             end do
          end do
+#ifdef WITH_OMP_GPU_OFF
+         !$omp end target teams distribute parallel do
+#endif
 
          !-- Boundary points for 1st derivative
+#ifdef WITH_OMP_GPU_OFF
+         !$omp target teams distribute parallel do
+#endif
          do n_r=1,r_scheme%order/2
             do n_f=n_f_start,n_f_stop
                do od=0,r_scheme%order_boundary
@@ -671,8 +998,14 @@ contains
                end do
             end do
          end do
+#ifdef WITH_OMP_GPU_OFF
+         !$omp end target teams distribute parallel do
+#endif
 
          !-- Boundary points for 2nd derivative
+#ifdef WITH_OMP_GPU_OFF
+         !$omp target teams distribute parallel do
+#endif
          do n_r=1,r_scheme%order/2
             do n_f=n_f_start,n_f_stop
                do od=0,r_scheme%order_boundary+1
@@ -682,8 +1015,14 @@ contains
                end do
             end do
          end do
+#ifdef WITH_OMP_GPU_OFF
+         !$omp end target teams distribute parallel do
+#endif
 
          !-- Boundary points for 3rd derivative
+#ifdef WITH_OMP_GPU_OFF
+         !$omp target teams distribute parallel do
+#endif
          do n_r=1,r_scheme%order/2+1
             do n_f=n_f_start,n_f_stop
                do od=0,r_scheme%order_boundary+2
@@ -693,6 +1032,9 @@ contains
                end do
             end do
          end do
+#ifdef WITH_OMP_GPU_OFF
+         !$omp end target teams distribute parallel do
+#endif
 
       end if
 
@@ -724,9 +1066,13 @@ contains
          call abortRun('Distributed r-der not implemented in this case yet!')
       end if
 
+#ifdef WITH_OMP_GPU_OFF
+      start_lm=1; stop_lm=lm_max
+#else
       !$omp parallel default(shared) private(start_lm,stop_lm,lm)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
+#endif
 
       !-- Copy input array
       work_ghost(start_lm:stop_lm,nRstart:nRstop)=f_Rloc(start_lm:stop_lm,:)
@@ -745,13 +1091,20 @@ contains
       end do
 
       !-- Exchange the ghost zones
+#ifndef WITH_OMP_GPU_OFF
       !$omp barrier
       !$omp master
+#endif
       call exch_ghosts(work_ghost, lm_max, nRstart, nRstop, r_scheme%order/2)
+#ifndef WITH_OMP_GPU_OFF
       !$omp end master
       !$omp barrier
+#endif
 
       !-- Bulk points for 1st derivative
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target teams distribute parallel do collapse(2)
+#endif
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
             df_Rloc(lm,n_r)=r_scheme%dr(n_r,0)*work_ghost(lm,n_r-1)+ &
@@ -759,26 +1112,42 @@ contains
             &               r_scheme%dr(n_r,2)*work_ghost(lm,n_r+1)
          end do
       end do
+#ifdef WITH_OMP_GPU_OFF
+      !$omp end target teams distribute parallel do
+#endif
 
       !-- Exchange boundary values
+#ifndef WITH_OMP_GPU_OFF
       !$omp barrier
       !$omp master
+#endif
       call get_bound_vals(fbot, ftop, lm_max, nRstart, nRstop, n_r_max, &
            &              r_scheme%order_boundary+1)
+#ifndef WITH_OMP_GPU_OFF
       !$omp end master
       !$omp barrier
+#endif
 
       !-- Boundary points for 1st derivative
       if ( rank == 0 ) then
+#ifdef WITH_OMP_GPU_OFF
+         !$omp target teams distribute parallel do
+#endif
          do lm=start_lm,stop_lm
             df_Rloc(lm,1)=zero
             do od=0,r_scheme%order_boundary
                df_Rloc(lm,1)=df_Rloc(lm,1) + r_scheme%dr_top(1,od)*ftop(lm,od+1)
             end do
          end do
+#ifdef WITH_OMP_GPU_OFF
+         !$omp end target teams distribute parallel do
+#endif
       end if
 
       if ( rank == n_procs -1 ) then
+#ifdef WITH_OMP_GPU_OFF
+         !$omp target teams distribute parallel do
+#endif
          do lm=start_lm,stop_lm
             df_Rloc(lm,n_r_max)=zero
             do od=0,r_scheme%order_boundary
@@ -786,9 +1155,14 @@ contains
                &                   fbot(lm,n_r_max-od)
             end do
          end do
+#ifdef WITH_OMP_GPU_OFF
+         !$omp end target teams distribute parallel do
+#endif
       end if
 
+#ifndef WITH_OMP_GPU_OFF
       !$omp end parallel
+#endif
 
    end subroutine get_dr_Rloc
 !------------------------------------------------------------------------------
@@ -820,9 +1194,13 @@ contains
          call abortRun('Distributed r-der not implemented in this case yet!')
       end if
 
+#ifdef WITH_OMP_GPU_OFF
+      start_lm=1; stop_lm=lm_max
+#else
       !$omp parallel default(shared) private(start_lm,stop_lm,n_r,od)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
+#endif
 
       !-- Copy input array
       work_ghost(start_lm:stop_lm,nRstart:nRstop)=f_Rloc(start_lm:stop_lm,:)
@@ -839,13 +1217,20 @@ contains
       end do
 
       !-- Exchange the ghost zones
+#ifndef WITH_OMP_GPU_OFF
       !$omp barrier
       !$omp master
+#endif
       call exch_ghosts(work_ghost, lm_max, nRstart, nRstop, r_scheme%order/2)
+#ifndef WITH_OMP_GPU_OFF
       !$omp end master
       !$omp barrier
+#endif
 
       !-- Bulk points for 1st and 2nd derivatives
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target teams distribute parallel do collapse(2)
+#endif
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
             df_Rloc(lm,n_r)=r_scheme%dr(n_r,0)*work_ghost(lm,n_r-1)+ &
@@ -856,17 +1241,27 @@ contains
             &                r_scheme%ddr(n_r,2)*work_ghost(lm,n_r+1)
          end do
       end do
+#ifdef WITH_OMP_GPU_OFF
+      !$omp end target teams distribute parallel do
+#endif
 
       !-- Exchange boundary values
+#ifndef WITH_OMP_GPU_OFF
       !$omp barrier
       !$omp master
+#endif
       call get_bound_vals(fbot, ftop, lm_max, nRstart, nRstop, n_r_max, &
            &              r_scheme%order_boundary+2)
+#ifndef WITH_OMP_GPU_OFF
       !$omp end master
       !$omp barrier
+#endif
 
       !-- Boundary points
       if ( rank == 0 ) then
+#ifdef WITH_OMP_GPU_OFF
+         !$omp target teams distribute parallel do
+#endif
          do lm=start_lm,stop_lm
             df_Rloc(lm,1) =zero
             ddf_Rloc(lm,1)=zero
@@ -877,9 +1272,15 @@ contains
                ddf_Rloc(lm,1) = ddf_Rloc(lm,1) + r_scheme%ddr_top(1,od)*ftop(lm,od+1)
             end do
          end do
+#ifdef WITH_OMP_GPU_OFF
+         !$omp end target teams distribute parallel do
+#endif
       end if
 
       if ( rank == n_procs-1 ) then
+#ifdef WITH_OMP_GPU_OFF
+         !$omp target teams distribute parallel do
+#endif
          do lm=start_lm,stop_lm
             df_Rloc(lm,n_r_max) =zero
             ddf_Rloc(lm,n_r_max)=zero
@@ -892,9 +1293,14 @@ contains
                &             r_scheme%ddr_bot(1,od)*fbot(lm,n_r_max-od)
             end do
          end do
+#ifdef WITH_OMP_GPU_OFF
+         !$omp end target teams distribute parallel do
+#endif
       end if
 
+#ifndef WITH_OMP_GPU_OFF
       !$omp end parallel
+#endif
 
    end subroutine get_ddr_Rloc
 !------------------------------------------------------------------------------
@@ -924,6 +1330,9 @@ contains
       end if
 
       !-- Bulk points for 1st and 2nd derivatives
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)
+#endif
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
             df_Rloc(lm,n_r)=r_scheme%dr(n_r,0)*f_Rloc(lm,n_r-1) + &
@@ -934,6 +1343,9 @@ contains
             &                r_scheme%ddr(n_r,2)*f_Rloc(lm,n_r+1)
          end do
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#endif
 
    end subroutine get_ddr_ghost
 !------------------------------------------------------------------------------
@@ -965,6 +1377,9 @@ contains
       end if
 
       !-- 1st and 2nd derivatives
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target teams distribute parallel do collapse(2)
+#endif
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
             df_Rloc(lm,n_r)=r_scheme%dr(n_r,0)*f_Rloc(lm,n_r-1) + &
@@ -985,6 +1400,9 @@ contains
             &                  r_scheme%ddddr(n_r,4)*f_Rloc(lm,n_r+2)
          end do
       end do
+#ifdef WITH_OMP_GPU_OFF
+      !$omp end target teams distribute parallel do
+#endif
 
    end subroutine get_ddddr_ghost
 !------------------------------------------------------------------------------
@@ -1085,7 +1503,7 @@ contains
 
    end subroutine get_bound_vals
 !------------------------------------------------------------------------------
-   subroutine bulk_to_ghost(x, x_g, ng, nRstart, nRstop, lm_max, start_lm, stop_lm)
+   subroutine bulk_to_ghost(x, x_g, ng, nRstart, nRstop, lm_max, start_lm, stop_lm, use_gpu)
       !
       ! This subroutine is used to copy an array that is defined from nRstart to
       ! nRstop to an array that is defined from nRstart-1 to nRstop+1
@@ -1096,18 +1514,38 @@ contains
       integer,     intent(in) :: lm_max
       integer,     intent(in) :: ng ! Number of ghost zones
       complex(cp), intent(in) :: x(lm_max,nRstart:nRstop)
+      logical, optional, intent(in) :: use_gpu
 
       !-- Output variable
       complex(cp), intent(out) :: x_g(lm_max,nRstart-ng:nRstop+ng)
 
       !-- Local variables
       integer :: n_r, lm
+      logical loc_use_gpu
+      loc_use_gpu = .false.
+#ifdef WITH_OMP_GPU
+      if( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
+      end if
+#endif
 
-      do n_r=nRstart,nRstop
-         do lm=start_lm,stop_lm
-            x_g(lm,n_r)=x(lm,n_r)
+      if(loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
+         do n_r=nRstart,nRstop
+            do lm=start_lm,stop_lm
+               x_g(lm,n_r)=x(lm,n_r)
+            end do
          end do
-      end do
+         !$omp end target teams distribute parallel do
+#endif
+      else
+         do n_r=nRstart,nRstop
+            do lm=start_lm,stop_lm
+               x_g(lm,n_r)=x(lm,n_r)
+            end do
+         end do
+      end if
 
    end subroutine bulk_to_ghost
 !------------------------------------------------------------------------------

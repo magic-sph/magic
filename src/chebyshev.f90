@@ -1,13 +1,20 @@
 module chebyshev
 
    use precision_mod
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: bytes_allocated
+#endif
    use constants, only: half, one, two, three, four, pi
    use blocking, only: llm, ulm
    use radial_scheme, only: type_rscheme
    use useful, only: factorise
    use chebyshev_polynoms_mod, only: cheb_grid
    use cosine_transform_odd, only: costf_odd_t
+#ifdef WITH_OMP_GPU
+   use cosine_transform_gpu, only: gpu_costf_odd_t
+#endif
    use num_param, only: map_function
 
    implicit none
@@ -19,6 +26,9 @@ module chebyshev
       real(cp) :: alpha2 !Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
       logical :: l_map
       type(costf_odd_t) :: chebt_oc
+#ifdef WITH_OMP_GPU
+      type(gpu_costf_odd_t) :: gpu_chebt_oc
+#endif
       real(cp), allocatable :: r_cheb(:)
       complex(cp), pointer :: work_costf(:,:)
    contains
@@ -70,12 +80,21 @@ contains
       allocate( this%d3rMat(n_r_max,n_r_max) )
       allocate( this%r_cheb(n_r_max) )
       bytes_allocated=bytes_allocated+(4*n_r_max*n_r_max+n_r_max)*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+      gpu_bytes_allocated=gpu_bytes_allocated+(4*n_r_max*n_r_max+n_r_max)*SIZEOF_DEF_REAL
+#endif
 
       allocate( this%work_costf(1:ulm-llm+1,n_r_max) )
       bytes_allocated=bytes_allocated+n_r_max*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+      gpu_bytes_allocated=gpu_bytes_allocated+n_r_max*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+#endif
 
       allocate( this%dr_top(n_r_max,1), this%dr_bot(n_r_max,1) )
       bytes_allocated=bytes_allocated+2*n_r_max*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+      gpu_bytes_allocated=gpu_bytes_allocated+2*n_r_max*SIZEOF_DEF_REAL
+#endif
       this%dr_top(:,:)=0.0_cp
       this%dr_bot(:,:)=0.0_cp
 
@@ -83,9 +102,15 @@ contains
       nd = 2*n_r_max+5
 
       call this%chebt_oc%initialize(n_r_max, ni, nd)
+#ifdef WITH_OMP_GPU
+      call this%gpu_chebt_oc%initialize(this%nRmax, 1, 1)
+#endif
 
       allocate ( this%drx(n_r_max), this%ddrx(n_r_max), this%dddrx(n_r_max) )
       bytes_allocated=bytes_allocated+3*n_r_max*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+      gpu_bytes_allocated=gpu_bytes_allocated+3*n_r_max*SIZEOF_DEF_REAL
+#endif
 
    end subroutine initialize
 !------------------------------------------------------------------------------
@@ -173,6 +198,9 @@ contains
       deallocate( this%work_costf, this%dr_top, this%dr_bot )
 
       call this%chebt_oc%finalize()
+#ifdef WITH_OMP_GPU
+      call this%gpu_chebt_oc%finalize()
+#endif
 
    end subroutine finalize
 !------------------------------------------------------------------------------
@@ -332,7 +360,8 @@ contains
 
    end subroutine get_der_mat
 !------------------------------------------------------------------------------
-   subroutine costf1_complex(this,f,n_f_max,n_f_start,n_f_stop,work_array)
+   subroutine costf1_complex(this,f,n_f_max,n_f_start,n_f_stop,gpu_dct,work_array)
+
       !
       !  Purpose of this subroutine is to perform a multiple
       !  cosine transforms for n+1 datapoints
@@ -346,6 +375,7 @@ contains
       !-- Input variables:
       integer,  intent(in) :: n_f_max            ! number of columns in f,f2
       integer,  intent(in) :: n_f_start,n_f_stop ! columns to be transformed
+      logical, optional, intent(in) :: gpu_dct   ! compute DCT-I on GPU with hipfort_hipfft
 
       !-- Output variables:
       complex(cp), intent(inout) :: f(n_f_max,this%nRmax) ! data/coeff input
@@ -353,6 +383,7 @@ contains
 
       !-- Local variables:
       complex(cp), pointer :: work(:,:)
+      logical :: loc_gpu_dct
 
       if ( present(work_array) ) then
          work(1:,1:) => work_array(1:n_f_max,1:this%nRmax)
@@ -360,35 +391,85 @@ contains
          work(1:,1:) => this%work_costf(1:n_f_max,1:)
       end if
 
-      call this%chebt_oc%costf1(f,n_f_max,n_f_start,n_f_stop,work(:,1:this%nRmax))
+      if( present(gpu_dct) ) then
+         loc_gpu_dct = gpu_dct
+      else
+         loc_gpu_dct = .false.
+      end if
+
+      if(loc_gpu_dct) then
+#ifdef WITH_OMP_GPU
+         call this%gpu_chebt_oc%costf1(f,n_f_max,n_f_start,n_f_stop,work(:,1:this%nRmax))
+#else
+         call this%chebt_oc%costf1(f,n_f_max,n_f_start,n_f_stop,work(:,1:this%nRmax))
+#endif
+      else
+         call this%chebt_oc%costf1(f,n_f_max,n_f_start,n_f_stop,work(:,1:this%nRmax))
+      end if
 
    end subroutine costf1_complex
 !------------------------------------------------------------------------------
-   subroutine costf1_complex_1d(this,f)
+   subroutine costf1_complex_1d(this,f, gpu_dct)
 
       class(type_cheb_odd) :: this
+
+      !-- Input variable
+      logical, optional, intent(in) :: gpu_dct   ! compute DCT-I on GPU with hipfort_hipfft
 
       !-- Output variables:
       complex(cp), intent(inout) :: f(this%nRmax)   ! data/coeff input
 
       !-- Local variables:
       complex(cp) :: work1d(this%nRmax)
+      logical :: loc_gpu_dct
 
-      call this%chebt_oc%costf1(f, work1d)
+      if( present(gpu_dct) ) then
+         loc_gpu_dct = gpu_dct
+      else
+         loc_gpu_dct = .false.
+      end if
+
+      if( loc_gpu_dct) then
+#ifdef WITH_OMP_GPU
+         call this%gpu_chebt_oc%costf1(f, work1d)
+#else
+         call this%chebt_oc%costf1(f, work1d)
+#endif
+      else
+         call this%chebt_oc%costf1(f, work1d)
+     end if
 
    end subroutine costf1_complex_1d
 !------------------------------------------------------------------------------
-   subroutine costf1_real_1d(this,f)
+   subroutine costf1_real_1d(this,f, gpu_dct)
 
       class(type_cheb_odd) :: this
+
+      !-- Input variable
+      logical, optional, intent(in) :: gpu_dct   ! compute DCT-I on GPU with hipfort_hipfft
 
       !-- Output variables:
       real(cp), intent(inout) :: f(this%nRmax)   ! data/coeff input
 
       !-- Local variables:
       real(cp) :: work1d_real(this%nrMax)
+      logical :: loc_gpu_dct
 
-      call this%chebt_oc%costf1(f,work1d_real)
+      if( present(gpu_dct) ) then
+         loc_gpu_dct = gpu_dct
+      else
+         loc_gpu_dct = .false.
+      end if
+
+      if( loc_gpu_dct) then
+#ifdef WITH_OMP_GPU
+         call this%gpu_chebt_oc%costf1(f, work1d_real)
+#else
+         call this%chebt_oc%costf1(f, work1d_real)
+#endif
+      else
+         call this%chebt_oc%costf1(f, work1d_real)
+      end if
 
    end subroutine costf1_real_1d
 !------------------------------------------------------------------------------

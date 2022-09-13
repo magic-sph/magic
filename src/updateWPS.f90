@@ -9,7 +9,11 @@ module updateWPS_mod
 
    use omp_lib
    use precision_mod
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: bytes_allocated
+#endif
    use truncation, only: lm_max, n_r_max, l_max, m_min
    use radial_data, only: n_r_cmb,n_r_icb, nRstart, nRstop
    use radial_functions, only: or1, or2, rho0, rgrav, r, visc, dLvisc,    &
@@ -27,6 +31,9 @@ module updateWPS_mod
    use RMS, only: DifPol2hInt, DifPolLMr
    use RMS_helpers, only:  hInt2Pol
    use algebra, only: prepare_mat, solve_mat
+#ifdef WITH_OMP_GPU
+   use algebra_hipfort, only: gpu_prepare_mat, gpu_solve_mat
+#endif
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize, rank, n_procs, get_openmp_blocks
    use radial_der, only: get_dddr, get_ddr, get_dr, get_dr_Rloc
@@ -76,6 +83,14 @@ contains
       bytes_allocated = bytes_allocated+(9*n_r_max*nLMBs2(1+rank)+6*n_r_max* &
       &                 nLMBs2(1+rank))*SIZEOF_DEF_REAL+3*n_r_max*           &
       &                 nLMBs2(1+rank)*SIZEOF_INTEGER
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: ps0Mat, ps0Mat_fac, ps0Pivot, wpsMat, wpsMat_fac, wpsPivot)
+      gpu_bytes_allocated = gpu_bytes_allocated+(4*n_r_max+2)*n_r_max*SIZEOF_DEF_REAL &
+      &                     +2*n_r_max*SIZEOF_INTEGER
+      gpu_bytes_allocated = gpu_bytes_allocated+(9*n_r_max*nLMBs2(1+rank)+6*n_r_max* &
+      &                     nLMBs2(1+rank))*SIZEOF_DEF_REAL+3*n_r_max*           &
+      &                     nLMBs2(1+rank)*SIZEOF_INTEGER
+#endif
       allocate( lWPSmat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
@@ -97,6 +112,11 @@ contains
       allocate( rhs1(3*n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
       bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
                       lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: rhs1)
+      gpu_bytes_allocated=gpu_bytes_allocated+2*n_r_max*maxThreads* &
+                      lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+#endif
 
       Cor00_fac=four/sqrt(three)
 
@@ -104,8 +124,14 @@ contains
 !-----------------------------------------------------------------------------
    subroutine finalize_updateWPS
 
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: ps0Mat, ps0Mat_fac, ps0Pivot, wpsMat, wpsMat_fac, wpsPivot)
+#endif
       deallocate( ps0Mat, ps0Mat_fac, ps0Pivot )
       deallocate( wpsMat, wpsMat_fac, wpsPivot, lWPSmat )
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: rhs1)
+#endif
       deallocate( workB, workC, rhs1)
       deallocate( Dif, Pre, Buo )
 
@@ -162,21 +188,33 @@ contains
       nLMB=1+rank
 
       !-- Now assemble the right hand side and store it in work_LMloc, dp and ds
+#ifdef WITH_OMP_GPU_
+      !-- TODO: HSA_STATUS_ERROR_MEMORY_FAULT: Agent attempted to access an inaccessible address. code: 0x2
+      !-- multistep_schemes.f90:481
+      !$omp target update to(dwdt, dpdt, dsdt)
+      call tscheme%set_imex_rhs(work_LMloc, dwdt, .true.)
+      call tscheme%set_imex_rhs(dp, dpdt, .true.)
+      call tscheme%set_imex_rhs(ds, dsdt, .true.)
+      !$omp target update from(work_LMloc, dp, ds)
+#else
       call tscheme%set_imex_rhs(work_LMloc, dwdt)
       call tscheme%set_imex_rhs(dp, dpdt)
       call tscheme%set_imex_rhs(ds, dsdt)
+#endif
 
 #ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: rhs)
       !$omp single
       call solve_counter%start_count()
       !$omp end single
 
+      !PERFON('upWP_ssol')
       !-- MPI Level
       do nLMB2=1,nLMBs2(nLMB)
          lmB=0
 
+         !PERFON('upWP_set')
          !-- LU factorisation (big loop but hardly any work because of lWPSmat)
-         !-- No openMP GPU (hipSolver)
          do lm=1,sizeLMB2(nLMB2,nLMB)
             l1=lm22l(lm,nLMB2,nLMB)
             if ( .not. lWPSmat(l1) ) then
@@ -242,15 +280,23 @@ contains
                rhs1(:,2*lmB,0)  =rhs1(:,2*lmB,0)*wpsMat_fac(:,1,nLMB2)
             end if
          end do
+         !PERFOFF
 
+         !PERFON('upWP_sol')
          !-- Solve matrices with batched RHS (hipsolver)
          if ( lmB == 0 ) then
-            call solve_mat(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
+            !$omp target update to(rhs)
+            call gpu_solve_mat(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
+            !$omp target update from(rhs)
          else
-            call solve_mat(wpsMat(:,:,nLMB2),3*n_r_max,3*n_r_max, &
-                 &         wpsPivot(:,nLMB2),rhs1(:,:,0),2*lmB)
+            !$omp target update to(rhs1)
+            call gpu_solve_mat(wpsMat(:,:,nLMB2),3*n_r_max,3*n_r_max, &
+                 &             wpsPivot(:,nLMB2),rhs1(:,:,0),2*lmB)
+            !$omp target update from(rhs1)
          end if
+         !PERFOFF
 
+         !PERFON('upWP_aft')
          lmB=0
          !-- Loop to reassemble fields (OpenMP GPU possible)
          do lm=1,sizeLMB2(nLMB2,nLMB)
@@ -294,12 +340,15 @@ contains
                end if
             end if
          end do
+         !PERFOFF
 
       end do   ! end of loop over l1 subblocks
+      !PERFOFF
 
       !$omp single
       call solve_counter%stop_count()
       !$omp end single
+      !$omp target exit data map(delete: rhs)
 #else
       !$omp parallel default(shared)
 
@@ -473,6 +522,7 @@ contains
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
+      !$omp parallel do private(n_r_out,lm1) collapse(2)
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
 #endif
@@ -484,15 +534,26 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end parallel do
 #else
       !$omp end do
       !$omp end parallel
 #endif
 
       !-- Roll the arrays before filling again the first block
+#ifdef WITH_OMP_GPU_
+      !-- TODO:  HSA_STATUS_ERROR_MEMORY_FAULT: Agent attempted to access an inaccessible address. code: 0x2b
+      !-- multistep_schemes.f90:676
+      !$omp target update to(dwdt, dpdt, dsdt)
+      call tscheme%rotate_imex(dwdt, .true.)
+      call tscheme%rotate_imex(dpdt, .true.)
+      call tscheme%rotate_imex(dsdt, .true.)
+      !$omp target update from(dwdt, dpdt, dsdt)
+#else
       call tscheme%rotate_imex(dwdt)
       call tscheme%rotate_imex(dpdt)
       call tscheme%rotate_imex(dsdt)
+#endif
 
       if ( tscheme%istage == tscheme%nstages ) then
          call get_single_rhs_imp(s, ds, w, dw, ddw, p, dp, dsdt, dwdt, dpdt, &
@@ -878,12 +939,15 @@ contains
       end if
 
 #ifdef WITH_OMP_GPU
+      !$omp target update to(ds, workB, ddw, work_LMloc)
+      !$omp target update to(s, dw)
       call dct_counter%start_count()
       call get_ddr(s, ds, workB, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
            &       n_r_max, rscheme_oc)
       call get_ddr( dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1, &
            &         stop_lm-llm+1, n_r_max, rscheme_oc)
       call dct_counter%stop_count()
+      !$omp target update from(ds, workB, ddw, work_LMloc)
 #else
       !$omp single
       call dct_counter%start_count()
@@ -1027,6 +1091,37 @@ contains
       !$omp end single
 #endif
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(ds, workB)
+      !$omp target update to(s)
+      call get_ddr( s, ds, workB, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+           &        n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
+      !$omp target update from(ds, workB)
+      if ( l_in_cheb ) then
+         call rscheme_oc%costf1(s,ulm-llm+1,start_lm-llm+1, &
+                               &                 stop_lm-llm+1,.true.)
+         !$omp target update from(s)
+      end if
+      call get_dddr( w, dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1, &
+           &         stop_lm-llm+1, n_r_max, rscheme_oc,                &
+           &         l_dct_in=.not. l_in_cheb)
+      if ( l_in_cheb ) then
+         !$omp target update to(w)
+         call rscheme_oc%costf1(w,ulm-llm+1,start_lm-llm+1, &
+                               &                 stop_lm-llm+1,.true.)
+         !$omp target update from(w)
+      end if
+      !$omp target update to(dp, workC)
+      !$omp target update to(p)
+      call get_ddr( p, dp, workC, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+           &       n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
+      !$omp target update from(dp, workC)
+      if ( l_in_cheb ) then
+         call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1, &
+                               &                 stop_lm-llm+1,.true.)
+         !$omp target update from(p)
+      end if
+#else
       call get_ddr( s, ds, workB, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
            &        n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
       if ( l_in_cheb ) call rscheme_oc%costf1(s,ulm-llm+1,start_lm-llm+1, &
@@ -1040,6 +1135,8 @@ contains
            &       n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
       if ( l_in_cheb ) call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1, &
                             &                 stop_lm-llm+1)
+#endif
+
 #ifdef WITH_OMP_GPU
       call dct_counter%stop_count()
 #else
@@ -1580,7 +1677,13 @@ contains
 #else
 #endif
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(wpsMat)
+      call gpu_prepare_mat(wpsMat,3*n_r_max,3*n_r_max,wpsPivot,info)
+      !$omp target update from(wpsMat, wpsPivot)
+#else
       call prepare_mat(wpsMat,3*n_r_max,3*n_r_max,wpsPivot,info)
+#endif
       if ( info /= 0 ) then
          call abortRun('Singular matrix wpsMat!')
       end if
@@ -1902,7 +2005,13 @@ contains
 #endif
 
       !---- LU decomposition:
+#ifdef WITH_OMP_GPU
+      !$omp target update to(psMat)
+      call gpu_prepare_mat(psMat,2*n_r_max,2*n_r_max,psPivot,info)
+      !$omp target update from(psMat, psPivot)
+#else
       call prepare_mat(psMat,2*n_r_max,2*n_r_max,psPivot,info)
+#endif
       if ( info /= 0 ) then
          call abortRun('! Singular matrix ps0Mat!')
       end if

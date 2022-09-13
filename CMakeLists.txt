@@ -61,7 +61,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Cray)
    set(FFLAG_NO_STD    " ")
    set(FFLAG_TRACEBACK " ")
    set(FFLAG_CONVERT   "-h byteswapio")
-   set(FFLAG_PREPROCESSOR "-eZ")
+   set(FFLAG_PREPROCESSOR "-eZz")
    set(FFLAG_WARN_ALL  " ")
    set(FFLAG_CHECK_ALL "-G 0 -R b")
    set(FFLAG_FPE       "-K trap=fp")
@@ -322,7 +322,7 @@ if(USE_SHTNS MATCHES yes)
       find_library(SHTNS shtns_hip_omp HINTS $ENV{HOME}/local/lib)
    else()
       if(USE_OMP)
-         find_library(SHTNS shtns_hip_omp HINTS $ENV{HOME}/local/lib)
+         find_library(SHTNS shtns_omp HINTS $ENV{HOME}/local/lib)
       else()
          find_library(SHTNS shtns HINTS $ENV{HOME}/local/lib)
       endif(USE_OMP)
@@ -362,16 +362,52 @@ if(USE_SHTNS MATCHES yes AND NOT SHTNS MATCHES SHTNS-NOTFOUND)
    endif()
 endif()
 
-#Check if use GPU for OpenMP offloading
 if(USE_GPU MATCHES yes)
    add_definitions(-DWITH_OMP_GPU)
+   #Detect Hipfort (lib name is hipfort-amdgcn)
+   find_library(HIPFORT hipfort-amdgcn HINTS $ENV{HOME}/hipfort/install/lib) #Only for AMD GPU
+   if(NOT HIPFORT MATCHES HIPFORT-NOTFOUND)
+      #Test if HIPFORT installation
+      file(WRITE "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testHipfort.f90"
+      "
+      program TestHipfort
+      use omp_lib
+      use iso_c_binding
+      use hipfort_hipfft
+      use hipfort_check
+      print*, \"Hipfort Hipfft test\"
+      end program TestHipfort
+      ")
+      try_compile(HIPFORT_WORK ${CMAKE_BINARY_DIR}
+         ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testHipfort.f90
+         CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=$ENV{HOME}/hipfort/install/include/hipfort/amdgcn"
+         COMPILE_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
+         LINK_LIBRARIES "-lhipfft -lrocfft -L$ENV{HOME}/hipfort/install/lib -lhipfort-amdgcn"
+         OUTPUT_VARIABLE OUTPUT)
+      if(HIPFORT_WORK)
+         add_definitions(-DWITH_HIPFORT)
+         include_directories($ENV{HOME}/hipfort/install/include/hipfort/amdgcn)
+         message(STATUS "HIPFORT: ${HIPFORT}")
+      else()
+         message(STATUS ${OUTPUT})
+         message(STATUS "Failed to test HIPFORT installation")
+      endif()
+   else()
+           message(STATUS "Failed to find HIPFORT")
+   endif()
 endif()
+
 
 # Final Fortran flags (after OpenMP/MPI to avoid the conflict
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${FFLAG_ARCH} ${FFLAG_STD} -g ${FFLAG_TRACEBACK} ${FFLAG_CONVERT} ${FFLAG_PREPROCESSOR}")
 
-set(CMAKE_Fortran_FLAGS_DEBUG  "-h keepfiles -hmsgs -hlist=a -O0 -h acc_model=auto_async_none:no_fast_addr:deep_copy ${FFLAG_CHECK_ALL} ${FFLAG_WARN_ALL} ${FFLAG_FPE}")
-set(CMAKE_Fortran_FLAGS_RELEASE  "-h keepfiles -hmsgs -hlist=a -O3 -h acc_model=auto_async_none:no_fast_addr:deep_copy ${FFLAG_OPT}")
+if(USE_GPU MATCHES yes)
+   set(CMAKE_Fortran_FLAGS_DEBUG  "-h keepfiles -hmsgs -hlist=a -O0 -h acc_model=auto_async_none:no_fast_addr:deep_copy ${FFLAG_CHECK_ALL} ${FFLAG_WARN_ALL} ${FFLAG_FPE}")
+   set(CMAKE_Fortran_FLAGS_RELEASE  "-h keepfiles -hmsgs -hlist=a -O2 -h acc_model=auto_async_none:no_fast_addr:deep_copy ${FFLAG_OPT}")
+else()
+   set(CMAKE_Fortran_FLAGS_DEBUG  "-O0 ${FFLAG_CHECK_ALL} ${FFLAG_WARN_ALL} ${FFLAG_FPE}")
+   set(CMAKE_Fortran_FLAGS_RELEASE  "-O2 ${FFLAG_OPT}")
+endif()
 
 # Default to Release build type
 if(NOT CMAKE_BUILD_TYPE)

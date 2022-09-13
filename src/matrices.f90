@@ -12,6 +12,7 @@ module real_matrices
       logical :: l_pivot
       real(cp), allocatable :: dat(:,:) ! Actual data
       integer, allocatable :: pivot(:)
+      logical :: gpu_is_used
    contains
       procedure(initialize_if), deferred :: initialize
       procedure(finalize_if), deferred :: finalize
@@ -27,13 +28,20 @@ module real_matrices
 
    interface
 
+#ifdef WITH_OMP_GPU
+      subroutine initialize_if(this, nx, ny, l_pivot, use_gpu, nfull)
+#else
       subroutine initialize_if(this, nx, ny, l_pivot, nfull)
+#endif
          import
          class(type_realmat) :: this
          integer, intent(in) :: nx
          integer, intent(in) :: ny
          logical, intent(in) :: l_pivot
          integer, optional, intent(in) :: nfull
+#ifdef WITH_OMP_GPU
+         logical, optional, intent(in) :: use_gpu
+#endif
       end subroutine initialize_if
 
       subroutine finalize_if(this)
@@ -95,9 +103,16 @@ end module real_matrices
 module dense_matrices
 
    use precision_mod
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc
+#endif
    use real_matrices, only: type_realmat
    use algebra, only: solve_mat, prepare_mat
+#ifdef WITH_OMP_GPU
+   use algebra_hipfort, only: gpu_solve_mat, gpu_prepare_mat
+#endif
 
    implicit none
 
@@ -114,7 +129,11 @@ module dense_matrices
 
 contains
 
+#ifdef WITH_OMP_GPU
+   subroutine initialize(this, nx, ny, l_pivot, use_gpu, nfull)
+#else
    subroutine initialize(this, nx, ny, l_pivot, nfull)
+#endif
       !
       ! Memory allocation
       !
@@ -123,16 +142,48 @@ contains
       integer, intent(in) :: ny
       logical, intent(in) :: l_pivot
       integer, optional, intent(in) :: nfull
+#ifdef WITH_OMP_GPU
+      logical, optional, intent(in) :: use_gpu
+#endif
+
+      !--
+      logical :: loc_use_gpu
+      loc_use_gpu = .false.
+#ifdef WITH_OMP_GPU
+      if ( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
+      end if
+      this%gpu_is_used = .false.
+      if(loc_use_gpu) then
+         this%gpu_is_used = .true.
+      end if
+#endif
 
       this%nrow = nx
       this%ncol = ny
       this%l_pivot = l_pivot
       allocate( this%dat(nx, ny) )
+      this%dat(:,:) = 0.0_cp
       bytes_allocated = bytes_allocated+nx*ny*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+      if ( loc_use_gpu) then
+         !$omp target enter data map(to : this%dat)
+         gpu_bytes_allocated = gpu_bytes_allocated+nx*ny*SIZEOF_DEF_REAL
+      end if
+#endif
+
       if ( this%l_pivot ) then
          allocate( this%pivot(this%nrow) )
+         this%pivot(:) = 0
          bytes_allocated = bytes_allocated+this%nrow*SIZEOF_INTEGER
+#ifdef WITH_OMP_GPU
+         if ( loc_use_gpu) then
+            !$omp target enter data map(to : this%pivot)
+            gpu_bytes_allocated = gpu_bytes_allocated+this%nrow*SIZEOF_INTEGER
+         end if
+#endif
       end if
+
    end subroutine initialize
 !------------------------------------------------------------------------------
    subroutine finalize(this)
@@ -141,8 +192,21 @@ contains
       !
       class(type_densemat) :: this
 
+#ifdef WITH_OMP_GPU
+      if ( this%gpu_is_used ) then
+         !$omp target exit data map(delete : this%pivot)
+      end if
+#endif
       deallocate( this%dat )
-      if ( this%l_pivot ) deallocate (this%pivot)
+
+      if ( this%l_pivot ) then
+#ifdef WITH_OMP_GPU
+         if ( this%gpu_is_used ) then
+            !$omp target exit data map(delete : this%pivot)
+         end if
+#endif
+         deallocate (this%pivot)
+      end if
 
    end subroutine finalize
 !------------------------------------------------------------------------------
@@ -151,7 +215,13 @@ contains
       class(type_densemat) :: this
       integer, intent(out) :: info
 
-      call prepare_mat(this%dat, this%nrow, this%nrow, this%pivot, info)
+      if ( this%gpu_is_used ) then
+#ifdef WITH_OMP_GPU
+         call gpu_prepare_mat(this%dat, this%nrow, this%nrow, this%pivot, info)
+#endif
+      else
+         call prepare_mat(this%dat, this%nrow, this%nrow, this%pivot, info)
+      end if
 
    end subroutine prepare
 !------------------------------------------------------------------------------
@@ -159,8 +229,20 @@ contains
 
       class(type_densemat) :: this
       real(cp), intent(inout) :: rhs(:)
+#ifdef WITH_OMP_GPU
+      logical :: update_rhs
+#endif
 
-      call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)
+      if ( this%gpu_is_used ) then
+#ifdef WITH_OMP_GPU
+         update_rhs = .true.
+         !$omp target update if(update_rhs) to(rhs)
+         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)
+         !$omp target update if(update_rhs) from(rhs)
+#endif
+      else
+         call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)
+      end if
 
    end subroutine solve_real_single
 !------------------------------------------------------------------------------
@@ -168,8 +250,20 @@ contains
 
       class(type_densemat) :: this
       complex(cp), intent(inout) :: rhs(:)
+#ifdef WITH_OMP_GPU
+      logical :: update_rhs
+#endif
 
-      call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)
+      if ( this%gpu_is_used ) then
+#ifdef WITH_OMP_GPU
+         update_rhs = .true.
+         !$omp target update if(update_rhs) to(rhs)
+         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)
+         !$omp target update if(update_rhs) from(rhs)
+#endif
+      else
+         call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)
+      end if
 
    end subroutine solve_complex_single
 !------------------------------------------------------------------------------
@@ -178,8 +272,20 @@ contains
       class(type_densemat) :: this
       integer,  intent(in) :: nRHS
       real(cp), intent(inout) :: rhs(:,:)
+#ifdef WITH_OMP_GPU
+      logical :: update_rhs
+#endif
 
-      call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, nRHS)
+      if ( this%gpu_is_used ) then
+#ifdef WITH_OMP_GPU
+         update_rhs = .true.
+         !$omp target update if(update_rhs) to(rhs)
+         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, nRHS)
+         !$omp target update if(update_rhs) from(rhs)
+#endif
+      else
+         call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, nRHS)
+      end if
 
    end subroutine solve_real_multi
 !------------------------------------------------------------------------------
@@ -188,7 +294,24 @@ contains
       class(type_densemat) :: this
       real(cp), intent(in) :: dat(:,:)
 
-      this%dat(:,:) = dat(:,:)
+      !--
+      integer :: i,j
+
+      if ( this%gpu_is_used ) then
+#ifdef WITH_OMP_GPU
+!          !$omp target teams distribute simd
+!          do i=1,this%nrow
+!             do j=1,this%ncol
+!                this%dat(i,j) = dat(i,j)
+!             end do
+!          end do
+!          !$omp end target teams distribute simd
+         this%dat(:,:) = dat(:,:)
+         !$omp target update to(this%dat)
+#endif
+      else
+         this%dat(:,:) = dat(:,:)
+      end if
 
    end subroutine set_data
 !------------------------------------------------------------------------------
@@ -197,14 +320,21 @@ end module dense_matrices
 module band_matrices
 
    use precision_mod
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc
+#endif
    use real_matrices, only: type_realmat
    use algebra, only: solve_tridiag, prepare_tridiag, prepare_band, solve_band
+#ifdef WITH_OMP_GPU
+   use algebra_hipfort, only: gpu_solve_tridiag, gpu_prepare_tridiag, gpu_prepare_band, gpu_solve_band
+#endif
 
    implicit none
 
    type, public, extends(type_realmat) :: type_bandmat
-      real(cp), allocatable :: du2(:)
+      real(cp), pointer :: du2(:)
       integer :: kl
       integer :: ku
    contains
@@ -221,7 +351,11 @@ module band_matrices
 
 contains
 
+#ifdef WITH_OMP_GPU
+   subroutine initialize(this, nx, ny, l_pivot, use_gpu, nfull)
+#else
    subroutine initialize(this, nx, ny, l_pivot, nfull)
+#endif
       !
       ! Memory allocation
       !
@@ -230,6 +364,19 @@ contains
       integer, intent(in) :: ny
       logical, intent(in) :: l_pivot
       integer, optional, intent(in) :: nfull
+#ifdef WITH_OMP_GPU
+      logical, optional, intent(in) :: use_gpu
+#endif
+
+      !--
+      logical :: loc_use_gpu
+      loc_use_gpu = .false.
+#ifdef WITH_OMP_GPU
+      if ( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
+      end if
+      if( loc_use_gpu ) this%gpu_is_used = .true.
+#endif
 
       this%nrow = nx
       this%ncol = ny
@@ -240,19 +387,48 @@ contains
 
       if ( nx > 3 .and. this%l_pivot ) then
          allocate( this%dat(nx+(nx-1)/2, ny) )
+         this%dat(:,:) = 0.0_cp
          bytes_allocated = bytes_allocated+(nx+(nx-1)/2)*ny*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+         if(loc_use_gpu) then
+            !$omp target enter data map(to: this%dat)
+            gpu_bytes_allocated = gpu_bytes_allocated+(nx+(nx-1)/2)*ny*SIZEOF_DEF_REAL
+         end if
+#endif
       else
          allocate( this%dat(nx, ny) )
+         this%dat(:,:) = 0.0_cp
          bytes_allocated = bytes_allocated+nx*ny*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+         if(loc_use_gpu) then
+            !$omp target enter data map(to: this%dat)
+            gpu_bytes_allocated = gpu_bytes_allocated+nx*ny*SIZEOF_DEF_REAL
+         end if
+#endif
       end if
       if ( this%l_pivot ) then
          allocate( this%pivot(this%ncol) )
+         this%pivot(:) = 0
          bytes_allocated = bytes_allocated+this%ncol*SIZEOF_INTEGER
+#ifdef WITH_OMP_GPU
+         if(loc_use_gpu) then
+            !$omp target enter data map(to: this%pivot)
+            gpu_bytes_allocated = gpu_bytes_allocated+this%ncol*SIZEOF_INTEGER
+         end if
+#endif
          if ( nx == 3 ) then ! Only require for tridiag arrays
             allocate( this%du2(this%ncol-2) ) ! Help array for tridiag
+            this%du2(:) = 0
             bytes_allocated = bytes_allocated+(this%ncol-2)*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+            if(loc_use_gpu) then
+               !$omp target enter data map(to: this%du2)
+               gpu_bytes_allocated = gpu_bytes_allocated+(this%ncol-2)*SIZEOF_DEF_REAL
+            end if
+#endif
          end if
       end if
+
    end subroutine initialize
 !------------------------------------------------------------------------------
    subroutine finalize(this)
@@ -261,10 +437,28 @@ contains
       !
       class(type_bandmat) :: this
 
+#ifdef WITH_OMP_GPU
+      if( this%gpu_is_used ) then
+         !$omp target exit data map(delete: this%dat)
+      end if
+#endif
       deallocate( this%dat )
+
       if ( this%l_pivot ) then
+#ifdef WITH_OMP_GPU
+         if(this%gpu_is_used) then
+            !$omp target exit data map(delete: this%pivot)
+         end if
+#endif
          deallocate (this%pivot)
-         if ( this%nrow == 3 ) deallocate(this%du2)
+         if ( this%nrow == 3 ) then
+#ifdef WITH_OMP_GPU
+            if(this%gpu_is_used) then
+               !$omp target exit data map(delete: this%du2)
+            end if
+#endif
+            deallocate(this%du2)
+         end if
       end if
 
    end subroutine finalize
@@ -336,8 +530,8 @@ contains
       class(type_bandmat) :: this
       real(cp), intent(in) :: dat(:,:)
 
-      !-- Local variables
-      integer :: i, j
+      !--
+      integer :: i,j
 
       if ( this%nrow == 3 ) then
          do j=1,this%ncol
@@ -377,6 +571,9 @@ module bordered_matrices
    use mem_alloc
    use real_matrices, only: type_realmat
    use algebra, only: solve_bordered, prepare_bordered
+#ifdef WITH_OMP_GPU
+   use algebra_hipfort, only: gpu_solve_bordered, gpu_prepare_bordered
+#endif
 
    implicit none
 
@@ -404,7 +601,11 @@ module bordered_matrices
 
 contains
 
+#ifdef WITH_OMP_GPU
+   subroutine initialize(this, nx, ny, l_pivot, use_gpu, nfull)
+#else
    subroutine initialize(this, nx, ny, l_pivot, nfull)
+#endif
       !
       ! Memory allocation
       !
@@ -413,6 +614,20 @@ contains
       integer, intent(in) :: ny
       logical, intent(in) :: l_pivot
       integer, optional, intent(in) :: nfull
+#ifdef WITH_OMP_GPU
+      logical, optional, intent(in) :: use_gpu
+#endif
+
+      !--
+      logical :: loc_use_gpu
+      loc_use_gpu = .false.
+
+#ifdef WITH_OMP_GPU
+      if ( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
+      end if
+      if( loc_use_gpu ) this%gpu_is_used = .true.
+#endif
 
       this%nrow = nx
       this%ncol = ny

@@ -853,7 +853,7 @@ contains
 
    end subroutine set_dt_array
 !------------------------------------------------------------------------------
-   subroutine set_imex_rhs(this, rhs, dfdt)
+   subroutine set_imex_rhs(this, rhs, dfdt, use_gpu)
       !
       ! This subroutine assembles the right-hand-side of an IMEX scheme
       !
@@ -862,41 +862,81 @@ contains
 
       !-- Input variables:
       type(type_tarray), intent(in) :: dfdt
+      logical, optional, intent(in) :: use_gpu
 
       !-- Output variable
       complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
 
       !-- Local variables
       integer :: n_stage, n_r, start_lm, stop_lm
+      real(cp) :: butcher_exp, butcher_imp
+      logical :: loc_use_gpu
+      loc_use_gpu = .false.
+#ifdef WITH_OMP_GPU
+      if(present(use_gpu)) then
+         loc_use_gpu = use_gpu
+      end if
+#endif
 
-      !$omp parallel default(shared) private(start_lm, stop_lm)
-      start_lm=dfdt%llm; stop_lm=dfdt%ulm
-      call get_openmp_blocks(start_lm,stop_lm)
-
-      do n_r=dfdt%nRstart,dfdt%nRstop
-         rhs(start_lm:stop_lm,n_r)=dfdt%old(start_lm:stop_lm,n_r,1)
-      end do
-
-      do n_stage=1,this%istage
+      if(loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+         start_lm=dfdt%llm; stop_lm=dfdt%ulm
+         !$omp target teams distribute parallel do
          do n_r=dfdt%nRstart,dfdt%nRstop
-            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
-            &                       this%butcher_exp(this%istage+1,n_stage)* &
-            &                       dfdt%expl(start_lm:stop_lm,n_r,n_stage)
+            rhs(start_lm:stop_lm,n_r)=dfdt%old(start_lm:stop_lm,n_r,1)
          end do
-      end do
+         !$omp end target teams distribute parallel do
+         do n_stage=1,this%istage
+            butcher_exp = this%butcher_exp(this%istage+1,n_stage)
+            !$omp target teams distribute parallel do
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
+               &                       butcher_exp *                            &
+               &                       dfdt%expl(start_lm:stop_lm,n_r,n_stage)
+            end do
+            !$omp end target teams distribute parallel do
+         end do
+         do n_stage=1,this%istage
+            butcher_imp = this%butcher_imp(this%istage+1,n_stage)
+            !$omp target teams distribute parallel do
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
+               &                       butcher_imp *                            &
+               &                       dfdt%impl(start_lm:stop_lm,n_r,n_stage)
+            end do
+            !$omp end target teams distribute parallel do
+         end do
+#endif
+      else
+         !$omp parallel default(shared) private(start_lm, stop_lm)
+         start_lm=dfdt%llm; stop_lm=dfdt%ulm
+         call get_openmp_blocks(start_lm,stop_lm)
 
-      do n_stage=1,this%istage
          do n_r=dfdt%nRstart,dfdt%nRstop
-            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
-            &                       this%butcher_imp(this%istage+1,n_stage)* &
-            &                       dfdt%impl(start_lm:stop_lm,n_r,n_stage)
+            rhs(start_lm:stop_lm,n_r)=dfdt%old(start_lm:stop_lm,n_r,1)
          end do
-      end do
-      !$omp end parallel
+
+         do n_stage=1,this%istage
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
+               &                       this%butcher_exp(this%istage+1,n_stage)* &
+               &                       dfdt%expl(start_lm:stop_lm,n_r,n_stage)
+            end do
+         end do
+
+         do n_stage=1,this%istage
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
+               &                       this%butcher_imp(this%istage+1,n_stage)* &
+               &                       dfdt%impl(start_lm:stop_lm,n_r,n_stage)
+            end do
+         end do
+         !$omp end parallel
+      end if
 
    end subroutine set_imex_rhs
 !------------------------------------------------------------------------------
-   subroutine set_imex_rhs_ghost(this, rhs, dfdt, start_lm, stop_lm, ng)
+   subroutine set_imex_rhs_ghost(this, rhs, dfdt, start_lm, stop_lm, ng, use_gpu)
       !
       ! This subroutine assembles the right-hand-side of an IMEX scheme in case
       ! an array with ghosts zones is provided
@@ -909,36 +949,77 @@ contains
       integer,           intent(in) :: start_lm ! Starting lm index
       integer,           intent(in) :: stop_lm  ! Stopping lm index
       integer,           intent(in) :: ng       ! Number of ghost zones
+      logical, optional, intent(in) :: use_gpu
 
       !-- Output variable
       complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart-ng:dfdt%nRstop+ng)
 
       !-- Local variables
       integer :: n_stage, n_r
+      real(cp) :: butcher_exp, butcher_imp
+      logical :: loc_use_gpu
+      loc_use_gpu = .false.
+#ifdef WITH_OMP_GPU
+      if(present(use_gpu)) then
+         loc_use_gpu = use_gpu
+      end if
+#endif
 
-      do n_r=dfdt%nRstart,dfdt%nRstop
-         rhs(start_lm:stop_lm,n_r)=dfdt%old(start_lm:stop_lm,n_r,1)
-      end do
-
-      do n_stage=1,this%istage
+      if(loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
          do n_r=dfdt%nRstart,dfdt%nRstop
-            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
-            &                       this%butcher_exp(this%istage+1,n_stage)* &
-            &                       dfdt%expl(start_lm:stop_lm,n_r,n_stage)
+            rhs(start_lm:stop_lm,n_r)=dfdt%old(start_lm:stop_lm,n_r,1)
          end do
-      end do
+         !$omp end target teams distribute parallel do
 
-      do n_stage=1,this%istage
-         do n_r=dfdt%nRstart,dfdt%nRstop
-            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
-            &                       this%butcher_imp(this%istage+1,n_stage)* &
-            &                       dfdt%impl(start_lm:stop_lm,n_r,n_stage)
+         do n_stage=1,this%istage
+            butcher_exp = this%butcher_exp(this%istage+1,n_stage)
+            !$omp target teams distribute parallel do
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
+               &                       butcher_exp *                            &
+               &                       dfdt%expl(start_lm:stop_lm,n_r,n_stage)
+            end do
+            !$omp end target teams distribute parallel do
          end do
-      end do
+
+         do n_stage=1,this%istage
+            butcher_imp = this%butcher_imp(this%istage+1,n_stage)
+            !$omp target teams distribute parallel do
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
+               &                       butcher_imp *                            &
+               &                       dfdt%impl(start_lm:stop_lm,n_r,n_stage)
+            end do
+            !$omp end target teams distribute parallel do
+         end do
+#endif
+      else
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=dfdt%old(start_lm:stop_lm,n_r,1)
+         end do
+
+         do n_stage=1,this%istage
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
+               &                       this%butcher_exp(this%istage+1,n_stage)* &
+               &                       dfdt%expl(start_lm:stop_lm,n_r,n_stage)
+            end do
+         end do
+
+         do n_stage=1,this%istage
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
+               &                       this%butcher_imp(this%istage+1,n_stage)* &
+               &                       dfdt%impl(start_lm:stop_lm,n_r,n_stage)
+            end do
+         end do
+      end if
 
    end subroutine set_imex_rhs_ghost
 !------------------------------------------------------------------------------
-   subroutine assemble_imex(this, rhs, dfdt)
+   subroutine assemble_imex(this, rhs, dfdt, use_gpu)
       !
       ! This subroutine performs the assembly stage of an IMEX-RK scheme
       !
@@ -947,37 +1028,80 @@ contains
 
       !-- Input variables:
       type(type_tarray), intent(in) :: dfdt
+      logical, optional, intent(in) :: use_gpu
 
       !-- Output variable
       complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
 
       !-- Local variables
       integer :: n_stage, n_r, start_lm, stop_lm
+      real(cp) :: butcher_ass_exp, butcher_ass_imp
+      logical :: loc_use_gpu
+      loc_use_gpu = .false.
+#ifdef WITH_OMP_GPU
+      if(present(use_gpu)) then
+         loc_use_gpu = use_gpu
+      end if
+#endif
 
-      !$omp parallel default(shared) private(start_lm,stop_lm,n_r)
-      start_lm=dfdt%llm; stop_lm=dfdt%ulm
-      call get_openmp_blocks(start_lm,stop_lm)
+      if(loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+         start_lm=dfdt%llm; stop_lm=dfdt%ulm
 
-      do n_r=dfdt%nRstart,dfdt%nRstop
-         rhs(start_lm:stop_lm,n_r)=dfdt%old(start_lm:stop_lm,n_r,1)
-      end do
-
-      do n_stage=1,this%nstages
+         !$omp target teams distribute parallel do
          do n_r=dfdt%nRstart,dfdt%nRstop
-            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +        &
-            &                       this%butcher_ass_exp(n_stage)*       &
-            &                       dfdt%expl(start_lm:stop_lm,n_r,n_stage)
+            rhs(start_lm:stop_lm,n_r)=dfdt%old(start_lm:stop_lm,n_r,1)
          end do
-      end do
+         !$omp end target teams distribute parallel do
 
-      do n_stage=1,this%nstages
-         do n_r=dfdt%nRstart,dfdt%nRstop
-            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +       &
-            &                       this%butcher_ass_imp(n_stage)*      &
-            &                       dfdt%impl(start_lm:stop_lm,n_r,n_stage)
+         do n_stage=1,this%nstages
+            butcher_ass_exp = this%butcher_ass_exp(n_stage)
+            !$omp target teams distribute parallel do
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +        &
+               &                       butcher_ass_exp *                    &
+               &                       dfdt%expl(start_lm:stop_lm,n_r,n_stage)
+            end do
+            !$omp end target teams distribute parallel do
          end do
-      end do
-      !$omp end parallel
+
+         do n_stage=1,this%nstages
+            butcher_ass_imp = this%butcher_ass_imp(n_stage)
+            !$omp target teams distribute parallel do
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +       &
+               &                       butcher_ass_imp *                   &
+               &                       dfdt%impl(start_lm:stop_lm,n_r,n_stage)
+            end do
+            !$omp end target teams distribute parallel do
+         end do
+#endif
+      else
+         !$omp parallel default(shared) private(start_lm,stop_lm,n_r)
+         start_lm=dfdt%llm; stop_lm=dfdt%ulm
+         call get_openmp_blocks(start_lm,stop_lm)
+
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=dfdt%old(start_lm:stop_lm,n_r,1)
+         end do
+
+         do n_stage=1,this%nstages
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +        &
+               &                       this%butcher_ass_exp(n_stage)*       &
+               &                       dfdt%expl(start_lm:stop_lm,n_r,n_stage)
+            end do
+         end do
+
+         do n_stage=1,this%nstages
+            do n_r=dfdt%nRstart,dfdt%nRstop
+               rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +       &
+               &                       this%butcher_ass_imp(n_stage)*      &
+               &                       dfdt%impl(start_lm:stop_lm,n_r,n_stage)
+            end do
+         end do
+         !$omp end parallel
+      end if
 
    end subroutine assemble_imex
 !------------------------------------------------------------------------------
@@ -1036,7 +1160,7 @@ contains
 
    end subroutine assemble_imex_scalar
 !------------------------------------------------------------------------------
-   subroutine rotate_imex(this, dfdt)
+   subroutine rotate_imex(this, dfdt, use_gpu)
       !
       ! This subroutine is used to roll the time arrays from one time step
       !
@@ -1044,6 +1168,7 @@ contains
       class(type_dirk) :: this
 
       !-- Output variables:
+      logical, optional, intent(in) :: use_gpu
       type(type_tarray), intent(inout) :: dfdt
 
    end subroutine rotate_imex

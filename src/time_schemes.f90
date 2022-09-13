@@ -87,27 +87,30 @@ module time_schemes
          logical,  intent(in) :: l_new_dtNext
       end subroutine set_dt_array_if
 
-      subroutine set_imex_rhs_if(this, rhs, dfdt)
+      subroutine set_imex_rhs_if(this, rhs, dfdt, use_gpu)
          import
          class(type_tscheme) :: this
          type(type_tarray), intent(in) :: dfdt
+         logical, optional, intent(in) :: use_gpu
          complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
       end subroutine set_imex_rhs_if
 
-      subroutine set_imex_rhs_ghost_if(this, rhs, dfdt, start_lm, stop_lm, ng)
+      subroutine set_imex_rhs_ghost_if(this, rhs, dfdt, start_lm, stop_lm, ng, use_gpu)
          import
          class(type_tscheme) :: this
          type(type_tarray), intent(in) :: dfdt
          integer,           intent(in) :: start_lm ! Starting index
          integer,           intent(in) :: stop_lm  ! Stopping index
          integer,           intent(in) :: ng       ! Number of ghosts zones
+         logical, optional, intent(in) :: use_gpu
          complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart-ng:dfdt%nRstop+ng)
       end subroutine set_imex_rhs_ghost_if
 
-      subroutine assemble_imex_if(this, rhs, dfdt)
+      subroutine assemble_imex_if(this, rhs, dfdt, use_gpu)
          import
          class(type_tscheme) :: this
          type(type_tarray), intent(in) :: dfdt
+         logical, optional, intent(in) :: use_gpu
          complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
       end subroutine assemble_imex_if
 
@@ -125,10 +128,11 @@ module time_schemes
          real(cp), intent(out) :: rhs
       end subroutine set_imex_rhs_scalar_if
 
-      subroutine rotate_imex_if(this, dfdt)
+      subroutine rotate_imex_if(this, dfdt, use_gpu)
          import
          class(type_tscheme) :: this
          type(type_tarray), intent(inout) :: dfdt
+         logical, optional, intent(in) :: use_gpu
       end subroutine rotate_imex_if
 
       subroutine rotate_imex_scalar_if(this, dfdt)

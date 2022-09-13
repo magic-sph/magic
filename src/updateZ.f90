@@ -9,7 +9,11 @@ module updateZ_mod
    use omp_lib
    use precision_mod
    use communications, only: allgather_from_Rloc
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: bytes_allocated
+#endif
    use truncation, only: n_r_max, lm_max, l_max, m_min
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: visc, or1, or2, rscheme_oc, dLvisc, beta, &
@@ -64,6 +68,10 @@ module updateZ_mod
 
    integer :: maxThreads
 
+#ifdef WITH_OMP_GPU
+   logical :: omp_update_to_dtStructs, omp_update_from_dtStructs
+#endif
+
    public :: updateZ, initialize_updateZ, finalize_updateZ, get_tor_rhs_imp,  &
    &         assemble_tor, finish_exp_tor, updateZ_FD, get_tor_rhs_imp_ghost, &
    &         prepareZ_FD, fill_ghosts_Z, assemble_tor_Rloc
@@ -78,6 +86,10 @@ contains
 
       integer, pointer :: nLMBs2(:)
       integer :: ll, n_bands
+#ifdef WITH_OMP_GPU
+      logical :: use_gpu, use_pivot
+      use_gpu = .false.; use_pivot = .true.
+#endif
 
       if ( .not. l_parallel_solve ) then
          nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
@@ -94,7 +106,11 @@ contains
             end if
 
             do ll=1,nLMBs2(1+rank)
+#ifdef WITH_OMP_GPU
+               call zMat(ll)%initialize(n_bands,n_r_max,use_pivot,use_gpu)
+#else
                call zMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
+#endif
             end do
 
             !-- Special care when Inner Core or Mantle is free to rotate
@@ -106,16 +122,28 @@ contains
                n_bands = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
             end if
 
+#ifdef WITH_OMP_GPU
+            call z10Mat%initialize(n_bands,n_r_max,use_pivot,use_gpu)
+#else
             call z10Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
+#endif
 
          else
             allocate( type_densemat :: zMat(nLMBs2(1+rank)) )
             allocate( type_densemat :: z10Mat )
 
+#ifdef WITH_OMP_GPU
+            use_gpu = .true.
+            call z10Mat%initialize(n_r_max,n_r_max,use_pivot,use_gpu)
+            do ll=1,nLMBs2(1+rank)
+               call zMat(ll)%initialize(n_r_max,n_r_max,use_pivot,use_gpu)
+            end do
+#else
             call z10Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
             do ll=1,nLMBs2(1+rank)
                call zMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
             end do
+#endif
          end if
 
 #ifdef WITH_PRECOND_Z10
@@ -139,6 +167,11 @@ contains
          allocate(rhs1(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1))
          bytes_allocated=bytes_allocated+n_r_max*maxThreads* &
          &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: rhs1)
+         gpu_bytes_allocated=gpu_bytes_allocated+n_r_max*maxThreads* &
+         &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+#endif
       else
          allocate( Dif(lm_max) )
          bytes_allocated=bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
@@ -146,6 +179,11 @@ contains
          bytes_allocated=bytes_allocated+(lm_max+1)*(nRstop-nRstart+3)*SIZEOF_DEF_COMPLEX
          z_ghost(:,:)=zero
          z10_ghost(:)=zero
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: z_ghost, z10_ghost)
+         !$omp target update to(z_ghost, z10_ghost)
+         gpu_bytes_allocated=gpu_bytes_allocated+(lm_max+1)*(nRstop-nRstart+3)*SIZEOF_DEF_COMPLEX
+#endif
 
          !-- Create matrix
          call zMat_FD%initialize(1,n_r_max,0,l_max)
@@ -158,6 +196,10 @@ contains
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
       AMstart=0.0_cp
+
+#ifdef WITH_OMP_GPU
+      omp_update_to_dtStructs = .true.; omp_update_from_dtStructs = .true.
+#endif
 
    end subroutine initialize_updateZ
 !-------------------------------------------------------------------------------
@@ -184,8 +226,14 @@ contains
          deallocate( zMat_fac )
 #endif
 
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: rhs1)
+#endif
          deallocate( rhs1 )
       else
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: z_ghost, z10_ghost)
+#endif
          deallocate( z_ghost, z10_ghost )
          call zMat_FD%finalize()
          call z10Mat_FD%finalize()
@@ -239,6 +287,13 @@ contains
 
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
 
+#ifdef WITH_OMP_GPU
+      real(cp) :: wimp_lin
+
+      !-- Copie into local variable
+      wimp_lin = tscheme%wimp_lin(1)
+#endif
+
       allocate(rhs(n_r_max))
 
       if ( l_precession ) then
@@ -277,9 +332,19 @@ contains
       end if
 
       !-- Now assemble the right hand side and store it in work_LMloc
+#ifdef WITH_OMP_GPU_
+      !-- TODO: Runtime error (multistep_schemes.f90:481 -
+      !-- HSA_STATUS_ERROR_MEMORY_FAULT: Agent attempted to access an inaccessible address. code: 0x2b)
+      !$omp target update if(omp_update_to_dtStructs) to(dzdt)
+      !$omp target update to(work_LMloc)
+      call tscheme%set_imex_rhs(work_LMloc, dzdt, .true.)
+      !$omp target update from(work_LMloc)
+#else
       call tscheme%set_imex_rhs(work_LMloc, dzdt)
+#endif
 
 #ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: rhs)
       !$omp single
       call solve_counter%start_count()
       !$omp end single
@@ -289,7 +354,6 @@ contains
          lmB= 0
 
          !-- LU factorisation (big loop but hardly any work because of lZmat)
-         !-- TODO: OpenMP CPU (parallel do)
          do lm=1,sizeLMB2(nLMB2,nLMB)
             lm1=lm22lm(lm,nLMB2,nLMB)
             l1=lm22l(lm,nLMB2,nLMB)
@@ -355,9 +419,11 @@ contains
                end if
 
                !----- This is the normal RHS for the other radial grid points:
+               !$omp parallel do
                do nR=2,n_r_max-1
                   rhs(nR)=work_LMloc(lm1,nR)
                end do
+               !$omp end parallel do
 
 #ifdef WITH_PRECOND_Z10
                rhs(:) = z10Mat_fac(:)*rhs(:)
@@ -386,18 +452,20 @@ contains
                   end if
                end if
 
+               !$omp parallel do
                do nR=2,n_r_max-1
                   rhs1(nR,2*lmB-1,0)=real(work_LMloc(lm1,nR))
                   rhs1(nR,2*lmB,0)  =aimag(work_LMloc(lm1,nR))
                   if ( l_precession .and. l1 == 1 .and. m1 == 1 ) then
                      rhs1(nR,2*lmB-1,0)=rhs1(nR,2*lmB-1,0)+               &
-                     &                         tscheme%wimp_lin(1)*       &
+                     &                         wimp_lin*       &
                      &                         prec_fac*sin(oek*time)
                      rhs1(nR,2*lmB,0)=rhs1(nR,2*lmB,0)-                   &
-                     &                       tscheme%wimp_lin(1)*prec_fac*&
+                     &                       wimp_lin*prec_fac*&
                      &                       cos(oek*time)
                   end if
                end do
+               !$omp end parallel do
 
 #ifdef WITH_PRECOND_Z
                rhs1(:,2*lmB-1,0)=zMat_fac(:,nLMB2)*rhs1(:,2*lmB-1,0)
@@ -455,6 +523,7 @@ contains
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
+      !$omp target exit data map(delete: rhs)
 #else
       !$omp parallel default(shared)
 
@@ -650,7 +719,10 @@ contains
 #endif
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
-#ifdef WITH_OMP_GPU
+#ifdef WITH_OMP_GPU_
+        !-- TODO: Wrong results
+!       !$omp target update to(z)
+!       !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
 #endif
@@ -660,13 +732,22 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+!       !$omp end target teams distribute parallel do
+!       !$omp target update from(z)
 #else
       !$omp end do
       !$omp end parallel
 #endif
 
       !-- Roll the arrays before filling again the first block
+#ifdef WITH_OMP_GPU_
+      !-- TODO! Runtime error (multistep_schemes.f90:676 : always on dzdt%expl)
+      !$omp target update if(omp_update_to_dtStructs) to(dzdt)
+      call tscheme%rotate_imex(dzdt,.true.)
+      !$omp target update if(omp_update_from_dtStructs) from(dzdt)
+#else
       call tscheme%rotate_imex(dzdt)
+#endif
       call tscheme%rotate_imex_scalar(domega_ma_dt)
       call tscheme%rotate_imex_scalar(domega_ic_dt)
       call tscheme%rotate_imex_scalar(lorentz_torque_ma_dt)
@@ -694,11 +775,6 @@ contains
               &               tscheme%istage+1), lRmsNext, l_in_cheb_space=.true.)
       end if
 
-#ifdef WITH_OMP_GPU
-#ifdef WITH_HIPFORT
-#else
-#endif
-#endif
       deallocate(rhs)
 
    end subroutine updateZ
@@ -761,17 +837,29 @@ contains
 #endif
 
       !-- Assemble the r.h.s.
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target update if(update_to_zGhost) to(z_ghost)
+#endif
       call tscheme%set_imex_rhs_ghost(z_ghost, dzdt, lm_start, lm_stop, 1)
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target update if(update_from_zGhost) from(z_ghost)
+#endif
 
       !-- If needed fill z10_ghost
       if ( l_z10mat ) then
          l1m0=st_map%lm2(1,0)
          if ( l1m0 >= lm_start .and. l1m0 <= lm_stop ) then
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target update if(update_to_zGhost) to(z10_ghost, z_ghost)
+#endif
 #ifdef WITH_OMP_GPU
 #endif
             do nR=nRstart,nRstop
                z10_ghost(nR)=real(z_ghost(l1m0,nR))
             end do
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target update if(update_from_zGhost) from(z10_ghost)
+#endif
 #ifdef WITH_OMP_GPU
 #endif
          end if
@@ -781,6 +869,9 @@ contains
       if ( l_precession ) then
          l1m1=st_map%lm2(1,1)
          if ( l1m1 >= lm_start .and. l1m1 <= lm_stop ) then
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target update if(update_to_zGhost) to(z_ghost)
+#endif
 #ifdef WITH_OMP_GPU
 #endif
             do nR=nRstart,nRstop
@@ -789,12 +880,18 @@ contains
             end do
 #ifdef WITH_OMP_GPU
 #endif
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target update if(update_from_zGhost) from(z_ghost)
+#endif
          end if
       end if
 
       !-- Boundary conditions
       if ( nRstart==n_r_cmb ) then
          nR = n_r_cmb
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target update if(update_to_zGhost) to(z_ghost, z10_ghost)
+#endif
 #ifdef WITH_OMP_GPU
 #endif
          do lm=lm_start,lm_stop
@@ -827,10 +924,16 @@ contains
          end do
 #ifdef WITH_OMP_GPU
 #endif
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target update if(update_from_zGhost) from(z_ghost, z10_ghost)
+#endif
       end if
 
       if ( nRstop == n_r_icb ) then
          nR=n_r_icb
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target update if(update_to_zGhost) to(z_ghost, z10_ghost)
+#endif
 #ifdef WITH_OMP_GPU
 #endif
          do lm=lm_start,lm_stop
@@ -871,6 +974,9 @@ contains
          end do
 #ifdef WITH_OMP_GPU
 #endif
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target update if(update_from_zGhost) from(z_ghost, z10_ghost)
+#endif
       end if
 #ifndef WITH_OMP_GPU
       !$omp end parallel
@@ -893,6 +999,10 @@ contains
       real(cp) :: dr
 
       if ( .not. l_update_v ) return
+
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target update if(update_to_zGhost) to(z_ghost)
+#endif
 
 #ifdef WITH_OMP_GPU
       lm_start=1; lm_stop=lm_max
@@ -949,6 +1059,10 @@ contains
       !$omp end parallel
 #endif
 
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target update if(update_from_zGhost) from(z_ghost)
+#endif
+
    end subroutine fill_ghosts_Z
 !------------------------------------------------------------------------------
    subroutine updateZ_FD(time, timeNext, z, dz, dzdt, omega_ma, omega_ic,         &
@@ -995,6 +1109,10 @@ contains
       call tscheme%rotate_imex_scalar(lorentz_torque_ma_dt)
       call tscheme%rotate_imex_scalar(lorentz_torque_ic_dt)
 
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target update if(update_to_zGhost) to(z_ghost)
+#endif
+
       !-- Calculation of the implicit part
       if (  tscheme%istage == tscheme%nstages ) then
          call update_rot_rates_Rloc(z_ghost, lo_ma, lo_ic, lorentz_torque_ma_dt,   &
@@ -1013,6 +1131,10 @@ contains
               &                     omega_ma1, tscheme, tscheme%istage+1,         &
               &                     tscheme%l_imp_calc_rhs(tscheme%istage+1), lRmsNext)
       end if
+
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target update if(update_from_zGhost) from(z_ghost)
+#endif
 
 #ifdef WITH_OMP_GPU
       lm_start=1; lm_stop=lm_max
@@ -1100,14 +1222,22 @@ contains
 #ifdef WITH_OMP_GPU
       start_lm=llm; stop_lm=ulm
 
+      !$omp target update to(dz, work_LMloc)
+      !$omp target update to(z)
+
       call dct_counter%start_count()
 
       call get_ddr( z, dz, work_LMloc, ulm-llm+1, start_lm-llm+1, &
            &       stop_lm-llm+1, n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
-      if ( l_in_cheb ) call rscheme_oc%costf1(z,ulm-llm+1,start_lm-llm+1, &
-                            &                 stop_lm-llm+1)
+      if ( l_in_cheb ) then
+         call rscheme_oc%costf1(z,ulm-llm+1,start_lm-llm+1, &
+                               &                 stop_lm-llm+1,.true.)
+         !$omp target update from(z)
+      end if
 
       call dct_counter%stop_count(l_increment=.false.)
+
+      !$omp target update from(dz, work_LMloc)
 #else
       !$omp parallel default(shared)  private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
@@ -1377,14 +1507,13 @@ contains
       end if
 
 #ifdef WITH_OMP_GPU
+      !$omp target update to(zg)
       start_lm=1; stop_lm=lm_max
-
       call dct_counter%start_count()
-
       call get_ddr_ghost(zg, dz, work_Rloc, lm_max,start_lm, stop_lm,  nRstart, nRstop, &
            &             rscheme_oc)
-
       call dct_counter%stop_count(l_increment=.false.)
+      !$omp target update from(dz, work_Rloc)
 #else
       !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l, m)
       start_lm=1; stop_lm=lm_max
@@ -1930,7 +2059,15 @@ contains
 #endif
       end if
 
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target update if(update_to_zGhost) to(z_ghost)
+#endif
+
       call bulk_to_ghost(z, z_ghost, 1, nRstart, nRstop, lm_max, start_lm, stop_lm)
+
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target update if(update_from_zGhost) from(z_ghost)
+#endif
 
 #ifndef WITH_OMP_GPU
       !$omp end parallel
@@ -1938,6 +2075,10 @@ contains
 
       call exch_ghosts(z_ghost, lm_max, nRstart, nRstop, 1)
       call fill_ghosts_Z(z_ghost)
+
+#ifdef WITH_OMP_GPU_OFF
+      !$omp target update if(update_from_zGhost) from(z_ghost)
+#endif
 
       !-- Finally call the construction of the implicit terms for the first stage
       !-- of next iteration
@@ -2379,9 +2520,6 @@ contains
       integer :: filehandle
       character(len=100) :: filename
 
-#ifdef WITH_OMP_GPU
-#endif
-
       ! copy the zMat to a temporary variable for modification
       write(filename,"(A,I3.3,A,I3.3,A)") "zMat_",l,"_",counter,".dat"
       open(newunit=filehandle,file=trim(filename))
@@ -2411,11 +2549,6 @@ contains
       write(*,"(A,I3,A,ES11.3)") "inverse condition number of zMat for l=",l," is ",rcond
 
       end block
-#endif
-
-#ifndef MATRIX_CHECK
-#ifdef WITH_OMP_GPU
-#endif
 #endif
 
       !-- Array copy
@@ -2460,6 +2593,7 @@ contains
       !-- Bulk points: we fill all the points: this is then easier to handle
       !-- Neumann boundary conditions
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,n_r_max
          zMat%diag(l,nR)=dLh*or2(nR)-wimp_lin*hdif(l)*dLh* &
@@ -2474,6 +2608,8 @@ contains
          &      rscheme_oc%ddr(nR,2)+ (dLvisc(nR)- beta(nR)) *rscheme_oc%dr(nR,2) )
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+      !$omp target update from(zMat%diag, zMat%low, zMat%up)
 #endif
 
       !-- Boundary conditions:
@@ -2540,6 +2676,7 @@ contains
       end if
 
 #ifdef WITH_OMP_GPU
+      !$omp target update to(zMat%diag, zMat%low, zMat%up)
 #endif
 
       !-- LU-decomposition of z10mat:
@@ -2571,6 +2708,7 @@ contains
       !-- Bulk points: we fill all the points: this is then easier to handle
       !-- Neumann boundary conditions
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp parallel default(shared) private(nR,l,dLh)
       !$omp do
@@ -2591,12 +2729,14 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #else
       !$omp end do
 #endif
 
       !----- Boundary conditions, see above:
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
 #else
       !$omp do
 #endif
@@ -2628,6 +2768,7 @@ contains
          end if
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #else
       !$omp end do
       !$omp end parallel

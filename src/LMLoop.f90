@@ -313,10 +313,27 @@ contains
       !-- Phase field needs to be computed first on its own to allow a proper
       !-- advance of temperature afterwards
       if ( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dphidt)
+#endif
          call preparePhase_FD(tscheme, dphidt)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(phi_ghost)
+#endif
          call parallel_solve_phase(block_sze)
+#ifdef WITH_OMP_GPU
+         !$omp target update to(phi_ghost)
+#endif
          call fill_ghosts_Phi(phi_ghost)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(phi_ghost)
+         !$omp target update to(phi_Rloc)
+#endif
          call updatePhase_FD(phi_Rloc, dphidt, tscheme)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(phi_Rloc)
+         !$omp target update from(dphidt)
+#endif
       end if
 
       !-- Mainly assemble the r.h.s. and rebuild the matrices if required

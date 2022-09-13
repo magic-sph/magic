@@ -98,13 +98,14 @@ module radial_scheme
 
 contains
 
-   subroutine costf1_complex(this,f,n_f_max,n_f_start,n_f_stop,work_array)
+   subroutine costf1_complex(this,f,n_f_max,n_f_start,n_f_stop,gpu_dct,work_array)
 
       class(type_rscheme) :: this
 
       !-- Input variables:
       integer,  intent(in) :: n_f_max            ! number of columns in f,f2
       integer,  intent(in) :: n_f_start,n_f_stop ! columns to be transformed
+      logical, optional, intent(in) :: gpu_dct   ! compute DCT-I on GPU with hipfort_hipfft
 
       !-- Output variables:
       complex(cp), intent(inout) :: f(n_f_max,this%nRmax) ! data/coeff input
@@ -112,19 +113,21 @@ contains
 
    end subroutine costf1_complex
 !------------------------------------------------------------------------------
-   subroutine costf1_real_1d(this,f)
+   subroutine costf1_real_1d(this,f,gpu_dct)
 
       class(type_rscheme) :: this
 
       real(cp), intent(inout) :: f(this%nRmax)   ! data/coeff input
+      logical, optional, intent(in) :: gpu_dct   ! compute DCT-I on GPU with hipfort_hipfft
 
    end subroutine costf1_real_1d
 !------------------------------------------------------------------------------
-   subroutine costf1_complex_1d(this,f)
+   subroutine costf1_complex_1d(this,f,gpu_dct)
 
       class(type_rscheme) :: this
 
       complex(cp), intent(inout) :: f(this%nRmax)   ! data/coeff input
+      logical, optional, intent(in) :: gpu_dct   ! compute DCT-I on GPU with hipfort_hipfft
 
    end subroutine costf1_complex_1d
 !------------------------------------------------------------------------------

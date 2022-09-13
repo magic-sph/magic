@@ -8,7 +8,11 @@ module parallel_solvers
    use precision_mod
    use parallel_mod
    use radial_data, only: n_r_cmb, n_r_icb
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: bytes_allocated
+#endif
    use constants, only: one
    use blocking, only: lm2l
    use truncation, only: lm_max
@@ -17,14 +21,14 @@ module parallel_solvers
 
    private
 
-   type, public :: type_tri_par   
+   type, public :: type_tri_par
       integer :: nRMin
       integer :: nRMax
-      integer :: lMin 
+      integer :: lMin
       integer :: lMax
-      real(cp), allocatable :: low(:,:)
-      real(cp), allocatable :: diag(:,:)
-      real(cp), allocatable :: up(:,:)
+      real(cp), pointer :: low(:,:)
+      real(cp), pointer :: diag(:,:)
+      real(cp), pointer :: up(:,:)
    contains
       procedure :: initialize => initialize_3
       procedure :: finalize => finalize_3
@@ -40,11 +44,11 @@ module parallel_solvers
       integer :: nRMax
       integer :: lMin
       integer :: lMax
-      real(cp), allocatable :: low2(:,:)
-      real(cp), allocatable :: low1(:,:)
-      real(cp), allocatable :: diag(:,:)
-      real(cp), allocatable :: up1(:,:)
-      real(cp), allocatable :: up2(:,:)
+      real(cp), pointer :: low2(:,:)
+      real(cp), pointer :: low1(:,:)
+      real(cp), pointer :: diag(:,:)
+      real(cp), pointer :: up1(:,:)
+      real(cp), pointer :: up2(:,:)
    contains
       procedure :: initialize => initialize_5
       procedure :: finalize => finalize_5
@@ -75,11 +79,19 @@ contains
       allocate( this%diag(lMin:lMax,nRstart:nRstop) )
       allocate( this%up(lMin:lMax,nRstart:nRstop) )
       bytes_allocated = bytes_allocated+3*(lMax-lMin+1)*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+      gpu_bytes_allocated = gpu_bytes_allocated+3*(lMax-lMin+1)*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
+#endif
 
       !-- Fill an identity matrix by default
       this%low(:,:) =0.0_cp
       this%diag(:,:)=one
       this%up(:,:)  =0.0_cp
+
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc : this%diag, this%low, this%up)
+      !$omp target update to(this%diag, this%low, this%up)
+#endif
 
    end subroutine initialize_3
 !-------------------------------------------------------------------------------------
@@ -102,6 +114,9 @@ contains
       allocate( this%diag(lMin:lMax,nRstart:nRstop) )
       allocate( this%up1(lMin:lMax,nRstart:nRstop), this%up2(lMin:lMax,nRstart:nRstop) )
       bytes_allocated = bytes_allocated+5*(lMax-lMin+1)*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+      gpu_bytes_allocated = gpu_bytes_allocated+5*(lMax-lMin+1)*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
+#endif
 
       !-- Fill an identity matrix by default
       this%low2(:,:)=0.0_cp
@@ -110,6 +125,11 @@ contains
       this%up1(:,:) =0.0_cp
       this%up2(:,:) =0.0_cp
 
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc : this%low1, this%low2, this%diag, this%up1, this%up2)
+      !$omp target update to(this%low1, this%low2, this%diag, this%up1, this%up2)
+#endif
+
    end subroutine initialize_5
 !-------------------------------------------------------------------------------------
    subroutine finalize_3(this)
@@ -117,6 +137,9 @@ contains
       ! Memory deallocation of a parallel tridiagonal solver
       !
       class(type_tri_par) :: this
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete : this%diag, this%low, this%up)
+#endif
 
       deallocate(this%low, this%diag, this%up)
 
@@ -127,6 +150,9 @@ contains
       ! Memory deallocation of a parallel pentadiagonal solver
       !
       class(type_penta_par) :: this
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete : this%low1, this%low2, this%diag, this%up1, this%up2)
+#endif
 
       deallocate(this%low1, this%low2, this%diag, this%up1, this%up2)
 
@@ -141,13 +167,49 @@ contains
       !-- Local variables
       integer :: l, nR
       real(cp) :: p
+      integer :: lMin, lMax, nRMin, nRMax
+
+      lMin  = this%lMin
+      lMax  = this%lMax
+      nRMax = this%nRMax
+      nRMin = this%nRMin
 
       !-- Set 'out-of-bound' values to zero for safety
-      do l=this%lMin, this%lMax
-         if ( this%nRMin == n_r_cmb ) this%low(l,this%nRMin)=0.0_cp
-         if ( this%nRMax == n_r_icb ) this%up(l,this%nRMax) =0.0_cp
-      end do
+      if ( this%nRMin == n_r_cmb ) then
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+#endif
+         do l=lMin, lMax
+            this%low(l,nRMin)=0.0_cp
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
+      end if
 
+      if ( this%nRMax == n_r_icb ) then
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+#endif
+         do l=lMin, lMax
+            this%up(l,nRMax) =0.0_cp
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
+      end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
+      do l=lMin, lMax
+         do nR=nRMin,nRMax
+            if ( nR == 1 ) p=this%diag(l,nR)
+            if ( nR > 1 ) p=this%diag(l,nR)-this%low(l,nR)*this%up(l,nR-1)*this%diag(l,nR-1)
+            this%diag(l,nR)=one/p
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+#else
       do nR=this%nRMin,this%nRMax
          do l=this%lMin, this%lMax
             if ( nR == 1 ) p=this%diag(l,nR)
@@ -155,6 +217,8 @@ contains
             this%diag(l,nR)=one/p
          end do
       end do
+
+#endif
 
    end subroutine prepare_mat_3
 !-------------------------------------------------------------------------------------
@@ -166,34 +230,77 @@ contains
 
       !-- Local variables
       integer :: nR, l, start_l, stop_l
+      integer :: lMin, lMax, nRMin, nRMax
 
+      lMin  = this%lMin
+      lMax  = this%lMax
+      nRMax = this%nRMax
+      nRMin = this%nRMin
+
+#ifdef WITH_OMP_GPU
+      start_l=this%lMin; stop_l=this%lMax
+#else
       !$omp parallel default(shared) private(start_l,stop_l,l,nR)
       start_l=this%lMin; stop_l=this%lMax
       call get_openmp_blocks(start_l,stop_l)
       !$omp barrier
+#endif
 
       !-- Set 'out-of-bound' values to zero for safety
-      do l=start_l,stop_l
-         if ( this%nRMin == n_r_cmb ) then
-            this%low1(l,this%nRMin)  =0.0_cp
-            this%low2(l,this%nRMin)  =0.0_cp
-            this%low2(l,this%nRMin+1)=0.0_cp
-         end if
-         if ( this%nRMax == n_r_icb ) then
-            this%up1(l,this%nRMax)  =0.0_cp
-            this%up2(l,this%nRMax)  =0.0_cp
-            this%up2(l,this%nRMax-1)=0.0_cp
-         end if
-      end do
+      if ( this%nRMin == n_r_cmb ) then
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+#endif
+         do l=start_l,stop_l
+            this%low1(l,nRMin)  =0.0_cp
+            this%low2(l,nRMin)  =0.0_cp
+            this%low2(l,nRMin+1)=0.0_cp
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
+      end if
+
+      if ( this%nRMax == n_r_icb ) then
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+#endif
+         do l=start_l,stop_l
+            this%up1(l,nRMax)  =0.0_cp
+            this%up2(l,nRMax)  =0.0_cp
+            this%up2(l,nRMax-1)=0.0_cp
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
+      end if
 
       !-- Now proper LU factorisation
       nR=2
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
+#endif
       do l=start_l,stop_l
          this%up1(l,nR)=this%up1(l,nR)-this%low1(l,nR)*this%up2(l,nR-1)/this%diag(l,nR-1)
-         this%diag(l,nR)=this%diag(l,nR)-this%low1(l,nR)*this%up1(l,nR-1)/ &
-         &               this%diag(l,nR-1)
+         this%diag(l,nR)=this%diag(l,nR)-this%low1(l,nR)*this%up1(l,nR-1)/this%diag(l,nR-1)
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#endif
 
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
+      do l=start_l,stop_l
+         do nR=3,nRMax
+            this%low1(l,nR)=this%low1(l,nR)-this%low2(l,nR)*this%up1(l,nR-2)/this%diag(l,nR-2)
+            this%up1(l,nR)=this%up1(l,nR)-this%low1(l,nR)*this%up2(l,nR-1)/this%diag(l,nR-1)
+            this%diag(l,nR)=this%diag(l,nR)-this%low1(l,nR)*this%up1(l,nR-1)/ &
+            &               this%diag(l,nR-1)-this%low2(l,nR)*this%up2(l,nR-2)/ &
+            &               this%diag(l,nR-2)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+#else
       do nR=3,this%nRMax
          do l=start_l,stop_l
             this%low1(l,nR)=this%low1(l,nR)-this%low2(l,nR)*this%up1(l,nR-2)/ &
@@ -205,8 +312,12 @@ contains
             &               this%diag(l,nR-2)
           end do
       enddo
+#endif
 
-      do nR=1,this%nRMax
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)
+#endif
+      do nR=1,nRMax
          do l=start_l,stop_l
             this%diag(l,nR)=one/this%diag(l,nR)
             this%up1(l,nR) =this%up1(l,nR)*this%diag(l,nR)
@@ -215,7 +326,11 @@ contains
             this%low2(l,nR)=this%low2(l,nR)*this%diag(l,nR)
           end do
       enddo
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
       !$omp end parallel
+#endif
 
    end subroutine prepare_mat_5
 !-------------------------------------------------------------------------------------
@@ -237,6 +352,10 @@ contains
       integer :: tag
 
       tag = 53976
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(this%diag, this%low, this%up)
+#endif
 
       nR0 = nRstart
       if ( nRstart > n_r_cmb ) then ! Not the first block
@@ -354,13 +473,30 @@ contains
          !$omp barrier
 #endif
       else ! Lower boundary: x -> x - low * x(i-1)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(this%low)
+#endif
          LM_L_LOOP(lmStart, lmStop, x(lm,nR0)=x(lm,nR0)-this%low(l,nR0)*x(lm,nR0-1))
          !$omp barrier
       end if
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(x)
+      !$omp target teams distribute parallel do
+      do lm=lmStart,lmStop
+         l=lm2l(lm)
+         do nR=nR0+1,nRstop
+            x(lm,nR)=x(lm,nR)-this%diag(l,nR-1)*this%low(l,nR)*x(lm,nR-1)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+      !$omp target update from(x)
+#else
       do nR=nR0+1,nRstop
          LM_L_LOOP(lmStart, lmStop, x(lm,nR)=x(lm,nR)-this%diag(l,nR-1)*this%low(l,nR)*x(lm,nR-1))
       end do
+#endif
+
       !$omp barrier
 
       if ( nRstop < n_r_icb ) then ! Not the last block
@@ -422,9 +558,23 @@ contains
       end if
 #endif
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(x)
+      !$omp target teams distribute parallel do
+      do lm=lb,lu
+         l=lm2l(lm)
+         do nR=nRstart,nRstop
+            x(lm,nR)=this%diag(l,nR)*x(lm,nR)-this%low1(l,nR)*x(lm,nR-1)-this%low2(l,nR)*x(lm,nR-2)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+      !$omp target update from(x)
+#else
       do nR=nRstart,nRstop
          LM_L_LOOP(lb,lu,x(lm,nR)=this%diag(l,nR)*x(lm,nR)-this%low1(l,nR)*x(lm,nR-1)-this%low2(l,nR)*x(lm,nR-2))
       end do
+#endif
+
       !$omp barrier
 
 #ifdef WITH_MPI
@@ -480,9 +630,22 @@ contains
       end if
 #endif
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(x)
+      !$omp target teams distribute parallel do
+      do lm=lmStart,lmStop
+         l=lm2l(lm)
+         do nR=nRstop,nRstart,-1
+            x(lm,nR)=(x(lm,nR)-this%up(l,nR)*x(lm,nR+1))*this%diag(l,nR)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+      !$omp target update from(x)
+#else
       do nR=nRstop,nRstart,-1
          LM_L_LOOP(lmStart,lmStop,x(lm,nR)=(x(lm,nR)-this%up(l,nR)*x(lm,nR+1))*this%diag(l,nR))
       end do
+#endif
 
 #ifdef WITH_MPI
       if ( nRstart > n_r_cmb ) then
@@ -540,9 +703,22 @@ contains
       end if
 #endif
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(x)
+      !$omp target teams distribute parallel do
+      do lm=lmStart,lmStop
+         l=lm2l(lm)
+         do nR=nRstop,nRstart,-1
+            x(lm,nR)=x(lm,nR)-this%up1(l,nR)*x(lm,nR+1)-this%up2(l,nR)*x(lm,nR+2)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+      !$omp target update from(x)
+#else
       do nR=nRstop,nRstart,-1
          LM_L_LOOP(lmStart,lmStop,x(lm,nR)=x(lm,nR)-this%up1(l,nR)*x(lm,nR+1)-this%up2(l,nR)*x(lm,nR+2))
       end do
+#endif
 
 #ifdef WITH_MPI
       !$omp barrier
@@ -578,7 +754,7 @@ contains
       integer,     intent(inout) :: array_req(:)
       complex(cp), intent(inout) :: x(1:lm_max, nRstart-1:nRstop+1)
       integer,     intent(inout) :: req
-      
+
       !-- Local variables
       integer :: lmb, lmu
 

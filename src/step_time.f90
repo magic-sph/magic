@@ -967,10 +967,26 @@ contains
                   call bulk_to_ghost(phi_Rloc, phi_ghost, 1, nRstart, nRstop, lm_max, &
                        &             1, lm_max)
                   call exch_ghosts(phi_ghost, lm_max, nRstart, nRstop, 1)
+#ifdef WITH_OMP_GPU
+                  !$omp target update to(phi_ghost)
+#endif
                   call fill_ghosts_Phi(phi_ghost)
+#ifdef WITH_OMP_GPU
+                  !$omp target update from(phi_ghost)
+                  !$omp target update to(dphidt)
+#endif
                   call get_phase_rhs_imp_ghost(phi_ghost, dphidt, 1, .true.)
+#ifdef WITH_OMP_GPU
+                  !$omp target update from(dphidt)
+#endif
             else
+#ifdef WITH_OMP_GPU
+               !$omp target update to(phi_LMloc, dphidt)
+#endif
                call get_phase_rhs_imp(phi_LMloc, dphidt, 1, .true.)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(phi_LMloc, dphidt)
+#endif
             end if
          end if
 
@@ -1061,13 +1077,13 @@ contains
             if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
             if ( l_phase_field ) call lo2r_one%transp_lm2r(phi_LMloc,phi_Rloc)
             if ( l_conv .or. l_mag_kin ) then
-               call lo2r_flow%transp_lm2r(flow_LMloc_container,flow_Rloc_container)
+               call lo2r_flow%transp_lm2r(flow_LMloc_container,flow_Rloc_container) !-- Do this on GPU
             end if
             if ( lPressCalc ) then
                call lo2r_press%transp_lm2r(press_LMloc_container,press_Rloc_container)
             end if
             if ( l_mag ) then
-               call lo2r_field%transp_lm2r(field_LMloc_container,field_Rloc_container)
+               call lo2r_field%transp_lm2r(field_LMloc_container,field_Rloc_container) !-- Do this on GPU
             end if
          end if
       else
