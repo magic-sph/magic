@@ -778,33 +778,35 @@ contains
       !$omp&                orho1, orho2, beta, dbeta, ddbeta, alpha0, dLalpha0, ddLalpha0, &
       !$omp&                rgrav, ogrun, &
       !$omp&                lambda, dLlambda, jVarCon, sigma, kappa, dLkappa, &
-      !$omp&                visc, dLvisc, ddLvisc, epscProf, divKtemp0, l_R)
+      !$omp&                visc, dLvisc, ddLvisc, epscProf, divKtemp0, l_R) nowait
       if(.not. l_full_sphere) then
-         !$omp target update to(cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic, dr_top_ic)
+         !$omp target update to(cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic, dr_top_ic) nowait
       endif
       if(.not. l_finite_diff) then
-         !$omp target update to(cheb_int)
+         !$omp target update to(cheb_int) nowait
       endif
       if ( l_chemical_conv ) then
-         !$omp target update to(dxicond)
+         !$omp target update to(dxicond) nowait
       end if
-      !$omp target update to(rscheme_oc)
+      !$omp target update to(rscheme_oc) nowait
 #endif
 
 #ifdef WITH_OMP_GPU
       if ( l_curr ) then
          !$omp target enter data map(alloc : fac_loop)
-         !$omp target update to(fac_loop)
+         !$omp target update to(fac_loop) nowait
       end if
 
       !-- From init_fields
-      !$omp target update to(tops, bots)
+      !$omp target update to(tops, bots) nowait
       if ( l_chemical_conv ) then
-         !$omp target update to(topxi, botxi)
+         !$omp target update to(topxi, botxi) nowait
       end if
 
       !-- From blocking module
-      !$omp target update to(lo_map, st_map, lo_sub_map, st_sub_map)
+      !$omp target update to(lo_map, st_map) nowait
+      !$omp target update to(lo_sub_map) nowait
+      !$omp target update to(st_sub_map)
 #endif
 
    end subroutine preCalc

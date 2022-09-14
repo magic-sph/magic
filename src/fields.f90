@@ -130,7 +130,7 @@ contains
       dj_ic(:,:) =zero
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: b_ic, db_ic, ddb_ic, aj_ic, dj_ic)
-      !$omp target update to(b_ic, db_ic, ddb_ic, aj_ic, dj_ic)
+      !$omp target update to(b_ic, db_ic, ddb_ic, aj_ic, dj_ic) nowait
 #endif
 
       if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
@@ -142,7 +142,7 @@ contains
             s_LMloc(:,:)=zero
 #ifdef WITH_OMP_GPU
             !$omp target enter data map(alloc: w_LMloc, z_LMloc, s_LMloc)
-            !$omp target update to(w_LMloc, z_LMloc, s_LMloc)
+            !$omp target update to(w_LMloc, z_LMloc, s_LMloc) nowait
 #endif
             if ( l_mag ) then
                if ( l_mag_par_solve ) then
@@ -151,7 +151,7 @@ contains
                   b_LMloc(:,:) =zero
 #ifdef WITH_OMP_GPU
                   !$omp target enter data map(alloc: aj_LMloc, b_LMloc)
-                  !$omp target update to(aj_LMloc, b_LMloc)
+                  !$omp target update to(aj_LMloc, b_LMloc) nowait
 #endif
                else
                   allocate( flow_LMloc_container(llm:ulm,n_r_max,1:2) )
@@ -160,7 +160,7 @@ contains
                   aj_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,2)
 #ifdef WITH_OMP_GPU
                   !$omp target enter data map(alloc: aj_LMloc, b_LMloc)
-                  !$omp target update to(aj_LMloc, b_LMloc)
+                  !$omp target update to(aj_LMloc, b_LMloc) nowait
 #endif
                end if
             else
@@ -168,7 +168,7 @@ contains
                b_LMloc(1,1)=zero; aj_LMloc(1,1)=zero
 #ifdef WITH_OMP_GPU
                !$omp target enter data map(alloc: b_LMloc, aj_LMloc)
-               !$omp target update to(b_LMloc, aj_LMloc)
+               !$omp target update to(b_LMloc, aj_LMloc) nowait
 #endif
             end if
          else
@@ -181,14 +181,14 @@ contains
             s_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,3)
 #ifdef WITH_OMP_GPU
             !$omp target enter data map(alloc: w_LMloc, z_LMloc, s_LMloc)
-            !$omp target update to(w_LMloc, z_LMloc, s_LMloc)
+            !$omp target update to(w_LMloc, z_LMloc, s_LMloc) nowait
 #endif
             if ( l_mag ) then
                b_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,4)
                aj_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,5)
 #ifdef WITH_OMP_GPU
                !$omp target enter data map(alloc: b_LMloc, aj_LMloc)
-               !$omp target update to(b_LMloc, aj_LMloc)
+               !$omp target update to(b_LMloc, aj_LMloc) nowait
 #endif
             end if
          end if
@@ -211,7 +211,7 @@ contains
          !$omp target enter data map(alloc: dw_LMloc, ddw_LMloc, dz_LMloc, ds_LMloc, &
          !$omp&                             db_LMloc, ddb_LMloc, dj_LMloc, ddj_LMloc)
          !$omp target update to(dw_LMloc, ddw_LMloc, dz_LMloc, ds_LMloc, &
-         !$omp&                 db_LMloc, ddb_LMloc, dj_LMloc, ddj_LMloc)
+         !$omp&                 db_LMloc, ddb_LMloc, dj_LMloc, ddj_LMloc) nowait
 #endif
 
          if ( l_parallel_solve ) then
@@ -222,7 +222,7 @@ contains
             s_Rloc(:,:)=zero
 #ifdef WITH_OMP_GPU
             !$omp target enter data map(alloc: s_Rloc, w_Rloc, z_Rloc)
-            !$omp target update to(s_Rloc, w_Rloc, z_Rloc)
+            !$omp target update to(s_Rloc, w_Rloc, z_Rloc) nowait
 #endif
             if ( l_mag ) then
                if( l_mag_par_solve ) then
@@ -231,7 +231,7 @@ contains
                   aj_Rloc(:,:)=zero
 #ifdef WITH_OMP_GPU
                   !$omp target enter data map(alloc: b_RLoc, aj_Rloc)
-                  !$omp target update to(b_RLoc, aj_Rloc)
+                  !$omp target update to(b_RLoc, aj_Rloc) nowait
 #endif
                else
                   allocate( flow_Rloc_container(1:lm_max,nRstart:nRstop,1:2) )
@@ -240,7 +240,7 @@ contains
                   aj_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,2)
 #ifdef WITH_OMP_GPU
                   !$omp target enter data map(alloc: b_RLoc, aj_Rloc)
-                  !$omp target update to(b_RLoc, aj_Rloc)
+                  !$omp target update to(b_RLoc, aj_Rloc) nowait
 #endif
                end if
             else
@@ -248,7 +248,7 @@ contains
                b_Rloc(1,1)=zero; aj_Rloc(1,1)=zero
 #ifdef WITH_OMP_GPU
                !$omp target enter data map(alloc:b_RLoc, aj_Rloc)
-               !$omp target update to(b_RLoc, aj_Rloc)
+               !$omp target update to(b_RLoc, aj_Rloc) nowait
 #endif
             end if
          else
@@ -259,14 +259,14 @@ contains
             s_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,3)
 #ifdef WITH_OMP_GPU
             !$omp target enter data map(alloc: s_Rloc, w_Rloc, z_Rloc)
-            !$omp target update to(s_Rloc, w_Rloc, z_Rloc)
+            !$omp target update to(s_Rloc, w_Rloc, z_Rloc) nowait
 #endif
             if ( l_mag ) then
                b_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,4)
                aj_Rloc(1:,nRstart:) => flow_Rloc_container(1:lm_max,nRstart:nRstop,5)
 #ifdef WITH_OMP_GPU
                !$omp target enter data map(alloc: b_RLoc, aj_Rloc)
-               !$omp target update to(b_RLoc, aj_Rloc)
+               !$omp target update to(b_RLoc, aj_Rloc) nowait
 #endif
             end if
          end if
@@ -284,7 +284,7 @@ contains
          dj_Rloc(:,:) =zero
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: ds_Rloc, dw_Rloc, ddw_Rloc, dz_Rloc, db_Rloc, ddb_Rloc, dj_Rloc)
-         !$omp target update to(ds_Rloc, dw_Rloc, ddw_Rloc, dz_Rloc, db_Rloc, ddb_Rloc, dj_Rloc)
+         !$omp target update to(ds_Rloc, dw_Rloc, ddw_Rloc, dz_Rloc, db_Rloc, ddb_Rloc, dj_Rloc) nowait
 #endif
       else
          allocate( flow_LMloc_container(llm:ulm,n_r_max,1:5) )
@@ -296,7 +296,7 @@ contains
          dz_LMloc(llm:,1:)  => flow_LMloc_container(llm:ulm,1:n_r_max,5)
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: w_LMloc, dw_LMloc, ddw_LMloc, z_LMloc, dz_LMloc)
-         !$omp target update to(w_LMloc, dw_LMloc, ddw_LMloc, z_LMloc, dz_LMloc)
+         !$omp target update to(w_LMloc, dw_LMloc, ddw_LMloc, z_LMloc, dz_LMloc) nowait
 #endif
 
          allocate( flow_Rloc_container(lm_max,nRstart:nRstop,1:5) )
@@ -308,7 +308,7 @@ contains
          dz_Rloc(1:,nRstart:)  => flow_Rloc_container(1:lm_max,nRstart:nRstop,5)
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, dz_Rloc)
-         !$omp target update to(w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, dz_Rloc)
+         !$omp target update to(w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, dz_Rloc) nowait
 #endif
 
          !-- Entropy:
@@ -318,7 +318,7 @@ contains
          ds_LMloc(llm:,1:) => s_LMloc_container(llm:ulm,1:n_r_max,2)
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: s_LMloc, ds_LMloc)
-         !$omp target update to(s_Rloc, ds_Rloc)
+         !$omp target update to(s_Rloc, ds_Rloc) nowait
 #endif
          allocate( s_Rloc_container(lm_max,nRstart:nRstop,1:2) )
          s_Rloc_container(:,:,:)=zero
@@ -326,7 +326,7 @@ contains
          ds_Rloc(1:,nRstart:) => s_Rloc_container(1:lm_max,nRstart:nRstop,2)
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: s_Rloc, ds_Rloc)
-         !$omp target update to(s_Rloc, ds_Rloc)
+         !$omp target update to(s_Rloc, ds_Rloc) nowait
 #endif
 
          !-- Magnetic field potentials:
@@ -340,7 +340,7 @@ contains
          ddj_LMloc(llmMag:,1:) => field_LMloc_container(llmMag:ulmMag,1:n_r_maxMag,6)
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc)
-         !$omp target update to(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc)
+         !$omp target update to(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc) nowait
 #endif
 
          allocate( field_Rloc_container(lm_maxMag,nRstart:nRstop,1:5) )
@@ -352,7 +352,7 @@ contains
          dj_Rloc(1:,nRstart:)  => field_Rloc_container(1:lm_maxMag,nRstart:nRstop,5)
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc, dj_Rloc)
-         !$omp target update to(b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc, dj_Rloc)
+         !$omp target update to(b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc, dj_Rloc) nowait
 #endif
       end if
 
@@ -363,7 +363,7 @@ contains
          &                 SIZEOF_DEF_COMPLEX
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: ddj_Rloc)
-         !$omp target update to(ddj_Rloc)
+         !$omp target update to(ddj_Rloc) nowait
          gpu_bytes_allocated = gpu_bytes_allocated+(nRstopMag-nRstartMag+1)*lm_maxMag* &
          &                 SIZEOF_DEF_COMPLEX
 #endif
@@ -375,7 +375,7 @@ contains
       dp_LMloc(llm:,1:)  => press_LMloc_container(llm:ulm,1:n_r_max,2)
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: p_LMloc, dp_LMloc)
-      !$omp target update to(p_LMloc, dp_LMloc)
+      !$omp target update to(p_LMloc, dp_LMloc) nowait
 #endif
 
       allocate( press_Rloc_container(lm_max,nRstart:nRstop,1:2) )
@@ -384,7 +384,7 @@ contains
       dp_Rloc(1:,nRstart:)  => press_Rloc_container(1:lm_max,nRstart:nRstop,2)
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: p_Rloc, dp_Rloc)
-      !$omp target update to(p_Rloc, dp_Rloc)
+      !$omp target update to(p_Rloc, dp_Rloc) nowait
 #endif
 
       bytes_allocated = bytes_allocated + &
@@ -438,7 +438,7 @@ contains
       end if
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: xi_Rloc, dxi_Rloc, xi_LMloc, dxi_LMloc)
-      !$omp target update to(xi_Rloc, dxi_Rloc, xi_LMloc, dxi_LMloc)
+      !$omp target update to(xi_Rloc, dxi_Rloc, xi_LMloc, dxi_LMloc) nowait
 #endif
 
       !-- Phase field
@@ -462,7 +462,7 @@ contains
       end if
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: phi_Rloc, phi_LMloc)
-      !$omp target update to(phi_Rloc, phi_LMloc)
+      !$omp target update to(phi_Rloc, phi_LMloc) nowait
 #endif
 
 
@@ -499,7 +499,7 @@ contains
       !$omp target enter data map(alloc: b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, &
       !$omp&                             aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, work_LMloc)
       !$omp target update to(b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, &
-      !$omp&                 aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, work_LMloc)
+      !$omp&                 aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, work_LMloc) nowait
 #endif
 
    end subroutine initialize_fields

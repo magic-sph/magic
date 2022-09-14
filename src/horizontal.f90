@@ -321,12 +321,12 @@ contains
       end do
 
 #ifdef WITH_OMP_GPU
-      !$omp target update to(n_theta_cal2ord,theta_ord,                                               &
-      !$omp&                 sinTheta_E2,                                                             &
-      !$omp&                 O_sin_theta,O_sin_theta_E2,cosn_theta_E2,sinTheta,cosTheta,              &
-      !$omp&                 phi,gauss,dPl0Eq,dPhi,dLh,                                               &
-      !$omp&                 dTheta1S,dTheta1A,dTheta2S,dTheta2A,dTheta3S,dTheta3A,dTheta4S,dTheta4A, &
-      !$omp&                 hdif_B,hdif_V,hdif_S,hdif_Xi)
+      !$omp target update to(n_theta_cal2ord,theta_ord                                              ) nowait
+      !$omp target update to(O_sin_theta,O_sin_theta_E2,cosn_theta_E2,sinTheta,cosTheta             ) nowait
+      !$omp target update to(phi,gauss,dPl0Eq,dPhi,dLh                                              ) nowait
+      !$omp target update to(dTheta1S,dTheta1A,dTheta2S,dTheta2A,dTheta3S,dTheta3A,dTheta4S,dTheta4A) nowait
+      !$omp target update to(hdif_B,hdif_V,hdif_S,hdif_Xi                                           ) nowait
+      !$omp target update to(sinTheta_E2                                                            )
 #endif
 
    end subroutine horizontal
