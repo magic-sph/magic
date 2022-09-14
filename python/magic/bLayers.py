@@ -312,10 +312,16 @@ class BLayers(MagicSetup):
             print('var(S) bl, bulk', self.varSEpsTbl/self.epsT, self.varSEpsTbulk/self.epsT)
 
         # Second way of defining the thermal boundary layers: intersection of the slopes
-        d1 = matder(len(self.rad)-1, self.ro, self.ri)
+        if self.radial_scheme == 'CHEB' and self.l_newmap == False:
+            d1 = matder(len(self.rad)-1, self.ro, self.ri)
         self.ttm = 3.*intcheb(self.ss*self.rad**2, len(self.rad)-1, self.ri, self.ro) \
                    /(self.ro**3-self.ri**3)
-        dsdr = np.dot(d1, self.ss)
+        if self.radial_scheme == 'CHEB' and self.l_newmap == False:
+            dsdr = np.dot(d1, self.ss)
+        else:
+            dsdr = np.zeros_like(self.ss)
+            dsdr[:-1] = np.diff(self.ss) / np.diff(self.rad)
+            dsdr[-1] = (self.ss[-1]-self.ss[-2]) / (self.rad[-1]-self.rad[-2])
         self.beta = dsdr[len(dsdr)//2]
         print('beta={:.2f}'.format(self.beta))
         self.slopeTop = dsdr[2]*(self.rad-self.ro)+self.ss[0]
@@ -427,7 +433,12 @@ class BLayers(MagicSetup):
                         getAccuratePeaks(self.rad, self.uh, self.uhTop, \
                                          self.uhBot, self.ri, self.ro)
 
-            duhdr = np.dot(d1, self.uh)
+            if self.radial_scheme == 'CHEB' and self.l_newmap == False:
+                duhdr = np.dot(d1, self.uh)
+            else:
+                duhdr = np.zeros_like(self.uh)
+                duhdr[:-1] = np.diff(self.uh)/np.diff(self.rad)
+                duhdr[-1] = (self.uh[-1]-self.uh[-2])/(self.rad[-1]-self.rad[-2])
 
             #1st round
             mask = (self.rad>=self.ro-self.bcTopduh/4)*(self.rad<self.ro)
@@ -440,7 +451,7 @@ class BLayers(MagicSetup):
             self.uhBotSlope = self.uhBot/slopeB
 
             #2nd round
-            mask = (self.rad>=self.ro-self.uhTopSlope/4.)*(self.rad<self.ro)
+            mask = (self.rad>=self.ro-self.uhTopSlope/4)*(self.rad<self.ro)
             slopeT = duhdr[mask].mean()
             mask = (self.rad<=self.ri+self.uhBotSlope/4)*(self.rad>self.ri)
             slopeB = duhdr[mask].mean()

@@ -767,30 +767,35 @@ def phideravg(data, minc=1, order=4):
         der[-1, ...] = der[0, ...]
     return der
 
-def rderavg(data, eta=0.35, spectral=True, exclude=False):
+def rderavg(data, rad, exclude=False):
     """
     Radial derivative of an input array
 
     >>> gr = MagiGraph()
-    >>> dvrdr = rderavg(gr.vr, eta=gr.radratio)
+    >>> dvrdr = rderavg(gr.vr, gr.radius)
 
     :param data: input array
     :type data: numpy.ndarray
-    :param eta: aspect ratio of the spherical shell
-    :type eta: float
-    :param spectral: when set to True use Chebyshev derivatives, otherwise use
-                     finite differences (default is True)
-    :type spectral: bool
+    :param rad: radial grid
+    :type rad: numpy.ndarray
     :param exclude: when set to True, exclude the first and last radial grid points
                     and replace them by a spline extrapolation (default is False)
     :type exclude: bool
     :returns: the radial derivative of the input array
     :rtype: numpy.ndarray
     """
-    r1 = 1./(1.-eta)
-    r2 = eta/(1.-eta)
+    r1 = rad[0]
+    r2 = rad[-1]
     nr = data.shape[-1]
     grid = chebgrid(nr-1, r1, r2)
+    tol = 1e-6 # This is to determine whether Cheb der will be used
+    diff = abs(grid-rad).max()
+    if diff > tol:
+        spectral = False
+        grid = rad
+    else:
+        spectral = True
+
     if exclude:
         g = grid[::-1]
         gnew = np.linspace(r2, r1, 1000)
@@ -822,6 +827,7 @@ def rderavg(data, eta=0.35, spectral=True, exclude=False):
         der = (np.roll(data, -1,  axis=-1)-np.roll(data, 1, axis=-1))/denom
         der[..., 0] = (data[..., 1]-data[..., 0])/(grid[1]-grid[0])
         der[..., -1] = (data[..., -1]-data[..., -2])/(grid[-1]-grid[-2])
+
     return der
 
 def thetaderavg(data, order=4):
@@ -873,7 +879,7 @@ def thetaderavg(data, order=4):
     return der
 
 
-def zderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
+def zderavg(data, rad, colat=None, exclude=False):
     """
     z derivative of an input array
 
@@ -882,11 +888,8 @@ def zderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
 
     :param data: input array
     :type data: numpy.ndarray
-    :param eta: aspect ratio of the spherical shell
-    :type eta: float
-    :param spectral: when set to True use Chebyshev derivatives, otherwise use
-                     finite differences (default is True)
-    :type spectral: bool
+    :param rad: radial grid
+    :type rad: numpy.ndarray
     :param exclude: when set to True, exclude the first and last radial grid points
                     and replace them by a spline extrapolation (default is False)
     :type exclude: bool
@@ -900,13 +903,10 @@ def zderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
     elif len(data.shape) == 2:  # 2-D
         ntheta = data.shape[0]
     nr = data.shape[-1]
-    r1 = 1./(1.-eta)
-    r2 = eta/(1.-eta)
     if colat is not None:
         th = colat
     else:
         th = np.linspace(0., np.pi, ntheta)
-    rr = chebgrid(nr-1, r1, r2)
 
     if len(data.shape) == 3:  # 3-D
         thmD = np.zeros_like(data)
@@ -918,11 +918,12 @@ def zderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
             thmD[i, :] = th[i]
 
     dtheta = thetaderavg(data)
-    dr = rderavg(data, eta, spectral, exclude)
+    dr = rderavg(data, rad, exclude)
     dz = np.cos(thmD)*dr - np.sin(thmD)/rr*dtheta
+
     return dz
 
-def sderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
+def sderavg(data, rad, colat=None, exclude=False):
     """
     s derivative of an input array
 
@@ -931,11 +932,8 @@ def sderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
 
     :param data: input array
     :type data: numpy.ndarray
-    :param eta: aspect ratio of the spherical shell
-    :type eta: float
-    :param spectral: when set to True use Chebyshev derivatives, otherwise use
-                     finite differences (default is True)
-    :type spectral: bool
+    :param rad: radial grid
+    :type rad: numpy.ndarray
     :param exclude: when set to True, exclude the first and last radial grid points
                     and replace them by a spline extrapolation (default is False)
     :type exclude: bool
@@ -946,17 +944,15 @@ def sderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
     """
     ntheta = data.shape[0]
     nr = data.shape[-1]
-    r1 = 1./(1.-eta)
-    r2 = eta/(1.-eta)
     if colat is not None:
         th = colat
     else:
         th = np.linspace(0., np.pi, ntheta)
-    rr = chebgrid(nr-1, r1, r2)
     rr2D, th2D = np.meshgrid(rr,th)
     dtheta = thetaderavg(data)
-    dr = rderavg(data, eta, spectral, exclude)
+    dr = rderavg(data, rad, exclude)
     ds = np.sin(th2D)*dr + np.cos(th2D)/rr2D*dtheta
+
     return ds
 
 
