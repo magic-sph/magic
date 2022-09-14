@@ -23,6 +23,8 @@ class MagicSpectrum(MagicSetup):
     >>> sp = MagicSpectrum(field='e_kin', ispec=1)
     >>> # display the content of mag_spec_ave.test on one single figure
     >>> sp = MagicSpectrum(field='e_mag', tag='test', ave=True)
+    >>> # display both kinetic and magnetic energy spectra on same graph
+    >>> sp = MagicSpectrum(field='combined', ave=True)
     """
 
     def __init__(self, datadir='.', field='e_kin', iplot=True, ispec=None,
@@ -69,11 +71,49 @@ class MagicSpectrum(MagicSetup):
         elif field in ('dtVrms'):
             self.name = 'dtVrms_spec'
             self.ave = True
-
         elif field in ('T','temperature','S','entropy'):
             self.name = 'T_spec_'
+        elif field == 'combined':
+            self.__init__(datadir=datadir, field='e_kin', iplot=False, ispec=ispec,
+                          ave=ave, normalize=normalize, tag=tag, tags=tags,
+                          quiet=quiet)
+            self.__init__(datadir=datadir, field='e_mag', iplot=False, ispec=ispec,
+                          ave=ave, normalize=normalize, tag=tag, tags=tags,
+                          quiet=quiet)
+            self.name = 'combined'
 
         speclut = None #  Set to None by default
+
+        if self.name != 'combined':
+            speclut = self.get_file(ispec, datadir, tag, tags, quiet)
+
+        # Copy look-up table arguments into MagicSpectrum object
+        if speclut is not None:
+            for attr in speclut.__dict__:
+                setattr(self, attr, speclut.__dict__[attr])
+
+        if iplot:
+            self.plot()
+
+    def get_file(self, ispec, datadir, tag, tags, quiet):
+        """
+        This routine is used to determine which files need do be read
+        or stacked. The outputs are stored in a look-up table.
+
+        :param ispec: the number of the spectrum you want to plot
+        :type ispec: int
+        :param datadir: current working directory
+        :type datadir: str
+        :param tag: file suffix (tag), if not specified the most recent one in
+                    the current directory is chosen
+        :type tag: str
+        :param tags: a list of tags to be considered
+        :type tags: list
+        :param quiet: when set to True, makes the output silent (default False)
+        :type quiet: bool
+        :returns speclut: a look-up table which contains the different fields
+        :rtype speclut: dict
+        """
 
         if self.ave: # Time-averaged spectra
 
@@ -95,7 +135,8 @@ class MagicSpectrum(MagicSetup):
                             pattern = os.path.join(datadir, 'log.{}'.format(ending))
                             if os.path.exists(pattern):
                                 MagicSetup.__init__(self, datadir=datadir,
-                                                    quiet=True, nml='log.{}'.format(ending))
+                                                    quiet=True,
+                                                    nml='log.{}'.format(ending))
 
                     # Sum the files that correspond to the tag
                     mask = re.compile(r'{}\.(.*)'.format(self.name))
@@ -221,13 +262,7 @@ class MagicSpectrum(MagicSetup):
             speclut = SpecLookUpTable(data, self.name, self.start_time,
                                       self.stop_time)
 
-        # Copy look-up table arguments into MagicSpectrum object
-        if speclut is not None:
-            for attr in speclut.__dict__:
-                setattr(self, attr, speclut.__dict__[attr])
-
-        if iplot:
-            self.plot()
+        return speclut
 
     def plot(self):
         """
@@ -397,6 +432,52 @@ class MagicSpectrum(MagicSetup):
             else:
                 ax.set_xlabel('m+1')
             ax.set_ylabel('Magnetic energy')
+            ax.set_xlim(1, self.index[-1]+1)
+            ax.legend(loc='upper right', frameon=False)
+            fig.tight_layout()
+        elif self.name == 'combined':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            y = self.ekin_poll[1:]+self.ekin_torl[1:]
+            ax.loglog(self.index[1:], y, label='Kinetic energy')
+            if self.ave:
+                ystd = np.sqrt(self.ekin_poll_SD[1:]**2+self.ekin_torl_SD[1:]**2)
+                ax.fill_between(self.index[1:], y-ystd, y+ystd, alpha=0.2)
+            y = self.emag_poll[1:]+self.emag_torl[1:]
+            ax.loglog(self.index[1:], y, label='Magnetic energy')
+            if self.ave:
+                ystd = np.sqrt(self.emag_poll_SD[1:]**2+self.emag_torl_SD[1:]**2)
+                ax.fill_between(self.index[1:], y-ystd, y+ystd, alpha=0.2)
+
+            if labTex:
+                ax.set_xlabel('Degree $\ell$')
+            else:
+                ax.set_xlabel('Degree l')
+            ax.set_ylabel('Energy')
+            ax.set_xlim(1, self.index[-1])
+            ax.legend(loc='upper right', frameon=False)
+            fig.tight_layout()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            y = self.ekin_polm[::self.minc]+self.ekin_torm[::self.minc]
+            ax.loglog(self.index[::self.minc]+1, y, label='Kinetic energy')
+            if self.ave:
+                ystd = np.sqrt(self.ekin_polm_SD[::self.minc]**2 + \
+                               self.ekin_torm_SD[::self.minc]**2)
+                ax.fill_between(self.index[::self.minc]+1, y-ystd, y+ystd, alpha=0.2)
+            y = self.emag_polm[::self.minc]+self.emag_torm[::self.minc]
+            ax.loglog(self.index[::self.minc]+1, y, label='Magnetic energy')
+            if self.ave:
+                ystd = np.sqrt(self.emag_polm_SD[::self.minc]**2 + \
+                               self.emag_torm_SD[::self.minc]**2)
+                ax.fill_between(self.index[::self.minc]+1, y-ystd, y+ystd, alpha=0.2)
+
+            if labTex:
+                ax.set_xlabel('$m+1$')
+            else:
+                ax.set_xlabel('m+1')
+            ax.set_ylabel('Energy')
             ax.set_xlim(1, self.index[-1]+1)
             ax.legend(loc='upper right', frameon=False)
             fig.tight_layout()
