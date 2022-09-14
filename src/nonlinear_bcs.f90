@@ -228,19 +228,18 @@ contains
          return
       end if
 
-      !$omp target teams distribute parallel do collapse(2)
+      !$omp target teams distribute parallel do
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nelem = radlatlon2spat(nTheta,nPhi,nR)
-            vrr(nelem)=0.0_cp
-            vtr(nelem)=0.0_cp
-            vpr(nelem)=r2*rho0(nR)*sinTheta_E2(nTheta)*omega
+            vrr(nTheta,nR,nPhi)=0.0_cp
+            vtr(nTheta,nR,nPhi)=0.0_cp
+            vpr(nTheta,nR,nPhi)=r2*rho0(nR)*sinTheta_E2(nTheta)*omega
             if ( lDeriv ) then
-               cvrr(nelem)  =r2*rho0(nR)*two*cosTheta(nTheta)*omega
-               dvrdtr(nelem)=0.0_cp
-               dvrdpr(nelem)=0.0_cp
-               dvtdpr(nelem)=0.0_cp
-               dvpdpr(nelem)=0.0_cp
+               cvrr(nTheta,nR,nPhi)  =r2*rho0(nR)*two*cosTheta(nTheta)*omega
+               dvrdtr(nTheta,nR,nPhi)=0.0_cp
+               dvrdpr(nTheta,nR,nPhi)=0.0_cp
+               dvtdpr(nTheta,nR,nPhi)=0.0_cp
+               dvpdpr(nTheta,nR,nPhi)=0.0_cp
             end if
          end do
       end do
