@@ -1,5 +1,5 @@
 Commit number : 9111041cfd445c38456d9137c69b8e1d1c2aa980
-l_batched=true -- 09/09/2022
+l_batched=true -- 10/09/2022
 ======================================================================
 ERROR: outputFileDiff (testCoeffOutputs.unitTest.TestCoeffOutputs)
 ----------------------------------------------------------------------
@@ -266,7 +266,7 @@ Ran 25 tests in 12765.642s
 FAILED (failures=6, errors=1)
 
 *******************************************************************************************************************************************************
-New tests results (12/09/2022) (CINES01 : CCE 14.02 - ROCm 4.5)
+New tests results (14/09/2022) (CINES01 : CCE 14.02 - ROCm 4.5)
 ================================================== l_batched = true ==================================================================================
 Directory   :           /home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/time_schemes
 Description :           Test several time integrators
@@ -321,7 +321,7 @@ Max relative difference: 50.14626261
 
 ----------------------------------------------------------------------
 
-onset/testCoeffOutputs (exec OK, incomplete write to output files)
+dynamo_benchmark_condICrotIC/onset/testCoeffOutputs (exec OK, incomplete write to output files)
 
 ----------------------------------------------------------------------
 Directory   :           /home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/testRMSOutputs
@@ -350,9 +350,11 @@ Not equal to tolerance rtol=1e-08, atol=1e-20
 
 testRMSOutputs (FD case fails in get_ddr_ghost called from updateS : invalid memory access on GPU)
 
-----------------------------------------------------------------------
-dynamo_benchmark_condICrotIC
+
+Middle/Middle_FD/Small_FD : Not enough of memory on single GPU for 1MPIx1OMP ==> Use 4 MPIx1OMP for Middle/Small_FD & 8MPIx1OMP for Middle_FD
 
 ================================================== l_batched = false =================================================================================
 
 time_schemes (fail : (shapes (846,), (774,) mismatch)); finite_differences (Time series of e_kin contains NaNs); dynamo_benchmark_condICrotIC/onset/testCoeffOutputs (exec OK, incomplete write to output files); testRMSOutputs (error for input_FD.nml : Agent attempted to access an inaccessible address. code: 0x2b in kernel starting from radial_derivatives.f90:1334 called from updateS.f90:1141)
+
+Middle/Middle_FD/Small/Small_FD : OK for 1MPIx1OMP
