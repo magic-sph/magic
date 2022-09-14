@@ -199,12 +199,11 @@ contains
       !-- Output variables:
       complex(cp), intent(inout) :: array_in(:,:) ! Array to be transformed
       complex(cp), intent(inout) :: work_2d(n_f_max,*)  ! Help array (not needed)
-      !-- ftn-7032 ftn: ERROR COSTF1_COMPLEX, File = ../../magic/src/dct_hipfort_hipfftw.f90, Line = 226, 231, 243
-      !-- Unsupported OpenMP construct Assumed size arrays -- array_in
 
       !-- Local variables:
       complex(cp), allocatable, target :: tmp_in(:,:), tmp_out(:,:)
       integer :: n_r, n_f
+      n_r = 0; n_f = 0
 
       !-- Allocate temp arrays
       allocate(tmp_in(n_f_start:n_f_stop,2*this%n_r_max-2), tmp_out(n_f_start:n_f_stop,2*this%n_r_max-2))
@@ -221,14 +220,18 @@ contains
       !$omp end target teams distribute parallel do
 
       !-- Prepare array for dft many
-      !$omp target teams distribute parallel do
-      do n_r=1,this%n_r_max
-         tmp_in(:,n_r)=array_in(n_f_start:n_f_stop,n_r)
+      !$omp target teams distribute parallel do collapse(2)
+      do n_f=n_f_start,n_f_stop
+         do n_r=1,this%n_r_max
+            tmp_in(n_f,n_r)=array_in(n_f,n_r)
+         end do
       end do
       !$omp end target teams distribute parallel do
-      !$omp target teams distribute parallel do
-      do n_r=this%n_r_max+1,2*this%n_r_max-2
-         tmp_in(:,n_r)=array_in(n_f_start:n_f_stop,2*this%n_r_max-n_r)
+      !$omp target teams distribute parallel do collapse(2)
+      do n_f=n_f_start,n_f_stop
+         do n_r=this%n_r_max+1,2*this%n_r_max-2
+            tmp_in(n_f,n_r)=array_in(n_f,2*this%n_r_max-n_r)
+         end do
       end do
       !$omp end target teams distribute parallel do
 
@@ -238,9 +241,11 @@ contains
       !$omp end target data
 
       !-- Copy output onto array_in
-      !$omp target teams distribute parallel do
-      do n_r=1,this%n_r_max
-         array_in(n_f_start:n_f_stop,n_r)=this%cheb_fac*tmp_out(:,n_r)
+      !$omp target teams distribute parallel do collapse(2)
+      do n_f=n_f_start,n_f_stop
+         do n_r=1,this%n_r_max
+            array_in(n_f,n_r)=this%cheb_fac*tmp_out(n_f,n_r)
+         end do
       end do
       !$omp end target teams distribute parallel do
 
