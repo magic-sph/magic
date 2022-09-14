@@ -58,15 +58,13 @@ class SpectralTransforms(object):
         self.ell = np.zeros((self.lm_max), 'i')
         self.m = np.zeros((self.lm_max), 'i')
 
-        self.idx[0:self.l_max+2, 0] = np.arange(self.l_max+1)
-        self.ell[0:self.l_max+2] = np.arange(self.l_max+2)
-        k = self.l_max+1
-        for m in range(self.minc, self.m_max+1, self.minc):
+        k = 0
+        for m in range(0, self.m_max+1, self.minc):
             for l in range(m, self.l_max+1):
                 self.idx[l, m] = k
                 self.ell[self.idx[l,m]] = l
                 self.m[self.idx[l,m]] = m
-                k +=1
+                k += 1
 
     def spec_spat(self, *args, **kwargs):
         """
