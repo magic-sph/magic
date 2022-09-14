@@ -133,8 +133,7 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
-                           dtype=self.precision)
+            th3D = np.zeros_like(self.gr.vr)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * np.sin(th3D) + vt * np.cos(th3D)
@@ -147,8 +146,7 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
-                           dtype=self.precision)
+            th3D = np.zeros_like(self.gr.vr)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * np.cos(th3D) - vt * np.sin(th3D)
@@ -702,8 +700,7 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
-                            dtype=self.precision)
+            th3D = np.zeros_like(self.gr.vr)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * np.sin(th3D) + vt * np.cos(th3D)
@@ -716,8 +713,7 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
-                            dtype=self.precision)
+            th3D = np.zeros_like(self.gr.vr)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * np.cos(th3D) - vt * np.sin(th3D)
@@ -874,8 +870,7 @@ class Surf:
                 label = 'Hz'
             vr = self.gr.vr
             vt = self.gr.vtheta
-            th3D = np.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
-                           dtype=self.precision)
+            th3D = np.zeros_like(self.gr.vr)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = self.gr.colatitude[i]
             vz = vr * np.cos(th3D) - vt * np.sin(th3D)
@@ -1015,8 +1010,7 @@ class Surf:
             vp = self.gr.vphi.copy()
             vp = self.gr.vphi- self.gr.vphi.mean(axis=0) # convective vp
             thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
-                           dtype=self.precision)
+            th3D = np.zeros_like(self.gr.vr)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             vs = vr * np.sin(th3D) + vt * np.cos(th3D)
@@ -1045,8 +1039,7 @@ class Surf:
             vp = self.gr.vphi.copy()
             vp = self.gr.vphi- self.gr.vphi.mean(axis=0) # convective vp
             thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
-                           dtype=self.precision)
+            th3D = np.zeros_like(self.gr.vr)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             vs = vr * np.sin(th3D) + vt * np.cos(th3D)
@@ -1062,8 +1055,7 @@ class Surf:
             vp = self.gr.vphi.copy()
             vp = self.gr.vphi- self.gr.vphi.mean(axis=0) # convective vp
             thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
-                           dtype=self.precision)
+            th3D = np.zeros_like(self.gr.vr)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             vz = vr * np.cos(th3D) - vt * np.sin(th3D)
@@ -1081,8 +1073,7 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
-                           dtype=self.precision)
+            th3D = np.zeros_like(self.gr.vr)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = (vr * np.cos(th3D) - vt * np.sin(th3D))
@@ -1273,8 +1264,7 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
-                           dtype=self.precision)
+            th3D = np.zeros_like(self.gr.vr)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * np.sin(th3D) + vt * np.cos(th3D)
@@ -1286,8 +1276,7 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
-                           dtype=self.precision)
+            th3D = np.zeros_like(self.gr.vr)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * np.cos(th3D) - vt * np.sin(th3D)
@@ -1308,8 +1297,7 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
-                           dtype=self.precision)
+            th3D = np.zeros_like(self.gr.vr)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * np.cos(th3D) - vt * np.sin(th3D)
