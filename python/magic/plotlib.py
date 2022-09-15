@@ -4,6 +4,105 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+def default_cmap(field):
+    """
+    This function selects a default colormap for an input field. This allows
+    to have different colormaps depending on the quantity one wants to plot.
+    This can make use of cmocean colormaps, whenever installed.
+
+    :param field: the name of input field
+    :type field: str
+    :returns cm: the name of the matplotlib colormap
+    :rtype cm: str
+    """
+    if field in ('Bp', 'bp', 'bphi', 'Bphi', 'Bt', 'bt', 'btheta', 'Btheta',
+                 'Br', 'br', 'bpfluct', 'brfluct'):
+        cm = 'PuOr'
+    elif field in ('Vr', 'vr', 'Ur', 'ur', 'Vtheta', 'vtheta', 'Utheta',
+                   'utheta', 'vt', 'Vt', 'Ut', 'ut', 'Vphi', 'vphi', 'Uphi',
+                   'uphi', 'up', 'Up', 'Vp', 'vp', 'vpconv', 'vpc', 'vrea',
+                   'vra', 'vpea', 'vpa', 'Us', 'us', 'Vs', 'vs', 'Uz', 'uz',
+                   'vz', 'Vz'):
+        cm = 'seismic'
+    elif field in ('entropy', 's', 'S', 'tea', 'temperature', 't', 'T', 'temp'):
+        try:
+            import cmocean.cm as cmo
+            cm = cmo.thermal
+        except ModuleNotFoundError:
+            cm = 'magma'
+    elif field in ('entropyfluct', 'tempfluct', 'tfluct'):
+        cm = 'coolwarm'
+    elif field == 'xifluct':
+        cm = 'PiYG'
+    elif field == 'prefluct':
+        cm = 'RdGy'
+    elif field in ('composition', 'xi', 'Xi', 'Comp', 'comp', 'chem', 'Chem'):
+        try:
+            import cmocean.cm as cmo
+            cm = cmo.haline
+        except ModuleNotFoundError:
+            cm = 'viridis'
+    elif field in ('jphi', 'jr'):
+        try:
+            import cmocean.cm as cmo
+            cm = cmo.delta
+        except ModuleNotFoundError:
+            cm = 'BrBG'
+    elif field in ('phase', 'Phase'):
+        try:
+            import cmocean.cm as cmo
+            cm = cmo.tempo
+        except ModuleNotFoundError:
+            cm = 'binary'
+    elif field in ('vortz', 'vortzfluct'):
+        try:
+            import cmocean.cm as cmo
+            cm = cmo.curl
+        except ModuleNotFoundError:
+            cm = 'Spectral_r'
+    elif field in ('pressure', 'pre', 'Pre', 'Pressure', 'press', 'Press'):
+        cm = 'plasma'
+    elif field in ('u2', 'nrj', 'Ekin', 'ek', 'Ek', 'ekin'):
+        try:
+            import cmocean.cm as cmo
+            cm = cmo.rain
+        except ModuleNotFoundError:
+            cm = 'Blues'
+    elif field in ('b2', 'B2', 'Emag', 'em', 'Em', 'emag'):
+        try:
+            import cmocean.cm as cmo
+            cm = cmo.amp
+        except ModuleNotFoundError:
+            cm = 'Reds'
+    elif field == 'ohm':
+        cm = 'magma_r'
+    else:  # In case nothing is found
+        cm = defaultCm
+
+    return cm
+
+def diverging_cmap(field):
+    """
+    This function determines whether the data are sequential or diverging (i.e.
+    centered around zero). In the latter, colormaps will be by default centered.
+
+    :param field: the name of input field
+    :type field: str
+    :returns diverging: a boolean to say whether the colormap will be centered or not
+    :rtype cm: bool
+    """
+
+    if field in ('entropy', 's', 'S', 'u2', 'b2', 'nrj', 'temperature', 't',
+                 'T', 'Ekin', 'ek', 'ekin', 'Ek', 'B2', 'Emag', 'emag', 'tea',
+                 'em', 'Em', 'temp', 'pressure', 'pre', 'Pre', 'Pressure',
+                 'press', 'Press', 'phase', 'Phase', 'composition', 'xi',
+                 'Xi', 'Comp', 'comp', 'chem', 'Chem', 'ohm'):
+        diverging = False
+    else:
+        diverging = True
+
+    return diverging
+
 def hammer2cart(ttheta, pphi, colat=False):
     """
     This function is used to define the Hammer projection used when
@@ -37,6 +136,7 @@ def hammer2cart(ttheta, pphi, colat=False):
              /np.sqrt(1.+np.sin(ttheta)*np.sin(pphi/2.))
         yy = np.sqrt(2.) * np.cos(ttheta)\
              /np.sqrt(1.+np.sin(ttheta)*np.sin(pphi/2.))
+
     return xx, yy
 
 
@@ -66,6 +166,7 @@ def cut(dat, vmax=None, vmin=None):
         mask = np.where(dat<=vmin, 1, 0)
         dat = dat*(mask == 0) + vmin*(mask == 1)
         normed = False
+
     return dat
 
 
@@ -146,7 +247,12 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
         cs = np.linspace(vmin, vmax, levels)
         im = ax.contourf(xx, yy, data, cs, cmap=cmap, extend='both')
     else:
-        cs = levels
+        if not normed:
+            cs = levels
+        else:
+            vmax = max(abs(data.max()), abs(data.min()))
+            vmin = -vmax
+            cs = np.linspace(vmin, vmax, levels)
         im = ax.contourf(xx, yy, data, cs, cmap=cmap)
         #im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True)
 
@@ -189,13 +295,7 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
             cax = fig.add_axes([0.85, 0.5-0.7*h/2., 0.03, 0.7*h])
         mir = fig.colorbar(im, cax=cax)
 
-    # Normalise data
-    if normed:
-        im.set_clim(-max(abs(data.max()), abs(data.min())),
-                     max(abs(data.max()), abs(data.min())))
-
     #To avoid white lines on pdfs
-
     for c in im.collections:
         c.set_edgecolor("face")
 
@@ -280,15 +380,19 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
             ax.contour(xx, yy, data, cs, colors=['k'], linewidths=0.5,
                        extend='both', linestyles=['-'])
     else:
-        cs = levels
+        if not normed:
+            cs = levels
+        else:
+            vmax = max(abs(data.max()), abs(data.min()))
+            vmin = -vmax
+            cs = np.linspace(vmin, vmax, levels)
         im = ax.contourf(xx, yy, data, cs, cmap=cmap)
         if lines:
             ax.contour(xx, yy, data, cs, colors=['k'], linewidths=0.5,
                        linestyles=['-'])
         #im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True)
 
-    #To avoid white lines on pdfs
-
+    # To avoid white lines on pdfs
     for c in im.collections:
         c.set_edgecolor("face")
 
@@ -322,11 +426,6 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
         else:
             cax = fig.add_axes([0.82, 0.5-0.7*h/2., 0.04, 0.7*h])
         mir = fig.colorbar(im, cax=cax)
-
-    # Normalisation of the contours around zero
-    if normed is True:
-        im.set_clim(-max(abs(data.max()), abs(data.min())),
-                     max(abs(data.max()), abs(data.min())))
 
     return fig, xx, yy, im
 
@@ -473,7 +572,12 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
                 #ax.contour(x, y, data, 1, colors=['k'])
             #im = ax.pcolormesh(x, y, data, cmap=cmap, antialiased=True)
         else:
-            cs = levels
+            if not normed:
+                cs = levels
+            else:
+                vmax = max(abs(data.max()), abs(data.min()))
+                vmin = -vmax
+                cs = np.linspace(vmin, vmax, levels)
             im = ax.contourf(x, y, data, cs, cmap=cmap)
             if lines:
                 ax.contour(x, y, data, cs, colors=['k'], linewidths=0.5,
@@ -491,13 +595,7 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
             cax = fig.add_axes([0.9, 0.51-0.7*h/2., 0.03, 0.7*h])
         mir = fig.colorbar(im, cax=cax)
 
-    # Normalise around zero
-    if normed:
-        im.set_clim(-max(abs(data.max()), abs(data.min())),
-                     max(abs(data.max()), abs(data.min())))
-
-    #To avoid white lines on pdfs
-
+    # To avoid white lines on pdfs
     for c in im.collections:
         c.set_edgecolor("face")
 
