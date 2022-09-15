@@ -287,7 +287,7 @@ contains
             if ( m == 0 ) then  ! axisymmetric part
                e_p_as_r(nR)=e_p_as_r(nR) + e_p_temp
                e_t_as_r(nR)=e_t_as_r(nR) + e_t_temp
-               if ( mod(l,2) == 1 ) then
+               if ( mod(l,2) == 1 ) then ! equatorially-asymmetric part
                   e_p_eas_r(nR)=e_p_eas_r(nR)+e_p_temp
                else
                   e_t_eas_r(nR)=e_t_eas_r(nR)+e_t_temp
@@ -296,7 +296,7 @@ contains
                e_p_r(nR)=e_p_r(nR) + e_p_temp
                e_t_r(nR)=e_t_r(nR) + e_t_temp
             end if
-            if ( mod(l+m,2) == 1 ) then
+            if ( mod(l+m,2) == 1 ) then ! equatorially-asymmetric part
                e_p_es_r(nR)=e_p_es_r(nR) + e_p_temp
             else
                e_t_es_r(nR)=e_t_es_r(nR) + e_t_temp
@@ -324,9 +324,9 @@ contains
 
                if ( nR ==  n_r_cmb .and. l >= 2 .and. l <= l_max_comp ) then
                   if ( mod(l+m,2) == 1 ) then
-                     sym = sym + e_p_temp
+                     asym = asym + e_p_temp
                   else
-                     asym = asym+e_p_temp
+                     sym = sym + e_p_temp
                   end if
                   if ( m == 0 ) then
                      zon = zon + e_p_temp
@@ -716,8 +716,8 @@ contains
                else
                   ad=0.0_cp
                end if
-               if ( asym_global /= 0.0_cp ) then
-                  sym=sym_global/asym_global
+               if ( sym_global /= 0.0_cp ) then
+                  sym=asym_global/sym_global
                else
                   sym=0.0_cp
                end if

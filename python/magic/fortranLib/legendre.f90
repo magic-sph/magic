@@ -27,7 +27,7 @@ contains
       integer, intent(in) :: m_max_in
 
       !-- Local variables:
-      integer ::  lm, lmP, l, m, lmP_max
+      integer ::  lm, l, m
       integer :: n_theta
       real(kind=8) :: colat, dpi
       real(kind=8), allocatable ::  gauss(:)
@@ -42,12 +42,11 @@ contains
       n_phi_max = n_theta_max*2/minc
       m_max = m_max_in
       n_m_max = m_max/minc+1
-      lmP_max = lm_max+n_m_max
 
       if ( allocated(plma) ) deallocate( gauss, plma, dtheta_plma)
       allocate(gauss(n_theta_max))
-      allocate(plma(1:lmP_max))
-      allocate(dtheta_plma(1:lmP_max))
+      allocate(plma(1:lm_max))
+      allocate(dtheta_plma(1:lm_max))
 
       if ( allocated(Plm) ) deallocate( Plm, wPlm, dPlm, wdPlm, dPhi, sinTh)
       allocate(Plm(1:lm_max,1:n_theta_max/2))
@@ -62,22 +61,19 @@ contains
       !-- Get Plm and dPlm
       do n_theta=1,n_theta_max/2  ! Loop over colat in NHS
          colat = sinTh(n_theta)
-         call plm_theta(colat,l_max+1,m_max,minc,plma,dtheta_plma,lmP_max)
+         call plm_theta(colat,l_max,m_max,minc,plma,dtheta_plma,lm_max)
          lm = 0
-         lmP = 0
          do m=0,m_max,minc
             do l=m,l_max
                lm = lm+1
-               lmP = lmP+1
-               Plm(lm,n_theta)  = (-1.d0)**(real(m,kind=8))*plma(lmP)
+               Plm(lm,n_theta)  = (-1.d0)**(real(m,kind=8))*plma(lm)
                ! True theta derivative !!!
-               dPlm(lm,n_theta) = (-1.d0)**(real(m,kind=8))*dtheta_plma(lmP)/sin(colat)
+               dPlm(lm,n_theta) = (-1.d0)**(real(m,kind=8))*dtheta_plma(lm)/sin(colat)
                ! Add the theta dependence in dPhi to simplify the output
                dPhi(lm,n_theta) = real(m,kind=8)/sin(colat)
                wPlm(lm,n_theta) = 2.d0*dpi*gauss(n_theta)*Plm(lm,n_theta)
                wdPlm(lm,n_theta) = 2.d0*dpi*gauss(n_theta)*dPlm(lm,n_theta)
             end do
-            lmP = lmP+1
          end do
       end do
 
@@ -549,7 +545,6 @@ contains
       end do
 
       do n_m=1,n_m_max
-
          lms=lStop(n_m)
          do lm=lStart(n_m),lms-1,2
             PlmG(lm)=dPlm(lm,nThetaNHS)-dPhi(lm,nThetaNHS)*Plm(lm,nThetaNHS)
@@ -613,7 +608,7 @@ contains
       complex(kind=8) :: f1ES1,f1ES2,f1EA1,f1EA2
       integer :: nThetaNHS, nThetaN, nThetaS
       integer :: n_m,lms,lm
-      integer :: n_theta_1,n_theta_rel_1,n_theta_rel_2,n_theta_2
+      integer :: n_theta_1,n_theta_2
 
       !-- Scrambling
       do nThetaN=1,n_theta_max/2
@@ -623,7 +618,6 @@ contains
 
       nThetaNHS=0
       do nThetaN=1,n_theta_max,2
-         ! nThetaS=n_theta_max-nThetaN+1
          nThetaS=nThetaN+1
          nThetaNHS=nThetaNHS+1
          do n_m=1,n_m_max
@@ -632,38 +626,21 @@ contains
          end do
       end do
 
-      do n_m=1,n_m_max
-         lms=lStop(n_m)
-         f1ES1=f1ES(n_m,1)
-         f1ES2=f1ES(n_m,2)
-         f1EA1=f1EA(n_m,1)
-         f1EA2=f1EA(n_m,2)
-         do lm=lStart(n_m),lms-1,2
-            f1LM(lm)  =f1ES1*wPlm(lm,1)  +f1ES2*wPlm(lm,2)
-            f1LM(lm+1)=f1EA1*wPlm(lm+1,1)+f1EA2*wPlm(lm+1,2)
-         enddo
+      f1LM(:)=0.0d0
 
-         if ( lmOdd(n_m) ) then
-            f1LM(lms)=f1ES1*wPlm(lms,1)+f1ES2*wPlm(lms,2)
-         end if
-      enddo
-
-      n_theta_1=1
-      do n_theta_rel_1=3,n_theta_max/2,2
-         n_theta_rel_2=n_theta_rel_1+1
-         n_theta_1=n_theta_1+2
+      do n_theta_1=1,n_theta_max/2,2
          n_theta_2=n_theta_1+1
          do n_m=1,n_m_max
             lms=lStop(n_m)
-            f1ES1=f1ES(n_m,n_theta_rel_1)
-            f1ES2=f1ES(n_m,n_theta_rel_2)
-            f1EA1=f1EA(n_m,n_theta_rel_1)
-            f1EA2=f1EA(n_m,n_theta_rel_2)
+            f1ES1=f1ES(n_m,n_theta_1)
+            f1ES2=f1ES(n_m,n_theta_2)
+            f1EA1=f1EA(n_m,n_theta_1)
+            f1EA2=f1EA(n_m,n_theta_2)
             do lm=lStart(n_m),lms-1,2
                f1LM(lm)  =f1LM(lm)+f1ES1*wPlm(lm,n_theta_1)+ &
                &                   f1ES2*wPlm(lm,n_theta_2)
                f1LM(lm+1)=f1LM(lm+1)+f1EA1*wPlm(lm+1,n_theta_1)+ &
-               &                   f1EA2*wPlm(lm+1,n_theta_2)
+               &                     f1EA2*wPlm(lm+1,n_theta_2)
             enddo
 
             if ( lmOdd(n_m) ) then
@@ -672,10 +649,6 @@ contains
             end if
          enddo
       enddo
-
-      ! do n_m=1,n_m_max
-         ! outputLM(lStart(n_m):lStop(n_m))=flm1(lStartP(n_m):lStopP(n_m)-1)
-      ! enddo
 
    end subroutine spatspec
 !-------------------------------------------------------------------------------
@@ -700,12 +673,14 @@ contains
       complex(kind=8) :: f1ES1,f1ES2,f1EA1,f1EA2
       complex(kind=8) :: f2ES1,f2ES2,f2EA1,f2EA2
       complex(kind=8) :: ci
-      real(kind=8) :: dm
       integer :: nThetaNHS, nThetaN, nThetaS
-      integer :: n_m,lms,lm,m,l
-      integer :: n_theta_1,n_theta_rel_1,n_theta_rel_2,n_theta_2
+      integer :: n_m,lms,lm,l,m
+      integer :: n_theta_1,n_theta_2
 
-      ci = (0.0d0, 1.0d0)
+      ci = cmplx(0.0d0, 1.0d0, kind=8)
+
+      f1LM(:)=0.0d0
+      f2LM(:)=0.0d0
 
       !-- Scrambling
       do nThetaN=1,n_theta_max/2
@@ -728,86 +703,46 @@ contains
          end do
       end do
 
-
-      do n_m=1,n_m_max
-         m = (n_m-1)*minc
-         dm = real(m,kind=8)
-         lms=lStop(n_m)
-         f1ES1=f1ES(n_m,1)
-         f1ES2=f1ES(n_m,2)
-         f2ES1=f2ES(n_m,1)
-         f2ES2=f2ES(n_m,2)
-         f1EA1=f1EA(n_m,1)
-         f1EA2=f1EA(n_m,2)
-         f2EA1=f2EA(n_m,1)
-         f2EA2=f2EA(n_m,2)
-         do lm=lStart(n_m),lms-1,2
-            f1LM(lm)=-ci*dm*f1ES1* wPlm(lm,1)-ci*dm*f1ES2* wPlm(lm,2) &
-            &              +f2EA1*wdPlm(lm,1)+      f2EA2*wdPlm(lm,2)
-            f1LM(lm+1)=-ci*dm*f1EA1* wPlm(lm+1,1)-ci*dm*f1EA2* wPlm(lm+1,2) &
-            &                +f2ES1*wdPlm(lm+1,1)+      f2ES2*wdPlm(lm+1,2)
-            f2LM(lm)=      -f1EA1*wdPlm(lm,1)-      f1EA2*wdPlm(lm,2) &
-            &        -ci*dm*f2ES1* wPlm(lm,1)-ci*dm*f2ES2* wPlm(lm,2)
-            f2LM(lm+1)=      -f1ES1*wdPlm(lm+1,1)-      f1ES2*wdPlm(lm+1,2) &
-            &          -ci*dm*f2EA1* wPlm(lm+1,1)-ci*dm*f2EA2* wPlm(lm+1,2)
-         enddo
-
-         if ( lmOdd(n_m) ) then
-            f1LM(lmS)=-ci*dm*f1ES1* wPlm(lmS,1)-ci*dm*f1ES2* wPlm(lmS,2) &
-            &               +f2EA1*wdPlm(lmS,1)+      f2EA2*wdPlm(lmS,2)
-            f2LM(lmS)=      -f1EA1*wdPlm(lmS,1)-      f1EA2*wdPlm(lmS,2) &
-            &         -ci*dm*f2ES1* wPlm(lmS,1)-ci*dm*f2ES2* wPlm(lmS,2)
-         end if
-      enddo
-
-      n_theta_1=1
-      do n_theta_rel_1=3,n_theta_max/2,2
-         n_theta_rel_2=n_theta_rel_1+1
-         n_theta_1=n_theta_1+2
+      do n_theta_1=1,n_theta_max/2,2
          n_theta_2=n_theta_1+1
          do n_m=1,n_m_max
-            m = (n_m-1)*minc
-            dm = real(m,kind=8)
             lms=lStop(n_m)
-            f1ES1=f1ES(n_m,n_theta_rel_1)
-            f1ES2=f1ES(n_m,n_theta_rel_2)
-            f2ES1=f2ES(n_m,n_theta_rel_1)
-            f2ES2=f2ES(n_m,n_theta_rel_2)
-            f1EA1=f1EA(n_m,n_theta_rel_1)
-            f1EA2=f1EA(n_m,n_theta_rel_2)
-            f2EA1=f2EA(n_m,n_theta_rel_1)
-            f2EA2=f2EA(n_m,n_theta_rel_2)
+            f1ES1=f1ES(n_m,n_theta_1)
+            f1ES2=f1ES(n_m,n_theta_2)
+            f2ES1=f2ES(n_m,n_theta_1)
+            f2ES2=f2ES(n_m,n_theta_2)
+            f1EA1=f1EA(n_m,n_theta_1)
+            f1EA2=f1EA(n_m,n_theta_2)
+            f2EA1=f2EA(n_m,n_theta_1)
+            f2EA2=f2EA(n_m,n_theta_2)
             do lm=lStart(n_m),lms-1,2
-               f1LM(lm)  =f1LM(lm)-ci*dm*f1ES1* wPlm(lm,n_theta_1)      &
-               &                  -ci*dm*f1ES2* wPlm(lm,n_theta_2)      &
-               &                  +      f2EA1*wdPlm(lm,n_theta_1)      &
-               &                  +      f2EA2*wdPlm(lm,n_theta_2)
-               f1LM(lm+1)=f1LM(lm+1)-ci*dm*f1EA1* wPlm(lm+1,n_theta_1)  &
-               &                    -ci*dm*f1EA2* wPlm(lm+1,n_theta_2)  &
-               &                    +      f2ES1*wdPlm(lm+1,n_theta_1)  &
-               &                    +      f2ES2*wdPlm(lm+1,n_theta_2)
+               f1LM(lm)  =f1LM(lm)-ci*dPhi(lm,n_theta_1)*f1ES1* wPlm(lm,n_theta_1)  &
+               &                  -ci*dPhi(lm,n_theta_2)*f1ES2* wPlm(lm,n_theta_2)  &
+               &          +f2EA1*wdPlm(lm,n_theta_1)+f2EA2*wdPlm(lm,n_theta_2)
+               f1LM(lm+1)=f1LM(lm+1)-ci*dPhi(lm,n_theta_1)*f1EA1*wPlm(lm+1,n_theta_1)&
+               &                    -ci*dPhi(lm,n_theta_2)*f1EA2*wPlm(lm+1,n_theta_2)&
+               &          +f2ES1*wdPlm(lm+1,n_theta_1)+f2ES2*wdPlm(lm+1,n_theta_2)
 
-               f2LM(lm)  =f2LM(lm)-      f1EA1*wdPlm(lm,n_theta_1) &
-               &                  -      f1EA2*wdPlm(lm,n_theta_2) &
-               &                  -ci*dm*f2ES1* wPlm(lm,n_theta_1) &
-               &                  -ci*dm*f2ES2* wPlm(lm,n_theta_2)
-               f2LM(lm+1)=f2LM(lm+1)-      f1ES1*wdPlm(lm+1,n_theta_1) &
-               &                    -      f1ES2*wdPlm(lm+1,n_theta_2) &
-               &                    -ci*dm*f2EA1* wPlm(lm+1,n_theta_1) &
-               &                    -ci*dm*f2EA2* wPlm(lm+1,n_theta_2)
+               f2LM(lm)  =f2LM(lm)-f1EA1*wdPlm(lm,n_theta_1)                       &
+               &                  -f1EA2*wdPlm(lm,n_theta_2)                       &
+               &                  -ci*dPhi(lm,n_theta_1)*f2ES1* wPlm(lm,n_theta_1) &
+               &                  -ci*dPhi(lm,n_theta_2)*f2ES2* wPlm(lm,n_theta_2)
+               f2LM(lm+1)=f2LM(lm+1)-f1ES1*wdPlm(lm+1,n_theta_1)                     &
+               &                    -f1ES2*wdPlm(lm+1,n_theta_2)                     &
+               &                    -ci*dPhi(lm,n_theta_1)*f2EA1*wPlm(lm+1,n_theta_1)&
+               &                    -ci*dPhi(lm,n_theta_2)*f2EA2*wPlm(lm+1,n_theta_2)
 
             enddo
 
             if ( lmOdd(n_m) ) then
-               f1LM(lmS)=f1LM(lmS)-ci*dm*f1ES1* wPlm(lmS,n_theta_1) &
-               &                  -ci*dm*f1ES2* wPlm(lmS,n_theta_2) &
-               &                  +      f2EA1*wdPlm(lmS,n_theta_1) &
-               &                  +      f2EA2*wdPlm(lmS,n_theta_2)
+               f1LM(lmS)=f1LM(lmS)-ci*dPhi(lm,n_theta_1)*f1ES1* wPlm(lmS,n_theta_1) &
+               &                  -ci*dPhi(lm,n_theta_2)*f1ES2* wPlm(lmS,n_theta_2) &
+               &          +f2EA1*wdPlm(lmS,n_theta_1)+f2EA2*wdPlm(lmS,n_theta_2)
 
-               f2LM(lmS)=f2LM(lmS)-      f1EA1*wdPlm(lmS,n_theta_1) &
-               &                  -      f1EA2*wdPlm(lmS,n_theta_2) &
-               &                  -ci*dm*f2ES1* wPlm(lmS,n_theta_1) &
-               &                  -ci*dm*f2ES2* wPlm(lmS,n_theta_2)
+               f2LM(lmS)=f2LM(lmS)-f1EA1*wdPlm(lmS,n_theta_1)                       &
+               &                  -f1EA2*wdPlm(lmS,n_theta_2)                       &
+               &                  -ci*dPhi(lm,n_theta_1)*f2ES1* wPlm(lmS,n_theta_1) &
+               &                  -ci*dPhi(lm,n_theta_2)*f2ES2* wPlm(lmS,n_theta_2)
             end if
          enddo
       enddo
@@ -823,7 +758,6 @@ contains
             end if
          end do
       end do
-
 
    end subroutine spatspec_sphertor
 !-------------------------------------------------------------------------------
