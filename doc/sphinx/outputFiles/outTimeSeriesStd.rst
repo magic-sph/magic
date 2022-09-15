@@ -23,27 +23,27 @@ This file contains the kinetic energy of the outer core, defined by
 
 The detailed calculations are done in the subroutine :f:subr:`get_e_kin <kinetic_energy/get_e_kin()>`.  This file contains the following informations:
 
-   +---------------+------------------------------------------------------+
-   | No. of column | Contents                                             |
-   +===============+======================================================+
-   | 1             | time                                                 |
-   +---------------+------------------------------------------------------+
-   | 2	           | poloidal energy                                      |
-   +---------------+------------------------------------------------------+
-   | 3             | toroidal energy                                      |
-   +---------------+------------------------------------------------------+
-   | 4             | axisymmetric poloidal energy                         |
-   +---------------+------------------------------------------------------+
-   | 5             | axisymmetric toroidal energy                         |
-   +---------------+------------------------------------------------------+
-   | 6             | equatorial symmetric poloidal energy                 |
-   +---------------+------------------------------------------------------+
-   | 7             | equatorial symmetric toroidal energy                 |
-   +---------------+------------------------------------------------------+
-   | 8             | equatorial symmetric and axisymmetric poloidal energy|
-   +---------------+------------------------------------------------------+
-   | 9             | equatorial symmetric and axisymmetric toroidal energy|
-   +---------------+------------------------------------------------------+
+   +---------------+--------------------------------------------------------+
+   | No. of column | Contents                                               |
+   +===============+========================================================+
+   | 1             | time                                                   |
+   +---------------+--------------------------------------------------------+
+   | 2	           | poloidal energy                                        |
+   +---------------+--------------------------------------------------------+
+   | 3             | toroidal energy                                        |
+   +---------------+--------------------------------------------------------+
+   | 4             | axisymmetric poloidal energy                           |
+   +---------------+--------------------------------------------------------+
+   | 5             | axisymmetric toroidal energy                           |
+   +---------------+--------------------------------------------------------+
+   | 6             | equatorially-symmetric poloidal energy                 |
+   +---------------+--------------------------------------------------------+
+   | 7             | equatorially-symmetric toroidal energy                 |
+   +---------------+--------------------------------------------------------+
+   | 8             | equatorially-symmetric and axisymmetric poloidal energy|
+   +---------------+--------------------------------------------------------+
+   | 9             | equatorially-symmetric and axisymmetric toroidal energy|
+   +---------------+--------------------------------------------------------+
 
 This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
 
@@ -72,35 +72,35 @@ This file contains the magnetic energy of the outer core, defined by
 
 The detailed calculations are done in the subroutine :f:subr:`get_e_mag <magnetic_energy/get_e_mag()>`.  This file contains the following informations:
 
-   +---------------+------------------------------------------------------+
-   | No. of column | Contents                                             |
-   +===============+======================================================+
-   | 1             | time                                                 |
-   +---------------+------------------------------------------------------+
-   | 2             | outer core poloidal energy                           |
-   +---------------+------------------------------------------------------+
-   | 3             | outer core toroidal energy                           |
-   +---------------+------------------------------------------------------+
-   | 4             | outer core axisymmetric poloidal energy              |
-   +---------------+------------------------------------------------------+
-   | 5             | outer core axisymmetric toroidal energy              |
-   +---------------+------------------------------------------------------+
-   | 6             | outside potential field energy                       |
-   +---------------+------------------------------------------------------+
-   | 7             | outside axisymmetric potential field energy          |
-   +---------------+------------------------------------------------------+
-   | 8             | equatorial symmetric poloidal energy                 |
-   +---------------+------------------------------------------------------+
-   | 9             | equatorial symmetric toroidal energy                 |
-   +---------------+------------------------------------------------------+
-   | 10            | equatorial symmetric and axisymmetric poloidal energy|
-   +---------------+------------------------------------------------------+
-   | 11            | equatorial symmetric and axisymmetric toroidal energy|
-   +---------------+------------------------------------------------------+
-   | 12            | outside potential field energy                       |
-   +---------------+------------------------------------------------------+
-   | 13            | outside potential field axisymmetric energy          |
-   +---------------+------------------------------------------------------+
+   +---------------+---------------------------------------------------------+
+   | No. of column | Contents                                                |
+   +===============+=========================================================+
+   | 1             | time                                                    |
+   +---------------+---------------------------------------------------------+
+   | 2             | outer core poloidal energy                              |
+   +---------------+---------------------------------------------------------+
+   | 3             | outer core toroidal energy                              |
+   +---------------+---------------------------------------------------------+
+   | 4             | outer core axisymmetric poloidal energy                 |
+   +---------------+---------------------------------------------------------+
+   | 5             | outer core axisymmetric toroidal energy                 |
+   +---------------+---------------------------------------------------------+
+   | 6             | outside potential field energy                          |
+   +---------------+---------------------------------------------------------+
+   | 7             | outside axisymmetric potential field energy             |
+   +---------------+---------------------------------------------------------+
+   | 8             | equatorially-aymmetric poloidal energy                  |
+   +---------------+---------------------------------------------------------+
+   | 9             | equatorially-aymmetric toroidal energy                  |
+   +---------------+---------------------------------------------------------+
+   | 10            | equatorially-aymmetric and axisymmetric poloidal energy |
+   +---------------+---------------------------------------------------------+
+   | 11            | equatorially-asymmetric and axisymmetric toroidal energy|
+   +---------------+---------------------------------------------------------+
+   | 12            | outside potential field energy                          |
+   +---------------+---------------------------------------------------------+
+   | 13            | outside potential field axisymmetric energy             |
+   +---------------+---------------------------------------------------------+
 
 This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
 
@@ -258,7 +258,7 @@ This file is written by the subroutine :f:subr:`output <output_mod/output()>`.
    +---------------+-----------------------------------------+
    | 4             | Local Rossby number Rol                 |
    +---------------+-----------------------------------------+
-   | 5             | Realtive geostrophic kinetic energy     |
+   | 5             | Relative geostrophic kinetic energy     |
    +---------------+-----------------------------------------+
    | 6             | Total dipolarity                        |
    +---------------+-----------------------------------------+
