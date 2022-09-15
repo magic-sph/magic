@@ -788,7 +788,7 @@ contains
       if ( l_chemical_conv ) then
          !$omp target update to(dxicond) nowait
       end if
-      !$omp target update to(rscheme_oc) nowait
+      !$omp target update to(rscheme_oc)
 #endif
 
 #ifdef WITH_OMP_GPU
@@ -804,9 +804,7 @@ contains
       end if
 
       !-- From blocking module
-      !$omp target update to(lo_map, st_map) nowait
-      !$omp target update to(lo_sub_map) nowait
-      !$omp target update to(st_sub_map)
+      !$omp target update to(lo_map, st_map, lo_sub_map, st_sub_map)
 #endif
 
    end subroutine preCalc
