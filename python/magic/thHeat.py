@@ -69,7 +69,8 @@ class ThetaHeat(MagicSetup):
             self.nuss = 0.5 * (a.topnuss_av+a.botnuss_av)
         else:
             logFiles = scanDir('log.*')
-            MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
+            if len(logFiles) > 0:
+                MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
 
         if not os.path.exists(pickleName):
             # reading ATmov
@@ -107,10 +108,8 @@ class ThetaHeat(MagicSetup):
                 self.fluxmean = m1.data[0, ...].mean(axis=0)
                 self.fluxstd = m1.data[0, ...].std(axis=0)
             else:
-                self.fluxmean = rderavg(self.tempmean, eta=self.radratio,
-                                        exclude=False, spectral=False)
-                self.fluxstd = rderavg(self.tempstd, eta=self.radratio,
-                                        exclude=False, spectral=False)
+                self.fluxmean = rderavg(self.tempmean, m.radius, exclude=False)
+                self.fluxstd = rderavg(self.tempstd, m.radius, exclude=False)
 
             # Pickle saving
             f = open(pickleName, 'wb')
@@ -133,7 +132,7 @@ class ThetaHeat(MagicSetup):
         self.ro = 1./(1.-self.radratio)
 
         self.ntheta, self.nr = self.tempmean.shape
-        if not hasattr(self, 'radial_scheme') or self.radial_scheme == 'CHEB': # Redefine to get double precision
+        if not hasattr(self, 'radial_scheme') or (self.radial_scheme=='CHEB' and self.l_newmap==False): # Redefine to get double precision
             self.radius = chebgrid(self.nr-1, self.ro, self.ri)
         else:
             self.radius = m.radius
@@ -146,7 +145,7 @@ class ThetaHeat(MagicSetup):
         self.temprmmean = 0.5*simps(self.tempmean*np.sin(th2D), th2D, axis=0)
         self.temprmstd = 0.5*simps(self.tempstd*np.sin(th2D), th2D, axis=0)
         sinTh = np.sin(self.colat)
-        if not hasattr(self, 'radial_scheme') or self.radial_scheme == 'CHEB':
+        if not hasattr(self, 'radial_scheme') or (self.radial_scheme=='CHEB' and self.l_newmap==False):
             d1 = matder(self.nr-1, self.ro, self.ri)
 
         # Conducting temperature profile (Boussinesq only!)
@@ -175,7 +174,7 @@ class ThetaHeat(MagicSetup):
         self.tempEqstd = fac*simps(tempC*np.sin(th2D), th2D, axis=0)
 
 
-        if not hasattr(self, 'radial_scheme') or self.radial_scheme == 'CHEB':
+        if not hasattr(self, 'radial_scheme') or (self.radial_scheme=='CHEB' and self.l_newmap==False):
             dtempEq = np.dot(d1, self.tempEqmean)
         else:
             dtempEq = np.diff(self.tempEqmean)/np.diff(self.radius)
@@ -210,7 +209,7 @@ class ThetaHeat(MagicSetup):
         self.nussBot45 = 0.5*(nussBot45NH+nussBot45SH)
         self.temp45 = 0.5*(temp45NH+temp45SH)
 
-        if not hasattr(self, 'radial_scheme') or self.radial_scheme == 'CHEB':
+        if not hasattr(self, 'radial_scheme') or (self.radial_scheme=='CHEB' and self.l_newmap==False):
             dtemp45 = np.dot(d1, self.temp45)
         else:
             dtemp45 = np.diff(self.temp45)/np.diff(self.radius)
@@ -252,7 +251,7 @@ class ThetaHeat(MagicSetup):
         self.tempPolmean = 0.5*(tempPolNHmean+tempPolSHmean)
         self.tempPolstd= 0.5*(tempPolNHstd+tempPolSHstd)
 
-        if not hasattr(self, 'radial_scheme') or self.radial_scheme == 'CHEB':
+        if not hasattr(self, 'radial_scheme') or (self.radial_scheme=='CHEB' and self.l_newmap==False):
             dtempPol = np.dot(d1, self.tempPolmean)
         else:
             dtempPol = np.diff(self.tempPolmean) / np.diff(self.radius)

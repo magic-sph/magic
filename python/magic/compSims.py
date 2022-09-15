@@ -251,7 +251,7 @@ class CompSims:
 
             ax.plot(vpm[:, 1], theta)
 
-            roequat = vpm[gr.ntheta/2, 0]*gr.ek*(1.-gr.radratio)
+            roequat = vpm[gr.ntheta//2, 0]*gr.ek*(1.-gr.radratio)
             print('{:7.3e} {:7.3e}'.format(gr.ra, roequat))
             for tick in ax.xaxis.get_major_ticks():
                 tick.label1.set_fontsize(10)
@@ -385,9 +385,10 @@ class CompSims:
                 elif self.field in ('vortz'):
                     philoc = np.linspace(0., 2.*np.pi/gr.minc, gr.npI)
                     rrloc, pphiloc = np.meshgrid(gr.radius, philoc)
-                    dr = rderavg(rrloc*gr.vphi[:,gr.ntheta/2,:], spectral=False,
-                                 eta=gr.radratio, exclude=True)
-                    equator = 1./rrloc*(dr - phideravg(gr.vr[:, gr.ntheta/2, :], gr.minc))
+                    dr = rderavg(rrloc*gr.vphi[:,gr.ntheta//2,:],
+                                 gr.radius, exclude=True)
+                    equator = 1./rrloc*(dr - phideravg(gr.vr[:, gr.ntheta//2, :],
+                                                       gr.minc))
                     if labTex:
                         label = r'$\omega_z$'
                     else:
