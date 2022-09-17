@@ -1,535 +1,64 @@
-*********************************************************************************************************************************
-Commit number : 9111041cfd445c38456d9137c69b8e1d1c2aa980
-l_batched=true -- 10/09/2022 (1MPIx1OMP)
-======================================================================
-ERROR: outputFileDiff (testCoeffOutputs.unitTest.TestCoeffOutputs)
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/testCoeffOutputs/unitTest.py", line 183, in outputFileDiff
-    generateEkinFile('e_kin.test')
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/testCoeffOutputs/unitTest.py", line 67, in generateEkinFile
-    cmb = MagicCoeffCmb(tag='start',  iplot=False, ave=True, quiet=True)
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/python/magic/coeff.py", line 180, in __init__
-    self.l_max_cmb-self.m_max_cmb+1
-AttributeError: 'MagicCoeffCmb' object has no attribute 'm_max_cmb'
-
-======================================================================
-FAIL: outputFileDiff (finite_differences.unitTest.FiniteDifferences)
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/finite_differences/unitTest.py", line 110, in outputFileDiff
-    np.testing.assert_allclose(datRef, datTmp, rtol=self.precision, atol=1e-20)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 1528, in assert_allclose
-    verbose=verbose, header=header, equal_nan=equal_nan)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 840, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError: 
-Not equal to tolerance rtol=1e-08, atol=1e-20
-
-Mismatched elements: 78 / 297 (26.3%)
-Max absolute difference: 1.00000007e-05
-Max relative difference: 1.6403208e-06
- x: array([4.156448e+01, 2.439191e+02, 3.748038e+02, 3.802659e+00,
-       6.981774e+01, 2.439191e+02, 3.748038e+02, 3.802659e+00,
-       6.981774e+01, 4.156547e+01, 2.260806e+02, 3.623893e+02,...
- y: array([4.156448e+01, 2.439191e+02, 3.748038e+02, 3.802659e+00,
-       6.981774e+01, 2.439191e+02, 3.748038e+02, 3.802659e+00,
-       6.981774e+01, 4.156547e+01, 2.260806e+02, 3.623893e+02,...
-
-======================================================================
-FAIL: outputFileDiff (dynamo_benchmark_condICrotIC.unitTest.ConductingRotatingIC)
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/dynamo_benchmark_condICrotIC/unitTest.py", line 111, in outputFileDiff
-    atol=1e-20)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 1528, in assert_allclose
-    verbose=verbose, header=header, equal_nan=equal_nan)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 759, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError: 
-Not equal to tolerance rtol=1e-08, atol=1e-20
-
-(shapes (1102, 9), (1001, 9) mismatch)
- x: array([[0.000000e+00, 0.000000e+00, 0.000000e+00, ..., 0.000000e+00,
-        0.000000e+00, 0.000000e+00],
-       [1.000000e-04, 3.431252e-01, 1.285100e+00, ..., 1.285100e+00,...
- y: array([[0.000000e+00, 0.000000e+00, 0.000000e+00, ..., 0.000000e+00,
-        0.000000e+00, 0.000000e+00],
-       [1.000000e-04, 3.431252e-01, 1.285100e+00, ..., 1.285100e+00,...
-
-======================================================================
-FAIL: outputFileDiff (testRMSOutputs.unitTest.TestRMSOutputs)
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/testRMSOutputs/unitTest.py", line 125, in outputFileDiff
-    np.testing.assert_allclose(datRef, datTmp, rtol=self.precision, atol=1e-20)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 1528, in assert_allclose
-    verbose=verbose, header=header, equal_nan=equal_nan)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 840, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError: 
-Not equal to tolerance rtol=1e-08, atol=1e-20
-
-Mismatched elements: 8 / 324 (2.47%)
-Max absolute difference: 1.00000007e-05
-Max relative difference: 3.56191898e-08
- x: array([4.156547e+01, 4.377108e+02, 1.700351e+04, 7.077943e+03,
-       4.319072e+02, 1.104826e+03, 1.255332e+04, 0.000000e+00,
-       1.904694e+04, 3.891227e-01, 2.904458e-01, 1.492764e-01,...
- y: array([4.156547e+01, 4.377108e+02, 1.700351e+04, 7.077943e+03,
-       4.319072e+02, 1.104826e+03, 1.255332e+04, 0.000000e+00,
-       1.904694e+04, 3.891227e-01, 2.904458e-01, 1.492764e-01,...
-
-======================================================================
-FAIL: outputFileDiff (testTOGeosOutputs.unitTest.TestTOGeosOutputs)
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/testTOGeosOutputs/unitTest.py", line 141, in outputFileDiff
-    np.testing.assert_equal(datRef, datTmp)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 342, in assert_equal
-    return assert_array_equal(actual, desired, err_msg, verbose)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 931, in assert_array_equal
-    verbose=verbose, header='Arrays are not equal')
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 840, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError: 
-Arrays are not equal
-
-Mismatched elements: 6 / 122 (4.92%)
-Max absolute difference: 9.99999972e-10
-Max relative difference: 2.61095292e-09
- x: array([ 4.156448e+01,  6.421214e-01,  1.543326e-02,  1.543326e-02,
-        6.193379e+02,  1.000000e+00,  1.000000e+00,  8.110697e-01,
-        8.390299e-01,  8.710374e-01,  2.512241e-01,  7.958686e-01,...
- y: array([ 4.156448e+01,  6.421214e-01,  1.543326e-02,  1.543326e-02,
-        6.193379e+02,  1.000000e+00,  1.000000e+00,  8.110697e-01,
-        8.390299e-01,  8.710374e-01,  2.512241e-01,  7.958686e-01,...
-
-----------------------------------------------------------------------
-Ran 25 tests in 12297.721s
-
-FAILED (failures=4, errors=1)
-
-========================================================================================
-
-l_batched=false
-
-======================================================================
-ERROR: outputFileDiff (testCoeffOutputs.unitTest.TestCoeffOutputs)
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/testCoeffOutputs/unitTest.py", line 183, in outputFileDiff
-    generateEkinFile('e_kin.test')
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/testCoeffOutputs/unitTest.py", line 67, in generateEkinFile
-    cmb = MagicCoeffCmb(tag='start',  iplot=False, ave=True, quiet=True)
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/python/magic/coeff.py", line 180, in __init__
-    self.l_max_cmb-self.m_max_cmb+1
-AttributeError: 'MagicCoeffCmb' object has no attribute 'm_max_cmb'
-
-======================================================================
-FAIL: outputFileDiff (finite_differences.unitTest.FiniteDifferences)
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/finite_differences/unitTest.py", line 110, in outputFileDiff
-    np.testing.assert_allclose(datRef, datTmp, rtol=self.precision, atol=1e-20)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 1528, in assert_allclose
-    verbose=verbose, header=header, equal_nan=equal_nan)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 759, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError: 
-Not equal to tolerance rtol=1e-08, atol=1e-20
-
-(shapes (297,), (36,) mismatch)
- x: array([4.156448e+01, 2.439191e+02, 3.748038e+02, 3.802659e+00,
-       6.981774e+01, 2.439191e+02, 3.748038e+02, 3.802659e+00,
-       6.981774e+01, 4.156547e+01, 2.260806e+02, 3.623893e+02,...
- y: array([4.156448e+01, 2.439191e+02, 3.748038e+02, 3.802659e+00,
-       6.981774e+01, 2.439191e+02, 3.748038e+02, 3.802659e+00,
-       6.981774e+01, 4.156548e+01,          nan,          nan,...
-
-======================================================================
-FAIL: outputFileDiff (precession.unitTest.PrecessionTest)
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/precession/unitTest.py", line 97, in outputFileDiff
-    atol=1e-20)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 1528, in assert_allclose
-    verbose=verbose, header=header, equal_nan=equal_nan)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 759, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError: 
-Not equal to tolerance rtol=1e-08, atol=1e-20
-
-(shapes (21, 9), (2, 9) mismatch)
- x: array([[0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00,
-        0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00,
-        0.000000e+00],...
- y: array([[0.    , 0.    , 0.    , 0.    , 0.    , 0.    , 0.    , 0.    ,
-        0.    ],
-       [0.0001,    nan,    nan,    nan,    nan,    nan,    nan,    nan,
-           nan]])
-
-======================================================================
-FAIL: outputFileDiff (testTruncations.unitTest.TestTruncations)
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/testTruncations/unitTest.py", line 142, in outputFileDiff
-    np.testing.assert_allclose(datRef, datTmp, rtol=self.precision, atol=1e-20)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 1528, in assert_allclose
-    verbose=verbose, header=header, equal_nan=equal_nan)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 764, in assert_array_compare
-    flagged = func_assert_same_pos(x, y, func=isnan, hasval='nan')
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 740, in func_assert_same_pos
-    raise AssertionError(msg)
-AssertionError: 
-Not equal to tolerance rtol=1e-08, atol=1e-20
-
-x and y nan location mismatch:
- x: array([0.      , 0.      , 0.      , 0.      , 0.      , 0.      ,
-       0.      , 0.      , 0.      , 0.0001  , 0.001256, 0.      ,
-       0.      , 0.      , 0.001256, 0.      , 0.      , 0.      ,...
- y: array([0.      , 0.      , 0.      , 0.      , 0.      , 0.      ,
-       0.      , 0.      , 0.      , 0.0001  , 0.001256, 0.      ,
-       0.      , 0.      , 0.001256, 0.      , 0.      , 0.      ,...
-
-======================================================================
-FAIL: outputFileDiff (dynamo_benchmark_condICrotIC.unitTest.ConductingRotatingIC)
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/dynamo_benchmark_condICrotIC/unitTest.py", line 111, in outputFileDiff
-    atol=1e-20)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 1528, in assert_allclose
-    verbose=verbose, header=header, equal_nan=equal_nan)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 759, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError: 
-Not equal to tolerance rtol=1e-08, atol=1e-20
-
-(shapes (1102, 9), (1001, 9) mismatch)
- x: array([[0.000000e+00, 0.000000e+00, 0.000000e+00, ..., 0.000000e+00,
-        0.000000e+00, 0.000000e+00],
-       [1.000000e-04, 3.431252e-01, 1.285100e+00, ..., 1.285100e+00,...
- y: array([[0.000000e+00, 0.000000e+00, 0.000000e+00, ..., 0.000000e+00,
-        0.000000e+00, 0.000000e+00],
-       [1.000000e-04, 3.431252e-01, 1.285100e+00, ..., 1.285100e+00,...
-
-======================================================================
-FAIL: outputFileDiff (testRMSOutputs.unitTest.TestRMSOutputs)
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/testRMSOutputs/unitTest.py", line 125, in outputFileDiff
-    np.testing.assert_allclose(datRef, datTmp, rtol=self.precision, atol=1e-20)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 1528, in assert_allclose
-    verbose=verbose, header=header, equal_nan=equal_nan)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 840, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError: 
-Not equal to tolerance rtol=1e-08, atol=1e-20
-
-Mismatched elements: 8 / 324 (2.47%)
-Max absolute difference: 1.00000007e-05
-Max relative difference: 3.56191898e-08
- x: array([4.156547e+01, 4.377108e+02, 1.700351e+04, 7.077943e+03,
-       4.319072e+02, 1.104826e+03, 1.255332e+04, 0.000000e+00,
-       1.904694e+04, 3.891227e-01, 2.904458e-01, 1.492764e-01,...
- y: array([4.156547e+01, 4.377108e+02, 1.700351e+04, 7.077943e+03,
-       4.319072e+02, 1.104826e+03, 1.255332e+04, 0.000000e+00,
-       1.904694e+04, 3.891227e-01, 2.904458e-01, 1.492764e-01,...
-
-======================================================================
-FAIL: outputFileDiff (testTOGeosOutputs.unitTest.TestTOGeosOutputs)
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/testTOGeosOutputs/unitTest.py", line 141, in outputFileDiff
-    np.testing.assert_equal(datRef, datTmp)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 342, in assert_equal
-    return assert_array_equal(actual, desired, err_msg, verbose)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 931, in assert_array_equal
-    verbose=verbose, header='Arrays are not equal')
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 840, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError: 
-Arrays are not equal
-
-Mismatched elements: 6 / 122 (4.92%)
-Max absolute difference: 9.99999972e-10
-Max relative difference: 2.61095292e-09
- x: array([ 4.156448e+01,  6.421214e-01,  1.543326e-02,  1.543326e-02,
-        6.193379e+02,  1.000000e+00,  1.000000e+00,  8.110697e-01,
-        8.390299e-01,  8.710374e-01,  2.512241e-01,  7.958686e-01,...
- y: array([ 4.156448e+01,  6.421214e-01,  1.543326e-02,  1.543326e-02,
-        6.193379e+02,  1.000000e+00,  1.000000e+00,  8.110697e-01,
-        8.390299e-01,  8.710374e-01,  2.512241e-01,  7.958686e-01,...
-
-----------------------------------------------------------------------
-Ran 25 tests in 12765.642s
-
-FAILED (failures=6, errors=1)
-
-*******************************************************************************************************************************************************
-New tests results (14/09/2022) (CINES01 : CCE 14.02 - ROCm 4.5) (1MPIx1OMP)
-================================================== l_batched = true ==================================================================================
-Directory   :           /home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/time_schemes
-Description :           Test several time integrators
-Time used   :                            41:21
-Validating results..                     FAIL!
-
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/time_schemes/unitTest.py", line 198, in outputFileDiff
-    np.testing.assert_allclose(datRef, datTmp, rtol=self.precision, atol=1e-20)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 1528, in assert_allclose
-    verbose=verbose, header=header, equal_nan=equal_nan)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 759, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError:
-Not equal to tolerance rtol=1e-08, atol=1e-20
-
-(shapes (846,), (774,) mismatch)
- x: array([0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00,
-       0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00,
-       0.000000e+00, 9.000000e-04, 3.910592e+01, 4.789544e+01,...
- y: array([0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00,
-       0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00,
-       0.000000e+00, 9.000000e-04, 3.910592e+01, 4.789544e+01,...
-
-----------------------------------------------------------------------
-Directory   :           /home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/finite_differences
-Description :           Test finite differences (restart from Cheb)
-Time used   :                            02:07
-Validating results..                     FAIL!
-
-
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/finite_differences/unitTest.py", line 110, in outputFileDiff
-    np.testing.assert_allclose(datRef, datTmp, rtol=self.precision, atol=1e-20)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 1528, in assert_allclose
-    verbose=verbose, header=header, equal_nan=equal_nan)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 840, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError:
-Not equal to tolerance rtol=1e-08, atol=1e-20
-
-Mismatched elements: 228 / 297 (76.8%)
-Max absolute difference: 3712.70886
-Max relative difference: 50.14626261
- x: array([4.156448e+01, 2.439191e+02, 3.748038e+02, 3.802659e+00,
-       6.981774e+01, 2.439191e+02, 3.748038e+02, 3.802659e+00,
-       6.981774e+01, 4.156547e+01, 2.260806e+02, 3.623893e+02,...
- y: array([4.156448e+01, 1.641384e+02, 3.748038e+02, 1.980858e+00,
-       6.981774e+01, 1.641384e+02, 3.748038e+02, 1.980858e+00,
-       6.981774e+01, 4.156547e+01, 1.484108e+01, 2.875223e+02,...
-
-
-----------------------------------------------------------------------
-
-dynamo_benchmark_condICrotIC/onset/testCoeffOutputs (exec OK, incomplete write to output files)
-
-----------------------------------------------------------------------
-Directory   :           /home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/testRMSOutputs
-Description :           Test r.m.s. force balance calculation
-Time used   :                            17:49
-Validating results..                     FAIL!
-
-
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Juin_01_2022/LegPrep/magic/samples/testRMSOutputs/unitTest.py", line 125, in outputFileDiff
-    np.testing.assert_allclose(datRef, datTmp, rtol=self.precision, atol=1e-20)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 1528, in assert_allclose
-    verbose=verbose, header=header, equal_nan=equal_nan)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 759, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError:
-Not equal to tolerance rtol=1e-08, atol=1e-20
-
-(shapes (324,), (270,) mismatch)
- x: array([4.156547e+01, 4.377108e+02, 1.700351e+04, 7.077943e+03,
-       4.319072e+02, 1.104826e+03, 1.255332e+04, 0.000000e+00,
-       1.904694e+04, 3.891227e-01, 2.904458e-01, 1.492764e-01,...
- y: array([4.156547e+01, 4.377108e+02, 1.700351e+04, 7.077943e+03,
-       4.319072e+02, 1.104826e+03, 1.255332e+04, 0.000000e+00,
-       1.904694e+04, 3.891227e-01, 2.904458e-01, 1.492764e-01,...
-
-testRMSOutputs (FD case fails in get_ddr_ghost called from updateS : invalid memory access on GPU)
-
-
-Middle/Middle_FD/Small_FD : Not enough of memory on single GPU for 1MPIx1OMP ==> Use 4 MPIx1OMP for Middle/Small_FD & 8MPIx1OMP for Middle_FD
-
-================================================== l_batched = false =================================================================================
-
-time_schemes (fail : (shapes (846,), (774,) mismatch)); finite_differences (Time series of e_kin contains NaNs);
-dynamo_benchmark_condICrotIC/onset/testCoeffOutputs (exec OK, incomplete write to output files);
-testRMSOutputs (error for input_FD.nml : Agent attempted to access an inaccessible address. code: 0x2b in
-kernel starting from radial_derivatives.f90:1334 called from updateS.f90:1141)
-
-Middle/Middle_FD/Small/Small_FD : OK for 1MPIx1OMP
-
-********************************************************************************************************************************************************
-
-14/09/2022 (CINES01) (srun --gres=gpu:4 --gpus-per-task=1 ) (4MPIx1OMP)
-
-================================================== l_batched = true  ===================================================================================
-
-Directory   :           /home/rdiarra/Dev_MagIC/Sept/LegPrep/magic/samples/varProps
-Description :           Variable transport properties (anelastic, both Cheb and FD)
-
-Time used   :                            25:43
-Validating results..                     FAIL!
-
-
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Sept/LegPrep/magic/samples/varProps/unitTest.py", line 113, in outputFileDiff
-    np.testing.assert_allclose(datRef, datTmp, rtol=self.precision, atol=1e-20)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 1528, in assert_allclose
-    verbose=verbose, header=header, equal_nan=equal_nan)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 840, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError:
-Not equal to tolerance rtol=1e-08, atol=1e-20
-
-Mismatched elements: 200 / 702 (28.5%)
-Max absolute difference: 58.5015041
-Max relative difference: 12.92744821
- x: array([[0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00,
-        0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00,
-        0.000000e+00],...
- y: array([[ 0.000000e+00,  0.000000e+00,  0.000000e+00,  0.000000e+00,
-         0.000000e+00,  0.000000e+00,  0.000000e+00,  0.000000e+00,
-         0.000000e+00],...
-
-
-Directory   :           /home/rdiarra/Dev_MagIC/Sept/LegPrep/magic/samples/time_schemes
-Description :           Test several time integrators
-Time used   :                            45:31
-Validating results..                     FAIL!
-
-
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Sept/LegPrep/magic/samples/time_schemes/unitTest.py", line 198, in outputFileDiff
-    np.testing.assert_allclose(datRef, datTmp, rtol=self.precision, atol=1e-20)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 1528, in assert_allclose
-    verbose=verbose, header=header, equal_nan=equal_nan)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 759, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError:
-Not equal to tolerance rtol=1e-08, atol=1e-20
-
-(shapes (846,), (603,) mismatch)
- x: array([0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00,
-       0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00,
-       0.000000e+00, 9.000000e-04, 3.910592e+01, 4.789544e+01,...
- y: array([0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00,
-       0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00,
-       0.000000e+00, 9.000000e-04, 3.910592e+01, 4.789544e+01,...
-
-
-Directory   :           /home/rdiarra/Dev_MagIC/Sept/LegPrep/magic/samples/finite_differences
-Description :           Test finite differences (restart from Cheb)
-Time used   :                            06:22
-Validating results..                     FAIL!
-
-
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Sept/LegPrep/magic/samples/finite_differences/unitTest.py", line 110, in outputFileDiff
-    np.testing.assert_allclose(datRef, datTmp, rtol=self.precision, atol=1e-20)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 1528, in assert_allclose
-    verbose=verbose, header=header, equal_nan=equal_nan)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 840, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError:
-Not equal to tolerance rtol=1e-08, atol=1e-20
-
-Mismatched elements: 228 / 297 (76.8%)
-Max absolute difference: 3568.71889
-Max relative difference: 14.2114259
- x: array([4.156448e+01, 2.439191e+02, 3.748038e+02, 3.802659e+00,
-       6.981774e+01, 2.439191e+02, 3.748038e+02, 3.802659e+00,
-       6.981774e+01, 4.156547e+01, 2.260806e+02, 3.623893e+02,...
- y: array([4.156448e+01, 1.707301e+02, 3.748038e+02, 2.962347e+00,
-       6.981774e+01, 1.707301e+02, 3.748038e+02, 2.962347e+00,
-       6.981774e+01, 4.156547e+01, 5.171613e+01, 3.131737e+02,...
-
-
-Directory   :           /home/rdiarra/Dev_MagIC/Sept/LegPrep/magic/samples/phase_field
-Description :           Phase field
-Time used   :                            13:07
-Validating results..                     FAIL!
-
-
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Sept/LegPrep/magic/samples/phase_field/unitTest.py", line 112, in outputFileDiff
-    atol=1e-20)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 1528, in assert_allclose
-    verbose=verbose, header=header, equal_nan=equal_nan)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 759, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError:
-Not equal to tolerance rtol=1e-08, atol=1e-20
-
-(shapes (17, 9), (2, 9) mismatch)
- x: array([[0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00,
-        0.000000e+00, 0.000000e+00, 0.000000e+00, 0.000000e+00,
-        0.000000e+00],...
- y: array([[0.   , 0.   , 0.   , 0.   , 0.   , 0.   , 0.   , 0.   , 0.   ],
-       [0.001,   nan,   nan,   nan,   nan,   nan,   nan,   nan,   nan]])
-
-
-Directory   :           /home/rdiarra/Dev_MagIC/Sept/LegPrep/magic/samples/full_sphere
-Description :           Full sphere benchmark 1 (Marti et al. 2014)
-Time used   :                            07:58
-Validating results..                     FAIL!
-
-
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Sept/LegPrep/magic/samples/full_sphere/unitTest.py", line 99, in outputFileDiff
-    np.testing.assert_allclose(datRef, datTmp, rtol=self.precision, atol=1e-20)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 1528, in assert_allclose
-    verbose=verbose, header=header, equal_nan=equal_nan)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 840, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError:
-Not equal to tolerance rtol=1e-08, atol=1e-20
-
-Mismatched elements: 84 / 99 (84.8%)
-Max absolute difference: 7.042215
-Max relative difference: 33.86734589
- x: array([[2.035870e+00, 7.250150e+00, 2.188886e+01, 1.734318e-04,
-        1.089341e+00, 7.250150e+00, 2.188886e+01, 1.734318e-04,
-        1.089341e+00],...
- y: array([[2.035870e+00, 3.776489e+00, 2.188886e+01, 1.400029e-04,
-        1.089341e+00, 3.776489e+00, 2.188886e+01, 1.400029e-04,
-        1.089341e+00],...
-
-Directory   :           /home/rdiarra/Dev_MagIC/Sept/LegPrep/magic/samples/testRMSOutputs
-Description :           Test r.m.s. force balance calculation
-Time used   :                            28:26
-Validating results..                     FAIL!
-
-
-Traceback (most recent call last):
-  File "/home/rdiarra/Dev_MagIC/Sept/LegPrep/magic/samples/testRMSOutputs/unitTest.py", line 125, in outputFileDiff
-    np.testing.assert_allclose(datRef, datTmp, rtol=self.precision, atol=1e-20)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 1528, in assert_allclose
-    verbose=verbose, header=header, equal_nan=equal_nan)
-  File "/home/rdiarra/.local/lib/python3.6/site-packages/numpy/testing/_private/utils.py", line 840, in assert_array_compare
-    raise AssertionError(msg)
-AssertionError:
-Not equal to tolerance rtol=1e-08, atol=1e-20
-
-Mismatched elements: 48 / 324 (14.8%)
-Max absolute difference: 57.36716
-Max relative difference: 0.46643062
- x: array([4.156547e+01, 4.377108e+02, 1.700351e+04, 7.077943e+03,
-       4.319072e+02, 1.104826e+03, 1.255332e+04, 0.000000e+00,
-       1.904694e+04, 3.891227e-01, 2.904458e-01, 1.492764e-01,...
- y: array([4.156547e+01, 4.377108e+02, 1.700351e+04, 7.077943e+03,
-       4.319072e+02, 1.104826e+03, 1.255332e+04, 0.000000e+00,
-       1.904694e+04, 3.891227e-01, 2.904458e-01, 1.492764e-01,...
-
-------------------------------------------
-Ran 25 tests in 40048.259s
-
-FAILED (failures=6)
-
-================================================== l_batched = false ===================================================================================
-
-********************************************************************************************************************************************************
+Results of commit "957d6db75c6eed4b596a7b75352cb293f9c2a0e9" (17/09/2022) - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1MPIx1OMP
+_________________________________________________________________________________________________________________________________________________________________
+_______________________________________________________l_batched_shts=.true._____________________________________________________________________________________
+
+testRestart [OK]
+testTruncations [OK]
+testMapping [OK]
+testOutputs [OK]
+boussBenchSat [OK]
+dynamo_benchmark [OK]
+fluxPerturbation [OK]
+hydro_bench_anel [OK]
+phase_field [OK]
+testGraphMovieOutputs [OK]
+testTOGeosOutputs [OK]
+couetteAxi [OK]
+full_sphere [OK]
+isothermal_nrho3 [OK]
+precession [OK]
+doubleDiffusion [OK]
+varCond [OK]
+
+dynamo_benchmark_condICrotIC [NOK: Mismatched elements: 900 / 9918 (9.07%) Max absolute difference: 2.294162 Max relative difference: 0.03083199]
+testRadialOutputs [NOK: Mismatched elements: 2 / 3120 (0.0641%) Max absolute difference: 1.e-10 Max relative difference: 1.37112417e-07]
+finite_differences [NOK Mismatched elements: 228 / 297 (76.8%) Max absolute difference: 3712.70886 Max relative difference: 50.14626261]
+varProps [Exec OK, Mismatched elements: 200 / 702 (28.5%) Max absolute difference: 108.22009492 Max relative difference: 40322764.71453714]
+
+onset [Exec OK, I/O problems in output files : (shapes (51, 9), (24, 9) mismatch)]
+testCoeffOutputs [Exec OK, Python problems : AttributeError: 'MagicCoeffCmb' object has no attribute 'm_max_cmb']
+
+time_schemes [NOK : fails for input_KC564_FD.nml]
+testRMSOutputs [NOK : fails for FD case at radial_derivatives.f90:1334 (HSA_STATUS_ERROR_MEMORY_FAULT: Agent attempted to access an inaccessible address)]
+_________________________________________________________________________________________________________________________________________________________________
+_______________________________________________________l_batched_shts=.false.____________________________________________________________________________________
+
+testRestart [OK]
+testTruncations [OK]
+testMapping [OK]
+testOutputs [OK]
+boussBenchSat [OK]
+dynamo_benchmark [OK]
+fluxPerturbation [OK]
+hydro_bench_anel [OK]
+phase_field [OK]
+testGraphMovieOutputs [OK]
+couetteAxi [OK]
+full_sphere [OK]
+isothermal_nrho3 [OK]
+precession [OK]
+doubleDiffusion [OK]
+dynamo_benchmark_condICrotIC [OK]
+varProps [OK]
+
+testTOGeosOutputs [NOK: Mismatched elements: 6 / 122 (4.92%) Max absolute difference: 9.99999972e-10 Max relative difference: 2.61095292e-09]
+testRadialOutputs [NOK: Mismatched elements: 2 / 3120 (0.0641%) Max absolute difference: 1.e-10 Max relative difference: 1.37112417e-07]
+finite_differences [NOK NaN in e_kin]
+
+onset [Exec OK, I/O problems in output files : (shapes (51, 9), (16, 9) mismatch)]
+testCoeffOutputs [Exec OK, Python problems : AttributeError: 'MagicCoeffCmb' object has no attribute 'm_max_cmb']
+varCond [Exec OK, I/O problems in output files : (shapes (51, 9), (28, 9) mismatch)]
+
+time_schemes [NOK : fails for input_KC564_FD.nml]
+testRMSOutputs [NOK : fails for FD case at radial_derivatives.f90:1334 (HSA_STATUS_ERROR_MEMORY_FAULT: Agent attempted to access an inaccessible address)]
+_________________________________________________________________________________________________________________________________________________________________
