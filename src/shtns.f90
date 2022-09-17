@@ -14,6 +14,10 @@ module sht
    use horizontal_data, only: dLh
    use radial_data, only: nRstart, nRstop
    use parallel_mod
+#ifdef WITH_OMP_GPU
+   use hipfort_check, only: hipCheck
+   use hipfort, only: hipDeviceSynchronize
+#endif
 
    implicit none
 
@@ -258,6 +262,7 @@ contains
       if(loc_use_gpu) then
          !$omp target data use_device_addr(Slm, fieldc)
          call cu_SH_to_spat(sh, Slm, fieldc, lcut)
+!         call hipCheck(hipDeviceSynchronize())
          !$omp end target data
       else
          call SH_to_spat_l(sh, Slm, fieldc, lcut)
@@ -296,6 +301,7 @@ contains
       if(loc_use_gpu) then
          !$omp target data use_device_addr(Slm, gradtc, gradpc)
          call cu_SHsph_to_spat(sht_l_gpu, Slm, gradtc, gradpc, lcut)
+!         call hipCheck(hipDeviceSynchronize())
          !$omp end target data
       else
          call SHsph_to_spat_l(sht_l, Slm, gradtc, gradpc, lcut)
@@ -332,6 +338,7 @@ contains
       if(loc_use_gpu) then
          !$omp target data use_device_addr(Wlm, dWlm, Zlm, vrc, vtc, vpc)
          call cu_SHqst_to_spat(sht_l_gpu, Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+!         call hipCheck(hipDeviceSynchronize())
          !$omp end target data
       else
          call SHqst_to_spat_l(sht_l, Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
@@ -399,6 +406,7 @@ contains
       if(loc_use_gpu) then
          !$omp target data use_device_addr(dWlm, Zlm, vtc, vpc)
          call cu_SHsphtor_to_spat(sh, dWlm, Zlm, vtc, vpc, lcut)
+!         call hipCheck(hipDeviceSynchronize())
          !$omp end target data
       else
          call SHsphtor_to_spat_l(sh, dWlm, Zlm, vtc, vpc, lcut)
@@ -523,6 +531,7 @@ contains
       if(loc_use_gpu) then
          !$omp target data use_device_addr(f, fLM)
          call cu_spat_to_SH(sh, f, fLM, lcut+1)
+!         call hipCheck(hipDeviceSynchronize())
          !$omp end target data
       else
          call spat_to_SH_l(sh, f, fLM, lcut+1)
@@ -561,6 +570,7 @@ contains
       if(loc_use_gpu) then
          !$omp target data use_device_addr(f, g, h, qLM, sLM, tLM)
          call cu_spat_to_SHqst(sht_lP_gpu, f, g, h, qLM, sLM, tLM, lcut+1)
+!         call hipCheck(hipDeviceSynchronize())
          !$omp end target data
       else
          call spat_to_SHqst_l(sht_lP, f, g, h, qLM, sLM, tLM, lcut+1)
@@ -598,6 +608,7 @@ contains
       if(loc_use_gpu) then
          !$omp target data use_device_addr(f, g, fLM, gLM)
          call cu_spat_to_SHsphtor(sh, f, g, fLM, gLM, lcut+1)
+!         call hipCheck(hipDeviceSynchronize())
          !$omp end target data
       else
          call spat_to_SHsphtor_l(sh, f, g, fLM, gLM, lcut+1)

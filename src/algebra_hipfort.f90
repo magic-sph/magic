@@ -9,6 +9,7 @@ module algebra_hipfort
    use hipfort_hipblas
    use hipfort_hipsolver
    use omp_lib
+   use hipfort, only: hipDeviceSynchronize
 
    implicit none
 
@@ -144,11 +145,13 @@ contains
       deallocate(dWork_i, dWork_r, devInfo)
 #endif
 
-       !$omp target teams distribute parallel do
-       do i=1,n
-          rhs(i)=cmplx(tmpr(i),tmpi(i),kind=cp)
-       end do
-       !$omp end target teams distribute parallel do
+      call hipCheck(hipDeviceSynchronize())
+
+      !$omp target teams distribute parallel do
+      do i=1,n
+         rhs(i)=cmplx(tmpr(i),tmpi(i),kind=cp)
+      end do
+      !$omp end target teams distribute parallel do
 
       !$omp target exit data map(delete : tmpi, tmpr)
       deallocate(tmpi, tmpr)
@@ -223,6 +226,8 @@ contains
       deallocate(dWork, devInfo)
 #endif
 
+      call hipCheck(hipDeviceSynchronize())
+
       !-- Destroy handle
       call hipsolverCheck(hipsolverDestroy(handle))
 
@@ -291,6 +296,8 @@ contains
       !$omp target exit data map(delete : dWork, devInfo)
       deallocate(dWork, devInfo)
 #endif
+
+      call hipCheck(hipDeviceSynchronize())
 
       !-- Destroy handle
       call hipsolverCheck(hipsolverDestroy(handle))
@@ -366,6 +373,8 @@ contains
 #ifdef WITH_LIBFLAME
       !$omp end critical
 #endif
+
+      call hipCheck(hipDeviceSynchronize())
 
       !-- Destroy handle
       call hipsolverCheck(hipsolverDestroy(handle))

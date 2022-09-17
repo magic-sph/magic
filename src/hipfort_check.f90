@@ -2,7 +2,6 @@ module hipfort_check
 
 contains
 
-#ifdef WITH_HIPFORT
 #ifdef USE_CUDA_NAMES
    subroutine hipCheck(cudaError_t)
       use hipfort_cuda_errors
@@ -30,7 +29,6 @@ contains
          call exit(hipError_t)
       end if
    end subroutine hipCheck
-#endif
 #endif
 
   ! HIP math libs

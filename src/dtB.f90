@@ -32,6 +32,10 @@ module dtB_mod
 #endif
    use constants, only: two
    use radial_der, only: get_dr
+#ifdef WITH_OMP_GPU
+   use hipfort_check, only: hipCheck
+   use hipfort, only: hipDeviceSynchronize
+#endif
 
    implicit none
 
@@ -293,6 +297,8 @@ contains
       call scal_to_SH(sht_lP_single_gpu, BrVZ, BrVZLM, l_max, .true.)
       call scal_to_SH(sht_lP_single_gpu, BtVZ, BtVZLM, l_max, .true.)
       call scal_to_SH(sht_lP_single_gpu, BtVZsn2, BtVZsn2LM, l_max, .true.)
+
+      call hipCheck(hipDeviceSynchronize())
 
       !$omp target exit data map(delete: BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
       !$omp&                            BpVtBtVpCot, BtVZsn2)

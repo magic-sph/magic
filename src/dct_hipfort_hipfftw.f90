@@ -13,6 +13,7 @@ module cosine_transform_gpu
    use omp_lib
    use hipfort_hipfft
    use hipfort_check
+   use hipfort, only: hipDeviceSynchronize
 
    implicit none
 
@@ -239,6 +240,8 @@ contains
       !$omp target data use_device_addr(tmp_in, tmp_out)
       call hipfftCheck(hipfftExecZ2Z(this%plan_many, c_loc(tmp_in), c_loc(tmp_out), HIPFFT_FORWARD))
       !$omp end target data
+
+      call hipCheck(hipDeviceSynchronize())
 
       !-- Copy output onto array_in
       !$omp target teams distribute parallel do collapse(2)
