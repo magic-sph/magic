@@ -643,7 +643,6 @@ contains
       if ( l_chemical_conv ) then
          if ( .not. l_parallel_solve ) then
 #ifdef WITH_OMP_GPU
-            !$omp target exit data map(delete: dxidt_Rloc_container)
             !$omp target exit data map(delete: dxidt_LMloc_container)
 #endif
             deallocate( dxidt_Rloc_container, dxidt_LMloc_container )
