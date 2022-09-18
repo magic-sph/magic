@@ -1498,7 +1498,14 @@ contains
       real(cp) :: r_E_2, nomi, dL, prec_fac
       integer :: n_r, lm, start_lm, stop_lm, i
       integer :: l, m, l1m0, l1m1
-      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), allocatable :: work_Rloc(:,:)
+
+      allocate(work_Rloc(lm_max,nRstart:nRstop))
+      work_Rloc = zero
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: work_Rloc)
+      !$omp target update to(work_Rloc)
+#endif
 
       if ( l_precession ) then
          prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
@@ -1710,6 +1717,11 @@ contains
 #ifdef WITH_OMP_GPU
 #endif
       end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: work_Rloc)
+#endif
+      deallocate(work_Rloc)
 
    end subroutine get_tor_rhs_imp_ghost
 !------------------------------------------------------------------------------

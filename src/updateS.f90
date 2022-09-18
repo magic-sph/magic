@@ -1133,9 +1133,16 @@ contains
       type(type_tarray), intent(inout) :: dsdt
 
       !-- Local variables
-      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), allocatable :: work_Rloc(:,:)
       integer :: n_r, lm, start_lm, stop_lm, l
       real(cp) :: dL
+
+      allocate(work_Rloc(lm_max,nRstart:nRstop))
+      work_Rloc = zero
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: work_Rloc)
+      !$omp target update to(work_Rloc)
+#endif
 
 #ifdef WITH_OMP_GPU
       !$omp target update to(sg)
@@ -1225,6 +1232,11 @@ contains
 #ifndef WITH_OMP_GPU
       !$omp end parallel
 #endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: work_Rloc)
+#endif
+      deallocate(work_Rloc)
 
    end subroutine get_entropy_rhs_imp_ghost
 !-----------------------------------------------------------------------------
