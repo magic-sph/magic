@@ -24,11 +24,11 @@ varProps [OK] (was OK at commits 658db81f6338158308e9eff39409b45c94be4c46 & ff07
 dynamo_benchmark_condICrotIC [NOK: Mismatched elements: 765 / 9918 (7.71%) Max absolute difference: 5.22142 Max relative difference: 0.10266173]
 finite_differences [NOK Mismatched elements: 228 / 297 (76.8%) Max absolute difference: 3712.70886 Max relative difference: 50.14626261]
 testRadialOutputs [NOK: Mismatched elements: 1 / 3120 (0.0031%) Max absolute difference: 1.e-10 Max relative difference: 1.37112417e-07]
+testRMSOutputs [NOK: Mismatched elements: 8 / 324 (2.47%) Max absolute difference: 1.00000007e-05 Max relative difference: 3.56191898e-08] (commit d88a9b174ee3ca62f53f472f43f6033f86dbfd7d)
 
 onset [Exec OK, I/O problems in output files : (shapes (51, 9), (24, 9) mismatch)]
 testCoeffOutputs [Exec OK, Python problems : AttributeError: 'MagicCoeffCmb' object has no attribute 'm_max_cmb']
 
-testRMSOutputs [NOK : fails for FD case at radial_derivatives.f90:1334 (HSA_STATUS_ERROR_MEMORY_FAULT: Agent attempted to access an inaccessible address)]
 time_schemes [NOK: fails for input_KC564_FD.nml (dt too small) (shapes (846,), (774,) mismatch)]
 _________________________________________________________________________________________________________________________________________________________________
 _______________________________________________________l_batched_shts=.false.____________________________________________________________________________________
@@ -53,12 +53,12 @@ testRadialOutputs [OK]
 testTOGeosOutputs [NOK: Mismatched elements: 6 / 122 (4.92%) Max absolute difference: 9.99999972e-10 Max relative difference: 2.61095292e-09]
 varProps [NOK: Mismatched elements: 200 / 702 (28.5%) Max absolute difference: 108.22009492 Max relative difference: 40322764.71453714]
 varCond [NOK: Mismatched elements: 9 / 459 (1.96%) Max absolute difference: 682.7443 Max relative difference: 0.04264474]
+testRMSOutputs [NOK: Mismatched elements: 8 / 324 (2.47%) Max absolute difference: 1.00000007e-05 Max relative difference: 3.56191898e-08] (commit d88a9b174ee3ca62f53f472f43f6033f86dbfd7d)
 
 dynamo_benchmark_condICrotIC [Exec OK, I/O problems in output files : (shapes (1102, 9), (1002, 9) mismatch)]
 onset [Exec OK, I/O problems in e_kin.test : (shapes (51, 9), (16, 9) mismatch)]
 testCoeffOutputs [Exec OK, Python problems : AttributeError: 'MagicCoeffCmb' object has no attribute 'm_max_cmb']
 
 finite_differences [NOK: NaN]
-testRMSOutputs [NOK : fails for FD case at radial_derivatives.f90:1334 (HSA_STATUS_ERROR_MEMORY_FAULT: Agent attempted to access an inaccessible address)]
 time_schemes [NOK: fails for input_KC564_FD.nml (dt too small) (shapes (846,), (774,) mismatch)]
 _________________________________________________________________________________________________________________________________________________________________
