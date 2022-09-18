@@ -1,4 +1,4 @@
-Results of commit "957d6db75c6eed4b596a7b75352cb293f9c2a0e9" (17/09/2022) - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1MPIx1OMP
+Results of commit "b55f390517a9a1c2acf6f064e84049cc20b63041" (18/09/2022) - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1MPIx1OMP (with explicite synchronization)
 _________________________________________________________________________________________________________________________________________________________________
 _______________________________________________________l_batched_shts=.true._____________________________________________________________________________________
 
@@ -19,17 +19,17 @@ isothermal_nrho3 [OK]
 precession [OK]
 doubleDiffusion [OK]
 varCond [OK]
+varProps [OK] (was OK at commits 658db81f6338158308e9eff39409b45c94be4c46 & ff07f2ac3749e95a90caf117263a6cf27fd39bfe; NOK starts at commit 957d6db75c6eed4b596a7b75352cb293f9c2a0e9)
 
-dynamo_benchmark_condICrotIC [NOK: Mismatched elements: 900 / 9918 (9.07%) Max absolute difference: 2.294162 Max relative difference: 0.03083199]
-testRadialOutputs [NOK: Mismatched elements: 2 / 3120 (0.0641%) Max absolute difference: 1.e-10 Max relative difference: 1.37112417e-07]
+dynamo_benchmark_condICrotIC [NOK: Mismatched elements: 765 / 9918 (7.71%) Max absolute difference: 5.22142 Max relative difference: 0.10266173]
 finite_differences [NOK Mismatched elements: 228 / 297 (76.8%) Max absolute difference: 3712.70886 Max relative difference: 50.14626261]
-varProps [Exec OK, Mismatched elements: 200 / 702 (28.5%) Max absolute difference: 108.22009492 Max relative difference: 40322764.71453714]
+testRadialOutputs [NOK: Mismatched elements: 1 / 3120 (0.0031%) Max absolute difference: 1.e-10 Max relative difference: 1.37112417e-07]
 
 onset [Exec OK, I/O problems in output files : (shapes (51, 9), (24, 9) mismatch)]
 testCoeffOutputs [Exec OK, Python problems : AttributeError: 'MagicCoeffCmb' object has no attribute 'm_max_cmb']
 
-time_schemes [NOK : fails for input_KC564_FD.nml]
 testRMSOutputs [NOK : fails for FD case at radial_derivatives.f90:1334 (HSA_STATUS_ERROR_MEMORY_FAULT: Agent attempted to access an inaccessible address)]
+time_schemes [NOK: fails for input_KC564_FD.nml (dt too small) (shapes (846,), (774,) mismatch)]
 _________________________________________________________________________________________________________________________________________________________________
 _______________________________________________________l_batched_shts=.false.____________________________________________________________________________________
 
@@ -48,17 +48,17 @@ full_sphere [OK]
 isothermal_nrho3 [OK]
 precession [OK]
 doubleDiffusion [OK]
-dynamo_benchmark_condICrotIC [OK]
-varProps [OK]
+testRadialOutputs [OK]
 
 testTOGeosOutputs [NOK: Mismatched elements: 6 / 122 (4.92%) Max absolute difference: 9.99999972e-10 Max relative difference: 2.61095292e-09]
-testRadialOutputs [NOK: Mismatched elements: 2 / 3120 (0.0641%) Max absolute difference: 1.e-10 Max relative difference: 1.37112417e-07]
-finite_differences [NOK NaN in e_kin]
+varProps [NOK: Mismatched elements: 200 / 702 (28.5%) Max absolute difference: 108.22009492 Max relative difference: 40322764.71453714]
+varCond [NOK: Mismatched elements: 9 / 459 (1.96%) Max absolute difference: 682.7443 Max relative difference: 0.04264474]
 
-onset [Exec OK, I/O problems in output files : (shapes (51, 9), (16, 9) mismatch)]
+dynamo_benchmark_condICrotIC [Exec OK, I/O problems in output files : (shapes (1102, 9), (1002, 9) mismatch)]
+onset [Exec OK, I/O problems in e_kin.test : (shapes (51, 9), (16, 9) mismatch)]
 testCoeffOutputs [Exec OK, Python problems : AttributeError: 'MagicCoeffCmb' object has no attribute 'm_max_cmb']
-varCond [Exec OK, I/O problems in output files : (shapes (51, 9), (28, 9) mismatch)]
 
-time_schemes [NOK : fails for input_KC564_FD.nml]
+finite_differences [NOK: NaN]
 testRMSOutputs [NOK : fails for FD case at radial_derivatives.f90:1334 (HSA_STATUS_ERROR_MEMORY_FAULT: Agent attempted to access an inaccessible address)]
+time_schemes [NOK: fails for input_KC564_FD.nml (dt too small) (shapes (846,), (774,) mismatch)]
 _________________________________________________________________________________________________________________________________________________________________
