@@ -217,10 +217,16 @@ contains
 
          af2=alffac*alffac
 
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2) &
+         !$omp& map(tofrom:vr2max,vh2max) reduction(max:vr2max,vh2max) &
+         !$omp& private(vflr2,valr,valr2,vflh2,valh2,valh2m)
+#else
          !$omp parallel do default(shared) &
          !$omp private(n_theta,n_phi) &
          !$omp private(vflr2,valr,valr2,vflh2,valh2,valh2m) &
          !$omp reduction(max:vr2max,vh2max)
+#endif
          do n_phi=1,n_phi_max
             do n_theta=1,n_theta_max
                vflr2=orho2(n_r)*vr(n_theta,n_phi)*vr(n_theta,n_phi)
@@ -239,13 +245,23 @@ contains
 
             end do
          end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
          !$omp end parallel do
+#endif
 
       else   ! Magnetic field ?
 
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2) &
+         !$omp& private(vflr2,vflh2) &
+         !$omp& map(tofrom:vr2max,vh2max) reduction(max:vr2max,vh2max)
+#else
          !$omp parallel do default(shared) &
          !$omp private(n_theta,n_phi,vflr2,vflh2) &
          !$omp reduction(max:vr2max,vh2max)
+#endif
          do n_phi=1,n_phi_max
             do n_theta=1,n_theta_max
                vflr2=orho2(n_r)*vr(n_theta,n_phi)*vr(n_theta,n_phi)
@@ -257,7 +273,12 @@ contains
                vh2max=max(vh2max,cf2*or2(n_r)*vflh2)
             end do
          end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
          !$omp end parallel do
+#endif
+
       end if   ! Magnetic field ?
 
       !$omp critical
@@ -288,12 +309,12 @@ contains
       !-- Input variable:
       integer,  intent(in) :: n_r_l       ! Starting radial level
       integer,  intent(in) :: n_r_u       ! Stopping radial level
-      real(cp), intent(in) :: vr(nlat_padded,n_r_l:n_r_u,*)   ! radial velocity
-      real(cp), intent(in) :: vt(nlat_padded,n_r_l:n_r_u,*)   ! longitudinal velocity
-      real(cp), intent(in) :: vp(nlat_padded,n_r_l:n_r_u,*)   ! azimuthal velocity
-      real(cp), intent(in) :: br(nlat_padded,n_r_l:n_r_u,*)   ! radial magnetic field
-      real(cp), intent(in) :: bt(nlat_padded,n_r_l:n_r_u,*)   ! longitudinal magnetic field
-      real(cp), intent(in) :: bp(nlat_padded,n_r_l:n_r_u,*)   ! azimuthal magnetic field
+      real(cp), intent(in) :: vr(nlat_padded,n_r_l:n_r_u,n_phi_max)   ! radial velocity
+      real(cp), intent(in) :: vt(nlat_padded,n_r_l:n_r_u,n_phi_max)   ! longitudinal velocity
+      real(cp), intent(in) :: vp(nlat_padded,n_r_l:n_r_u,n_phi_max)   ! azimuthal velocity
+      real(cp), intent(in) :: br(nlat_padded,n_r_l:n_r_u,n_phi_max)   ! radial magnetic field
+      real(cp), intent(in) :: bt(nlat_padded,n_r_l:n_r_u,n_phi_max)   ! longitudinal magnetic field
+      real(cp), intent(in) :: bp(nlat_padded,n_r_l:n_r_u,n_phi_max)   ! azimuthal magnetic field
       real(cp), intent(in) :: courfac
       real(cp), intent(in) :: alffac
 
@@ -315,10 +336,16 @@ contains
 
          af2=alffac*alffac
 
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do &
+         !$omp& private(vflr2,valr,valr2,vflh2,valh2,valh2m) &
+         !$omp& map(tofrom:vr2max,vh2max) reduction(max:vr2max,vh2max)
+#else
          !$omp parallel do default(shared) &
          !$omp private(n_theta,n_r,n_phi) &
          !$omp private(vflr2,valr,valr2,vflh2,valh2,valh2m) &
          !$omp reduction(max:vr2max,vh2max)
+#endif
          do n_phi=1,n_phi_max
             do n_r=n_r_l,n_r_u
                if ( l_cour_alf_damp ) then
@@ -346,13 +373,23 @@ contains
                end do
             end do
          end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
          !$omp end parallel do
+#endif
 
       else   ! Magnetic field ?
 
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do &
+         !$omp& private(n_theta,n_r,n_phi,vflr2,vflh2) &
+         !$omp& map(tofrom:vr2max,vh2max) reduction(max:vr2max,vh2max)
+#else
          !$omp parallel do default(shared) &
          !$omp private(n_theta,n_r,n_phi,vflr2,vflh2) &
          !$omp reduction(max:vr2max,vh2max)
+#endif
          do n_phi=1,n_phi_max
             do n_r=n_r_l,n_r_u
                do n_theta=1,n_theta_max
@@ -367,7 +404,11 @@ contains
                end do
             end do
          end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
          !$omp end parallel do
+#endif
       end if   ! Magnetic field ?
 
       !$omp critical
