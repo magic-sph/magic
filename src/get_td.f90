@@ -7,7 +7,11 @@ module nonlinear_lm_mod
 
    use, intrinsic :: iso_c_binding
    use precision_mod
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: bytes_allocated
+#endif
    use truncation, only: lm_max, l_max, lm_maxMag, lmP_max, m_min
    use grid_blocking, only: n_spec_space_lmP
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
@@ -54,9 +58,16 @@ contains
 
       allocate( this%AdvrLM(sizeLM), this%AdvtLM(sizeLM), this%AdvpLM(sizeLM))
       bytes_allocated = bytes_allocated + 3*sizeLM*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+      gpu_bytes_allocated = gpu_bytes_allocated + 3*sizeLM*SIZEOF_DEF_COMPLEX
+#endif
+
       if ( l_mag ) then
          allocate( this%VxBrLM(sizeLM), this%VxBtLM(sizeLM), this%VxBpLM(sizeLM))
          bytes_allocated = bytes_allocated + 3*sizeLM*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+         gpu_bytes_allocated = gpu_bytes_allocated + 3*sizeLM*SIZEOF_DEF_COMPLEX
+#endif
       else
          allocate( this%VxBrLM(1), this%VxBtLM(1), this%VxBpLM(1))
       end if
@@ -64,6 +75,9 @@ contains
       if ( l_anel) then
          allocate( this%heatTermsLM(sizeLM) )
          bytes_allocated = bytes_allocated+sizeLM*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+         gpu_bytes_allocated = gpu_bytes_allocated+sizeLM*SIZEOF_DEF_COMPLEX
+#endif
       else
          allocate( this%heatTermsLM(1) )
       end if
@@ -71,6 +85,9 @@ contains
       if ( l_heat ) then
          allocate(this%VSrLM(sizeLM),this%VStLM(sizeLM),this%VSpLM(sizeLM))
          bytes_allocated = bytes_allocated + 3*sizeLM*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+         gpu_bytes_allocated = gpu_bytes_allocated + 3*sizeLM*SIZEOF_DEF_COMPLEX
+#endif
       else
          allocate( this%VSrLM(1), this%VStLM(1),this%VSpLM(1) )
       end if
@@ -78,6 +95,9 @@ contains
       if ( l_chemical_conv ) then
          allocate(this%VXirLM(sizeLM),this%VXitLM(sizeLM),this%VXipLM(sizeLM))
          bytes_allocated = bytes_allocated + 3*sizeLM*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+         gpu_bytes_allocated = gpu_bytes_allocated + 3*sizeLM*SIZEOF_DEF_COMPLEX
+#endif
       else
          allocate(this%VXirLM(1),this%VXitLM(1),this%VXipLM(1))
       end if
@@ -85,6 +105,9 @@ contains
       if ( l_phase_field ) then
          allocate(this%dphidtLM(sizeLM))
          bytes_allocated = bytes_allocated + sizeLM*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+         gpu_bytes_allocated = gpu_bytes_allocated + sizeLM*SIZEOF_DEF_COMPLEX
+#endif
       else
          allocate(this%dphidtLM(1))
       end if
@@ -239,8 +262,14 @@ contains
 
             dzdt(lm)=AdvTor_loc+CorTor_loc
 
+#ifdef WITH_OMP_GPU
+!            !$omp target update to(dVxVhLM)
+            !$omp target update to(dwdt(lm), dzdt(lm))
+            !$omp target teams distribute parallel do
+#else
             !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
             !$omp private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
+#endif
             do lm=lm_min,lm_max
                l   =lm2l(lm)
                m   =lm2m(lm)
@@ -346,13 +375,25 @@ contains
                dzdt(lm)=CorTor_loc+AdvTor_loc
 
             end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+            !$omp target update from(dVxVhLM)
+            !$omp target update from(dwdt, dzdt)
+#else
             !$omp end parallel do
+#endif
 
             ! In case double curl is calculated dpdt is useless
             if ( (.not. l_double_curl) .or. lPressNext ) then
             !if ( .true. ) then
+#ifdef WITH_OMP_GPU
+!               !$omp target update to(dpdt)
+               !$omp target teams distribute parallel do private(lm,l,m,lmS,lmA,lmP) &
+               !$omp& private(AdvPol_loc,CorPol_loc)
+#else
                !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
                !$omp private(AdvPol_loc,CorPol_loc)
+#endif
                do lm=lm_min,lm_max
                   l   =lm2l(lm)
                   m   =lm2m(lm)
@@ -394,15 +435,28 @@ contains
                   dpdt(lm)=AdvPol_loc+CorPol_loc
 
                end do ! lm loop
+#ifdef WITH_OMP_GPU
+               !$omp end target teams distribute parallel do
+               !$omp target update from(dpdt)
+#else
                !$omp end parallel do
+#endif
             end if
 
          else
+#ifdef WITH_OMP_GPU
+!            !$omp target update to(dwdt, dzdt, dpdt)
+            !$omp target teams distribute parallel do
+#endif
             do lm=lm_min,lm_max
                dwdt(lm)=zero
                dzdt(lm)=zero
                dpdt(lm)=zero
             end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+            !$omp target update from(dwdt, dzdt, dpdt)
+#endif
          end if ! l_conv ?
 
       end if
@@ -421,7 +475,13 @@ contains
             end if
             dsdt(1)=dsdt_loc
 
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dVSrLM(1))
+            !$omp target update to(dsdt(1))
+            !$omp target teams distribute parallel do
+#else
             !$omp parallel do default(shared) private(lm,lmP,dsdt_loc,l)
+#endif
             do lm=lm_min,lm_max
                l   =lm2l(lm)
                lmP =lm2lmP(lm)
@@ -436,49 +496,101 @@ contains
                end if
                dsdt(lm) = dsdt_loc
             end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+            !$omp target update from(dVSrLM)
+            !$omp target update from(dsdt)
+#else
             !$omp end parallel do
+#endif
          end if
 
          if ( l_chemical_conv ) then
             dVXirLM(1)=VXirLM(1)
             dxidt(1)  =epscXi
 
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dVXirLM(1))
+            !$omp target update to(dxidt(1))
+            !$omp target teams distribute parallel do
+#else
             !$omp parallel do default(shared) private(lm,lmP)
+#endif
             do lm=lm_min,lm_max
                lmP=lm2lmP(lm)
                dVXirLM(lm)=VXirLM(lmP)
                dxidt(lm)  =dLh(lm)*VXitLM(lmP)
             end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+            !$omp target update from(dVXirLM)
+            !$omp target update from(dxidt)
+#else
             !$omp end parallel do
+#endif
          end if
 
          if ( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+!            !$omp target update to(dphidt)
+            !$omp target teams distribute parallel do
+#else
             !$omp parallel do default(shared) private(lm,lmP)
+#endif
             do lm=1,lm_max
                lmP=lm2lmP(lm)
                dphidt(lm)=dphidtLM(lmP)
             end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+            !$omp target update from(dphidt)
+#else
             !$omp end parallel do
+#endif
          end if
 
          if ( l_mag_nl .or. l_mag_kin  ) then
+#ifdef WITH_OMP_GPU
+!            !$omp target update to(dVxBhLM)
+!            !$omp target update to(dbdt, djdt)
+            !$omp target teams distribute parallel do
+#else
             !$omp parallel do default(shared) private(lm,lmP)
+#endif
             do lm=1,lm_max
                lmP =lm2lmP(lm)
                dbdt(lm)   = dLh(lm)*VxBpLM(lmP)
                dVxBhLM(lm)=-dLh(lm)*VxBtLM(lmP)*r(nR)*r(nR)
                djdt(lm)   = dLh(lm)*or4(nR)*VxBrLM(lmP)
             end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+            !$omp target update from(dVxBhLM)
+            !$omp target update from(dbdt, djdt)
+#else
             !$omp end parallel do
+#endif
          else
             if ( l_mag ) then
+#ifdef WITH_OMP_GPU
+!               !$omp target update to(dVxBhLM)
+!               !$omp target update to(dbdt, djdt)
+               !$omp target teams distribute parallel do
+#else
                !$omp parallel do
+#endif
                do lm=1,lm_max
                   dbdt(lm)   =zero
                   djdt(lm)   =zero
                   dVxBhLM(lm)=zero
                end do
+#ifdef WITH_OMP_GPU
+               !$omp end target teams distribute parallel do
+               !$omp target update from(dVxBhLM)
+               !$omp target update to(dbdt, djdt)
+#else
                !$omp end parallel do
+#endif
             end if
          end if
 
@@ -486,33 +598,75 @@ contains
          if ( l_mag_nl .or. l_mag_kin ) then
             dVxBhLM(1)=zero
             dVSrLM(1) =zero
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dVSrLM(1), dVxBhLM(1))
+            !$omp target teams distribute parallel do
+#else
             !$omp parallel do default(shared) private(lm,lmP)
+#endif
             do lm=lm_min,lm_max
                lmP =lm2lmP(lm)
                dVxBhLM(lm)=-dLh(lm)*VxBtLM(lmP)*r(nR)*r(nR)
                dVSrLM(lm) =zero
             end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+            !$omp target update from(dVSrLM, dVxBhLM)
+#else
             !$omp end parallel do
+#endif
          else
+#ifdef WITH_OMP_GPU
+!            !$omp target update to(dVSrLM, dVxBhLM)
+            !$omp target teams distribute parallel do
+#else
             !$omp parallel do
+#endif
             do lm=1,lm_max
                if ( l_mag ) dVxBhLM(lm)=zero
                dVSrLM(lm) =zero
             end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+            !$omp target update from(dVSrLM)
+            if(l_mag) then
+               !$omp target update from(dVxBhLM)
+            end if
+#else
             !$omp end parallel do
+#endif
          end if
          if ( l_double_curl ) then
+#ifdef WITH_OMP_GPU
+!            !$omp target update to(dVxVhLM)
+            !$omp target teams distribute parallel do
+#else
             !$omp parallel do
+#endif
             do lm=1,lm_max
                dVxVhLM(lm)=zero
             end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+            !$omp target update from(dVxVhLM)
+#endif
          end if
          if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+!            !$omp target update to(dVXirLM)
+            !$omp target teams distribute parallel do
+#else
             !$omp parallel do
+#endif
             do lm=1,lm_max
                dVXirLM(lm)=zero
             end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+            !$omp target update from(dVXirLM)
+#else
             !$omp end parallel do
+#endif
          end if
       end if  ! boundary ? lvelo ?
 
