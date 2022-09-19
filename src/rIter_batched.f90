@@ -66,7 +66,7 @@ module rIter_batched_mod
    use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv
    use rIteration, only: rIter_t
 #ifdef WITH_OMP_GPU
-   use RMS, only: get_nl_RMS, transform_to_lm_RMS, compute_lm_forces,       &
+   use RMS, only: get_nl_RMS_batch, transform_to_lm_RMS, compute_lm_forces,       &
        &          transform_to_grid_RMS_batch, dtVrLM, dtVtLM, dtVpLM, dpkindrLM, &
        &          Advt2LM, Advp2LM, PFt2LM, PFp2LM, LFrLM, LFt2LM, LFp2LM,  &
        &          CFt2LM, CFp2LM
@@ -283,12 +283,12 @@ contains
          call nl_counter%stop_count(l_increment=.false.)
 
 #ifdef WITH_OMP_GPU
-         !$omp target update from(this%gsa)
+!         !$omp target update from(this%gsa)
 #endif
 
          !-- Get nl loop for r.m.s. computation
          if ( l_RMS ) then
-            call get_nl_RMS(1,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%dvrdrc, &
+            call get_nl_RMS_batch(1,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%dvrdrc, &
                  &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%dvtdrc,          &
                  &          this%gsa%dvtdpc,this%gsa%dvpdrc,this%gsa%dvpdpc,          &
                  &          this%gsa%cvrc,this%gsa%Advt,this%gsa%Advp,this%gsa%LFt,   &

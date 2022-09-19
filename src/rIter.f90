@@ -303,7 +303,7 @@ contains
             !-- Get nl loop for r.m.s. computation
             if ( l_RMS ) then
 #ifdef WITH_OMP_GPU
-               !$omp target update from(this%gsa)
+!               !$omp target update from(this%gsa)
 #endif
                call get_nl_RMS(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%dvrdrc,&
                     &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%dvtdrc,          &
