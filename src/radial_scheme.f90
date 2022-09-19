@@ -54,9 +54,10 @@ module radial_scheme
 
    interface
 
-      subroutine empty_if(this)
+      subroutine empty_if(this, gpu_dct)
          import
          class(type_rscheme) :: this
+         logical, optional, intent(in) :: gpu_dct   ! compute DCT-I on GPU with hipfort_hipfft
       end subroutine empty_if
 
       subroutine get_grid_if(this,n_r_max,ricb,rcmb,ratio1,ratio2,r)
@@ -72,12 +73,13 @@ module radial_scheme
          real(cp), intent(out) :: r(n_r_max) ! radius
       end subroutine get_grid_if
 
-      subroutine initialize_if(this,n_r_max,order,order_boundary)
+      subroutine initialize_if(this,n_r_max,order,order_boundary, gpu_dct)
          import
          class(type_rscheme) :: this
          integer, intent(in) :: n_r_max
          integer, intent(in) :: order
          integer, intent(in) :: order_boundary
+         logical, optional, intent(in) :: gpu_dct   ! compute DCT-I on GPU with hipfort_hipfft
       end subroutine initialize_if
 
       subroutine get_der_mat_if(this,n_r_max)

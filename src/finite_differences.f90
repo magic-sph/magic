@@ -7,7 +7,11 @@ module finite_differences
    use precision_mod
    use constants, only: zero, one, two, half
    use useful, only: logWrite, abortRun
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: bytes_allocated
+#endif
    use radial_scheme, only: type_rscheme
 
    implicit none
@@ -28,7 +32,7 @@ module finite_differences
 
 contains
 
-   subroutine initialize(this,n_r_max,order,order_boundary)
+   subroutine initialize(this,n_r_max,order,order_boundary, gpu_dct)
       !
       ! This subroutine allocates the arrays used when finite difference are used
       !
@@ -37,6 +41,13 @@ contains
       integer, intent(in) :: n_r_max ! Number of radial grid points
       integer, intent(in) :: order   ! FD order
       integer, intent(in) :: order_boundary   ! FD order on the boundary
+      logical, optional, intent(in) :: gpu_dct   ! compute DCT-I on GPU with hipfort_hipfft
+
+      logical loc_gpu_dct
+      loc_gpu_dct = .false.
+#ifdef WITH_OMP_GPU
+      if ( present(gpu_dct) ) loc_gpu_dct = gpu_dct
+#endif
 
       this%order = order
       this%order_boundary = order_boundary
@@ -72,14 +83,30 @@ contains
 
       bytes_allocated=bytes_allocated+5*this%n_max*this%n_max*SIZEOF_DEF_REAL
 
+      if(loc_gpu_dct) then
+#ifdef WITH_OMP_GPU
+      gpu_bytes_allocated=gpu_bytes_allocated+(this%n_max*(4*order+8)+         &
+      &               order/2*(4*order_boundary+6)+                    &
+      &               (order/2+1)*(2*order_boundary+6))*SIZEOF_DEF_REAL
+      gpu_bytes_allocated=gpu_bytes_allocated+5*this%n_max*this%n_max*SIZEOF_DEF_REAL
+#endif
+      end if
+
    end subroutine initialize
 !---------------------------------------------------------------------------
-   subroutine finalize(this)
+   subroutine finalize(this, gpu_dct)
       !
       ! This subroutine deallocates the arrays used in FD
       !
 
       class(type_fd) :: this
+      logical, optional, intent(in) :: gpu_dct   ! compute DCT-I on GPU with hipfort_hipfft
+
+      logical loc_gpu_dct
+      loc_gpu_dct = .false.
+#ifdef WITH_OMP_GPU
+      if ( present(gpu_dct) ) loc_gpu_dct = gpu_dct
+#endif
 
       deallocate( this%dr, this%ddr, this%dddr, this%ddddr )
       deallocate( this%dr_top, this%dr_bot )

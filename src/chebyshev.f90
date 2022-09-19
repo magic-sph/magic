@@ -44,7 +44,7 @@ module chebyshev
 
 contains
 
-   subroutine initialize(this, n_r_max, order, order_boundary)
+   subroutine initialize(this, n_r_max, order, order_boundary, gpu_dct)
       !
       !  Purpose of this subroutine is to calculate and store several
       !  values that will be needed for a fast cosine transform of the
@@ -57,9 +57,15 @@ contains
       integer, intent(in) :: n_r_max
       integer, intent(in) :: order ! This is going to be n_cheb_max
       integer, intent(in) :: order_boundary ! this is used to determine whether mappings are used
+      logical, optional, intent(in) :: gpu_dct   ! compute DCT-I on GPU with hipfort_hipfft
 
       !-- Local variables:
       integer :: ni,nd
+      logical loc_gpu_dct
+      loc_gpu_dct = .false.
+#ifdef WITH_OMP_GPU
+      if ( present(gpu_dct) ) loc_gpu_dct = gpu_dct
+#endif
 
       this%rnorm = sqrt(two/real(n_r_max-1,kind=cp))
       this%n_max = order  ! n_cheb_max
@@ -80,21 +86,27 @@ contains
       allocate( this%d3rMat(n_r_max,n_r_max) )
       allocate( this%r_cheb(n_r_max) )
       bytes_allocated=bytes_allocated+(4*n_r_max*n_r_max+n_r_max)*SIZEOF_DEF_REAL
+      if(loc_gpu_dct) then
 #ifdef WITH_OMP_GPU
-      gpu_bytes_allocated=gpu_bytes_allocated+(4*n_r_max*n_r_max+n_r_max)*SIZEOF_DEF_REAL
+         gpu_bytes_allocated=gpu_bytes_allocated+(4*n_r_max*n_r_max+n_r_max)*SIZEOF_DEF_REAL
 #endif
+      end if
 
       allocate( this%work_costf(1:ulm-llm+1,n_r_max) )
       bytes_allocated=bytes_allocated+n_r_max*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+      if(loc_gpu_dct) then
 #ifdef WITH_OMP_GPU
-      gpu_bytes_allocated=gpu_bytes_allocated+n_r_max*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+         gpu_bytes_allocated=gpu_bytes_allocated+n_r_max*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
 #endif
+      end if
 
       allocate( this%dr_top(n_r_max,1), this%dr_bot(n_r_max,1) )
       bytes_allocated=bytes_allocated+2*n_r_max*SIZEOF_DEF_REAL
+      if(loc_gpu_dct) then
 #ifdef WITH_OMP_GPU
-      gpu_bytes_allocated=gpu_bytes_allocated+2*n_r_max*SIZEOF_DEF_REAL
+         gpu_bytes_allocated=gpu_bytes_allocated+2*n_r_max*SIZEOF_DEF_REAL
 #endif
+      end if
       this%dr_top(:,:)=0.0_cp
       this%dr_bot(:,:)=0.0_cp
 
@@ -102,15 +114,19 @@ contains
       nd = 2*n_r_max+5
 
       call this%chebt_oc%initialize(n_r_max, ni, nd)
+      if(loc_gpu_dct) then
 #ifdef WITH_OMP_GPU
-      call this%gpu_chebt_oc%initialize(this%nRmax, 1, 1)
+         call this%gpu_chebt_oc%initialize(this%nRmax, 1, 1)
 #endif
+      end if
 
       allocate ( this%drx(n_r_max), this%ddrx(n_r_max), this%dddrx(n_r_max) )
       bytes_allocated=bytes_allocated+3*n_r_max*SIZEOF_DEF_REAL
+      if(loc_gpu_dct) then
 #ifdef WITH_OMP_GPU
-      gpu_bytes_allocated=gpu_bytes_allocated+3*n_r_max*SIZEOF_DEF_REAL
+         gpu_bytes_allocated=gpu_bytes_allocated+3*n_r_max*SIZEOF_DEF_REAL
 #endif
+      end if
 
    end subroutine initialize
 !------------------------------------------------------------------------------
@@ -189,18 +205,26 @@ contains
 
    end subroutine initialize_mapping
 !------------------------------------------------------------------------------
-   subroutine finalize(this)
+   subroutine finalize(this, gpu_dct)
 
       class(type_cheb_odd) :: this
+      logical, optional, intent(in) :: gpu_dct   ! compute DCT-I on GPU with hipfort_hipfft
+      logical loc_gpu_dct
+      loc_gpu_dct = .false.
+#ifdef WITH_OMP_GPU
+      if ( present(gpu_dct) ) loc_gpu_dct = gpu_dct
+#endif
 
       deallocate( this%rMat, this%drMat, this%d2rMat, this%d3rMat )
       deallocate( this%r_cheb, this%drx, this%ddrx, this%dddrx )
       deallocate( this%work_costf, this%dr_top, this%dr_bot )
 
       call this%chebt_oc%finalize()
+      if(loc_gpu_dct) then
 #ifdef WITH_OMP_GPU
-      call this%gpu_chebt_oc%finalize()
+         call this%gpu_chebt_oc%finalize()
 #endif
+      end if
 
    end subroutine finalize
 !------------------------------------------------------------------------------

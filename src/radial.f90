@@ -243,9 +243,11 @@ contains
 
       end if
 
-      call rscheme_oc%initialize(n_r_max,n_in,n_in_2)
 #ifdef WITH_OMP_GPU
+      call rscheme_oc%initialize(n_r_max,n_in,n_in_2,.true.)
       !$omp target enter data map(alloc: rscheme_oc)
+#else
+      call rscheme_oc%initialize(n_r_max,n_in,n_in_2)
 #endif
 
    end subroutine initialize_radial_functions
@@ -302,8 +304,10 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(release : rscheme_oc)
-#endif
+      call rscheme_oc%finalize(.true.)
+#else
       call rscheme_oc%finalize()
+#endif
 
    end subroutine finalize_radial_functions
 !------------------------------------------------------------------------------
