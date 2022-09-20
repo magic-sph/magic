@@ -46,7 +46,11 @@ module rIter_batched_mod
 #endif
    use dtB_mod, only: get_dtBLM, get_dH_dtBLM
    use out_movie, only: store_movie_frame
+#ifdef WITH_OMP_GPU
+   use outRot, only: get_lorentz_torque_batch
+#else
    use outRot, only: get_lorentz_torque
+#endif
    use courant_mod, only: courant_batch
 #ifdef WITH_OMP_GPU
    use nonlinear_bcs, only: get_br_v_bcs_batch, v_rigid_boundary_batch
@@ -368,6 +372,24 @@ contains
                  &            br_vt_lm_icb, br_vp_lm_icb)
          end if
 #endif
+
+#ifdef WITH_OMP_GPU
+         !--------- Calculate Lorentz torque on inner core:
+         !          each call adds the contribution of the theta-block to
+         !          lorentz_torque_ic
+         if ( nR == n_r_icb .and. l_mag_LF .and. l_rot_ic .and. l_cond_ic  ) then
+            call get_lorentz_torque_batch(lorentz_torque_ic, this%gsa%brc,  &
+                 &                  this%gsa%bpc, nR)
+         end if
+
+         !--------- Calculate Lorentz torque on mantle:
+         !          note: this calculates a torque of a wrong sign.
+         !          sign is reversed at the end of the theta blocking.
+         if ( nR == n_r_cmb .and. l_mag_LF .and. l_rot_ma .and. l_cond_ma ) then
+            call get_lorentz_torque_batch(lorentz_torque_ma, this%gsa%brc, &
+                 &                  this%gsa%bpc, nR)
+         end if
+#else
          !--------- Calculate Lorentz torque on inner core:
          !          each call adds the contribution of the theta-block to
          !          lorentz_torque_ic
@@ -383,6 +405,7 @@ contains
             call get_lorentz_torque(lorentz_torque_ma, this%gsa%brc, &
                  &                  this%gsa%bpc, nR)
          end if
+#endif
 
          !--------- Since the fields are given at gridpoints here, this is a good
          !          point for graphical output:
@@ -401,7 +424,7 @@ contains
          end if
 
          if ( l_probe_out ) then
-            call probe_out(time, nR, this%gsa%vpc, this%gsa%brc, this%gsa%btc)
+            call probe_out(time, nR, this%gsa%vpc, this%gsa%brc, this%gsa%btc) !-- Keep on CPU
          end if
 
          !--------- Helicity output:

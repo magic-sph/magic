@@ -40,8 +40,13 @@ module outRot
    character(len=72) :: driftVD_file, driftVQ_file
    character(len=72) :: driftBD_file, driftBQ_file
 
+#ifdef WITH_OMP_GPU
+   public :: write_rot, get_viscous_torque, get_angular_moment, get_angular_moment_Rloc, &
+   &         get_lorentz_torque, get_lorentz_torque_batch, initialize_outRot, finalize_outRot
+#else
    public :: write_rot, get_viscous_torque, get_angular_moment, get_angular_moment_Rloc, &
    &         get_lorentz_torque, initialize_outRot, finalize_outRot
+#endif
 
 contains
 
@@ -418,6 +423,135 @@ contains
 
    end subroutine get_viscous_torque
 !-----------------------------------------------------------------------
+#ifdef WITH_OMP_GPU
+   !-- TODO: Need to duplicate this routine since CRAY CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
+   !-- support OpenMP construct Assumed size arrays (for br & bp)
+   subroutine get_lorentz_torque(lorentz_torque,br,bp,nR)
+      !
+      !  Purpose of this subroutine is to calculate the Lorentz torque
+      !  on mantle or inner core respectively.
+      !
+      !  .. note:: ``lorentz_torque`` must be set to zero before loop over
+      !            theta blocks is started.
+      !
+      !  .. warning:: subroutine returns ``-lorentz_torque`` if used at CMB
+      !               to calculate torque on mantle because if the inward
+      !               surface normal vector.
+      !
+      !  The Prandtl number is always the Prandtl number of the outer
+      !  core. This comes in via scaling of the magnetic field.
+      !  Theta alternates between northern and southern hemisphere in
+      !  ``br`` and ``bp`` but not in gauss. This has to be cared for, and we
+      !  use: ``gauss(latitude)=gauss(-latitude)`` here.
+      !
+
+      !-- Input variables:
+      real(cp), intent(in) :: br(:,:)    ! array containing :math:`r^2 B_r`
+      real(cp), intent(in) :: bp(:,:)    ! array containing :math:`r\sin\theta B_\phi`
+      integer,  intent(in) :: nR         ! radial level
+
+      !-- Output variable:
+      real(cp), intent(inout) :: lorentz_torque ! Lorentz torque
+
+      !-- Local variables:
+      integer :: nTheta,nPhi,nelem
+      real(cp) :: fac,b0r
+
+      ! to avoid rounding errors for different theta blocking, we do not
+      ! calculate sub sums with lorentz_torque_local, but keep on adding
+      ! the contributions to the total lorentz_torque given as argument.
+
+      lorentz_torque=0.0_cp
+
+      fac=LFfac*two*pi/real(n_phi_max,cp) ! 2 pi/n_phi_max
+
+      !$omp target teams distribute parallel do collapse(2) map(tofrom: lorentz_torque) &
+      !$omp& private(b0r, nelem) reduction(+: lorentz_torque)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem = radlatlon2spat(nTheta,nPhi,nR)
+
+            if ( lGrenoble ) then
+               if ( r(nR) == r_icb ) then
+                  b0r=two*BIC*r_icb**2*cosTheta(nTheta)
+               else if ( r(nR) == r_cmb ) then
+                  b0r=two*BIC*r_icb**2*cosTheta(nTheta)*(r_icb/r_cmb)
+               end if
+            else
+               b0r=0.0_cp
+            end if
+
+            lorentz_torque=lorentz_torque + fac*gauss(nTheta)* &
+            &              (br(nelem)-b0r)*bp(nelem)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+   end subroutine get_lorentz_torque
+
+   subroutine get_lorentz_torque_batch(lorentz_torque,br,bp,nR)
+      !
+      !  Purpose of this subroutine is to calculate the Lorentz torque
+      !  on mantle or inner core respectively.
+      !
+      !  .. note:: ``lorentz_torque`` must be set to zero before loop over
+      !            theta blocks is started.
+      !
+      !  .. warning:: subroutine returns ``-lorentz_torque`` if used at CMB
+      !               to calculate torque on mantle because if the inward
+      !               surface normal vector.
+      !
+      !  The Prandtl number is always the Prandtl number of the outer
+      !  core. This comes in via scaling of the magnetic field.
+      !  Theta alternates between northern and southern hemisphere in
+      !  ``br`` and ``bp`` but not in gauss. This has to be cared for, and we
+      !  use: ``gauss(latitude)=gauss(-latitude)`` here.
+      !
+
+      !-- Input variables:
+      real(cp), intent(in) :: br(:,:,:)    ! array containing :math:`r^2 B_r`
+      real(cp), intent(in) :: bp(:,:,:)    ! array containing :math:`r\sin\theta B_\phi`
+      integer,  intent(in) :: nR         ! radial level
+
+      !-- Output variable:
+      real(cp), intent(inout) :: lorentz_torque ! Lorentz torque
+
+      !-- Local variables:
+      integer :: nTheta,nPhi,nelem
+      real(cp) :: fac,b0r
+
+      ! to avoid rounding errors for different theta blocking, we do not
+      ! calculate sub sums with lorentz_torque_local, but keep on adding
+      ! the contributions to the total lorentz_torque given as argument.
+
+      lorentz_torque=0.0_cp
+
+      fac=LFfac*two*pi/real(n_phi_max,cp) ! 2 pi/n_phi_max
+
+      !$omp target teams distribute parallel do collapse(2) map(tofrom: lorentz_torque) &
+      !$omp& private(b0r, nelem) reduction(+: lorentz_torque)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem = radlatlon2spat(nTheta,nPhi,nR)
+
+            if ( lGrenoble ) then
+               if ( r(nR) == r_icb ) then
+                  b0r=two*BIC*r_icb**2*cosTheta(nTheta)
+               else if ( r(nR) == r_cmb ) then
+                  b0r=two*BIC*r_icb**2*cosTheta(nTheta)*(r_icb/r_cmb)
+               end if
+            else
+               b0r=0.0_cp
+            end if
+
+            lorentz_torque=lorentz_torque + fac*gauss(nTheta)* &
+            &              (br(nelem)-b0r)*bp(nelem)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+   end subroutine get_lorentz_torque_batch
+#else
    subroutine get_lorentz_torque(lorentz_torque,br,bp,nR)
       !
       !  Purpose of this subroutine is to calculate the Lorentz torque
@@ -481,6 +615,7 @@ contains
       !$omp end parallel do
 
    end subroutine get_lorentz_torque
+#endif
 !-----------------------------------------------------------------------
    subroutine get_angular_moment(z10,z11,omega_ic,omega_ma,angular_moment_oc, &
               &                  angular_moment_ic,angular_moment_ma)
