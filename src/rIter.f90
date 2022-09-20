@@ -280,10 +280,6 @@ contains
 
          call this%nl_lm%set_zero()
 
-#ifdef WITH_OMP_GPU
-      !$omp target update to(this%gsa)
-#endif
-
          if ( .not. l_onset ) then
             call lm2phy_counter%start_count()
             call this%transform_to_grid_space(nR, nBc, lViscBcCalc, lRmsCalc,       &
@@ -302,9 +298,6 @@ contains
 
             !-- Get nl loop for r.m.s. computation
             if ( l_RMS ) then
-#ifdef WITH_OMP_GPU
-!               !$omp target update from(this%gsa)
-#endif
                call get_nl_RMS(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%dvrdrc,&
                     &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%dvtdrc,          &
                     &          this%gsa%dvtdpc,this%gsa%dvpdrc,this%gsa%dvpdpc,          &

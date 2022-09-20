@@ -49,14 +49,18 @@ module rIter_batched_mod
    use outRot, only: get_lorentz_torque
    use courant_mod, only: courant_batch
 #ifdef WITH_OMP_GPU
-   use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary, v_rigid_boundary_batch
+   use nonlinear_bcs, only: get_br_v_bcs_batch, v_rigid_boundary_batch
 #else
    use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary
 #endif
    use power, only: get_visc_heat
    use outMisc_mod, only: get_ekin_solid_liquid, get_hemi, get_helicity
    use outPar_mod, only: get_fluxes, get_nlBlayers, get_perpPar
+#ifdef WITH_OMP_GPU
+   use geos, only: calcGeos_batch
+#else
    use geos, only: calcGeos
+#endif
    use sht
    use fields, only: s_Rloc, ds_Rloc, z_Rloc, dz_Rloc, p_Rloc,    &
        &             b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc,dj_Rloc,  &
@@ -266,9 +270,6 @@ contains
 
       !-- Transform arrays to grid space
       if ( .not. l_onset ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(this%gsa)
-#endif
 
          call lm2phy_counter%start_count()
          call this%transform_to_grid_space(lViscBcCalc, lRmsCalc,                &
@@ -281,10 +282,6 @@ contains
          call nl_counter%start_count()
          call this%gsa%get_nl(nRstart, nRstop, timeStage)
          call nl_counter%stop_count(l_increment=.false.)
-
-#ifdef WITH_OMP_GPU
-!         !$omp target update from(this%gsa)
-#endif
 
          !-- Get nl loop for r.m.s. computation
          if ( l_RMS ) then
@@ -346,6 +343,19 @@ contains
          !     and br_vp_lm_cmb in lm-space, respectively the contribution
          !     to these products from the points theta(nThetaStart)-theta(nThetaStop)
          !     These products are used in get_b_nl_bcs.
+#ifdef WITH_OMP_GPU
+         if ( nR == n_r_cmb .and. l_b_nl_cmb ) then
+            br_vt_lm_cmb(:)=zero
+            br_vp_lm_cmb(:)=zero
+            call get_br_v_bcs_batch(nR, this%gsa%brc, this%gsa%vtc, this%gsa%vpc,omega_ma,  &
+                 &                  br_vt_lm_cmb, br_vp_lm_cmb)
+         else if ( nR == n_r_icb .and. l_b_nl_icb ) then
+            br_vt_lm_icb(:)=zero
+            br_vp_lm_icb(:)=zero
+            call get_br_v_bcs_batch(nR, this%gsa%brc, this%gsa%vtc, this%gsa%vpc, omega_ic,  &
+                 &                  br_vt_lm_icb, br_vp_lm_icb)
+         end if
+#else
          if ( nR == n_r_cmb .and. l_b_nl_cmb ) then
             br_vt_lm_cmb(:)=zero
             br_vp_lm_cmb(:)=zero
@@ -357,6 +367,7 @@ contains
             call get_br_v_bcs(nR, this%gsa%brc, this%gsa%vtc, this%gsa%vpc, omega_ic,  &
                  &            br_vt_lm_icb, br_vp_lm_icb)
          end if
+#endif
          !--------- Calculate Lorentz torque on inner core:
          !          each call adds the contribution of the theta-block to
          !          lorentz_torque_ic
@@ -443,10 +454,17 @@ contains
          end if
 
          !-- Geostrophic/non-geostrophic flow components
+#ifdef WITH_OMP_GPU
+         if ( lGeosCalc ) then
+            call calcGeos_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc, &
+                 &        this%gsa%dvrdpc,this%gsa%dvpdrc,nR)
+         end if
+#else
          if ( lGeosCalc ) then
             call calcGeos(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc, &
                  &        this%gsa%dvrdpc,this%gsa%dvpdrc,nR)
          end if
+#endif
 
          !--------- Movie output:
          if ( l_frame .and. l_movie_oc .and. l_store_frame ) then

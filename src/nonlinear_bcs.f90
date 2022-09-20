@@ -18,13 +18,120 @@ module nonlinear_bcs
    private
 
 #ifdef WITH_OMP_GPU
-   public :: get_br_v_bcs, get_b_nl_bcs, v_rigid_boundary, v_rigid_boundary_batch
+   public :: get_br_v_bcs, get_b_nl_bcs, v_rigid_boundary, v_rigid_boundary_batch, get_br_v_bcs_batch
 #else
    public :: get_br_v_bcs, get_b_nl_bcs, v_rigid_boundary
 #endif
 
 contains
 
+#ifdef WITH_OMP_GPU
+   !-- TODO: Need to duplicate this routine since CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
+   !-- support OpenMP construct Assumed size arrays (for br, vt, and vp)
+   subroutine get_br_v_bcs(nR,br,vt,vp,omega,br_vt_lm,br_vp_lm)
+      !
+      !  Purpose of this subroutine is to calculate the nonlinear term
+      !  of the magnetic boundary condition for a conducting mantle or
+      !  inner core in space (r,lm).
+      !  Calculation is performed for the theta block:
+      !
+      !  .. code-block:: fortran
+      !
+      !                  n_theta_min<=n_theta<=n_theta_min+n_theta_block-1
+      !
+      !  On input ``br``, ``vt`` and ``vp`` are given on all phi points and
+      !  thetas in the specific block.
+      !  On output the contribution of these grid points to all
+      !  degree and orders is stored in ``br_vt_lm`` and ``br_vp_lm``.
+      !  Output is ``[r/sin(theta)*Br*U]=[(0,br_vt_lm,br_vp_lm)]``
+      !
+
+      !-- input:
+      real(cp), intent(in) :: br(:,:)      ! :math:`r^2 B_r`
+      real(cp), intent(in) :: vt(:,:)      ! :math:`r \sin\theta u_\theta`
+      real(cp), intent(in) :: vp(:,:)      ! :math:`r \sin\theta u_\phi`
+      real(cp), intent(in) :: omega      ! rotation rate of mantle or IC
+      integer,  intent(in) :: nR
+
+      !-- Output variables:
+      ! br*vt/(sin(theta)**2*r**2)
+      complex(cp), intent(inout) :: br_vt_lm(lmP_max)
+      ! br*(vp/(sin(theta)**2*r**2)-omega_ma)
+      complex(cp), intent(inout) :: br_vp_lm(lmP_max)
+
+      !-- Local variables:
+      integer :: n_theta, n_phi, nelem
+      real(cp) :: br_vt(nlat_padded,n_phi_max), br_vp(nlat_padded,n_phi_max)
+      real(cp) :: fac          ! 1/( r**2 sin(theta)**2 )
+
+      fac=or2(nR)*orho1(nR)
+      !$omp target teams distribute parallel do collapse(2)
+      do n_phi=1,n_phi_max
+         do n_theta=1,n_theta_max
+            nelem = radlatlon2spat(n_theta,n_phi,nR)
+            br_vt(n_theta,n_phi)= fac*br(nelem)*vt(nelem)
+            br_vp(n_theta,n_phi)= br(nelem)* ( fac*vp(nelem) - &
+            &                                  omega*sinTheta_E2(n_theta) )
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+      call spat_to_sphertor(sht_lP_single, br_vt, br_vp, br_vt_lm, br_vp_lm, l_max)
+
+   end subroutine get_br_v_bcs
+
+   subroutine get_br_v_bcs_batch(nR,br,vt,vp,omega,br_vt_lm,br_vp_lm)
+      !
+      !  Purpose of this subroutine is to calculate the nonlinear term
+      !  of the magnetic boundary condition for a conducting mantle or
+      !  inner core in space (r,lm).
+      !  Calculation is performed for the theta block:
+      !
+      !  .. code-block:: fortran
+      !
+      !                  n_theta_min<=n_theta<=n_theta_min+n_theta_block-1
+      !
+      !  On input ``br``, ``vt`` and ``vp`` are given on all phi points and
+      !  thetas in the specific block.
+      !  On output the contribution of these grid points to all
+      !  degree and orders is stored in ``br_vt_lm`` and ``br_vp_lm``.
+      !  Output is ``[r/sin(theta)*Br*U]=[(0,br_vt_lm,br_vp_lm)]``
+      !
+
+      !-- input:
+      real(cp), intent(in) :: br(:,:,:)      ! :math:`r^2 B_r`
+      real(cp), intent(in) :: vt(:,:,:)      ! :math:`r \sin\theta u_\theta`
+      real(cp), intent(in) :: vp(:,:,:)      ! :math:`r \sin\theta u_\phi`
+      real(cp), intent(in) :: omega          ! rotation rate of mantle or IC
+      integer,  intent(in) :: nR
+
+      !-- Output variables:
+      ! br*vt/(sin(theta)**2*r**2)
+      complex(cp), intent(inout) :: br_vt_lm(lmP_max)
+      ! br*(vp/(sin(theta)**2*r**2)-omega_ma)
+      complex(cp), intent(inout) :: br_vp_lm(lmP_max)
+
+      !-- Local variables:
+      integer :: n_theta, n_phi, nelem
+      real(cp) :: br_vt(nlat_padded,n_phi_max), br_vp(nlat_padded,n_phi_max)
+      real(cp) :: fac          ! 1/( r**2 sin(theta)**2 )
+
+      fac=or2(nR)*orho1(nR)
+      !$omp target teams distribute parallel do collapse(2)
+      do n_phi=1,n_phi_max
+         do n_theta=1,n_theta_max
+            nelem = radlatlon2spat(n_theta,n_phi,nR)
+            br_vt(n_theta,n_phi)= fac*br(nelem)*vt(nelem)
+            br_vp(n_theta,n_phi)= br(nelem)* ( fac*vp(nelem) - &
+            &                                  omega*sinTheta_E2(n_theta) )
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+      call spat_to_sphertor(sht_lP_single, br_vt, br_vp, br_vt_lm, br_vp_lm, l_max)
+
+   end subroutine get_br_v_bcs_batch
+#else
    subroutine get_br_v_bcs(nR,br,vt,vp,omega,br_vt_lm,br_vp_lm)
       !
       !  Purpose of this subroutine is to calculate the nonlinear term
@@ -77,6 +184,7 @@ contains
       call spat_to_sphertor(sht_lP_single, br_vt, br_vp, br_vt_lm, br_vp_lm, l_max)
 
    end subroutine get_br_v_bcs
+#endif
 !----------------------------------------------------------------------------
    subroutine get_b_nl_bcs(bc,br_vt_lm,br_vp_lm,lm_min_b,lm_max_b,b_nl_bc,aj_nl_bc)
       !

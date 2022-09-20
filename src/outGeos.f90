@@ -42,7 +42,11 @@ module geos
    integer :: n_s_otc ! Index for last point outside TC
    character(len=72) :: geos_file ! file name
 
+#ifdef WITH_OMP_GPU
+   public :: initialize_geos, finalize_geos, calcGeos, calcGeos_batch, outGeos, outOmega
+#else
    public :: initialize_geos, finalize_geos, calcGeos, outGeos, outOmega
+#endif
 
 contains
 
@@ -141,6 +145,93 @@ contains
 
    end subroutine finalize_geos
 !------------------------------------------------------------------------------------
+#ifdef WITH_OMP_GPU
+   !-- TODO: Need to duplicate this routine since CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
+   !-- support OpenMP construct Assumed size arrays (for vr, vt, vp, ...)
+   subroutine calcGeos(vr,vt,vp,cvr,dvrdp,dvpdr,nR)
+      !
+      ! This routine computes the term needed for geos.TAG outputs in physical
+      ! space.
+      !
+
+      !-- Input variables
+      integer,  intent(in) :: nR ! Radial grid point
+      real(cp), intent(in) :: vr(:,:), vt(:,:), vp(:,:)
+      real(cp), intent(in) :: cvr(:,:), dvrdp(:,:), dvpdr(:,:)
+
+      !-- Local variables
+      integer :: nPhi, nTheta, nTheta1, nelem
+
+      !$omp target teams distribute parallel do collapse(2)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem=radlatlon2spat(nTheta,nPhi,nR)
+            nTheta1=n_theta_cal2ord(nTheta)
+            !- us=ur*sin(theta)+ut*cos(theta)
+            us_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*sinTheta(nTheta)*vr(nelem) &
+            &                        +or1(nR)*orho1(nR)*cosTheta(nTheta)*         &
+            &                         O_sin_theta(nTheta)*vt(nelem)
+
+            !- uz=ur*cos(theta)-ut*sin(theta)
+            uz_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*cosTheta(nTheta)*vr(nelem) &
+            &                        -or1(nR)*orho1(nR)*vt(nelem)
+
+            !- uphi
+            up_Rloc(nTheta1,nPhi,nR)=or1(nR)*O_sin_theta(nTheta)*orho1(nR)*vp(nelem)
+
+            !-- z-vorticity
+            wz_Rloc(nTheta1,nPhi,nR)=or1(nR)*orho1(nR)*(           &
+            &                cosTheta(nTheta)*or1(nR)*cvr(nelem) - &
+            &                  or2(nR)*dvrdp(nelem)+dvpdr(nelem) - &
+            &                       beta(nR)*vp(nelem)   )
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+   end subroutine calcGeos
+
+   subroutine calcGeos_batch(vr,vt,vp,cvr,dvrdp,dvpdr,nR)
+      !
+      ! This routine computes the term needed for geos.TAG outputs in physical
+      ! space.
+      !
+
+      !-- Input variables
+      integer,  intent(in) :: nR ! Radial grid point
+      real(cp), intent(in) :: vr(:,:,:), vt(:,:,:), vp(:,:,:)
+      real(cp), intent(in) :: cvr(:,:,:), dvrdp(:,:,:), dvpdr(:,:,:)
+
+      !-- Local variables
+      integer :: nPhi, nTheta, nTheta1, nelem
+
+      !$omp target teams distribute parallel do collapse(2)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem=radlatlon2spat(nTheta,nPhi,nR)
+            nTheta1=n_theta_cal2ord(nTheta)
+            !- us=ur*sin(theta)+ut*cos(theta)
+            us_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*sinTheta(nTheta)*vr(nelem) &
+            &                        +or1(nR)*orho1(nR)*cosTheta(nTheta)*         &
+            &                         O_sin_theta(nTheta)*vt(nelem)
+
+            !- uz=ur*cos(theta)-ut*sin(theta)
+            uz_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*cosTheta(nTheta)*vr(nelem) &
+            &                        -or1(nR)*orho1(nR)*vt(nelem)
+
+            !- uphi
+            up_Rloc(nTheta1,nPhi,nR)=or1(nR)*O_sin_theta(nTheta)*orho1(nR)*vp(nelem)
+
+            !-- z-vorticity
+            wz_Rloc(nTheta1,nPhi,nR)=or1(nR)*orho1(nR)*(           &
+            &                cosTheta(nTheta)*or1(nR)*cvr(nelem) - &
+            &                  or2(nR)*dvrdp(nelem)+dvpdr(nelem) - &
+            &                       beta(nR)*vp(nelem)   )
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+   end subroutine calcGeos_batch
+#else
    subroutine calcGeos(vr,vt,vp,cvr,dvrdp,dvpdr,nR)
       !
       ! This routine computes the term needed for geos.TAG outputs in physical
@@ -182,6 +273,7 @@ contains
       !$omp end parallel do
 
    end subroutine calcGeos
+#endif
 !------------------------------------------------------------------------------------
    subroutine outGeos(time,Geos,GeosA,GeosZ,GeosM,GeosNAP,Ekin)
       !
