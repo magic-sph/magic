@@ -32,6 +32,7 @@ module outMisc_mod
    use useful, only: cc2real, round_off
    use integration, only: rInt_R
    use sht, only: axi_to_spat
+   use charmanip, only: dble2str
 
    implicit none
 
@@ -52,12 +53,11 @@ module outMisc_mod
    real(cp), allocatable :: HelnaASr(:,:), Helna2ASr(:,:)
    real(cp), allocatable :: HelEAASr(:)
    complex(cp), allocatable :: coeff_old(:)
-   real(cp), allocatable :: gravClm(:), gravSlm(:)
    real(cp), allocatable :: kGrav(:,:), hGrav(:,:)
 
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
    &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
-   &         get_onset
+   &         get_onset, outGrav
 
 contains
 
@@ -147,11 +147,7 @@ contains
          end if
       end if
 
-      if (l_grav) then
-         allocate(gravClm(l_max_grav-1))
-         allocate(gravSlm(l_max_grav-1))
-         call setGravCoeff()
-      end if
+      if (l_grav) call setGravCoeff()
 
    end subroutine initialize_outMisc_mod
 !----------------------------------------------------------------------------------
@@ -1110,56 +1106,60 @@ contains
 
    subroutine setGravCoeff()
 
-      real(cp), parameter :: fitOrder
-      real(cp), allocatable :: kcoeff(:), hcoeff(:)
+      integer, parameter :: fitOrder=5
+      real(cp), allocatable :: kcoeff(:,:), hcoeff(:,:)
       integer :: i, l, n_kcoeff_file, n_hcoeff_file
-      character(len=72) :: kCoeff_file, hCoeff_file
+      character(len=72) :: kCoeff_file, hCoeff_file, lStr
 
-      fitOrder=5
-
-      allocate(kcoeff( (fitOrder+1) ))
-      allocate(hcoeff( (fitOrder+1) ))
+      allocate(kcoeff( fitOrder+1,1 ))
+      allocate(hcoeff( fitOrder+1,1 ))
       allocate(kGrav(l_max_grav-1,n_r_max))
       allocate(hGrav(l_max_grav-1,n_r_max))
-
-
 
       kGrav(:,:) = 0.0_cp
       hGrav(:,:) = 0.0_cp
 
       do l=1,l_max_grav-1
-         kCoeff_file=''
+         write(lStr,*) l+1
+         kCoeff_file='surface_density_k_'//trim(adjustl(lStr))//'_poly.dat'
+         hCoeff_file='surface_density_h_'//trim(adjustl(lStr))//'_poly.dat'
+
+         open(newunit=n_kcoeff_file,file=kcoeff_file,status='old')
+         open(newunit=n_hcoeff_file,file=hcoeff_file,status='old')
+         read(n_kcoeff_file,*) kcoeff
+         read(n_hcoeff_file,*) hcoeff
+         close(n_kcoeff_file)
+         close(n_hcoeff_file)
+
          do i=1,fitOrder+1
-            kGrav(l,:) = kGrav(l,:) + kcoeff(i)*r(:)**(i-1)
-            hGrav(l,:) = hGrav(l,:) + hcoeff(i)*r(:)**(i-1)
+            kGrav(l,:) = kGrav(l,:) + kcoeff(i,1)*r(:)**(i-1)
+            hGrav(l,:) = hGrav(l,:) + hcoeff(i,1)*r(:)**(i-1)
          end do
       end do
-
    end subroutine setGravCoeff
 
    subroutine outGrav(s,p,time)
 
       complex(cp), intent(in) :: s(llm:ulm,n_r_max) ! Entropy
-      complex(cp), intent(in) :: p(llm:ulm,n_r_max) ! Pressure
+      complex(cp), intent(in) :: p(llm:ulm) ! Pressure at CMB
       real(cp),    intent(in) :: time
+
       ! Local variables
 
-      integer :: l, m, lm
-      integer :: lm_max_grav
-      integer :: n_gravClm_file, n_gravSlm_file, n_press_file
-      character(len=72) :: gravClm_file, gravSlm_file, press_file, string
+      complex(cp), allocatable :: p_global(:)
+      integer  :: l, m, lm, lmg
+      integer  :: n_gravCoeff_file, n_deform_file, n_press_file
+      character(len=72) :: gravCoeff_file, deform_file, press_file, string
+      real(cp) :: work(n_r_max) ! Dummy arrays
+      real(cp) :: tmp_gravClm, tmp_gravSlm, tmp_deformClm, tmp_deformSlm
+      complex(cp) :: grav_cmplx(llm:ulm), deform_cmplx(llm:ulm)
+      complex(cp) :: gravCoeffs(lm_max), deformCoeffs(lm_max)
 
       call dble2str(time,string)
-      gravClm_file='gravClm_t='//trim(string)//'.'//tag
-      gravSlm_file='gravSlm_t='//trim(string)//'.'//tag
-      press_file  ='pressCoeff_t='//trim(string)//'.'//tag
 
-      ! Max lm for gravity output, assuming minc=1
-      ! and m_max_grav = l_max_grav
-
-      lm_max_grav= l_max_grav*(l_max_grav+1)   &
-      &           -l_max_grav*(l_max_grav-1)/2 &
-      &           +1
+      gravCoeff_file='gravCoeff_t='//trim(string)//'.'//tag
+      deform_file   ='deformCoeff_t='//trim(string)//'.'//tag
+      press_file    ='pressCoeff_t='//trim(string)//'.'//tag
 
       do lm=llm,ulm
          l = lo_map%lm2l(lm)
@@ -1168,10 +1168,61 @@ contains
          if (l < 2 .or. l > l_max_grav) then
             continue
          else
-            gravClm(l) =
-         end if
 
+            work = real(s(lm,:)) * ( 1.0_cp + kGrav(l-1,:) ) * r(:)**(l+1)
+            tmp_gravClm = rInt_R(work,r,rscheme_oc)
+
+            work = aimag(s(lm,:)) * ( 1.0_cp + kGrav(l-1,:) ) * r(:)**(l+1)
+            tmp_gravSlm = rInt_R(work,r,rscheme_oc)
+
+            grav_cmplx(lm) = cmplx(tmp_gravClm,tmp_gravSlm)
+
+            work = real(s(lm,:)) * ( 1.0_cp + hGrav(l-1,:) ) * r(:)**(l+1)
+            tmp_deformClm = rInt_R(work,r,rscheme_oc)
+
+            work = aimag(s(lm,:)) * ( 1.0_cp + hGrav(l-1,:) ) * r(:)**(l+1)
+            tmp_deformSlm = rInt_R(work,r,rscheme_oc)
+
+            deform_cmplx(lm) = cmplx(tmp_deformClm,tmp_deformSlm)
+
+         end if
       end do
+
+      if ( rank == 0 ) then
+         allocate( p_global(lm_max) )
+      else
+         allocate( p_global(1) )
+      end if
+
+      call gather_from_lo_to_rank0(p, p_global)
+      call gather_from_lo_to_rank0(grav_cmplx,gravCoeffs)
+      call gather_from_lo_to_rank0(deform_cmplx,deformCoeffs)
+
+      if ( rank == 0 ) then
+
+         open(newunit=n_gravCoeff_file,file=gravCoeff_file,status='new')
+         open(newunit=n_deform_file,file=deform_file,status='new')
+         open(newunit=n_press_file,file=press_file,status='new')
+
+         do l=0,l_max_grav
+            do m=0,l
+               lm = lm2(l,m)
+
+               if ( l > 1 ) then
+                  write(n_gravCoeff_file,*) l, m, real(gravCoeffs(lm)), aimag(gravCoeffs(lm))
+                  write(n_deform_file,*)    l, m, real(deformCoeffs(lm)), aimag(deformCoeffs(lm))
+               end if
+
+               write(n_press_file, *)    l, m, real(p_global(lm)), aimag(p_global(lm))
+            end do
+         end do
+
+         close(n_gravCoeff_file)
+         close(n_deform_file)
+         close(n_press_file)
+
+      end if
+
    end subroutine outGrav
 !----------------------------------------------------------------------------------
 end module outMisc_mod

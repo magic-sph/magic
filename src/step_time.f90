@@ -32,7 +32,7 @@ module step_time_mod
        &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix,  &
        &            l_packed_transp, l_rot_ic, l_rot_ma, l_cond_ma,    &
        &            l_parallel_solve, l_mag_par_solve, l_phase_field,  &
-       &            l_onset
+       &            l_onset, l_grav
    use init_fields, only: omega_ic1, omega_ma1
    use radialLoop, only: radialLoopG
    use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage, &
@@ -51,6 +51,7 @@ module step_time_mod
        &                  n_r_fields, n_t_r_field, t_r_field, n_TO_step,   &
        &                  n_TOs, n_t_TO, t_TO, n_probe_step, n_probe_out,  &
        &                  n_t_probe, t_probe, log_file, n_log_file,        &
+       &                  n_grav_step, n_grav_out, n_t_grav, t_grav,       &
        &                  n_time_hits
    use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp, b_ghost, aj_ghost, &
        &                  get_mag_rhs_imp_ghost, fill_ghosts_B
@@ -130,6 +131,7 @@ contains
       logical :: lPressCalc,lPressNext,lP00Next,lP00Transp
       logical :: lMat, lMatNext   ! update matrices
       logical :: l_probe_out      ! Sensor output
+      logical :: l_grav_out       ! Gravity coefficients output
 
       !-- Timers:
       type(timer_type) :: rLoop_counter, lmLoop_counter, comm_counter
@@ -336,6 +338,10 @@ contains
          l_probe_out=l_probe .and.                                               &
          &          l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
          &          n_probe_step,n_probe_out,n_t_probe,t_probe,0)
+
+         l_grav_out=l_grav .and.                                               &
+         &          l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
+         &          n_grav_step,n_grav_out,n_t_grav,t_grav,0)
 
          !-- Potential files
          l_pot= l_correct_step(n_time_step-1,time,timeLast,n_time_steps, &
@@ -677,7 +683,7 @@ contains
                call output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,       &
                     &      l_graph,lRmsCalc,l_store,l_new_rst_file,lOnsetCalc,     &
                     &      l_spectrum,lTOCalc,lTOframe,                            &
-                    &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                   &
+                    &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,l_grav_out,        &
                     &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc)
                call io_counter%stop_count()
                if ( lVerbose ) write(output_unit,*) "! output finished"

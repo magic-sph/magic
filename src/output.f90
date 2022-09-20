@@ -43,7 +43,8 @@ module output_mod
    use output_data, only: tag, l_max_cmb, n_coeff_r, l_max_r, n_coeff_r_max,&
        &                  n_r_array, n_r_step,  n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three, zero
-   use outMisc_mod, only: outHeat, outHelicity, outHemi, outPhase, get_onset
+   use outMisc_mod, only: outHeat, outHelicity, outHemi, outPhase, get_onset,&
+       &                  outGrav
    use geos, only: outGeos, outOmega
    use outRot, only: write_rot
    use integration, only: rInt_R
@@ -209,8 +210,8 @@ contains
    subroutine output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,    &
               &      l_graph,lRmsCalc,l_store,l_new_rst_file,lOnsetCalc,  &
               &      l_spectrum,lTOCalc,lTOframe,l_frame,n_frame,l_cmb,   &
-              &      n_cmb_sets,l_r,lorentz_torque_ic,lorentz_torque_ma,  &
-              &      dbdt_CMB_LMloc)
+              &      n_cmb_sets,l_r,l_grav_out,lorentz_torque_ic,         &
+              &      lorentz_torque_ma,dbdt_CMB_LMloc)
       !
       !  This subroutine controls most of the output.
       !
@@ -222,7 +223,7 @@ contains
       logical,             intent(in) :: l_stop_time
       logical,             intent(in) :: l_pot, lOnsetCalc
       logical,             intent(in) :: l_log, l_graph, lRmsCalc, l_store
-      logical,             intent(in) :: l_new_rst_file, l_spectrum
+      logical,             intent(in) :: l_new_rst_file, l_spectrum, l_grav_out
       logical,             intent(in) :: lTOCalc,lTOframe
       logical,             intent(in) :: l_frame, l_cmb, l_r
       integer,             intent(inout) :: n_frame
@@ -460,6 +461,8 @@ contains
             dmB=0.0_cp
          end if
       end if
+
+      if ( l_grav_out ) call outGrav(s_LMloc,p_LMloc(:,n_r_cmb),time)
 
       if ( l_spectrum ) then
          n_spec=n_spec+1

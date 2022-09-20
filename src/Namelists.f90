@@ -127,8 +127,9 @@ contains
       &    l_PressGraph,l_energy_modes,m_max_modes,l_probe,    &
       &    r_probe,theta_probe,n_phi_probes,n_probe_step,      &
       &    n_probe_out,t_probe_start,t_probe_stop,dt_probe,    &
-      &    l_earth_likeness,l_max_comp,l_geo,l_2D_spectra,     &
-      &    l_2D_RMS, l_spec_avg
+      &    l_grav,n_grav_step,n_grav_out,t_grav_start,         &
+      &    t_grav_stop,dt_grav,l_max_grav,l_earth_likeness,    &
+      &    l_max_comp,l_geo,l_2D_spectra,l_2D_RMS,l_spec_avg
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
       &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
@@ -1165,6 +1166,12 @@ contains
       write(n_out,'(''  r_probe         ='',ES14.6,'','')') r_probe
       write(n_out,'(''  theta_probe     ='',ES14.6,'','')') theta_probe
       write(n_out,'(''  n_phi_probes    ='',i3,'','')') n_phi_probes
+      write(n_out,'(''  l_grav          ='',l3,'','')') l_grav
+      write(n_out,'(''  n_grav_step     ='',i5,'','')') n_grav_step
+      write(n_out,'(''  n_grav_out      ='',i5,'','')') n_grav_out
+      write(n_out,'(''  t_grav_start    ='',ES14.6,'','')') t_grav_start
+      write(n_out,'(''  t_grav_stop     ='',ES14.6,'','')') t_grav_stop
+      write(n_out,'(''  dt_grav         ='',ES14.6,'','')') dt_grav
       write(n_out,'(''  l_average       ='',l3,'','')') l_average
       write(n_out,'(''  l_cmb_field     ='',l3,'','')') l_cmb_field
       write(n_out,'(''  l_dt_cmb_field  ='',l3,'','')') l_dt_cmb_field
@@ -1573,6 +1580,15 @@ contains
       n_phi_probes  =0
       r_probe       =0.0_cp
       theta_probe   =0.0_cp
+
+      !----- Gravity coeff outputs:
+      l_grav       =.false.
+      l_max_grav   =0
+      n_grav_step  =0
+      n_grav_out   =0
+      t_grav_start =0.0_cp
+      t_grav_stop  =0.0_cp
+      dt_grav      =0.0_cp
 
       !----- Output of all potential:
       n_pot_step    =0
