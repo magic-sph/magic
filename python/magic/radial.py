@@ -134,7 +134,7 @@ class MagicRadial(MagicSetup):
                 # Determine the setup
                 mask = re.compile(r'{}\.(.*)'.format(self.name))
                 ending = mask.search(files[-1]).groups(0)[0]
-                if os.path.exists('log.{}'.format(ending)):
+                if os.path.exists(os.path.join(datadir, 'log.{}'.format(ending))):
                     try:
                         MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                             nml='log.{}'.format(ending))

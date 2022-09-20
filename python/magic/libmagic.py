@@ -63,7 +63,7 @@ def selectField(obj, field, labTex=True, ic=False):
         else:
             label = 'xi'
         data_ic = None
-    elif field in ('phase'):
+    elif field in ('phase', 'Phase'):
         data = obj.phase
         if labTex:
             label = r'$\Phi$'
@@ -96,7 +96,11 @@ def selectField(obj, field, labTex=True, ic=False):
         data = obj.entropy
         label = 'Entropy'
         data_ic = None
-    elif field in ('u2'):
+    elif field in ('temperature', 't', 'T', 'temp'):
+        data = obj.entropy
+        label = 'Temperature'
+        data_ic = None
+    elif field == 'u2':
         data = obj.vphi**2+obj.vr**2+obj.vtheta**2
         if labTex:
             label = r'$u^2$'
@@ -111,7 +115,7 @@ def selectField(obj, field, labTex=True, ic=False):
         else:
             label = 'Ekin'
         data_ic = None
-    elif field in ('b2', 'B2'):
+    elif field in ('b2', 'B2', 'Emag', 'em', 'Em', 'emag'):
         data = obj.Bphi**2+obj.Br**2+obj.Btheta**2
         if labTex:
             label = r'$B^2$'
@@ -142,7 +146,7 @@ def selectField(obj, field, labTex=True, ic=False):
         else:
             label = 'vp conv'
         data_ic = None
-    elif field in ('bpfluct'):
+    elif field == 'bpfluct':
         data = obj.Bphi-obj.Bphi.mean(axis=0)
         if labTex:
             label = r"$B_{\phi}'$"
@@ -152,7 +156,7 @@ def selectField(obj, field, labTex=True, ic=False):
             data_ic = obj.Bphi_ic-obj.Bphi_ic.mean(axis=0)
         else:
             data_ic = None
-    elif field in ('brfluct'):
+    elif field == 'brfluct':
         data = obj.Br-obj.Br.mean(axis=0)
         if labTex:
             label = r"$B_r'$"
@@ -162,28 +166,35 @@ def selectField(obj, field, labTex=True, ic=False):
             data_ic = obj.Br_ic-obj.Br_ic.mean(axis=0)
         else:
             data_ic = None
-    elif field in ('entropyfluct'):
+    elif field == 'entropyfluct':
         data = obj.entropy-obj.entropy.mean(axis=0)
         if labTex:
             label = r"$s'$"
         else:
             label = "s'"
         data_ic = None
-    elif field in ('xifluct'):
+    elif field in ('tfluct', 'Tfluct'):
+        data = obj.entropy-obj.entropy.mean(axis=0)
+        if labTex:
+            label = r"$T'$"
+        else:
+            label = "T'"
+        data_ic = None
+    elif field == 'xifluct':
         data = obj.xi-obj.xi.mean(axis=0)
         if labTex:
             label = r"$\xi'$"
         else:
             label = "xi'"
         data_ic = None
-    elif field in ('prefluct'):
+    elif field == 'prefluct':
         data = obj.pre-obj.pre.mean(axis=0)
         if labTex:
             label = r"$p'$"
         else:
             label = "p'"
         data_ic = None
-    elif field in ('vrea'):
+    elif field == 'vrea':
         data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.vr[:, i, :]-obj.vr[:, -i-1, :])/2.
@@ -192,7 +203,7 @@ def selectField(obj, field, labTex=True, ic=False):
         else:
             label = 'vr ea'
         data_ic = None
-    elif field in ('vra'):
+    elif field == 'vra':
         data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.vr[:, i, :]+obj.vr[:, -i-1, :])/2.
@@ -201,7 +212,7 @@ def selectField(obj, field, labTex=True, ic=False):
         else:
             label = 'vr es'
         data_ic = None
-    elif field in ('vpea'):
+    elif field == 'vpea':
         data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.vphi[:, i, :]-obj.vphi[:, -i-1, :])/2.
@@ -210,7 +221,7 @@ def selectField(obj, field, labTex=True, ic=False):
         else:
             label = r'vp ea'
         data_ic = None
-    elif field in ('vpa'):
+    elif field == 'vpa':
         data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.vphi[:, i, :]+obj.vphi[:, -i-1, :])/2.
@@ -219,14 +230,14 @@ def selectField(obj, field, labTex=True, ic=False):
         else:
             label = r'vp es'
         data_ic = None
-    elif field in ('tea'):
+    elif field == 'tea':
         data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.entropy[:, i, :]-obj.entropy[:, -i-1, :])/2.
         if labTex:
-            label = r'$s$ ea'
+            label = r'$T$ ea'
         else:
-            label = r's ea'
+            label = r'T ea'
         data_ic = None
 
     return data, data_ic, label
@@ -767,30 +778,35 @@ def phideravg(data, minc=1, order=4):
         der[-1, ...] = der[0, ...]
     return der
 
-def rderavg(data, eta=0.35, spectral=True, exclude=False):
+def rderavg(data, rad, exclude=False):
     """
     Radial derivative of an input array
 
     >>> gr = MagiGraph()
-    >>> dvrdr = rderavg(gr.vr, eta=gr.radratio)
+    >>> dvrdr = rderavg(gr.vr, gr.radius)
 
     :param data: input array
     :type data: numpy.ndarray
-    :param eta: aspect ratio of the spherical shell
-    :type eta: float
-    :param spectral: when set to True use Chebyshev derivatives, otherwise use
-                     finite differences (default is True)
-    :type spectral: bool
+    :param rad: radial grid
+    :type rad: numpy.ndarray
     :param exclude: when set to True, exclude the first and last radial grid points
                     and replace them by a spline extrapolation (default is False)
     :type exclude: bool
     :returns: the radial derivative of the input array
     :rtype: numpy.ndarray
     """
-    r1 = 1./(1.-eta)
-    r2 = eta/(1.-eta)
+    r1 = rad[0]
+    r2 = rad[-1]
     nr = data.shape[-1]
     grid = chebgrid(nr-1, r1, r2)
+    tol = 1e-6 # This is to determine whether Cheb der will be used
+    diff = abs(grid-rad).max()
+    if diff > tol:
+        spectral = False
+        grid = rad
+    else:
+        spectral = True
+
     if exclude:
         g = grid[::-1]
         gnew = np.linspace(r2, r1, 1000)
@@ -822,6 +838,7 @@ def rderavg(data, eta=0.35, spectral=True, exclude=False):
         der = (np.roll(data, -1,  axis=-1)-np.roll(data, 1, axis=-1))/denom
         der[..., 0] = (data[..., 1]-data[..., 0])/(grid[1]-grid[0])
         der[..., -1] = (data[..., -1]-data[..., -2])/(grid[-1]-grid[-2])
+
     return der
 
 def thetaderavg(data, order=4):
@@ -873,7 +890,7 @@ def thetaderavg(data, order=4):
     return der
 
 
-def zderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
+def zderavg(data, rad, colat=None, exclude=False):
     """
     z derivative of an input array
 
@@ -882,11 +899,8 @@ def zderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
 
     :param data: input array
     :type data: numpy.ndarray
-    :param eta: aspect ratio of the spherical shell
-    :type eta: float
-    :param spectral: when set to True use Chebyshev derivatives, otherwise use
-                     finite differences (default is True)
-    :type spectral: bool
+    :param rad: radial grid
+    :type rad: numpy.ndarray
     :param exclude: when set to True, exclude the first and last radial grid points
                     and replace them by a spline extrapolation (default is False)
     :type exclude: bool
@@ -900,13 +914,10 @@ def zderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
     elif len(data.shape) == 2:  # 2-D
         ntheta = data.shape[0]
     nr = data.shape[-1]
-    r1 = 1./(1.-eta)
-    r2 = eta/(1.-eta)
     if colat is not None:
         th = colat
     else:
         th = np.linspace(0., np.pi, ntheta)
-    rr = chebgrid(nr-1, r1, r2)
 
     if len(data.shape) == 3:  # 3-D
         thmD = np.zeros_like(data)
@@ -918,11 +929,12 @@ def zderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
             thmD[i, :] = th[i]
 
     dtheta = thetaderavg(data)
-    dr = rderavg(data, eta, spectral, exclude)
+    dr = rderavg(data, rad, exclude)
     dz = np.cos(thmD)*dr - np.sin(thmD)/rr*dtheta
+
     return dz
 
-def sderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
+def sderavg(data, rad, colat=None, exclude=False):
     """
     s derivative of an input array
 
@@ -931,11 +943,8 @@ def sderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
 
     :param data: input array
     :type data: numpy.ndarray
-    :param eta: aspect ratio of the spherical shell
-    :type eta: float
-    :param spectral: when set to True use Chebyshev derivatives, otherwise use
-                     finite differences (default is True)
-    :type spectral: bool
+    :param rad: radial grid
+    :type rad: numpy.ndarray
     :param exclude: when set to True, exclude the first and last radial grid points
                     and replace them by a spline extrapolation (default is False)
     :type exclude: bool
@@ -946,17 +955,15 @@ def sderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
     """
     ntheta = data.shape[0]
     nr = data.shape[-1]
-    r1 = 1./(1.-eta)
-    r2 = eta/(1.-eta)
     if colat is not None:
         th = colat
     else:
         th = np.linspace(0., np.pi, ntheta)
-    rr = chebgrid(nr-1, r1, r2)
     rr2D, th2D = np.meshgrid(rr,th)
     dtheta = thetaderavg(data)
-    dr = rderavg(data, eta, spectral, exclude)
+    dr = rderavg(data, rad, exclude)
     ds = np.sin(th2D)*dr + np.cos(th2D)/rr2D*dtheta
+
     return ds
 
 
