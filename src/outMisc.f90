@@ -54,9 +54,16 @@ module outMisc_mod
    real(cp), allocatable :: HelEAASr(:)
    complex(cp), allocatable :: coeff_old(:)
 
+#ifdef WITH_OMP_GPU
+   public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
+   &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
+   &         get_ekin_solid_liquid_batch, get_helicity_batch, get_hemi_batch,    &
+   &         get_onset
+#else
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
    &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
    &         get_onset
+#endif
 
 contains
 
@@ -776,6 +783,553 @@ contains
       end if
 
    end subroutine outPhase
+#ifdef WITH_OMP_GPU
+   !-- TODO: Need to duplicate this routine since CRAY CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
+   !-- support OpenMP construct Assumed size arrays
+!----------------------------------------------------------------------------------
+   subroutine get_hemi(vr,vt,vp,nR,field)
+      !
+      !   This subroutine is used to compute kinetic or magnetic energy
+      !   in Northern or Southern hemipshere.
+      !
+
+      !-- Input of variables
+      integer,          intent(in) :: nR ! radial level
+      real(cp),         intent(in) :: vr(:,:),vt(:,:),vp(:,:)
+      character(len=1), intent(in) :: field
+
+      !-- Local variables:
+      real(cp) :: enAS(2) ! energy in North/South hemi at radius nR
+      real(cp) :: vrabsAS(2)! abs(vr or Br) in North/South hemi at radius nR
+      real(cp) :: en, vrabs, phiNorm, fac
+      integer :: nTheta, nTh, nPhi, nelem
+
+      enAS(:)   =0.0_cp
+      vrabsAS(:)=0.0_cp
+      phiNorm=two*pi/real(n_phi_max,cp)
+      if ( field == 'V' ) then
+         fac = orho1(nR)
+      else if ( field == 'B' ) then
+         fac = one
+      end if
+
+      !--- Helicity:
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2) &
+      !$omp& map(tofrom:enAS,vrabsAS)                       &
+      !$omp& private(nTh,vrabs,en,nelem)                    &
+      !$omp& reduction(+:enAS,vrabsAS)
+#else
+      !$omp parallel do default(shared)           &
+      !$omp& private(nTheta,nTh,vrabs,en,nelem)   &
+      !$omp& reduction(+:enAS,vrabsAS)
+#endif
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nTh=n_theta_cal2ord(nTheta)
+            nelem=radlatlon2spat(nTheta,nPhi,nR)
+
+            vrabs=fac*abs(vr(nelem))
+            en   =half*fac*(        or2(nR)*vr(nelem)*vr(nelem) + &
+            &        O_sin_theta_E2(nTheta)*vt(nelem)*vt(nelem) + &
+            &        O_sin_theta_E2(nTheta)*vp(nelem)*vp(nelem) )
+
+            if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
+               enAS(1)   =enAS(1) +phiNorm*gauss(nTheta)*en
+               vrabsAS(1)=vrabsAS(1) +phiNorm*gauss(nTheta)*vrabs
+            else
+               enAS(2)   =enAS(2) +phiNorm*gauss(nTheta)*en
+               vrabsAS(2)=vrabsAS(2) +phiNorm*gauss(nTheta)*vrabs
+            end if
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+      if ( field == 'V' ) then
+         hemi_ekin_r(nR,:) =enAS(:)
+         hemi_vrabs_r(nR,:)=vrabsAS(:)
+      else if ( field == 'B' ) then
+         hemi_emag_r(nR,:) =enAS(:)
+         hemi_brabs_r(nR,:)=vrabsAS(:)
+      end if
+
+   end subroutine get_hemi
+!----------------------------------------------------------------------------------
+   subroutine get_helicity(vr,vt,vp,cvr,dvrdt,dvrdp,dvtdr,dvpdr,nR)
+      !
+      ! This subroutine calculates axisymmetric and non-axisymmetric contributions to
+      ! kinetic helicity and squared helicity.
+      !
+
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
+      real(cp), intent(in) :: cvr(:,:),dvrdt(:,:),dvrdp(:,:)
+      real(cp), intent(in) :: dvtdr(:,:),dvpdr(:,:)
+
+      !-- Local variables:
+      integer :: nTheta,nTh,nPhi,nelem
+      real(cp) :: Helna,Hel,phiNorm
+      real(cp) :: HelAS(2), Hel2AS(2), HelnaAS(2), Helna2AS(2), HelEAAS
+      real(cp) :: vrna,vtna,vpna,cvrna,dvrdtna,dvrdpna,dvtdrna,dvpdrna
+      real(cp) :: vras(n_theta_max),vtas(n_theta_max),vpas(n_theta_max)
+      real(cp) :: cvras(n_theta_max),dvrdtas(n_theta_max),dvrdpas(n_theta_max)
+      real(cp) :: dvtdras(n_theta_max),dvpdras(n_theta_max)
+
+      !-- Remark: 2pi not used the normalization below
+      !-- this is why we have a 2pi factor after radial integration
+      !-- in the subroutine outHelicity()
+      phiNorm=one/real(n_phi_max,cp)
+      HelAS(:)   =0.0_cp
+      Hel2AS(:)  =0.0_cp
+      HelnaAS(:) =0.0_cp
+      Helna2AS(:)=0.0_cp
+      HelEAAS    =0.0_cp
+
+      vras(:)   =0.0_cp
+      cvras(:)  =0.0_cp
+      vtas(:)   =0.0_cp
+      vpas(:)   =0.0_cp
+      dvrdpas(:)=0.0_cp
+      dvpdras(:)=0.0_cp
+      dvtdras(:)=0.0_cp
+      dvrdtas(:)=0.0_cp
+
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
+      !$omp target update to(vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
+      !$omp target teams distribute parallel do collapse(2)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem=radlatlon2spat(nTheta,nPhi,nR)
+            vras(nTheta)   =vras(nTheta)   +   vr(nelem)
+            cvras(nTheta)  =cvras(nTheta)  +  cvr(nelem)
+            vtas(nTheta)   =vtas(nTheta)   +   vt(nelem)
+            vpas(nTheta)   =vpas(nTheta)   +   vp(nelem)
+            dvrdpas(nTheta)=dvrdpas(nTheta)+dvrdp(nelem)
+            dvpdras(nTheta)=dvpdras(nTheta)+dvpdr(nelem)
+            dvtdras(nTheta)=dvtdras(nTheta)+dvtdr(nelem)
+            dvrdtas(nTheta)=dvrdtas(nTheta)+dvrdt(nelem)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+      !$omp target teams distribute parallel do
+      do nTheta=1,n_theta_max
+         vras(nTheta)   =vras(nTheta)   *phiNorm
+         cvras(nTheta)  =cvras(nTheta)  *phiNorm
+         vtas(nTheta)   =vtas(nTheta)   *phiNorm
+         vpas(nTheta)   =vpas(nTheta)   *phiNorm
+         dvrdpas(nTheta)=dvrdpas(nTheta)*phiNorm
+         dvpdras(nTheta)=dvpdras(nTheta)*phiNorm
+         dvtdras(nTheta)=dvtdras(nTheta)*phiNorm
+         dvrdtas(nTheta)=dvrdtas(nTheta)*phiNorm
+      end do
+      !$omp end target teams distribute parallel do
+#else
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem=radlatlon2spat(nTheta,nPhi,nR)
+            vras(nTheta)   =vras(nTheta)   +   vr(nelem)
+            cvras(nTheta)  =cvras(nTheta)  +  cvr(nelem)
+            vtas(nTheta)   =vtas(nTheta)   +   vt(nelem)
+            vpas(nTheta)   =vpas(nTheta)   +   vp(nelem)
+            dvrdpas(nTheta)=dvrdpas(nTheta)+dvrdp(nelem)
+            dvpdras(nTheta)=dvpdras(nTheta)+dvpdr(nelem)
+            dvtdras(nTheta)=dvtdras(nTheta)+dvtdr(nelem)
+            dvrdtas(nTheta)=dvrdtas(nTheta)+dvrdt(nelem)
+         end do
+      end do
+      vras(:)   =vras(:)   *phiNorm
+      cvras(:)  =cvras(:)  *phiNorm
+      vtas(:)   =vtas(:)   *phiNorm
+      vpas(:)   =vpas(:)   *phiNorm
+      dvrdpas(:)=dvrdpas(:)*phiNorm
+      dvpdras(:)=dvpdras(:)*phiNorm
+      dvtdras(:)=dvtdras(:)*phiNorm
+      dvrdtas(:)=dvrdtas(:)*phiNorm
+#endif
+
+      !--- Helicity:
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)     &
+      !$omp& map(tofrom: HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS) &
+      !$omp& private(Hel, Helna, nTh)                           &
+      !$omp& private(vrna, cvrna, vtna, vpna, nelem)            &
+      !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)        &
+      !$omp& reduction(+:HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS)
+#else
+      !$omp parallel do default(shared)                     &
+      !$omp& private(nTheta, nTh, nPhi, Hel, Helna)         &
+      !$omp& private(vrna, cvrna, vtna, vpna, nelem)        &
+      !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)    &
+      !$omp& reduction(+:HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS)
+#endif
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem=radlatlon2spat(nTheta,nPhi,nR)
+            nTh=n_theta_cal2ord(nTheta)
+            vrna   =   vr(nelem)-vras(nTheta)
+            cvrna  =  cvr(nelem)-cvras(nTheta)
+            vtna   =   vt(nelem)-vtas(nTheta)
+            vpna   =   vp(nelem)-vpas(nTheta)
+            dvrdpna=dvrdp(nelem)-dvrdpas(nTheta)
+            dvpdrna=dvpdr(nelem)-beta(nR)*vp(nelem)-dvpdras(nTheta)+ &
+            &       beta(nR)*vpas(nTheta)
+            dvtdrna=dvtdr(nelem)-beta(nR)*vt(nelem)-dvtdras(nTheta)+ &
+            &       beta(nR)*vtas(nTheta)
+            dvrdtna=dvrdt(nelem)-dvrdtas(nTheta)
+            Hel    =        or4(nR)*orho2(nR)*vr(nelem)*cvr(nelem) +      &
+            &             or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* (     &
+            &             vt(nelem) *  ( or2(nR)*dvrdp(nelem) -           &
+            &                   dvpdr(nelem) + beta(nR)*vp(nelem) ) +     &
+            &              vp(nelem) * (dvtdr(nelem)-beta(nR)*vt(nelem) - &
+            &                             or2(nR)*dvrdt(nelem) ) )
+            Helna  =                    or4(nR)*orho2(nR)*vrna*cvrna + &
+            &              or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* ( &
+            &                       vtna*( or2(nR)*dvrdpna-dvpdrna ) + &
+            &                       vpna*( dvtdrna-or2(nR)*dvrdtna ) )
+
+            if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
+               HelAS(1)   =HelAS(1) +phiNorm*gauss(nTheta)*Hel
+               Hel2AS(1)  =Hel2AS(1)+phiNorm*gauss(nTheta)*Hel*Hel
+               HelnaAS(1) =HelnaAS(1) +phiNorm*gauss(nTheta)*Helna
+               Helna2AS(1)=Helna2AS(1)+phiNorm*gauss(nTheta)*Helna*Helna
+               HelEAAS    =HelEAAS +phiNorm*gauss(nTheta)*Hel
+            else
+               HelAS(2)   =HelAS(2) +phiNorm*gauss(nTheta)*Hel
+               Hel2AS(2)  =Hel2AS(2)+phiNorm*gauss(nTheta)*Hel*Hel
+               HelnaAS(2) =HelnaAS(2) +phiNorm*gauss(nTheta)*Helna
+               Helna2AS(2)=Helna2AS(2)+phiNorm*gauss(nTheta)*Helna*Helna
+               HelEAAS    =HelEAAS -phiNorm*gauss(nTheta)*Hel
+            end if
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+      !$omp target exit data map(delete: vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
+#else
+      !$omp end parallel do
+#endif
+
+      HelASr(nR,:)   =HelAS(:)
+      Hel2ASr(nR,:)  =Hel2AS(:)
+      HelnaASr(nR,:) =HelnaAS(:)
+      Helna2ASr(nR,:)=Helna2AS(:)
+      HelEAASr(nR)   =HelEAAS
+
+   end subroutine get_helicity
+!----------------------------------------------------------------------------------
+   subroutine get_ekin_solid_liquid(vr,vt,vp,phi,nR)
+      !
+      ! This subroutine computes the kinetic energy content in the solid
+      ! and in the liquid phase when phase field is employed.
+      !
+
+      !-- Input variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:),phi(:,:)
+
+      !-- Output variables:
+
+      !-- Local variables:
+      real(cp) :: phiNorm, ekin
+      real(cp) :: ekinS ! Kinetic energy in the solid phase
+      real(cp) :: ekinL ! Kinetic energy in the liquid phase
+      real(cp) :: volS  ! volume of the solid
+      integer :: nTheta,nPhi,nelem
+
+      phiNorm=two*pi/real(n_phi_max,cp)
+      ekinL=0.0_cp
+      ekinS=0.0_cp
+      volS =0.0_cp
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2) &
+      !$omp& private(nelem,ekin)  &
+      !$omp& map(tofrom: ekinS,ekinL,volS) reduction(+:ekinS,ekinL,volS)
+#else
+      !$omp parallel do default(shared)       &
+      !$omp& private(nTheta,nelem,nPhi,ekin)  &
+      !$omp& reduction(+:ekinS,ekinL,volS)
+#endif
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem = radlatlon2spat(nTheta,nPhi,nR)
+
+            ekin = half*orho1(nR)*(                                 &
+            &                 or2(nR)*        vr(nelem)*vr(nelem) + &
+            &          O_sin_theta_E2(nTheta)*vt(nelem)*vt(nelem) + &
+            &          O_sin_theta_E2(nTheta)*vp(nelem)*vp(nelem) )
+
+            if ( phi(nelem) >= half ) then
+               ekinS=ekinS+phiNorm*gauss(nTheta)*ekin
+               volS =volS +phiNorm*gauss(nTheta)*r(nR)*r(nR)
+            else
+               ekinL=ekinL+phiNorm*gauss(nTheta)*ekin
+            end if
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+      ekinSr(nR)=ekinS
+      ekinLr(nR)=ekinL
+      volSr(nR) =volS
+
+   end subroutine get_ekin_solid_liquid
+
+!----------------------------------------------------------------------------------
+   subroutine get_hemi_batch(vr,vt,vp,nR,field)
+      !
+      !   This subroutine is used to compute kinetic or magnetic energy
+      !   in Northern or Southern hemipshere.
+      !
+
+      !-- Input of variables
+      integer,          intent(in) :: nR ! radial level
+      real(cp),         intent(in) :: vr(:,:,:),vt(:,:,:),vp(:,:,:)
+      character(len=1), intent(in) :: field
+
+      !-- Local variables:
+      real(cp) :: enAS(2) ! energy in North/South hemi at radius nR
+      real(cp) :: vrabsAS(2)! abs(vr or Br) in North/South hemi at radius nR
+      real(cp) :: en, vrabs, phiNorm, fac
+      integer :: nTheta, nTh, nPhi, nelem
+
+      enAS(:)   =0.0_cp
+      vrabsAS(:)=0.0_cp
+      phiNorm=two*pi/real(n_phi_max,cp)
+      if ( field == 'V' ) then
+         fac = orho1(nR)
+      else if ( field == 'B' ) then
+         fac = one
+      end if
+
+      !--- Helicity:
+      !$omp target teams distribute parallel do collapse(2) &
+      !$omp& map(tofrom:enAS,vrabsAS)                       &
+      !$omp& private(nTh,vrabs,en,nelem)                    &
+      !$omp& reduction(+:enAS,vrabsAS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nTh=n_theta_cal2ord(nTheta)
+            nelem=radlatlon2spat(nTheta,nPhi,nR)
+
+            vrabs=fac*abs(vr(nelem))
+            en   =half*fac*(        or2(nR)*vr(nelem)*vr(nelem) + &
+            &        O_sin_theta_E2(nTheta)*vt(nelem)*vt(nelem) + &
+            &        O_sin_theta_E2(nTheta)*vp(nelem)*vp(nelem) )
+
+            if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
+               enAS(1)   =enAS(1) +phiNorm*gauss(nTheta)*en
+               vrabsAS(1)=vrabsAS(1) +phiNorm*gauss(nTheta)*vrabs
+            else
+               enAS(2)   =enAS(2) +phiNorm*gauss(nTheta)*en
+               vrabsAS(2)=vrabsAS(2) +phiNorm*gauss(nTheta)*vrabs
+            end if
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+      if ( field == 'V' ) then
+         hemi_ekin_r(nR,:) =enAS(:)
+         hemi_vrabs_r(nR,:)=vrabsAS(:)
+      else if ( field == 'B' ) then
+         hemi_emag_r(nR,:) =enAS(:)
+         hemi_brabs_r(nR,:)=vrabsAS(:)
+      end if
+
+   end subroutine get_hemi_batch
+!----------------------------------------------------------------------------------
+   subroutine get_helicity_batch(vr,vt,vp,cvr,dvrdt,dvrdp,dvtdr,dvpdr,nR)
+      !
+      ! This subroutine calculates axisymmetric and non-axisymmetric contributions to
+      ! kinetic helicity and squared helicity.
+      !
+
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(:,:,:),vt(:,:,:),vp(:,:,:)
+      real(cp), intent(in) :: cvr(:,:,:),dvrdt(:,:,:),dvrdp(:,:,:)
+      real(cp), intent(in) :: dvtdr(:,:,:),dvpdr(:,:,:)
+
+      !-- Local variables:
+      integer :: nTheta,nTh,nPhi,nelem
+      real(cp) :: Helna,Hel,phiNorm
+      real(cp) :: HelAS(2), Hel2AS(2), HelnaAS(2), Helna2AS(2), HelEAAS
+      real(cp) :: vrna,vtna,vpna,cvrna,dvrdtna,dvrdpna,dvtdrna,dvpdrna
+      real(cp) :: vras(n_theta_max),vtas(n_theta_max),vpas(n_theta_max)
+      real(cp) :: cvras(n_theta_max),dvrdtas(n_theta_max),dvrdpas(n_theta_max)
+      real(cp) :: dvtdras(n_theta_max),dvpdras(n_theta_max)
+
+      !-- Remark: 2pi not used the normalization below
+      !-- this is why we have a 2pi factor after radial integration
+      !-- in the subroutine outHelicity()
+      phiNorm=one/real(n_phi_max,cp)
+      HelAS(:)   =0.0_cp
+      Hel2AS(:)  =0.0_cp
+      HelnaAS(:) =0.0_cp
+      Helna2AS(:)=0.0_cp
+      HelEAAS    =0.0_cp
+
+      vras(:)   =0.0_cp
+      cvras(:)  =0.0_cp
+      vtas(:)   =0.0_cp
+      vpas(:)   =0.0_cp
+      dvrdpas(:)=0.0_cp
+      dvpdras(:)=0.0_cp
+      dvtdras(:)=0.0_cp
+      dvrdtas(:)=0.0_cp
+
+      !$omp target enter data map(alloc: vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
+      !$omp target update to(vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
+      !$omp target teams distribute parallel do collapse(2)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem=radlatlon2spat(nTheta,nPhi,nR)
+            vras(nTheta)   =vras(nTheta)   +   vr(nelem)
+            cvras(nTheta)  =cvras(nTheta)  +  cvr(nelem)
+            vtas(nTheta)   =vtas(nTheta)   +   vt(nelem)
+            vpas(nTheta)   =vpas(nTheta)   +   vp(nelem)
+            dvrdpas(nTheta)=dvrdpas(nTheta)+dvrdp(nelem)
+            dvpdras(nTheta)=dvpdras(nTheta)+dvpdr(nelem)
+            dvtdras(nTheta)=dvtdras(nTheta)+dvtdr(nelem)
+            dvrdtas(nTheta)=dvrdtas(nTheta)+dvrdt(nelem)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+      !$omp target teams distribute parallel do
+      do nTheta=1,n_theta_max
+         vras(nTheta)   =vras(nTheta)   *phiNorm
+         cvras(nTheta)  =cvras(nTheta)  *phiNorm
+         vtas(nTheta)   =vtas(nTheta)   *phiNorm
+         vpas(nTheta)   =vpas(nTheta)   *phiNorm
+         dvrdpas(nTheta)=dvrdpas(nTheta)*phiNorm
+         dvpdras(nTheta)=dvpdras(nTheta)*phiNorm
+         dvtdras(nTheta)=dvtdras(nTheta)*phiNorm
+         dvrdtas(nTheta)=dvrdtas(nTheta)*phiNorm
+      end do
+      !$omp end target teams distribute parallel do
+
+      !--- Helicity:
+      !$omp target teams distribute parallel do collapse(2)     &
+      !$omp& map(tofrom: HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS) &
+      !$omp& private(Hel, Helna, nTh)                           &
+      !$omp& private(vrna, cvrna, vtna, vpna, nelem)            &
+      !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)        &
+      !$omp& reduction(+:HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem=radlatlon2spat(nTheta,nPhi,nR)
+            nTh=n_theta_cal2ord(nTheta)
+            vrna   =   vr(nelem)-vras(nTheta)
+            cvrna  =  cvr(nelem)-cvras(nTheta)
+            vtna   =   vt(nelem)-vtas(nTheta)
+            vpna   =   vp(nelem)-vpas(nTheta)
+            dvrdpna=dvrdp(nelem)-dvrdpas(nTheta)
+            dvpdrna=dvpdr(nelem)-beta(nR)*vp(nelem)-dvpdras(nTheta)+ &
+            &       beta(nR)*vpas(nTheta)
+            dvtdrna=dvtdr(nelem)-beta(nR)*vt(nelem)-dvtdras(nTheta)+ &
+            &       beta(nR)*vtas(nTheta)
+            dvrdtna=dvrdt(nelem)-dvrdtas(nTheta)
+            Hel    =        or4(nR)*orho2(nR)*vr(nelem)*cvr(nelem) +      &
+            &             or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* (     &
+            &             vt(nelem) *  ( or2(nR)*dvrdp(nelem) -           &
+            &                   dvpdr(nelem) + beta(nR)*vp(nelem) ) +     &
+            &              vp(nelem) * (dvtdr(nelem)-beta(nR)*vt(nelem) - &
+            &                             or2(nR)*dvrdt(nelem) ) )
+            Helna  =                    or4(nR)*orho2(nR)*vrna*cvrna + &
+            &              or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* ( &
+            &                       vtna*( or2(nR)*dvrdpna-dvpdrna ) + &
+            &                       vpna*( dvtdrna-or2(nR)*dvrdtna ) )
+
+            if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
+               HelAS(1)   =HelAS(1) +phiNorm*gauss(nTheta)*Hel
+               Hel2AS(1)  =Hel2AS(1)+phiNorm*gauss(nTheta)*Hel*Hel
+               HelnaAS(1) =HelnaAS(1) +phiNorm*gauss(nTheta)*Helna
+               Helna2AS(1)=Helna2AS(1)+phiNorm*gauss(nTheta)*Helna*Helna
+               HelEAAS    =HelEAAS +phiNorm*gauss(nTheta)*Hel
+            else
+               HelAS(2)   =HelAS(2) +phiNorm*gauss(nTheta)*Hel
+               Hel2AS(2)  =Hel2AS(2)+phiNorm*gauss(nTheta)*Hel*Hel
+               HelnaAS(2) =HelnaAS(2) +phiNorm*gauss(nTheta)*Helna
+               Helna2AS(2)=Helna2AS(2)+phiNorm*gauss(nTheta)*Helna*Helna
+               HelEAAS    =HelEAAS -phiNorm*gauss(nTheta)*Hel
+            end if
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+      !$omp target exit data map(delete: vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
+
+      HelASr(nR,:)   =HelAS(:)
+      Hel2ASr(nR,:)  =Hel2AS(:)
+      HelnaASr(nR,:) =HelnaAS(:)
+      Helna2ASr(nR,:)=Helna2AS(:)
+      HelEAASr(nR)   =HelEAAS
+
+   end subroutine get_helicity_batch
+!----------------------------------------------------------------------------------
+   subroutine get_ekin_solid_liquid_batch(vr,vt,vp,phi,nR)
+      !
+      ! This subroutine computes the kinetic energy content in the solid
+      ! and in the liquid phase when phase field is employed.
+      !
+
+      !-- Input variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(:,:,:),vt(:,:,:),vp(:,:,:),phi(:,:,:)
+
+      !-- Output variables:
+
+      !-- Local variables:
+      real(cp) :: phiNorm, ekin
+      real(cp) :: ekinS ! Kinetic energy in the solid phase
+      real(cp) :: ekinL ! Kinetic energy in the liquid phase
+      real(cp) :: volS  ! volume of the solid
+      integer :: nTheta,nPhi,nelem
+
+      phiNorm=two*pi/real(n_phi_max,cp)
+      ekinL=0.0_cp
+      ekinS=0.0_cp
+      volS =0.0_cp
+
+      !$omp target teams distribute parallel do collapse(2) &
+      !$omp& private(nelem,ekin)  &
+      !$omp& map(tofrom: ekinS,ekinL,volS) reduction(+:ekinS,ekinL,volS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem = radlatlon2spat(nTheta,nPhi,nR)
+
+            ekin = half*orho1(nR)*(                                 &
+            &                 or2(nR)*        vr(nelem)*vr(nelem) + &
+            &          O_sin_theta_E2(nTheta)*vt(nelem)*vt(nelem) + &
+            &          O_sin_theta_E2(nTheta)*vp(nelem)*vp(nelem) )
+
+            if ( phi(nelem) >= half ) then
+               ekinS=ekinS+phiNorm*gauss(nTheta)*ekin
+               volS =volS +phiNorm*gauss(nTheta)*r(nR)*r(nR)
+            else
+               ekinL=ekinL+phiNorm*gauss(nTheta)*ekin
+            end if
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+      ekinSr(nR)=ekinS
+      ekinLr(nR)=ekinL
+      volSr(nR) =volS
+
+   end subroutine get_ekin_solid_liquid_batch
+#else
 !----------------------------------------------------------------------------------
    subroutine get_hemi(vr,vt,vp,nR,field)
       !
@@ -1006,6 +1560,7 @@ contains
       volSr(nR) =volS
 
    end subroutine get_ekin_solid_liquid
+#endif
 !----------------------------------------------------------------------------------
    subroutine get_onset(time, w, dt, l_log, nLogs)
       !
