@@ -29,6 +29,17 @@ module graphOut_mod
    integer :: n_graph = 0
    integer :: info
    integer :: n_graph_file
+#ifdef WITH_OMP_GPU
+#ifdef WITH_MPI
+   integer :: graph_mpi_fh
+   integer(kind=MPI_OFFSET_KIND) :: size_of_header, n_fields
+   public :: graphOut, graphOut_mpi, graphOut_mpi_batch, graphOut_IC, graphOut_mpi_header, &
+   &         open_graph_file, close_graph_file, graphOut_header
+#else
+   public :: graphOut, graphOut_IC, graphOut_header, open_graph_file, &
+   &         close_graph_file
+#endif
+#else
 #ifdef WITH_MPI
    integer :: graph_mpi_fh
    integer(kind=MPI_OFFSET_KIND) :: size_of_header, n_fields
@@ -37,6 +48,7 @@ module graphOut_mod
 #else
    public :: graphOut, graphOut_IC, graphOut_header, open_graph_file, &
    &         close_graph_file
+#endif
 #endif
 
 contains
@@ -279,6 +291,340 @@ contains
    end subroutine graphOut_header
 !-------------------------------------------------------------------------------
 #ifdef WITH_MPI
+#ifdef WITH_OMP_GPU
+   !-- TODO: Need to duplicate this routine since CRAY CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
+   !-- support OpenMP construct Assumed size arrays
+   subroutine graphOut_mpi(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir)
+      !
+      ! MPI version of the graphOut subroutine (use of MPI_IO)
+      !
+
+      !-- Input variables:
+      integer,  intent(in) :: n_r                      ! radial grid point no.
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
+      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
+      real(cp), intent(in) :: sr(:,:),prer(:,:),xir(:,:),phir(:,:)
+
+      !-- Local variables:
+      integer :: n_phi, n_theta, n_theta_cal, nelem
+      real(cp) :: fac, fac_r
+      real(outp), allocatable :: dummy(:,:)
+
+      allocate(dummy(n_theta_max,n_phi_max))
+      dummy = 0.0_cp
+
+      !$omp critical
+      !-- Calculate and write radial velocity:
+      fac=or2(n_r)*vScale*orho1(n_r)
+      !$omp target teams distribute parallel do collapse(2)
+      do n_phi=1,n_phi_max
+         do n_theta_cal=1,n_theta_max
+            nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+            n_theta =n_theta_cal2ord(n_theta_cal)
+            dummy(n_theta,n_phi)=real(fac*vr(nelem),kind=outp)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+      call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+
+      !-- Calculate and write latitudinal velocity:
+      fac_r=or1(n_r)*vScale*orho1(n_r)
+      !$omp target teams distribute parallel do collapse(2)
+      do n_phi=1,n_phi_max
+         do n_theta_cal=1,n_theta_max
+            nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+            n_theta =n_theta_cal2ord(n_theta_cal)
+            fac=fac_r*O_sin_theta(n_theta_cal)
+            dummy(n_theta,n_phi)=real(fac*vt(nelem),kind=outp)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+      call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+
+      !-- Calculate and write longitudinal velocity:
+      fac_r=or1(n_r)*vScale*orho1(n_r)
+      !$omp target teams distribute parallel do collapse(2)
+      do n_phi=1,n_phi_max
+         do n_theta_cal=1,n_theta_max
+            nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+            n_theta =n_theta_cal2ord(n_theta_cal)
+            fac=fac_r*O_sin_theta(n_theta_cal)
+            dummy(n_theta,n_phi)=real(fac*vp(nelem),kind=outp)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+      call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+
+      !-- Write entropy:
+      if ( l_heat ) then
+         !$omp target teams distribute parallel do collapse(2)
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               n_theta =n_theta_cal2ord(n_theta_cal)
+               dummy(n_theta,n_phi)=real(sr(nelem),kind=outp)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      end if
+
+      !-- Write composition:
+      if ( l_chemical_conv ) then
+         !$omp target teams distribute parallel do collapse(2)
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               n_theta =n_theta_cal2ord(n_theta_cal)
+               dummy(n_theta,n_phi)=real(xir(nelem),kind=outp)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      end if
+
+      !-- Write phase field:
+      if ( l_phase_field ) then
+         !$omp target teams distribute parallel do collapse(2)
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               n_theta =n_theta_cal2ord(n_theta_cal)
+               dummy(n_theta,n_phi)=real(phir(nelem),kind=outp)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      end if
+
+      !-- Write pressure:
+      if ( l_PressGraph ) then
+         !$omp target teams distribute parallel do collapse(2)
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               n_theta =n_theta_cal2ord(n_theta_cal)
+               dummy(n_theta,n_phi)=real(prer(nelem),kind=outp)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      end if
+
+      if ( l_mag ) then
+
+         !-- Calculate and write radial magnetic field:
+         fac=or2(n_r)
+         !$omp target teams distribute parallel do collapse(2)
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               n_theta =n_theta_cal2ord(n_theta_cal)
+               dummy(n_theta,n_phi)=real(fac*br(nelem),kind=outp)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+
+         !-- Calculate and write latitudinal magnetic field:
+         !$omp target teams distribute parallel do collapse(2)
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               n_theta =n_theta_cal2ord(n_theta_cal)
+               fac=or1(n_r)*O_sin_theta(n_theta_cal)
+               dummy(n_theta,n_phi)=real(fac*bt(nelem),kind=outp)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+
+         !-- Calculate and write longitudinal magnetic field:
+         !$omp target teams distribute parallel do collapse(2)
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               n_theta =n_theta_cal2ord(n_theta_cal)
+               fac=or1(n_r)*O_sin_theta(n_theta_cal)
+               dummy(n_theta,n_phi)=real(fac*bp(nelem),kind=outp)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+
+      end if ! l_mag ?
+      !$omp end critical
+
+      deallocate(dummy)
+
+   end subroutine graphOut_mpi
+
+   subroutine graphOut_mpi_batch(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir)
+      !
+      ! MPI version of the graphOut subroutine (use of MPI_IO)
+      !
+
+      !-- Input variables:
+      integer,  intent(in) :: n_r                      ! radial grid point no.
+      real(cp), intent(in) :: vr(:,:,:),vt(:,:,:),vp(:,:,:)
+      real(cp), intent(in) :: br(:,:,:),bt(:,:,:),bp(:,:,:)
+      real(cp), intent(in) :: sr(:,:,:),prer(:,:,:),xir(:,:,:),phir(:,:,:)
+
+      !-- Local variables:
+      integer :: n_phi, n_theta, n_theta_cal, nelem
+      real(cp) :: fac, fac_r
+      real(outp), allocatable :: dummy(:,:)
+
+      allocate(dummy(n_theta_max,n_phi_max))
+      dummy = 0.0_cp
+
+      !$omp critical
+      !-- Calculate and write radial velocity:
+      fac=or2(n_r)*vScale*orho1(n_r)
+      !$omp target teams distribute parallel do collapse(2)
+      do n_phi=1,n_phi_max
+         do n_theta_cal=1,n_theta_max
+            nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+            n_theta =n_theta_cal2ord(n_theta_cal)
+            dummy(n_theta,n_phi)=real(fac*vr(nelem),kind=outp)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+      call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+
+      !-- Calculate and write latitudinal velocity:
+      fac_r=or1(n_r)*vScale*orho1(n_r)
+      !$omp target teams distribute parallel do collapse(2)
+      do n_phi=1,n_phi_max
+         do n_theta_cal=1,n_theta_max
+            nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+            n_theta =n_theta_cal2ord(n_theta_cal)
+            fac=fac_r*O_sin_theta(n_theta_cal)
+            dummy(n_theta,n_phi)=real(fac*vt(nelem),kind=outp)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+      call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+
+      !-- Calculate and write longitudinal velocity:
+      fac_r=or1(n_r)*vScale*orho1(n_r)
+      !$omp target teams distribute parallel do collapse(2)
+      do n_phi=1,n_phi_max
+         do n_theta_cal=1,n_theta_max
+            nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+            n_theta =n_theta_cal2ord(n_theta_cal)
+            fac=fac_r*O_sin_theta(n_theta_cal)
+            dummy(n_theta,n_phi)=real(fac*vp(nelem),kind=outp)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+      call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+
+      !-- Write entropy:
+      if ( l_heat ) then
+         !$omp target teams distribute parallel do collapse(2)
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               n_theta =n_theta_cal2ord(n_theta_cal)
+               dummy(n_theta,n_phi)=real(sr(nelem),kind=outp)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      end if
+
+      !-- Write composition:
+      if ( l_chemical_conv ) then
+         !$omp target teams distribute parallel do collapse(2)
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               n_theta =n_theta_cal2ord(n_theta_cal)
+               dummy(n_theta,n_phi)=real(xir(nelem),kind=outp)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      end if
+
+      !-- Write phase field:
+      if ( l_phase_field ) then
+         !$omp target teams distribute parallel do collapse(2)
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               n_theta =n_theta_cal2ord(n_theta_cal)
+               dummy(n_theta,n_phi)=real(phir(nelem),kind=outp)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      end if
+
+      !-- Write pressure:
+      if ( l_PressGraph ) then
+         !$omp target teams distribute parallel do collapse(2)
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               n_theta =n_theta_cal2ord(n_theta_cal)
+               dummy(n_theta,n_phi)=real(prer(nelem),kind=outp)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      end if
+
+      if ( l_mag ) then
+
+         !-- Calculate and write radial magnetic field:
+         fac=or2(n_r)
+         !$omp target teams distribute parallel do collapse(2)
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               n_theta =n_theta_cal2ord(n_theta_cal)
+               dummy(n_theta,n_phi)=real(fac*br(nelem),kind=outp)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+
+         !-- Calculate and write latitudinal magnetic field:
+         !$omp target teams distribute parallel do collapse(2)
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               n_theta =n_theta_cal2ord(n_theta_cal)
+               fac=or1(n_r)*O_sin_theta(n_theta_cal)
+               dummy(n_theta,n_phi)=real(fac*bt(nelem),kind=outp)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+
+         !-- Calculate and write longitudinal magnetic field:
+         !$omp target teams distribute parallel do collapse(2)
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
+               n_theta =n_theta_cal2ord(n_theta_cal)
+               fac=or1(n_r)*O_sin_theta(n_theta_cal)
+               dummy(n_theta,n_phi)=real(fac*bp(nelem),kind=outp)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+
+      end if ! l_mag ?
+      !$omp end critical
+
+      deallocate(dummy)
+
+   end subroutine graphOut_mpi_batch
+
+#else
    subroutine graphOut_mpi(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir)
       !
       ! MPI version of the graphOut subroutine (use of MPI_IO)
@@ -418,6 +764,7 @@ contains
       !$omp end critical
 
    end subroutine graphOut_mpi
+#endif
 !----------------------------------------------------------------------------
    subroutine graphOut_mpi_header(time)
       !
