@@ -48,8 +48,14 @@ module outPar_mod
    integer :: n_perpPar_file, n_calls
    character(len=72) :: perpPar_file
 
+#ifdef WITH_OMP_GPU
+   public initialize_outPar_mod, finalize_outPar_mod, outPar, outPerpPar, &
+   &      get_fluxes, get_nlBlayers, get_perpPar,                         &
+   &      get_fluxes_batch, get_nlBlayers_batch, get_perpPar_batch
+#else
    public initialize_outPar_mod, finalize_outPar_mod, outPar, outPerpPar, &
    &      get_fluxes, get_nlBlayers, get_perpPar
+#endif
 
 contains
 
@@ -466,6 +472,7 @@ contains
 
    end subroutine outPerpPar
 !----------------------------------------------------------------------------
+#ifndef WITH_OMP_GPU
    subroutine get_fluxes(vr,vt,vp,dvrdr,dvtdr,dvpdr,dvrdt,dvrdp,sr,pr,br,bt, &
               &          bp,cbt,cbp,nR)
       !
@@ -722,5 +729,647 @@ contains
       EparaxiASr(nR) =EparaxiAS
 
    end subroutine get_perpPar
+#else
+   !-- TODO: Need to duplicate these routines since CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
+   !-- support OpenMP construct Assumed size arrays (for vr, vt, vp, ...)
+
+   subroutine get_fluxes(vr,vt,vp,dvrdr,dvtdr,dvpdr,dvrdt,dvrdp,sr,pr,br,bt, &
+              &          bp,cbt,cbp,nR)
+      !
+      !   This routine computes the various contribution to heat fluxes:
+      !
+      !     * Convective flux: :math:`F_c= \rho T (u_r s)`
+      !     * Kinetic flux: :math:`F_k = 1/2\,\rho u_r (u_r^2+u_\theta^2+u_\phi^2)`
+      !     * Viscous flux: :math:`F_= -(u \cdot S )_r`)
+      !
+      !   If the run is magnetic, then this routine also computes:
+      !
+      !     * Poynting flux
+      !     * Resistive flux
+      !
+
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
+      real(cp), intent(in) :: dvrdr(:,:),dvtdr(:,:),dvpdr(:,:)
+      real(cp), intent(in) :: dvrdt(:,:),dvrdp(:,:)
+      real(cp), intent(in) :: sr(:,:),pr(:,:)
+      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
+      real(cp), intent(in) :: cbt(:,:),cbp(:,:)
+
+      !-- Local variables:
+      real(cp) :: fkinAS,fconvAS,fviscAS,fresAS,fpoynAS
+      real(cp) :: fkin,fconv,phiNorm,fvisc,fpoyn,fres
+      integer :: nTheta,nPhi,nelem
+
+      phiNorm=two*pi/real(n_phi_max,cp)
+
+      fkinAS =0.0_cp
+      fconvAS=0.0_cp
+      fviscAS=0.0_cp
+      fvisc  =0.0_cp
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2) &
+      !$omp& private(nelem, fconv, fkin, fvisc)             &
+      !$omp& map(tofrom: fkinAS,fconvAS,fviscAS) reduction(+:fkinAS,fconvAS,fviscAS)
+#else
+      !$omp parallel do default(shared)                       &
+      !$omp& private(nTheta, nPhi, nelem, fconv, fkin, fvisc) &
+      !$omp& reduction(+:fkinAS,fconvAS,fviscAS)
+#endif
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem = radlatlon2spat(nTheta,nPhi,nR)
+            if ( l_anelastic_liquid ) then
+               fconv=vr(nelem)*sr(nelem)
+            else
+               fconv=temp0(nr)*vr(nelem)*sr(nelem)     +            &
+               &          ViscHeatFac*ThExpNb*alpha0(nr)*temp0(nr)* &
+               &          orho1(nr)*vr(nelem)*pr(nelem)
+            end if
+
+            fkin=half*or2(nR)*orho2(nR)*(O_sin_theta_E2(nTheta)*(  &
+            &    vt(nelem)*vt(nelem) + vp(nelem)*vp(nelem) )+      &
+            &    or2(nR)*vr(nelem)*vr(nelem) )*vr(nelem)
+
+            if ( nR/=n_r_icb .and. nR/=n_r_cmb ) then
+               fvisc=-two*visc(nR)*orho1(nR)*vr(nelem)*or2(nR)* (     &
+               &                             dvrdr(nelem)             &
+               & -(two*or1(nR)+two*third*beta(nR))*vr(nelem) )-       &
+               &                       visc(nR)*orho1(nR)*vt(nelem)*  &
+               &                      O_sin_theta_E2(nTheta)* (       &
+               &                       or2(nR)*dvrdt(nelem)           &
+               &                              +dvtdr(nelem)           &
+               &       -(two*or1(nR)+beta(nR))*vt(nelem) )  -         &
+               &       visc(nR)*orho1(nR)*vp(nelem)*                  &
+               &                         O_sin_theta_E2(nTheta)* (    &
+               &                       or2(nR)*dvrdp(nelem)           &
+               &                              +dvpdr(nelem)           &
+               &       -(two*or1(nR)+beta(nR))*vp(nelem) )
+            else
+               fvisc=0.0_cp
+            end if
+
+            fkinAS = fkinAS+phiNorm*gauss(nTheta)*fkin
+            fconvAS=fconvAS+phiNorm*gauss(nTheta)*fconv
+            fviscAS=fviscAS+phiNorm*gauss(nTheta)*fvisc
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+      fkinASr(nR) =fkinAS
+      fconvASr(nR)=fconvAS
+      fviscASr(nR)=fviscAS
+
+      if ( l_mag_nl) then
+         fresAS =0.0_cp
+         fpoynAS=0.0_cp
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2) &
+         !$omp& private(nelem, fres, fpoyn)                    &
+         !$omp& map(tofrom: fresAS,fpoynAS) reduction(+:fresAS,fpoynAS)
+#else
+         !$omp parallel do default(shared)                  &
+         !$omp& private(nTheta, nPhi, nelem, fres, fpoyn)   &
+         !$omp& reduction(+:fresAS,fpoynAS)
+#endif
+         do nPhi=1,n_phi_max
+            do nTheta=1,n_theta_max
+               nelem = radlatlon2spat(nTheta,nPhi,nR)
+               fres =O_sin_theta_E2(nTheta)*(cbt(nelem)*bp(nelem)  - &
+               &                      cbp(nelem)*bt(nelem) )
+
+               fpoyn=-orho1(nR)*or2(nR)*O_sin_theta_E2(nTheta)*(   &
+               &                  vp(nelem)*br(nelem)*bp(nelem)  - &
+               &                  vr(nelem)*bp(nelem)*bp(nelem)  - &
+               &                  vr(nelem)*bt(nelem)*bt(nelem)  + &
+               &                  vt(nelem)*br(nelem)*bt(nelem) )
+
+               fresAS = fresAS+phiNorm*gauss(nTheta)*fres
+               fpoynAS=fpoynAS+phiNorm*gauss(nTheta)*fpoyn
+            end do
+         end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+         fpoynASr(nR)=fpoynAS
+         fresASr(nR) =fresAS
+      end if
+
+   end subroutine get_fluxes
+!----------------------------------------------------------------------------
+   subroutine get_nlBLayers(vt,vp,dvtdr,dvpdr,dsdr,dsdt,dsdp,nR)
+      !
+      !   This subroutine calculates the axisymmetric contributions of:
+      !
+      !     * the horizontal velocity :math:`u_h = \sqrt{u_\theta^2+u_\phi^2}`
+      !     * its radial derivative :math:`|\partial u_h/\partial r|`
+      !     * The thermal dissipation rate :math:`(\nabla T)^2`
+      !
+      !   This subroutine is used when one wants to evaluate viscous and thermal
+      !   dissipation layers
+      !
+
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vt(:,:),vp(:,:)
+      real(cp), intent(in) :: dvtdr(:,:),dvpdr(:,:)
+      real(cp), intent(in) :: dsdr(:,:),dsdt(:,:),dsdp(:,:)
+
+      !-- Local variables:
+      real(cp):: uhAS,duhAS,gradsAS,uh,duh,phiNorm,grads
+      integer :: nTheta,nPhi,nelem
+
+      phiNorm=one/real(n_phi_max,cp)
+      uhAS   =0.0_cp
+      duhAS  =0.0_cp
+      gradsAS=0.0_cp
+
+      !--- Horizontal velocity uh and duh/dr + (grad T)**2
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2) &
+      !$omp& map(tofrom: uhAS,duhAS,gradsAS)                &
+      !$omp& private(uh, duh, grads, nelem)                 &
+      !$omp& reduction(+:uhAS,duhAS,gradsAS)
+#else
+      !$omp parallel do default(shared)                   &
+      !$omp& private(nTheta, nPhi, uh, duh, grads, nelem) &
+      !$omp& reduction(+:uhAS,duhAS,gradsAS)
+#endif
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem = radlatlon2spat(nTheta,nPhi,nR)
+            uh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(     &
+            &             vt(nelem)*vt(nelem)+vp(nelem)*vp(nelem)  )
+            duh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(                     &
+            &   dvtdr(nelem)*vt(nelem)-(or1(nR)+beta(nR))*vt(nelem)*vt(nelem)+ &
+            &   dvpdr(nelem)*vp(nelem)-(or1(nR)+beta(nR))*vp(nelem)*vp(nelem) )
+
+            grads = dsdr(nelem)*dsdr(nelem)+or2(nR)*O_sin_theta_E2(nTheta)*(  &
+            &       dsdt(nelem)*dsdt(nelem)+dsdp(nelem)*dsdp(nelem) )
+
+            uhAS=uhAS+phiNorm*gauss(nTheta)*sqrt(uh)
+            if (uh /= 0.0_cp) then
+               duhAS=duhAS+phiNorm*gauss(nTheta)*abs(duh)/sqrt(uh)
+            end if
+            gradsAS=gradsAS+phiNorm*gauss(nTheta)*grads
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+      uhASr(nR)    =uhAS
+      duhASr(nR)   =duhAS
+      gradT2ASr(nR)=gradsAS
+
+   end subroutine get_nlBLayers
+!----------------------------------------------------------------------------
+   subroutine get_perpPar(vr,vt,vp,nR)
+      !
+      !   This subroutine calculates the energies parallel and perpendicular
+      !   to the rotation axis
+      !
+      !     * :math:`E_\perp = 0.5 (v_s^2+v_\phi^2)` with
+      !       :math:`v_s= v_r\sin\theta+v_\theta\cos\theta`
+      !     * :math:`E_\parallel  = 0.5v_z^2` with
+      !       :math:`v_z= v_r\cos\theta-v_\theta*\sin\theta`
+      !
+
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
+
+      !-- Local variables:
+      real(cp) :: vras(n_theta_max),vtas(n_theta_max),vpas(n_theta_max),phiNorm
+      real(cp) :: Eperp,Epar,Eperpaxi,Eparaxi
+      real(cp) :: EperpAS,EparAS,EperpaxiAS,EparaxiAS
+      integer :: nTheta,nPhi,nelem
+
+      phiNorm=one/real(n_phi_max,cp)
+      EperpAS   =0.0_cp
+      EparAS    =0.0_cp
+      EperpaxiAS=0.0_cp
+      EparaxiAS =0.0_cp
+      vras(:)   =0.0_cp
+      vtas(:)   =0.0_cp
+      vpas(:)   =0.0_cp
+
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(to: vras, vtas, vpas)
+      !$omp target teams distribute parallel do collapse(2) reduction(+:vras, vtas, vpas)
+#endif
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem = radlatlon2spat(nTheta,nPhi,nR)
+            vras(nTheta)=vras(nTheta)+vr(nelem)
+            vtas(nTheta)=vtas(nTheta)+vt(nelem)
+            vpas(nTheta)=vpas(nTheta)+vp(nelem)
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
+      do nTheta=1,n_theta_max
+         vras(nTheta)=vras(nTheta)*phiNorm
+         vtas(nTheta)=vtas(nTheta)*phiNorm
+         vpas(nTheta)=vpas(nTheta)*phiNorm
+      end do
+      !$omp end target teams distribute parallel do
+#else
+      vras(:)=vras(:)*phiNorm
+      vtas(:)=vtas(:)*phiNorm
+      vpas(:)=vpas(:)*phiNorm
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)   &
+      !$omp& map(tofrom: EparAS,EperpAS,EparaxiAS,EperpaxiAS) &
+      !$omp& private(Eperp, Epar, Eperpaxi, Eparaxi, nelem)   &
+      !$omp& reduction(+:EparAS,EperpAS,EparaxiAS,EperpaxiAS)
+#else
+      !$omp parallel do default(shared)                 &
+      !$omp& private(nTheta,nPhi,nelem)                 &
+      !$omp& private(Eperp, Epar, Eperpaxi, Eparaxi)    &
+      !$omp& reduction(+:EparAS,EperpAS,EparaxiAS,EperpaxiAS)
+#endif
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem = radlatlon2spat(nTheta,nPhi,nR)
+
+            Eperp=half*or2(nR)*orho2(nR)*(                             &
+            &       or2(nR)*sinTheta_E2(nTheta)* vr(nelem)*vr(nelem) + &
+            &       (O_sin_theta_E2(nTheta)-one)*vt(nelem)*vt(nelem) + &
+            &       two*or1(nR)*cosTheta(nTheta)*vr(nelem)*vt(nelem) + &
+            &       O_sin_theta_E2(nTheta)*      vp(nelem)*vp(nelem) )
+
+            Epar =half*or2(nR)*orho2(nR)*(or2(nR)*(one-sinTheta_E2(nTheta))* &
+            &                                          vr(nelem)*vr(nelem) + &
+            &                                          vt(nelem)*vt(nelem) - &
+            &             two*or1(nR)*cosTheta(nTheta)*vr(nelem)*vt(nelem) )
+
+            Eperpaxi=half*or2(nR)*orho2(nR)*(     or2(nR)*sinTheta_E2(nTheta)* &
+            &                                      vras(nTheta)*vras(nTheta) + &
+            &         (O_sin_theta_E2(nTheta)-one)*vtas(nTheta)*vtas(nTheta) + &
+            &         two*or1(nR)*cosTheta(nTheta)*vras(nTheta)*vtas(nTheta) + &
+            &         O_sin_theta_E2(nTheta)*      vpas(nTheta)*vpas(nTheta) )
+
+            Eparaxi =half*or2(nR)*orho2(nR)*(or2(nR)*(one-sinTheta_E2(nTheta))*&
+            &                                      vras(nTheta)*vras(nTheta) + &
+            &                                      vtas(nTheta)*vtas(nTheta) - &
+            &         two*or1(nR)*cosTheta(nTheta)*vras(nTheta)*vtas(nTheta) )
+
+            EperpAS   =   EperpAS+phiNorm*gauss(nTheta)*Eperp
+            EparAS    =    EparAS+phiNorm*gauss(nTheta)*Epar
+            EperpaxiAS=EperpaxiAS+phiNorm*gauss(nTheta)*Eperpaxi
+            EparaxiAS = EparaxiAS+phiNorm*gauss(nTheta)*Eparaxi
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+      !$omp target exit data map(delete: vras, vtas, vpas)
+#else
+      !$omp end parallel do
+#endif
+
+      EperpASr(nR)   =EperpAS
+      EparASr(nR)    =EparAS
+      EperpaxiASr(nR)=EperpaxiAS
+      EparaxiASr(nR) =EparaxiAS
+
+   end subroutine get_perpPar
+
+   subroutine get_fluxes_batch(vr,vt,vp,dvrdr,dvtdr,dvpdr,dvrdt,dvrdp,sr,pr,br,bt, &
+              &          bp,cbt,cbp,nR)
+      !
+      !   This routine computes the various contribution to heat fluxes:
+      !
+      !     * Convective flux: :math:`F_c= \rho T (u_r s)`
+      !     * Kinetic flux: :math:`F_k = 1/2\,\rho u_r (u_r^2+u_\theta^2+u_\phi^2)`
+      !     * Viscous flux: :math:`F_= -(u \cdot S )_r`)
+      !
+      !   If the run is magnetic, then this routine also computes:
+      !
+      !     * Poynting flux
+      !     * Resistive flux
+      !
+
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(:,:,:),vt(:,:,:),vp(:,:,:)
+      real(cp), intent(in) :: dvrdr(:,:,:),dvtdr(:,:,:),dvpdr(:,:,:)
+      real(cp), intent(in) :: dvrdt(:,:,:),dvrdp(:,:,:)
+      real(cp), intent(in) :: sr(:,:,:),pr(:,:,:)
+      real(cp), intent(in) :: br(:,:,:),bt(:,:,:),bp(:,:,:)
+      real(cp), intent(in) :: cbt(:,:,:),cbp(:,:,:)
+
+      !-- Local variables:
+      real(cp) :: fkinAS,fconvAS,fviscAS,fresAS,fpoynAS
+      real(cp) :: fkin,fconv,phiNorm,fvisc,fpoyn,fres
+      integer :: nTheta,nPhi,nelem
+
+      phiNorm=two*pi/real(n_phi_max,cp)
+
+      fkinAS =0.0_cp
+      fconvAS=0.0_cp
+      fviscAS=0.0_cp
+      fvisc  =0.0_cp
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2) &
+      !$omp& private(nelem, fconv, fkin, fvisc)             &
+      !$omp& map(tofrom: fkinAS,fconvAS,fviscAS) reduction(+:fkinAS,fconvAS,fviscAS)
+#else
+      !$omp parallel do default(shared)                       &
+      !$omp& private(nTheta, nPhi, nelem, fconv, fkin, fvisc) &
+      !$omp& reduction(+:fkinAS,fconvAS,fviscAS)
+#endif
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem = radlatlon2spat(nTheta,nPhi,nR)
+            if ( l_anelastic_liquid ) then
+               fconv=vr(nelem)*sr(nelem)
+            else
+               fconv=temp0(nr)*vr(nelem)*sr(nelem)     +            &
+               &          ViscHeatFac*ThExpNb*alpha0(nr)*temp0(nr)* &
+               &          orho1(nr)*vr(nelem)*pr(nelem)
+            end if
+
+            fkin=half*or2(nR)*orho2(nR)*(O_sin_theta_E2(nTheta)*(  &
+            &    vt(nelem)*vt(nelem) + vp(nelem)*vp(nelem) )+      &
+            &    or2(nR)*vr(nelem)*vr(nelem) )*vr(nelem)
+
+            if ( nR/=n_r_icb .and. nR/=n_r_cmb ) then
+               fvisc=-two*visc(nR)*orho1(nR)*vr(nelem)*or2(nR)* (     &
+               &                             dvrdr(nelem)             &
+               & -(two*or1(nR)+two*third*beta(nR))*vr(nelem) )-       &
+               &                       visc(nR)*orho1(nR)*vt(nelem)*  &
+               &                      O_sin_theta_E2(nTheta)* (       &
+               &                       or2(nR)*dvrdt(nelem)           &
+               &                              +dvtdr(nelem)           &
+               &       -(two*or1(nR)+beta(nR))*vt(nelem) )  -         &
+               &       visc(nR)*orho1(nR)*vp(nelem)*                  &
+               &                         O_sin_theta_E2(nTheta)* (    &
+               &                       or2(nR)*dvrdp(nelem)           &
+               &                              +dvpdr(nelem)           &
+               &       -(two*or1(nR)+beta(nR))*vp(nelem) )
+            else
+               fvisc=0.0_cp
+            end if
+
+            fkinAS = fkinAS+phiNorm*gauss(nTheta)*fkin
+            fconvAS=fconvAS+phiNorm*gauss(nTheta)*fconv
+            fviscAS=fviscAS+phiNorm*gauss(nTheta)*fvisc
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+      fkinASr(nR) =fkinAS
+      fconvASr(nR)=fconvAS
+      fviscASr(nR)=fviscAS
+
+      if ( l_mag_nl) then
+         fresAS =0.0_cp
+         fpoynAS=0.0_cp
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2) &
+         !$omp& private(nelem, fres, fpoyn)                    &
+         !$omp& map(tofrom: fresAS,fpoynAS) reduction(+:fresAS,fpoynAS)
+#else
+         !$omp parallel do default(shared)                  &
+         !$omp& private(nTheta, nPhi, nelem, fres, fpoyn)   &
+         !$omp& reduction(+:fresAS,fpoynAS)
+#endif
+         do nPhi=1,n_phi_max
+            do nTheta=1,n_theta_max
+               nelem = radlatlon2spat(nTheta,nPhi,nR)
+               fres =O_sin_theta_E2(nTheta)*(cbt(nelem)*bp(nelem)  - &
+               &                      cbp(nelem)*bt(nelem) )
+
+               fpoyn=-orho1(nR)*or2(nR)*O_sin_theta_E2(nTheta)*(   &
+               &                  vp(nelem)*br(nelem)*bp(nelem)  - &
+               &                  vr(nelem)*bp(nelem)*bp(nelem)  - &
+               &                  vr(nelem)*bt(nelem)*bt(nelem)  + &
+               &                  vt(nelem)*br(nelem)*bt(nelem) )
+
+               fresAS = fresAS+phiNorm*gauss(nTheta)*fres
+               fpoynAS=fpoynAS+phiNorm*gauss(nTheta)*fpoyn
+            end do
+         end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+         fpoynASr(nR)=fpoynAS
+         fresASr(nR) =fresAS
+      end if
+
+   end subroutine get_fluxes_batch
+!----------------------------------------------------------------------------
+   subroutine get_nlBLayers_batch(vt,vp,dvtdr,dvpdr,dsdr,dsdt,dsdp,nR)
+      !
+      !   This subroutine calculates the axisymmetric contributions of:
+      !
+      !     * the horizontal velocity :math:`u_h = \sqrt{u_\theta^2+u_\phi^2}`
+      !     * its radial derivative :math:`|\partial u_h/\partial r|`
+      !     * The thermal dissipation rate :math:`(\nabla T)^2`
+      !
+      !   This subroutine is used when one wants to evaluate viscous and thermal
+      !   dissipation layers
+      !
+
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vt(:,:,:),vp(:,:,:)
+      real(cp), intent(in) :: dvtdr(:,:,:),dvpdr(:,:,:)
+      real(cp), intent(in) :: dsdr(:,:,:),dsdt(:,:,:),dsdp(:,:,:)
+
+      !-- Local variables:
+      real(cp):: uhAS,duhAS,gradsAS,uh,duh,phiNorm,grads
+      integer :: nTheta,nPhi,nelem
+
+      phiNorm=one/real(n_phi_max,cp)
+      uhAS   =0.0_cp
+      duhAS  =0.0_cp
+      gradsAS=0.0_cp
+
+      !--- Horizontal velocity uh and duh/dr + (grad T)**2
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2) &
+      !$omp& map(tofrom: uhAS,duhAS,gradsAS)                &
+      !$omp& private(uh, duh, grads, nelem)                 &
+      !$omp& reduction(+:uhAS,duhAS,gradsAS)
+#else
+      !$omp parallel do default(shared)                   &
+      !$omp& private(nTheta, nPhi, uh, duh, grads, nelem) &
+      !$omp& reduction(+:uhAS,duhAS,gradsAS)
+#endif
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem = radlatlon2spat(nTheta,nPhi,nR)
+            uh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(     &
+            &             vt(nelem)*vt(nelem)+vp(nelem)*vp(nelem)  )
+            duh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(                     &
+            &   dvtdr(nelem)*vt(nelem)-(or1(nR)+beta(nR))*vt(nelem)*vt(nelem)+ &
+            &   dvpdr(nelem)*vp(nelem)-(or1(nR)+beta(nR))*vp(nelem)*vp(nelem) )
+
+            grads = dsdr(nelem)*dsdr(nelem)+or2(nR)*O_sin_theta_E2(nTheta)*(  &
+            &       dsdt(nelem)*dsdt(nelem)+dsdp(nelem)*dsdp(nelem) )
+
+            uhAS=uhAS+phiNorm*gauss(nTheta)*sqrt(uh)
+            if (uh /= 0.0_cp) then
+               duhAS=duhAS+phiNorm*gauss(nTheta)*abs(duh)/sqrt(uh)
+            end if
+            gradsAS=gradsAS+phiNorm*gauss(nTheta)*grads
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+      uhASr(nR)    =uhAS
+      duhASr(nR)   =duhAS
+      gradT2ASr(nR)=gradsAS
+
+   end subroutine get_nlBLayers_batch
+!----------------------------------------------------------------------------
+   subroutine get_perpPar_batch(vr,vt,vp,nR)
+      !
+      !   This subroutine calculates the energies parallel and perpendicular
+      !   to the rotation axis
+      !
+      !     * :math:`E_\perp = 0.5 (v_s^2+v_\phi^2)` with
+      !       :math:`v_s= v_r\sin\theta+v_\theta\cos\theta`
+      !     * :math:`E_\parallel  = 0.5v_z^2` with
+      !       :math:`v_z= v_r\cos\theta-v_\theta*\sin\theta`
+      !
+
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(:,:,:),vt(:,:,:),vp(:,:,:)
+
+      !-- Local variables:
+      real(cp) :: vras(n_theta_max),vtas(n_theta_max),vpas(n_theta_max),phiNorm
+      real(cp) :: Eperp,Epar,Eperpaxi,Eparaxi
+      real(cp) :: EperpAS,EparAS,EperpaxiAS,EparaxiAS
+      integer :: nTheta,nPhi,nelem
+
+      phiNorm=one/real(n_phi_max,cp)
+      EperpAS   =0.0_cp
+      EparAS    =0.0_cp
+      EperpaxiAS=0.0_cp
+      EparaxiAS =0.0_cp
+      vras(:)   =0.0_cp
+      vtas(:)   =0.0_cp
+      vpas(:)   =0.0_cp
+
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(to: vras, vtas, vpas)
+      !$omp target teams distribute parallel do collapse(2) reduction(+:vras, vtas, vpas)
+#endif
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem = radlatlon2spat(nTheta,nPhi,nR)
+            vras(nTheta)=vras(nTheta)+vr(nelem)
+            vtas(nTheta)=vtas(nTheta)+vt(nelem)
+            vpas(nTheta)=vpas(nTheta)+vp(nelem)
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
+      do nTheta=1,n_theta_max
+         vras(nTheta)=vras(nTheta)*phiNorm
+         vtas(nTheta)=vtas(nTheta)*phiNorm
+         vpas(nTheta)=vpas(nTheta)*phiNorm
+      end do
+      !$omp end target teams distribute parallel do
+#else
+      vras(:)=vras(:)*phiNorm
+      vtas(:)=vtas(:)*phiNorm
+      vpas(:)=vpas(:)*phiNorm
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)   &
+      !$omp& map(tofrom: EparAS,EperpAS,EparaxiAS,EperpaxiAS) &
+      !$omp& private(Eperp, Epar, Eperpaxi, Eparaxi, nelem)   &
+      !$omp& reduction(+:EparAS,EperpAS,EparaxiAS,EperpaxiAS)
+#else
+      !$omp parallel do default(shared)                 &
+      !$omp& private(nTheta,nPhi,nelem)                 &
+      !$omp& private(Eperp, Epar, Eperpaxi, Eparaxi)    &
+      !$omp& reduction(+:EparAS,EperpAS,EparaxiAS,EperpaxiAS)
+#endif
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem = radlatlon2spat(nTheta,nPhi,nR)
+
+            Eperp=half*or2(nR)*orho2(nR)*(                             &
+            &       or2(nR)*sinTheta_E2(nTheta)* vr(nelem)*vr(nelem) + &
+            &       (O_sin_theta_E2(nTheta)-one)*vt(nelem)*vt(nelem) + &
+            &       two*or1(nR)*cosTheta(nTheta)*vr(nelem)*vt(nelem) + &
+            &       O_sin_theta_E2(nTheta)*      vp(nelem)*vp(nelem) )
+
+            Epar =half*or2(nR)*orho2(nR)*(or2(nR)*(one-sinTheta_E2(nTheta))* &
+            &                                          vr(nelem)*vr(nelem) + &
+            &                                          vt(nelem)*vt(nelem) - &
+            &             two*or1(nR)*cosTheta(nTheta)*vr(nelem)*vt(nelem) )
+
+            Eperpaxi=half*or2(nR)*orho2(nR)*(     or2(nR)*sinTheta_E2(nTheta)* &
+            &                                      vras(nTheta)*vras(nTheta) + &
+            &         (O_sin_theta_E2(nTheta)-one)*vtas(nTheta)*vtas(nTheta) + &
+            &         two*or1(nR)*cosTheta(nTheta)*vras(nTheta)*vtas(nTheta) + &
+            &         O_sin_theta_E2(nTheta)*      vpas(nTheta)*vpas(nTheta) )
+
+            Eparaxi =half*or2(nR)*orho2(nR)*(or2(nR)*(one-sinTheta_E2(nTheta))*&
+            &                                      vras(nTheta)*vras(nTheta) + &
+            &                                      vtas(nTheta)*vtas(nTheta) - &
+            &         two*or1(nR)*cosTheta(nTheta)*vras(nTheta)*vtas(nTheta) )
+
+            EperpAS   =   EperpAS+phiNorm*gauss(nTheta)*Eperp
+            EparAS    =    EparAS+phiNorm*gauss(nTheta)*Epar
+            EperpaxiAS=EperpaxiAS+phiNorm*gauss(nTheta)*Eperpaxi
+            EparaxiAS = EparaxiAS+phiNorm*gauss(nTheta)*Eparaxi
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+      !$omp target exit data map(delete: vras, vtas, vpas)
+#else
+      !$omp end parallel do
+#endif
+
+      EperpASr(nR)   =EperpAS
+      EparASr(nR)    =EparAS
+      EperpaxiASr(nR)=EperpaxiAS
+      EparaxiASr(nR) =EparaxiAS
+
+   end subroutine get_perpPar_batch
+#endif
 !----------------------------------------------------------------------------
 end module outPar_mod
