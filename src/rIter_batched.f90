@@ -40,11 +40,19 @@ module rIter_batched_mod
    use dtB_arrays_mod, only: dtB_arrays_t
    use torsional_oscillations, only: prep_TO_axi, getTO, getTOnext, getTOfinish
 #ifdef WITH_MPI
+#ifdef WITH_OMP_GPU
+   use graphOut_mod, only: graphOut_mpi_batch, graphOut_mpi_header
+#else
    use graphOut_mod, only: graphOut_mpi, graphOut_mpi_header
+#endif
 #else
    use graphOut_mod, only: graphOut, graphOut_header
 #endif
+#ifdef WITH_OMP_GPU
+   use dtB_mod, only: get_dtBLM_batch, get_dH_dtBLM
+#else
    use dtB_mod, only: get_dtBLM, get_dH_dtBLM
+#endif
    use out_movie, only: store_movie_frame
 #ifdef WITH_OMP_GPU
    use outRot, only: get_lorentz_torque_batch
@@ -57,9 +65,21 @@ module rIter_batched_mod
 #else
    use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary
 #endif
+#ifdef WITH_OMP_GPU
+   use power, only: get_visc_heat_batch
+#else
    use power, only: get_visc_heat
+#endif
+#ifdef WITH_OMP_GPU
+   use outMisc_mod, only: get_ekin_solid_liquid_batch, get_helicity_batch, get_hemi_batch
+#else
    use outMisc_mod, only: get_ekin_solid_liquid, get_hemi, get_helicity
+#endif
+#ifdef WITH_OMP_GPU
+   use outPar_mod, only: get_fluxes_batch, get_nlBlayers_batch, get_perpPar_batch
+#else
    use outPar_mod, only: get_fluxes, get_nlBlayers, get_perpPar
+#endif
 #ifdef WITH_OMP_GPU
    use geos, only: calcGeos_batch
 #else
@@ -289,11 +309,19 @@ contains
 
          !-- Get nl loop for r.m.s. computation
          if ( l_RMS ) then
+#ifdef WITH_OMP_GPU
             call get_nl_RMS_batch(1,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%dvrdrc, &
                  &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%dvtdrc,          &
                  &          this%gsa%dvtdpc,this%gsa%dvpdrc,this%gsa%dvpdpc,          &
                  &          this%gsa%cvrc,this%gsa%Advt,this%gsa%Advp,this%gsa%LFt,   &
                  &          this%gsa%LFp,tscheme,lRmsCalc)
+#else
+            call get_nl_RMS(1,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%dvrdrc, &
+                 &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%dvtdrc,          &
+                 &          this%gsa%dvtdpc,this%gsa%dvpdrc,this%gsa%dvpdpc,          &
+                 &          this%gsa%cvrc,this%gsa%Advt,this%gsa%Advp,this%gsa%LFt,   &
+                 &          this%gsa%LFp,tscheme,lRmsCalc)
+#endif
          end if
 
          !--------- Calculate courant condition parameters:
@@ -411,10 +439,17 @@ contains
          !          point for graphical output:
          if ( l_graph ) then
 #ifdef WITH_MPI
+#ifdef WITH_OMP_GPU
+            call graphOut_mpi_batch(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
+                 &                  this%gsa%brc,this%gsa%btc,this%gsa%bpc,    &
+                 &                  this%gsa%sc,this%gsa%pc,this%gsa%xic,      &
+                 &                  this%gsa%phic)
+#else
             call graphOut_mpi(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
                  &            this%gsa%brc,this%gsa%btc,this%gsa%bpc,    &
                  &            this%gsa%sc,this%gsa%pc,this%gsa%xic,      &
                  &            this%gsa%phic)
+#endif
 #else
             call graphOut(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,     &
                  &        this%gsa%brc,this%gsa%btc,this%gsa%bpc,        &
@@ -429,26 +464,61 @@ contains
 
          !--------- Helicity output:
          if ( lHelCalc ) then
+#ifdef WITH_OMP_GPU
+            call get_helicity_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
+                 &                  this%gsa%cvrc,this%gsa%dvrdtc,this%gsa%dvrdpc,  &
+                 &                  this%gsa%dvtdrc,this%gsa%dvpdrc,nR)
+#else
             call get_helicity(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
                  &            this%gsa%cvrc,this%gsa%dvrdtc,this%gsa%dvrdpc,  &
                  &            this%gsa%dvtdrc,this%gsa%dvpdrc,nR)
+#endif
          end if
 
 
          !-- North/South hemisphere differences
          if ( lHemiCalc ) then
+#ifdef WITH_OMP_GPU
+            call get_hemi_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,nR,'V')
+            if ( l_mag ) call get_hemi_batch(this%gsa%brc,this%gsa%btc,this%gsa%bpc,nR,'B')
+#else
             call get_hemi(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,nR,'V')
             if ( l_mag ) call get_hemi(this%gsa%brc,this%gsa%btc,this%gsa%bpc,nR,'B')
+#endif
          end if
 
          !-- Viscous heating:
          if ( lPowerCalc ) then
+#ifdef WITH_OMP_GPU
+            call get_visc_heat_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,          &
+                 &                   this%gsa%cvrc,this%gsa%dvrdrc,this%gsa%dvrdtc,   &
+                 &                   this%gsa%dvrdpc,this%gsa%dvtdrc,this%gsa%dvtdpc, &
+                 &                   this%gsa%dvpdrc,this%gsa%dvpdpc,nR)
+#else
             call get_visc_heat(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,          &
                  &             this%gsa%cvrc,this%gsa%dvrdrc,this%gsa%dvrdtc,   &
                  &             this%gsa%dvrdpc,this%gsa%dvtdrc,this%gsa%dvtdpc, &
                  &             this%gsa%dvpdrc,this%gsa%dvpdpc,nR)
+#endif
          end if
 
+#ifdef WITH_OMP_GPU
+         !-- horizontal velocity :
+         if ( lViscBcCalc ) then
+            call get_nlBlayers_batch(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,    &
+                 &                   this%gsa%dvpdrc,this%gsa%drSc,this%gsa%dsdtc, &
+                 &                   this%gsa%dsdpc,nR)
+         end if
+
+         !-- Radial flux profiles
+         if ( lFluxProfCalc ) then
+            call get_fluxes_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,            &
+                 &                this%gsa%dvrdrc,this%gsa%dvtdrc,this%gsa%dvpdrc,   &
+                 &                this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%sc,       &
+                 &                this%gsa%pc,this%gsa%brc,this%gsa%btc,this%gsa%bpc,&
+                 &                this%gsa%cbtc,this%gsa%cbpc,nR)
+         end if
+#else
          !-- horizontal velocity :
          if ( lViscBcCalc ) then
             call get_nlBLayers(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,    &
@@ -464,17 +534,30 @@ contains
                  &          this%gsa%pc,this%gsa%brc,this%gsa%btc,this%gsa%bpc,&
                  &          this%gsa%cbtc,this%gsa%cbpc,nR)
          end if
+#endif
 
          !-- Kinetic energy in the solid and liquid phases
          if ( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+            call get_ekin_solid_liquid_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
+                 &                           this%gsa%phic,nR)
+#else
             call get_ekin_solid_liquid(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
                  &                     this%gsa%phic,nR)
+#endif
          end if
 
+#ifdef WITH_OMP_GPU
+         !-- Kinetic energy parallel and perpendicular to rotation axis
+         if ( lPerpParCalc ) then
+            call get_perpPar_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,nR)
+         end if
+#else
          !-- Kinetic energy parallel and perpendicular to rotation axis
          if ( lPerpParCalc ) then
             call get_perpPar(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,nR)
          end if
+#endif
 
          !-- Geostrophic/non-geostrophic flow components
 #ifdef WITH_OMP_GPU
@@ -496,7 +579,7 @@ contains
                  &                 this%gsa%sc,this%gsa%drSc,this%gsa%xic,         &
                  &                 this%gsa%phic,this%gsa%dvrdpc,                  &
                  &                 this%gsa%dvpdrc,this%gsa%dvtdrc,this%gsa%dvrdtc,&
-                 &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc)
+                 &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc) !-- Keep on CPU
          end if
 
          !--------- Stuff for special output:
@@ -505,7 +588,17 @@ contains
          if ( l_dtB ) then
 #ifdef WITH_OMP_GPU
             !$omp target update to(this%dtB_arrays)
-#endif
+            call get_dtBLM_batch(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,       &
+                 &               this%gsa%brc,this%gsa%btc,this%gsa%bpc,          &
+                 &               this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,   &
+                 &               this%dtB_arrays%BrVtLM,this%dtB_arrays%BrVpLM,   &
+                 &               this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,   &
+                 &               this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,   &
+                 &               this%dtB_arrays%BpVtBtVpCotLM,                   &
+                 &               this%dtB_arrays%BpVtBtVpSn2LM,                   &
+                 &               this%dtB_arrays%BtVZsn2LM)
+            !$omp target update from(this%dtB_arrays)
+#else
             call get_dtBLM(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,       &
                  &         this%gsa%brc,this%gsa%btc,this%gsa%bpc,          &
                  &         this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,   &
@@ -515,8 +608,6 @@ contains
                  &         this%dtB_arrays%BpVtBtVpCotLM,                   &
                  &         this%dtB_arrays%BpVtBtVpSn2LM,                   &
                  &         this%dtB_arrays%BtVZsn2LM)
-#ifdef WITH_OMP_GPU
-            !$omp target update from(this%dtB_arrays)
 #endif
          end if
 
@@ -524,7 +615,7 @@ contains
          !--------- Torsional oscillation terms:
          if ( lTONext .or. lTONext2 ) then
             call getTOnext(this%gsa%brc,this%gsa%btc,this%gsa%bpc,lTONext, &
-                 &         lTONext2,tscheme%dt(1),dtLast,nR)
+                 &         lTONext2,tscheme%dt(1),dtLast,nR) !-- Keep on CPU
          end if
 
          if ( lTOCalc ) then
@@ -532,7 +623,7 @@ contains
                  &     this%gsa%dvpdrc,this%gsa%brc,this%gsa%btc,this%gsa%bpc, &
                  &     this%gsa%cbrc,this%gsa%cbtc,this%TO_arrays%dzRstrLM,    &
                  &     this%TO_arrays%dzAstrLM,this%TO_arrays%dzCorLM,         &
-                 &     this%TO_arrays%dzLFLM,dtLast,nR)
+                 &     this%TO_arrays%dzLFLM,dtLast,nR) !-- Keep on CPU
          end if
 
          !-- Partial calculation of time derivatives (horizontal parts):
@@ -591,7 +682,7 @@ contains
          if ( lTOcalc ) then
             call getTOfinish(nR, dtLast, this%TO_arrays%dzRstrLM,             &
                  &           this%TO_arrays%dzAstrLM, this%TO_arrays%dzCorLM, &
-                 &           this%TO_arrays%dzLFLM)
+                 &           this%TO_arrays%dzLFLM) !-- Keep on CPU
          end if
 
          !--- Form partial horizontal derivaties of magnetic production and
