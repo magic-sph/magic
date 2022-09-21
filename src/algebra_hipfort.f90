@@ -102,7 +102,11 @@ contains
 
       !--
       allocate(dWork_i(size_work_bytes_i), dWork_r(size_work_bytes_r), devInfo(1))
+      dWork_i(:) = 0.0_cp
+      dWork_r(:) = 0.0_cp
+      devInfo(1) = 0
       !$omp target enter data map(alloc : dWork_i, dWork_r, devInfo)
+      !$omp target update to(dWork_i, dWork_r, devInfo)
 
       !--
       !$omp target data use_device_addr(a, pivot, tmpr, tmpi, devInfo, dWork_i, dWork_r)
@@ -130,7 +134,11 @@ contains
 
       !--
       allocate(dWork_i(size_work_bytes_i), dWork_r(size_work_bytes_r), devInfo(1))
+      dWork_i(:) = 0.0_cp
+      dWork_r(:) = 0.0_cp
+      devInfo(1) = 0
       !$omp target enter data map(alloc : dWork_i, dWork_r, devInfo)
+      !$omp target update to(dWork_i, dWork_r, devInfo)
 
       !-- TODO: Replace these two call by a single to hipsolverZgetrs direcly on input complex rhs
       !$omp target data use_device_addr(a, pivot, tmpr, tmpi, devInfo, dWork_i, dWork_r)
@@ -194,7 +202,10 @@ contains
 
       !--
       allocate(dWork(size_work_bytes), devInfo(1))
+      dWork(:) = 0.0_cp
+      devInfo(1) = 0
       !$omp target enter data map(alloc : dWork, devInfo)
+      !$omp target update to(dWork, devInfo)
 
       !--
       !$omp target data use_device_addr(a, pivot, rhs, dWork, devInfo)
@@ -213,7 +224,10 @@ contains
 
       !--
       allocate(dWork(size_work_bytes), devInfo(1))
+      dWork(:) = 0.0_cp
+      devInfo(1) = 0
       !$omp target enter data map(alloc : dWork, devInfo)
+      !$omp target update to(dWork, devInfo)
 
       !--
       !$omp target data use_device_addr(a, pivot, rhs, dWork, devInfo)
@@ -265,7 +279,10 @@ contains
 
       !--
       allocate(dWork(size_work_bytes), devInfo(1))
+      dWork(:) = 0.0_cp
+      devInfo(1) = 0
       !$omp target enter data map(alloc : dWork, devInfo)
+      !$omp target update to(dWork, devInfo)
 
       !--
       !$omp target data use_device_addr(a, pivot, rhs, devInfo, dWork)
@@ -284,7 +301,10 @@ contains
 
       !--
       allocate(dWork(size_work_bytes), devInfo(1))
+      dWork(:) = 0.0_cp
+      devInfo(1) = 0
       !$omp target enter data map(alloc : dWork, devInfo)
+      !$omp target update to(dWork, devInfo)
 
       !--
       !$omp target data use_device_addr(a, pivot, rhs, devInfo, dWork)
@@ -337,7 +357,10 @@ contains
       !$omp end target data
 
       allocate(dWork(size_work_bytes), devInfo(1))
+      dWork(:) = 0.0_cp
+      devInfo(1) = 0
       !$omp target enter data map(alloc : dWork, devInfo)
+      !$omp target update to(devInfo, dWork)
 
       !$omp target data use_device_addr(a, dWork, pivot, devInfo)
       call hipsolverCheck(hipsolverSgetrf(handle, n, n, c_loc(a(1:n,1:n)), n, c_loc(dWork), &
@@ -355,9 +378,10 @@ contains
       !$omp end target data
 
       allocate(dWork(size_work_bytes), devInfo(1))
+      dWork(:) = 0.0_cp
       devInfo(1) = 0
       !$omp target enter data map(alloc : dWork, devInfo)
-      !$omp target update to(devInfo)
+      !$omp target update to(devInfo, dWork)
 
       !$omp target data use_device_addr(a, dWork, pivot, devInfo)
       call hipsolverCheck(hipsolverDgetrf(handle, n, n, c_loc(a(1:n,1:n)), n, c_loc(dWork), &
