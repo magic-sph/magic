@@ -377,7 +377,7 @@ contains
          end if
 
          if ( l_probe_out ) then
-            call probe_out(time, nR, this%gsa%vpc, this%gsa%brc, this%gsa%btc)
+            call probe_out(time, nR, this%gsa%vpc, this%gsa%brc, this%gsa%btc) !-- Keep on CPU
          end if
 
          !--------- Helicity output:
@@ -441,7 +441,7 @@ contains
                  &                 this%gsa%sc,this%gsa%drSc,this%gsa%xic,         &
                  &                 this%gsa%phic,this%gsa%dvrdpc,                  &
                  &                 this%gsa%dvpdrc,this%gsa%dvtdrc,this%gsa%dvrdtc,&
-                 &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc)
+                 &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc) !-- Keep on CPU
          end if
 
          !--------- Stuff for special output:
@@ -469,7 +469,7 @@ contains
          !--------- Torsional oscillation terms:
          if ( lTONext .or. lTONext2 ) then
             call getTOnext(this%gsa%brc,this%gsa%btc,this%gsa%bpc,lTONext, &
-                 &         lTONext2,tscheme%dt(1),dtLast,nR)
+                 &         lTONext2,tscheme%dt(1),dtLast,nR) !-- Keep on CPU
          end if
 
          if ( lTOCalc ) then
@@ -477,7 +477,7 @@ contains
                  &     this%gsa%dvpdrc,this%gsa%brc,this%gsa%btc,this%gsa%bpc, &
                  &     this%gsa%cbrc,this%gsa%cbtc,this%TO_arrays%dzRstrLM,    &
                  &     this%TO_arrays%dzAstrLM,this%TO_arrays%dzCorLM,         &
-                 &     this%TO_arrays%dzLFLM,dtLast,nR)
+                 &     this%TO_arrays%dzLFLM,dtLast,nR) !-- Keep on CPU
          end if
 
          !-- Partial calculation of time derivatives (horizontal parts):
@@ -513,7 +513,7 @@ contains
          if ( lTOcalc ) then
             call getTOfinish(nR, dtLast, this%TO_arrays%dzRstrLM,             &
                  &           this%TO_arrays%dzAstrLM, this%TO_arrays%dzCorLM, &
-                 &           this%TO_arrays%dzLFLM)
+                 &           this%TO_arrays%dzLFLM) !-- Keep on CPU
          end if
 
          !--- Form partial horizontal derivaties of magnetic production and
