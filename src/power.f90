@@ -40,8 +40,13 @@ module power
    integer :: n_power_file, n_calls
    character(len=72) :: power_file
 
+#ifdef WITH_OMP_GPU
+   public :: initialize_output_power, get_power, finalize_output_power, &
+   &         get_visc_heat, get_visc_heat_batch
+#else
    public :: initialize_output_power, get_power, finalize_output_power, &
    &         get_visc_heat
+#endif
 
 contains
 
@@ -382,6 +387,142 @@ contains
 
   end subroutine get_power
 !----------------------------------------------------------------------------
+#ifdef WITH_OMP_GPU
+   !-- TODO: Need to duplicate this routine since CRAY CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
+   !-- support OpenMP construct Assumed size arrays
+   subroutine get_visc_heat(vr,vt,vp,cvr,dvrdr,dvrdt,dvrdp,dvtdr,&
+              &             dvtdp,dvpdr,dvpdp,nR)
+      !
+      !   Calculates axisymmetric contributions of the viscous heating
+      !
+      !
+
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:),cvr(:,:)
+      real(cp), intent(in) :: dvrdr(:,:),dvrdt(:,:),dvrdp(:,:)
+      real(cp), intent(in) :: dvtdr(:,:),dvtdp(:,:)
+      real(cp), intent(in) :: dvpdr(:,:),dvpdp(:,:)
+
+      !-- Local variables:
+      integer :: nTheta,nPhi,nelem
+      real(cp) :: vischeat,csn2,phiNorm,viscAS
+
+      phiNorm=two*pi/real(n_phi_max,cp)
+      viscAS=0.0_cp
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2) &
+      !$omp& map(tofrom: viscAS)                            &
+      !$omp& private(csn2, nelem,vischeat)   &
+      !$omp& reduction(+:viscAS)
+#else
+      !$omp parallel do default(shared)               &
+      !$omp& private(nTheta,nelem,csn2,nPhi,vischeat) &
+      !$omp& reduction(+:viscAS)
+#endif
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem=radlatlon2spat(nTheta,nPhi,nR)
+            csn2     =cosn_theta_E2(nTheta)
+
+            vischeat=       or2(nR)*orho1(nR)*visc(nR)*(  &
+            &     two*(                    dvrdr(nelem) - & ! (1)
+            &    (two*or1(nR)+beta(nR))*vr(nelem) )**2  + &
+            &     two*( csn2*                 vt(nelem) + &
+            &                              dvpdp(nelem) + &
+            &                              dvrdr(nelem) - & ! (2)
+            &     or1(nR)*              vr(nelem) )**2  + &
+            &     two*(                    dvpdp(nelem) + &
+            &           csn2*                 vt(nelem) + & ! (3)
+            &     or1(nR)*              vr(nelem) )**2  + &
+            &          ( two*              dvtdp(nelem) + &
+            &                                cvr(nelem) - & ! (6)
+            &      two*csn2*            vp(nelem) )**2  + &
+            &                  O_sin_theta_E2(nTheta) * ( &
+            &         ( r(nR)*             dvtdr(nelem) - &
+            &          (two+beta(nR)*r(nR))*  vt(nelem) + & ! (4)
+            &     or1(nR)*           dvrdt(nelem) )**2  + &
+            &         ( r(nR)*             dvpdr(nelem) - &
+            &          (two+beta(nR)*r(nR))*  vp(nelem) + & ! (5)
+            &    or1(nR)*            dvrdp(nelem) )**2 )- &
+            &    two*third*(  beta(nR)*     vr(nelem) )**2 )
+
+            viscAS=viscAS+phiNorm*gauss(nTheta)*viscHeat
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+      viscASr(nR)=viscAS
+
+   end subroutine get_visc_heat
+
+   subroutine get_visc_heat_batch(vr,vt,vp,cvr,dvrdr,dvrdt,dvrdp,dvtdr,&
+              &                   dvtdp,dvpdr,dvpdp,nR)
+      !
+      !   Calculates axisymmetric contributions of the viscous heating
+      !
+      !
+
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(:,:,:),vt(:,:,:),vp(:,:,:),cvr(:,:,:)
+      real(cp), intent(in) :: dvrdr(:,:,:),dvrdt(:,:,:),dvrdp(:,:,:)
+      real(cp), intent(in) :: dvtdr(:,:,:),dvtdp(:,:,:)
+      real(cp), intent(in) :: dvpdr(:,:,:),dvpdp(:,:,:)
+
+      !-- Local variables:
+      integer :: nTheta,nPhi,nelem
+      real(cp) :: vischeat,csn2,phiNorm,viscAS
+
+      phiNorm=two*pi/real(n_phi_max,cp)
+      viscAS=0.0_cp
+
+      !$omp target teams distribute parallel do collapse(2) &
+      !$omp& map(tofrom: viscAS)                            &
+      !$omp& private(csn2, nelem,vischeat)   &
+      !$omp& reduction(+:viscAS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nelem=radlatlon2spat(nTheta,nPhi,nR)
+            csn2     =cosn_theta_E2(nTheta)
+
+            vischeat=       or2(nR)*orho1(nR)*visc(nR)*(  &
+            &     two*(                    dvrdr(nelem) - & ! (1)
+            &    (two*or1(nR)+beta(nR))*vr(nelem) )**2  + &
+            &     two*( csn2*                 vt(nelem) + &
+            &                              dvpdp(nelem) + &
+            &                              dvrdr(nelem) - & ! (2)
+            &     or1(nR)*              vr(nelem) )**2  + &
+            &     two*(                    dvpdp(nelem) + &
+            &           csn2*                 vt(nelem) + & ! (3)
+            &     or1(nR)*              vr(nelem) )**2  + &
+            &          ( two*              dvtdp(nelem) + &
+            &                                cvr(nelem) - & ! (6)
+            &      two*csn2*            vp(nelem) )**2  + &
+            &                  O_sin_theta_E2(nTheta) * ( &
+            &         ( r(nR)*             dvtdr(nelem) - &
+            &          (two+beta(nR)*r(nR))*  vt(nelem) + & ! (4)
+            &     or1(nR)*           dvrdt(nelem) )**2  + &
+            &         ( r(nR)*             dvpdr(nelem) - &
+            &          (two+beta(nR)*r(nR))*  vp(nelem) + & ! (5)
+            &    or1(nR)*            dvrdp(nelem) )**2 )- &
+            &    two*third*(  beta(nR)*     vr(nelem) )**2 )
+
+            viscAS=viscAS+phiNorm*gauss(nTheta)*viscHeat
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+      viscASr(nR)=viscAS
+
+   end subroutine get_visc_heat_batch
+
+#else
    subroutine get_visc_heat(vr,vt,vp,cvr,dvrdr,dvrdt,dvrdp,dvtdr,&
               &             dvtdp,dvpdr,dvpdp,nR)
       !
@@ -441,5 +582,6 @@ contains
       viscASr(nR)=viscAS
 
    end subroutine get_visc_heat
+#endif
 !----------------------------------------------------------------------------
 end module power
