@@ -62,6 +62,7 @@ module output_data
    integer, public :: n_r_step
    integer, public :: m_max_modes
    integer, public :: l_max_grav
+   integer, public :: l_max_pres
 
    !----- Output files:
    integer, public :: n_log_file

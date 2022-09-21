@@ -25,7 +25,7 @@ module outMisc_mod
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, l_hemi, &
        &            l_temperature_diff, l_chemical_conv, l_phase_field,    &
        &            l_mag, l_onset, l_grav
-   use output_data, only: tag, l_max_grav
+   use output_data, only: tag, l_max_grav, l_max_pres
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four, half, zero
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
        &                   deltaxicond
@@ -1204,16 +1204,16 @@ contains
          open(newunit=n_deform_file,file=deform_file,status='new')
          open(newunit=n_press_file,file=press_file,status='new')
 
-         do l=0,l_max_grav
+         do l=0,max(l_max_grav,l_max_pres)
             do m=0,l
                lm = lm2(l,m)
 
-               if ( l > 1 ) then
+               if ( l > 1 .and. l <= l_max_grav ) then
                   write(n_gravCoeff_file,*) l, m, real(gravCoeffs(lm)), aimag(gravCoeffs(lm))
                   write(n_deform_file,*)    l, m, real(deformCoeffs(lm)), aimag(deformCoeffs(lm))
                end if
 
-               write(n_press_file, *)    l, m, real(p_global(lm)), aimag(p_global(lm))
+               if ( l <= l_max_pres ) write(n_press_file, *)  l, m, real(p_global(lm)), aimag(p_global(lm))
             end do
          end do
 

@@ -128,8 +128,9 @@ contains
       &    r_probe,theta_probe,n_phi_probes,n_probe_step,      &
       &    n_probe_out,t_probe_start,t_probe_stop,dt_probe,    &
       &    l_grav,n_grav_step,n_grav_out,t_grav_start,         &
-      &    t_grav_stop,dt_grav,l_max_grav,l_earth_likeness,    &
-      &    l_max_comp,l_geo,l_2D_spectra,l_2D_RMS,l_spec_avg
+      &    t_grav_stop,dt_grav,l_max_grav,l_max_pres,          &
+      &    l_earth_likeness,l_max_comp,l_geo,l_2D_spectra,     &
+      &    l_2D_RMS,l_spec_avg
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
       &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
@@ -1167,6 +1168,8 @@ contains
       write(n_out,'(''  theta_probe     ='',ES14.6,'','')') theta_probe
       write(n_out,'(''  n_phi_probes    ='',i3,'','')') n_phi_probes
       write(n_out,'(''  l_grav          ='',l3,'','')') l_grav
+      write(n_out,'(''  l_max_grav      ='',i3,'','')') l_max_grav
+      write(n_out,'(''  l_max_pres      ='',i3,'','')') l_max_pres
       write(n_out,'(''  n_grav_step     ='',i5,'','')') n_grav_step
       write(n_out,'(''  n_grav_out      ='',i5,'','')') n_grav_out
       write(n_out,'(''  t_grav_start    ='',ES14.6,'','')') t_grav_start
@@ -1584,6 +1587,7 @@ contains
       !----- Gravity coeff outputs:
       l_grav       =.false.
       l_max_grav   =0
+      l_max_pres   =0
       n_grav_step  =0
       n_grav_out   =0
       t_grav_start =0.0_cp
