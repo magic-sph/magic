@@ -108,4 +108,8 @@ module physical_parameters
    real(cp) :: penaltyFac     ! Factor that enters the penalty method in the NS equations
    real(cp) :: tmelt          ! Melting temperature
 
+   integer :: n_bgflow        ! Switch for selecting background flow profile
+   real(cp) :: bgExp          ! Exponent while choosing shellular background flow profile
+   real(cp) :: omega_bg       ! Amplitude of background rotation profile
+
 end module physical_parameters

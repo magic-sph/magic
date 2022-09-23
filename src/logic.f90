@@ -100,4 +100,5 @@ module logic
    logical :: l_hemi ! Compute North/South asymmetry of energies
    logical :: l_onset ! A flag to turn MagIC into a linear stability analysis code
 
+   logical :: l_bgflow ! Flag to solve around an equilibrium solution
 end module logic

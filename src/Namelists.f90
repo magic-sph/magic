@@ -87,7 +87,7 @@ contains
       &    nVarDiff,nVarVisc,difExp,nVarEps,interior_model,    &
       &    nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,   &
       &    dilution_fac,stef,tmelt,phaseDiffFac,penaltyFac,    &
-      &    epsPhase,ktopphi,kbotphi
+      &    epsPhase,ktopphi,kbotphi,omega_bg,bgExp,n_bgflow
 
       namelist/B_external/                                     &
       &    rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,         &
@@ -583,6 +583,14 @@ contains
 
       if ( l_precession ) prec_angle = prec_angle*pi/180.0_cp
 
+      ! Solving perturbation to a background flow
+      if ( n_bgflow == 0 .or. omega_bg == 0.0_cp ) then
+         l_bgflow = .false.
+      else
+         l_bgflow = .true.
+         write(output_unit,*) '! Solving for perturbations around a background flow!'
+      end if
+
       !-- New checking of magnetic boundary condition.
       if ( l_mag .and. kbotb > 4 ) then
          call abortRun('! Only outer boundary conditions kbotb<=4 implemented!')
@@ -1038,6 +1046,12 @@ contains
          write(n_out,'(''  phi_bot         ='',ES14.6,'','')') phi_bot/sq4pi
       end if
 
+      if ( l_bgflow ) then
+         write(n_out,'(''  n_bgflow         ='',i3,'','')') n_bgflow
+         write(n_out,'(''  phi_top         ='',ES14.6,'','')') omega_bg
+         write(n_out,'(''  phi_top         ='',ES14.6,'','')') bgExp
+      end if
+
       !----- Conductivity variation:
       write(n_out,'(''  nVarCond        ='',i3,'','')') nVarCond
       write(n_out,'(''  con_DecRate     ='',ES14.6,'','')') con_DecRate
@@ -1414,6 +1428,11 @@ contains
       end do
       ktopphi    =1
       kbotphi    =1
+
+      ! Solving around background flow
+      n_bgflow = 0
+      omega_bg = 0.0_cp
+      bgExp    = 0.0_cp
 
       !----- Conductivity variation:
       nVarCond       =0
