@@ -381,12 +381,20 @@ contains
             this%VSr(:,nPhi)=this%vrc(:,nPhi)*this%sc(:,nPhi)
             this%VSt(:,nPhi)=or2(nR)*this%vtc(:,nPhi)*this%sc(:,nPhi)
             this%VSp(:,nPhi)=or2(nR)*this%vpc(:,nPhi)*this%sc(:,nPhi)
+
+            if ( l_bgflow ) &
+            & this%VSp(:,nPhi) = this%VSp(:,nPhi) + &
+            &                    or2(nR)*uphi_bg(:,nPhi)*this%sc(:,nPhi)
          end if     ! heat equation required ?
 
          if ( l_chemical_conv .and. nBc == 0 ) then
             this%VXir(:,nPhi)=this%vrc(:,nPhi)*this%xic(:,nPhi)
             this%VXit(:,nPhi)=or2(nR)*this%vtc(:,nPhi)*this%xic(:,nPhi)
             this%VXip(:,nPhi)=or2(nR)*this%vpc(:,nPhi)*this%xic(:,nPhi)
+
+            if ( l_bgflow ) &
+            & this%VXip(:,nPhi) = this%VXip(:,nPhi) + &
+            &                    or2(nR)*uphi_bg(:,nPhi)*this%xic(:,nPhi)
          end if     ! chemical composition equation required ?
 
          if ( l_phase_field .and. nBc == 0 ) then
@@ -447,9 +455,21 @@ contains
                this%VxBp(:,nPhi)=   orho1(nR)*or4(nR) * (   &
                &        this%vrc(:,nPhi)*this%btc(:,nPhi) - &
                &        this%vtc(:,nPhi)*this%brc(:,nPhi) )
+
+               if ( l_bgflow ) then
+                  this%VxBr(:,nPhi) = this%VxBr(:,nPhi)              + &
+                  &                   orho1(nR)*O_sin_theta_E2(:)    * &
+                  &                   uphi_bg(:,nPhi)*this%btc(:,nPhi)
+
+                  this%VxBt(:,nPhi) = this%VxBt(:,nPhi)              + &
+                  &                   orho1(nR)*or4(nR)              * &
+                  &                   uphi_bg(:,nPhi)*this%brc(:,nPhi)
+               end if
             else if ( nBc == 1 .or. nR<=n_r_LCR ) then ! stress free boundary
                this%VxBt(:,nPhi)= or4(nR)*orho1(nR)*this%vpc(:,nPhi)*this%brc(:,nPhi)
                this%VxBp(:,nPhi)=-or4(nR)*orho1(nR)*this%vtc(:,nPhi)*this%brc(:,nPhi)
+               if ( l_bgflow ) this%VxBt(:,nPhi)= &
+               & this%VxBt(:,nPhi) + or4(nR)*orho1(nR)*uphi_bg(:,nPhi)*this%brc(:,nPhi)
             else if ( nBc == 2 ) then  ! rigid boundary :
                !-- Only vp /= 0 at boundary allowed (rotation of boundaries about z-axis):
                this%VxBt(:,nPhi)=or4(nR)*orho1(nR)*this%vpc(:,nPhi)*this%brc(:,nPhi)
