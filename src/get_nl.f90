@@ -71,7 +71,7 @@ module grid_space_arrays_mod
    ! Not needed in grid_space object
 
    real(cp), allocatable :: Adv_bgr(:,:), Adv_bgt(:,:), Adv_bgp(:,:) !Ugradv + vGradU
-   real(cp), allocatable :: uphi_bg(:,:), dupdr(:,:) !Background flow and radial derivative
+   real(cp), allocatable :: uphi_bg(:,:), dupdr(:,:), cur(:,:) !Background flow, radial derivative, curl
 
 contains
 
@@ -134,13 +134,14 @@ contains
          allocate(Adv_bgt(nlat_padded,n_phi_max))
          allocate(Adv_bgp(nlat_padded,n_phi_max))
          allocate(uphi_bg(nlat_padded,n_phi_max))
-         allocate(dupdr(nlat_padded,n_phi_max))
+         allocate(dupdr(nlat_padded,n_phi_max),cur(nlat_padded,n_phi_max))
          Adv_bgr(:,:)=0.0_cp
          Adv_bgt(:,:)=0.0_cp
          Adv_bgp(:,:)=0.0_cp
          uphi_bg(:,:)=0.0_cp
          dupdr(:,:)  =0.0_cp
-         bytes_allocated=bytes_allocated + 5*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
+         cur(:,:)    =0.0_cp
+         bytes_allocated=bytes_allocated + 6*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
       end if
       !----- Fields calculated from these help arrays by legtf:
       allocate( this%vrc(nlat_padded,n_phi_max),this%vtc(nlat_padded,n_phi_max) )
@@ -218,7 +219,7 @@ contains
       if ( l_centrifuge ) deallocate( this%CAr, this%CAt )
       if ( l_adv_curl ) deallocate( this%cvtc, this%cvpc )
       if ( l_phase_field ) deallocate( this%phic, this%phiTerms )
-      if ( l_bgflow ) deallocate(Adv_bgr,Adv_bgt,Adv_bgp,uphi_bg,dupdr)
+      if ( l_bgflow ) deallocate(Adv_bgr,Adv_bgt,Adv_bgp,uphi_bg,dupdr,cur)
       deallocate( this%heatTerms )
 
       !----- Fields calculated from these help arrays by legtf:
@@ -334,8 +335,12 @@ contains
                   ! bgExp > -2 for Rayleigh stable flow
                   uphi_bg(:,nPhi) = omega_bg * r(nR) * sinTheta(:)      &
                   &                      * ( r(nR)/r_cmb )**(bgExp)
-                  dupdr(:,nPhi) = 2.0_cp * omega_bg * ( bgExp + 1.0_cp) &
+                  dupdr(:,nPhi) = two * omega_bg * ( bgExp + 1.0_cp) &
                   &            * sinTheta(:) * ( r(nR)/r_cmb )**(bgExp)
+
+                  ! (Curl U)_r in Glatzmaier form = r^2 curl(rho U).\hat{r}
+                  cur(:,nPhi) = two * omega_bg * r(nR) * rho0(nR) *   &
+                  &             cosTheta(:) * ( r(nR)/r_cmb )**bgExp
 
                else if ( n_bgflow == 2 ) then
                   ! Cylindrical rotation profile, omega = omega0 * (s/R)**2
@@ -343,6 +348,10 @@ contains
                   &                      * ( r(nR)/r_cmb )**2 * sinTheta_E2(:)
                   dupdr(:,nPhi) = 3.0_cp * omega_bg * sinTheta(:) &
                   &                      * ( r(nR)/r_cmb )**2 * sinTheta_E2(:)
+
+                  ! (Curl U)_r in Glatzmaier form = r^2 curl(rho U).\hat{r}
+                  cur(:,nPhi) = 4.0_cp * omega_bg * rho0(nR) * r(nR)**4/r_cmb**2 * &
+                  &             sinTheta_E2(:) * sinTheta(:) * cosTheta(:)
                end if
 
                !Convert to Glatzmaier variables
@@ -362,7 +371,8 @@ contains
                &                     this%dvtdpc(:,nPhi) )
 
                Adv_bgp(:,nPhi) = or4(nR)*orho1(nR) *  (                      &
-               &                           -this%vrc(:,nPhi)*dupdr(:,nPhi) + &
+               &                           -this%vrc(:,nPhi)*dupdr(:,nPhi) - &
+               &                            this%vtc(:,nPhi) * cur(:,nPhi) + &
                &            uphi_bg(:,nPhi) * (beta(nR) * this%vrc(:,nPhi) - &
                &                               this%dvpdpc(:,nPhi) ) )
 
