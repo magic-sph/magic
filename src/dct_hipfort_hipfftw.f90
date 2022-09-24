@@ -212,27 +212,17 @@ contains
       !$omp target enter data map(alloc : tmp_in, tmp_out)
       !$omp target update to(tmp_in, tmp_out)
 
-      !-- initialize to zero
-      !$omp target teams distribute parallel do collapse(2)
-      do n_f=n_f_start,n_f_stop !--TODO: change loops order
-         do n_r=1,2*this%n_r_max-2
-            tmp_in(n_f, n_r) = zero
-            tmp_out(n_f, n_r) = zero
-         end do
-      end do
-      !$omp end target teams distribute parallel do
-
       !-- Prepare array for dft many
       !$omp target teams distribute parallel do collapse(2)
-      do n_f=n_f_start,n_f_stop
-         do n_r=1,this%n_r_max
+      do n_r=1,this%n_r_max
+         do n_f=n_f_start,n_f_stop
             tmp_in(n_f,n_r)=array_in(n_f,n_r)
          end do
       end do
       !$omp end target teams distribute parallel do
       !$omp target teams distribute parallel do collapse(2)
-      do n_f=n_f_start,n_f_stop
-         do n_r=this%n_r_max+1,2*this%n_r_max-2
+      do n_r=this%n_r_max+1,2*this%n_r_max-2
+         do n_f=n_f_start,n_f_stop
             tmp_in(n_f,n_r)=array_in(n_f,2*this%n_r_max-n_r)
          end do
       end do
@@ -247,8 +237,8 @@ contains
 
       !-- Copy output onto array_in
       !$omp target teams distribute parallel do collapse(2)
-      do n_f=n_f_start,n_f_stop
-         do n_r=1,this%n_r_max
+      do n_r=1,this%n_r_max
+         do n_f=n_f_start,n_f_stop
             array_in(n_f,n_r)=this%cheb_fac*tmp_out(n_f,n_r)
          end do
       end do
