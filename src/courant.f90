@@ -337,8 +337,9 @@ contains
          af2=alffac*alffac
 
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do &
+         !$omp target teams distribute parallel do collapse(2) &
          !$omp& private(vflr2,valr,valr2,vflh2,valh2,valh2m) &
+         !$omp& private(valri2,valhi2)
          !$omp& map(tofrom:vr2max,vh2max) reduction(max:vr2max,vh2max)
 #else
          !$omp parallel do default(shared) &
@@ -382,7 +383,8 @@ contains
       else   ! Magnetic field ?
 
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do &
+         !-- TODO: collapse(3) makes doubleDiffusion, couetteAxi & fluxPerturbation fail (NaN or 100% mismatch)
+         !$omp target teams distribute parallel do collapse(2) &
          !$omp& private(n_theta,n_r,n_phi,vflr2,vflh2) &
          !$omp& map(tofrom:vr2max,vh2max) reduction(max:vr2max,vh2max)
 #else

@@ -807,6 +807,11 @@ contains
       !$omp target update to(lo_map, st_map, lo_sub_map, st_sub_map)
 #endif
 
+      !-- From num_param module
+#ifdef WITH_OMP_GPU
+      !$omp target update to(delxh2, delxr2)
+#endif
+
    end subroutine preCalc
 !-------------------------------------------------------------------------------
    subroutine preCalcTimes(time,n_time_step)

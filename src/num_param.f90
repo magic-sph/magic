@@ -3,7 +3,11 @@ module num_param
    !  Module containing numerical and control parameters
    !
 
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: bytes_allocated
+#endif
    use truncation, only: n_r_max
    use timing, only: timer_type
    use precision_mod
@@ -83,7 +87,13 @@ contains
    subroutine initialize_num_param
 
       allocate( delxr2(n_r_max),delxh2(n_r_max) )
+      delxh2(:) = 0.0_cp; delxr2(:) = 0.0_cp
       bytes_allocated = bytes_allocated+2*n_r_max*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: delxh2, delxr2)
+      !$omp target update to(delxh2, delxr2)
+      gpu_bytes_allocated = gpu_bytes_allocated+2*n_r_max*SIZEOF_DEF_REAL
+#endif
       call solve_counter%initialize()
       call f_exp_counter%initialize()
       call dct_counter%initialize()
@@ -96,6 +106,9 @@ contains
 !-------------------------------------------------------------------------------
    subroutine finalize_num_param
 
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: delxh2, delxr2)
+#endif
       deallocate( delxr2, delxh2 )
 
    end subroutine finalize_num_param
