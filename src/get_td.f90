@@ -263,7 +263,6 @@ contains
             dzdt(lm)=AdvTor_loc+CorTor_loc
 
 #ifdef WITH_OMP_GPU
-!            !$omp target update to(dVxVhLM)
             !$omp target update to(dwdt(lm), dzdt(lm))
             !$omp target teams distribute parallel do
 #else
@@ -387,7 +386,6 @@ contains
             if ( (.not. l_double_curl) .or. lPressNext ) then
             !if ( .true. ) then
 #ifdef WITH_OMP_GPU
-!               !$omp target update to(dpdt)
                !$omp target teams distribute parallel do private(lm,l,m,lmS,lmA,lmP) &
                !$omp& private(AdvPol_loc,CorPol_loc)
 #else
@@ -445,7 +443,6 @@ contains
 
          else
 #ifdef WITH_OMP_GPU
-!            !$omp target update to(dwdt, dzdt, dpdt)
             !$omp target teams distribute parallel do
 #endif
             do lm=lm_min,lm_max
@@ -532,7 +529,6 @@ contains
 
          if ( l_phase_field ) then
 #ifdef WITH_OMP_GPU
-!            !$omp target update to(dphidt)
             !$omp target teams distribute parallel do
 #else
             !$omp parallel do default(shared) private(lm,lmP)
@@ -551,8 +547,6 @@ contains
 
          if ( l_mag_nl .or. l_mag_kin  ) then
 #ifdef WITH_OMP_GPU
-!            !$omp target update to(dVxBhLM)
-!            !$omp target update to(dbdt, djdt)
             !$omp target teams distribute parallel do
 #else
             !$omp parallel do default(shared) private(lm,lmP)
@@ -573,8 +567,6 @@ contains
          else
             if ( l_mag ) then
 #ifdef WITH_OMP_GPU
-!               !$omp target update to(dVxBhLM)
-!               !$omp target update to(dbdt, djdt)
                !$omp target teams distribute parallel do
 #else
                !$omp parallel do
@@ -587,7 +579,7 @@ contains
 #ifdef WITH_OMP_GPU
                !$omp end target teams distribute parallel do
                !$omp target update from(dVxBhLM)
-               !$omp target update to(dbdt, djdt)
+               !$omp target update from(dbdt, djdt)
 #else
                !$omp end parallel do
 #endif
@@ -617,7 +609,6 @@ contains
 #endif
          else
 #ifdef WITH_OMP_GPU
-!            !$omp target update to(dVSrLM, dVxBhLM)
             !$omp target teams distribute parallel do
 #else
             !$omp parallel do
@@ -638,7 +629,6 @@ contains
          end if
          if ( l_double_curl ) then
 #ifdef WITH_OMP_GPU
-!            !$omp target update to(dVxVhLM)
             !$omp target teams distribute parallel do
 #else
             !$omp parallel do
@@ -653,7 +643,6 @@ contains
          end if
          if ( l_chemical_conv ) then
 #ifdef WITH_OMP_GPU
-!            !$omp target update to(dVXirLM)
             !$omp target teams distribute parallel do
 #else
             !$omp parallel do
