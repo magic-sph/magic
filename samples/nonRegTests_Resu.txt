@@ -1,4 +1,4 @@
-Results of commit "65aaddf4f6f99f1a623be6c5eebdfd13c77b9928" (24/09/2022) - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1MPIx1OMP
+Results of commit "5e2007b2e390362ccc5310e16ef332e5b1f30013" (24/09/2022) - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1MPIx1OMP
 _________________________________________________________________________________________________________________________________________________________________
 _______________________________________________________l_batched_shts=.true._____________________________________________________________________________________
 
@@ -6,7 +6,6 @@ testRestart [OK]
 testMapping [OK]
 boussBenchSat [OK]
 dynamo_benchmark [OK]
-fluxPerturbation [OK]
 hydro_bench_anel [OK]
 testGraphMovieOutputs [OK]
 testTOGeosOutputs [OK]
@@ -16,49 +15,23 @@ precession [OK]
 varCond [OK]
 varProps [OK]
 dynamo_benchmark_condICrotIC [OK]
-couetteAxi [OK]
 testOutputs [OK]
 testRadialOutputs [OK]
 phase_field [OK]
+couetteAxi [OK]
 doubleDiffusion [OK]
+fluxPerturbation [OK]
 testRMSOutputs [OK]
 testTruncations [OK]
 
 finite_differences [NOK: Mismatched elements: 228 / 297 (76.8%) Max absolute difference: 3712.70886 Max relative difference: 50.14626261]
 
-onset [Exec OK but I/O problems in output files: (shapes (51, 9), (22, 9) mismatch)]
+onset [Exec OK but I/O problems in output files: (shapes (51, 9), (31, 9) mismatch)]
 testCoeffOutputs [Exec OK but Python error : AttributeError: 'MagicCoeffCmb' object has no attribute 'm_max_cmb']
 
-time_schemes [NOK: fails for input_KC564_FD.nml (dt too small) (shapes (846,), (774,) mismatch)]
+time_schemes [NOK: (shapes (846,), (774,) mismatch)]
 _________________________________________________________________________________________________________________________________________________________________
 _______________________________________________________l_batched_shts=.false.____________________________________________________________________________________
 
-testRestart [OK]
-testTruncations [OK]
-testMapping [OK]
-boussBenchSat [OK]
-dynamo_benchmark [OK]
-fluxPerturbation [OK]
-hydro_bench_anel [OK]
-phase_field [OK]
-testGraphMovieOutputs [OK]
-testTOGeosOutputs [OK]
-couetteAxi [OK]
-isothermal_nrho3 [OK]
-precession [OK]
-doubleDiffusion [OK]
-testRadialOutputs [OK]
-varProps [OK]
-varCond [OK]
-testOutputs [OK]
-dynamo_benchmark_condICrotIC [OK]
-
-onset [Exec OK but I/O problems in e_kin.test: (shapes (51, 9), (16, 9) mismatch)]
-testCoeffOutputs [Exec OK but Python error: AttributeError: 'MagicCoeffCmb' object has no attribute 'm_max_cmb']
-
-finite_differences [NOK: NaN in e_kin time series]
-full_sphere [NOK: NaN in e_kin time series]
-testRMSOutputs [NOK: x and y nan location mismatch]
-time_schemes [NOK: fails for input_KC564_FD.nml (dt too small) (shapes (846,), (774,) mismatch)]
 _________________________________________________________________________________________________________________________________________________________________
 
