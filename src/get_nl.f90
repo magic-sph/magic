@@ -1,4 +1,5 @@
-!#define DEFAULT
+#define DEFAULT
+!#define KERNELS_SPLIT
 module general_arrays_mod
 
    implicit none
@@ -246,11 +247,11 @@ contains
       if ( l_precession ) posnalp=-two*oek*po*sin(prec_angle)
 
 #ifdef WITH_OMP_GPU
-#ifndef DEFAULT
+#ifdef KERNELS_SPLIT
       if ( l_mag_LF .and. (nBc == 0 .or. lRmsCalc) .and. nR>n_r_LCR ) then
          !$omp target teams distribute parallel do collapse(2)
-         do nLat=1,nlat_padded
-            do nPhi=1,n_phi_max
+         do nPhi=1,n_phi_max
+            do nLat=1,nlat_padded
                !------ Get the Lorentz force:
                !---- LFr= r**2/(E*Pm) * ( curl(B)_t*B_p - curl(B)_p*B_t )
                this%LFr(nLat,nPhi)=  LFfac*O_sin_theta_E2(nLat) * (   &
@@ -275,8 +276,8 @@ contains
 
          if ( l_adv_curl ) then ! Advection is \curl{u} \times u
             !$omp target teams distribute parallel do collapse(2)
-            do nLat=1,nlat_padded
-               do nPhi=1,n_phi_max
+            do nPhi=1,n_phi_max
+               do nLat=1,nlat_padded
                   this%Advr(nLat,nPhi)=  - O_sin_theta_E2(nLat) * (    &
                   &        this%cvtc(nLat,nPhi)*this%vpc(nLat,nPhi) -  &
                   &        this%cvpc(nLat,nPhi)*this%vtc(nLat,nPhi) )
@@ -293,8 +294,8 @@ contains
             !$omp end target teams distribute parallel do
          else ! Advection is u\grad u
             !$omp target teams distribute parallel do collapse(2)
-            do nLat=1,nlat_padded
-               do nPhi=1,n_phi_max
+            do nPhi=1,n_phi_max
+               do nLat=1,nlat_padded
                   !------ Get Advection:
                   this%Advr(nLat,nPhi)=          -or2(nR)*orho1(nR) * (  &
                   &                                this%vrc(nLat,nPhi) * &
@@ -337,8 +338,8 @@ contains
 
       if ( l_heat_nl .and. nBc == 0 ) then
          !$omp target teams distribute parallel do collapse(2)
-         do nLat=1,nlat_padded
-            do nPhi=1,n_phi_max
+         do nPhi=1,n_phi_max
+            do nLat=1,nlat_padded
                !------ Get V S, the divergence of it is entropy advection:
                this%VSr(nLat,nPhi)=this%vrc(nLat,nPhi)*this%sc(nLat,nPhi)
                this%VSt(nLat,nPhi)=or2(nR)*this%vtc(nLat,nPhi)*this%sc(nLat,nPhi)
@@ -350,8 +351,8 @@ contains
 
       if ( l_chemical_conv .and. nBc == 0 ) then
          !$omp target teams distribute parallel do collapse(2)
-         do nLat=1,nlat_padded
-            do nPhi=1,n_phi_max
+         do nPhi=1,n_phi_max
+            do nLat=1,nlat_padded
                this%VXir(nLat,nPhi)=this%vrc(nLat,nPhi)*this%xic(nLat,nPhi)
                this%VXit(nLat,nPhi)=or2(nR)*this%vtc(nLat,nPhi)*this%xic(nLat,nPhi)
                this%VXip(nLat,nPhi)=or2(nR)*this%vpc(nLat,nPhi)*this%xic(nLat,nPhi)
@@ -362,8 +363,8 @@ contains
 
       if ( l_phase_field .and. nBc == 0 ) then
          !$omp target teams distribute parallel do collapse(2)
-         do nLat=1,nlat_padded
-            do nPhi=1,n_phi_max
+         do nPhi=1,n_phi_max
+            do nLat=1,nlat_padded
                this%Advr(nLat,nPhi)=this%Advr(nLat,nPhi)-this%phic(nLat,nPhi)*this%vrc(nLat,nPhi)/ &
                &                 epsPhase**2/penaltyFac**2
                this%Advt(nLat,nPhi)=this%Advt(nLat,nPhi)-or2(nR)*this%phic(nLat,nPhi)* &
@@ -381,8 +382,8 @@ contains
 
       if ( l_precession .and. nBc == 0 ) then
          !$omp target teams distribute parallel do collapse(2)
-         do nLat=1,nlat_padded
-            do nPhi=1,n_phi_max
+         do nPhi=1,n_phi_max
+            do nLat=1,nlat_padded
                this%PCr(nLat,nPhi)=posnalp*O_sin_theta(nLat)*r(nR)*(                       &
                &                cos(oek*time+phi(nPhi))*this%vpc(nLat,nPhi)*cosTheta(nLat)+&
                &                sin(oek*time+phi(nPhi))*this%vtc(nLat,nPhi) )
@@ -409,8 +410,8 @@ contains
             !   !& + polind*DissNb*oek*opressure0(nR)*this%pc(nLat,nPhi) )
             !else
             !$omp target teams distribute parallel do collapse(2)
-            do nLat=1,nlat_padded
-               do nPhi=1,n_phi_max
+            do nPhi=1,n_phi_max
+               do nLat=1,nlat_padded
                   this%CAr(nLat,nPhi) = -dilution_fac*r(nR)*sinTheta(nLat)**4*ra*opr* &
                   &                       this%sc(nLat,nPhi)
                   this%CAt(nLat,nPhi) = -dilution_fac*r(nR)*sinTheta(nLat)**3*cosTheta(nLat)*ra*opr* &
@@ -425,8 +426,8 @@ contains
 
          if ( nBc == 0 .and. nR>n_r_LCR ) then
             !$omp target teams distribute parallel do collapse(2)
-            do nLat=1,nlat_padded
-               do nPhi=1,n_phi_max
+            do nPhi=1,n_phi_max
+               do nLat=1,nlat_padded
                   !------ Get (V x B) , the curl of this is the dynamo term:
                   this%VxBr(nLat,nPhi)=  orho1(nR)*O_sin_theta_E2(nLat) * (  &
                   &              this%vtc(nLat,nPhi)*this%bpc(nLat,nPhi) -   &
@@ -444,8 +445,8 @@ contains
             !$omp end target teams distribute parallel do
          else if ( nBc == 1 .or. nR<=n_r_LCR ) then ! stress free boundary
             !$omp target teams distribute parallel do collapse(2)
-            do nLat=1,nlat_padded
-               do nPhi=1,n_phi_max
+            do nPhi=1,n_phi_max
+               do nLat=1,nlat_padded
                   this%VxBt(nLat,nPhi)= or4(nR)*orho1(nR)*this%vpc(nLat,nPhi)*this%brc(nLat,nPhi)
                   this%VxBp(nLat,nPhi)=-or4(nR)*orho1(nR)*this%vtc(nLat,nPhi)*this%brc(nLat,nPhi)
                end do
@@ -453,8 +454,8 @@ contains
             !$omp end target teams distribute parallel do
          else if ( nBc == 2 ) then  ! rigid boundary :
             !$omp target teams distribute parallel do collapse(2)
-            do nLat=1,nlat_padded
-               do nPhi=1,n_phi_max
+            do nPhi=1,n_phi_max
+               do nLat=1,nlat_padded
                   !-- Only vp /= 0 at boundary allowed (rotation of boundaries about z-axis):
                   this%VxBt(nLat,nPhi)=or4(nR)*orho1(nR)*this%vpc(nLat,nPhi)*this%brc(nLat,nPhi)
                   this%VxBp(nLat,nPhi)= 0.0_cp
@@ -467,8 +468,8 @@ contains
 
       if ( l_anel .and. nBc == 0 ) then
          !$omp target teams distribute parallel do collapse(2)
-         do nLat=1,nlat_padded
-            do nPhi=1,n_phi_max
+         do nPhi=1,n_phi_max
+            do nLat=1,nlat_padded
                !------ Get viscous heating
                this%heatTerms(nLat,nPhi)=ViscHeatFac*or4(nR)*           &
                &                     orho1(nR)*otemp1(nR)*visc(nR)*( &
@@ -506,11 +507,203 @@ contains
          !$omp end target teams distribute parallel do
       end if  ! Viscous heating and Ohmic losses ?
 #else
-      !$omp target teams distribute parallel do
+      !$omp target teams distribute parallel do collapse(2)
+      do nPhi=1,n_phi_max
+         do nLat=1,nlat_padded
+            if ( l_mag_LF .and. (nBc == 0 .or. lRmsCalc) .and. nR>n_r_LCR ) then
+               !------ Get the Lorentz force:
+               !---- LFr= r**2/(E*Pm) * ( curl(B)_t*B_p - curl(B)_p*B_t )
+               this%LFr(nLat,nPhi)=  LFfac*O_sin_theta_E2(nLat) * (   &
+               &        this%cbtc(nLat,nPhi)*this%bpc(nLat,nPhi) -    &
+               &        this%cbpc(nLat,nPhi)*this%btc(nLat,nPhi) )
+
+               !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
+               this%LFt(nLat,nPhi)=  LFfac*or4(nR) * (             &
+               &        this%cbpc(nLat,nPhi)*this%brc(nLat,nPhi) -    &
+               &        this%cbrc(nLat,nPhi)*this%bpc(nLat,nPhi) )
+
+               !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
+               this%LFp(nLat,nPhi)=  LFfac*or4(nR) * (             &
+               &        this%cbrc(nLat,nPhi)*this%btc(nLat,nPhi) -    &
+               &        this%cbtc(nLat,nPhi)*this%brc(nLat,nPhi) )
+            end if      ! Lorentz force required ?
+
+            if ( l_conv_nl .and. (nBc == 0 .or. lRmsCalc) ) then
+
+               if ( l_adv_curl ) then ! Advection is \curl{u} \times u
+                  this%Advr(nLat,nPhi)=  - O_sin_theta_E2(nLat) * (    &
+                  &        this%cvtc(nLat,nPhi)*this%vpc(nLat,nPhi) -  &
+                  &        this%cvpc(nLat,nPhi)*this%vtc(nLat,nPhi) )
+
+                  this%Advt(nLat,nPhi)= -or4(nR)* (                    &
+                  &        this%cvpc(nLat,nPhi)*this%vrc(nLat,nPhi) -     &
+                  &        this%cvrc(nLat,nPhi)*this%vpc(nLat,nPhi) )
+
+                  this%Advp(nLat,nPhi)= -or4(nR)* (                    &
+                  &        this%cvrc(nLat,nPhi)*this%vtc(nLat,nPhi) -     &
+                  &        this%cvtc(nLat,nPhi)*this%vrc(nLat,nPhi) )
+               else ! Advection is u\grad u
+                  !------ Get Advection:
+                  this%Advr(nLat,nPhi)=          -or2(nR)*orho1(nR) * (  &
+                  &                                this%vrc(nLat,nPhi) * &
+                  &                     (       this%dvrdrc(nLat,nPhi) - &
+                  &    ( two*or1(nR)+beta(nR) )*this%vrc(nLat,nPhi) ) +  &
+                  &                      O_sin_theta_E2(nLat) * (        &
+                  &                                this%vtc(nLat,nPhi) * &
+                  &                     (       this%dvrdtc(nLat,nPhi) - &
+                  &                  r(nR)*      this%vtc(nLat,nPhi) ) + &
+                  &                                this%vpc(nLat,nPhi) * &
+                  &                     (       this%dvrdpc(nLat,nPhi) - &
+                  &                    r(nR)*      this%vpc(nLat,nPhi) ) ) )
+
+                  this%Advt(nLat,nPhi)=or4(nR)*orho1(nR) * (                       &
+                  &                                         -this%vrc(nLat,nPhi) * &
+                  &                                   (   this%dvtdrc(nLat,nPhi) - &
+                  &                             beta(nR)*this%vtc(nLat,nPhi) )   + &
+                  &                                          this%vtc(nLat,nPhi) * &
+                  &                    ( cosn_theta_E2(nLat)*this%vtc(nLat,nPhi) +    &
+                  &                                       this%dvpdpc(nLat,nPhi) + &
+                  &                                   this%dvrdrc(nLat,nPhi) )   + &
+                  &                                          this%vpc(nLat,nPhi) * &
+                  &                    ( cosn_theta_E2(nLat)*this%vpc(nLat,nPhi) -    &
+                  &                                       this%dvtdpc(nLat,nPhi) )  )
+
+                  this%Advp(nLat,nPhi)= or4(nR)*orho1(nR) * (                       &
+                  &                                          -this%vrc(nLat,nPhi) * &
+                  &                                      ( this%dvpdrc(nLat,nPhi) - &
+                  &                              beta(nR)*this%vpc(nLat,nPhi) )   - &
+                  &                                           this%vtc(nLat,nPhi) * &
+                  &                                      ( this%dvtdpc(nLat,nPhi) + &
+                  &                                      this%cvrc(nLat,nPhi) )   - &
+                  &                     this%vpc(nLat,nPhi) * this%dvpdpc(nLat,nPhi) )
+               end if
+
+            end if  ! Navier-Stokes nonlinear advection term ?
+
+            if ( l_heat_nl .and. nBc == 0 ) then
+               !------ Get V S, the divergence of it is entropy advection:
+               this%VSr(nLat,nPhi)=this%vrc(nLat,nPhi)*this%sc(nLat,nPhi)
+               this%VSt(nLat,nPhi)=or2(nR)*this%vtc(nLat,nPhi)*this%sc(nLat,nPhi)
+               this%VSp(nLat,nPhi)=or2(nR)*this%vpc(nLat,nPhi)*this%sc(nLat,nPhi)
+            end if     ! heat equation required ?
+
+            if ( l_chemical_conv .and. nBc == 0 ) then
+               this%VXir(nLat,nPhi)=this%vrc(nLat,nPhi)*this%xic(nLat,nPhi)
+               this%VXit(nLat,nPhi)=or2(nR)*this%vtc(nLat,nPhi)*this%xic(nLat,nPhi)
+               this%VXip(nLat,nPhi)=or2(nR)*this%vpc(nLat,nPhi)*this%xic(nLat,nPhi)
+            end if     ! chemical composition equation required ?
+
+            if ( l_phase_field .and. nBc == 0 ) then
+               this%Advr(nLat,nPhi)=this%Advr(nLat,nPhi)-this%phic(nLat,nPhi)*this%vrc(nLat,nPhi)/ &
+               &                 epsPhase**2/penaltyFac**2
+               this%Advt(nLat,nPhi)=this%Advt(nLat,nPhi)-or2(nR)*this%phic(nLat,nPhi)* &
+               &                 this%vtc(nLat,nPhi)/epsPhase**2/penaltyFac**2
+               this%Advp(nLat,nPhi)=this%Advp(nLat,nPhi)-or2(nR)*this%phic(nLat,nPhi)* &
+               &                 this%vpc(nLat,nPhi)/epsPhase**2/penaltyFac**2
+               this%phiTerms(nLat,nPhi)=-one/epsPhase**2* this%phic(nLat,nPhi)*       &
+               &                      (one-this%phic(nLat,nPhi))*(                 &
+               &                      phaseDiffFac*(one-two*this%phic(nLat,nPhi))+ &
+               &                      this%sc(nLat,nPhi)-tmelt)
+            end if ! Nonlinear terms for the phase field equation
+
+            if ( l_precession .and. nBc == 0 ) then
+               this%PCr(nLat,nPhi)=posnalp*O_sin_theta(nLat)*r(nR)*(                       &
+               &                cos(oek*time+phi(nPhi))*this%vpc(nLat,nPhi)*cosTheta(nLat)+&
+               &                sin(oek*time+phi(nPhi))*this%vtc(nLat,nPhi) )
+               this%PCt(nLat,nPhi)=   -posnalp*sinTheta(nLat)*or2(nR)*(               &
+               &               cos(oek*time+phi(nPhi))*this%vpc(nLat,nPhi)       + &
+               &               sin(oek*time+phi(nPhi))*or1(nR)*this%vrc(nLat,nPhi) )
+               this%PCp(nLat,nPhi)= posnalp*sinTheta(nLat)*cos(oek*time+phi(nPhi))*   &
+               &                 or2(nR)*(this%vtc(nLat,nPhi)-or1(nR)*             &
+               &                 this%vrc(nLat,nPhi)*cosTheta(nLat))
+            end if ! precession term required ?
+
+            if ( l_centrifuge .and. nBc ==0 ) then
+               !if ( l_anel ) then
+               !   this%CAr(nLat,nPhi) = dilution_fac*r(nR)*sinTheta(nLat)**4* &
+               !   &       ( -ra*opr*this%sc(nLat,nPhi) )
+               !   !-- neglect pressure contribution
+               !   !& + polind*DissNb*oek*opressure0(nR)*this%pc(nLat,nPhi) )
+               !   this%CAt(nLat,nPhi) = dilution_fac*r(nR)*sinTheta(nLat)**3*cosTheta(nLat)* &
+               !   &       ( -ra*opr*this%sc(nLat,nPhi) )
+               !   !-- neglect pressure contribution
+               !   !& + polind*DissNb*oek*opressure0(nR)*this%pc(nLat,nPhi) )
+               !else
+               this%CAr(nLat,nPhi) = -dilution_fac*r(nR)*sinTheta(nLat)**4*ra*opr* &
+               &                       this%sc(nLat,nPhi)
+               this%CAt(nLat,nPhi) = -dilution_fac*r(nR)*sinTheta(nLat)**3*cosTheta(nLat)*ra*opr* &
+               &                       this%sc(nLat,nPhi)
+               !end if
+            end if ! centrifuge
+
+            if ( l_mag_nl ) then
+
+               if ( nBc == 0 .and. nR>n_r_LCR ) then
+                  !------ Get (V x B) , the curl of this is the dynamo term:
+                  this%VxBr(nLat,nPhi)=  orho1(nR)*O_sin_theta_E2(nLat) * (  &
+                  &              this%vtc(nLat,nPhi)*this%bpc(nLat,nPhi) -   &
+                  &              this%vpc(nLat,nPhi)*this%btc(nLat,nPhi) )
+
+                  this%VxBt(nLat,nPhi)=  orho1(nR)*or4(nR) * (   &
+                  &       this%vpc(nLat,nPhi)*this%brc(nLat,nPhi) - &
+                  &       this%vrc(nLat,nPhi)*this%bpc(nLat,nPhi) )
+
+                  this%VxBp(nLat,nPhi)=   orho1(nR)*or4(nR) * (   &
+                  &        this%vrc(nLat,nPhi)*this%btc(nLat,nPhi) - &
+                  &        this%vtc(nLat,nPhi)*this%brc(nLat,nPhi) )
+               else if ( nBc == 1 .or. nR<=n_r_LCR ) then ! stress free boundary
+                  this%VxBt(nLat,nPhi)= or4(nR)*orho1(nR)*this%vpc(nLat,nPhi)*this%brc(nLat,nPhi)
+                  this%VxBp(nLat,nPhi)=-or4(nR)*orho1(nR)*this%vtc(nLat,nPhi)*this%brc(nLat,nPhi)
+               else if ( nBc == 2 ) then  ! rigid boundary :
+                  !-- Only vp /= 0 at boundary allowed (rotation of boundaries about z-axis):
+                  this%VxBt(nLat,nPhi)=or4(nR)*orho1(nR)*this%vpc(nLat,nPhi)*this%brc(nLat,nPhi)
+                  this%VxBp(nLat,nPhi)= 0.0_cp
+               end if  ! boundary ?
+
+            end if ! l_mag_nl ?
+
+            if ( l_anel .and. nBc == 0 ) then
+               !------ Get viscous heating
+               this%heatTerms(nLat,nPhi)=ViscHeatFac*or4(nR)*           &
+               &                     orho1(nR)*otemp1(nR)*visc(nR)*( &
+               &     two*(                     this%dvrdrc(nLat,nPhi) - & ! (1)
+               &     (two*or1(nR)+beta(nR))*this%vrc(nLat,nPhi) )**2  + &
+               &     two*( cosn_theta_E2(nLat)*   this%vtc(nLat,nPhi) +    &
+               &                               this%dvpdpc(nLat,nPhi) + &
+               &                               this%dvrdrc(nLat,nPhi) - & ! (2)
+               &     or1(nR)*               this%vrc(nLat,nPhi) )**2  + &
+               &     two*(                     this%dvpdpc(nLat,nPhi) + &
+               &           cosn_theta_E2(nLat)*   this%vtc(nLat,nPhi) +    & ! (3)
+               &     or1(nR)*               this%vrc(nLat,nPhi) )**2  + &
+               &          ( two*               this%dvtdpc(nLat,nPhi) + &
+               &                                 this%cvrc(nLat,nPhi) - & ! (6)
+               &    two*cosn_theta_E2(nLat)*this%vpc(nLat,nPhi) )**2  +    &
+               &                        O_sin_theta_E2(nLat) * (        &
+               &         ( r(nR)*              this%dvtdrc(nLat,nPhi) - &
+               &           (two+beta(nR)*r(nR))*  this%vtc(nLat,nPhi) + & ! (4)
+               &     or1(nR)*            this%dvrdtc(nLat,nPhi) )**2  + &
+               &         ( r(nR)*              this%dvpdrc(nLat,nPhi) - &
+               &           (two+beta(nR)*r(nR))*  this%vpc(nLat,nPhi) + & ! (5)
+               &     or1(nR)*            this%dvrdpc(nLat,nPhi) )**2 )- &
+               &    two*third*(  beta(nR)*        this%vrc(nLat,nPhi) )**2 )
+
+               if ( l_mag_nl .and. nR>n_r_LCR ) then
+                  !------ Get ohmic losses
+                  this%heatTerms(nLat,nPhi)=this%heatTerms(nLat,nPhi)+        &
+                  &       OhmLossFac*   or2(nR)*otemp1(nR)*lambda(nR)*  &
+                  &    ( or2(nR)*             this%cbrc(nLat,nPhi)**2 +    &
+                  &      O_sin_theta_E2(nLat)*   this%cbtc(nLat,nPhi)**2 +    &
+                  &      O_sin_theta_E2(nLat)*   this%cbpc(nLat,nPhi)**2  )
+               end if ! if l_mag_nl ?
+
+            end if  ! Viscous heating and Ohmic losses ?
+
+         end do
+      end do
+      !$omp end target teams distribute parallel do
 #endif
 #else
       !$omp parallel do default(shared)
-#endif
       do nPhi=1,n_phi_max
 
          if ( l_mag_LF .and. (nBc == 0 .or. lRmsCalc) .and. nR>n_r_LCR ) then
@@ -702,11 +895,6 @@ contains
          end if  ! Viscous heating and Ohmic losses ?
 
       end do
-#ifdef WITH_OMP_GPU
-#ifdef DEFAULT
-      !$omp end target teams distribute parallel do
-#endif
-#else
       !$omp end parallel do
 #endif
 
@@ -994,31 +1182,231 @@ contains
       real(cp) :: posnalp
 #ifdef WITH_OMP_GPU
       integer :: nLat
+      nLat = 0
 #endif
+
+      nBc = 0; nPhi = 0; nR = 0
 
       if ( l_precession ) posnalp=-two*oek*po*sin(prec_angle)
 
 #ifdef WITH_OMP_GPU
 #ifndef DEFAULT
+!       !$omp target teams distribute parallel do collapse(3) private(nBc)
+!       do nLat=1, nlat_padded
+!          do nR=nRl, nRu
+!             do nPhi=1,n_phi_max
+!                !-- If the computation of nBc does not work well here, we could
+!                !-- also set the appropriate boundary values to zero after the loop
+!                nBc = 0
+!                if ( nR == n_r_cmb ) then
+!                   nBc = ktopv
+!                else if ( nR == n_r_icb ) then
+!                   nBc = kbotv
+!                end if
+!                if ( l_parallel_solve .or. (l_single_matrix .and. l_temperature_diff) ) then
+!                   ! We will need the nonlinear terms on ricb for the pressure l=m=0
+!                   ! equation
+!                   nBc=0
+!                end if
+!
+!                if ( l_mag_LF .and. nR>n_r_LCR ) then
+!                   !------ Get the Lorentz force:
+!                   !---- LFr= r**2/(E*Pm) * ( curl(B)_t*B_p - curl(B)_p*B_t )
+!                   this%LFr(nLat,nR,nPhi)=  LFfac*O_sin_theta_E2(nLat) * (      &
+!                   &        this%cbtc(nLat,nR,nPhi)*this%bpc(nLat,nR,nPhi) -    &
+!                   &        this%cbpc(nLat,nR,nPhi)*this%btc(nLat,nR,nPhi) )
+!
+!                   !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
+!                   this%LFt(nLat,nR,nPhi)=  LFfac*or4(nR) * (                &
+!                   &        this%cbpc(nLat,nR,nPhi)*this%brc(nLat,nR,nPhi) -    &
+!                   &        this%cbrc(nLat,nR,nPhi)*this%bpc(nLat,nR,nPhi) )
+!
+!                   !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
+!                   this%LFp(nLat,nR,nPhi)=  LFfac*or4(nR) * (                &
+!                   &        this%cbrc(nLat,nR,nPhi)*this%btc(nLat,nR,nPhi) -    &
+!                   &        this%cbtc(nLat,nR,nPhi)*this%brc(nLat,nR,nPhi) )
+!                end if      ! Lorentz force required ?
+!
+!                if ( l_conv_nl ) then
+!
+!                   if ( l_adv_curl ) then ! Advection is \curl{u} \times u
+!                      this%Advr(nLat,nR,nPhi)=  - O_sin_theta_E2(nLat) * (       &
+!                      &        this%cvtc(nLat,nR,nPhi)*this%vpc(nLat,nR,nPhi) -  &
+!                      &        this%cvpc(nLat,nR,nPhi)*this%vtc(nLat,nR,nPhi) )
+!
+!                      this%Advt(nLat,nR,nPhi)= -or4(nR)* (                    &
+!                      &        this%cvpc(nLat,nR,nPhi)*this%vrc(nLat,nR,nPhi) -  &
+!                      &        this%cvrc(nLat,nR,nPhi)*this%vpc(nLat,nR,nPhi) )
+!
+!                      this%Advp(nLat,nR,nPhi)= -or4(nR)* (                    &
+!                      &        this%cvrc(nLat,nR,nPhi)*this%vtc(nLat,nR,nPhi) -  &
+!                      &        this%cvtc(nLat,nR,nPhi)*this%vrc(nLat,nR,nPhi) )
+!                   else ! Advection is u\grad u
+!                      !------ Get Advection:
+!                      this%Advr(nLat,nR,nPhi)=          -or2(nR)*orho1(nR) * (  &
+!                      &                                this%vrc(nLat,nR,nPhi) * &
+!                      &                     (       this%dvrdrc(nLat,nR,nPhi) - &
+!                      &    ( two*or1(nR)+beta(nR) )*this%vrc(nLat,nR,nPhi) ) +  &
+!                      &                      O_sin_theta_E2(nLat) * (           &
+!                      &                                this%vtc(nLat,nR,nPhi) * &
+!                      &                     (       this%dvrdtc(nLat,nR,nPhi) - &
+!                      &                  r(nR)*      this%vtc(nLat,nR,nPhi) ) + &
+!                      &                                this%vpc(nLat,nR,nPhi) * &
+!                      &                     (       this%dvrdpc(nLat,nR,nPhi) - &
+!                      &                    r(nR)*      this%vpc(nLat,nR,nPhi) ) ) )
+!
+!                      this%Advt(nLat,nR,nPhi)=or4(nR)*orho1(nR) * (                       &
+!                      &                                         -this%vrc(nLat,nR,nPhi) * &
+!                      &                                   (   this%dvtdrc(nLat,nR,nPhi) - &
+!                      &                             beta(nR)*this%vtc(nLat,nR,nPhi) )   + &
+!                      &                                          this%vtc(nLat,nR,nPhi) * &
+!                      &                    ( cosn_theta_E2(nLat)*this%vtc(nLat,nR,nPhi) +    &
+!                      &                                       this%dvpdpc(nLat,nR,nPhi) + &
+!                      &                                   this%dvrdrc(nLat,nR,nPhi) )   + &
+!                      &                                          this%vpc(nLat,nR,nPhi) * &
+!                      &                    ( cosn_theta_E2(nLat)*this%vpc(nLat,nR,nPhi) -    &
+!                      &                                       this%dvtdpc(nLat,nR,nPhi) )  )
+!
+!                      this%Advp(nLat,nR,nPhi)= or4(nR)*orho1(nR) * (                       &
+!                      &                                          -this%vrc(nLat,nR,nPhi) * &
+!                      &                                      ( this%dvpdrc(nLat,nR,nPhi) - &
+!                      &                              beta(nR)*this%vpc(nLat,nR,nPhi) )   - &
+!                      &                                           this%vtc(nLat,nR,nPhi) * &
+!                      &                                      ( this%dvtdpc(nLat,nR,nPhi) + &
+!                      &                                      this%cvrc(nLat,nR,nPhi) )   - &
+!                      &                     this%vpc(nLat,nR,nPhi) * this%dvpdpc(nLat,nR,nPhi) )
+!                   end if
+!
+!                end if  ! Navier-Stokes nonlinear advection term ?
+!
+!                if ( l_heat_nl .and. nBc == 0  ) then
+!                   !------ Get V S, the divergence of it is entropy advection:
+!                   this%VSr(nLat,nR,nPhi)=this%vrc(nLat,nR,nPhi)*this%sc(nLat,nR,nPhi)
+!                   this%VSt(nLat,nR,nPhi)=or2(nR)*this%vtc(nLat,nR,nPhi)*this%sc(nLat,nR,nPhi)
+!                   this%VSp(nLat,nR,nPhi)=or2(nR)*this%vpc(nLat,nR,nPhi)*this%sc(nLat,nR,nPhi)
+!                end if     ! heat equation required ?
+!
+!                if ( l_chemical_conv .and. nBc == 0  ) then
+!                   this%VXir(nLat,nR,nPhi)=this%vrc(nLat,nR,nPhi)*this%xic(nLat,nR,nPhi)
+!                   this%VXit(nLat,nR,nPhi)=or2(nR)*this%vtc(nLat,nR,nPhi)*this%xic(nLat,nR,nPhi)
+!                   this%VXip(nLat,nR,nPhi)=or2(nR)*this%vpc(nLat,nR,nPhi)*this%xic(nLat,nR,nPhi)
+!                end if     ! chemical composition equation required ?
+!
+!                if ( l_phase_field .and. nBc == 0  ) then
+!                   this%Advr(nLat,nR,nPhi)=this%Advr(nLat,nR,nPhi)-this%phic(nLat,nR,nPhi)* &
+!                   &                    this%vrc(nLat,nR,nPhi)/epsPhase**2/penaltyFac**2
+!                   this%Advt(nLat,nR,nPhi)=this%Advt(nLat,nR,nPhi)-or2(nR)*this%phic(nLat,nR,nPhi)* &
+!                   &                    this%vtc(nLat,nR,nPhi)/epsPhase**2/penaltyFac**2
+!                   this%Advp(nLat,nR,nPhi)=this%Advp(nLat,nR,nPhi)-or2(nR)*this%phic(nLat,nR,nPhi)* &
+!                   &                    this%vpc(nLat,nR,nPhi)/epsPhase**2/penaltyFac**2
+!                   this%phiTerms(nLat,nR,nPhi)=-one/epsPhase**2* this%phic(nLat,nR,nPhi)*       &
+!                   &                         (one-this%phic(nLat,nR,nPhi))*(                 &
+!                   &                         phaseDiffFac*(one-two*this%phic(nLat,nR,nPhi))+ &
+!                   &                         this%sc(nLat,nR,nPhi)-tmelt)
+!                end if ! Nonlinear terms for the phase field equation
+!
+!                if ( l_precession .and. nBc == 0  ) then
+!                   this%PCr(nLat,nR,nPhi)=posnalp*O_sin_theta(nLat)*r(nR)*(                   &
+!                   &            cos(oek*time+phi(nPhi))*this%vpc(nLat,nR,nPhi)*cosTheta(nLat)+&
+!                   &            sin(oek*time+phi(nPhi))*this%vtc(nLat,nR,nPhi) )
+!                   this%PCt(nLat,nR,nPhi)=   -posnalp*sinTheta(nLat)*or2(nR)*(            &
+!                   &            cos(oek*time+phi(nPhi))*this%vpc(nLat,nR,nPhi)       + &
+!                   &            sin(oek*time+phi(nPhi))*or1(nR)*this%vrc(nLat,nR,nPhi) )
+!                   this%PCp(nLat,nR,nPhi)= posnalp*sinTheta(nLat)*cos(oek*time+phi(nPhi))*   &
+!                   &            or2(nR)*(this%vtc(nLat,nR,nPhi)-or1(nR)*                  &
+!                   &            this%vrc(nLat,nR,nPhi)*cosTheta(nLat))
+!                end if ! precession term required ?
+!
+!                if ( l_centrifuge .and. nBc == 0  ) then
+!                   !if ( l_anel ) then
+!                   !   this%CAr(nLat,nR,nPhi) = dilution_fac*r(nR)*sinTheta(nLat)**4* &
+!                   !   &       ( -ra*opr*this%sc(nLat,nR,nPhi) )
+!                   !   !-- neglect pressure contribution
+!                   !   !& + polind*DissNb*oek*opressure0(nR)*this%pc(nLat,nR,nPhi) )
+!                   !   this%CAt(nLat,nR,nPhi) = dilution_fac*r(nR)*sinTheta(nLat)**3*cosTheta(nLat)* &
+!                   !   &       ( -ra*opr*this%sc(nLat,nR,nPhi) )
+!                   !   !-- neglect pressure contribution
+!                   !   !& + polind*DissNb*oek*opressure0(nR)*this%pc(nLat,nR,nPhi) )
+!                   !else
+!                   this%CAr(nLat,nR,nPhi)=-dilution_fac*r(nR)*sinTheta(nLat)**4*ra*opr* &
+!                   &                    this%sc(nLat,nR,nPhi)
+!                   this%CAt(nLat,nR,nPhi)=-dilution_fac*r(nR)*sinTheta(nLat)**3*cosTheta(nLat)*ra*opr* &
+!                   &                    this%sc(nLat,nR,nPhi)
+!                   !end if
+!                end if ! centrifuge
+!
+!                if ( l_mag_nl ) then
+!
+!                   if (  nBc == 0 .and. nR>n_r_LCR ) then
+!                      !------ Get (V x B) , the curl of this is the dynamo term:
+!                      this%VxBr(nLat,nR,nPhi)=  orho1(nR)*O_sin_theta_E2(nLat) * (  &
+!                      &           this%vtc(nLat,nR,nPhi)*this%bpc(nLat,nR,nPhi) -   &
+!                      &           this%vpc(nLat,nR,nPhi)*this%btc(nLat,nR,nPhi) )
+!
+!                      this%VxBt(nLat,nR,nPhi)=  orho1(nR)*or4(nR) * (          &
+!                      &           this%vpc(nLat,nR,nPhi)*this%brc(nLat,nR,nPhi) - &
+!                      &           this%vrc(nLat,nR,nPhi)*this%bpc(nLat,nR,nPhi) )
+!
+!                      this%VxBp(nLat,nR,nPhi)=   orho1(nR)*or4(nR) * (         &
+!                      &           this%vrc(nLat,nR,nPhi)*this%btc(nLat,nR,nPhi) - &
+!                      &           this%vtc(nLat,nR,nPhi)*this%brc(nLat,nR,nPhi) )
+!                   else if ( nBc == 1  .or. nR<=n_r_LCR ) then ! stress free boundary
+!                      this%VxBt(nLat,nR,nPhi)= or4(nR)*orho1(nR)*this%vpc(nLat,nR,nPhi)* &
+!                      &                                       this%brc(nLat,nR,nPhi)
+!                      this%VxBp(nLat,nR,nPhi)=-or4(nR)*orho1(nR)*this%vtc(nLat,nR,nPhi)* &
+!                      &                                       this%brc(nLat,nR,nPhi)
+!                   else if ( nBc == 2 ) then ! rigid boundary
+!                      !-- Only vp /= 0 at boundary allowed (rotation of boundaries about z-axis):
+!                      this%VxBt(nLat,nR,nPhi)=or4(nR)*orho1(nR)*this%vpc(nLat,nR,nPhi)* &
+!                      &                                      this%brc(nLat,nR,nPhi)
+!                      this%VxBp(nLat,nR,nPhi)= 0.0_cp
+!                   end if  ! boundary ?
+!
+!                end if ! l_mag_nl ?
+!
+!                if ( l_anel .and. nBc == 0  ) then
+!                   !------ Get viscous heating
+!                   this%heatTerms(nLat,nR,nPhi)=ViscHeatFac*or4(nR)*           &
+!                   &                     orho1(nR)*otemp1(nR)*visc(nR)*(    &
+!                   &     two*(                     this%dvrdrc(nLat,nR,nPhi) - & ! (1)
+!                   &     (two*or1(nR)+beta(nR))*this%vrc(nLat,nR,nPhi) )**2  + &
+!                   &     two*( cosn_theta_E2(nLat)*   this%vtc(nLat,nR,nPhi) +    &
+!                   &                               this%dvpdpc(nLat,nR,nPhi) + &
+!                   &                               this%dvrdrc(nLat,nR,nPhi) - & ! (2)
+!                   &     or1(nR)*               this%vrc(nLat,nR,nPhi) )**2  + &
+!                   &     two*(                     this%dvpdpc(nLat,nR,nPhi) + &
+!                   &           cosn_theta_E2(nLat)*   this%vtc(nLat,nR,nPhi) +    & ! (3)
+!                   &     or1(nR)*               this%vrc(nLat,nR,nPhi) )**2  + &
+!                   &          ( two*               this%dvtdpc(nLat,nR,nPhi) + &
+!                   &                                 this%cvrc(nLat,nR,nPhi) - & ! (6)
+!                   &    two*cosn_theta_E2(nLat)*this%vpc(nLat,nR,nPhi) )**2  +    &
+!                   &                        O_sin_theta_E2(nLat) * (           &
+!                   &         ( r(nR)*              this%dvtdrc(nLat,nR,nPhi) - &
+!                   &           (two+beta(nR)*r(nR))*  this%vtc(nLat,nR,nPhi) + & ! (4)
+!                   &     or1(nR)*            this%dvrdtc(nLat,nR,nPhi) )**2  + &
+!                   &         ( r(nR)*              this%dvpdrc(nLat,nR,nPhi) - &
+!                   &           (two+beta(nR)*r(nR))*  this%vpc(nLat,nR,nPhi) + & ! (5)
+!                   &     or1(nR)*            this%dvrdpc(nLat,nR,nPhi) )**2 )- &
+!                   &    two*third*(  beta(nR)*        this%vrc(nLat,nR,nPhi) )**2 )
+!
+!                   if ( l_mag_nl .and. nR>n_r_LCR ) then
+!                      !------ Get ohmic losses
+!                      this%heatTerms(nLat,nR,nPhi)=this%heatTerms(nLat,nR,nPhi)+     &
+!                      &       OhmLossFac*   or2(nR)*otemp1(nR)*lambda(nR)*     &
+!                      &    ( or2(nR)*             this%cbrc(nLat,nR,nPhi)**2 +    &
+!                      &      O_sin_theta_E2(nLat)*   this%cbtc(nLat,nR,nPhi)**2 +    &
+!                      &      O_sin_theta_E2(nLat)*   this%cbpc(nLat,nR,nPhi)**2  )
+!                   end if ! if l_mag_nl ?
+!
+!                end if  ! Viscous heating and Ohmic losses ?
+!             end do
+!          end do
+!       end do
+!       !$omp end target teams distribute parallel do
       !$omp target teams distribute parallel do collapse(3)
-      do nLat=1, nlat_padded
+      do nPhi=1,n_phi_max
          do nR=nRl, nRu
-            do nPhi=1,n_phi_max
-
-               !-- If the computation of nBc does not work well here, we could
-               !-- also set the appropriate boundary values to zero after the loop
-               nBc = 0
-               if ( nR == n_r_cmb ) then
-                  nBc = ktopv
-               else if ( nR == n_r_icb ) then
-                  nBc = kbotv
-               end if
-               if ( l_parallel_solve .or. (l_single_matrix .and. l_temperature_diff) ) then
-                  ! We will need the nonlinear terms on ricb for the pressure l=m=0
-                  ! equation
-                  nBc=0
-               end if
-
+            do nLat=1, nlat_padded
                if ( l_mag_LF .and. nR>n_r_LCR ) then
                   !------ Get the Lorentz force:
                   !---- LFr= r**2/(E*Pm) * ( curl(B)_t*B_p - curl(B)_p*B_t )
@@ -1089,6 +1477,29 @@ contains
 
                end if  ! Navier-Stokes nonlinear advection term ?
 
+            end do
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+      !$omp target teams distribute parallel do collapse(3) private(nBc)
+      do nPhi=1,n_phi_max
+         do nR=nRl, nRu
+            do nLat=1, nlat_padded
+               !-- If the computation of nBc does not work well here, we could
+               !-- also set the appropriate boundary values to zero after the loop
+               nBc = 0
+               if ( nR == n_r_cmb ) then
+                  nBc = ktopv
+               else if ( nR == n_r_icb ) then
+                  nBc = kbotv
+               end if
+               if ( l_parallel_solve .or. (l_single_matrix .and. l_temperature_diff) ) then
+                  ! We will need the nonlinear terms on ricb for the pressure l=m=0
+                  ! equation
+                  nBc=0
+               end if
+
                if ( l_heat_nl .and. nBc == 0  ) then
                   !------ Get V S, the divergence of it is entropy advection:
                   this%VSr(nLat,nR,nPhi)=this%vrc(nLat,nR,nPhi)*this%sc(nLat,nR,nPhi)
@@ -1145,35 +1556,6 @@ contains
                   !end if
                end if ! centrifuge
 
-               if ( l_mag_nl ) then
-
-                  if (  nBc == 0 .and. nR>n_r_LCR ) then
-                     !------ Get (V x B) , the curl of this is the dynamo term:
-                     this%VxBr(nLat,nR,nPhi)=  orho1(nR)*O_sin_theta_E2(nLat) * (  &
-                     &           this%vtc(nLat,nR,nPhi)*this%bpc(nLat,nR,nPhi) -   &
-                     &           this%vpc(nLat,nR,nPhi)*this%btc(nLat,nR,nPhi) )
-
-                     this%VxBt(nLat,nR,nPhi)=  orho1(nR)*or4(nR) * (          &
-                     &           this%vpc(nLat,nR,nPhi)*this%brc(nLat,nR,nPhi) - &
-                     &           this%vrc(nLat,nR,nPhi)*this%bpc(nLat,nR,nPhi) )
-
-                     this%VxBp(nLat,nR,nPhi)=   orho1(nR)*or4(nR) * (         &
-                     &           this%vrc(nLat,nR,nPhi)*this%btc(nLat,nR,nPhi) - &
-                     &           this%vtc(nLat,nR,nPhi)*this%brc(nLat,nR,nPhi) )
-                  else if ( nBc == 1  .or. nR<=n_r_LCR ) then ! stress free boundary
-                     this%VxBt(nLat,nR,nPhi)= or4(nR)*orho1(nR)*this%vpc(nLat,nR,nPhi)* &
-                     &                                       this%brc(nLat,nR,nPhi)
-                     this%VxBp(nLat,nR,nPhi)=-or4(nR)*orho1(nR)*this%vtc(nLat,nR,nPhi)* &
-                     &                                       this%brc(nLat,nR,nPhi)
-                  else if ( nBc == 2 ) then ! rigid boundary
-                     !-- Only vp /= 0 at boundary allowed (rotation of boundaries about z-axis):
-                     this%VxBt(nLat,nR,nPhi)=or4(nR)*orho1(nR)*this%vpc(nLat,nR,nPhi)* &
-                     &                                      this%brc(nLat,nR,nPhi)
-                     this%VxBp(nLat,nR,nPhi)= 0.0_cp
-                  end if  ! boundary ?
-
-               end if ! l_mag_nl ?
-
                if ( l_anel .and. nBc == 0  ) then
                   !------ Get viscous heating
                   this%heatTerms(nLat,nR,nPhi)=ViscHeatFac*or4(nR)*           &
@@ -1209,16 +1591,62 @@ contains
                   end if ! if l_mag_nl ?
 
                end if  ! Viscous heating and Ohmic losses ?
+
             end do
          end do
       end do
       !$omp end target teams distribute parallel do
+
+      if ( l_mag_nl ) then
+         !$omp target teams distribute parallel do collapse(3) private(nBc)
+         do nPhi=1,n_phi_max
+            do nR=nRl, nRu
+               do nLat=1, nlat_padded
+                  !-- If the computation of nBc does not work well here, we could
+                  !-- also set the appropriate boundary values to zero after the loop
+                  nBc = 0
+                  if ( nR == n_r_cmb ) then
+                     nBc = ktopv
+                  else if ( nR == n_r_icb ) then
+                     nBc = kbotv
+                  end if
+                  if ( l_parallel_solve .or. (l_single_matrix .and. l_temperature_diff) ) then
+                     ! We will need the nonlinear terms on ricb for the pressure l=m=0
+                     ! equation
+                     nBc=0
+                  end if
+
+                  if (  nBc == 0 .and. nR>n_r_LCR ) then
+                     !------ Get (V x B) , the curl of this is the dynamo term:
+                     this%VxBr(nLat,nR,nPhi)=  orho1(nR)*O_sin_theta_E2(nLat) * (  &
+                     &           this%vtc(nLat,nR,nPhi)*this%bpc(nLat,nR,nPhi) -   &
+                     &           this%vpc(nLat,nR,nPhi)*this%btc(nLat,nR,nPhi) )
+
+                     this%VxBt(nLat,nR,nPhi)=  orho1(nR)*or4(nR) * (          &
+                     &           this%vpc(nLat,nR,nPhi)*this%brc(nLat,nR,nPhi) - &
+                     &           this%vrc(nLat,nR,nPhi)*this%bpc(nLat,nR,nPhi) )
+
+                     this%VxBp(nLat,nR,nPhi)=   orho1(nR)*or4(nR) * (         &
+                     &           this%vrc(nLat,nR,nPhi)*this%btc(nLat,nR,nPhi) - &
+                     &           this%vtc(nLat,nR,nPhi)*this%brc(nLat,nR,nPhi) )
+                  else if ( nBc == 1  .or. nR<=n_r_LCR ) then ! stress free boundary
+                     this%VxBt(nLat,nR,nPhi)= or4(nR)*orho1(nR)*this%vpc(nLat,nR,nPhi)* &
+                     &                                       this%brc(nLat,nR,nPhi)
+                     this%VxBp(nLat,nR,nPhi)=-or4(nR)*orho1(nR)*this%vtc(nLat,nR,nPhi)* &
+                     &                                       this%brc(nLat,nR,nPhi)
+                  else if ( nBc == 2 ) then ! rigid boundary
+                     !-- Only vp /= 0 at boundary allowed (rotation of boundaries about z-axis):
+                     this%VxBt(nLat,nR,nPhi)=or4(nR)*orho1(nR)*this%vpc(nLat,nR,nPhi)* &
+                     &                                      this%brc(nLat,nR,nPhi)
+                     this%VxBp(nLat,nR,nPhi)= 0.0_cp
+                  end if  ! boundary ?
+               end do
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+      end if ! l_mag_nl ?
 #else
       !$omp target teams distribute parallel do collapse(2)
-#endif
-#else
-      !$omp parallel do default(shared) private(nR,nBc)
-#endif
       do nPhi=1,n_phi_max
          do nR=nRl, nRu
 
@@ -1428,11 +1856,219 @@ contains
             end if  ! Viscous heating and Ohmic losses ?
          end do
       end do
-#ifdef WITH_OMP_GPU
-#ifdef DEFAULT
       !$omp end target teams distribute parallel do
 #endif
 #else
+      !$omp parallel do default(shared) private(nR,nBc)
+      do nPhi=1,n_phi_max
+         do nR=nRl, nRu
+
+            !-- If the computation of nBc does not work well here, we could
+            !-- also set the appropriate boundary values to zero after the loop
+            nBc = 0
+            if ( nR == n_r_cmb ) then
+               nBc = ktopv
+            else if ( nR == n_r_icb ) then
+               nBc = kbotv
+            end if
+            if ( l_parallel_solve .or. (l_single_matrix .and. l_temperature_diff) ) then
+               ! We will need the nonlinear terms on ricb for the pressure l=m=0
+               ! equation
+               nBc=0
+            end if
+
+            if ( l_mag_LF .and. nR>n_r_LCR ) then
+               !------ Get the Lorentz force:
+               !---- LFr= r**2/(E*Pm) * ( curl(B)_t*B_p - curl(B)_p*B_t )
+               this%LFr(:,nR,nPhi)=  LFfac*O_sin_theta_E2(:) * (      &
+               &        this%cbtc(:,nR,nPhi)*this%bpc(:,nR,nPhi) -    &
+               &        this%cbpc(:,nR,nPhi)*this%btc(:,nR,nPhi) )
+
+               !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
+               this%LFt(:,nR,nPhi)=  LFfac*or4(nR) * (                &
+               &        this%cbpc(:,nR,nPhi)*this%brc(:,nR,nPhi) -    &
+               &        this%cbrc(:,nR,nPhi)*this%bpc(:,nR,nPhi) )
+
+               !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
+               this%LFp(:,nR,nPhi)=  LFfac*or4(nR) * (                &
+               &        this%cbrc(:,nR,nPhi)*this%btc(:,nR,nPhi) -    &
+               &        this%cbtc(:,nR,nPhi)*this%brc(:,nR,nPhi) )
+            end if      ! Lorentz force required ?
+
+            if ( l_conv_nl ) then
+
+               if ( l_adv_curl ) then ! Advection is \curl{u} \times u
+                  this%Advr(:,nR,nPhi)=  - O_sin_theta_E2(:) * (       &
+                  &        this%cvtc(:,nR,nPhi)*this%vpc(:,nR,nPhi) -  &
+                  &        this%cvpc(:,nR,nPhi)*this%vtc(:,nR,nPhi) )
+
+                  this%Advt(:,nR,nPhi)= -or4(nR)* (                    &
+                  &        this%cvpc(:,nR,nPhi)*this%vrc(:,nR,nPhi) -  &
+                  &        this%cvrc(:,nR,nPhi)*this%vpc(:,nR,nPhi) )
+
+                  this%Advp(:,nR,nPhi)= -or4(nR)* (                    &
+                  &        this%cvrc(:,nR,nPhi)*this%vtc(:,nR,nPhi) -  &
+                  &        this%cvtc(:,nR,nPhi)*this%vrc(:,nR,nPhi) )
+               else ! Advection is u\grad u
+                  !------ Get Advection:
+                  this%Advr(:,nR,nPhi)=          -or2(nR)*orho1(nR) * (  &
+                  &                                this%vrc(:,nR,nPhi) * &
+                  &                     (       this%dvrdrc(:,nR,nPhi) - &
+                  &    ( two*or1(nR)+beta(nR) )*this%vrc(:,nR,nPhi) ) +  &
+                  &                      O_sin_theta_E2(:) * (           &
+                  &                                this%vtc(:,nR,nPhi) * &
+                  &                     (       this%dvrdtc(:,nR,nPhi) - &
+                  &                  r(nR)*      this%vtc(:,nR,nPhi) ) + &
+                  &                                this%vpc(:,nR,nPhi) * &
+                  &                     (       this%dvrdpc(:,nR,nPhi) - &
+                  &                    r(nR)*      this%vpc(:,nR,nPhi) ) ) )
+
+                  this%Advt(:,nR,nPhi)=or4(nR)*orho1(nR) * (                       &
+                  &                                         -this%vrc(:,nR,nPhi) * &
+                  &                                   (   this%dvtdrc(:,nR,nPhi) - &
+                  &                             beta(nR)*this%vtc(:,nR,nPhi) )   + &
+                  &                                          this%vtc(:,nR,nPhi) * &
+                  &                    ( cosn_theta_E2(:)*this%vtc(:,nR,nPhi) +    &
+                  &                                       this%dvpdpc(:,nR,nPhi) + &
+                  &                                   this%dvrdrc(:,nR,nPhi) )   + &
+                  &                                          this%vpc(:,nR,nPhi) * &
+                  &                    ( cosn_theta_E2(:)*this%vpc(:,nR,nPhi) -    &
+                  &                                       this%dvtdpc(:,nR,nPhi) )  )
+
+                  this%Advp(:,nR,nPhi)= or4(nR)*orho1(nR) * (                       &
+                  &                                          -this%vrc(:,nR,nPhi) * &
+                  &                                      ( this%dvpdrc(:,nR,nPhi) - &
+                  &                              beta(nR)*this%vpc(:,nR,nPhi) )   - &
+                  &                                           this%vtc(:,nR,nPhi) * &
+                  &                                      ( this%dvtdpc(:,nR,nPhi) + &
+                  &                                      this%cvrc(:,nR,nPhi) )   - &
+                  &                     this%vpc(:,nR,nPhi) * this%dvpdpc(:,nR,nPhi) )
+               end if
+
+            end if  ! Navier-Stokes nonlinear advection term ?
+
+            if ( l_heat_nl .and. nBc == 0  ) then
+               !------ Get V S, the divergence of it is entropy advection:
+               this%VSr(:,nR,nPhi)=this%vrc(:,nR,nPhi)*this%sc(:,nR,nPhi)
+               this%VSt(:,nR,nPhi)=or2(nR)*this%vtc(:,nR,nPhi)*this%sc(:,nR,nPhi)
+               this%VSp(:,nR,nPhi)=or2(nR)*this%vpc(:,nR,nPhi)*this%sc(:,nR,nPhi)
+            end if     ! heat equation required ?
+
+            if ( l_chemical_conv .and. nBc == 0  ) then
+               this%VXir(:,nR,nPhi)=this%vrc(:,nR,nPhi)*this%xic(:,nR,nPhi)
+               this%VXit(:,nR,nPhi)=or2(nR)*this%vtc(:,nR,nPhi)*this%xic(:,nR,nPhi)
+               this%VXip(:,nR,nPhi)=or2(nR)*this%vpc(:,nR,nPhi)*this%xic(:,nR,nPhi)
+            end if     ! chemical composition equation required ?
+
+            if ( l_phase_field .and. nBc == 0  ) then
+               this%Advr(:,nR,nPhi)=this%Advr(:,nR,nPhi)-this%phic(:,nR,nPhi)* &
+               &                    this%vrc(:,nR,nPhi)/epsPhase**2/penaltyFac**2
+               this%Advt(:,nR,nPhi)=this%Advt(:,nR,nPhi)-or2(nR)*this%phic(:,nR,nPhi)* &
+               &                    this%vtc(:,nR,nPhi)/epsPhase**2/penaltyFac**2
+               this%Advp(:,nR,nPhi)=this%Advp(:,nR,nPhi)-or2(nR)*this%phic(:,nR,nPhi)* &
+               &                    this%vpc(:,nR,nPhi)/epsPhase**2/penaltyFac**2
+               this%phiTerms(:,nR,nPhi)=-one/epsPhase**2* this%phic(:,nR,nPhi)*       &
+               &                         (one-this%phic(:,nR,nPhi))*(                 &
+               &                         phaseDiffFac*(one-two*this%phic(:,nR,nPhi))+ &
+               &                         this%sc(:,nR,nPhi)-tmelt)
+            end if ! Nonlinear terms for the phase field equation
+
+            if ( l_precession .and. nBc == 0  ) then
+               this%PCr(:,nR,nPhi)=posnalp*O_sin_theta(:)*r(nR)*(                   &
+               &            cos(oek*time+phi(nPhi))*this%vpc(:,nR,nPhi)*cosTheta(:)+&
+               &            sin(oek*time+phi(nPhi))*this%vtc(:,nR,nPhi) )
+               this%PCt(:,nR,nPhi)=   -posnalp*sinTheta(:)*or2(nR)*(            &
+               &            cos(oek*time+phi(nPhi))*this%vpc(:,nR,nPhi)       + &
+               &            sin(oek*time+phi(nPhi))*or1(nR)*this%vrc(:,nR,nPhi) )
+               this%PCp(:,nR,nPhi)= posnalp*sinTheta(:)*cos(oek*time+phi(nPhi))*   &
+               &            or2(nR)*(this%vtc(:,nR,nPhi)-or1(nR)*                  &
+               &            this%vrc(:,nR,nPhi)*cosTheta(:))
+            end if ! precession term required ?
+
+            if ( l_centrifuge .and. nBc == 0  ) then
+               !if ( l_anel ) then
+               !   this%CAr(:,nR,nPhi) = dilution_fac*r(nR)*sinTheta(:)**4* &
+               !   &       ( -ra*opr*this%sc(:,nR,nPhi) )
+               !   !-- neglect pressure contribution
+               !   !& + polind*DissNb*oek*opressure0(nR)*this%pc(:,nR,nPhi) )
+               !   this%CAt(:,nR,nPhi) = dilution_fac*r(nR)*sinTheta(:)**3*cosTheta(:)* &
+               !   &       ( -ra*opr*this%sc(:,nR,nPhi) )
+               !   !-- neglect pressure contribution
+               !   !& + polind*DissNb*oek*opressure0(nR)*this%pc(:,nR,nPhi) )
+               !else
+               this%CAr(:,nR,nPhi)=-dilution_fac*r(nR)*sinTheta(:)**4*ra*opr* &
+               &                    this%sc(:,nR,nPhi)
+               this%CAt(:,nR,nPhi)=-dilution_fac*r(nR)*sinTheta(:)**3*cosTheta(:)*ra*opr* &
+               &                    this%sc(:,nR,nPhi)
+               !end if
+            end if ! centrifuge
+
+            if ( l_mag_nl ) then
+
+               if (  nBc == 0 .and. nR>n_r_LCR ) then
+                  !------ Get (V x B) , the curl of this is the dynamo term:
+                  this%VxBr(:,nR,nPhi)=  orho1(nR)*O_sin_theta_E2(:) * (  &
+                  &           this%vtc(:,nR,nPhi)*this%bpc(:,nR,nPhi) -   &
+                  &           this%vpc(:,nR,nPhi)*this%btc(:,nR,nPhi) )
+
+                  this%VxBt(:,nR,nPhi)=  orho1(nR)*or4(nR) * (          &
+                  &           this%vpc(:,nR,nPhi)*this%brc(:,nR,nPhi) - &
+                  &           this%vrc(:,nR,nPhi)*this%bpc(:,nR,nPhi) )
+
+                  this%VxBp(:,nR,nPhi)=   orho1(nR)*or4(nR) * (         &
+                  &           this%vrc(:,nR,nPhi)*this%btc(:,nR,nPhi) - &
+                  &           this%vtc(:,nR,nPhi)*this%brc(:,nR,nPhi) )
+               else if ( nBc == 1  .or. nR<=n_r_LCR ) then ! stress free boundary
+                  this%VxBt(:,nR,nPhi)= or4(nR)*orho1(nR)*this%vpc(:,nR,nPhi)* &
+                  &                                       this%brc(:,nR,nPhi)
+                  this%VxBp(:,nR,nPhi)=-or4(nR)*orho1(nR)*this%vtc(:,nR,nPhi)* &
+                  &                                       this%brc(:,nR,nPhi)
+               else if ( nBc == 2 ) then ! rigid boundary
+               !-- Only vp /= 0 at boundary allowed (rotation of boundaries about z-axis):
+                  this%VxBt(:,nR,nPhi)=or4(nR)*orho1(nR)*this%vpc(:,nR,nPhi)* &
+                  &                                      this%brc(:,nR,nPhi)
+                  this%VxBp(:,nR,nPhi)= 0.0_cp
+               end if  ! boundary ?
+
+            end if ! l_mag_nl ?
+
+            if ( l_anel .and. nBc == 0  ) then
+               !------ Get viscous heating
+               this%heatTerms(:,nR,nPhi)=ViscHeatFac*or4(nR)*           &
+               &                     orho1(nR)*otemp1(nR)*visc(nR)*(    &
+               &     two*(                     this%dvrdrc(:,nR,nPhi) - & ! (1)
+               &     (two*or1(nR)+beta(nR))*this%vrc(:,nR,nPhi) )**2  + &
+               &     two*( cosn_theta_E2(:)*   this%vtc(:,nR,nPhi) +    &
+               &                               this%dvpdpc(:,nR,nPhi) + &
+               &                               this%dvrdrc(:,nR,nPhi) - & ! (2)
+               &     or1(nR)*               this%vrc(:,nR,nPhi) )**2  + &
+               &     two*(                     this%dvpdpc(:,nR,nPhi) + &
+               &           cosn_theta_E2(:)*   this%vtc(:,nR,nPhi) +    & ! (3)
+               &     or1(nR)*               this%vrc(:,nR,nPhi) )**2  + &
+               &          ( two*               this%dvtdpc(:,nR,nPhi) + &
+               &                                 this%cvrc(:,nR,nPhi) - & ! (6)
+               &    two*cosn_theta_E2(:)*this%vpc(:,nR,nPhi) )**2  +    &
+               &                        O_sin_theta_E2(:) * (           &
+               &         ( r(nR)*              this%dvtdrc(:,nR,nPhi) - &
+               &           (two+beta(nR)*r(nR))*  this%vtc(:,nR,nPhi) + & ! (4)
+               &     or1(nR)*            this%dvrdtc(:,nR,nPhi) )**2  + &
+               &         ( r(nR)*              this%dvpdrc(:,nR,nPhi) - &
+               &           (two+beta(nR)*r(nR))*  this%vpc(:,nR,nPhi) + & ! (5)
+               &     or1(nR)*            this%dvrdpc(:,nR,nPhi) )**2 )- &
+               &    two*third*(  beta(nR)*        this%vrc(:,nR,nPhi) )**2 )
+
+               if ( l_mag_nl .and. nR>n_r_LCR ) then
+                  !------ Get ohmic losses
+                  this%heatTerms(:,nR,nPhi)=this%heatTerms(:,nR,nPhi)+     &
+                  &       OhmLossFac*   or2(nR)*otemp1(nR)*lambda(nR)*     &
+                  &    ( or2(nR)*             this%cbrc(:,nR,nPhi)**2 +    &
+                  &      O_sin_theta_E2(:)*   this%cbtc(:,nR,nPhi)**2 +    &
+                  &      O_sin_theta_E2(:)*   this%cbpc(:,nR,nPhi)**2  )
+               end if ! if l_mag_nl ?
+
+            end if  ! Viscous heating and Ohmic losses ?
+         end do
+      end do
       !$omp end parallel do
 #endif
 
