@@ -208,11 +208,13 @@ contains
 
       !-- Allocate temp arrays
       allocate(tmp_in(n_f_start:n_f_stop,2*this%n_r_max-2), tmp_out(n_f_start:n_f_stop,2*this%n_r_max-2))
+      tmp_in(:,:) = zero; tmp_out(:,:) = zero
       !$omp target enter data map(alloc : tmp_in, tmp_out)
+      !$omp target update to(tmp_in, tmp_out)
 
       !-- initialize to zero
       !$omp target teams distribute parallel do collapse(2)
-      do n_f=n_f_start,n_f_stop
+      do n_f=n_f_start,n_f_stop !--TODO: change loops order
          do n_r=1,2*this%n_r_max-2
             tmp_in(n_f, n_r) = zero
             tmp_out(n_f, n_r) = zero
