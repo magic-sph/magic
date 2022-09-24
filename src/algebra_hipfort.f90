@@ -77,7 +77,9 @@ contains
       call hipsolverCheck(hipsolverCreate(handle))
 
       allocate(tmpr(n), tmpi(n))
+      tmpi(:) = 0.0_cp; tmpr(:) = 0.0_cp
       !$omp target enter data map(alloc : tmpi, tmpr)
+      !$omp target update to(tmpi, tmpr)
 
       !-- Extract real and imag parts of input rhs matrix
       !$omp target teams distribute simd
