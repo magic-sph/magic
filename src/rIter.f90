@@ -1,4 +1,4 @@
-!#define DEFAULT
+!#define KERNELS_SPLIT
 module rIter_mod
    !
    ! This module actually handles the loop over the radial levels. It contains
@@ -102,18 +102,15 @@ contains
       call this%nl_lm%initialize(lmP_max)
 
       allocate( dLw(lm_max), dLz(lm_max), dLdw(lm_max), dLddw(lm_max), dmdw(lm_max), dmz(lm_max) )
+      dLw(:) = zero
+      dLz(:) = zero
+      dLdw(:) = zero
+      dLddw(:) = zero
+      dmdw(:) = zero
+      dmz(:) = zero
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: dLw, dLz, dLdw, dLddw, dmdw, dmz)
-      !$omp target teams distribute parallel do
-      do lm=1,lm_max
-         dLw(lm) = zero
-         dLz(lm) = zero
-         dLdw(lm) = zero
-         dLddw(lm) = zero
-         dmdw(lm) = zero
-         dmz(lm) = zero
-      end do
-      !$omp end target teams distribute parallel do
+      !$omp target update to(dLw, dLz, dLdw, dLddw, dmdw, dmz)
 #endif
 
    end subroutine initialize
@@ -441,7 +438,7 @@ contains
                  &                 this%gsa%sc,this%gsa%drSc,this%gsa%xic,         &
                  &                 this%gsa%phic,this%gsa%dvrdpc,                  &
                  &                 this%gsa%dvpdrc,this%gsa%dvtdrc,this%gsa%dvrdtc,&
-                 &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc) !-- Keep on CPU
+                 &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc) !-- TODO: Offload
          end if
 
          !--------- Stuff for special output:
@@ -506,7 +503,7 @@ contains
                  &                 CFt2LM, CFp2LM, w_Rloc(:,nR), dw_Rloc(:,nR),    &
                  &                 ddw_Rloc(:,nR), z_Rloc(:,nR), s_Rloc(:,nR),     &
                  &                 xi_Rloc(:,nR), p_Rloc(:,nR), dp_Rloc(:,nR),     &
-                 &                 this%nl_lm%AdvrLM)
+                 &                 this%nl_lm%AdvrLM) !-- TODO: Offload
          end if
 
          !-- Finish calculation of TO variables:
@@ -537,6 +534,59 @@ contains
       !----- Correct sign of mantle Lorentz torque (see above):
       lorentz_torque_ma=-lorentz_torque_ma
 
+! #ifdef WITH_OMP_GPU
+!       !-- Copy back get_td results
+!       if (nBc == 0 ) then
+!          if ( l_conv ) then  ! Convection
+!             !$omp target update from(dVxVhLM)
+!             !$omp target update from(dwdt, dzdt)
+!             if ( (.not. l_double_curl) .or. lPressNext ) then
+!                !$omp target update from(dpdt)
+!             end if
+!          else
+!             !$omp target update from(dwdt, dzdt, dpdt)
+!          end if ! l_conv ?
+!       end if
+!
+!       if ( nBc == 0 ) then
+!          if ( l_heat ) then
+!             !$omp target update from(dVSrLM)
+!             !$omp target update from(dsdt)
+!          end if
+!          if ( l_chemical_conv ) then
+!             !$omp target update from(dVXirLM)
+!             !$omp target update from(dxidt)
+!          end if
+!          if ( l_phase_field ) then
+!             !$omp target update from(dphidt)
+!          end if
+!          if ( l_mag_nl .or. l_mag_kin  ) then
+!             !$omp target update from(dVxBhLM)
+!             !$omp target update from(dbdt, djdt)
+!          else
+!             if ( l_mag ) then
+!                !$omp target update from(dVxBhLM)
+!                !$omp target update from(dbdt, djdt)
+!             end if
+!          end if
+!       else   ! boundary !
+!          if ( l_mag_nl .or. l_mag_kin ) then
+!             !$omp target update from(dVSrLM, dVxBhLM)
+!          else
+!             !$omp target update from(dVSrLM)
+!             if(l_mag) then
+!                !$omp target update from(dVxBhLM)
+!             end if
+!          end if
+!          if ( l_double_curl ) then
+!             !$omp target update from(dVxVhLM)
+!          end if
+!          if ( l_chemical_conv ) then
+!             !$omp target update from(dVXirLM)
+!          end if
+!       end if  ! boundary ? lvelo ?
+! #endif
+
    end subroutine radialLoop
 !-------------------------------------------------------------------------------
    subroutine transform_to_grid_space(this, nR, nBc, lViscBcCalc, lRmsCalc,      &
@@ -561,7 +611,10 @@ contains
       integer :: nPhi
 #ifdef WITH_OMP_GPU
       integer :: nLat
+      nLat = 0
 #endif
+
+      nPhi = 0
 
       call legPrep_qst(nR, w_Rloc(:,nR), ddw_Rloc(:,nR), z_Rloc(:,nR), dLw, dLddw, dLz)
       call legPrep_flow(nR, dw_Rloc(:,nR), z_Rloc(:,nR), dLdw, dmdw, dmz)
@@ -585,8 +638,8 @@ contains
 #ifdef WITH_OMP_GPU
                   call hipCheck(hipDeviceSynchronize())
                   !$omp target teams distribute parallel do collapse(2)
-                  do nLat=1,nlat_padded
-                     do nPhi=1,n_phi_max
+                  do nPhi=1,n_phi_max
+                     do nLat=1,nlat_padded
                         this%gsa%dsdtc(nLat,nPhi)=0.0_cp
                         this%gsa%dsdpc(nLat,nPhi)=0.0_cp
                      end do
@@ -601,8 +654,8 @@ contains
 #ifdef WITH_OMP_GPU
                   call hipCheck(hipDeviceSynchronize())
                   !$omp target teams distribute parallel do collapse(2)
-                  do nLat=1,nlat_padded
-                     do nPhi=1,n_phi_max
+                  do nPhi=1,n_phi_max
+                     do nLat=1,nlat_padded
                         this%gsa%dsdtc(nLat,nPhi)=0.0_cp
                         this%gsa%dsdpc(nLat,nPhi)=0.0_cp
                      end do
@@ -697,8 +750,8 @@ contains
                        &              this%gsa%dvpdpc, l_R(nR), .true.)
                   call hipCheck(hipDeviceSynchronize())
                   !$omp target teams distribute parallel do collapse(2)
-                  do nLat=1,nlat_padded
-                     do nPhi=1,n_phi_max
+                  do nPhi=1,n_phi_max
+                     do nLat=1,nlat_padded
                         this%gsa%dvtdpc(nLat,nPhi)=this%gsa%dvtdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
                         this%gsa%dvpdpc(nLat,nPhi)=this%gsa%dvpdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
                      end do
@@ -736,8 +789,8 @@ contains
                     &              this%gsa%dvpdpc, l_R(nR), .true.)
                call hipCheck(hipDeviceSynchronize())
                !$omp target teams distribute parallel do collapse(2)
-               do nLat=1,nlat_padded
                   do nPhi=1,n_phi_max
+                     do nLat=1,nlat_padded
                      this%gsa%dvtdpc(nLat,nPhi)=this%gsa%dvtdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
                      this%gsa%dvpdpc(nLat,nPhi)=this%gsa%dvpdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
                   end do
@@ -770,8 +823,8 @@ contains
                  &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR), .true.)
             call hipCheck(hipDeviceSynchronize())
             !$omp target teams distribute parallel do collapse(2)
-            do nLat=1,nlat_padded
-               do nPhi=1,n_phi_max
+            do nPhi=1,n_phi_max
+               do nLat=1,nlat_padded
                   this%gsa%vrc(nLat,nPhi)=0.0_cp
                end do
             end do
@@ -784,8 +837,8 @@ contains
             if ( lDeriv ) then
 #ifdef WITH_OMP_GPU
                !$omp target teams distribute parallel do collapse(2)
-               do nLat=1,nlat_padded
-                  do nPhi=1,n_phi_max
+               do nPhi=1,n_phi_max
+                  do nLat=1,nlat_padded
                      this%gsa%dvrdtc(nLat,nPhi)=0.0_cp
                      this%gsa%dvrdpc(nLat,nPhi)=0.0_cp
                   end do
@@ -799,8 +852,8 @@ contains
                     &              this%gsa%dvpdpc, l_R(nR), .true.)
                call hipCheck(hipDeviceSynchronize())
                !$omp target teams distribute parallel do collapse(2)
-               do nLat=1,nlat_padded
-                  do nPhi=1,n_phi_max
+               do nPhi=1,n_phi_max
+                  do nLat=1,nlat_padded
                      this%gsa%dvtdpc(nLat,nPhi)=this%gsa%dvtdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
                      this%gsa%dvpdpc(nLat,nPhi)=this%gsa%dvpdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
                   end do
@@ -825,11 +878,13 @@ contains
             end if
          else if ( nBc == 2 ) then
             if ( nR == n_r_cmb ) then
+               call hipCheck(hipDeviceSynchronize())
                call v_rigid_boundary(nR, omega_ma, lDeriv, this%gsa%vrc,        &
                     &                this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
                     &                this%gsa%dvrdtc, this%gsa%dvrdpc,          &
                     &                this%gsa%dvtdpc,this%gsa%dvpdpc)
             else if ( nR == n_r_icb ) then
+               call hipCheck(hipDeviceSynchronize())
                call v_rigid_boundary(nR, omega_ic, lDeriv, this%gsa%vrc,      &
                     &                this%gsa%vtc, this%gsa%vpc,              &
                     &                this%gsa%cvrc, this%gsa%dvrdtc,          &
@@ -896,17 +951,20 @@ contains
       integer :: nPhi
 #ifdef WITH_OMP_GPU
       integer :: nLat
+      nLat = 0
 #endif
+
+      nPhi = 0
 
       if ( l_conv_nl .or. l_mag_LF ) then
 
 #ifdef WITH_OMP_GPU
-#ifndef DEFAULT
+#ifdef KERNELS_SPLIT
          if ( l_conv_nl .and. l_mag_LF ) then
             if ( nR>n_r_LCR ) then
                !$omp target teams distribute parallel do collapse(2)
-               do nLat=1,nlat_padded
-                  do nPhi=1,n_phi_max
+               do nPhi=1,n_phi_max
+                  do nLat=1,nlat_padded
                      this%gsa%Advr(nLat,nPhi)=this%gsa%Advr(nLat,nPhi) + this%gsa%LFr(nLat,nPhi)
                      this%gsa%Advt(nLat,nPhi)=this%gsa%Advt(nLat,nPhi) + this%gsa%LFt(nLat,nPhi)
                      this%gsa%Advp(nLat,nPhi)=this%gsa%Advp(nLat,nPhi) + this%gsa%LFp(nLat,nPhi)
@@ -917,8 +975,8 @@ contains
          else if ( l_mag_LF ) then
             if ( nR > n_r_LCR ) then
                !$omp target teams distribute parallel do collapse(2)
-               do nLat=1,nlat_padded
-                  do nPhi=1,n_phi_max
+               do nPhi=1,n_phi_max
+                  do nLat=1,nlat_padded
                      this%gsa%Advr(nLat,nPhi) = this%gsa%LFr(nLat,nPhi)
                      this%gsa%Advt(nLat,nPhi) = this%gsa%LFt(nLat,nPhi)
                      this%gsa%Advp(nLat,nPhi) = this%gsa%LFp(nLat,nPhi)
@@ -927,8 +985,8 @@ contains
                !$omp end target teams distribute parallel do
             else
                !$omp target teams distribute parallel do collapse(2)
-               do nLat=1,nlat_padded
-                  do nPhi=1,n_phi_max
+               do nPhi=1,n_phi_max
+                  do nLat=1,nlat_padded
                      this%gsa%Advr(nLat,nPhi)=0.0_cp
                      this%gsa%Advt(nLat,nPhi)=0.0_cp
                      this%gsa%Advp(nLat,nPhi)=0.0_cp
@@ -940,8 +998,8 @@ contains
 
          if ( l_precession ) then
                !$omp target teams distribute parallel do collapse(2)
-               do nLat=1,nlat_padded
-                  do nPhi=1,n_phi_max
+               do nPhi=1,n_phi_max
+                  do nLat=1,nlat_padded
                      this%gsa%Advr(nLat,nPhi)=this%gsa%Advr(nLat,nPhi) + this%gsa%PCr(nLat,nPhi)
                      this%gsa%Advt(nLat,nPhi)=this%gsa%Advt(nLat,nPhi) + this%gsa%PCt(nLat,nPhi)
                      this%gsa%Advp(nLat,nPhi)=this%gsa%Advp(nLat,nPhi) + this%gsa%PCp(nLat,nPhi)
@@ -952,8 +1010,8 @@ contains
 
          if ( l_centrifuge ) then
                !$omp target teams distribute parallel do collapse(2)
-               do nLat=1,nlat_padded
-                  do nPhi=1,n_phi_max
+               do nPhi=1,n_phi_max
+                  do nLat=1,nlat_padded
                      this%gsa%Advr(nLat, nPhi)=this%gsa%Advr(nLat,nPhi) + this%gsa%CAr(nLat,nPhi)
                      this%gsa%Advt(nLat, nPhi)=this%gsa%Advt(nLat,nPhi) + this%gsa%CAt(nLat,nPhi)
                   end do
@@ -962,11 +1020,43 @@ contains
          end if
 
 #else
-         !$omp target teams distribute parallel do
+         !$omp target teams distribute parallel do collapse(2)
+         do nPhi=1,n_phi_max
+            do nLat=1,nlat_padded
+               if ( l_conv_nl .and. l_mag_LF ) then
+                  if ( nR>n_r_LCR ) then
+                     this%gsa%Advr(nLat,nPhi)=this%gsa%Advr(nLat,nPhi) + this%gsa%LFr(nLat,nPhi)
+                     this%gsa%Advt(nLat,nPhi)=this%gsa%Advt(nLat,nPhi) + this%gsa%LFt(nLat,nPhi)
+                     this%gsa%Advp(nLat,nPhi)=this%gsa%Advp(nLat,nPhi) + this%gsa%LFp(nLat,nPhi)
+                  end if
+               else if ( l_mag_LF ) then
+                  if ( nR > n_r_LCR ) then
+                     this%gsa%Advr(nLat,nPhi) = this%gsa%LFr(nLat,nPhi)
+                     this%gsa%Advt(nLat,nPhi) = this%gsa%LFt(nLat,nPhi)
+                     this%gsa%Advp(nLat,nPhi) = this%gsa%LFp(nLat,nPhi)
+                  else
+                     this%gsa%Advr(nLat,nPhi)=0.0_cp
+                     this%gsa%Advt(nLat,nPhi)=0.0_cp
+                     this%gsa%Advp(nLat,nPhi)=0.0_cp
+                  end if
+               end if
+
+               if ( l_precession ) then
+                  this%gsa%Advr(nLat,nPhi)=this%gsa%Advr(nLat,nPhi) + this%gsa%PCr(nLat,nPhi)
+                  this%gsa%Advt(nLat,nPhi)=this%gsa%Advt(nLat,nPhi) + this%gsa%PCt(nLat,nPhi)
+                  this%gsa%Advp(nLat,nPhi)=this%gsa%Advp(nLat,nPhi) + this%gsa%PCp(nLat,nPhi)
+               end if
+
+               if ( l_centrifuge ) then
+                  this%gsa%Advr(:, nPhi)=this%gsa%Advr(nLat,nPhi) + this%gsa%CAr(nLat,nPhi)
+                  this%gsa%Advt(:, nPhi)=this%gsa%Advt(nLat,nPhi) + this%gsa%CAt(nLat,nPhi)
+               end if
+            end do
+         end do
+         !$omp end target teams distribute parallel do
 #endif
 #else
          !$omp parallel do default(shared)
-#endif
          do nPhi=1,n_phi_max
             if ( l_conv_nl .and. l_mag_LF ) then
                if ( nR>n_r_LCR ) then
@@ -997,11 +1087,6 @@ contains
                this%gsa%Advt(:, nPhi)=this%gsa%Advt(:,nPhi) + this%gsa%CAt(:,nPhi)
             end if
          end do
-#ifdef WITH_OMP_GPU
-#ifdef DEFAULT
-         !$omp end target teams distribute parallel do
-#endif
-#else
          !$omp end parallel do
 #endif
 
