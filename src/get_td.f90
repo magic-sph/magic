@@ -376,8 +376,6 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
-            !$omp target update from(dVxVhLM)
-            !$omp target update from(dwdt, dzdt)
 #else
             !$omp end parallel do
 #endif
@@ -435,7 +433,6 @@ contains
                end do ! lm loop
 #ifdef WITH_OMP_GPU
                !$omp end target teams distribute parallel do
-               !$omp target update from(dpdt)
 #else
                !$omp end parallel do
 #endif
@@ -452,7 +449,6 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
-            !$omp target update from(dwdt, dzdt, dpdt)
 #endif
          end if ! l_conv ?
 
@@ -495,8 +491,6 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
-            !$omp target update from(dVSrLM)
-            !$omp target update from(dsdt)
 #else
             !$omp end parallel do
 #endif
@@ -520,8 +514,6 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
-            !$omp target update from(dVXirLM)
-            !$omp target update from(dxidt)
 #else
             !$omp end parallel do
 #endif
@@ -539,7 +531,6 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
-            !$omp target update from(dphidt)
 #else
             !$omp end parallel do
 #endif
@@ -559,8 +550,6 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
-            !$omp target update from(dVxBhLM)
-            !$omp target update from(dbdt, djdt)
 #else
             !$omp end parallel do
 #endif
@@ -578,8 +567,6 @@ contains
                end do
 #ifdef WITH_OMP_GPU
                !$omp end target teams distribute parallel do
-               !$omp target update from(dVxBhLM)
-               !$omp target update from(dbdt, djdt)
 #else
                !$omp end parallel do
 #endif
@@ -603,7 +590,6 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
-            !$omp target update from(dVSrLM, dVxBhLM)
 #else
             !$omp end parallel do
 #endif
@@ -619,10 +605,6 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
-            !$omp target update from(dVSrLM)
-            if(l_mag) then
-               !$omp target update from(dVxBhLM)
-            end if
 #else
             !$omp end parallel do
 #endif
@@ -638,7 +620,6 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
-            !$omp target update from(dVxVhLM)
 #endif
          end if
          if ( l_chemical_conv ) then
@@ -652,7 +633,6 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
-            !$omp target update from(dVXirLM)
 #else
             !$omp end parallel do
 #endif

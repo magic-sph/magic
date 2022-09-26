@@ -188,14 +188,6 @@ contains
       integer :: nR, nBc
       logical :: lMagNlBc, l_bound, lDeriv
 
-#ifdef WITH_OMP_GPU
-      !$omp target update to(w_Rloc, z_Rloc, s_Rloc, &
-      !$omp&                 aj_Rloc, b_Rloc, &
-      !$omp&                 dw_Rloc, ddw_Rloc, &
-      !$omp&                 dz_Rloc, ds_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, &
-      !$omp&                 p_Rloc, xi_Rloc, phi_Rloc)
-#endif
-
       if ( l_graph ) then
 #ifdef WITH_MPI
          call graphOut_mpi_header(time)
@@ -533,59 +525,6 @@ contains
 
       !----- Correct sign of mantle Lorentz torque (see above):
       lorentz_torque_ma=-lorentz_torque_ma
-
-! #ifdef WITH_OMP_GPU
-!       !-- Copy back get_td results
-!       if (nBc == 0 ) then
-!          if ( l_conv ) then  ! Convection
-!             !$omp target update from(dVxVhLM)
-!             !$omp target update from(dwdt, dzdt)
-!             if ( (.not. l_double_curl) .or. lPressNext ) then
-!                !$omp target update from(dpdt)
-!             end if
-!          else
-!             !$omp target update from(dwdt, dzdt, dpdt)
-!          end if ! l_conv ?
-!       end if
-!
-!       if ( nBc == 0 ) then
-!          if ( l_heat ) then
-!             !$omp target update from(dVSrLM)
-!             !$omp target update from(dsdt)
-!          end if
-!          if ( l_chemical_conv ) then
-!             !$omp target update from(dVXirLM)
-!             !$omp target update from(dxidt)
-!          end if
-!          if ( l_phase_field ) then
-!             !$omp target update from(dphidt)
-!          end if
-!          if ( l_mag_nl .or. l_mag_kin  ) then
-!             !$omp target update from(dVxBhLM)
-!             !$omp target update from(dbdt, djdt)
-!          else
-!             if ( l_mag ) then
-!                !$omp target update from(dVxBhLM)
-!                !$omp target update from(dbdt, djdt)
-!             end if
-!          end if
-!       else   ! boundary !
-!          if ( l_mag_nl .or. l_mag_kin ) then
-!             !$omp target update from(dVSrLM, dVxBhLM)
-!          else
-!             !$omp target update from(dVSrLM)
-!             if(l_mag) then
-!                !$omp target update from(dVxBhLM)
-!             end if
-!          end if
-!          if ( l_double_curl ) then
-!             !$omp target update from(dVxVhLM)
-!          end if
-!          if ( l_chemical_conv ) then
-!             !$omp target update from(dVXirLM)
-!          end if
-!       end if  ! boundary ? lvelo ?
-! #endif
 
    end subroutine radialLoop
 !-------------------------------------------------------------------------------

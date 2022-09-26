@@ -485,6 +485,60 @@ contains
                !---------------
                !- Radial loop
                !---------------
+#ifdef WITH_OMP_GPU
+               !$omp target update to(w_Rloc, z_Rloc, s_Rloc, &
+               !$omp&                 aj_Rloc, b_Rloc, &
+               !$omp&                 dw_Rloc, ddw_Rloc, &
+               !$omp&                 dz_Rloc, ds_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, &
+               !$omp&                 p_Rloc, xi_Rloc, phi_Rloc)
+
+               if ( l_parallel_solve ) then
+                  if ( l_mag_par_solve ) then
+                     !-- Update on GPU for get_td
+                     !$omp target update to(dVxVhLM_Rloc)
+                     !$omp target update to(dwdt, dzdt, dpdt)
+                     !$omp target update to(dsdt)
+                     if ( l_chemical_conv ) then
+                        !$omp target update to(dVXirLM_Rloc)
+                        !$omp target update to(dxidt)
+                     end if
+                     if ( l_phase_field ) then
+                        !$omp target update to(dphidt)
+                     end if
+                     !$omp target update to(dbdt, djdt)
+                     !$omp target update to(dVSrLM_Rloc, dVxBhLM_Rloc)
+                  else
+                     !-- Update on GPU for get_td
+                     !$omp target update to(dVxVhLM_Rloc)
+                     !$omp target update to(dwdt, dzdt, dpdt)
+                     !$omp target update to(dsdt)
+                     if ( l_chemical_conv ) then
+                        !$omp target update to(dVXirLM_Rloc)
+                        !$omp target update to(dxidt)
+                     end if
+                     if ( l_phase_field ) then
+                        !$omp target update to(dphidt)
+                     end if
+                     !$omp target update to(dbdt_Rloc, djdt_Rloc)
+                     !$omp target update to(dVSrLM_Rloc, dVxBhLM_Rloc)
+                  end if
+               else
+                  !-- Update on GPU for get_td
+                  !$omp target update to(dVxVhLM_Rloc)
+                  !$omp target update to(dwdt_Rloc, dzdt_Rloc, dpdt_Rloc)
+                  !$omp target update to(dsdt_Rloc)
+                  if ( l_chemical_conv ) then
+                     !$omp target update to(dVXirLM_Rloc)
+                     !$omp target update to(dxidt_Rloc)
+                  end if
+                  if ( l_phase_field ) then
+                     !$omp target update to(dphidt_Rloc)
+                  end if
+                  !$omp target update to(dbdt_Rloc, djdt_Rloc)
+                  !$omp target update to(dVSrLM_Rloc, dVxBhLM_Rloc)
+               end if
+#endif
+
                call rLoop_counter%start_count()
                if ( l_parallel_solve ) then
                   if ( l_mag_par_solve ) then
@@ -534,7 +588,53 @@ contains
                        &           dthkc_Rloc)
                end if
                call rLoop_counter%stop_count()
-
+#ifdef WITH_OMP_GPU
+               if ( l_parallel_solve ) then
+                  if ( l_mag_par_solve ) then
+                     !-- Update on GPU for get_td
+                     !$omp target update from(dVxVhLM_Rloc)
+                     !$omp target update from(dwdt, dzdt, dpdt)
+                     !$omp target update from(dsdt)
+                     if ( l_chemical_conv ) then
+                        !$omp target update from(dVXirLM_Rloc)
+                        !$omp target update from(dxidt)
+                     end if
+                     if ( l_phase_field ) then
+                        !$omp target update from(dphidt)
+                     end if
+                     !$omp target update from(dbdt, djdt)
+                     !$omp target update from(dVSrLM_Rloc, dVxBhLM_Rloc)
+                  else
+                     !-- Update on GPU for get_td
+                     !$omp target update from(dVxVhLM_Rloc)
+                     !$omp target update from(dwdt, dzdt, dpdt)
+                     !$omp target update from(dsdt)
+                     if ( l_chemical_conv ) then
+                        !$omp target update from(dVXirLM_Rloc)
+                        !$omp target update from(dxidt)
+                     end if
+                     if ( l_phase_field ) then
+                        !$omp target update from(dphidt)
+                     end if
+                     !$omp target update from(dbdt_Rloc, djdt_Rloc)
+                     !$omp target update from(dVSrLM_Rloc, dVxBhLM_Rloc)
+                  end if
+               else
+                  !-- Update on GPU for get_td
+                  !$omp target update from(dVxVhLM_Rloc)
+                  !$omp target update from(dwdt_Rloc, dzdt_Rloc, dpdt_Rloc)
+                  !$omp target update from(dsdt_Rloc)
+                  if ( l_chemical_conv ) then
+                     !$omp target update from(dVXirLM_Rloc)
+                     !$omp target update from(dxidt_Rloc)
+                  end if
+                  if ( l_phase_field ) then
+                     !$omp target update from(dphidt_Rloc)
+                  end if
+                  !$omp target update from(dbdt_Rloc, djdt_Rloc)
+                  !$omp target update from(dVSrLM_Rloc, dVxBhLM_Rloc)
+               end if
+#endif
                if ( lVerbose ) write(output_unit,*) '! r-loop finished!'
 
 #ifdef WITH_MPI
