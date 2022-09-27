@@ -490,7 +490,7 @@ contains
                !$omp&                 aj_Rloc, b_Rloc, &
                !$omp&                 dw_Rloc, ddw_Rloc, &
                !$omp&                 dz_Rloc, ds_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, &
-               !$omp&                 p_Rloc, xi_Rloc, phi_Rloc)
+               !$omp&                 p_Rloc, dp_Rloc, xi_Rloc, phi_Rloc)
 
                if ( l_parallel_solve ) then
                   if ( l_mag_par_solve ) then
