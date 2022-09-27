@@ -430,7 +430,7 @@ contains
                  &                 this%gsa%sc,this%gsa%drSc,this%gsa%xic,         &
                  &                 this%gsa%phic,this%gsa%dvrdpc,                  &
                  &                 this%gsa%dvpdrc,this%gsa%dvtdrc,this%gsa%dvrdtc,&
-                 &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc) !-- TODO: Offload
+                 &                 this%gsa%cvrc,this%gsa%cbrc,this%gsa%cbtc) !-- Keep on CPU
          end if
 
          !--------- Stuff for special output:
@@ -495,7 +495,7 @@ contains
                  &                 CFt2LM, CFp2LM, w_Rloc(:,nR), dw_Rloc(:,nR),    &
                  &                 ddw_Rloc(:,nR), z_Rloc(:,nR), s_Rloc(:,nR),     &
                  &                 xi_Rloc(:,nR), p_Rloc(:,nR), dp_Rloc(:,nR),     &
-                 &                 this%nl_lm%AdvrLM) !-- TODO: Offload
+                 &                 this%nl_lm%AdvrLM)
          end if
 
          !-- Finish calculation of TO variables:
