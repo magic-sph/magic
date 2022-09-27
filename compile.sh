@@ -26,9 +26,13 @@ cd ../samples/boussBenchSat
 
 sbatch submitScript.sh
 
+chmod +x clear.sh
+
 cd ../dynamo_benchmark
 
 sbatch submitScript.sh
+
+chmod +x clear.sh
 
 cd ../boussBenchSat
 
