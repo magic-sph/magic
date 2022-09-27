@@ -20,10 +20,12 @@ cp magic.exe ../samples/dynamo_benchmark
 
 cd ../samples/boussBenchSat
 
-sbatch submit.sh
+sbatch submitScript.sh
 
 cd ../dynamo_benchmark
 
-sbatch submit.sh
+sbatch submitScript.sh
 
 cd ../boussBenchSat
+
+squeue
