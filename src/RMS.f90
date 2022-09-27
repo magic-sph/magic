@@ -218,7 +218,8 @@ contains
          gpu_bytes_allocated = gpu_bytes_allocated + n_spec_space_lmP*SIZEOF_DEF_COMPLEX
 #endif
       else
-         allocate( dpkindrLM(1) ) ! for debug
+         !allocate( dpkindrLM(1) ) ! for debug
+         allocate( dpkindrLM(n_spec_space_lmP) )
       end if
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, Advp2LM, &
@@ -401,10 +402,7 @@ contains
       dtBPolLMr(:,:)=zero
 
 #ifdef WITH_OMP_GPU
-      !$omp target update to(Adv2hInt, Cor2hInt, LF2hInt, Pre2hInt, Geo2hInt,     &
-      !$omp&                 Mag2hInt, Arc2hInt, ArcMag2hInt, CIA2hInt, CLF2hInt, &
-      !$omp&                 PLF2hInt, Iner2hInt, &
-      !$omp&                 dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, Advp2LM, &
+      !$omp target update to(dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, Advp2LM, &
       !$omp&                 PFt2LM, PFp2LM, LFt2LM, LFp2LM, CFt2LM, CFp2LM, &
       !$omp&                 dpdtc, dpdpc, CFt2, CFp2, Advt2, Advp2, LFt2, LFp2)
 #endif
@@ -983,6 +981,7 @@ contains
       if ( l_adv_curl ) then
          !$omp target update from(dpkindrc)
       end if
+
 #else
       if ( l_mag_LF .and. nR>n_r_LCR ) call scal_to_SH(sht_lP, LFr, LFrLM, l_R(nR))
       call spat_to_sphertor(sht_lP, dpdtc, dpdpc, PFt2LM, PFp2LM, l_R(nR))
@@ -1019,12 +1018,21 @@ contains
       complex(cp), intent(in) :: AdvrLM(:)
 
       !-- Local variables
-      complex(cp) :: dpdr(lm_max), Buo_temp(lm_max), Buo_xi(lm_max)
-      complex(cp) :: LFPol(lm_max), AdvPol(lm_max), CorPol(lm_max)
-      complex(cp) :: Geo(lm_max),CLF(lm_max),PLF(lm_max)
-      complex(cp) :: ArcMag(lm_max),Mag(lm_max),CIA(lm_max),Arc(lm_max)
+      complex(cp), allocatable :: dpdr(:), Buo_temp(:), Buo_xi(:)
+      complex(cp), allocatable :: LFPol(:), AdvPol(:), CorPol(:)
+      complex(cp), allocatable :: Geo(:),CLF(:),PLF(:)
+      complex(cp), allocatable :: ArcMag(:),Mag(:),CIA(:),Arc(:)
       complex(cp) :: CorPol_loc, AdvPol_loc
       integer :: lm, lmA, lmP, lmS, l, m
+
+      allocate(dpdr(lm_max), Buo_temp(lm_max), Buo_xi(lm_max))
+      allocate(LFPol(lm_max), AdvPol(lm_max), CorPol(lm_max))
+      allocate(Geo(lm_max),CLF(lm_max),PLF(lm_max))
+      allocate(ArcMag(lm_max),Mag(lm_max),CIA(lm_max),Arc(lm_max))
+      dpdr(:) = zero;  Buo_temp(:) = zero;  Buo_xi(:) = zero
+      LFPol(:) = zero;  AdvPol(:) = zero;  CorPol(:) = zero
+      Geo(:) = zero; CLF(:) = zero; PLF(:) = zero
+      ArcMag(:) = zero; Mag(:) = zero; CIA(:) = zero; Arc(:) = zero
 
       !-- l=m=0 spherically-symmetric contributions
       lm=1
@@ -1069,9 +1077,24 @@ contains
          dpdr(lm)=dp_Rloc(lm)
       end if
 
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc:dpdr, Buo_temp, Buo_xi)
+      !$omp target enter data map(alloc:LFPol, AdvPol, CorPol)
+      !$omp target enter data map(alloc:Geo,CLF,PLF)
+      !$omp target enter data map(alloc:ArcMag,Mag,CIA,Arc)
+      !$omp target update to(dpdr, Buo_temp, Buo_xi)
+      !$omp target update to(LFPol, AdvPol, CorPol)
+      !$omp target update to(Geo,CLF,PLF)
+      !$omp target update to(ArcMag,Mag,CIA,Arc)
+#endif
       !-- Loop over the other (l,m) modes
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do private(lm,l,m,lmS,lmA,lmP) &
+      !$omp private(AdvPol_loc,CorPol_loc)
+#else
       !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
       !$omp private(AdvPol_loc,CorPol_loc)
+#endif
       do lm=2,lm_max
          l   =lm2l(lm)
          m   =lm2m(lm)
@@ -1159,6 +1182,17 @@ contains
          end if
          CorPol(lm)=CorPol_loc
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+      !$omp target update from(dpdr, Buo_temp, Buo_xi)
+      !$omp target update from(LFPol, AdvPol, CorPol)
+      !$omp target update from(Geo,CLF,PLF)
+      !$omp target update from(ArcMag,Mag,CIA,Arc)
+      !$omp target exit data map(delete:dpdr, Buo_temp, Buo_xi)
+      !$omp target exit data map(delete:LFPol, AdvPol, CorPol)
+      !$omp target exit data map(delete:Geo,CLF,PLF)
+      !$omp target exit data map(delete:ArcMag,Mag,CIA,Arc)
+#endif
 
       !-- Now compute R.M.S spectra
       if ( l_conv_nl ) then
@@ -1284,6 +1318,11 @@ contains
       call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.true.)
       call hIntRms(ArcMag,nR,1,lm_max,0,ArcMag2hInt(:,nR),st_map,.true.)
       call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.true.)
+
+      deallocate(dpdr, Buo_temp, Buo_xi)
+      deallocate(LFPol, AdvPol, CorPol)
+      deallocate(Geo,CLF,PLF)
+      deallocate(ArcMag,Mag,CIA,Arc)
 
    end subroutine compute_lm_forces
 !----------------------------------------------------------------------------

@@ -213,7 +213,7 @@ contains
    subroutine hIntRms(f,nR,lmStart,lmStop,lmP,f2hInt,map,sphertor)
 
       !-- Input variables
-      complex(cp),    intent(in) :: f(*)
+      complex(cp),    intent(in) :: f(:)
       integer,        intent(in) :: nR, lmStart, lmStop, lmP
       type(mappings), intent(in) :: map
       logical,        intent(in) :: sphertor
