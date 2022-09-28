@@ -131,8 +131,10 @@ contains
          allocate( rhs1(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
          bytes_allocated = bytes_allocated + n_r_max*lo_sub_map%sizeLMB2max*&
          &                 maxThreads*SIZEOF_DEF_COMPLEX
+         rhs1 = 0.0_cp
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: rhs1)
+         !$omp target update to(rhs1)
          gpu_bytes_allocated = gpu_bytes_allocated + n_r_max*lo_sub_map%sizeLMB2max*&
          &                 maxThreads*SIZEOF_DEF_COMPLEX
 #endif
@@ -221,7 +223,7 @@ contains
       integer :: nLMB2,nLMB
       integer :: nR                 ! counts radial grid points
       integer :: n_r_out             ! counts cheb modes
-      real(cp) ::  rhs(n_r_max) ! real RHS for l=m=0
+      real(cp), allocatable ::  rhs(:) ! real RHS for l=m=0
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -230,6 +232,13 @@ contains
       integer :: threadid,iChunk,nChunks,size_of_last_chunk,lmB0
 
       if ( .not. l_update_xi ) return
+
+      allocate(rhs(n_r_max))
+      rhs(:) = 0.0_cp
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: rhs)
+      !$omp target update to(rhs)
+#endif
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
@@ -243,10 +252,15 @@ contains
       nLMB=1+rank
 
       !-- Now assemble the right hand side and store it in work_LMloc
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dxidt)
+#endif
       call tscheme%set_imex_rhs(work_LMloc, dxidt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(work_LMloc)
+#endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: rhs)
       !$omp single
       call solve_counter%start_count()
       !$omp end single
@@ -351,7 +365,6 @@ contains
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
-      !$omp target exit data map(delete: rhs)
 #else
       !$omp parallel default(shared)
 
@@ -492,6 +505,7 @@ contains
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
+      !$omp parallel do private(n_r_out,lm1) collapse(2)
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
 #endif
@@ -501,6 +515,7 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end parallel do
 #else
       !$omp end do
       !$omp end parallel
@@ -508,6 +523,9 @@ contains
 
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dxidt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dxidt)
+#endif
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
@@ -518,6 +536,11 @@ contains
               &                tscheme%l_imp_calc_rhs(tscheme%istage+1),  &
               &                l_in_cheb_space=.true.)
       end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: rhs)
+#endif
+      deallocate(rhs)
 
    end subroutine updateXi
 !------------------------------------------------------------------------------
@@ -554,7 +577,13 @@ contains
 #endif
 
       !-- Now assemble the right hand side
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dxidt)
+#endif
       call tscheme%set_imex_rhs_ghost(xi_ghost, dxidt, lm_start, lm_stop, 1)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(xi_ghost)
+#endif
 
       !-- Set boundary conditions
       if ( nRstart == n_r_cmb ) then
@@ -700,7 +729,13 @@ contains
       if ( .not. l_update_xi ) return
 
       !-- Roll the arrays before filling again the first block
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dxidt)
+#endif
       call tscheme%rotate_imex(dxidt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dxidt)
+#endif
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
@@ -974,22 +1009,36 @@ contains
       type(type_tarray), intent(inout) :: dxidt
 
       !-- Local variables
-      complex(cp) :: dxi(lm_max,nRstart:nRstop) ! Radial derivative of comp
-      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), allocatable :: dxi(:,:) ! Radial derivative of comp
+      complex(cp), allocatable :: work_Rloc(:,:)
       integer :: n_r, lm, start_lm, stop_lm, l
       real(cp) :: dL
       integer, pointer :: lm2l(:)
-
-      lm2l(1:lm_max) => st_map%lm2l
+      complex(cp), pointer :: olb_ptr(:,:,:), impl_ptr(:,:,:)
 
 #ifdef WITH_OMP_GPU
       !$omp target update to(xig)
+      !$omp target update to(dxidt)
+#endif
+
+      allocate(dxi(lm_max,nRstart:nRstop), work_Rloc(lm_max,nRstart:nRstop))
+      dxi(:,:) = zero
+      work_Rloc(:,:) = zero
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: dxi, work_Rloc)
+      !$omp target update to(dxi, work_Rloc)
+#endif
+
+      lm2l(1:lm_max) => st_map%lm2l
+      olb_ptr  => dxidt%old
+      impl_ptr => dxidt%impl
+
+#ifdef WITH_OMP_GPU
       start_lm=1; stop_lm=lm_max
       call dct_counter%start_count()
       call get_ddr_ghost(xig, dxi, work_Rloc, lm_max, start_lm, stop_lm,  nRstart, &
            &             nRstop, rscheme_oc)
       call dct_counter%stop_count(l_increment=.false.)
-      !$omp target update to(dxi, work_Rloc)
 #else
       !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l, dL)
       start_lm=1; stop_lm=lm_max
@@ -1008,37 +1057,47 @@ contains
 
       if ( istage == 1 ) then
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do collapse(2)
 #endif
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
-               dxidt%old(lm,n_r,istage) = xig(lm,n_r)
+               olb_ptr(lm,n_r,istage) = xig(lm,n_r)
             end do
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
       if ( l_calc_lin ) then
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do collapse(2)
 #endif
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = lm2l(lm)
                dL = real(l*(l+1),cp)
-               dxidt%impl(lm,n_r,istage)=                     osc*hdif_Xi(l) *   &
+               impl_ptr(lm,n_r,istage)=                     osc*hdif_Xi(l) *   &
                &     ( work_Rloc(lm,n_r)+(beta(n_r)+two*or1(n_r)) *  dxi(lm,n_r) &
                &                                       - dL*or2(n_r)* xig(lm,n_r) )
             end do
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
+
 #ifndef WITH_OMP_GPU
       !$omp end parallel
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: dxi, work_Rloc)
+#endif
+      deallocate(dxi, work_Rloc)
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dxidt)
 #endif
 
    end subroutine get_comp_rhs_imp_ghost
@@ -1066,7 +1125,13 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dxidt)
+#endif
       call tscheme%assemble_imex(work_LMloc, dxidt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(work_LMloc)
+#endif
 
 #ifdef WITH_OMP_GPU
 #else
@@ -1221,9 +1286,22 @@ contains
 
       !-- Local variables
       integer :: lm, l, m, n_r, start_lm, stop_lm
-      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), allocatable :: work_Rloc(:,:)
 
+      allocate(work_Rloc(lm_max,nRstart:nRstop))
+      work_Rloc(:,:) = zero
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: work_Rloc)
+      !$omp target update to(work_Rloc)
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dxidt)
+#endif
       call tscheme%assemble_imex(work_Rloc, dxidt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(work_Rloc)
+#endif
 
 #ifdef WITH_OMP_GPU
       start_lm=1; stop_lm=lm_max
@@ -1285,6 +1363,12 @@ contains
       !-- Finally call the construction of the implicit terms for the first stage
       !-- of next iteration
       call get_comp_rhs_imp_ghost(xi_ghost, dxidt, 1, tscheme%l_imp_calc_rhs(1))
+
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: work_Rloc)
+#endif
+      deallocate(work_Rloc)
 
    end subroutine assemble_comp_Rloc
 !------------------------------------------------------------------------------

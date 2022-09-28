@@ -167,8 +167,10 @@ contains
          allocate(rhs1(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1))
          bytes_allocated=bytes_allocated+n_r_max*maxThreads* &
          &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+         rhs1 = 0.0_cp
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: rhs1)
+         !$omp target update to(rhs1)
          gpu_bytes_allocated=gpu_bytes_allocated+n_r_max*maxThreads* &
          &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
 #endif
@@ -295,6 +297,7 @@ contains
 #endif
 
       allocate(rhs(n_r_max))
+      rhs = zero
 
       if ( l_precession ) then
          prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
@@ -332,19 +335,17 @@ contains
       end if
 
       !-- Now assemble the right hand side and store it in work_LMloc
-#ifdef WITH_OMP_GPU_
-      !-- TODO: Runtime error (multistep_schemes.f90:481 -
-      !-- HSA_STATUS_ERROR_MEMORY_FAULT: Agent attempted to access an inaccessible address. code: 0x2b)
-      !$omp target update if(omp_update_to_dtStructs) to(dzdt)
-      !$omp target update to(work_LMloc)
-      call tscheme%set_imex_rhs(work_LMloc, dzdt, .true.)
-      !$omp target update from(work_LMloc)
-#else
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dzdt)
+#endif
       call tscheme%set_imex_rhs(work_LMloc, dzdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(work_LMloc)
 #endif
 
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: rhs)
+      !$omp target update to(rhs)
       !$omp single
       call solve_counter%start_count()
       !$omp end single
@@ -719,10 +720,8 @@ contains
 #endif
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
-#ifdef WITH_OMP_GPU_
-        !-- TODO: Wrong results
-!       !$omp target update to(z)
-!       !$omp target teams distribute parallel do collapse(2)
+#ifdef WITH_OMP_GPU
+      !$omp parallel do private(n_r_out,lm1) collapse(2)
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
 #endif
@@ -732,21 +731,16 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
-!       !$omp end target teams distribute parallel do
-!       !$omp target update from(z)
+      !$omp end parallel do
 #else
       !$omp end do
       !$omp end parallel
 #endif
 
       !-- Roll the arrays before filling again the first block
-#ifdef WITH_OMP_GPU_
-      !-- TODO! Runtime error (multistep_schemes.f90:676 : always on dzdt%expl)
-      !$omp target update if(omp_update_to_dtStructs) to(dzdt)
-      call tscheme%rotate_imex(dzdt,.true.)
-      !$omp target update if(omp_update_from_dtStructs) from(dzdt)
-#else
       call tscheme%rotate_imex(dzdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dzdt)
 #endif
       call tscheme%rotate_imex_scalar(domega_ma_dt)
       call tscheme%rotate_imex_scalar(domega_ic_dt)
@@ -837,12 +831,12 @@ contains
 #endif
 
       !-- Assemble the r.h.s.
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update if(update_to_zGhost) to(z_ghost)
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dzdt)
 #endif
       call tscheme%set_imex_rhs_ghost(z_ghost, dzdt, lm_start, lm_stop, 1)
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update if(update_from_zGhost) from(z_ghost)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(z_ghost)
 #endif
 
       !-- If needed fill z10_ghost
@@ -1103,7 +1097,13 @@ contains
       end if
 
       !-- Roll the arrays before filling again the first block
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dzdt)
+#endif
       call tscheme%rotate_imex(dzdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dzdt)
+#endif
       call tscheme%rotate_imex_scalar(domega_ma_dt)
       call tscheme%rotate_imex_scalar(domega_ic_dt)
       call tscheme%rotate_imex_scalar(lorentz_torque_ma_dt)
@@ -1789,7 +1789,13 @@ contains
       end if
 
       !-- Store the assembled quantity in work_LMloc
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dzdt)
+#endif
       call tscheme%assemble_imex(work_LMloc, dzdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(work_LMloc)
+#endif
 
       !-- Now get the toroidal potential from the assembly
 #ifdef WITH_OMP_GPU
@@ -1955,11 +1961,24 @@ contains
       real(cp),           intent(inout) :: omega_ma1
 
       !-- Local variables
-      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), allocatable :: work_Rloc(:,:)
       integer :: start_lm, stop_lm, lm, n_r, l, m
       real(cp) :: dLh, lo_ic, lo_ma, dom_ma, dom_ic, r2
 
+      allocate(work_Rloc(lm_max,nRstart:nRstop))
+      work_Rloc(:,:) = zero
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: work_Rloc)
+      !$omp target update to(work_Rloc)
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dzdt)
+#endif
       call tscheme%assemble_imex(work_Rloc, dzdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(work_Rloc)
+#endif
       if ( amp_RiIc /= 0.0_cp .or. amp_RiMa /= 0.0_cp ) then
          call abortRun('Not implemented yet in assembly stage of z')
       end if
@@ -2101,6 +2120,11 @@ contains
            &                     domega_ic_dt, omega_ic, omega_ma, omega_ic1,     &
            &                     omega_ma1, tscheme, 1, tscheme%l_imp_calc_rhs(1),&
            &                     lRmsNext)
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: work_Rloc)
+#endif
+      deallocate(work_Rloc)
 
    end subroutine assemble_tor_Rloc
 !------------------------------------------------------------------------------

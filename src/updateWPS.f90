@@ -75,16 +75,19 @@ contains
       allocate( ps0Mat(2*n_r_max,2*n_r_max) )
       allocate( ps0Mat_fac(2*n_r_max,2) )
       allocate( ps0Pivot(2*n_r_max) )
+      ps0Mat = 0.0_cp; ps0Mat_fac = 0.0_cp; ps0Pivot = 0
       bytes_allocated = bytes_allocated+(4*n_r_max+2)*n_r_max*SIZEOF_DEF_REAL &
       &                 +2*n_r_max*SIZEOF_INTEGER
       allocate( wpsMat(3*n_r_max,3*n_r_max,nLMBs2(1+rank)) )
       allocate(wpsMat_fac(3*n_r_max,2,nLMBs2(1+rank)))
       allocate ( wpsPivot(3*n_r_max,nLMBs2(1+rank)) )
+      wpsMat = 0.0_cp; wpsMat_fac = 0.0_cp; wpsPivot = 0
       bytes_allocated = bytes_allocated+(9*n_r_max*nLMBs2(1+rank)+6*n_r_max* &
       &                 nLMBs2(1+rank))*SIZEOF_DEF_REAL+3*n_r_max*           &
       &                 nLMBs2(1+rank)*SIZEOF_INTEGER
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: ps0Mat, ps0Mat_fac, ps0Pivot, wpsMat, wpsMat_fac, wpsPivot)
+      !$omp target update to(ps0Mat, ps0Mat_fac, ps0Pivot, wpsMat, wpsMat_fac, wpsPivot) nowait
       gpu_bytes_allocated = gpu_bytes_allocated+(4*n_r_max+2)*n_r_max*SIZEOF_DEF_REAL &
       &                     +2*n_r_max*SIZEOF_INTEGER
       gpu_bytes_allocated = gpu_bytes_allocated+(9*n_r_max*nLMBs2(1+rank)+6*n_r_max* &
@@ -97,6 +100,12 @@ contains
       allocate( workB(llm:ulm,n_r_max) )
       allocate( workC(llm:ulm,n_r_max) )
       bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      workB = zero; workC = zero
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: workB, workC)
+      !$omp target update to(workB, workC) nowait
+      gpu_bytes_allocated = gpu_bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+#endif
 
       allocate( Dif(llm:ulm) )
       allocate( Pre(llm:ulm) )
@@ -110,10 +119,12 @@ contains
 #endif
 
       allocate( rhs1(3*n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+      rhs1 = 0.0_cp
       bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
                       lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: rhs1)
+      !$omp target update to(rhs1)
       gpu_bytes_allocated=gpu_bytes_allocated+2*n_r_max*maxThreads* &
                       lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
 #endif
@@ -131,6 +142,7 @@ contains
       deallocate( wpsMat, wpsMat_fac, wpsPivot, lWPSmat )
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: rhs1)
+      !$omp target exit data map(delete: workB, workC)
 #endif
       deallocate( workB, workC, rhs1)
       deallocate( Dif, Pre, Buo )
@@ -166,7 +178,7 @@ contains
       integer :: nLMB2, nLMB
       integer :: nR             ! counts radial grid points
       integer :: n_r_out         ! counts cheb modes
-      real(cp) :: rhs(2*n_r_max)  ! real RHS for l=m=0
+      real(cp), allocatable :: rhs(:)  ! real RHS for l=m=0
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -187,23 +199,23 @@ contains
 
       nLMB=1+rank
 
+      allocate(rhs(2*n_r_max))
+      rhs = 0.0_cp
+
       !-- Now assemble the right hand side and store it in work_LMloc, dp and ds
-#ifdef WITH_OMP_GPU_
-      !-- TODO: HSA_STATUS_ERROR_MEMORY_FAULT: Agent attempted to access an inaccessible address. code: 0x2
-      !-- multistep_schemes.f90:481
+#ifdef WITH_OMP_GPU
       !$omp target update to(dwdt, dpdt, dsdt)
-      call tscheme%set_imex_rhs(work_LMloc, dwdt, .true.)
-      call tscheme%set_imex_rhs(dp, dpdt, .true.)
-      call tscheme%set_imex_rhs(ds, dsdt, .true.)
-      !$omp target update from(work_LMloc, dp, ds)
-#else
+#endif
       call tscheme%set_imex_rhs(work_LMloc, dwdt)
       call tscheme%set_imex_rhs(dp, dpdt)
       call tscheme%set_imex_rhs(ds, dsdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(work_LMloc, dp, ds)
 #endif
 
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: rhs)
+      !$omp target update to(rhs)
       !$omp single
       call solve_counter%start_count()
       !$omp end single
@@ -541,18 +553,11 @@ contains
 #endif
 
       !-- Roll the arrays before filling again the first block
-#ifdef WITH_OMP_GPU_
-      !-- TODO:  HSA_STATUS_ERROR_MEMORY_FAULT: Agent attempted to access an inaccessible address. code: 0x2b
-      !-- multistep_schemes.f90:676
-      !$omp target update to(dwdt, dpdt, dsdt)
-      call tscheme%rotate_imex(dwdt, .true.)
-      call tscheme%rotate_imex(dpdt, .true.)
-      call tscheme%rotate_imex(dsdt, .true.)
-      !$omp target update from(dwdt, dpdt, dsdt)
-#else
       call tscheme%rotate_imex(dwdt)
       call tscheme%rotate_imex(dpdt)
       call tscheme%rotate_imex(dsdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dwdt, dpdt, dsdt)
 #endif
 
       if ( tscheme%istage == tscheme%nstages ) then
@@ -565,6 +570,8 @@ contains
               &                  tscheme%l_imp_calc_rhs(tscheme%istage+1),   &
               &                  lRmsNext, l_in_cheb_space=.true.)
       end if
+
+      deallocate(rhs)
 
    end subroutine updateWPS
 !------------------------------------------------------------------------------
@@ -677,9 +684,15 @@ contains
       end if
 
       !-- First assemble and store in temporary arrays
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dwdt, dpdt, dsdt)
+#endif
       call tscheme%assemble_imex(ddw, dwdt)
       call tscheme%assemble_imex(work_LMloc, dpdt)
       call tscheme%assemble_imex(ds, dsdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(ddw, work_LMloc, ds)
+#endif
 
 #ifdef WITH_OMP_GPU
       start_lm=llm; stop_lm=ulm

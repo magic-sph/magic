@@ -194,11 +194,13 @@ contains
 
          allocate(rhs1(n_r_tot,2*lo_sub_map%sizeLMB2max,0:maxThreads-1))
          allocate(rhs2(n_r_tot,2*lo_sub_map%sizeLMB2max,0:maxThreads-1))
+         rhs1 = 0.0_cp; rhs2 = 0.0_cp
          bytes_allocated=bytes_allocated+2*n_r_tot*maxThreads* &
          &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
 
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: rhs1, rhs2)
+         !$omp target update to(rhs1, rhs2)
          gpu_bytes_allocated=gpu_bytes_allocated+2*n_r_tot*maxThreads* &
          &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
 #endif
@@ -350,31 +352,26 @@ contains
       nLMB=1+rank
 
       !-- Now assemble the right hand side and store it in work_LMloc
-#ifdef WITH_OMP_GPU_
-      !$omp target update if(omp_update_to_dtStructs) to(dbdt, djdt)
-      !$omp target update if(omp_update_to_dtStructs) to(work_LMloc, ddb)
-      call tscheme%set_imex_rhs(work_LMloc, dbdt, .true.)
-      call tscheme%set_imex_rhs(ddb, djdt, .true.)
-      !$omp target update if(omp_update_from_dtStructs) from(work_LMloc, ddb)
-
-      if ( l_cond_ic ) then
-         !-- Now assemble the right hand side and store it in work_LMloc
-         !$omp target update if(omp_update_to_dtStructs) to(dbdt_ic, djdt_ic)
-         !$omp target update if(omp_update_to_dtStructs) to(ddb_ic, ddj_ic)
-         call tscheme%set_imex_rhs(ddb_ic, dbdt_ic, .true.)
-         call tscheme%set_imex_rhs(ddj_ic, djdt_ic, .true.)
-         !$omp target update if(omp_update_from_dtStructs) from(ddb_ic, ddj_ic)
-      end if
-#else
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dbdt, djdt)
+#endif
       call tscheme%set_imex_rhs(work_LMloc, dbdt)
       call tscheme%set_imex_rhs(ddb, djdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(work_LMloc, ddb)
+#endif
 
       if ( l_cond_ic ) then
          !-- Now assemble the right hand side and store it in work_LMloc
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dbdt_ic, djdt_ic)
+#endif
          call tscheme%set_imex_rhs(ddb_ic, dbdt_ic)
          call tscheme%set_imex_rhs(ddj_ic, djdt_ic)
-      end if
+#ifdef WITH_OMP_GPU
+         !$omp target update from(ddb_ic, ddj_ic)
 #endif
+      end if
 
       if ( (n_imp == 3 .or. n_imp == 4 .or. n_imp == 7) .and. ( l_imp /= 1 ) ) then
          call abortRun('l_imp /= 1 not implemented for this imposed field setup!')
@@ -1053,6 +1050,7 @@ contains
       !-- Set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       !   for inner core modes > 2*n_cheb_ic_max = 0
 #ifdef WITH_OMP_GPU
+      !$omp parallel do private(n_r_out,lm1) collapse(2)
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
 #endif
@@ -1063,12 +1061,14 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end parallel do
 #else
       !$omp end do
 #endif
 
       if ( l_cond_ic ) then
 #ifdef WITH_OMP_GPU
+         !$omp parallel do private(n_r_out, lm1) collapse(2)
 #else
          !$omp do private(n_r_out, lm1) collapse(2)
 #endif
@@ -1079,21 +1079,28 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end parallel do
 #else
          !$omp end do
 #endif
       end if
-#ifdef WITH_OMP_GPU
-#else
+
+#ifndef WITH_OMP_GPU
       !$omp end parallel
 #endif
 
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dbdt)
       call tscheme%rotate_imex(djdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dbdt, djdt)
+#endif
       if ( l_cond_ic ) then
          call tscheme%rotate_imex(dbdt_ic)
          call tscheme%rotate_imex(djdt_ic)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dbdt_ic, djdt_ic)
+#endif
       end if
 
       !-- Get implicit terms
@@ -1159,8 +1166,21 @@ contains
 #endif
 
       !-- Now assemble the right hand side
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dbdt, djdt)
+#endif
       call tscheme%set_imex_rhs_ghost(b_ghost, dbdt, lm_start, lm_stop, 1)
       call tscheme%set_imex_rhs_ghost(aj_ghost, djdt, lm_start, lm_stop, 1)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(b_ghost, aj_ghost)
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp parallel default(shared) private(lm_start,lm_stop, nR, l, m, lm)
+      lm_start=1; lm_stop=lm_max
+      call get_openmp_blocks(lm_start,lm_stop)
+      !$omp barrier
+#endif
 
       !-- Set to zero in case of low conductivity region
       if ( l_LCR ) then
@@ -1240,7 +1260,9 @@ contains
             b_ghost(lm,nR+1) =zero
          end do
       end if
+
 #ifdef WITH_OMP_GPU
+      !$omp end parallel
 #else
       !$omp end parallel
 #endif
@@ -1383,8 +1405,14 @@ contains
       end if
 
       !-- Roll the arrays before filling again the first block
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dbdt, djdt)
+#endif
       call tscheme%rotate_imex(dbdt)
       call tscheme%rotate_imex(djdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dbdt, djdt)
+#endif
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
@@ -1755,11 +1783,23 @@ contains
       end if
 
       !-- Assemble IMEX using ddb and ddj as a work array
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dbdt, djdt)
+#endif
       call tscheme%assemble_imex(ddb, dbdt)
       call tscheme%assemble_imex(ddj, djdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(ddb, ddj)
+#endif
       if ( l_cond_ic ) then
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dbdt_ic, djdt_ic)
+#endif
          call tscheme%assemble_imex(ddb_ic, dbdt_ic)
          call tscheme%assemble_imex(ddj_ic, djdt_ic)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(ddb_ic, ddj_ic)
+#endif
       end if
 
       !-- Now get the toroidal potential from the assembly
@@ -2033,8 +2073,14 @@ contains
       if ( conductance_ma /=0 ) call abortRun('conducting ma not implemented here!')
 
       !-- Assemble IMEX using ddb and ddj as a work array
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dbdt, djdt)
+#endif
       call tscheme%assemble_imex(ddb, dbdt)
       call tscheme%assemble_imex(ddj, djdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(ddb, ddj)
+#endif
 
 
       !-- Now get the poloidal and toroidal potentials from the assembly

@@ -122,10 +122,12 @@ contains
          maxThreads=1
 #endif
          allocate( rhs1(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+         rhs1 = 0.0_cp
          bytes_allocated = bytes_allocated + n_r_max*lo_sub_map%sizeLMB2max*&
          &                 maxThreads*SIZEOF_DEF_COMPLEX
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: rhs1)
+         !$omp target update to(rhs1)
          gpu_bytes_allocated = gpu_bytes_allocated + n_r_max*lo_sub_map%sizeLMB2max*&
          &                 maxThreads*SIZEOF_DEF_COMPLEX
 #endif
@@ -207,7 +209,7 @@ contains
       integer :: nLMB2,nLMB
       integer :: nR                 ! counts radial grid points
       integer :: n_r_out            ! counts cheb modes
-      real(cp) ::  rhs(n_r_max) ! real RHS for l=m=0
+      real(cp), allocatable :: rhs(:) ! real RHS for l=m=0
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -226,17 +228,21 @@ contains
 
       nLMB=1+rank
 
+      allocate(rhs(n_r_max))
+      rhs = 0.0_cp
+
       !-- Now assemble the right hand side and store it in work_LMloc
 #ifdef WITH_OMP_GPU
       !$omp target update to(dphidt)
-      call tscheme%set_imex_rhs(work_LMloc, dphidt, .true.)
-      !$omp target update from(work_LMloc)
-#else
+#endif
       call tscheme%set_imex_rhs(work_LMloc, dphidt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(work_LMloc)
 #endif
 
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: rhs)
+      !$omp target update to(rhs)
       !$omp single
       call solve_counter%start_count()
       !$omp end single
@@ -489,11 +495,7 @@ contains
 #endif
 
       !-- Roll the arrays before filling again the first block
-#ifdef WITH_OMP_GPU
-      call tscheme%rotate_imex(dphidt, .true.)
-#else
       call tscheme%rotate_imex(dphidt)
-#endif
 
 #ifdef WITH_OMP_GPU
       !$omp target update to(phi)
@@ -513,6 +515,8 @@ contains
       !$omp target update from(phi)
       !$omp target update from(dphidt)
 #endif
+
+      deallocate(rhs)
 
    end subroutine updatePhi
 !------------------------------------------------------------------------------
@@ -547,11 +551,7 @@ contains
 #endif
 
       !-- Now assemble the right hand side
-#ifdef WITH_OMP_GPU
-      call tscheme%set_imex_rhs_ghost(phi_ghost, dphidt, lm_start, lm_stop, 1, .true.)
-#else
       call tscheme%set_imex_rhs_ghost(phi_ghost, dphidt, lm_start, lm_stop, 1)
-#endif
 
       !-- Set boundary conditions
       if ( nRstart == n_r_cmb ) then
@@ -705,11 +705,7 @@ contains
       integer :: nR, lm_start, lm_stop, lm
 
       !-- Roll the arrays before filling again the first block
-#ifdef WITH_OMP_GPU
-      call tscheme%rotate_imex(dphidt,.true.)
-#else
       call tscheme%rotate_imex(dphidt)
-#endif
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
@@ -771,9 +767,11 @@ contains
 
       lm2l(1:lm_max) => lo_map%lm2l
       allocate(dphi(llm:ulm,n_r_max))
+      dphi = zero
 
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: dphi)
+      !$omp target update to(dphi)
       start_lm=llm; stop_lm=ulm
       call dct_counter%start_count()
 #else
@@ -875,15 +873,19 @@ contains
       type(type_tarray), intent(inout) :: dphidt
 
       !-- Local variables
-      complex(cp) :: dphi(lm_max,nRstart:nRstop) ! Radial derivative of phase field
-      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), allocatable :: dphi(:,:) ! Radial derivative of phase field
+      complex(cp), allocatable :: work_Rloc(:,:)
       integer :: n_r, lm, start_lm, stop_lm, l
       real(cp) :: dL
       integer, pointer :: lm2l(:)
 
+      allocate(dphi(lm_max,nRstart:nRstop), work_Rloc(lm_max,nRstart:nRstop))
+      dphi = zero; work_Rloc = zero
+
       lm2l(1:lm_max) => st_map%lm2l
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: dphi, work_Rloc)
+      !$omp target update to(dphi, work_Rloc)
 #endif
 
 #ifdef WITH_OMP_GPU
@@ -947,6 +949,7 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: dphi, work_Rloc)
 #endif
+      deallocate(dphi, work_Rloc)
 
    end subroutine get_phase_rhs_imp_ghost
 !------------------------------------------------------------------------------
@@ -973,10 +976,8 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target update to(phi)
       !$omp target update to(dphidt)
-      call tscheme%assemble_imex(work_LMloc, dphidt, .true.)
-#else
-      call tscheme%assemble_imex(work_LMloc, dphidt)
 #endif
+      call tscheme%assemble_imex(work_LMloc, dphidt)
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
@@ -1171,20 +1172,21 @@ contains
 
       !-- Local variables
       integer :: lm, l, m, n_r, start_lm, stop_lm
-      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), allocatable :: work_Rloc(:,:)
 
+      allocate(work_Rloc(lm_max,nRstart:nRstop))
+      work_Rloc = zero
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: work_Rloc)
+      !$omp target update to(work_Rloc)
 #endif
 
 #ifdef WITH_OMP_GPU
       !$omp target update to(phi_ghost)
       !$omp target update to(phi)
       !$omp target update to(dphidt)
-      call tscheme%assemble_imex(work_Rloc, dphidt, .true.)
-#else
-      call tscheme%assemble_imex(work_Rloc, dphidt)
 #endif
+      call tscheme%assemble_imex(work_Rloc, dphidt)
 
 #ifdef WITH_OMP_GPU
       start_lm=1; stop_lm=lm_max
@@ -1278,6 +1280,7 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: work_Rloc)
 #endif
+      deallocate(work_Rloc)
 
    end subroutine assemble_phase_Rloc
 !------------------------------------------------------------------------------
@@ -1301,8 +1304,11 @@ contains
 #endif
 
       !-- Local variables:
-      real(cp) :: dat(n_r_max,n_r_max)
+      real(cp), allocatable :: dat(:,:)
       integer :: info, nR_out, nR
+
+      allocate(dat(n_r_max,n_r_max))
+      dat(:,:) = 0.0_cp
 
       !----- Boundary condition:
       if ( ktopphi == 1 ) then
@@ -1400,6 +1406,8 @@ contains
       call phiMat%prepare(info)
       if ( info /= 0 ) call abortRun('! Singular matrix phiMat0!')
 
+      deallocate(dat)
+
    end subroutine get_phi0Mat
 !-----------------------------------------------------------------------------
 #ifdef WITH_PRECOND_S
@@ -1425,7 +1433,10 @@ contains
       !-- Local variables:
       integer :: info, nR_out, nR
       real(cp) :: dLh
-      real(cp) :: dat(n_r_max,n_r_max)
+      real(cp), allocatable :: dat(:,:)
+
+      allocate(dat(n_r_max,n_r_max))
+      dat(:,:) = 0.0_cp
 
       dLh=real(l*(l+1),kind=cp)
 
@@ -1526,6 +1537,8 @@ contains
       !----- LU decomposition:
       call phiMat%prepare(info)
       if ( info /= 0 ) call abortRun('Singular matrix phiMat!')
+
+      deallocate(dat)
 
    end subroutine get_phiMat
 !-----------------------------------------------------------------------------

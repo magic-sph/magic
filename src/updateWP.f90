@@ -155,9 +155,11 @@ contains
 
          if ( l_double_curl ) then
             allocate( ddddw(llm:ulm,n_r_max) )
+            ddddw = zero
             bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 #ifdef WITH_OMP_GPU
             !$omp target enter data map(alloc: ddddw)
+            !$omp target update to(ddddw)
             gpu_bytes_allocated = gpu_bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 #endif
             if ( l_RMS .or. l_FluxProfs ) then
@@ -176,20 +178,24 @@ contains
          if ( l_double_curl ) then
             size_rhs1 = n_r_max
             allocate( rhs1(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+            rhs1 = zero
             bytes_allocated=bytes_allocated+n_r_max*maxThreads* &
             &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
 #ifdef WITH_OMP_GPU
             !$omp target enter data map(alloc: rhs1)
+            !$omp target update to(rhs1)
             gpu_bytes_allocated=gpu_bytes_allocated+n_r_max*maxThreads* &
             &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
 #endif
          else
             size_rhs1 = 2*n_r_max
             allocate( rhs1(2*n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+            rhs1 = zero
             bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
             &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
 #ifdef WITH_OMP_GPU
             !$omp target enter data map(alloc: rhs1)
+            !$omp target update to(rhs1)
             gpu_bytes_allocated=gpu_bytes_allocated+2*n_r_max*maxThreads* &
             &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
 #endif
@@ -213,6 +219,7 @@ contains
             &                 lo_sub_map%sizeLMB2max*SIZEOF_DEF_REAL
 #ifdef WITH_OMP_GPU
             !$omp target enter data map(alloc: rhs0)
+            !$omp target update to(rhs0)
             gpu_bytes_allocated = gpu_bytes_allocated+n_r_max*maxThreads*2* &
             &                 lo_sub_map%sizeLMB2max*SIZEOF_DEF_REAL
 #endif
@@ -348,7 +355,7 @@ contains
       integer :: nLMB2
       integer :: nR             ! counts radial grid points
       integer :: n_r_out         ! counts cheb modes
-      real(cp) :: rhs(n_r_max)  ! real RHS for l=m=0
+      real(cp), allocatable :: rhs(:)  ! real RHS for l=m=0
       integer :: nLMB
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
@@ -371,14 +378,30 @@ contains
       nLMB       =1+rank
       lmStart_00 =max(2,llm)
 
+      allocate(rhs(n_r_max))
+      rhs = 0.0_cp
+
       !-- Now assemble the right hand side and store it in work_LMloc
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dwdt)
+#endif
       call tscheme%set_imex_rhs(work_LMloc, dwdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(work_LMloc)
+#endif
       if ( .not. l_double_curl ) then
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dpdt)
+#endif
          call tscheme%set_imex_rhs(ddw, dpdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(ddw)
+#endif
       end if
 
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: rhs)
+      !$omp target update to(rhs)
       !$omp single
       call solve_counter%start_count()
       !$omp end single
@@ -856,6 +879,7 @@ contains
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
+      !$omp parallel do private(n_r_out,lm1) collapse(2)
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
 #endif
@@ -866,14 +890,24 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end parallel do
 #else
       !$omp end do
       !$omp end parallel
 #endif
 
       !-- Roll the arrays before filling again the first block
+#ifdef WITH_OMP_GPU
+      call tscheme%rotate_imex(dwdt)
+      !$omp target update from(dwdt)
+      if ( .not. l_double_curl ) then
+         call tscheme%rotate_imex(dpdt)
+         !$omp target update from(dpdt)
+      end if
+#else
       call tscheme%rotate_imex(dwdt)
       if ( .not. l_double_curl ) call tscheme%rotate_imex(dpdt)
+#endif
 
       if ( tscheme%istage == tscheme%nstages ) then
          call get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, dwdt, dpdt,       &
@@ -889,6 +923,7 @@ contains
               &               dpdt%expl(:,:,1), l_in_cheb_space=.true.)
       end if
 
+      deallocate(rhs)
 
    end subroutine updateWP
 !------------------------------------------------------------------------------
@@ -937,7 +972,13 @@ contains
 #endif
 
       !-- Now assemble the right hand side and store it in work_LMloc
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dwdt)
+#endif
       call tscheme%set_imex_rhs_ghost(w_ghost, dwdt, lm_start, lm_stop, 2)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(w_ghost)
+#endif
 
       !-- Ensure that l=m=0 is zero
 #ifdef WITH_OMP_GPU
@@ -1130,7 +1171,13 @@ contains
       end if
 
       !-- Roll the arrays before filling again the first block
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dwdt)
+#endif
       call tscheme%rotate_imex(dwdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dwdt)
+#endif
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
@@ -1378,6 +1425,7 @@ contains
 
       !-- set cheb modes > n_cheb_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
+      !$omp parallel do private(n_r_out,lm1) collapse(2)
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
 #endif
@@ -1387,6 +1435,7 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end parallel do
 #else
       !$omp end do
       !$omp end parallel
@@ -2037,11 +2086,23 @@ contains
          lmStart_00=llm
       end if
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dwdt)
+#endif
       call tscheme%assemble_imex(work_LMloc, dwdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(work_LMloc)
+#endif
       if ( l_double_curl) then
          call get_pol(w, work_LMloc)
       else
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dpdt)
+#endif
          call tscheme%assemble_imex(ddw, dpdt) ! Use ddw as a work array
+#ifdef WITH_OMP_GPU
+      !$omp target update from(ddw)
+#endif
       end if
 
 #ifdef WITH_OMP_GPU
@@ -2413,7 +2474,7 @@ contains
       !-- Local variables
       integer :: nlm_block, start_lm, stop_lm, req, tag, lms_block
       integer :: n_r, lm, l
-      complex(cp) :: work_Rloc(lm_max, nRstart:nRstop)
+      complex(cp), allocatable :: work_Rloc(:,:)
       complex(cp) :: work_ghost(lm_max, nRstart-1:nRstop+1)
       integer :: array_of_requests(4*nblocks)
 
@@ -2423,8 +2484,21 @@ contains
          l_ellMat(:)=.true.
       end if
 
+      allocate(work_Rloc(lm_max,nRstart:nRstop))
+      work_Rloc(:,:) = zero
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: work_Rloc)
+      !$omp target update to(work_Rloc)
+#endif
+
       !-- First assemble IMEX to get an r.h.s. stored in work_Rloc
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dwdt)
+#endif
       call tscheme%assemble_imex(work_Rloc, dwdt)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(work_Rloc)
+#endif
 
 #ifdef WITH_MPI
       array_of_requests(:)=MPI_REQUEST_NULL
@@ -2571,6 +2645,11 @@ contains
 #else
       !$omp end parallel
 #endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: work_Rloc)
+#endif
+      deallocate(work_Rloc)
 
    end subroutine assemble_pol_Rloc
 !------------------------------------------------------------------------------

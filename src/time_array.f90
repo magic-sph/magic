@@ -17,9 +17,9 @@ module time_array
       integer :: ulm  ! Stop index of first dimension
       integer :: nRStart ! Start index of second dimension
       integer :: nRStop  ! Stop index of second dimension
-      complex(cp), allocatable :: impl(:,:,:) ! Array that contains the implicit states
+      complex(cp), pointer :: impl(:,:,:) ! Array that contains the implicit states
       complex(cp), pointer :: expl(:,:,:) ! Array that contains the explicit states
-      complex(cp), allocatable :: old(:,:,:) ! Array that contains the old states
+      complex(cp), pointer :: old(:,:,:) ! Array that contains the old states
       logical :: l_exp
    contains
       procedure :: initialize
