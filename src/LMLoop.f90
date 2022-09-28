@@ -8,7 +8,11 @@ module LMLoop_mod
    use constants, only: one
    use useful, only: abortRun, logWrite
    use num_param, only: solve_counter
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: memWrite, bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: memWrite, bytes_allocated
+#endif
    use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag, n_r_ic_max, lm_max, &
        &                 lm_maxMag
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag
@@ -119,6 +123,10 @@ contains
       call dum_scal%initialize(tscheme%nold, tscheme%nexp, tscheme%nimp)
       call dummy%initialize(1, lm_max, nRstart, nRstop, tscheme%nold, tscheme%nexp,&
            &                tscheme%nimp, l_allocate_exp=.true.)
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: dummy)
+      !$omp target update to(dummy)
+#endif
 
       if ( l_heat ) call prepareS_FD(tscheme, dummy, phi_Rloc)
       if ( l_chemical_conv ) call prepareXi_FD(tscheme, dummy)
@@ -136,6 +144,9 @@ contains
 #endif
 
       call dum_scal%finalize()
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(release: dummy)
+#endif
       call dummy%finalize()
 
    end subroutine test_LMLoop
