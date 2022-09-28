@@ -2,7 +2,11 @@ module LMmapping
 
    use precision_mod
    use truncation, only: l_axi
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: bytes_allocated
+#endif
    use parallel_mod, only: load
 
    implicit none
@@ -53,15 +57,28 @@ contains
 
       allocate( self%lm2(0:l_max,0:l_max),self%lm2l(lm_max),self%lm2m(lm_max) )
       allocate( self%lm2lmS(lm_max),self%lm2lmA(lm_max) )
+      self%lm2(:,:) = 0; self%lm2l(:) = 0; self%lm2m(:) = 0
+      self%lm2lmS(:) = 0; self%lm2lmA(:) = 0;
       bytes_allocated = bytes_allocated + &
       &                 ((l_max+1)*(l_max+1)+4*lm_max)*SIZEOF_INTEGER
-
+#ifdef WITH_OMP_GPU
+      gpu_bytes_allocated = gpu_bytes_allocated + &
+      &                 ((l_max+1)*(l_max+1)+4*lm_max)*SIZEOF_INTEGER
+#endif
       allocate( self%lmP2(0:l_max+1,0:l_max+1),self%lmP2l(lmP_max) )
       allocate( self%lmP2m(lmP_max) )
       allocate( self%lmP2lmPS(lmP_max),self%lmP2lmPA(lmP_max) )
       allocate( self%lm2lmP(lm_max),self%lmP2lm(lmP_max) )
+      self%lmP2(:,:) = 0; self%lmP2l(:) = 0
+      self%lmP2m(:) = 0
+      self%lmP2lmPS(:) = 0; self%lmP2lmPA(:) = 0
+      self%lm2lmP(:) = 0; self%lmP2lm(:) = 0
       bytes_allocated = bytes_allocated + &
       &                 ((l_max+2)*(l_max+2)+5*lmP_max+lm_max)*SIZEOF_INTEGER
+#ifdef WITH_OMP_GPU
+      gpu_bytes_allocated = gpu_bytes_allocated + &
+      &                 ((l_max+2)*(l_max+2)+5*lmP_max+lm_max)*SIZEOF_INTEGER
+#endif
 
    end subroutine allocate_mappings
 !-------------------------------------------------------------------------------
@@ -121,9 +138,18 @@ contains
       allocate( self%lm22lm(self%sizeLMB2max,l_max+1,nLMBs) )
       allocate( self%lm22l(self%sizeLMB2max,l_max+1,nLMBs) )
       allocate( self%lm22m(self%sizeLMB2max,l_max+1,nLMBs) )
+      self%nLMBs2(:) = 0; self%sizeLMB2(:,:) = 0
+      self%lm22lm(:,:,:) = 0
+      self%lm22l(:,:) = 0
+      self%lm22m(:,:,:) = 0
       bytes_allocated = bytes_allocated +       &
       &                 (nLMBs+(l_max+1)*nLMBs+ &
       &                 3*(l_max+1)*nLMBS*self%sizeLMB2max)*SIZEOF_INTEGER
+#ifdef WITH_OMP_GPU
+      gpu_bytes_allocated = gpu_bytes_allocated +       &
+      &                 (nLMBs+(l_max+1)*nLMBs+ &
+      &                 3*(l_max+1)*nLMBS*self%sizeLMB2max)*SIZEOF_INTEGER
+#endif
 
    end subroutine allocate_subblocks_mappings
 !-------------------------------------------------------------------------------
