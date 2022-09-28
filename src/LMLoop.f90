@@ -56,8 +56,14 @@ contains
 
       !-- Local variable
       integer(lip) :: local_bytes_used
+#ifdef WITH_OMP_GPU
+      integer(lip) :: local_bytes_used_gpu
+#endif
 
       local_bytes_used = bytes_allocated
+#ifdef WITH_OMP_GPU
+      local_bytes_used_gpu = gpu_bytes_allocated
+#endif
       if ( l_single_matrix ) then
          call initialize_updateWPS()
       else
@@ -76,8 +82,14 @@ contains
       call initialize_updateZ()
       if ( l_mag ) call initialize_updateB()
       local_bytes_used = bytes_allocated-local_bytes_used
+#ifdef WITH_OMP_GPU
+      local_bytes_used_gpu = gpu_bytes_allocated-local_bytes_used_gpu
+#endif
 
       call memWrite('LMLoop.f90',local_bytes_used)
+#ifdef WITH_OMP_GPU
+      call memWrite('LMLoop.f90-GPU',local_bytes_used_gpu)
+#endif
 
       if ( l_parallel_solve ) then
          if ( l_conv ) then
