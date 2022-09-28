@@ -930,9 +930,16 @@ contains
       complex(cp), intent(inout) :: ds_exp_last(lm_max,nRstart:nRstop)
 
       !-- Local variables
-      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), allocatable :: work_Rloc(:,:)
       real(cp) :: dL
       integer :: n_r, lm, l, start_lm, stop_lm
+
+      allocate(work_Rloc(lm_max,nRstart:nRstop))
+      work_Rloc = zero
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: work_Rloc)
+      !$omp target update to(work_Rloc)
+#endif
 
       call get_dr_Rloc(dVSrLM, work_Rloc, lm_max, nRstart, nRstop, n_r_max, &
            &           rscheme_oc)
@@ -948,6 +955,7 @@ contains
 
       if ( l_anelastic_liquid ) then
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
 #endif
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
@@ -961,10 +969,11 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #endif
       else
 #ifdef WITH_OMP_GPU
-
+         !$omp target teams distribute parallel do collapse(2)
 #endif
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
@@ -976,12 +985,18 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
 #ifndef WITH_OMP_GPU
       !$omp end parallel
 #endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: work_Rloc)
+#endif
+      deallocate(work_Rloc)
 
    end subroutine finish_exp_entropy_Rdist
 !-----------------------------------------------------------------------------

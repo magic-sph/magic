@@ -1473,6 +1473,7 @@ contains
 
       if ( omega_ic /= 0.0_cp .and. l_rot_ic .and. l_mag_nl ) then
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2) private(fac,l1,m1)
 #else
          !$omp parallel do default(shared) private(lm,n_r,fac,l1,m1) collapse(2)
 #endif
@@ -1488,11 +1489,13 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #else
          !$omp end parallel do
 #endif
       else
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
 #else
          !$omp parallel do default(shared) private(lm,n_r,fac) collapse(2)
 #endif
@@ -1503,6 +1506,7 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #else
          !$omp end parallel do
 #endif
@@ -1568,14 +1572,22 @@ contains
       complex(cp), intent(inout) :: dj_exp_last(lm_max,nRstartMag:nRstopMag)
 
       !-- Local variables
-      complex(cp) :: work_Rloc(lm_max,nRstartMag:nRstopMag)
+      complex(cp), allocatable :: work_Rloc(:,:)
       integer :: n_r, lm, start_lm, stop_lm
+
+      allocate(work_Rloc(lm_max,nRstartMag:nRstopMag))
+      work_Rloc = zero
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: work_Rloc)
+      !$omp target update to(work_Rloc)
+#endif
 
       call get_dr_Rloc(dVxBhLM, work_Rloc, lm_max, nRstartMag, nRstopMag, n_r_max, &
            &           rscheme_oc)
 
 #ifdef WITH_OMP_GPU
       start_lm=1; stop_lm=lm_maxMag
+      !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp parallel default(shared) private(n_r, lm, start_lm, stop_lm)
       start_lm=1; stop_lm=lm_maxMag
@@ -1588,9 +1600,15 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #else
       !$omp end parallel
 #endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: work_Rloc)
+#endif
+      deallocate(work_Rloc)
 
    end subroutine finish_exp_mag_Rdist
 !-----------------------------------------------------------------------------

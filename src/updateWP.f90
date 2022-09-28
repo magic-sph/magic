@@ -1487,15 +1487,23 @@ contains
       complex(cp), intent(inout) :: dw_exp_last(lm_max,nRstart:nRstop)
 
       !-- Local variables
-      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), allocatable :: work_Rloc(:,:)
       integer :: n_r, start_lm, stop_lm, l, lm
       real(cp) :: dLh
+
+      allocate(work_Rloc(lm_max,nRstart:nRstop))
+      work_Rloc = zero
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: work_Rloc)
+      !$omp target update to(work_Rloc)
+#endif
 
       call get_dr_Rloc(dVxVhLM, work_Rloc, lm_max, nRstart, nRstop, n_r_max, &
            &           rscheme_oc)
 
 #ifdef WITH_OMP_GPU
       start_lm=1; stop_lm=lm_max
+      !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp parallel default(shared) private(n_r, lm, l, dLh, start_lm, stop_lm)
       start_lm=1; stop_lm=lm_max
@@ -1511,12 +1519,12 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
       if ( l_heat .and. l_parallel_solve ) then
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do collapse(2)
 #endif
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
@@ -1529,13 +1537,13 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
       if ( l_chemical_conv .and. l_parallel_solve ) then
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do collapse(2)
 #endif
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
@@ -1548,12 +1556,17 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
 #ifndef WITH_OMP_GPU
       !$omp end parallel
 #endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: work_Rloc)
+#endif
+      deallocate(work_Rloc)
 
    end subroutine finish_exp_pol_Rdist
 !------------------------------------------------------------------------------
@@ -1901,9 +1914,16 @@ contains
       complex(cp),       intent(out) :: ddw(lm_max,nRstart:nRstop)
 
       !-- Local variables
-      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop), dddw_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), allocatable :: work_Rloc(:,:), dddw_Rloc(:,:)
       integer :: n_r, l, lm, start_lm, stop_lm
       real(cp) :: dL
+
+      allocate(work_Rloc(lm_max,nRstart:nRstop), dddw_Rloc(lm_max,nRstart:nRstop))
+      work_Rloc = zero; dddw_Rloc = zero
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: work_Rloc, dddw_Rloc)
+      !$omp target update to(work_Rloc, dddw_Rloc)
+#endif
 
 #ifdef WITH_OMP_GPU
       start_lm=1; stop_lm=lm_max
@@ -1988,7 +2008,13 @@ contains
 
       if ( tscheme%istage==tscheme%nstages .and. lRmsNext) then
          !-- Recompute third derivative to have the boundary point right
+#ifdef WITH_OMP_GPU
+         !$omp target update to(ddw, dddw_Rloc)
+#endif
          call get_dr_Rloc(ddw, dddw_Rloc, lm_max, nRstart, nRstop, n_r_max, rscheme_oc )
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dddw_Rloc)
+#endif
 
 #ifdef WITH_OMP_GPU
          start_lm=1; stop_lm=lm_max
@@ -2041,8 +2067,19 @@ contains
       ! In case pressure is needed in the double curl formulation
       ! we also have to compute the radial derivative of p
       if ( lPressNext ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(p, dp)
+#endif
          call get_dr_Rloc(p, dp, lm_max, nRstart, nRstop, n_r_max, rscheme_oc )
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dp)
+#endif
       end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: work_Rloc, dddw_Rloc)
+#endif
+      deallocate(work_Rloc, dddw_Rloc)
 
    end subroutine get_pol_rhs_imp_ghost
 !------------------------------------------------------------------------------

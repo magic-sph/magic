@@ -1142,8 +1142,14 @@ contains
                call lo2r_flow%transp_lm2r(flow_LMloc_container, flow_Rloc_container)
             end if
             if ( l_heat .and. lHTCalc .and. (.not. l_parallel_solve) ) then
+#ifdef WITH_OMP_GPU
+               !$omp target update to(s_Rloc, ds_Rloc)
+#endif
                call get_dr_Rloc(s_Rloc, ds_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                     &           rscheme_oc)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(ds_Rloc)
+#endif
             end if
             if ( l_chemical_conv .and. (.not. l_parallel_solve) ) then
                call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
@@ -1154,19 +1160,37 @@ contains
             if ( (l_conv .or. l_mag_kin) .and. (.not. l_parallel_solve) ) then
                call get_ddr_Rloc(w_Rloc, dw_Rloc, ddw_Rloc, lm_max, nRstart, nRstop, &
                     &            n_r_max, rscheme_oc)
+#ifdef WITH_OMP_GPU
+               !$omp target update to(z_Rloc, dz_Rloc)
+#endif
                call get_dr_Rloc(z_Rloc, dz_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                     &           rscheme_oc)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(dz_Rloc)
+#endif
             end if
             if ( lPressCalc .and. ( .not. l_parallel_solve) ) then
                call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
+#ifdef WITH_OMP_GPU
+               !$omp target update to(p_Rloc, dp_Rloc)
+#endif
                call get_dr_Rloc(p_Rloc, dp_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                     &           rscheme_oc)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(dp_Rloc)
+#endif
             end if
             if ( l_mag .and. ( .not. l_mag_par_solve ) ) then
                call get_ddr_Rloc(b_Rloc, db_Rloc, ddb_Rloc, lm_max, nRstart, nRstop, &
                     &            n_r_max, rscheme_oc)
+#ifdef WITH_OMP_GPU
+               !$omp target update to(aj_Rloc, dj_Rloc)
+#endif
                call get_dr_Rloc(aj_Rloc, dj_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                     &           rscheme_oc)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(dj_Rloc)
+#endif
             end if
          else
             if ( l_heat ) then
@@ -1191,8 +1215,14 @@ contains
             if ( l_heat .and. (.not. l_parallel_solve) ) then
                call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
                if ( lHTCalc ) then
+#ifdef WITH_OMP_GPU
+                  !$omp target update to(s_Rloc, ds_Rloc)
+#endif
                   call get_dr_Rloc(s_Rloc, ds_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                        &           rscheme_oc)
+#ifdef WITH_OMP_GPU
+                  !$omp target update from(ds_Rloc)
+#endif
                end if
             end if
             if ( l_chemical_conv .and. (.not. l_parallel_solve) ) then
@@ -1206,21 +1236,39 @@ contains
                call get_ddr_Rloc(w_Rloc, dw_Rloc, ddw_Rloc, lm_max, nRstart, nRstop, &
                     &            n_r_max, rscheme_oc)
                call lo2r_one%transp_lm2r(z_LMloc, z_Rloc)
+#ifdef WITH_OMP_GPU
+               !$omp target update to(z_Rloc, dz_Rloc)
+#endif
                call get_dr_Rloc(z_Rloc, dz_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                     &           rscheme_oc)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(dz_Rloc)
+#endif
             end if
             if ( lPressCalc .and. (.not. l_parallel_solve) ) then
                call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
+#ifdef WITH_OMP_GPU
+               !$omp target update to(p_Rloc, dp_Rloc)
+#endif
                call get_dr_Rloc(p_Rloc, dp_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                     &           rscheme_oc)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(dp_Rloc)
+#endif
             end if
             if ( l_mag .and. ( .not. l_mag_par_solve ) ) then
                call lo2r_one%transp_lm2r(b_LMloc, b_Rloc)
                call get_ddr_Rloc(b_Rloc, db_Rloc, ddb_Rloc, lm_max, nRstart, nRstop, &
                     &            n_r_max, rscheme_oc)
                call lo2r_one%transp_lm2r(aj_LMloc, aj_Rloc)
+#ifdef WITH_OMP_GPU
+               !$omp target update to(aj_Rloc, dj_Rloc)
+#endif
                call get_dr_Rloc(aj_Rloc, dj_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                     &           rscheme_oc)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(dj_Rloc)
+#endif
             end if
          else
             if ( l_heat ) then
@@ -1373,7 +1421,10 @@ contains
       !
       logical, intent(in) :: lPressCalc
 
-      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), allocatable :: work_Rloc(:,:)
+
+      allocate(work_Rloc(lm_max,nRstart:nRstop))
+      work_Rloc(:,:) = zero
 
       if ( l_heat ) then
          call r2lo_one%transp_r2lm(s_Rloc,s_LMloc)
@@ -1382,8 +1433,15 @@ contains
 
       if ( l_chemical_conv ) then
          call r2lo_one%transp_r2lm(xi_Rloc,xi_LMloc)
+#ifdef WITH_OMP_GPU
+         !$omp target update to(xi_Rloc)
+         !$omp target data map(tofrom: work_Rloc)
+#endif
          call get_dr_Rloc(xi_Rloc, work_Rloc, lm_max, nRstart, nRstop, n_r_max, &
               &           rscheme_oc)
+#ifdef WITH_OMP_GPU
+         !$omp end target data
+#endif
          call r2lo_one%transp_r2lm(work_Rloc,dxi_LMloc)
       end if
 
@@ -1404,6 +1462,8 @@ contains
          call r2lo_one%transp_r2lm(dj_Rloc,dj_LMloc)
          call r2lo_one%transp_r2lm(ddj_Rloc,ddj_LMloc)
       end if
+
+      deallocate(work_Rloc)
 
    end subroutine transp_Rloc_to_LMloc_IO
 !--------------------------------------------------------------------------------

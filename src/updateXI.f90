@@ -846,15 +846,23 @@ contains
       complex(cp), intent(inout) :: dxi_exp_last(lm_max,nRstart:nRstop)
 
       !-- Local variables
-      complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), allocatable :: work_Rloc(:,:)
       real(cp) :: dLh
       integer :: n_r, lm, start_lm, stop_lm, l
+
+      allocate(work_Rloc(lm_max,nRstart:nRstop))
+      work_Rloc = zero
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: work_Rloc)
+      !$omp target update to(work_Rloc)
+#endif
 
       call get_dr_Rloc(dVXirLM, work_Rloc, lm_max, nRstart, nRstop, n_r_max, &
            &           rscheme_oc)
 
 #ifdef WITH_OMP_GPU
       start_lm=1; stop_lm=lm_max
+      !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp parallel default(shared) private(n_r, lm, start_lm, stop_lm, l, dLh)
       start_lm=1; stop_lm=lm_max
@@ -868,11 +876,15 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #else
       !$omp end parallel
 #endif
 
       if ( l_onset ) then
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
+#endif
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
@@ -880,7 +892,15 @@ contains
                dxi_exp_last(lm,n_r)=-dLh*or2(n_r)*orho1(n_r)*w(lm,n_r)*dxicond(n_r)
             end do
          end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
       end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: work_Rloc)
+#endif
+      deallocate(work_Rloc)
 
    end subroutine finish_exp_comp_Rdist
 !------------------------------------------------------------------------------
