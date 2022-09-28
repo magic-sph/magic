@@ -817,13 +817,17 @@ contains
             end if
          else if ( nBc == 2 ) then
             if ( nR == n_r_cmb ) then
+#ifdef WITH_OMP_GPU
                call hipCheck(hipDeviceSynchronize())
+#endif
                call v_rigid_boundary(nR, omega_ma, lDeriv, this%gsa%vrc,        &
                     &                this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
                     &                this%gsa%dvrdtc, this%gsa%dvrdpc,          &
                     &                this%gsa%dvtdpc,this%gsa%dvpdpc)
             else if ( nR == n_r_icb ) then
+#ifdef WITH_OMP_GPU
                call hipCheck(hipDeviceSynchronize())
+#endif
                call v_rigid_boundary(nR, omega_ic, lDeriv, this%gsa%vrc,      &
                     &                this%gsa%vtc, this%gsa%vpc,              &
                     &                this%gsa%cvrc, this%gsa%dvrdtc,          &
