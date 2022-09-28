@@ -327,9 +327,6 @@ module band_matrices
 #endif
    use real_matrices, only: type_realmat
    use algebra, only: solve_tridiag, prepare_tridiag, prepare_band, solve_band
-#ifdef WITH_OMP_GPU
-   use algebra_hipfort, only: gpu_solve_tridiag, gpu_prepare_tridiag, gpu_prepare_band, gpu_solve_band
-#endif
 
    implicit none
 
@@ -571,9 +568,6 @@ module bordered_matrices
    use mem_alloc
    use real_matrices, only: type_realmat
    use algebra, only: solve_bordered, prepare_bordered
-#ifdef WITH_OMP_GPU
-   use algebra_hipfort, only: gpu_solve_bordered, gpu_prepare_bordered
-#endif
 
    implicit none
 
