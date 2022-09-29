@@ -45,6 +45,7 @@ module outMisc_mod
    character(len=72) :: heat_file, helicity_file, phase_file, rmelt_file
    character(len=72) :: hemi_file, sym_file, asym_file, drift_sym_file
    character(len=72) :: drift_asym_file
+   character(len=72) :: gravCoeff_file, deform_file, press_file
    real(cp) :: TPhiOld, Tphi
    real(cp), allocatable :: ekinSr(:), ekinLr(:), volSr(:)
    real(cp), allocatable :: hemi_ekin_r(:,:), hemi_vrabs_r(:,:)
@@ -54,6 +55,7 @@ module outMisc_mod
    real(cp), allocatable :: HelEAASr(:)
    complex(cp), allocatable :: coeff_old(:)
    real(cp), allocatable :: kGrav(:,:), hGrav(:,:)
+   integer, allocatable  :: n_gravCoeff_file(:), n_deform_file(:), n_press_file(:)
 
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
    &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
@@ -66,6 +68,8 @@ contains
       ! This subroutine handles the opening of some output diagnostic files that
       ! have to do with heat transfer, helicity, phase field or hemisphericity
       !
+      integer :: l
+      character(len=72) :: lStr
 
       if (l_heat .or. l_chemical_conv) then
          call TMeanR%initialize(1,n_r_max)
@@ -147,8 +151,31 @@ contains
          end if
       end if
 
-      if (l_grav) call setGravCoeff()
+      if (l_grav) then
+         allocate(n_gravCoeff_file(l_max_grav-1))
+         allocate(n_deform_file(l_max_grav-1))
+         allocate(n_press_file(l_max_pres))
 
+         if ( rank == 0 .and. (.not. l_save_out)) then
+            do l=1,l_max_grav-1
+               write(lStr,*) l+1
+               gravCoeff_file='gravCoeff_l'//trim(adjustl(lStr))//'.'//tag
+               deform_file   ='deformCoeff_l'//trim(adjustl(lStr))//'.'//tag
+               open(newunit=n_gravCoeff_file(l),file=gravCoeff_file,&
+               &    status='new')
+               open(newunit=n_deform_file(l),file=deform_file,&
+               &    status='new')
+            end do
+
+            do l=1,l_max_pres
+               write(lStr,*) l
+               press_file='press_l'//trim(adjustl(lStr))//'.'//tag
+               open(newunit=n_press_file(l),file=press_file,status='new')
+            end do
+         end if
+
+         call setGravCoeff()
+      end if
    end subroutine initialize_outMisc_mod
 !----------------------------------------------------------------------------------
    subroutine finalize_outMisc_mod()
@@ -156,6 +183,8 @@ contains
       ! This subroutine handles the closing of the time series of
       ! heat.TAG, hel.TAG, hemi.TAG and phase.TAG
       !
+
+      integer :: l
 
       if ( l_heat .or. l_chemical_conv ) then
          call TMeanR%finalize()
@@ -192,6 +221,20 @@ contains
             close(n_phase_file)
             close(n_rmelt_file)
          end if
+      end if
+
+      if ( l_grav ) then
+         if ( rank == 0 .and. (.not. l_save_out)) then
+            do l=1,l_max_grav-1
+               close(n_gravCoeff_file(l))
+               close(n_deform_file(l))
+            end do
+
+            do l=1,l_max_pres
+               close(n_press_file(l))
+            end do
+         end if
+         deallocate(n_gravCoeff_file,n_deform_file,n_press_file)
       end if
 
    end subroutine finalize_outMisc_mod
@@ -1148,18 +1191,13 @@ contains
 
       complex(cp), allocatable :: p_global(:)
       integer  :: l, m, lm, lmg
-      integer  :: n_gravCoeff_file, n_deform_file, n_press_file
-      character(len=72) :: gravCoeff_file, deform_file, press_file, string
+      character(len=72) :: string, lStr
       real(cp) :: work(n_r_max) ! Dummy arrays
       real(cp) :: tmp_gravClm, tmp_gravSlm, tmp_deformClm, tmp_deformSlm
       complex(cp) :: grav_cmplx(llm:ulm), deform_cmplx(llm:ulm)
       complex(cp) :: gravCoeffs(lm_max), deformCoeffs(lm_max)
 
-      call dble2str(time,string)
-
-      gravCoeff_file='gravCoeff_t='//trim(string)//'.'//tag
-      deform_file   ='deformCoeff_t='//trim(string)//'.'//tag
-      press_file    ='pressCoeff_t='//trim(string)//'.'//tag
+      ! call dble2str(time,string)
 
       do lm=llm,ulm
          l = lo_map%lm2l(lm)
@@ -1200,27 +1238,56 @@ contains
 
       if ( rank == 0 ) then
 
-         open(newunit=n_gravCoeff_file,file=gravCoeff_file,status='new')
-         open(newunit=n_deform_file,file=deform_file,status='new')
-         open(newunit=n_press_file,file=press_file,status='new')
+         do l=1,l_max_grav-1
+            if ( l_save_out ) then
+               write(lStr,*) l+1
+               gravCoeff_file='gravCoeff_l'//trim(adjustl(lStr))//'.'//tag
+               deform_file   ='deformCoeff_l'//trim(adjustl(lStr))//'.'//tag
+               open(newunit=n_gravCoeff_file(l),file=gravCoeff_file,&
+               &    status='unknown',position='append')
+               open(newunit=n_deform_file(l),file=deform_file,&
+               &    status='unknown',position='append')
+            end if
 
-         do l=0,max(l_max_grav,l_max_pres)
-            do m=0,l
+            write(n_gravCoeff_file(l),'(1P,ES16.8E3)',advance='no') time
+            write(n_deform_file(l),'(1P,ES16.8E3)',advance='no')    time
+
+            do m=0,l+1
                lm = lm2(l,m)
-
-               if ( l > 1 .and. l <= l_max_grav ) then
-                  write(n_gravCoeff_file,*) l, m, real(gravCoeffs(lm)), aimag(gravCoeffs(lm))
-                  write(n_deform_file,*)    l, m, real(deformCoeffs(lm)), aimag(deformCoeffs(lm))
-               end if
-
-               if ( l <= l_max_pres ) write(n_press_file, *)  l, m, real(p_global(lm)), aimag(p_global(lm))
+               write(n_gravCoeff_file(l),'(1P,ES17.8E3,ES17.8E3)',advance='no') real(gravCoeffs(lm)), aimag(gravCoeffs(lm))
+               write(n_deform_file(l),'(1P,ES17.8E3,ES17.8E3)',advance='no')    real(deformCoeffs(lm)), aimag(deformCoeffs(lm))
             end do
+
+            write(n_gravCoeff_file(l),*) '' !For newline
+            write(n_deform_file(l),*) ''
+
+            if ( l_save_out ) then
+               close(n_gravCoeff_file(l))
+               close(n_deform_file(l))
+            end if
          end do
 
-         close(n_gravCoeff_file)
-         close(n_deform_file)
-         close(n_press_file)
+         do l=1,l_max_pres
+            if ( l_save_out ) then
+               write(lStr,*) l
+               press_file='press_l'//trim(adjustl(lStr))//'.'//tag
+               open(newunit=n_press_file(l),file=press_file,&
+               &    status='unknown',position='append')
+            end if
 
+            write(n_press_file(l),'(1P,ES16.8E3)',advance='no') time
+
+            do m=0,l
+               lm=lm2(l,m)
+               write(n_press_file(l),'(1P,ES17.8E3,ES17.8E3)',advance='no') real(p_global(lm)), aimag(p_global(lm))
+            end do
+
+            write(n_press_file(l),*) '' !For newline
+
+            if ( l_save_out ) then
+               close(n_press_file(l))
+            end if
+         end do
       end if
 
    end subroutine outGrav
