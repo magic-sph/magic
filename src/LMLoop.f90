@@ -525,41 +525,17 @@ contains
       type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
       if ( l_chemical_conv ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(w, dVXir_Rloc, dxidt_Rloc)
-#endif
          call finish_exp_comp_Rdist(w, dVXir_Rloc, dxidt_Rloc)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dVXir_Rloc, dxidt_Rloc)
-#endif
       end if
 
       if ( l_single_matrix ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(dVSr_Rloc, dsdt_Rloc)
-#endif
          call finish_exp_smat_Rdist(dVSr_Rloc, dsdt_Rloc)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dVSr_Rloc, dsdt_Rloc)
-#endif
       else
          if ( l_heat ) then
-#ifdef WITH_OMP_GPU
-            !$omp target update to(w, dVSr_Rloc, dsdt_Rloc)
-#endif
             call finish_exp_entropy_Rdist(w, dVSr_Rloc, dsdt_Rloc)
-#ifdef WITH_OMP_GPU
-            !$omp target update from(dVSr_Rloc, dsdt_Rloc)
-#endif
          end if
          if ( l_double_curl ) then
-#ifdef WITH_OMP_GPU
-            !$omp target update to(dVxVh_Rloc, dwdt_Rloc)
-#endif
             call finish_exp_pol_Rdist(dVxVh_Rloc, dwdt_Rloc)
-#ifdef WITH_OMP_GPU
-            !$omp target update from(dVxVh_Rloc, dwdt_Rloc)
-#endif
          end if
       end if
 
@@ -572,25 +548,13 @@ contains
       end if
 
       if ( l_mag ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(dVxBh_Rloc, djdt_Rloc)
-#endif
          call finish_exp_mag_Rdist(dVxBh_Rloc, djdt_Rloc)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dVxBh_Rloc, djdt_Rloc)
-#endif
       end if
 
       if ( l_cond_ic ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(b_ic, aj_ic, dbdt_ic, djdt_ic)
-#endif
          call finish_exp_mag_ic(b_ic, aj_ic, omega_ic,            &
               &                 dbdt_ic%expl(:,:,tscheme%istage), &
               &                 djdt_ic%expl(:,:,tscheme%istage))
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dbdt_ic, djdt_ic)
-#endif
       end if
 
    end subroutine finish_explicit_assembly_Rdist

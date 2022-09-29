@@ -652,6 +652,73 @@ contains
                end if
 #endif
 
+#ifdef WITH_OMP_GPU
+               if ( l_finish_exp_early ) then
+                  if ( l_parallel_solve ) then
+                     if ( l_mag_par_solve ) then
+                        if ( l_chemical_conv ) then
+                           !$omp target update to(w_Rloc, dVXirLM_RLoc, dxidt)
+                        end if
+                        if ( l_single_matrix ) then
+                           !$omp target update to(dVSrLM_RLoc, dsdt)
+                        else
+                           if ( l_heat ) then
+                              !$omp target update to(w_Rloc, dVSrLM_RLoc, dsdt)
+                           end if
+                           if ( l_double_curl ) then
+                              !$omp target update to(dVxVhLM_Rloc, dwdt)
+                           end if
+                        end if
+                        if ( l_mag ) then
+                           !$omp target update to(dVxBhLM_Rloc, djdt)
+                        end if
+                        if ( l_cond_ic ) then
+                           !$omp target update to(b_ic_LMloc, aj_ic_LMloc, dbdt_ic, djdt_ic)
+                        end if
+                     else
+                        if ( l_chemical_conv ) then
+                           !$omp target update to(w_Rloc, dVXirLM_RLoc, dxidt)
+                        end if
+                        if ( l_single_matrix ) then
+                           !$omp target update to(dVSrLM_RLoc, dsdt)
+                        else
+                           if ( l_heat ) then
+                              !$omp target update to(w_Rloc, dVSrLM_RLoc, dsdt)
+                           end if
+                           if ( l_double_curl ) then
+                              !$omp target update to(dVxVhLM_Rloc, dwdt)
+                           end if
+                        end if
+                        if ( l_mag ) then
+                           !$omp target update to(dVxBhLM_Rloc, djdt_Rloc)
+                        end if
+                        if ( l_cond_ic ) then
+                           !$omp target update to(b_ic_LMloc, aj_ic_LMloc, dbdt_ic, djdt_ic)
+                        end if
+                     end if
+                  else
+                        if ( l_chemical_conv ) then
+                           !$omp target update to(w_Rloc, dVXirLM_RLoc, dxidt_Rloc)
+                        end if
+                        if ( l_single_matrix ) then
+                           !$omp target update to(dVSrLM_RLoc, dsdt_Rloc)
+                        else
+                           if ( l_heat ) then
+                              !$omp target update to(w_Rloc, dVSrLM_RLoc, dsdt_Rloc)
+                           end if
+                           if ( l_double_curl ) then
+                              !$omp target update to(dVxVhLM_Rloc, dwdt_Rloc)
+                           end if
+                        end if
+                        if ( l_mag ) then
+                           !$omp target update to(dVxBhLM_Rloc, djdt_Rloc)
+                        end if
+                        if ( l_cond_ic ) then
+                           !$omp target update to(b_ic_LMloc, aj_ic_LMloc, dbdt_ic, djdt_ic)
+                        end if
+                  end if
+               end if
+#endif
                !---------------
                ! Finish assembing the explicit terms
                !---------------
@@ -698,6 +765,73 @@ contains
                   call f_exp_counter%stop_count()
                end if
 
+#ifdef WITH_OMP_GPU
+               if ( l_finish_exp_early ) then
+                  if ( l_parallel_solve ) then
+                     if ( l_mag_par_solve ) then
+                        if ( l_chemical_conv ) then
+                           !$omp target update from(dVXirLM_RLoc, dxidt)
+                        end if
+                        if ( l_single_matrix ) then
+                           !$omp target update from(dVSrLM_RLoc, dsdt)
+                        else
+                           if ( l_heat ) then
+                              !$omp target update from(dVSrLM_RLoc, dsdt)
+                           end if
+                           if ( l_double_curl ) then
+                              !$omp target update from(dVxVhLM_Rloc, dwdt)
+                           end if
+                        end if
+                        if ( l_mag ) then
+                           !$omp target update from(dVxBhLM_Rloc, djdt)
+                        end if
+                        if ( l_cond_ic ) then
+                           !$omp target update from(dbdt_ic, djdt_ic)
+                        end if
+                     else
+                        if ( l_chemical_conv ) then
+                           !$omp target update from(dVXirLM_RLoc, dxidt)
+                        end if
+                        if ( l_single_matrix ) then
+                           !$omp target update from(dVSrLM_RLoc, dsdt)
+                        else
+                           if ( l_heat ) then
+                              !$omp target update from(dVSrLM_RLoc, dsdt)
+                           end if
+                           if ( l_double_curl ) then
+                              !$omp target update from(dVxVhLM_Rloc, dwdt)
+                           end if
+                        end if
+                        if ( l_mag ) then
+                           !$omp target update from(dVxBhLM_Rloc, djdt_Rloc)
+                        end if
+                        if ( l_cond_ic ) then
+                           !$omp target update from(dbdt_ic, djdt_ic)
+                        end if
+                     end if
+                  else
+                        if ( l_chemical_conv ) then
+                           !$omp target update from(dVXirLM_RLoc, dxidt_Rloc)
+                        end if
+                        if ( l_single_matrix ) then
+                           !$omp target update from(dVSrLM_RLoc, dsdt_Rloc)
+                        else
+                           if ( l_heat ) then
+                              !$omp target update from(dVSrLM_RLoc, dsdt_Rloc)
+                           end if
+                           if ( l_double_curl ) then
+                              !$omp target update from(dVxVhLM_Rloc, dwdt_Rloc)
+                           end if
+                        end if
+                        if ( l_mag ) then
+                           !$omp target update from(dVxBhLM_Rloc, djdt_Rloc)
+                        end if
+                        if ( l_cond_ic ) then
+                           !$omp target update from(dbdt_ic, djdt_ic)
+                        end if
+                  end if
+               end if
+#endif
                !----------------
                !-- Rloc to Mloc transposes
                !----------------
