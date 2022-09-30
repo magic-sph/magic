@@ -17,7 +17,7 @@ module preCalculations
        &            l_cmb_field, l_save_out, l_TO, l_TOmovie, l_r_field, &
        &            l_movie, l_LCR, l_dt_cmb_field, l_non_adia,          &
        &            l_temperature_diff, l_chemical_conv, l_probe,        &
-       &            l_precession, l_finite_diff, l_full_sphere
+       &            l_precession, l_finite_diff, l_full_sphere, l_grav
    use radial_data, only: radial_balance
    use radial_functions, only: rscheme_oc, temp0, r_CMB, ogrun,            &
        &                       r_surface, visc, or2, r, r_ICB, dLtemp0,    &
@@ -847,6 +847,14 @@ contains
          call get_hit_times(t_TOmovie,n_time_hits,n_t_TOmovie,l_time,t_TOmovie_start, &
               &             t_TOmovie_stop,dt_TOmovie,n_TOmovie_frames,n_TOmovie_step,&
               &             'TOmovie',time,tScale)
+      end if
+
+      if ( l_grav ) then
+         l_grav=.false.
+         call get_hit_times(t_grav,n_time_hits,n_t_grav,l_time, &
+              &             t_grav_start,t_grav_stop,dt_grav,  &
+              &             n_grav_out,n_grav_step,'grav',time,tScale)
+         if ( n_grav_out > 0 .or. n_grav_step > 0 .or. l_time ) l_grav= .true.
       end if
 
    end subroutine preCalcTimes

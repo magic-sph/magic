@@ -1627,7 +1627,8 @@ contains
          t_pot(n)    =-one
          t_TO(n)     =-one
          t_TOmovie(n)=-one
-         t_probe     =-one
+         t_probe(n)  =-one
+         t_grav(n)   =-one
       end do
 
       !----- Magnetic spectra for different depths
