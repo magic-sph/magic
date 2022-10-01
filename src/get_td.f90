@@ -233,145 +233,146 @@ contains
 
          if ( l_conv ) then  ! Convection
 
-            lm =1   ! This is l=0,m=0
-            lmA=lm2lmA(lm)
-            lmP=1
-            !lmPA=lmP2lmPA(lmP)
-            if ( l_conv_nl ) then
-               AdvPol_loc=or2(nR)*AdvrLM(lmP)
-               AdvTor_loc=zero!-dTheta1A(lm)*AdvpLM(lmPA)
-            else
-               AdvPol_loc=zero
-               AdvTor_loc=zero
-            end if
-            if ( l_corr ) then
-               CorPol_loc=two*CorFac*or1(nR) * dTheta2A(lm)* z_Rloc(lmA,nR)
-               CorTor_loc= two*CorFac*or2(nR) * (                 &
-               &                dTheta3A(lm)*dw_Rloc(lmA,nR) +    &
-               &        or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR) )
-            else
-               CorPol_loc=zero
-               CorTor_loc=zero
-            end if
-
-            if ( l_single_matrix ) then
-               dwdt(lm)=AdvPol_loc!+CorPol_loc
-            else
-               dwdt(lm)=AdvPol_loc+CorPol_loc
-            end if
-
-            dzdt(lm)=AdvTor_loc+CorTor_loc
-
 #ifdef WITH_OMP_GPU
-            !$omp target update to(dwdt(lm), dzdt(lm))
-            !$omp target teams distribute parallel do
+            !$omp target teams distribute parallel do private(l,m,lmS,lmA,lmP) &
+            !$omp& private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
 #else
             !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
             !$omp private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
 #endif
-            do lm=lm_min,lm_max
-               l   =lm2l(lm)
-               m   =lm2m(lm)
-               lmS =lm2lmS(lm)
-               lmA =lm2lmA(lm)
-               lmP =lm2lmP(lm)
+            do lm=1,lm_max
 
-               if ( l_double_curl ) then ! Pressure is not needed
+               if(lm == 1) then ! This is l=0,m=0
+                  lmA=lm2lmA(1)
+                  lmP=1
+                  !lmPA=lmP2lmPA(lmP)
+                  if ( l_conv_nl ) then
+                     AdvPol_loc=or2(nR)*AdvrLM(lmP)
+                     AdvTor_loc=zero!-dTheta1A(lm)*AdvpLM(lmPA)
+                  else
+                     AdvPol_loc=zero
+                     AdvTor_loc=zero
+                  end if
+                  if ( l_corr ) then
+                     CorPol_loc=two*CorFac*or1(nR) * dTheta2A(lm)* z_Rloc(lmA,nR)
+                     CorTor_loc= two*CorFac*or2(nR) * (                 &
+                     &                dTheta3A(lm)*dw_Rloc(lmA,nR) +    &
+                     &        or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR) )
+                  else
+                     CorPol_loc=zero
+                     CorTor_loc=zero
+                  end if
+
+                  if ( l_single_matrix ) then
+                     dwdt(lm)=AdvPol_loc!+CorPol_loc
+                  else
+                     dwdt(lm)=AdvPol_loc+CorPol_loc
+                  end if
+
+                  dzdt(lm)=AdvTor_loc+CorTor_loc
+               else
+                  l   =lm2l(lm)
+                  m   =lm2m(lm)
+                  lmS =lm2lmS(lm)
+                  lmA =lm2lmA(lm)
+                  lmP =lm2lmP(lm)
+
+                  if ( l_double_curl ) then ! Pressure is not needed
+
+                     if ( l_corr ) then
+                        if ( l < l_max .and. l > m ) then
+                           CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
+                           &                    dPhi(lm)*(                          &
+                           &         -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
+                           &             ( beta(nR)*or1(nR)+or2(nR))*               &
+                           &                            dLh(lm)*w_Rloc(lm,nR) )   + &
+                           &             dTheta3A(lm)*( dz_Rloc(lmA,nR)-            &
+                           &                            beta(nR)*z_Rloc(lmA,nR) ) + &
+                           &             dTheta3S(lm)*( dz_Rloc(lmS,nR)-            &
+                           &                            beta(nR)*z_Rloc(lmS,nR) ) + &
+                           &          or1(nR)* (                                    &
+                           &             dTheta4A(lm)* z_Rloc(lmA,nR)               &
+                           &            -dTheta4S(lm)* z_Rloc(lmS,nR) ) )
+                        else if ( l == l_max ) then
+                           CorPol_loc=zero
+                        else if ( l == m ) then
+                           CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
+                           &                    dPhi(lm)*(                          &
+                           &         -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
+                           &             ( beta(nR)*or1(nR)+or2(nR))*               &
+                           &                            dLh(lm)*w_Rloc(lm,nR) )   + &
+                           &             dTheta3A(lm)*( dz_Rloc(lmA,nR)-            &
+                           &                            beta(nR)*z_Rloc(lmA,nR) ) + &
+                           &          or1(nR)* (                                    &
+                           &             dTheta4A(lm)* z_Rloc(lmA,nR) ) )
+                        end if
+                     else
+                        CorPol_loc=zero
+                     end if
+
+                     if ( l_conv_nl ) then
+                        AdvPol_loc =dLh(lm)*or4(nR)*orho1(nR)*AdvrLM(lmP)
+                        dVxVhLM(lm)=-orho1(nR)*r(nR)*r(nR)*dLh(lm)*AdvtLM(lmP)
+                     else
+                        AdvPol_loc =zero
+                        dVxVhLM(lm)=zero
+                     endif
+
+                  else ! We don't use the double curl
+
+                     if ( l_corr .and. nBc /= 2 ) then
+                        if ( l < l_max .and. l > m ) then
+                           CorPol_loc =two*CorFac*or1(nR) * (  &
+                           &        dPhi(lm)*dw_Rloc(lm,nR) +  & ! phi-deriv of dw/dr
+                           &    dTheta2A(lm)*z_Rloc(lmA,nR) -  & ! sin(theta) dtheta z
+                           &    dTheta2S(lm)*z_Rloc(lmS,nR) )
+                        else if ( l == l_max ) then
+                           CorPol_loc=zero
+                        else if ( l == m ) then
+                           CorPol_loc = two*CorFac*or1(nR) * (  &
+                           &         dPhi(lm)*dw_Rloc(lm,nR)  + &
+                           &     dTheta2A(lm)*z_Rloc(lmA,nR) )
+                        end if
+                     else
+                        CorPol_loc=zero
+                     end if
+
+                     if ( l_conv_nl ) then
+                        AdvPol_loc=or2(nR)*AdvrLM(lmP)
+                     else
+                        AdvPol_loc=zero
+                     endif
+
+                  end if ! Double curl or not for the poloidal equation
+
+                  dwdt(lm)=AdvPol_loc+CorPol_loc
 
                   if ( l_corr ) then
                      if ( l < l_max .and. l > m ) then
-                        CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
-                        &                    dPhi(lm)*(                          &
-                        &         -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
-                        &             ( beta(nR)*or1(nR)+or2(nR))*               &
-                        &                            dLh(lm)*w_Rloc(lm,nR) )   + &
-                        &             dTheta3A(lm)*( dz_Rloc(lmA,nR)-            &
-                        &                            beta(nR)*z_Rloc(lmA,nR) ) + &
-                        &             dTheta3S(lm)*( dz_Rloc(lmS,nR)-            &
-                        &                            beta(nR)*z_Rloc(lmS,nR) ) + &
-                        &          or1(nR)* (                                    &
-                        &             dTheta4A(lm)* z_Rloc(lmA,nR)               &
-                        &            -dTheta4S(lm)* z_Rloc(lmS,nR) ) )
+                        CorTor_loc=          two*CorFac*or2(nR) * (  &
+                        &                 dPhi(lm)*z_Rloc(lm,nR)   + &
+                        &            dTheta3A(lm)*dw_Rloc(lmA,nR)  + &
+                        &    or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR)  + &
+                        &            dTheta3S(lm)*dw_Rloc(lmS,nR)  - &
+                        &    or1(nR)*dTheta4S(lm)* w_Rloc(lmS,nR)  )
                      else if ( l == l_max ) then
-                        CorPol_loc=zero
+                        CorTor_loc=zero
                      else if ( l == m ) then
-                        CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
-                        &                    dPhi(lm)*(                          &
-                        &         -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
-                        &             ( beta(nR)*or1(nR)+or2(nR))*               &
-                        &                            dLh(lm)*w_Rloc(lm,nR) )   + &
-                        &             dTheta3A(lm)*( dz_Rloc(lmA,nR)-            &
-                        &                            beta(nR)*z_Rloc(lmA,nR) ) + &
-                        &          or1(nR)* (                                    &
-                        &             dTheta4A(lm)* z_Rloc(lmA,nR) ) )
+                        CorTor_loc=  two*CorFac*or2(nR) * (  &
+                        &         dPhi(lm)*z_Rloc(lm,nR)   + &
+                        &    dTheta3A(lm)*dw_Rloc(lmA,nR)  + &
+                        &    or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR)  )
                      end if
                   else
-                     CorPol_loc=zero
-                  end if
-
-                  if ( l_conv_nl ) then
-                     AdvPol_loc =dLh(lm)*or4(nR)*orho1(nR)*AdvrLM(lmP)
-                     dVxVhLM(lm)=-orho1(nR)*r(nR)*r(nR)*dLh(lm)*AdvtLM(lmP)
-                  else
-                     AdvPol_loc =zero
-                     dVxVhLM(lm)=zero
-                  endif
-
-               else ! We don't use the double curl
-
-                  if ( l_corr .and. nBc /= 2 ) then
-                     if ( l < l_max .and. l > m ) then
-                        CorPol_loc =two*CorFac*or1(nR) * (  &
-                        &        dPhi(lm)*dw_Rloc(lm,nR) +  & ! phi-deriv of dw/dr
-                        &    dTheta2A(lm)*z_Rloc(lmA,nR) -  & ! sin(theta) dtheta z
-                        &    dTheta2S(lm)*z_Rloc(lmS,nR) )
-                     else if ( l == l_max ) then
-                        CorPol_loc=zero
-                     else if ( l == m ) then
-                        CorPol_loc = two*CorFac*or1(nR) * (  &
-                        &         dPhi(lm)*dw_Rloc(lm,nR)  + &
-                        &     dTheta2A(lm)*z_Rloc(lmA,nR) )
-                     end if
-                  else
-                     CorPol_loc=zero
-                  end if
-
-                  if ( l_conv_nl ) then
-                     AdvPol_loc=or2(nR)*AdvrLM(lmP)
-                  else
-                     AdvPol_loc=zero
-                  endif
-
-               end if ! Double curl or not for the poloidal equation
-
-               dwdt(lm)=AdvPol_loc+CorPol_loc
-
-               if ( l_corr ) then
-                  if ( l < l_max .and. l > m ) then
-                     CorTor_loc=          two*CorFac*or2(nR) * (  &
-                     &                 dPhi(lm)*z_Rloc(lm,nR)   + &
-                     &            dTheta3A(lm)*dw_Rloc(lmA,nR)  + &
-                     &    or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR)  + &
-                     &            dTheta3S(lm)*dw_Rloc(lmS,nR)  - &
-                     &    or1(nR)*dTheta4S(lm)* w_Rloc(lmS,nR)  )
-                  else if ( l == l_max ) then
                      CorTor_loc=zero
-                  else if ( l == m ) then
-                     CorTor_loc=  two*CorFac*or2(nR) * (  &
-                     &         dPhi(lm)*z_Rloc(lm,nR)   + &
-                     &    dTheta3A(lm)*dw_Rloc(lmA,nR)  + &
-                     &    or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR)  )
                   end if
-               else
-                  CorTor_loc=zero
+                  if ( l_conv_nl ) then
+                     AdvTor_loc=dLh(lm)*AdvpLM(lmP)
+                  else
+                     AdvTor_loc=zero
+                  end if
+                  dzdt(lm)=CorTor_loc+AdvTor_loc
                end if
-
-               if ( l_conv_nl ) then
-                  AdvTor_loc=dLh(lm)*AdvpLM(lmP)
-               else
-                  AdvTor_loc=zero
-               end if
-               dzdt(lm)=CorTor_loc+AdvTor_loc
 
             end do
 #ifdef WITH_OMP_GPU
@@ -457,37 +458,38 @@ contains
       if ( nBc == 0 ) then
 
          if ( l_heat ) then
-            dsdt_loc  =epsc*epscProf(nR)!+opr/epsS*divKtemp0(nR)
-            dVSrLM(1)=VSrLM(1)
-            if ( l_anel ) then
-               if ( l_anelastic_liquid ) then
-                  dsdt_loc=dsdt_loc+temp0(nR)*heatTermsLM(1)
-               else
-                  dsdt_loc=dsdt_loc+heatTermsLM(1)
-               end if
-            end if
-            dsdt(1)=dsdt_loc
 
 #ifdef WITH_OMP_GPU
-            !$omp target update to(dVSrLM(1))
-            !$omp target update to(dsdt(1))
-            !$omp target teams distribute parallel do
+            !$omp target teams distribute parallel do private(lmP,dsdt_loc,l)
 #else
             !$omp parallel do default(shared) private(lm,lmP,dsdt_loc,l)
 #endif
-            do lm=lm_min,lm_max
-               l   =lm2l(lm)
-               lmP =lm2lmP(lm)
-               dVSrLM(lm)=VSrLM(lmP)
-               dsdt_loc  =dLh(lm)*VStLM(lmP)
-               if ( l_anel ) then
-                  if ( l_anelastic_liquid ) then
-                     dsdt_loc = dsdt_loc+temp0(nR)*heatTermsLM(lmP)
-                  else
-                     dsdt_loc = dsdt_loc+heatTermsLM(lmP)
+            do lm=1,lm_max
+               if(lm == 1) then
+                  dsdt_loc  =epsc*epscProf(nR)!+opr/epsS*divKtemp0(nR)
+                  dVSrLM(1)=VSrLM(1)
+                  if ( l_anel ) then
+                     if ( l_anelastic_liquid ) then
+                        dsdt_loc=dsdt_loc+temp0(nR)*heatTermsLM(1)
+                     else
+                        dsdt_loc=dsdt_loc+heatTermsLM(1)
+                     end if
                   end if
+                  dsdt(1)=dsdt_loc
+               else
+                  l   =lm2l(lm)
+                  lmP =lm2lmP(lm)
+                  dVSrLM(lm)=VSrLM(lmP)
+                  dsdt_loc  =dLh(lm)*VStLM(lmP)
+                  if ( l_anel ) then
+                     if ( l_anelastic_liquid ) then
+                        dsdt_loc = dsdt_loc+temp0(nR)*heatTermsLM(lmP)
+                     else
+                        dsdt_loc = dsdt_loc+heatTermsLM(lmP)
+                     end if
+                  end if
+                  dsdt(lm) = dsdt_loc
                end if
-               dsdt(lm) = dsdt_loc
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
@@ -497,20 +499,21 @@ contains
          end if
 
          if ( l_chemical_conv ) then
-            dVXirLM(1)=VXirLM(1)
-            dxidt(1)  =epscXi
 
 #ifdef WITH_OMP_GPU
-            !$omp target update to(dVXirLM(1))
-            !$omp target update to(dxidt(1))
-            !$omp target teams distribute parallel do
+            !$omp target teams distribute parallel do private(lmP)
 #else
             !$omp parallel do default(shared) private(lm,lmP)
 #endif
-            do lm=lm_min,lm_max
-               lmP=lm2lmP(lm)
-               dVXirLM(lm)=VXirLM(lmP)
-               dxidt(lm)  =dLh(lm)*VXitLM(lmP)
+            do lm=1,lm_max
+               if (lm == 1) then
+                  dVXirLM(1)=VXirLM(1)
+                  dxidt(1)  =epscXi
+               else
+                  lmP=lm2lmP(lm)
+                  dVXirLM(lm)=VXirLM(lmP)
+                  dxidt(lm)  =dLh(lm)*VXitLM(lmP)
+               end if
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
@@ -521,7 +524,7 @@ contains
 
          if ( l_phase_field ) then
 #ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do
+            !$omp target teams distribute parallel do private(lmP)
 #else
             !$omp parallel do default(shared) private(lm,lmP)
 #endif
@@ -538,7 +541,7 @@ contains
 
          if ( l_mag_nl .or. l_mag_kin  ) then
 #ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do
+            !$omp target teams distribute parallel do private(lmP)
 #else
             !$omp parallel do default(shared) private(lm,lmP)
 #endif
@@ -575,18 +578,20 @@ contains
 
       else   ! boundary !
          if ( l_mag_nl .or. l_mag_kin ) then
-            dVxBhLM(1)=zero
-            dVSrLM(1) =zero
 #ifdef WITH_OMP_GPU
-            !$omp target update to(dVSrLM(1), dVxBhLM(1))
-            !$omp target teams distribute parallel do
+            !$omp target teams distribute parallel do private(lmP)
 #else
             !$omp parallel do default(shared) private(lm,lmP)
 #endif
-            do lm=lm_min,lm_max
-               lmP =lm2lmP(lm)
-               dVxBhLM(lm)=-dLh(lm)*VxBtLM(lmP)*r(nR)*r(nR)
-               dVSrLM(lm) =zero
+            do lm=1,lm_max
+               if (lm == 1) then
+                  dVxBhLM(1)=zero
+                  dVSrLM(1) =zero
+               else
+                  lmP =lm2lmP(lm)
+                  dVxBhLM(lm)=-dLh(lm)*VxBtLM(lmP)*r(nR)*r(nR)
+                  dVSrLM(lm) =zero
+               end if
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do

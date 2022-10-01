@@ -328,7 +328,6 @@ contains
 
 #ifdef WITH_OMP_GPU
          !$omp target update from(this%gsa)
-         !$omp target update from(this%nl_lm)
 #endif
       end if
 
@@ -653,6 +652,7 @@ contains
 
          !-- Finish computation of r.m.s. forces
          if ( lRmsCalc ) then
+            !$omp target update from(this%nl_lm)
             call compute_lm_forces(nR, dtVrLM(idx1:idx2), dtVtLM(idx1:idx2),       &
                  &                 dtVpLM(idx1:idx2), dpkindrLM(idx1:idx2),        &
                  &                 Advt2LM(idx1:idx2), Advp2LM(idx1:idx2),         &

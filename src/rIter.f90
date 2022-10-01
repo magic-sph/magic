@@ -304,7 +304,6 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target update from(this%gsa)
-      !$omp target update from(this%nl_lm)
 #endif
 
          !---- Calculation of nonlinear products needed for conducting mantle or
@@ -490,6 +489,7 @@ contains
 
          !-- Finish computation of r.m.s. forces
          if ( lRmsCalc ) then
+            !$omp target update from(this%nl_lm)
             call compute_lm_forces(nR, dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, &
                  &                 Advp2LM, PFt2LM, PFp2LM, LFrLM, LFt2LM, LFp2LM, &
                  &                 CFt2LM, CFp2LM, w_Rloc(:,nR), dw_Rloc(:,nR),    &
