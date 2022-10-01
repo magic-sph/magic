@@ -1,4 +1,4 @@
-Results of commit "2c5a2581e57d8333223afaab73bd8099d1d22242" (29/09/2022) - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1MPIx1OMP
+Results of commit "27bb2111a7bd068e6d37b8228cd75089ee87b9f4" (/10/2022) - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1MPIx1OMP
 _________________________________________________________________________________________________________________________________________________________________
 _______________________________________________________l_batched_shts=.true._____________________________________________________________________________________
 
@@ -26,7 +26,7 @@ varProps [OK]
 
 finite_differences [NOK: Mismatched elements: 228 / 297 (76.8%) Max absolute difference: 3712.70886 Max relative difference: 50.14626261]
 
-onset [Exec OK but I/O problems in output files: (shapes (51, 9), (32, 9) mismatch)]
+onset [Exec OK but I/O problems in output files: (shapes (51, 9), (27, 9) mismatch)]
 testCoeffOutputs [Exec OK but error in Python script for e_kin.test generation ]
 
 time_schemes [NOK: (shapes (846,), (603,) mismatch)]
@@ -52,9 +52,9 @@ fluxPerturbation [OK]
 testTruncations [OK]
 varProps [OK]
 
-onset [Exec OK but I/O problems in output files: (shapes (51, 9), (20, 9) mismatch)]
+onset [Exec OK but I/O problems in output files: (shapes (51, 9), (21, 9) mismatch)]
 testCoeffOutputs [Exec OK but error in Python script for e_kin.test generation ]
-varCond [Exec OK but I/O problems in output files: (shapes (51, 9), (35, 9) mismatch)]
+varCond [Exec OK but I/O problems in output files: (shapes (51, 9), (38, 9) mismatch)]
 
 finite_differences [NOK: NaN]
 full_sphere [NOK: NaN]
