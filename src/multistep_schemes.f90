@@ -459,14 +459,6 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target data map(to: wimp_ptr, wexp_ptr, wimp_lin_ptr)
 
-!       !$omp target teams distribute parallel do collapse(2)
-!       do n_r=nr_start,nr_stop
-!          do lm=start_lm,stop_lm
-!             rhs(lm,n_r)=wimp_ptr(1)*old_ptr(lm,n_r,1)
-!          end do
-!       end do
-!       !$omp end target teams distribute parallel do
-
       !$omp target teams distribute parallel do collapse(2)
       do n_r=nr_start,nr_stop
          do lm=start_lm,stop_lm
@@ -560,14 +552,6 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target data map(to: wimp_ptr, wexp_ptr, wimp_lin_ptr)
-
-!       !$omp target teams distribute parallel do collapse(2)
-!       do n_r=nr_start,nr_stop
-!          do lm=start_lm,stop_lm
-!             rhs(lm,n_r)=wimp_ptr(1)*old_ptr(lm,n_r,1)
-!          end do
-!       end do
-!       !$omp end target teams distribute parallel do
 
       !$omp target teams distribute parallel do collapse(2)
       do n_r=nr_start,nr_stop
