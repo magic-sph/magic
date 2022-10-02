@@ -25,7 +25,7 @@ module time_schemes
       character(len=8) :: time_scheme ! Name of the time scheme
       logical :: l_assembly
       real(cp), allocatable :: dt(:) ! Array that contains the timesteps
-      real(cp), allocatable :: wimp_lin(:) ! Weighting factor 
+      real(cp), pointer :: wimp_lin(:) ! Weighting factor
       logical,  allocatable :: l_exp_calc(:) ! Array of booleans to specify the calculation of an explicit stage
       logical, allocatable :: l_imp_calc_rhs(:) ! Array of booleans to specify the calculation of an implicit stage
       real(cp) :: courfac ! Courant factor
