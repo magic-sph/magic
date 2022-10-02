@@ -23,8 +23,8 @@ module multistep_schemes
    private
 
    type, public, extends(type_tscheme) :: type_multistep
-      real(cp), allocatable :: wimp(:) ! Weighting factors for the implicit terms
-      real(cp), allocatable :: wexp(:) ! Weighting factors for the explicit terms
+      real(cp), pointer :: wimp(:) ! Weighting factors for the implicit terms
+      real(cp), pointer :: wexp(:) ! Weighting factors for the explicit terms
    contains
       procedure :: initialize
       procedure :: finalize
@@ -437,60 +437,54 @@ contains
       !-- Local variables
       integer :: n_o, n_r, start_lm, stop_lm
 #ifdef WITH_OMP_GPU
-      real(cp) :: wimp_local, wimp_lin_local, wexp_local
+      integer :: nr_start, nr_stop
+      integer :: nold, nexp, nimp
+      real(cp), pointer :: wimp_ptr(:), wexp_ptr(:), wimp_lin_ptr(:)
       integer :: lm
       complex(cp), pointer :: expl_ptr(:,:,:)
       complex(cp), pointer :: impl_ptr(:,:,:)
       complex(cp), pointer :: old_ptr(:,:,:)
       n_r = 0; lm = 0
+      old_ptr => dfdt%old
+      impl_ptr => dfdt%impl
+      expl_ptr => dfdt%expl
+      wimp_ptr => this%wimp
+      wexp_ptr => this%wexp
+      wimp_lin_ptr => this%wimp_lin
+      start_lm=dfdt%llm; stop_lm=dfdt%ulm
+      nr_start = dfdt%nRstart; nr_stop = dfdt%nRstop
+      nold = this%nold; nexp = this%nexp; nimp = this%nimp
 #endif
 
 #ifdef WITH_OMP_GPU
-      start_lm=dfdt%llm; stop_lm=dfdt%ulm
-      wimp_local = this%wimp(1)
-      old_ptr => dfdt%old
+      !$omp target data map(to: wimp_ptr, wexp_ptr, wimp_lin_ptr)
+
+!       !$omp target teams distribute parallel do collapse(2)
+!       do n_r=nr_start,nr_stop
+!          do lm=start_lm,stop_lm
+!             rhs(lm,n_r)=wimp_ptr(1)*old_ptr(lm,n_r,1)
+!          end do
+!       end do
+!       !$omp end target teams distribute parallel do
+
       !$omp target teams distribute parallel do collapse(2)
-      do lm=start_lm,stop_lm
-         do n_r=dfdt%nRstart,dfdt%nRstop
-            rhs(lm,n_r)=wimp_local*old_ptr(lm,n_r,1)
+      do n_r=nr_start,nr_stop
+         do lm=start_lm,stop_lm
+            rhs(lm,n_r)=wimp_ptr(1)*old_ptr(lm,n_r,1)
+            do n_o=2,nold
+               rhs(lm,n_r)=rhs(lm,n_r)+wimp_ptr(n_o)*old_ptr(lm,n_r,n_o)
+            end do
+            do n_o=1,nimp
+               rhs(lm,n_r)=rhs(lm,n_r)+wimp_lin_ptr(n_o+1)*impl_ptr(lm,n_r,n_o)
+            end do
+            do n_o=1,nexp
+               rhs(lm,n_r)=rhs(lm,n_r)+wexp_ptr(n_o)*expl_ptr(lm,n_r,n_o)
+            end do
          end do
       end do
       !$omp end target teams distribute parallel do
 
-      do n_o=2,this%nold
-         wimp_local = this%wimp(n_o)
-         !$omp target teams distribute parallel do collapse(2)
-         do lm=start_lm,stop_lm
-            do n_r=dfdt%nRstart,dfdt%nRstop
-               rhs(lm,n_r)=rhs(lm,n_r)+wimp_local*old_ptr(lm,n_r,n_o)
-            end do
-         end do
-         !$omp end target teams distribute parallel do
-      end do
-
-      impl_ptr => dfdt%impl
-      do n_o=1,this%nimp
-         wimp_lin_local = this%wimp_lin(n_o+1)
-         !$omp target teams distribute parallel do collapse(2)
-         do lm=start_lm,stop_lm
-            do n_r=dfdt%nRstart,dfdt%nRstop
-               rhs(lm,n_r)=rhs(lm,n_r)+wimp_lin_local*impl_ptr(lm,n_r,n_o)
-            end do
-         end do
-         !$omp end target teams distribute parallel do
-      end do
-
-      expl_ptr => dfdt%expl
-      do n_o=1,this%nexp
-         wexp_local = this%wexp(n_o)
-         !$omp target teams distribute parallel do collapse(2)
-         do lm=start_lm,stop_lm
-            do n_r=dfdt%nRstart,dfdt%nRstop
-               rhs(lm,n_r)=rhs(lm,n_r)+wexp_local*expl_ptr(lm,n_r,n_o)
-            end do
-         end do
-         !$omp end target teams distribute parallel do
-      end do
+      !$omp end target data
 #else
       !$omp parallel default(shared) private(start_lm, stop_lm)
       start_lm=dfdt%llm; stop_lm=dfdt%ulm
@@ -546,59 +540,53 @@ contains
       !-- Local variables
       integer :: n_o, n_r
 #ifdef WITH_OMP_GPU
+      integer :: nr_start, nr_stop
+      integer :: nold, nexp, nimp
+      real(cp), pointer :: wimp_ptr(:), wexp_ptr(:), wimp_lin_ptr(:)
       integer :: lm
-      real(cp) :: wimp_local, wimp_lin_local, wexp_local
       complex(cp), pointer :: expl_ptr(:,:,:)
       complex(cp), pointer :: impl_ptr(:,:,:)
       complex(cp), pointer :: old_ptr(:,:,:)
       n_r = 0; lm = 0
-#endif
-
-#ifdef WITH_OMP_GPU
-      wimp_local = this%wimp(1)
       old_ptr => dfdt%old
       impl_ptr => dfdt%impl
       expl_ptr => dfdt%expl
+      wimp_ptr => this%wimp
+      wexp_ptr => this%wexp
+      wimp_lin_ptr => this%wimp_lin
+      nr_start = dfdt%nRstart; nr_stop = dfdt%nRstop
+      nold = this%nold; nexp = this%nexp; nimp = this%nimp
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target data map(to: wimp_ptr, wexp_ptr, wimp_lin_ptr)
+
+!       !$omp target teams distribute parallel do collapse(2)
+!       do n_r=nr_start,nr_stop
+!          do lm=start_lm,stop_lm
+!             rhs(lm,n_r)=wimp_ptr(1)*old_ptr(lm,n_r,1)
+!          end do
+!       end do
+!       !$omp end target teams distribute parallel do
+
       !$omp target teams distribute parallel do collapse(2)
-      do lm=start_lm,stop_lm
-         do n_r=dfdt%nRstart,dfdt%nRstop
-            rhs(lm,n_r)=wimp_local*old_ptr(lm,n_r,1)
+      do n_r=nr_start,nr_stop
+         do lm=start_lm,stop_lm
+            rhs(lm,n_r)=wimp_ptr(1)*old_ptr(lm,n_r,1)
+            do n_o=2,nold
+               rhs(lm,n_r)=rhs(lm,n_r)+wimp_ptr(n_o)*old_ptr(lm,n_r,n_o)
+            end do
+            do n_o=1,nimp
+               rhs(lm,n_r)=rhs(lm,n_r)+wimp_lin_ptr(n_o+1)*impl_ptr(lm,n_r,n_o)
+            end do
+            do n_o=1,nexp
+               rhs(lm,n_r)=rhs(lm,n_r)+wexp_ptr(n_o)*expl_ptr(lm,n_r,n_o)
+            end do
          end do
       end do
       !$omp end target teams distribute parallel do
 
-      do n_o=2,this%nold
-         wimp_local = this%wimp(n_o)
-         !$omp target teams distribute parallel do collapse(2)
-         do lm=start_lm,stop_lm
-            do n_r=dfdt%nRstart,dfdt%nRstop
-               rhs(lm,n_r)=rhs(lm,n_r)+wimp_local*old_ptr(lm,n_r,n_o)
-            end do
-         end do
-         !$omp end target teams distribute parallel do
-      end do
-
-      do n_o=1,this%nimp
-         wimp_lin_local = this%wimp_lin(n_o+1)
-         !$omp target teams distribute parallel do collapse(2)
-         do lm=start_lm,stop_lm
-            do n_r=dfdt%nRstart,dfdt%nRstop
-               rhs(lm,n_r)=rhs(lm,n_r)+wimp_lin_local*impl_ptr(lm,n_r,n_o)
-            end do
-         end do
-         !$omp end target teams distribute parallel do
-      end do
-
-      do n_o=1,this%nexp
-         wexp_local = this%wexp(n_o)
-         !$omp target teams distribute parallel do collapse(2)
-         do lm=start_lm,stop_lm
-            do n_r=dfdt%nRstart,dfdt%nRstop
-               rhs(lm,n_r)=rhs(lm,n_r)+wexp_local*expl_ptr(lm,n_r,n_o)
-            end do
-         end do
-         !$omp end target teams distribute parallel do
-      end do
+      !$omp end target data
 #else
       do n_r=dfdt%nRstart,dfdt%nRstop
          rhs(start_lm:stop_lm,n_r)=this%wimp(1)*dfdt%old(start_lm:stop_lm,n_r,1)
@@ -675,47 +663,37 @@ contains
       !-- Local variables:
       integer :: n_o, n_r, lm_start, lm_stop
 #ifdef WITH_OMP_GPU
+      integer :: nr_start, nr_stop
+      integer :: nold, nexp, nimp
       integer :: lm
       complex(cp), pointer :: expl_ptr(:,:,:)
       complex(cp), pointer :: impl_ptr(:,:,:)
       complex(cp), pointer :: old_ptr(:,:,:)
       n_r = 0; lm = 0
-#endif
-
-#ifdef WITH_OMP_GPU
       old_ptr => dfdt%old
       impl_ptr => dfdt%impl
       expl_ptr => dfdt%expl
       lm_start=dfdt%llm; lm_stop=dfdt%ulm
-      do n_o=this%nexp,2,-1
-         !$omp target teams distribute parallel do collapse(2)
+      nr_start=dfdt%nRstart; nr_stop = dfdt%nRstop
+      nold = this%nold; nexp = this%nexp; nimp = this%nimp
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)
+      do n_r=nr_start,nr_stop
          do lm=lm_start,lm_stop
-            do n_r=dfdt%nRstart,dfdt%nRstop
+            do n_o=nexp,2,-1
                expl_ptr(lm,n_r,n_o)=expl_ptr(lm,n_r,n_o-1)
             end do
-         end do
-         !$omp end target teams distribute parallel do
-      end do
-
-      do n_o=this%nold,2,-1
-         !$omp target teams distribute parallel do collapse(2)
-         do lm=lm_start,lm_stop
-            do n_r=dfdt%nRstart,dfdt%nRstop
+            do n_o=nold,2,-1
                old_ptr(lm,n_r,n_o)=old_ptr(lm,n_r,n_o-1)
             end do
-         end do
-         !$omp end target teams distribute parallel do
-      end do
-
-      do n_o=this%nimp,2,-1
-         !$omp target teams distribute parallel do collapse(2)
-         do lm=lm_start,lm_stop
-            do n_r=dfdt%nRstart,dfdt%nRstop
+            do n_o=nimp,2,-1
                impl_ptr(lm,n_r,n_o)=impl_ptr(lm,n_r,n_o-1)
             end do
          end do
-         !$omp end target teams distribute parallel do
       end do
+      !$omp end target teams distribute parallel do
 #else
       !$omp parallel default(shared) private(lm_start,lm_stop)
       lm_start=dfdt%llm; lm_stop=dfdt%ulm
