@@ -157,6 +157,8 @@ contains
       if(loc_use_gpu) then
          this%gpu_is_used = .true.
       end if
+#else
+      this%gpu_is_used=.false.
 #endif
 
       this%nrow = nx
