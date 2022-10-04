@@ -878,7 +878,7 @@ contains
       end if
 
 #ifndef WITH_OMP_GPU
-      !$omp end parallel !-- TODO: replace with ifndef after
+      !$omp end parallel
 #endif
 
 #ifdef WITH_OMP_GPU_OFF
