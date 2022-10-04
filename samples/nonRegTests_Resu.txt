@@ -1,4 +1,4 @@
-Results of commit "" (02/10/2022) - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1MPIx1OMP
+Results of commit "b0deb81f99d34f6cc5f46102de79df04d517b1be" (04/10/2022) - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1MPIx1OMP
 _________________________________________________________________________________________________________________________________________________________________
 _______________________________________________________l_batched_shts=.true._____________________________________________________________________________________
 
@@ -26,39 +26,37 @@ varProps [OK]
 
 finite_differences [NOK: Mismatched elements: 228 / 297 (76.8%) Max absolute difference: 3712.70886 Max relative difference: 50.14626261]
 
-onset [Exec OK but I/O problems in output files: (shapes (51, 9), (42, 9) mismatch)]
+onset [Exec OK but I/O problems in output files: (shapes (51, 9), (33, 9) mismatch)]
 testCoeffOutputs [Exec OK but error in Python script for e_kin.test generation ]
 
 time_schemes [NOK: (shapes (846,), (603,) mismatch)]
 _________________________________________________________________________________________________________________________________________________________________
 _______________________________________________________l_batched_shts=.false.____________________________________________________________________________________
 
-testRestart [OK]
-testMapping [OK]
-boussBenchSat [OK]
-dynamo_benchmark [OK]
-hydro_bench_anel [OK]
-testGraphMovieOutputs [OK]
-testTOGeosOutputs [OK]
-isothermal_nrho3 [OK]
-precession [OK]
-dynamo_benchmark_condICrotIC [OK]
-testOutputs [OK]
-testRadialOutputs [OK]
-phase_field [OK]
-couetteAxi [OK]
-doubleDiffusion [OK]
-fluxPerturbation [OK]
-testTruncations [OK]
-varProps [OK]
-
-varCond [Exec OK but I/o problems in output files : (shapes (51, 9), (36, 9) mismatch)]
-onset [Exec OK but I/O problems in output files: (shapes (51, 9), (21, 9) mismatch)]
-testCoeffOutputs [Exec OK but error in Python script for e_kin.test generation ]
-
-finite_differences [NOK: NaN]
-full_sphere [NOK: NaN]
-testRMSOutputs [NOK: NaN]
-time_schemes [NOK: (shapes (846,), (603,) mismatch)]
+testRestart []
+testMapping []
+boussBenchSat []
+dynamo_benchmark []
+hydro_bench_anel []
+testGraphMovieOutputs []
+testTOGeosOutputs []
+isothermal_nrho3 []
+precession []
+dynamo_benchmark_condICrotIC []
+testOutputs []
+testRadialOutputs []
+phase_field []
+couetteAxi []
+doubleDiffusion []
+fluxPerturbation []
+testTruncations []
+varProps []
+varCond []
+onset [E]
+testCoeffOutputs []
+finite_differences []
+full_sphere []
+testRMSOutputs []
+time_schemes []
 _________________________________________________________________________________________________________________________________________________________________
 
