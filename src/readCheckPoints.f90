@@ -426,7 +426,13 @@ contains
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
          if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(xi, dxi_LMloc, dxidt)
+#endif
             call get_comp_rhs_imp(xi, dxi_LMloc, dxidt, 1, .true.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(xi, dxi_LMloc, dxidt)
+#endif
             dxidt%expl(:,:,2)=dxidt%expl(:,:,2)+coex*dxidt%impl(:,:,1)
          end if
       end if
@@ -1430,7 +1436,13 @@ contains
 
 
          if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(xi, dxi_LMloc, dxidt)
+#endif
             call get_comp_rhs_imp(xi, dxi_LMloc, dxidt, 1, .true.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(xi, dxi_LMloc, dxidt)
+#endif
             dxidt%expl(:,:,2)=dxidt%expl(:,:,2)+coex*dxidt%impl(:,:,1)
          end if
 
@@ -2256,7 +2268,13 @@ contains
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
 
          if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(xi, dxi_LMloc, dxidt)
+#endif
             call get_comp_rhs_imp(xi, dxi_LMloc, dxidt, 1, .true.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(xi, dxi_LMloc, dxidt)
+#endif
             dxidt%expl(:,:,2)=dxidt%expl(:,:,2)+coex*dxidt%impl(:,:,1)
          end if
 

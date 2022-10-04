@@ -335,10 +335,28 @@ contains
          if ( l_parallel_solve ) then
             call bulk_to_ghost(xi_Rloc, xi_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
             call exch_ghosts(xi_ghost, lm_max, nRstart, nRstop, 1)
+#ifdef WITH_OMP_GPU
+            !$omp target update to(xi_ghost)
+#endif
             call fill_ghosts_Xi(xi_ghost)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(xi_ghost)
+#endif
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dxidt)
+#endif
             call get_comp_rhs_imp_ghost(xi_ghost, dxidt, 1, .true.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dxidt)
+#endif
          else
+#ifdef WITH_OMP_GPU
+            !$omp target update to(xi_LMloc, dxi_LMloc, dxidt)
+#endif
             call get_comp_rhs_imp(xi_LMloc, dxi_LMloc, dxidt, 1, .true.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(xi_LMloc, dxi_LMloc, dxidt)
+#endif
          end if
       end if
 

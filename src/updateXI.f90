@@ -115,11 +115,23 @@ contains
 
 #ifdef WITH_PRECOND_S
          allocate(xiMat_fac(n_r_max,nLMBs2(1+rank)))
+         xiMat_fac(:) = 0.0_cp
          bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: xiMat_fac)
+         !$omp target update to(xiMat_fac)
+         gpu_bytes_allocated = gpu_bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
+#endif
 #endif
 #ifdef WITH_PRECOND_S0
          allocate(xi0Mat_fac(n_r_max))
+         xi0Mat_fac(:) = 0.0_cp
          bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: xi0Mat_fac)
+         !$omp target update to(xi0Mat_fac)
+         gpu_bytes_allocated = gpu_bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+#endif
 #endif
 
 #ifdef WITHOMP
@@ -157,6 +169,11 @@ contains
          bytes_allocated=bytes_allocated+(l_max+1)*SIZEOF_DEF_REAL
          fd_fac_top(:)=0.0_cp
          fd_fac_bot(:)=0.0_cp
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: fd_fac_bot, fd_fac_top)
+         !$omp target update to(fd_fac_bot, fd_fac_top)
+         gpu_bytes_allocated=gpu_bytes_allocated+(l_max+1)*SIZEOF_DEF_REAL
+#endif
 
       end if
 
@@ -184,9 +201,15 @@ contains
          call xi0Mat%finalize()
 
 #ifdef WITH_PRECOND_S
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: xiMat_fac)
+#endif
          deallocate(xiMat_fac)
 #endif
 #ifdef WITH_PRECOND_S0
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: xi0Mat_fac)
+#endif
          deallocate(xi0Mat_fac)
 #endif
 #ifdef WITH_OMP_GPU
@@ -196,7 +219,7 @@ contains
       else
          call xiMat_FD%finalize()
 #ifdef WITH_OMP_GPU
-         !$omp target exit data map(delete: xi_ghost)
+         !$omp target exit data map(delete: xi_ghost, fd_fac_top, fd_fac_bot)
 #endif
          deallocate( fd_fac_top, fd_fac_bot, xi_ghost )
       end if
@@ -252,13 +275,7 @@ contains
       nLMB=1+rank
 
       !-- Now assemble the right hand side and store it in work_LMloc
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dxidt)
-#endif
       call tscheme%set_imex_rhs(work_LMloc, dxidt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(work_LMloc)
-#endif
 
 #ifdef WITH_OMP_GPU
       !$omp single
@@ -292,7 +309,6 @@ contains
          end do
 
          !-- Assemble RHS
-         !$omp target update to(rhs, rhs1)
          !$omp target map(tofrom: lmB) &
          !$omp& private(lm1, l1, m1, nR)
          do lm=1,sizeLMB2(nLMB2,nLMB)
@@ -331,7 +347,7 @@ contains
             end if
          end do
          !$omp end target
-         !$omp target update from(rhs, rhs1)
+         !$omp target update from(rhs, rhs1) !-- TODO: Remove after offload of all update* routines & modif in matrices.f90
 
          !-- Solve matrices with batched RHS (hipsolver)
          if ( lmB  ==  0 ) then
@@ -342,8 +358,6 @@ contains
 
          lmB=0
          !-- Loop to reassemble fields
-         !$omp target update to(rhs, rhs1)
-         !$omp target update to(xi)
          !$omp target map(tofrom: lmB) &
          !$omp& private(lm1, l1, m1, n_r_out)
          do lm=1,sizeLMB2(nLMB2,nLMB)
@@ -370,7 +384,6 @@ contains
             end if
          end do
          !$omp end target
-         !$omp target update from(xi)
 
       end do
 
@@ -517,9 +530,7 @@ contains
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
-      !$omp target update to(xi)
       !$omp target
-!      !$omp parallel do private(n_r_out,lm1) collapse(2)
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
 #endif
@@ -530,8 +541,6 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target
-      !$omp target update from(xi)
-!      !$omp end parallel do
 #else
       !$omp end do
       !$omp end parallel
@@ -539,9 +548,6 @@ contains
 
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dxidt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(dxidt)
-#endif
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
@@ -576,10 +582,6 @@ contains
       integer :: nR, lm_start, lm_stop, lm, l, m
 
       if ( .not. l_update_xi ) return
-
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dxidt)
-#endif
 
       !-- LU factorisation of the matrix if needed
       if ( .not. lXimat(0) ) then
@@ -653,10 +655,6 @@ contains
       !$omp end parallel
 #endif
 
-#ifdef WITH_OMP_GPU
-      !$omp target update from(xi_ghost)
-#endif
-
    end subroutine prepareXi_FD
 !------------------------------------------------------------------------------
    subroutine fill_ghosts_Xi(xig)
@@ -674,10 +672,6 @@ contains
       real(cp) :: dr
 
       if ( .not. l_update_xi ) return
-
-#ifdef WITH_OMP_GPU
-      !$omp target update to(xig)
-#endif
 
 #ifdef WITH_OMP_GPU
       lm_start=1; lm_stop=lm_max
@@ -739,10 +733,6 @@ contains
       !$omp end parallel
 #endif
 
-#ifdef WITH_OMP_GPU
-      !$omp target update from(xig)
-#endif
-
    end subroutine fill_ghosts_Xi
 !------------------------------------------------------------------------------
    subroutine updateXi_FD(xi, dxidt, tscheme)
@@ -765,13 +755,7 @@ contains
       if ( .not. l_update_xi ) return
 
       !-- Roll the arrays before filling again the first block
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dxidt, xi)
-#endif
       call tscheme%rotate_imex(dxidt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(dxidt) !-- TODO: Remove after (move out copies from get_comp_rhs_imp_ghost)
-#endif
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
@@ -804,10 +788,6 @@ contains
       !$omp end parallel
 #endif
 
-#ifdef WITH_OMP_GPU
-      !$omp target update from(xi)
-#endif
-
    end subroutine updateXi_FD
 !------------------------------------------------------------------------------
    subroutine finish_exp_comp(w, dVXirLM, dxi_exp_last)
@@ -829,7 +809,7 @@ contains
       integer :: n_r, start_lm, stop_lm, l, lm
 
 #ifdef WITH_OMP_GPU_OFF
-      !-- TODO: Debug (can't find arrays dVXirLM & dxi_exp_last on GPU)
+      !-- TODO: Debug (can't find arrays dVXirLM & dxi_exp_last on GPU in get_dr)
       !$omp target update to(w, dVXirLM, dxi_exp_last)
 #endif
 
@@ -877,7 +857,9 @@ contains
 #endif
       end if
 
-#ifndef WITH_OMP_GPU
+#ifdef WITH_OMP_GPU_OFF
+      !$omp end parallel
+#else
       !$omp end parallel
 #endif
 
@@ -996,23 +978,14 @@ contains
 
 #ifdef WITH_OMP_GPU
       start_lm=llm; stop_lm=ulm
-
-      !$omp target update to(dxi, work_LMloc, dxidt)
-      !$omp target update to(xi)
-
       call dct_counter%start_count()
-
       call get_ddr(xi, dxi, work_LMloc, ulm-llm+1,start_lm-llm+1,  &
            &       stop_lm-llm+1,n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
       if ( l_in_cheb ) then
          call rscheme_oc%costf1(xi,ulm-llm+1,start_lm-llm+1, &
                                &                 stop_lm-llm+1,.true.)
-         !$omp target update from(xi)
       end if
-
       call dct_counter%stop_count(l_increment=.false.)
-
-      !$omp target update from(dxi)
 #else
       !$omp parallel default(shared)  private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
@@ -1075,10 +1048,6 @@ contains
       !$omp end parallel
 #endif
 
-#ifdef WITH_OMP_GPU
-      !$omp target update from(dxidt)
-#endif
-
    end subroutine get_comp_rhs_imp
 !------------------------------------------------------------------------------
    subroutine get_comp_rhs_imp_ghost(xig, dxidt, istage, l_calc_lin)
@@ -1102,11 +1071,6 @@ contains
       real(cp) :: dL
       integer, pointer :: lm2l(:)
       complex(cp), pointer :: old_ptr(:,:,:), impl_ptr(:,:,:)
-
-#ifdef WITH_OMP_GPU
-      !$omp target update to(xig)
-      !$omp target update to(dxidt)
-#endif
 
       allocate(dxi(lm_max,nRstart:nRstop), work_Rloc(lm_max,nRstart:nRstop))
       dxi(:,:) = zero
@@ -1183,10 +1147,6 @@ contains
 #endif
       deallocate(dxi, work_Rloc)
 
-#ifdef WITH_OMP_GPU
-      !$omp target update from(dxidt)
-#endif
-
    end subroutine get_comp_rhs_imp_ghost
 !------------------------------------------------------------------------------
    subroutine assemble_comp(xi, dxi, dxidt, tscheme)
@@ -1212,10 +1172,6 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
 
-#ifdef WITH_OMP_GPU
-      !$omp target update to(xi)
-      !$omp target update to(dxidt)
-#endif
       call tscheme%assemble_imex(work_LMloc, dxidt)
 
 #ifdef WITH_OMP_GPU
@@ -1236,7 +1192,7 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
-      !$omp target update from(xi)
+      !$omp target update from(xi) !-- TODO: Mandatory as robin_bc is on CPU currently
 #else
       !$omp end do
 #endif
@@ -1368,7 +1324,7 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update to(xi)
+      !$omp target update to(xi) !-- TODO: Update on GPU after robin_bc
 #endif
 
       call get_comp_rhs_imp(xi, dxi, dxidt, 1, tscheme%l_imp_calc_rhs(1), .false.)
@@ -1399,10 +1355,6 @@ contains
       !$omp target update to(work_Rloc)
 #endif
 
-#ifdef WITH_OMP_GPU
-      !$omp target update to(xi)
-      !$omp target update to(dxidt)
-#endif
       call tscheme%assemble_imex(work_Rloc, dxidt)
 
 #ifdef WITH_OMP_GPU
@@ -1460,10 +1412,8 @@ contains
       end if
 
 #ifdef WITH_OMP_GPU
-      !$omp target update to(xi_ghost)
       call bulk_to_ghost(xi, xi_ghost, 1, nRstart, nRstop, lm_max, start_lm, stop_lm, .true.)
       !$omp target update from(xi_ghost)
-      !$omp target update from(xi)
 #else
       call bulk_to_ghost(xi, xi_ghost, 1, nRstart, nRstop, lm_max, start_lm, stop_lm)
 #endif
@@ -1472,14 +1422,16 @@ contains
       !$omp end parallel
 #endif
 
-      call exch_ghosts(xi_ghost, lm_max, nRstart, nRstop, 1)
+      call exch_ghosts(xi_ghost, lm_max, nRstart, nRstop, 1) !-- Run on CPU (MPI comm)
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(xi_ghost)
+#endif
       call fill_ghosts_Xi(xi_ghost)
 
       !-- Finally call the construction of the implicit terms for the first stage
       !-- of next iteration
       call get_comp_rhs_imp_ghost(xi_ghost, dxidt, 1, tscheme%l_imp_calc_rhs(1))
-
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: work_Rloc)
