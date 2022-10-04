@@ -173,9 +173,7 @@ contains
       ! fields for the gathering
       complex(cp) :: b_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
       complex(cp) :: db_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
-      complex(cp) :: ddb_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
       complex(cp) :: aj_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
-      complex(cp) :: dj_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
 
       !----- Time averaged fields:
       complex(cp) :: dw_ave_LMloc(llm:ulm,n_r_max)
@@ -207,7 +205,7 @@ contains
       real(cp) :: e_mag_os_ave,e_mag_as_os_ave
       real(cp) :: Dip,DipCMB,e_cmb,elsAnel
 
-      integer :: nR
+      integer :: nR, n_graph_handle
       integer :: n_e_sets,n_spec
 
       character(len=80) :: outFile
@@ -357,12 +355,12 @@ contains
          ! For the graphic file of the average fields, we gather them
          ! on rank 0 and use the old serial output routine.
          if ( .not. l_onset ) then
-            call open_graph_file(0, time, l_ave=.true.)
+            call open_graph_file(0, time, .true., n_graph_handle)
             !----- Write header into graphic file:
 #ifdef WITH_MPI
-            call graphOut_mpi_header(time)
+            call graphOut_mpi_header(time, n_graph_handle)
 #else
-            call graphOut_header(time)
+            call graphOut_header(time, n_graph_handle)
 #endif
 
             !-- This will be needed for the inner core
@@ -406,9 +404,11 @@ contains
                      call scal_to_spat(sht_l, phi_ave_Rloc(:,nR), Phir, l_R(nR))
                   end if
 #ifdef WITH_MPI
-                  call graphOut_mpi(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
+                  call graphOut_mpi(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir, &
+                       &            n_graph_handle)
 #else
-                  call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
+                  call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir, &
+                       &        n_graph_handle)
 #endif
                end do
             else
@@ -430,9 +430,11 @@ contains
                end if
                do nR=nRstart,nRstop
 #ifdef WITH_MPI
-                  call graphOut_mpi(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
+                  call graphOut_mpi(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir, &
+                       &            n_graph_handle)
 #else
-                  call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir)
+                  call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir, &
+                       &        n_graph_handle)
 #endif
                end do
 
@@ -440,17 +442,22 @@ contains
 
             !----- Inner core: Transform is included in graphOut_IC!
             if ( l_mag .and. n_r_ic_max > 0 ) then
-               call gather_all_from_lo_to_rank0(gt_IC,b_ic_ave,b_ic_ave_global)
-               call gather_all_from_lo_to_rank0(gt_IC,db_ic_ave,db_ic_ave_global)
-               call gather_all_from_lo_to_rank0(gt_IC,ddb_ic_ave,ddb_ic_ave_global)
-               call gather_all_from_lo_to_rank0(gt_IC,aj_ic_ave,aj_ic_ave_global)
-               call gather_all_from_lo_to_rank0(gt_IC,dj_ic_ave,dj_ic_ave_global)
+               if ( l_cond_ic ) then
+                  call gather_all_from_lo_to_rank0(gt_IC,b_ic_ave,b_ic_ave_global)
+                  call gather_all_from_lo_to_rank0(gt_IC,db_ic_ave,db_ic_ave_global)
+                  call gather_all_from_lo_to_rank0(gt_IC,aj_ic_ave,aj_ic_ave_global)
+               else
+                  if ( rank == 0 ) then
+                     db_ic_ave_global(:,1)=zero
+                     aj_ic_ave_global(:,1)=zero
+                  end if
+               end if
 
                call graphOut_IC(b_ic_ave_global,db_ic_ave_global,   &
-                    &           aj_ic_ave_global,bICB)
+                    &           aj_ic_ave_global,bICB,n_graph_handle)
             end if
 
-            call close_graph_file()
+            call close_graph_file(n_graph_handle)
 
             !----- Write info about graph-file into STDOUT and log-file:
             if ( l_stop_time .and. rank == 0 ) then
