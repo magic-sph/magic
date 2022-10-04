@@ -140,7 +140,7 @@ contains
       allocate( self%lm22m(self%sizeLMB2max,l_max+1,nLMBs) )
       self%nLMBs2(:) = 0; self%sizeLMB2(:,:) = 0
       self%lm22lm(:,:,:) = 0
-      self%lm22l(:,:) = 0
+      self%lm22l(:,:,:) = 0
       self%lm22m(:,:,:) = 0
       bytes_allocated = bytes_allocated +       &
       &                 (nLMBs+(l_max+1)*nLMBs+ &

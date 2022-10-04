@@ -63,7 +63,7 @@ def selectField(obj, field, labTex=True, ic=False):
         else:
             label = 'xi'
         data_ic = None
-    elif field in ('phase'):
+    elif field in ('phase', 'Phase'):
         data = obj.phase
         if labTex:
             label = r'$\Phi$'
@@ -96,7 +96,11 @@ def selectField(obj, field, labTex=True, ic=False):
         data = obj.entropy
         label = 'Entropy'
         data_ic = None
-    elif field in ('u2'):
+    elif field in ('temperature', 't', 'T', 'temp'):
+        data = obj.entropy
+        label = 'Temperature'
+        data_ic = None
+    elif field == 'u2':
         data = obj.vphi**2+obj.vr**2+obj.vtheta**2
         if labTex:
             label = r'$u^2$'
@@ -111,7 +115,7 @@ def selectField(obj, field, labTex=True, ic=False):
         else:
             label = 'Ekin'
         data_ic = None
-    elif field in ('b2', 'B2'):
+    elif field in ('b2', 'B2', 'Emag', 'em', 'Em', 'emag'):
         data = obj.Bphi**2+obj.Br**2+obj.Btheta**2
         if labTex:
             label = r'$B^2$'
@@ -142,7 +146,7 @@ def selectField(obj, field, labTex=True, ic=False):
         else:
             label = 'vp conv'
         data_ic = None
-    elif field in ('bpfluct'):
+    elif field == 'bpfluct':
         data = obj.Bphi-obj.Bphi.mean(axis=0)
         if labTex:
             label = r"$B_{\phi}'$"
@@ -152,7 +156,7 @@ def selectField(obj, field, labTex=True, ic=False):
             data_ic = obj.Bphi_ic-obj.Bphi_ic.mean(axis=0)
         else:
             data_ic = None
-    elif field in ('brfluct'):
+    elif field == 'brfluct':
         data = obj.Br-obj.Br.mean(axis=0)
         if labTex:
             label = r"$B_r'$"
@@ -162,28 +166,35 @@ def selectField(obj, field, labTex=True, ic=False):
             data_ic = obj.Br_ic-obj.Br_ic.mean(axis=0)
         else:
             data_ic = None
-    elif field in ('entropyfluct'):
+    elif field == 'entropyfluct':
         data = obj.entropy-obj.entropy.mean(axis=0)
         if labTex:
             label = r"$s'$"
         else:
             label = "s'"
         data_ic = None
-    elif field in ('xifluct'):
+    elif field in ('tfluct', 'Tfluct'):
+        data = obj.entropy-obj.entropy.mean(axis=0)
+        if labTex:
+            label = r"$T'$"
+        else:
+            label = "T'"
+        data_ic = None
+    elif field == 'xifluct':
         data = obj.xi-obj.xi.mean(axis=0)
         if labTex:
             label = r"$\xi'$"
         else:
             label = "xi'"
         data_ic = None
-    elif field in ('prefluct'):
+    elif field == 'prefluct':
         data = obj.pre-obj.pre.mean(axis=0)
         if labTex:
             label = r"$p'$"
         else:
             label = "p'"
         data_ic = None
-    elif field in ('vrea'):
+    elif field == 'vrea':
         data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.vr[:, i, :]-obj.vr[:, -i-1, :])/2.
@@ -192,7 +203,7 @@ def selectField(obj, field, labTex=True, ic=False):
         else:
             label = 'vr ea'
         data_ic = None
-    elif field in ('vra'):
+    elif field == 'vra':
         data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.vr[:, i, :]+obj.vr[:, -i-1, :])/2.
@@ -201,7 +212,7 @@ def selectField(obj, field, labTex=True, ic=False):
         else:
             label = 'vr es'
         data_ic = None
-    elif field in ('vpea'):
+    elif field == 'vpea':
         data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.vphi[:, i, :]-obj.vphi[:, -i-1, :])/2.
@@ -210,7 +221,7 @@ def selectField(obj, field, labTex=True, ic=False):
         else:
             label = r'vp ea'
         data_ic = None
-    elif field in ('vpa'):
+    elif field == 'vpa':
         data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.vphi[:, i, :]+obj.vphi[:, -i-1, :])/2.
@@ -219,14 +230,14 @@ def selectField(obj, field, labTex=True, ic=False):
         else:
             label = r'vp es'
         data_ic = None
-    elif field in ('tea'):
+    elif field == 'tea':
         data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.entropy[:, i, :]-obj.entropy[:, -i-1, :])/2.
         if labTex:
-            label = r'$s$ ea'
+            label = r'$T$ ea'
         else:
-            label = r's ea'
+            label = r'T ea'
         data_ic = None
 
     return data, data_ic, label

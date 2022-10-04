@@ -53,12 +53,15 @@ module graphOut_mod
 
 contains
 
-   subroutine open_graph_file(n_time_step, timeScaled, l_ave)
+   subroutine open_graph_file(n_time_step, timeScaled,l_ave,n_graph_handle)
 
       !-- Input variables
       integer,  intent(in) :: n_time_step
       real(cp), intent(in) :: timeScaled
       logical,  intent(in) :: l_ave
+
+      !-- Output variable
+      integer, optional, intent(inout) :: n_graph_handle
 
       !-- Local variables
       character(len=72) :: graph_file
@@ -94,27 +97,51 @@ contains
       call mpiio_setup(info)
 
 #ifdef WITH_MPI
-      call MPI_File_open(MPI_COMM_WORLD,graph_file,             &
-           &             IOR(MPI_MODE_WRONLY,MPI_MODE_CREATE),  &
-           &             info,graph_mpi_fh,ierr)
+      if ( present(n_graph_handle) )  then
+         call MPI_File_open(MPI_COMM_WORLD,graph_file,             &
+              &             IOR(MPI_MODE_WRONLY,MPI_MODE_CREATE),  &
+              &             info,n_graph_handle,ierr)
+      else
+         call MPI_File_open(MPI_COMM_WORLD,graph_file,             &
+              &             IOR(MPI_MODE_WRONLY,MPI_MODE_CREATE),  &
+              &             info,graph_mpi_fh,ierr)
+      end if
 #else
-      open(newunit=n_graph_file, file=graph_file, status='new',  &
-      &    form='unformatted', access='stream')
+      if ( present(n_graph_handle) ) then
+         open(newunit=n_graph_handle, file=graph_file, status='new',  &
+         &    form='unformatted', access='stream')
+      else
+         open(newunit=n_graph_file, file=graph_file, status='new',  &
+         &    form='unformatted', access='stream')
+      end if
 #endif
 
    end subroutine open_graph_file
 !--------------------------------------------------------------------------------
-   subroutine close_graph_file
+   subroutine close_graph_file(n_graph_handle)
+      !
+      ! This routine handles the closing of the Graphic files
+      !
+
+      integer, intent(inout), optional :: n_graph_handle
 
 #ifdef WITH_MPI
+      if ( present(n_graph_handle) ) then
+         call MPI_File_close(n_graph_handle,ierr)
+      else
          call MPI_File_close(graph_mpi_fh,ierr)
+      end if
 #else
+      if ( present(n_graph_handle) ) then
+         close(n_graph_handle)
+      else
          close(n_graph_file)
+      end if
 #endif
 
    end subroutine close_graph_file
 !--------------------------------------------------------------------------------
-   subroutine graphOut(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir)
+   subroutine graphOut(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir,n_graph_handle)
       !
       !  Output of components of velocity, magnetic field vector, entropy
       !  and composition for graphic outputs.
@@ -122,14 +149,21 @@ contains
 
       !-- Input variables
       integer,  intent(in) :: n_r                    ! radial grod point no.
+      integer, optional, intent(in) :: n_graph_handle
       real(cp), intent(in) :: vr(*),vt(*),vp(*)
       real(cp), intent(in) :: br(*),bt(*),bp(*)
       real(cp), intent(in) :: sr(*),prer(*),xir(*),phir(*)
 
       !-- Local variables:
-      integer :: n_phi, n_theta, n_theta_cal, version, nelem
+      integer :: n_phi, n_theta, n_theta_cal, version, nelem, n_graph_loc
       real(cp) :: fac, fac_r
       real(outp) :: dummy(n_theta_max,n_phi_max)
+
+      if ( present(n_graph_handle) ) then
+         n_graph_loc = n_graph_handle
+      else
+         n_graph_loc = n_graph_file
+      end if
 
       !-- Write header & colatitudes for n_r=0:
       version = 14
@@ -143,7 +177,7 @@ contains
             dummy(n_theta,n_phi)=real(fac*vr(nelem),kind=outp)
          end do
       end do
-      write(n_graph_file) dummy(:,:)
+      write(n_graph_loc) dummy(:,:)
 
       !-- Calculate and write latitudinal velocity:
       fac_r=or1(n_r)*vScale*orho1(n_r)
@@ -155,7 +189,7 @@ contains
             dummy(n_theta,n_phi)=real(fac*vt(nelem),kind=outp)
          end do
       end do
-      write(n_graph_file) dummy(:,:)
+      write(n_graph_loc) dummy(:,:)
 
       !-- Calculate and write longitudinal velocity:
       fac_r=or1(n_r)*vScale*orho1(n_r)
@@ -167,7 +201,7 @@ contains
             dummy(n_theta,n_phi)=real(fac*vp(nelem),kind=outp)
          end do
       end do
-      write(n_graph_file) dummy(:,:)
+      write(n_graph_loc) dummy(:,:)
 
       if ( l_heat ) then
          !-- Write entropy:
@@ -178,7 +212,7 @@ contains
                dummy(n_theta,n_phi)=real(sr(nelem),kind=outp)
             end do
          end do
-         write(n_graph_file) dummy(:,:)
+         write(n_graph_loc) dummy(:,:)
       end if
 
       if ( l_chemical_conv ) then
@@ -190,7 +224,7 @@ contains
                dummy(n_theta,n_phi)=real(xir(nelem),kind=outp)
             end do
          end do
-         write(n_graph_file) dummy(:,:)
+         write(n_graph_loc) dummy(:,:)
       end if
 
       if ( l_phase_field ) then
@@ -202,7 +236,7 @@ contains
                dummy(n_theta,n_phi)=real(phir(nelem),kind=outp)
             end do
          end do
-         write(n_graph_file) dummy(:,:)
+         write(n_graph_loc) dummy(:,:)
       end if
 
       if ( l_PressGraph ) then
@@ -214,7 +248,7 @@ contains
                dummy(n_theta,n_phi)=real(prer(nelem),kind=outp)
             end do
          end do
-         write(n_graph_file) dummy(:,:)
+         write(n_graph_loc) dummy(:,:)
       end if
 
       if ( l_mag ) then
@@ -227,7 +261,7 @@ contains
                dummy(n_theta,n_phi)=real(fac*br(nelem),kind=outp)
             end do
          end do
-         write(n_graph_file) dummy(:,:)
+         write(n_graph_loc) dummy(:,:)
 
          !-- Calculate and write latitudinal magnetic field:
          fac_r=or1(n_r)*vScale*orho1(n_r)
@@ -239,7 +273,7 @@ contains
                dummy(n_theta,n_phi)=real(fac*bt(nelem),kind=outp)
             end do
          end do
-         write(n_graph_file) dummy(:,:)
+         write(n_graph_loc) dummy(:,:)
 
          !-- Calculate and write longitudinal magnetic field:
          fac_r=or1(n_r)*vScale*orho1(n_r)
@@ -251,41 +285,48 @@ contains
                dummy(n_theta,n_phi)=real(fac*bp(nelem),kind=outp)
             end do
          end do
-         write(n_graph_file) dummy(:,:)
+         write(n_graph_loc) dummy(:,:)
       end if ! l_mag ?
 
    end subroutine graphOut
 !-----------------------------------------------------------------------
-   subroutine graphOut_header(time)
+   subroutine graphOut_header(time, n_graph_handle)
 
       !-- Input variables
       real(cp), intent(in) :: time
+      integer, optional, intent(in) :: n_graph_handle
 
       !-- Local variables:
-      integer :: n_theta, version
+      integer :: n_theta, version, n_graph_loc
+
+      if ( present(n_graph_handle) ) then
+         n_graph_loc = n_graph_handle
+      else
+         n_graph_loc = n_graph_file
+      end if
 
       version = 14
 
       !-- Write parameters:
-      write(n_graph_file) version
-      write(n_graph_file) runid
-      write(n_graph_file) real(time,outp)
-      write(n_graph_file) real(ra,outp), real(pr,outp), real(raxi,outp),  &
-      &                   real(sc,outp), real(ek,outp), real(stef,outp),  &
-      &                   real(prmag,outp), real(radratio,outp),          &
-      &                   real(sigma_ratio,outp)
-      write(n_graph_file) n_r_max, n_theta_max, n_phi_tot, minc, n_r_ic_max
+      write(n_graph_loc) version
+      write(n_graph_loc) runid
+      write(n_graph_loc) real(time,outp)
+      write(n_graph_loc) real(ra,outp), real(pr,outp), real(raxi,outp),  &
+      &                  real(sc,outp), real(ek,outp), real(stef,outp),  &
+      &                  real(prmag,outp), real(radratio,outp),          &
+      &                  real(sigma_ratio,outp)
+      write(n_graph_loc) n_r_max, n_theta_max, n_phi_tot, minc, n_r_ic_max
 
-      write(n_graph_file) l_heat,l_chemical_conv, l_phase_field, l_mag, &
-      &                   l_PressGraph, l_cond_ic
+      write(n_graph_loc) l_heat,l_chemical_conv, l_phase_field, l_mag, &
+      &                  l_PressGraph, l_cond_ic
 
       !-- Write colatitudes:
-      write(n_graph_file) (real(theta_ord(n_theta),outp), n_theta=1,n_theta_max)
+      write(n_graph_loc) (real(theta_ord(n_theta),outp), n_theta=1,n_theta_max)
 
       !-- Write radius:
-      write(n_graph_file) real(r,outp)
+      write(n_graph_loc) real(r,outp)
       if ( l_mag .and. n_r_ic_max > 1 ) then
-         write(n_graph_file) real(r_ic,outp)
+         write(n_graph_loc) real(r_ic,outp)
       end if
 
    end subroutine graphOut_header
@@ -294,24 +335,31 @@ contains
 #ifdef WITH_OMP_GPU
    !-- TODO: Need to duplicate this routine since CRAY CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
    !-- support OpenMP construct Assumed size arrays
-   subroutine graphOut_mpi(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir)
+   subroutine graphOut_mpi(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir,n_graph_handle)
       !
       ! MPI version of the graphOut subroutine (use of MPI_IO)
       !
 
       !-- Input variables:
       integer,  intent(in) :: n_r                      ! radial grid point no.
+      integer, optional, intent(in) :: n_graph_handle
       real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
       real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
       real(cp), intent(in) :: sr(:,:),prer(:,:),xir(:,:),phir(:,:)
 
       !-- Local variables:
-      integer :: n_phi, n_theta, n_theta_cal, nelem
+      integer :: n_phi, n_theta, n_theta_cal, nelem, n_graph_loc
       real(cp) :: fac, fac_r
       real(outp), allocatable :: dummy(:,:)
 
       allocate(dummy(n_theta_max,n_phi_max))
       dummy = 0.0_cp
+
+      if ( present(n_graph_handle) ) then
+         n_graph_loc = n_graph_handle
+      else
+         n_graph_loc = n_graph_file
+      end if
 
       !$omp critical
       !-- Calculate and write radial velocity:
@@ -325,7 +373,7 @@ contains
          end do
       end do
       !$omp end target teams distribute parallel do
-      call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
       !-- Calculate and write latitudinal velocity:
       fac_r=or1(n_r)*vScale*orho1(n_r)
@@ -339,7 +387,7 @@ contains
          end do
       end do
       !$omp end target teams distribute parallel do
-      call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
       !-- Calculate and write longitudinal velocity:
       fac_r=or1(n_r)*vScale*orho1(n_r)
@@ -353,7 +401,7 @@ contains
          end do
       end do
       !$omp end target teams distribute parallel do
-      call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
       !-- Write entropy:
       if ( l_heat ) then
@@ -366,7 +414,7 @@ contains
             end do
          end do
          !$omp end target teams distribute parallel do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
       end if
 
       !-- Write composition:
@@ -380,7 +428,7 @@ contains
             end do
          end do
          !$omp end target teams distribute parallel do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
       end if
 
       !-- Write phase field:
@@ -394,7 +442,7 @@ contains
             end do
          end do
          !$omp end target teams distribute parallel do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
       end if
 
       !-- Write pressure:
@@ -408,7 +456,7 @@ contains
             end do
          end do
          !$omp end target teams distribute parallel do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
       end if
 
       if ( l_mag ) then
@@ -424,7 +472,7 @@ contains
             end do
          end do
          !$omp end target teams distribute parallel do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
          !-- Calculate and write latitudinal magnetic field:
          !$omp target teams distribute parallel do collapse(2)
@@ -437,7 +485,7 @@ contains
             end do
          end do
          !$omp end target teams distribute parallel do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
          !-- Calculate and write longitudinal magnetic field:
          !$omp target teams distribute parallel do collapse(2)
@@ -450,7 +498,7 @@ contains
             end do
          end do
          !$omp end target teams distribute parallel do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
       end if ! l_mag ?
       !$omp end critical
@@ -459,24 +507,32 @@ contains
 
    end subroutine graphOut_mpi
 
-   subroutine graphOut_mpi_batch(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir)
+   subroutine graphOut_mpi_batch(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir, &
+              &                  n_graph_handle)
       !
       ! MPI version of the graphOut subroutine (use of MPI_IO)
       !
 
       !-- Input variables:
       integer,  intent(in) :: n_r                      ! radial grid point no.
+      logical, optional, intent(in) :: n_graph_handle
       real(cp), intent(in) :: vr(:,:,:),vt(:,:,:),vp(:,:,:)
       real(cp), intent(in) :: br(:,:,:),bt(:,:,:),bp(:,:,:)
       real(cp), intent(in) :: sr(:,:,:),prer(:,:,:),xir(:,:,:),phir(:,:,:)
 
       !-- Local variables:
-      integer :: n_phi, n_theta, n_theta_cal, nelem
+      integer :: n_phi, n_theta, n_theta_cal, nelem, n_graph_loc
       real(cp) :: fac, fac_r
       real(outp), allocatable :: dummy(:,:)
 
       allocate(dummy(n_theta_max,n_phi_max))
       dummy = 0.0_cp
+
+      if ( present(n_graph_handle) ) then
+         n_graph_loc = n_graph_handle
+      else
+         n_graph_loc = graph_mpi_fh
+      end if
 
       !$omp critical
       !-- Calculate and write radial velocity:
@@ -490,7 +546,7 @@ contains
          end do
       end do
       !$omp end target teams distribute parallel do
-      call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
       !-- Calculate and write latitudinal velocity:
       fac_r=or1(n_r)*vScale*orho1(n_r)
@@ -504,7 +560,7 @@ contains
          end do
       end do
       !$omp end target teams distribute parallel do
-      call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
       !-- Calculate and write longitudinal velocity:
       fac_r=or1(n_r)*vScale*orho1(n_r)
@@ -518,7 +574,7 @@ contains
          end do
       end do
       !$omp end target teams distribute parallel do
-      call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
       !-- Write entropy:
       if ( l_heat ) then
@@ -531,7 +587,7 @@ contains
             end do
          end do
          !$omp end target teams distribute parallel do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
       end if
 
       !-- Write composition:
@@ -545,7 +601,7 @@ contains
             end do
          end do
          !$omp end target teams distribute parallel do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
       end if
 
       !-- Write phase field:
@@ -559,7 +615,7 @@ contains
             end do
          end do
          !$omp end target teams distribute parallel do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
       end if
 
       !-- Write pressure:
@@ -573,7 +629,7 @@ contains
             end do
          end do
          !$omp end target teams distribute parallel do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
       end if
 
       if ( l_mag ) then
@@ -589,7 +645,7 @@ contains
             end do
          end do
          !$omp end target teams distribute parallel do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
          !-- Calculate and write latitudinal magnetic field:
          !$omp target teams distribute parallel do collapse(2)
@@ -602,7 +658,7 @@ contains
             end do
          end do
          !$omp end target teams distribute parallel do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
          !-- Calculate and write longitudinal magnetic field:
          !$omp target teams distribute parallel do collapse(2)
@@ -615,7 +671,7 @@ contains
             end do
          end do
          !$omp end target teams distribute parallel do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
       end if ! l_mag ?
       !$omp end critical
@@ -625,21 +681,28 @@ contains
    end subroutine graphOut_mpi_batch
 
 #else
-   subroutine graphOut_mpi(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir)
+   subroutine graphOut_mpi(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir,n_graph_handle)
       !
       ! MPI version of the graphOut subroutine (use of MPI_IO)
       !
 
       !-- Input variables:
+      integer, optional, intent(in) :: n_graph_handle
       integer,  intent(in) :: n_r                      ! radial grid point no.
       real(cp), intent(in) :: vr(*),vt(*),vp(*)
       real(cp), intent(in) :: br(*),bt(*),bp(*)
       real(cp), intent(in) :: sr(*),prer(*),xir(*),phir(*)
 
       !-- Local variables:
-      integer :: n_phi, n_theta, n_theta_cal, nelem
+      integer :: n_phi, n_theta, n_theta_cal, nelem, n_graph_loc
       real(cp) :: fac, fac_r
       real(outp) :: dummy(n_theta_max,n_phi_max)
+
+      if ( present(n_graph_handle) ) then
+         n_graph_loc = n_graph_handle
+      else
+         n_graph_loc = graph_mpi_fh
+      end if
 
       !$omp critical
       !-- Calculate and write radial velocity:
@@ -651,7 +714,7 @@ contains
             dummy(n_theta,n_phi)=real(fac*vr(nelem),kind=outp)
          end do
       end do
-      call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
       !-- Calculate and write latitudinal velocity:
       fac_r=or1(n_r)*vScale*orho1(n_r)
@@ -663,7 +726,7 @@ contains
             dummy(n_theta,n_phi)=real(fac*vt(nelem),kind=outp)
          end do
       end do
-      call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
       !-- Calculate and write longitudinal velocity:
       fac_r=or1(n_r)*vScale*orho1(n_r)
@@ -675,7 +738,7 @@ contains
             dummy(n_theta,n_phi)=real(fac*vp(nelem),kind=outp)
          end do
       end do
-      call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+      call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
       !-- Write entropy:
       if ( l_heat ) then
@@ -686,7 +749,7 @@ contains
                dummy(n_theta,n_phi)=real(sr(nelem),kind=outp)
             end do
          end do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
       end if
 
       !-- Write composition:
@@ -698,7 +761,7 @@ contains
                dummy(n_theta,n_phi)=real(xir(nelem),kind=outp)
             end do
          end do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
       end if
 
       !-- Write phase field:
@@ -710,7 +773,7 @@ contains
                dummy(n_theta,n_phi)=real(phir(nelem),kind=outp)
             end do
          end do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
       end if
 
       !-- Write pressure:
@@ -722,7 +785,7 @@ contains
                dummy(n_theta,n_phi)=real(prer(nelem),kind=outp)
             end do
          end do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
       end if
 
       if ( l_mag ) then
@@ -736,7 +799,7 @@ contains
                dummy(n_theta,n_phi)=real(fac*br(nelem),kind=outp)
             end do
          end do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
          !-- Calculate and write latitudinal magnetic field:
          do n_phi=1,n_phi_max
@@ -747,7 +810,7 @@ contains
                dummy(n_theta,n_phi)=real(fac*bt(nelem),kind=outp)
             end do
          end do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
          !-- Calculate and write longitudinal magnetic field:
          do n_phi=1,n_phi_max
@@ -758,7 +821,7 @@ contains
                dummy(n_theta,n_phi)=real(fac*bp(nelem),kind=outp)
             end do
          end do
-         call write_one_field(dummy, graph_mpi_fh, n_phi_max, n_theta_max)
+         call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
       end if ! l_mag ?
       !$omp end critical
@@ -766,18 +829,25 @@ contains
    end subroutine graphOut_mpi
 #endif
 !----------------------------------------------------------------------------
-   subroutine graphOut_mpi_header(time)
+   subroutine graphOut_mpi_header(time,n_graph_handle)
       !
       ! Writes the header of the G file (MPI version)
       !
 
       !-- Input variables:
+      integer, optional, intent(in) :: n_graph_handle
       real(cp), intent(in) :: time
 
       !-- Local variables:
-      integer :: n_theta, version, n_r
+      integer :: n_theta, version, n_r, n_graph_loc
       integer :: st(MPI_STATUS_SIZE)
       integer(kind=MPI_OFFSET_kind) :: disp, offset
+
+      if ( present(n_graph_handle) ) then
+         n_graph_loc = n_graph_handle
+      else
+         n_graph_loc = graph_mpi_fh
+      end if
 
       version = 14
       n_fields = 3
@@ -789,52 +859,52 @@ contains
 
       if ( rank == 0 ) then
          !-------- Write parameters:
-         call MPI_File_Write(graph_mpi_fh,version,1,MPI_INTEGER,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,runid,len(runid),MPI_CHARACTER,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,real(time,outp),1,MPI_OUT_REAL,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,real(ra,outp),1,MPI_OUT_REAL,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,real(pr,outp),1,MPI_OUT_REAL,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,real(raxi,outp),1,MPI_OUT_REAL,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,real(sc,outp),1,MPI_OUT_REAL,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,real(ek,outp),1,MPI_OUT_REAL,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,real(stef,outp),1,MPI_OUT_REAL,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,real(prmag,outp),1,MPI_OUT_REAL,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,real(radratio,outp),1,MPI_OUT_REAL,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,real(sigma_ratio,outp),1,MPI_OUT_REAL,st,ierr)
+         call MPI_File_Write(n_graph_loc,version,1,MPI_INTEGER,st,ierr)
+         call MPI_File_Write(n_graph_loc,runid,len(runid),MPI_CHARACTER,st,ierr)
+         call MPI_File_Write(n_graph_loc,real(time,outp),1,MPI_OUT_REAL,st,ierr)
+         call MPI_File_Write(n_graph_loc,real(ra,outp),1,MPI_OUT_REAL,st,ierr)
+         call MPI_File_Write(n_graph_loc,real(pr,outp),1,MPI_OUT_REAL,st,ierr)
+         call MPI_File_Write(n_graph_loc,real(raxi,outp),1,MPI_OUT_REAL,st,ierr)
+         call MPI_File_Write(n_graph_loc,real(sc,outp),1,MPI_OUT_REAL,st,ierr)
+         call MPI_File_Write(n_graph_loc,real(ek,outp),1,MPI_OUT_REAL,st,ierr)
+         call MPI_File_Write(n_graph_loc,real(stef,outp),1,MPI_OUT_REAL,st,ierr)
+         call MPI_File_Write(n_graph_loc,real(prmag,outp),1,MPI_OUT_REAL,st,ierr)
+         call MPI_File_Write(n_graph_loc,real(radratio,outp),1,MPI_OUT_REAL,st,ierr)
+         call MPI_File_Write(n_graph_loc,real(sigma_ratio,outp),1,MPI_OUT_REAL,st,ierr)
 
-         call MPI_File_Write(graph_mpi_fh,n_r_max,1,MPI_INTEGER,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,n_theta_max,1,MPI_INTEGER,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,n_phi_tot,1,MPI_INTEGER,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,minc,1,MPI_INTEGER,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,n_r_ic_max,1,MPI_INTEGER,st,ierr)
+         call MPI_File_Write(n_graph_loc,n_r_max,1,MPI_INTEGER,st,ierr)
+         call MPI_File_Write(n_graph_loc,n_theta_max,1,MPI_INTEGER,st,ierr)
+         call MPI_File_Write(n_graph_loc,n_phi_tot,1,MPI_INTEGER,st,ierr)
+         call MPI_File_Write(n_graph_loc,minc,1,MPI_INTEGER,st,ierr)
+         call MPI_File_Write(n_graph_loc,n_r_ic_max,1,MPI_INTEGER,st,ierr)
 
-         call MPI_File_Write(graph_mpi_fh,l_heat,1,MPI_LOGICAL,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,l_chemical_conv,1,MPI_LOGICAL,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,l_phase_field,1,MPI_LOGICAL,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,l_mag,1,MPI_LOGICAL,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,l_PressGraph,1,MPI_LOGICAL,st,ierr)
-         call MPI_File_Write(graph_mpi_fh,l_cond_ic,1,MPI_LOGICAL,st,ierr)
+         call MPI_File_Write(n_graph_loc,l_heat,1,MPI_LOGICAL,st,ierr)
+         call MPI_File_Write(n_graph_loc,l_chemical_conv,1,MPI_LOGICAL,st,ierr)
+         call MPI_File_Write(n_graph_loc,l_phase_field,1,MPI_LOGICAL,st,ierr)
+         call MPI_File_Write(n_graph_loc,l_mag,1,MPI_LOGICAL,st,ierr)
+         call MPI_File_Write(n_graph_loc,l_PressGraph,1,MPI_LOGICAL,st,ierr)
+         call MPI_File_Write(n_graph_loc,l_cond_ic,1,MPI_LOGICAL,st,ierr)
 
          !-------- Write colatitudes:
          do n_theta=1,n_theta_max
-            call MPI_File_Write(graph_mpi_fh,real(theta_ord(n_theta),outp),1, &
+            call MPI_File_Write(n_graph_loc,real(theta_ord(n_theta),outp),1, &
                  &              MPI_OUT_REAL,st,ierr)
          end do
 
          !-------- Write radius:
          do n_r=1,n_r_max
-            call MPI_File_Write(graph_mpi_fh,real(r(n_r),outp),1,MPI_OUT_REAL,st,ierr)
+            call MPI_File_Write(n_graph_loc,real(r(n_r),outp),1,MPI_OUT_REAL,st,ierr)
          end do
          if ( l_mag .and. n_r_ic_max > 1 ) then
             do n_r=1,n_r_ic_max
-               call MPI_File_Write(graph_mpi_fh,real(r_ic(n_r),outp),1,MPI_OUT_REAL, &
+               call MPI_File_Write(n_graph_loc,real(r_ic(n_r),outp),1,MPI_OUT_REAL, &
                     &              st,ierr)
             end do
          end if
 
          !-- master gets the displacement
-         call MPI_File_get_position(graph_mpi_fh, offset, ierr)
-         call MPI_File_get_byte_offset(graph_mpi_fh, offset, size_of_header, ierr)
+         call MPI_File_get_position(n_graph_loc, offset, ierr)
+         call MPI_File_get_byte_offset(n_graph_loc, offset, size_of_header, ierr)
       end if ! rank 0
 
       !-- Broadcast the displacement
@@ -843,18 +913,18 @@ contains
       !-- Add the size of the arrays
       disp = size_of_header+(nRStart-1)*n_phi_max*n_theta_max*n_fields*SIZEOF_OUT_REAL
 
-      call MPI_File_Set_View(graph_mpi_fh, disp, MPI_OUT_REAL, MPI_OUT_REAL, &
+      call MPI_File_Set_View(n_graph_loc, disp, MPI_OUT_REAL, MPI_OUT_REAL, &
            &                 "native", info, ierr)
 
    end subroutine graphOut_mpi_header
 !----------------------------------------------------------------------------
-   subroutine write_one_field(dummy, graph_mpi_fh, n_phis, n_thetas)
+   subroutine write_one_field(dummy, n_graph_handle, n_phis, n_thetas)
 
       !-- Input variables:
       integer,    intent(in) :: n_thetas       ! number of first colatitude value
       integer,    intent(in) :: n_phis         ! number of logitudes to be printed
       real(outp), intent(in) :: dummy(:,:)     ! data
-      integer,    intent(in) :: graph_mpi_fh   ! mpi handle of the mpi file
+      integer,    intent(in) :: n_graph_handle ! mpi handle of the mpi file
 
       !-- MPI related variables
       integer :: st(MPI_STATUS_SIZE), n_counts
@@ -863,8 +933,9 @@ contains
       n_counts = 0
       do while (n_phis*n_thetas /= n_counts)
           offset = -n_counts*SIZEOF_OUT_REAL
-          if (n_counts /= 0 ) call MPI_File_Seek(graph_mpi_fh, offset, MPI_SEEK_CUR, ierr)
-          call MPI_File_Write(graph_mpi_fh, dummy, n_phis*n_thetas, &
+          if (n_counts /= 0 ) call MPI_File_Seek(n_graph_handle, offset, &
+                                   &             MPI_SEEK_CUR, ierr)
+          call MPI_File_Write(n_graph_handle, dummy, n_phis*n_thetas, &
                &              MPI_OUT_REAL, st, ierr)
           call MPI_Get_Count(st, MPI_OUT_REAL, n_counts, ierr)
       enddo
@@ -872,7 +943,7 @@ contains
    end subroutine write_one_field
 #endif
 !----------------------------------------------------------------------------
-   subroutine graphOut_IC(b_ic,db_ic,aj_ic,bICB)
+   subroutine graphOut_IC(b_ic,db_ic,aj_ic,bICB,n_graph_handle)
       !
       !  Purpose of this subroutine is to write inner core magnetic
       !  field onto graphic output file. If the inner core is
@@ -885,10 +956,10 @@ contains
       !-- Input variables:
       complex(cp), intent(in) :: b_ic(:,:), db_ic(:,:), aj_ic(:,:)
       complex(cp), intent(in) :: bICB(:)
+      integer, optional, intent(in) :: n_graph_handle
 
       !-- Local variables:
-      integer :: nR, nPhi, nTheta, nTheta_cal
-
+      integer :: nR, nPhi, nTheta, nTheta_cal, n_graph_loc
       real(cp) :: BrB(nlat_padded,n_phi_max), BtB(nlat_padded,n_phi_max)
       real(cp) :: BpB(nlat_padded,n_phi_max)
       real(outp) :: Br(n_theta_max,n_phi_max),Bt(n_theta_max,n_phi_max)
@@ -899,11 +970,17 @@ contains
       integer(kind=MPI_OFFSET_KIND) :: disp
 #endif
 
+      if ( present(n_graph_handle) ) then
+         n_graph_loc = n_graph_handle
+      else
+         n_graph_loc = graph_mpi_fh
+      end if
+
 #ifdef WITH_MPI
       !-- One has to bring rank=0 to the end of the file
       disp = size_of_header+n_fields*n_r_max*n_phi_max*n_theta_max* &
       &      SIZEOF_OUT_REAL
-      call MPI_File_Set_View(graph_mpi_fh, disp, MPI_OUT_REAL, MPI_OUT_REAL, &
+      call MPI_File_Set_View(n_graph_loc, disp, MPI_OUT_REAL, MPI_OUT_REAL, &
            &                 "native", info, ierr)
 #endif
 
@@ -932,25 +1009,24 @@ contains
 
             !-- Write radial magnetic field:
 #ifdef WITH_MPI
-            call write_one_field(Br, graph_mpi_fh, n_phi_max, n_theta_max)
+            call write_one_field(Br, n_graph_loc, n_phi_max, n_theta_max)
 #else
             write(n_graph_file) Br(:,:)
 #endif
 
             !-- Write latitudinal magnetic field:
 #ifdef WITH_MPI
-            call write_one_field(Bt, graph_mpi_fh, n_phi_max, n_theta_max)
+            call write_one_field(Bt, n_graph_loc, n_phi_max, n_theta_max)
 #else
             write(n_graph_file) Bt(:,:)
 #endif
 
             !-- Write longitudinal magnetic field:
 #ifdef WITH_MPI
-            call write_one_field(Bp, graph_mpi_fh, n_phi_max, n_theta_max)
+            call write_one_field(Bp, n_graph_loc, n_phi_max, n_theta_max)
 #else
             write(n_graph_file) Bp(:,:)
 #endif
-
          end do  ! Do loop over radial levels nR
       end if ! Only rank==0 writes
 
