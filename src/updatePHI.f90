@@ -1260,7 +1260,7 @@ contains
       call exch_ghosts(phi_ghost, lm_max, nRstart, nRstop, 1) !-- Run on CPU (MPI comm)
 
 #ifdef WITH_OMP_GPU
-      !$omp target update to(phi_ghost)
+      !$omp target update to(phi_ghost) !-- Update on GPU after MPI exchange
 #endif
       call fill_ghosts_Phi(phi_ghost)
 
