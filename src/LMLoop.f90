@@ -248,7 +248,15 @@ contains
          if ( l_phase_field ) lPhimat(:)=.false.
       end if
 
-      if ( l_phase_field ) call updatePhi(phi_LMloc, dphidt, tscheme)
+      if ( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(phi_LMloc, dphidt)
+#endif
+         call updatePhi(phi_LMloc, dphidt, tscheme)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(phi_LMloc, dphidt)
+#endif
+      end if
 
       if ( l_heat .and. .not. l_single_matrix ) then
          PERFON('up_S')
@@ -636,7 +644,15 @@ contains
 #endif
       end if
 
-      if ( l_phase_field )  call assemble_phase(phi_LMloc, dphidt, tscheme)
+      if ( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+      !$omp target update to(phi_LMloc, dphidt)
+#endif
+      call assemble_phase(phi_LMloc, dphidt, tscheme)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(phi_LMloc, dphidt)
+#endif
+      end if
 
       if ( l_single_matrix ) then
          call assemble_single(s_LMloc, ds_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, &
@@ -685,7 +701,17 @@ contains
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dsdt, dxidt, dpdt, dphidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
 
-      if ( l_phase_field )  call assemble_phase_Rloc(phi_Rloc, dphidt, tscheme)
+      if ( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(phi_ghost)
+         !$omp target update to(phi_Rloc, dphidt)
+#endif
+         call assemble_phase_Rloc(phi_Rloc, dphidt, tscheme)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(phi_ghost)
+         !$omp target update from(phi_Rloc, dphidt)
+#endif
+      end if
       if ( l_chemical_conv )  then
 #ifdef WITH_OMP_GPU
          !$omp target update to(xi_Rloc, dxidt)

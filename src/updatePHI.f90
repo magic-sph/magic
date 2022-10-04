@@ -109,11 +109,23 @@ contains
 
 #ifdef WITH_PRECOND_S
          allocate(phiMat_fac(n_r_max,nLMBs2(1+rank)))
+         phiMat_fac(:) = 0.0_cp
          bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: phiMat_fac)
+         !$omp target update to(phiMat_fac)
+         gpu_bytes_allocated = gpu_bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
+#endif
 #endif
 #ifdef WITH_PRECOND_S0
          allocate(phi0Mat_fac(n_r_max))
+         phi0Mat_fac(:) = 0.0_cp
          bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: phi0Mat_fac)
+         !$omp target update to(phi0Mat_fac)
+         gpu_bytes_allocated = gpu_bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+#endif
 #endif
 
 #ifdef WITHOMP
@@ -172,9 +184,15 @@ contains
          call phi0Mat%finalize()
 
 #ifdef WITH_PRECOND_S
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: phiMat_fac)
+#endif
          deallocate(phiMat_fac)
 #endif
 #ifdef WITH_PRECOND_S0
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: phi0Mat_fac)
+#endif
          deallocate(phi0Mat_fac)
 #endif
 #ifdef WITH_OMP_GPU
@@ -232,13 +250,7 @@ contains
       rhs = 0.0_cp
 
       !-- Now assemble the right hand side and store it in work_LMloc
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dphidt)
-#endif
       call tscheme%set_imex_rhs(work_LMloc, dphidt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(work_LMloc)
-#endif
 
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: rhs)
@@ -273,7 +285,6 @@ contains
          end do
 
          !-- Assemble RHS
-         !$omp target update to(rhs, rhs1)
          !$omp target map(tofrom: lmB) &
          !$omp& private(lm1, l1, nR)
          do lm=1,sizeLMB2(nLMB2,nLMB)
@@ -308,7 +319,7 @@ contains
             end if
          end do
          !$omp end target
-         !$omp target update from(rhs, rhs1)
+         !$omp target update from(rhs, rhs1) !-- TODO: To remove when all update routines will be on GPU
 
          !-- Solve matrices with batched RHS (hipsolver)
          if ( lmB == 0 ) then
@@ -319,8 +330,6 @@ contains
 
          lmB=0
          !-- Loop to reassemble fields
-         !$omp target update to(rhs, rhs1)
-         !$omp target update to(phi)
          !$omp target map(tofrom: lmB) &
          !$omp& private(lm1, l1, m1, n_r_out)
          do lm=1,sizeLMB2(nLMB2,nLMB)
@@ -348,7 +357,6 @@ contains
             end if
          end do
          !$omp end target
-         !$omp target update from(phi)
 
       end do     ! loop over lm blocks
       !$omp single
@@ -488,9 +496,7 @@ contains
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
-      !$omp target update to(phi)
       !$omp target
-!      !$omp parallel do private(n_r_out,lm1) collapse(2)
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
 #endif
@@ -501,8 +507,6 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target
-      !$omp target update from(phi)
-!      !$omp end parallel do
 #else
       !$omp end do
 
@@ -511,10 +515,6 @@ contains
 
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dphidt)
-
-#ifdef WITH_OMP_GPU
-      !$omp target update to(phi)
-#endif
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
@@ -525,11 +525,6 @@ contains
               &                tscheme%l_imp_calc_rhs(tscheme%istage+1),  &
               &                l_in_cheb_space=.true.)
       end if
-
-#ifdef WITH_OMP_GPU
-      !$omp target update from(phi)
-      !$omp target update from(dphidt)
-#endif
 
       deallocate(rhs)
 
@@ -988,10 +983,6 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
 
-#ifdef WITH_OMP_GPU
-      !$omp target update to(phi)
-      !$omp target update to(dphidt)
-#endif
       call tscheme%assemble_imex(work_LMloc, dphidt)
 
 #ifdef WITH_OMP_GPU
@@ -1013,7 +1004,7 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
-      !$omp target update from(phi)
+      !$omp target update from(phi) !-- TODO: Mandatory as robin_bc is on CPU currently
 #else
       !$omp end do
 #endif
@@ -1161,14 +1152,10 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update to(phi, dphidt)
+      !$omp target update to(phi)  !-- TODO: Update on GPU after robin_bc
 #endif
 
       call get_phase_rhs_imp(phi, dphidt, 1, tscheme%l_imp_calc_rhs(1), .false.)
-
-#ifdef WITH_OMP_GPU
-      !$omp target update from(phi, dphidt)
-#endif
 
    end subroutine assemble_phase
 !------------------------------------------------------------------------------
@@ -1196,11 +1183,6 @@ contains
       !$omp target update to(work_Rloc)
 #endif
 
-#ifdef WITH_OMP_GPU
-      !$omp target update to(phi_ghost)
-      !$omp target update to(phi)
-      !$omp target update to(dphidt)
-#endif
       call tscheme%assemble_imex(work_Rloc, dphidt)
 
 #ifdef WITH_OMP_GPU
@@ -1275,22 +1257,16 @@ contains
       !$omp end parallel
 #endif
 
-      call exch_ghosts(phi_ghost, lm_max, nRstart, nRstop, 1)
+      call exch_ghosts(phi_ghost, lm_max, nRstart, nRstop, 1) !-- Run on CPU (MPI comm)
 
 #ifdef WITH_OMP_GPU
       !$omp target update to(phi_ghost)
 #endif
       call fill_ghosts_Phi(phi_ghost)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(phi_ghost)
-#endif
 
       !-- Finally call the construction of the implicit terms for the first stage
       !-- of next iteration
       call get_phase_rhs_imp_ghost(phi_ghost, dphidt, 1, tscheme%l_imp_calc_rhs(1))
-#ifdef WITH_OMP_GPU
-      !$omp target update from(dphidt)
-#endif
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: work_Rloc)
@@ -1410,8 +1386,7 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update from(dat)
-      !$omp target exit data map(delete: dat)
+      !$omp target update from(dat) !-- TODO: Remove when all get_*Mat will be on GPU
 #endif
 
       !-- Array copy
@@ -1421,6 +1396,9 @@ contains
       call phiMat%prepare(info)
       if ( info /= 0 ) call abortRun('! Singular matrix phiMat0!')
 
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: dat)
+#endif
       deallocate(dat)
 
    end subroutine get_phi0Mat
@@ -1542,8 +1520,7 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update from(dat)
-      !$omp target exit data map(delete: dat)
+      !$omp target update from(dat) !-- TODO: Remove when all get_*Mat will be on GPU
 #endif
 
       !-- Array copy
@@ -1553,6 +1530,9 @@ contains
       call phiMat%prepare(info)
       if ( info /= 0 ) call abortRun('Singular matrix phiMat!')
 
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: dat)
+#endif
       deallocate(dat)
 
    end subroutine get_phiMat
