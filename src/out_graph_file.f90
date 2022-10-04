@@ -33,7 +33,7 @@ module graphOut_mod
 #ifdef WITH_MPI
    integer :: graph_mpi_fh
    integer(kind=MPI_OFFSET_KIND) :: size_of_header, n_fields
-   public :: graphOut, graphOut_mpi, graphOut_mpi_batch, graphOut_IC, graphOut_mpi_header, &
+   public :: graphOut, graphOut_mpi, graphOut_mpi_noBatch, graphOut_mpi_batch, graphOut_IC, graphOut_mpi_header, &
    &         open_graph_file, close_graph_file, graphOut_header
 #else
    public :: graphOut, graphOut_IC, graphOut_header, open_graph_file, &
@@ -332,10 +332,9 @@ contains
    end subroutine graphOut_header
 !-------------------------------------------------------------------------------
 #ifdef WITH_MPI
-#ifdef WITH_OMP_GPU
    !-- TODO: Need to duplicate this routine since CRAY CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
    !-- support OpenMP construct Assumed size arrays
-   subroutine graphOut_mpi(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir,n_graph_handle)
+   subroutine graphOut_mpi_noBatch(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir,n_graph_handle)
       !
       ! MPI version of the graphOut subroutine (use of MPI_IO)
       !
@@ -505,7 +504,7 @@ contains
 
       deallocate(dummy)
 
-   end subroutine graphOut_mpi
+   end subroutine graphOut_mpi_noBatch
 
    subroutine graphOut_mpi_batch(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir, &
               &                  n_graph_handle)
@@ -515,7 +514,7 @@ contains
 
       !-- Input variables:
       integer,  intent(in) :: n_r                      ! radial grid point no.
-      logical, optional, intent(in) :: n_graph_handle
+      integer, optional, intent(in) :: n_graph_handle
       real(cp), intent(in) :: vr(:,:,:),vt(:,:,:),vp(:,:,:)
       real(cp), intent(in) :: br(:,:,:),bt(:,:,:),bp(:,:,:)
       real(cp), intent(in) :: sr(:,:,:),prer(:,:,:),xir(:,:,:),phir(:,:,:)
@@ -680,7 +679,6 @@ contains
 
    end subroutine graphOut_mpi_batch
 
-#else
    subroutine graphOut_mpi(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir,n_graph_handle)
       !
       ! MPI version of the graphOut subroutine (use of MPI_IO)
@@ -827,7 +825,6 @@ contains
       !$omp end critical
 
    end subroutine graphOut_mpi
-#endif
 !----------------------------------------------------------------------------
    subroutine graphOut_mpi_header(time,n_graph_handle)
       !
