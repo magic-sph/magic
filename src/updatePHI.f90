@@ -273,6 +273,9 @@ contains
          end do
 
          !-- Assemble RHS
+         !$omp target update to(rhs, rhs1)
+         !$omp target map(tofrom: lmB) &
+         !$omp& private(lm1, l1, nR)
          do lm=1,sizeLMB2(nLMB2,nLMB)
             lm1=lm22lm(lm,nLMB2,nLMB)
             l1=lm22l(lm,nLMB2,nLMB)
@@ -304,6 +307,8 @@ contains
 #endif
             end if
          end do
+         !$omp end target
+         !$omp target update from(rhs, rhs1)
 
          !-- Solve matrices with batched RHS (hipsolver)
          if ( lmB == 0 ) then
@@ -314,6 +319,10 @@ contains
 
          lmB=0
          !-- Loop to reassemble fields
+         !$omp target update to(rhs, rhs1)
+         !$omp target update to(phi)
+         !$omp target map(tofrom: lmB) &
+         !$omp& private(lm1, l1, m1, n_r_out)
          do lm=1,sizeLMB2(nLMB2,nLMB)
             lm1=lm22lm(lm,nLMB2,nLMB)
             l1=lm22l(lm,nLMB2,nLMB)
@@ -338,6 +347,8 @@ contains
                end if
             end if
          end do
+         !$omp end target
+         !$omp target update from(phi)
 
       end do     ! loop over lm blocks
       !$omp single
@@ -477,7 +488,9 @@ contains
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
-      !$omp parallel do private(n_r_out,lm1) collapse(2)
+      !$omp target update to(phi)
+      !$omp target
+!      !$omp parallel do private(n_r_out,lm1) collapse(2)
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
 #endif
@@ -487,7 +500,9 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
-      !$omp end parallel do
+      !$omp end target
+      !$omp target update from(phi)
+!      !$omp end parallel do
 #else
       !$omp end do
 
