@@ -12,7 +12,7 @@ module nonlinear_lm_mod
 #else
    use mem_alloc, only: bytes_allocated
 #endif
-   use truncation, only: lm_max, l_max, lm_maxMag, lmP_max, m_min
+   use truncation, only: lm_max, l_max, lm_maxMag, lmP_max
    use grid_blocking, only: n_spec_space_lmP
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag,          &
@@ -43,8 +43,6 @@ module nonlinear_lm_mod
       procedure :: set_zero
       procedure :: get_td
    end type nonlinear_lm_t
-
-   integer :: lm_min
 
 contains
 
@@ -110,12 +108,6 @@ contains
 #endif
       else
          allocate(this%dphidtLM(1))
-      end if
-
-      if ( m_min == 0 ) then
-         lm_min = 2
-      else
-         lm_min = 1
       end if
 
 #ifdef WITH_OMP_GPU
@@ -240,7 +232,7 @@ contains
             !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
             !$omp private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
 #endif
-            do lm=lm_min,lm_max
+            do lm=1,lm_max
                l   =lm2l(lm)
                m   =lm2m(lm)
                lmS =lm2lmS(lm)
@@ -391,12 +383,14 @@ contains
                !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
                !$omp private(AdvPol_loc,CorPol_loc)
 #endif
-               do lm=lm_min,lm_max
+               do lm=1,lm_max
                   l   =lm2l(lm)
+                  if ( l == 0 ) cycle
                   m   =lm2m(lm)
                   lmS =lm2lmS(lm)
                   lmA =lm2lmA(lm)
                   lmP =lm2lmP(lm)
+
 
                   !------ Recycle CorPol and AdvPol:
                   if ( l_corr ) then
@@ -443,7 +437,7 @@ contains
 #ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do
 #endif
-            do lm=lm_min,lm_max
+            do lm=1,lm_max
                dwdt(lm)=zero
                dzdt(lm)=zero
                dpdt(lm)=zero
@@ -464,7 +458,7 @@ contains
 #else
             !$omp parallel do default(shared) private(lm,lmP,dsdt_loc,l)
 #endif
-            do lm=lm_min,lm_max
+            do lm=1,lm_max
                l   =lm2l(lm)
                lmP =lm2lmP(lm)
                if ( l == 0 ) then
@@ -505,7 +499,7 @@ contains
 #else
             !$omp parallel do default(shared) private(lm,lmP,l)
 #endif
-            do lm=lm_min,lm_max
+            do lm=1,lm_max
                l   =lm2l(lm)
                lmP =lm2lmP(lm)
                if ( l == 0 ) then
@@ -529,7 +523,7 @@ contains
 #else
             !$omp parallel do default(shared) private(lm,lmP)
 #endif
-            do lm=lm_min,lm_max
+            do lm=1,lm_max
                lmP=lm2lmP(lm)
                dphidt(lm)=dphidtLM(lmP)
             end do
@@ -546,7 +540,7 @@ contains
 #else
             !$omp parallel do default(shared) private(lm,lmP)
 #endif
-            do lm=lm_min,lm_max
+            do lm=1,lm_max
                lmP =lm2lmP(lm)
                dbdt(lm)   = dLh(lm)*VxBpLM(lmP)
                dVxBhLM(lm)=-dLh(lm)*VxBtLM(lmP)*r(nR)*r(nR)
@@ -564,7 +558,7 @@ contains
 #else
                !$omp parallel do
 #endif
-               do lm=lm_min,lm_max
+               do lm=1,lm_max
                   dbdt(lm)   =zero
                   djdt(lm)   =zero
                   dVxBhLM(lm)=zero
@@ -584,7 +578,7 @@ contains
 #else
             !$omp parallel do default(shared) private(lm,lmP,l)
 #endif
-            do lm=lm_min,lm_max
+            do lm=1,lm_max
                l   =lm2l(lm)
                lmP =lm2lmP(lm)
                if ( l == 0 ) then
@@ -606,7 +600,7 @@ contains
 #else
             !$omp parallel do
 #endif
-            do lm=lm_min,lm_max
+            do lm=1,lm_max
                if ( l_mag ) dVxBhLM(lm)=zero
                dVSrLM(lm) =zero
             end do
@@ -622,7 +616,7 @@ contains
 #else
             !$omp parallel do
 #endif
-            do lm=lm_min,lm_max
+            do lm=1,lm_max
                dVxVhLM(lm)=zero
             end do
 #ifdef WITH_OMP_GPU
@@ -635,7 +629,7 @@ contains
 #else
             !$omp parallel do
 #endif
-            do lm=lm_min,lm_max
+            do lm=1,lm_max
                dVXirLM(lm)=zero
             end do
 #ifdef WITH_OMP_GPU
