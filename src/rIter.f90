@@ -105,7 +105,8 @@ contains
       call this%dtB_arrays%initialize()
       call this%nl_lm%initialize(lmP_max)
 
-      allocate( dLw(lm_max), dLz(lm_max), dLdw(lm_max), dLddw(lm_max), dmdw(lm_max), dmz(lm_max) )
+      allocate( dLw(lm_max), dLz(lm_max), dLdw(lm_max), dLddw(lm_max) )
+      allocate( dmdw(lm_max), dmz(lm_max) )
       dLw(:) = zero
       dLz(:) = zero
       dLdw(:) = zero
@@ -486,13 +487,7 @@ contains
          !   time step performed in s_LMLoop.f . This should be distributed
          !   over the different models that s_LMLoop.f parallelizes over.
          call td_counter%start_count()
-         call this%nl_lm%get_td(nR, nBc, lPressNext, this%nl_lm%AdvrLM,            &
-              &                 this%nl_lm%AdvtLM, this%nl_lm%AdvpLM,              &
-              &                 this%nl_lm%VSrLM, this%nl_lm%VStLM,                &
-              &                 this%nl_lm%VXirLM, this%nl_lm%VXitLM,              &
-              &                 this%nl_lm%VxBrLM, this%nl_lm%VxBtLM,              &
-              &                 this%nl_lm%VxBpLM, this%nl_lm%heatTermsLM,         &
-              &                 this%nl_lm%dphidtLM, dVSrLM(:,nR), dVXirLM(:,nR),  &
+         call this%nl_lm%get_td(nR, nBc, lPressNext, dVSrLM(:,nR), dVXirLM(:,nR),  &
               &                 dVxVhLM(:,nR), dVxBhLM(:,nR), dwdt(:,nR),          &
               &                 dzdt(:,nR), dpdt(:,nR), dsdt(:,nR), dxidt(:,nR),   &
               &                 dphidt(:,nR), dbdt(:,nR), djdt(:,nR))

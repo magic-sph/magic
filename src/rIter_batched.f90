@@ -20,8 +20,7 @@ module rIter_batched_mod
 #else
    use truncation, only: lmP_max, n_phi_max, lm_max, lm_maxMag, n_theta_max
 #endif
-   use grid_blocking, only: n_phys_space, n_spec_space_lmP, spat2rad, &
-       &                    radlatlon2spat
+   use grid_blocking, only: n_phys_space, spat2rad, radlatlon2spat
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel,  &
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
@@ -35,6 +34,7 @@ module rIter_batched_mod
    use radial_functions, only: or2, orho1, l_R
    use constants, only: zero, ci
    use nonlinear_lm_mod, only: nonlinear_lm_t
+   use nonlinear_lm_2d_mod, only: nonlinear_lm_2d_t
    use grid_space_arrays_3d_mod, only: grid_space_arrays_3d_t
    use TO_arrays_mod, only: TO_arrays_t
    use dtB_arrays_mod, only: dtB_arrays_t
@@ -118,7 +118,7 @@ module rIter_batched_mod
       type(grid_space_arrays_3d_t) :: gsa
       type(TO_arrays_t) :: TO_arrays
       type(dtB_arrays_t) :: dtB_arrays
-      type(nonlinear_lm_t) :: nl_lm
+      type(nonlinear_lm_2d_t) :: nl_lm
    contains
       procedure :: initialize
       procedure :: finalize
@@ -143,7 +143,7 @@ contains
       call this%gsa%initialize(nRstart,nRstop)
       if ( l_TO ) call this%TO_arrays%initialize()
       call this%dtB_arrays%initialize()
-      call this%nl_lm%initialize(n_spec_space_lmP)
+      call this%nl_lm%initialize(lmP_max,nRstart,nRstop)
 
       allocate(dLw(lm_max,nRstart:nRstop), dLz(lm_max,nRstart:nRstop))
       allocate(dLdw(lm_max,nRstart:nRstop), dLddw(lm_max,nRstart:nRstop))
@@ -618,7 +618,6 @@ contains
          !   get_td finally calculates the d*dt terms needed for the
          !   time step performed in s_LMLoop.f . This should be distributed
          !   over the different models that s_LMLoop.f parallelizes over.
-         call td_counter%start_count()
          idx1 = (nR-nRstart)*(lmP_max)+1
          idx2 = idx1+lmP_max-1
          if ( l_heat ) then
@@ -636,19 +635,6 @@ contains
          if ( l_phase_field ) then
             idxp1 = idx1; idxp2 = idx2
          end if
-         call this%nl_lm%get_td(nR, nBc, lPressNext, this%nl_lm%AdvrLM(idx1:idx2), &
-              &                 this%nl_lm%AdvtLM(idx1:idx2), this%nl_lm%AdvpLM(idx1:idx2),              &
-              &                 this%nl_lm%VSrLM(idxh1:idxh2),  &
-              &                 this%nl_lm%VStLM(idxh1:idxh2),                &
-              &                 this%nl_lm%VXirLM(idxc1:idxc2),              &
-              &                 this%nl_lm%VXitLM(idxc1:idxc2),       &
-              &                 this%nl_lm%VxBrLM(idxm1:idxm2), this%nl_lm%VxBtLM(idxm1:idxm2),              &
-              &                 this%nl_lm%VxBpLM(idxm1:idxm2), this%nl_lm%heatTermsLM(idxa1:idxa2),         &
-              &                 this%nl_lm%dphidtLM(idxp1:idxp2), dVSrLM(:,nR), dVXirLM(:,nR),  &
-              &                 dVxVhLM(:,nR), dVxBhLM(:,nR), dwdt(:,nR),          &
-              &                 dzdt(:,nR), dpdt(:,nR), dsdt(:,nR), dxidt(:,nR),   &
-              &                 dphidt(:,nR), dbdt(:,nR), djdt(:,nR))
-         call td_counter%stop_count(l_increment=.false.)
 
          !-- Finish computation of r.m.s. forces
          if ( lRmsCalc ) then
@@ -664,7 +650,7 @@ contains
                  &                 CFp2LM(idx1:idx2), w_Rloc(:,nR), dw_Rloc(:,nR), &
                  &                 ddw_Rloc(:,nR), z_Rloc(:,nR), s_Rloc(:,nR),     &
                  &                 xi_Rloc(:,nR), p_Rloc(:,nR), dp_Rloc(:,nR),     &
-                 &                 this%nl_lm%AdvrLM(idx1:idx2))
+                 &                 this%nl_lm%AdvrLM(:,nR))
          end if
 
          !-- Finish calculation of TO variables:
@@ -686,6 +672,11 @@ contains
          end if
 
       end do
+
+      call td_counter%start_count()
+      call this%nl_lm%get_td(lPressNext, dVSrLM, dVXirLM, dVxVhLM, dVxBhLM, &
+           &                 dwdt, dzdt, dpdt, dsdt, dxidt, dphidt, dbdt, djdt)
+      call td_counter%stop_count(l_increment=.false.)
 
       phy2lm_counter%n_counts=phy2lm_counter%n_counts+1
       lm2phy_counter%n_counts=lm2phy_counter%n_counts+1
