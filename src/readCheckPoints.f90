@@ -414,7 +414,18 @@ contains
                  &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
                  &               .false., z)
             !-- z is a work array in the above expression
-            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, phi, 1, .true.)
+            if ( l_heat ) then
+#ifdef WITH_OMP_GPU
+               !$omp target update to(s, dsdt)
+               if ( l_phase_field ) then
+                  !$omp target update to(phi)
+               end if
+#endif
+               call get_entropy_rhs_imp(s, ds_LMloc, dsdt, phi, 1, .true.)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(s, ds_LMloc, dsdt)
+#endif
+            end if
          end if
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
          if ( .not. l_double_curl ) dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
@@ -1419,8 +1430,19 @@ contains
                  &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
                  &               .false., z)
             !-- z is a work array in the above expression
-            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, phi, &
-                               &                   1, .true.)
+            if ( l_heat ) then
+#ifdef WITH_OMP_GPU
+               !$omp target update to(s, dsdt)
+               if ( l_phase_field ) then
+                  !$omp target update to(phi)
+               end if
+#endif
+               call get_entropy_rhs_imp(s, ds_LMloc, dsdt, phi, &
+                                  &                   1, .true.)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(s, ds_LMloc, dsdt)
+#endif
+            end if
          end if
 
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
@@ -2255,8 +2277,19 @@ contains
                  &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
                  &               .false., z)
             !-- z is a work array in the above expression
-            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, phi, &
-                               &                   1, .true.)
+            if ( l_heat ) then
+#ifdef WITH_OMP_GPU
+               !$omp target update to(s, dsdt)
+               if ( l_phase_field ) then
+                  !$omp target update to(phi)
+               end if
+#endif
+               call get_entropy_rhs_imp(s, ds_LMloc, dsdt, phi, &
+                                  &                   1, .true.)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(s, ds_LMloc, dsdt)
+#endif
+            end if
          end if
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
          if ( .not. l_double_curl ) dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)

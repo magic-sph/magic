@@ -332,6 +332,7 @@ contains
    end subroutine graphOut_header
 !-------------------------------------------------------------------------------
 #ifdef WITH_MPI
+#ifdef WITH_OMP_GPU
    !-- TODO: Need to duplicate this routine since CRAY CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
    !-- support OpenMP construct Assumed size arrays
    subroutine graphOut_mpi_noBatch(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir,n_graph_handle)
@@ -678,7 +679,7 @@ contains
       deallocate(dummy)
 
    end subroutine graphOut_mpi_batch
-
+#endif
    subroutine graphOut_mpi(n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,phir,n_graph_handle)
       !
       ! MPI version of the graphOut subroutine (use of MPI_IO)

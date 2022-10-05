@@ -396,11 +396,35 @@ contains
             if ( l_parallel_solve ) then
                call bulk_to_ghost(s_Rloc, s_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
                call exch_ghosts(s_ghost, lm_max, nRstart, nRstop, 1)
+#ifdef WITH_OMP_GPU
+               !$omp target update to(s_ghost)
+#endif
                call fill_ghosts_S(s_ghost)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(s_ghost)
+#endif
+#ifdef WITH_OMP_GPU
+               !$omp target update to(ds_Rloc, dsdt)
+               if(l_phase_field) then
+                  !$omp target update to(phi_Rloc)
+               end if
+#endif
                call get_entropy_rhs_imp_ghost(s_ghost, ds_Rloc, dsdt, phi_Rloc, &
                     &                         1, .true.)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(ds_Rloc, dsdt)
+#endif
             else
+#ifdef WITH_OMP_GPU
+               !$omp target update to(s_LMloc, dsdt)
+               if ( l_phase_field ) then
+                  !$omp target update to(phi_LMloc)
+               end if
+#endif
                call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, phi_LMloc, 1, .true.)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(s_LMloc, ds_LMloc, dsdt)
+#endif
             end if
          end if
          if ( l_parallel_solve ) then
