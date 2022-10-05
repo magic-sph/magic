@@ -124,7 +124,7 @@ contains
 
 #ifdef WITH_PRECOND_S
          allocate(sMat_fac(n_r_max,nLMBs2(1+rank)))
-         sMat_fac(:) = 0.0_cp
+         sMat_fac(:,:) = 0.0_cp
          bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: sMat_fac)
