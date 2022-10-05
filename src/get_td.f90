@@ -654,7 +654,8 @@ module nonlinear_lm_2d_mod
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag,          &
        &             l_chemical_conv, l_single_matrix, l_double_curl,       &
-       &             l_adv_curl, l_phase_field
+       &             l_adv_curl, l_phase_field, l_parallel_solve,           &
+       &             l_temperature_diff
    use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1
    use physical_parameters, only: CorFac, epsc,  n_r_LCR, epscXi
    use blocking, only: lm2l, lm2m, lm2lmP, lm2lmA, lm2lmS
@@ -1209,93 +1210,97 @@ contains
          end if
       end if
 
-      ! boundary values
-      do nR=nRstart, nRstop
-         if (nR==n_r_cmb .or. nR==n_r_icb ) then
+      ! boundary values are set to zero except for FD and single matrix with Tdiff
+      if ( (.not. l_parallel_solve) .and.  &
+      &    (.not. (l_single_matrix .and. l_temperature_diff)) ) then
 
-            if ( l_mag_nl .or. l_mag_kin ) then
+         do nR=nRstart, nRstop
+            if (nR==n_r_cmb .or. nR==n_r_icb ) then
+
+               if ( l_mag_nl .or. l_mag_kin ) then
 #ifdef WITH_OMP_GPU
-               !$omp target teams distribute parallel do private(lmP,l)
+                  !$omp target teams distribute parallel do private(lmP,l)
 #else
-               !$omp parallel do default(shared) private(lm,lmP,l)
+                  !$omp parallel do default(shared) private(lm,lmP,l)
 #endif
-               do lm=1,lm_max
-                  l   =lm2l(lm)
-                  lmP =lm2lmP(lm)
-                  if ( l == 0 ) then
-                     dVxBhLM(1,nR)=zero
-                     dVSrLM(1,nR) =zero
-                  else
-                     dVxBhLM(lm,nR)=-dLh(lm)*this%VxBtLM(lmP,nR)*r(nR)*r(nR)
+                  do lm=1,lm_max
+                     l   =lm2l(lm)
+                     lmP =lm2lmP(lm)
+                     if ( l == 0 ) then
+                        dVxBhLM(1,nR)=zero
+                        dVSrLM(1,nR) =zero
+                     else
+                        dVxBhLM(lm,nR)=-dLh(lm)*this%VxBtLM(lmP,nR)*r(nR)*r(nR)
+                        dVSrLM(lm,nR) =zero
+                     end if
+                  end do
+#ifdef WITH_OMP_GPU
+                  !$omp end target teams distribute parallel do
+#else
+                  !$omp end parallel do
+#endif
+               else
+#ifdef WITH_OMP_GPU
+                  !$omp target teams distribute parallel do
+#else
+                  !$omp parallel do
+#endif
+                  do lm=1,lm_max
+                     if ( l_mag ) dVxBhLM(lm,nR)=zero
                      dVSrLM(lm,nR) =zero
-                  end if
-               end do
+                  end do
 #ifdef WITH_OMP_GPU
-               !$omp end target teams distribute parallel do
+                  !$omp end target teams distribute parallel do
 #else
-               !$omp end parallel do
+                  !$omp end parallel do
 #endif
-            else
+               end if
+               if ( l_double_curl ) then
 #ifdef WITH_OMP_GPU
-               !$omp target teams distribute parallel do
+                  !$omp target teams distribute parallel do
 #else
-               !$omp parallel do
+                  !$omp parallel do
 #endif
-               do lm=1,lm_max
-                  if ( l_mag ) dVxBhLM(lm,nR)=zero
-                  dVSrLM(lm,nR) =zero
-               end do
+                  do lm=1,lm_max
+                     dVxVhLM(lm,nR)=zero
+                  end do
 #ifdef WITH_OMP_GPU
-               !$omp end target teams distribute parallel do
+                  !$omp end target teams distribute parallel do
+#endif
+               end if
+               if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+                  !$omp target teams distribute parallel do
 #else
-               !$omp end parallel do
+                  !$omp parallel do
 #endif
-            end if
-            if ( l_double_curl ) then
+                  do lm=1,lm_max
+                     dVXirLM(lm,nR)=zero
+                  end do
 #ifdef WITH_OMP_GPU
-               !$omp target teams distribute parallel do
+                  !$omp end target teams distribute parallel do
 #else
-               !$omp parallel do
+                  !$omp end parallel do
 #endif
-               do lm=1,lm_max
-                  dVxVhLM(lm,nR)=zero
-               end do
+               end if
+               if ( l_heat ) then
 #ifdef WITH_OMP_GPU
-               !$omp end target teams distribute parallel do
-#endif
-            end if
-            if ( l_chemical_conv ) then
-#ifdef WITH_OMP_GPU
-               !$omp target teams distribute parallel do
+                  !$omp target teams distribute parallel do
 #else
-               !$omp parallel do
+                  !$omp parallel do
 #endif
-               do lm=1,lm_max
-                  dVXirLM(lm,nR)=zero
-               end do
+                  do lm=1,lm_max
+                     dVSrLM(lm,nR)=zero
+                  end do
 #ifdef WITH_OMP_GPU
-               !$omp end target teams distribute parallel do
+                  !$omp end target teams distribute parallel do
 #else
-               !$omp end parallel do
+                  !$omp end parallel do
 #endif
-            end if
-            if ( l_heat ) then
-#ifdef WITH_OMP_GPU
-               !$omp target teams distribute parallel do
-#else
-               !$omp parallel do
-#endif
-               do lm=1,lm_max
-                  dVSrLM(lm,nR)=zero
-               end do
-#ifdef WITH_OMP_GPU
-               !$omp end target teams distribute parallel do
-#else
-               !$omp end parallel do
-#endif
-            end if
-         end if  ! boundary ? lvelo ?
-      end do
+               end if
+            end if  ! boundary ? lvelo ?
+         end do
+      end if ! Do the boundary points need special care?
 
    end subroutine get_td
 !-----------------------------------------------------------------------------

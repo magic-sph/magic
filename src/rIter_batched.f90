@@ -231,8 +231,7 @@ contains
       !-- Courant citeria:
       real(cp),    intent(out) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
 
-      integer :: nR, nBc, idx1, idx2, idxh1, idxh2, idxm1, idxm2, idxa1, idxa2
-      integer :: idxc1, idxc2, idxp1, idxp2
+      integer :: nR, nBc, idx1, idx2
       logical :: lMagNlBc
 
       if ( l_graph ) then
@@ -243,8 +242,7 @@ contains
 #endif
       end if
 
-      idxh1=1; idxh2=1; idxm1=1; idxm2=1; idxa1=1; idxa2=1
-      idxc1=1; idxc2=1; idxp1=1; idxp2=1
+      idx1=1; idx2=1
 
       if ( rank == 0 ) then
          dtrkc(n_r_cmb)=1.e10_cp
@@ -252,20 +250,6 @@ contains
       elseif (rank == n_procs-1) then
          dtrkc(n_r_icb)=1.e10_cp
          dthkc(n_r_icb)=1.e10_cp
-      end if
-
-      !------ Set nonlinear terms that are possibly needed at the boundaries.
-      !       They may be overwritten by get_td later.
-      if ( rank == 0 ) then
-         if ( l_heat ) dVSrLM(:,n_r_cmb) =zero
-         if ( l_chemical_conv ) dVXirLM(:,n_r_cmb)=zero
-         if ( l_mag ) dVxBhLM(:,n_r_cmb)=zero
-         if ( l_double_curl ) dVxVhLM(:,n_r_cmb)=zero
-      else if (rank == n_procs-1) then
-         if ( l_heat ) dVSrLM(:,n_r_icb) =zero
-         if ( l_chemical_conv ) dVXirLM(:,n_r_icb)=zero
-         if ( l_mag ) dVxBhLM(:,n_r_icb)=zero
-         if ( l_double_curl ) dVxVhLM(:,n_r_icb)=zero
       end if
 
       !------ Having to calculate non-linear boundary terms?
@@ -620,21 +604,6 @@ contains
          !   over the different models that s_LMLoop.f parallelizes over.
          idx1 = (nR-nRstart)*(lmP_max)+1
          idx2 = idx1+lmP_max-1
-         if ( l_heat ) then
-            idxh1 = idx1; idxh2 = idx2
-         end if
-         if ( l_chemical_conv ) then
-            idxc1 = idx1; idxc2 = idx2
-         end if
-         if ( l_mag ) then
-            idxm1 = idx1; idxm2 = idx2
-         end if
-         if ( l_anel ) then
-            idxa1 = idx1; idxa2 = idx2
-         end if
-         if ( l_phase_field ) then
-            idxp1 = idx1; idxp2 = idx2
-         end if
 
          !-- Finish computation of r.m.s. forces
          if ( lRmsCalc ) then
