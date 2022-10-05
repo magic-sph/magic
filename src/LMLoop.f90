@@ -140,13 +140,26 @@ contains
       !$omp target update to(dummy)
 #endif
 
-      if ( l_heat ) call prepareS_FD(tscheme, dummy, phi_Rloc)
+      if ( l_heat ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dummy)
+         if(l_phase_field) then
+            !$omp target update to(phi_Rloc)
+         end if
+#endif
+         call prepareS_FD(tscheme, dummy, phi_Rloc)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dummy)
+         !$omp target update from(s_ghost)
+#endif
+      end if
       if ( l_chemical_conv ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(dummy)
 #endif
          call prepareXi_FD(tscheme, dummy)
 #ifdef WITH_OMP_GPU
+         !$omp target update from(dummy)
          !$omp target update from(xi_ghost)
 #endif
       end if
@@ -260,7 +273,16 @@ contains
 
       if ( l_heat .and. .not. l_single_matrix ) then
          PERFON('up_S')
+#ifdef WITH_OMP_GPU
+         !$omp target update to(s_LMloc, dsdt)
+         if ( l_phase_field ) then
+            !$omp target update to(phi_LMloc)
+         end if
+#endif
          call updateS( s_LMloc, ds_LMloc, dsdt, phi_LMloc, tscheme )
+#ifdef WITH_OMP_GPU
+         !$omp target update from(s_LMloc, ds_LMloc, dsdt)
+#endif
          PERFOFF
       end if
 
@@ -384,7 +406,19 @@ contains
       end if
 
       !-- Mainly assemble the r.h.s. and rebuild the matrices if required
-      if ( l_heat ) call prepareS_FD(tscheme, dsdt, phi_Rloc)
+      if ( l_heat ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dsdt)
+         if(l_phase_field) then
+            !$omp target update to(phi_Rloc)
+         end if
+#endif
+         call prepareS_FD(tscheme, dsdt, phi_Rloc)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dsdt)
+         !$omp target update from(s_ghost)
+#endif
+      end if
       if ( l_chemical_conv ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(dxidt)
@@ -415,7 +449,15 @@ contains
       if ( l_z10Mat ) z_ghost(st_map%lm2(1,0),:)=cmplx(real(z10_ghost(:)),0.0_cp,cp)
 
       !-- Now simply fill the ghost zones to ensure the boundary conditions
-      if ( l_heat ) call fill_ghosts_S(s_ghost)
+      if ( l_heat ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(s_ghost)
+#endif
+         call fill_ghosts_S(s_ghost)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(s_ghost)
+#endif
+      end if
       if ( l_chemical_conv ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(xi_ghost)
@@ -432,7 +474,19 @@ contains
       if ( l_mag_par_solve ) call fill_ghosts_B(b_ghost, aj_ghost)
 
       !-- Finally build the radial derivatives and the arrays for next iteration
-      if ( l_heat ) call updateS_FD(s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
+      if ( l_heat ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(s_Rloc, dsdt)
+         !$omp target update to(s_ghost)
+         if(l_phase_field) then
+            !$omp target update to(phi_Rloc)
+         end if
+#endif
+         call updateS_FD(s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(s_Rloc, ds_Rloc, dsdt)
+#endif
+      end if
       if ( l_chemical_conv ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(xi_Rloc, dxidt)
@@ -658,8 +712,19 @@ contains
          call assemble_single(s_LMloc, ds_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, &
               &               dsdt, dwdt, dpdt, tscheme,lRmsNext)
       else
-         if ( l_heat )  call assemble_entropy(s_LMloc, ds_LMloc, dsdt, phi_LMloc, &
-                             &                tscheme)
+         if ( l_heat )  then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(s_LMloc, ds_LMloc, dsdt)
+            if(l_phase_field) then
+               !$omp target update to(phi_LMloc)
+            end if
+#endif
+            call assemble_entropy(s_LMloc, ds_LMloc, dsdt, phi_LMloc, &
+                                &                tscheme)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(s_LMloc, ds_LMloc, dsdt)
+#endif
+         end if
          call assemble_pol(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, &
               &            dp_LMloc, dwdt, dpdt, dpdt%expl(:,:,1), tscheme,          &
               &            lPressNext, lRmsNext)
@@ -723,7 +788,19 @@ contains
          !$omp target update from(xi_ghost)
 #endif
       end if
-      if ( l_heat )  call assemble_entropy_Rloc(s_Rloc, ds_Rloc, dsdt, phi_ghost, tscheme)
+      if ( l_heat )  then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(s_Rloc, ds_Rloc, dsdt, s_ghost)
+         if(l_phase_field) then
+            !$omp target update to(phi_ghost)
+         end if
+#endif
+         call assemble_entropy_Rloc(s_Rloc, ds_Rloc, dsdt, phi_ghost, tscheme)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(s_Rloc, ds_Rloc, dsdt)
+         !$omp target update from(s_ghost)
+#endif
+      end if
 
       call assemble_pol_Rloc(block_sze, nblocks, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, &
            &                 dp_Rloc, dwdt, dpdt%expl(:,:,1), tscheme, lPressNext,  &
