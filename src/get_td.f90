@@ -240,9 +240,14 @@ contains
             !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
             !$omp private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
 #endif
-            do lm=1,lm_max
+            do lm=lm_min,lm_max
+               l   =lm2l(lm)
+               m   =lm2m(lm)
+               lmS =lm2lmS(lm)
+               lmA =lm2lmA(lm)
+               lmP =lm2lmP(lm)
 
-               if(lm == 1) then ! This is l=0,m=0
+               if ( l == 0 ) then ! This is l=0,m=0
                   lmA=lm2lmA(1)
                   lmP=1
                   !lmPA=lmP2lmPA(lmP)
@@ -271,11 +276,6 @@ contains
 
                   dzdt(lm)=AdvTor_loc+CorTor_loc
                else
-                  l   =lm2l(lm)
-                  m   =lm2m(lm)
-                  lmS =lm2lmS(lm)
-                  lmA =lm2lmA(lm)
-                  lmP =lm2lmP(lm)
 
                   if ( l_double_curl ) then ! Pressure is not needed
 
@@ -464,8 +464,10 @@ contains
 #else
             !$omp parallel do default(shared) private(lm,lmP,dsdt_loc,l)
 #endif
-            do lm=1,lm_max
-               if(lm == 1) then
+            do lm=lm_min,lm_max
+               l   =lm2l(lm)
+               lmP =lm2lmP(lm)
+               if ( l == 0 ) then
                   dsdt_loc  =epsc*epscProf(nR)!+opr/epsS*divKtemp0(nR)
                   dVSrLM(1)=VSrLM(1)
                   if ( l_anel ) then
@@ -477,8 +479,6 @@ contains
                   end if
                   dsdt(1)=dsdt_loc
                else
-                  l   =lm2l(lm)
-                  lmP =lm2lmP(lm)
                   dVSrLM(lm)=VSrLM(lmP)
                   dsdt_loc  =dLh(lm)*VStLM(lmP)
                   if ( l_anel ) then
@@ -501,16 +501,17 @@ contains
          if ( l_chemical_conv ) then
 
 #ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do private(lmP)
+            !$omp target teams distribute parallel do private(lmP,l)
 #else
-            !$omp parallel do default(shared) private(lm,lmP)
+            !$omp parallel do default(shared) private(lm,lmP,l)
 #endif
-            do lm=1,lm_max
-               if (lm == 1) then
+            do lm=lm_min,lm_max
+               l   =lm2l(lm)
+               lmP =lm2lmP(lm)
+               if ( l == 0 ) then
                   dVXirLM(1)=VXirLM(1)
                   dxidt(1)  =epscXi
                else
-                  lmP=lm2lmP(lm)
                   dVXirLM(lm)=VXirLM(lmP)
                   dxidt(lm)  =dLh(lm)*VXitLM(lmP)
                end if
@@ -528,7 +529,7 @@ contains
 #else
             !$omp parallel do default(shared) private(lm,lmP)
 #endif
-            do lm=1,lm_max
+            do lm=lm_min,lm_max
                lmP=lm2lmP(lm)
                dphidt(lm)=dphidtLM(lmP)
             end do
@@ -545,7 +546,7 @@ contains
 #else
             !$omp parallel do default(shared) private(lm,lmP)
 #endif
-            do lm=1,lm_max
+            do lm=lm_min,lm_max
                lmP =lm2lmP(lm)
                dbdt(lm)   = dLh(lm)*VxBpLM(lmP)
                dVxBhLM(lm)=-dLh(lm)*VxBtLM(lmP)*r(nR)*r(nR)
@@ -563,7 +564,7 @@ contains
 #else
                !$omp parallel do
 #endif
-               do lm=1,lm_max
+               do lm=lm_min,lm_max
                   dbdt(lm)   =zero
                   djdt(lm)   =zero
                   dVxBhLM(lm)=zero
@@ -579,16 +580,17 @@ contains
       else   ! boundary !
          if ( l_mag_nl .or. l_mag_kin ) then
 #ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do private(lmP)
+            !$omp target teams distribute parallel do private(lmP,l)
 #else
-            !$omp parallel do default(shared) private(lm,lmP)
+            !$omp parallel do default(shared) private(lm,lmP,l)
 #endif
-            do lm=1,lm_max
-               if (lm == 1) then
+            do lm=lm_min,lm_max
+               l   =lm2l(lm)
+               lmP =lm2lmP(lm)
+               if ( l == 0 ) then
                   dVxBhLM(1)=zero
                   dVSrLM(1) =zero
                else
-                  lmP =lm2lmP(lm)
                   dVxBhLM(lm)=-dLh(lm)*VxBtLM(lmP)*r(nR)*r(nR)
                   dVSrLM(lm) =zero
                end if
@@ -604,7 +606,7 @@ contains
 #else
             !$omp parallel do
 #endif
-            do lm=1,lm_max
+            do lm=lm_min,lm_max
                if ( l_mag ) dVxBhLM(lm)=zero
                dVSrLM(lm) =zero
             end do
@@ -620,7 +622,7 @@ contains
 #else
             !$omp parallel do
 #endif
-            do lm=1,lm_max
+            do lm=lm_min,lm_max
                dVxVhLM(lm)=zero
             end do
 #ifdef WITH_OMP_GPU
@@ -633,7 +635,7 @@ contains
 #else
             !$omp parallel do
 #endif
-            do lm=1,lm_max
+            do lm=lm_min,lm_max
                dVXirLM(lm)=zero
             end do
 #ifdef WITH_OMP_GPU
