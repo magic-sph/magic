@@ -2092,7 +2092,7 @@ contains
 
       !-- Assemble IMEX using ddb and ddj as a work array
 #ifdef WITH_OMP_GPU
-      !$omp target update from(dbdt, djdt)
+      !$omp target update to(dbdt, djdt)
 #endif
       call tscheme%assemble_imex(ddb, dbdt)
       call tscheme%assemble_imex(ddj, djdt)
