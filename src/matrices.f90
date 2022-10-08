@@ -196,7 +196,7 @@ contains
 
 #ifdef WITH_OMP_GPU
       if ( this%gpu_is_used ) then
-         !$omp target exit data map(delete : this%pivot)
+         !$omp target exit data map(delete : this%dat)
       end if
 #endif
       deallocate( this%dat )
