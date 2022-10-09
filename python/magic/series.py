@@ -252,9 +252,9 @@ class MagicTs(MagicSetup):
             ax.plot(self.time, self.dip_cmb, ls='--', c='#6d904f',
                     label='Axisym dipolarity')
             ax.plot(self.time, self.dip_l11, ls='-', c='#fc4f30',
-                    label='Axisym dip l=11')
+                    label='Axisym dip l=%d' %self.l_geo)
             ax.plot(self.time, self.dipTot_l11, ls='--', c='#fc4f30',
-                    label='Total dip l=11')
+                    label='Total dip l=%d' %self.l_geo)
             # ax.plot(self.time, self.dip3, ls='-', c='#e5ae38',
             #         label='Epol axi/Ecmb')
             ax.legend(loc='best', frameon=False)
