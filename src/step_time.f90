@@ -12,7 +12,7 @@ module step_time_mod
    use precision_mod
    use constants, only: zero, one, half
    use truncation, only: n_r_max, l_max, l_maxMag, lm_max, lmP_max, fd_order, &
-       &                 fd_order_bound
+       &                 fd_order_bound, n_r_maxMag
    use num_param, only: n_time_steps, run_time_limit, tEnd, dtMax, &
        &                dtMin, tScale, dct_counter, nl_counter,    &
        &                solve_counter, lm2phy_counter, td_counter, &
@@ -75,6 +75,9 @@ module step_time_mod
    use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
    use probe_mod
+#ifdef WITH_OMP_GPU
+   use blocking, only: llm, ulm, llmMag, ulmMag
+#endif
 
    implicit none
 
@@ -182,6 +185,16 @@ contains
       integer :: n_rst_signal      ! =1 causes output of rst file
       integer :: n_spec_signal     ! =1 causes output of a spec file
       integer :: n_pot_signal      ! =1 causes output for pot files
+#ifdef WITH_OMP_GPU
+      complex(cp), allocatable :: loc_dvxi(:,:), loc_dvs(:,:), loc_dvxv(:,:), loc_dvb(:,:)
+      allocate(loc_dvxi(llm:ulm,1:n_r_max))
+      allocate(loc_dvs(llm:ulm,1:n_r_max))
+      allocate(loc_dvxv(llm:ulm,1:n_r_max))
+      allocate(loc_dvb(llmMag:ulmMag,1:n_r_maxMag))
+      loc_dvxi(:,:) = zero; loc_dvs(:,:) = zero; loc_dvxv(:,:) = zero; loc_dvb(:,:) = zero
+      !$omp target enter data map(alloc: loc_dvxi, loc_dvs, loc_dvxv, loc_dvb)
+      !$omp target update to(loc_dvxi, loc_dvs, loc_dvxv, loc_dvb)
+#endif
 
       if ( lVerbose ) write(output_unit,'(/,'' ! STARTING STEP_TIME !'')')
 
@@ -872,15 +885,47 @@ contains
                !---------------
                ! Finish assembing the explicit terms
                !---------------
+               if ( (.not. l_finish_exp_early) ) then
+#ifdef WITH_OMP_GPU
+                  if ( l_chemical_conv ) then
+                     loc_dvxi(:,:) = dVXirLM_LMLoc(:,:,tscheme%istage)
+                     !$omp target update to(loc_dvxi)
+                     !$omp target update to(dxidt)
+                  end if
+                  if ( l_double_curl ) then
+                     loc_dvxv(:,:) = dVxVhLM_LMloc(:,:,tscheme%istage)
+                     !$omp target update to(loc_dvxv)
+                     !$omp target update to(dwdt)
+                  end if
+                  if ( l_mag ) then
+                     loc_dvb(:,:)  = dVxBhLM_LMloc(:,:,tscheme%istage)
+                     !$omp target update to(loc_dvb)
+                     !$omp target update to(djdt)
+                  end if
+                  if ( l_heat ) then
+                     loc_dvs(:,:)  = dVSrLM_LMLoc(:,:,tscheme%istage)
+                     !$omp target update to(loc_dvs)
+                     !$omp target update to(dsdt)
+                  end if
+                  !$omp target update to(w_LMloc)
+                  if ( l_cond_ic ) then
+                     !$omp target update to(b_ic_LMloc, aj_ic_LMLoc, dbdt_ic, djdt_ic)
+                  end if
+#endif
+               end if
                call lmLoop_counter%start_count()
                if ( (.not. l_finish_exp_early) ) then
                   call f_exp_counter%start_count()
                   call finish_explicit_assembly(omega_ic,w_LMloc,b_ic_LMloc,         &
                        &                        aj_ic_LMloc,                         &
+#ifdef WITH_OMP_GPU
+                       &                        loc_dvs, loc_dvxi, loc_dvxv, loc_dvb,&
+#else
                        &                        dVSrLM_LMLoc(:,:,tscheme%istage),    &
                        &                        dVXirLM_LMLoc(:,:,tscheme%istage),   &
                        &                        dVxVhLM_LMloc(:,:,tscheme%istage),   &
                        &                        dVxBhLM_LMloc(:,:,tscheme%istage),   &
+#endif
                        &                        lorentz_torque_ma,lorentz_torque_ic, &
                        &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,    &
                        &                        djdt_ic, domega_ma_dt, domega_ic_dt, &
@@ -889,6 +934,33 @@ contains
                   call f_exp_counter%stop_count()
                end if
                call lmLoop_counter%stop_count(l_increment=.false.)
+               if ( (.not. l_finish_exp_early) ) then
+#ifdef WITH_OMP_GPU
+                  if ( l_chemical_conv ) then
+                     !$omp target update from(loc_dvxi)
+                     !$omp target update from(dxidt)
+                     dVXirLM_LMLoc(:,:,tscheme%istage) = loc_dvxi(:,:)
+                  end if
+                  if ( l_double_curl ) then
+                     !$omp target update from(loc_dvxv)
+                     !$omp target update from(dwdt)
+                     dVxVhLM_LMloc(:,:,tscheme%istage) = loc_dvxv(:,:)
+                  end if
+                  if ( l_mag ) then
+                     !$omp target update from(loc_dvb)
+                     !$omp target update from(djdt)
+                     dVxBhLM_LMloc(:,:,tscheme%istage) = loc_dvb(:,:)
+                  end if
+                  if ( l_heat ) then
+                     !$omp target update from(loc_dvs)
+                     !$omp target update from(dsdt)
+                     dVSrLM_LMLoc(:,:,tscheme%istage)  = loc_dvs(:,:)
+                  end if
+                  if ( l_cond_ic ) then
+                     !$omp target update from(b_ic_LMloc, aj_ic_LMLoc, dbdt_ic, djdt_ic)
+                  end if
+#endif
+               end if
             end if
 
             !------------
@@ -1112,6 +1184,11 @@ contains
       if ( rank==0 .and. l_save_out ) close(n_log_file)
 
       !-- WORK IS DONE !
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: loc_dvxi, loc_dvs, loc_dvxv, loc_dvb)
+      deallocate(loc_dvxi, loc_dvs, loc_dvxv, loc_dvb)
+#endif
 
    end subroutine step_time
 !------------------------------------------------------------------------------

@@ -797,27 +797,30 @@ contains
       ! the LM-distributed version.
       !
 
+#ifdef WITH_OMP_GPU
+      !-- Input variables
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: dVXirLM(:,:)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: dxi_exp_last(:,:)
+#else
       !-- Input variables
       complex(cp), intent(in) :: w(llm:ulm,n_r_max)
       complex(cp), intent(inout) :: dVXirLM(llm:ulm,n_r_max)
 
       !-- Output variables
       complex(cp), intent(inout) :: dxi_exp_last(llm:ulm,n_r_max)
-
+#endif
       !-- Local variables
       real(cp) :: dLh
       integer :: n_r, start_lm, stop_lm, l, lm
 
-#ifdef WITH_OMP_GPU_OFF
-      !-- TODO: Debug (can't find arrays dVXirLM & dxi_exp_last on GPU in get_dr)
-      !$omp target update to(w, dVXirLM, dxi_exp_last)
-#endif
-
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
       start_lm=llm; stop_lm=ulm
       call get_dr( dVXirLM, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
            &       stop_lm-llm+1, n_r_max, rscheme_oc, .true., .true., .true. )
-      !$omp target teams distribute parallel do
+      !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp parallel default(shared) private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
@@ -828,17 +831,19 @@ contains
       !$omp do
 #endif
       do n_r=1,n_r_max
-         dxi_exp_last(:,n_r)=orho1(n_r)*( dxi_exp_last(:,n_r)-   &
-         &                         or2(n_r)*work_LMloc(:,n_r) )
+         do lm=llm,ulm
+            dxi_exp_last(lm,n_r)=orho1(n_r)*( dxi_exp_last(lm,n_r)-   &
+            &                         or2(n_r)*work_LMloc(lm,n_r) )
+         end do
       end do
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
 #else
       !$omp end do
 #endif
 
       if ( l_onset ) then
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
 #else
          !$omp do private(lm, l, dLh)
@@ -850,21 +855,15 @@ contains
                dxi_exp_last(lm,n_r)=-dLh*or2(n_r)*orho1(n_r)*w(lm,n_r)*dxicond(n_r)
             end do
          end do
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
 #else
          !$omp end do
 #endif
       end if
 
-#ifdef WITH_OMP_GPU_OFF
+#ifndef WITH_OMP_GPU
       !$omp end parallel
-#else
-      !$omp end parallel
-#endif
-
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update from(dVXirLM, dxi_exp_last)
 #endif
 
    end subroutine finish_exp_comp

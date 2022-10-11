@@ -872,11 +872,19 @@ contains
       !
 
       !-- Input variables
+#ifdef WITH_OMP_GPU
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: dVSrLM(:,:)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: ds_exp_last(:,:)
+#else
       complex(cp), intent(in) :: w(llm:ulm,n_r_max)
       complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)
 
       !-- Output variables
       complex(cp), intent(inout) :: ds_exp_last(llm:ulm,n_r_max)
+#endif
 
       !-- Local variables
       real(cp) :: dL
@@ -888,7 +896,7 @@ contains
 #ifdef WITH_OMP_GPU
       start_lm=llm; stop_lm=ulm
       call get_dr( dVSrLM, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
-           &       stop_lm-llm+1, n_r_max, rscheme_oc, nocopy=.true. )
+           &       stop_lm-llm+1, n_r_max, rscheme_oc, .true., .true., .true. )
 #else
       !$omp parallel default(shared) private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
@@ -900,7 +908,7 @@ contains
 
       if ( l_anelastic_liquid ) then
 #ifdef WITH_OMP_GPU
-         
+         !$omp target teams distribute parallel do collapse(2)
 #else
          !$omp do private(n_r,l1,lm,dL)
 #endif
@@ -916,13 +924,13 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-     
+         !$omp end target teams distribute parallel do
 #else
          !$omp end do
 #endif
       else
 #ifdef WITH_OMP_GPU
-      
+         !$omp target teams distribute parallel do collapse(2)
 #else
          !$omp do private(n_r,l1,dL,lm)
 #endif
@@ -936,7 +944,7 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-    
+         !$omp end target teams distribute parallel do
 #else
          !$omp end do
 #endif

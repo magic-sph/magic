@@ -577,18 +577,25 @@ contains
 !------------------------------------------------------------------------------
    subroutine finish_exp_smat(dVSrLM, ds_exp_last)
 
+#ifdef WITH_OMP_GPU
+      complex(cp), intent(inout) :: dVSrLM(:,:)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: ds_exp_last(:,:)
+#else
       complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)
 
       !-- Output variables
       complex(cp), intent(inout) :: ds_exp_last(llm:ulm,n_r_max)
-
+#endif
       !-- Local variables
-      integer :: n_r, start_lm, stop_lm
+      integer :: n_r, start_lm, stop_lm, lm
 
 #ifdef WITH_OMP_GPU
       start_lm=llm; stop_lm=ulm
       call get_dr( dVSrLM, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
-           &       stop_lm-llm+1, n_r_max, rscheme_oc, nocopy=.true. )
+           &       stop_lm-llm+1, n_r_max, rscheme_oc, .true., .true., .true. )
+      !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp parallel default(shared) private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
@@ -599,10 +606,13 @@ contains
       !$omp do
 #endif
       do n_r=1,n_r_max
-         ds_exp_last(:,n_r)=orho1(n_r)*(ds_exp_last(:,n_r)-   &
-         &                      or2(n_r)*work_LMloc(:,n_r))
+         do lm=llm,ulm
+            ds_exp_last(lm,n_r)=orho1(n_r)*(ds_exp_last(lm,n_r)-   &
+            &                      or2(n_r)*work_LMloc(lm,n_r))
+         end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #else
       !$omp end do
       !$omp end parallel

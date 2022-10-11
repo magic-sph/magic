@@ -113,9 +113,9 @@ contains
 
 #ifdef WITH_OMP_GPU
          !-- initialize derivatives:
-         !$omp target teams distribute parallel do collapse(2)
-         do n_cheb=n_cheb_max,n_r_max
-            do n_f=n_f_start,n_f_stop
+         !$omp target teams distribute parallel do
+         do n_f=n_f_start,n_f_stop
+            do n_cheb=n_cheb_max,n_r_max           
                df(n_f,n_cheb)=zero
             end do
          end do
@@ -588,7 +588,7 @@ contains
             !-- Get derivatives:
             call get_dcheb(f,df,n_f_max,n_f_start,n_f_stop,n_r_max, &
                  &         r_scheme%n_max,one,loc_use_gpu)
-          
+
             !-- Transform back:
             if ( l_dct_in_loc ) then
                call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop,loc_use_gpu)

@@ -1520,12 +1520,19 @@ contains
       ! by taking the missing radial derivative (LM-distributed version).
       !
 
+#ifdef WITH_OMP_GPU
+      !-- Input variables
+      complex(cp), intent(inout) :: dVxBhLM(:,:)
+
+      !-- Output variables
+      complex(cp), intent(inout) :: dj_exp_last(:,:)
+#else
       !-- Input variables
       complex(cp), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
 
       !-- Output variables
       complex(cp), intent(inout) :: dj_exp_last(llmMag:ulmMag,n_r_maxMag)
-
+#endif
       !-- Local variables
       integer :: n_r, lm, start_lm, stop_lm, lmStart_00
 
@@ -1534,7 +1541,8 @@ contains
 #ifdef WITH_OMP_GPU
       start_lm=llmMag; stop_lm=ulmMag
       call get_dr( dVxBhLM,work_LMloc,ulmMag-llmMag+1,start_lm-llmMag+1, &
-           &       stop_lm-llmMag+1,n_r_max,rscheme_oc,nocopy=.true. )
+           &       stop_lm-llmMag+1,n_r_max,rscheme_oc, .true., .true., .true. )
+      !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp parallel default(shared) private(start_lm,stop_lm)
       start_lm=llmMag; stop_lm=ulmMag
@@ -1552,6 +1560,7 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #else
       !$omp end do
       !$omp end parallel

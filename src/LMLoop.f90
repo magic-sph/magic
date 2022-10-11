@@ -579,15 +579,9 @@ contains
       end if
 
       if ( l_cond_ic ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(b_ic, aj_ic, dbdt_ic, djdt_ic)
-#endif
          call finish_exp_mag_ic(b_ic, aj_ic, omega_ic,            &
               &                 dbdt_ic%expl(:,:,tscheme%istage), &
               &                 djdt_ic%expl(:,:,tscheme%istage))
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dbdt_ic, djdt_ic)
-#endif
       end if
 
    end subroutine finish_explicit_assembly
