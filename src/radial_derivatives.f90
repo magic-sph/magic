@@ -279,6 +279,7 @@ contains
       integer :: n_f,n_cheb
       real(cp) :: fac_cheb
       logical :: loc_use_gpu
+      integer :: tmp_n_cheb
       loc_use_gpu = .false.
 #ifdef WITH_OMP_GPU
       if( present(use_gpu) ) then
@@ -287,32 +288,29 @@ contains
 #endif      
       
       if ( loc_use_gpu ) then
-
 #ifdef WITH_OMP_GPU
-         !----- initialize derivatives:
-         !$omp target teams
-         do n_cheb=n_cheb_max,n_r_max
-            do n_f=n_f_start,n_f_stop
-               df(n_f,n_cheb)=zero
-               ddf(n_f,n_cheb)=zero
-            end do
-         end do
-         !$omp end target teams
-
          !-- First coefficients:
-         n_cheb=n_cheb_max-1
+         tmp_n_cheb = n_cheb_max - 1
          if ( n_cheb_max == n_r_max ) then
-            fac_cheb=d_fac*real(n_cheb,kind=cp)
+            fac_cheb=d_fac*real(tmp_n_cheb,kind=cp)
          else
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=d_fac*real(2*tmp_n_cheb,kind=cp)
          end if
 
-         !$omp target teams distribute parallel do
-         do n_f=n_f_start,n_f_stop
-            df(n_f,n_cheb) =fac_cheb*f(n_f,n_cheb+1)
-            ddf(n_f,n_cheb)=zero
+         !----- initialize derivatives:
+         !$omp target teams distribute parallel do collapse(2)
+         do n_cheb=1,n_r_max
+            do n_f=n_f_start,n_f_stop
+               if(n_cheb == tmp_n_cheb) then
+                  df(n_f,n_cheb) =fac_cheb*f(n_f,n_cheb+1)
+                  ddf(n_f,n_cheb)=zero
+               else
+                  df(n_f,n_cheb)=zero
+                  ddf(n_f,n_cheb)=zero
+               end if
+            end do
          end do
-         !$omp end target teams distribute parallel do         
+         !$omp end target teams distribute parallel do
 
          !----- recursion
          !$omp target teams distribute parallel do
@@ -325,9 +323,7 @@ contains
          end do
          !$omp end target teams distribute parallel do
 #endif
-
       else
-
          !----- initialize derivatives:
          do n_cheb=n_cheb_max,n_r_max
             do n_f=n_f_start,n_f_stop
@@ -357,7 +353,6 @@ contains
                ddf(n_f,n_cheb)=ddf(n_f,n_cheb+2) + fac_cheb*df(n_f,n_cheb+1)
             end do
          end do
-
       end if
 
       end subroutine get_ddcheb
