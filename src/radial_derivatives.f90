@@ -1,3 +1,4 @@
+#define FIRST_OMP
 module radial_der
    !
    ! Radial derivatives functions
@@ -102,6 +103,7 @@ contains
       integer :: n_f,n_cheb
       real(cp) :: fac_cheb
       logical :: loc_use_gpu
+      integer :: tmp_n_cheb
       loc_use_gpu = .false.
 #ifdef WITH_OMP_GPU
       if( present(use_gpu) ) then
@@ -110,45 +112,81 @@ contains
 #endif
 
       if ( loc_use_gpu ) then
-
 #ifdef WITH_OMP_GPU
+         !-- First Coefficient
+         tmp_n_cheb = n_cheb_max-1
+         if ( n_r_max == n_cheb_max ) then
+            fac_cheb=d_fac*real(tmp_n_cheb,kind=cp)
+         else
+            fac_cheb=d_fac*real(2*tmp_n_cheb,kind=cp)
+         end if
+
          !-- initialize derivatives:
-         !$omp target teams distribute parallel do
-         do n_f=n_f_start,n_f_stop
-            do n_cheb=n_cheb_max,n_r_max           
-               df(n_f,n_cheb)=zero
+         !$omp target teams distribute parallel do collapse(2)
+         do n_cheb=1,n_r_max
+            do n_f=n_f_start,n_f_stop
+               if(n_cheb == tmp_n_cheb) then
+                  df(n_f,n_cheb) = fac_cheb * f(n_f,n_cheb+1)
+               else
+                  df(n_f,n_cheb) = zero
+               end if
             end do
          end do
          !$omp end target teams distribute parallel do
 
-         !-- First Coefficient
-         n_cheb  =n_cheb_max-1
-         if ( n_r_max == n_cheb_max ) then
-            fac_cheb=d_fac*real(n_cheb,kind=cp)
-         else
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
-         end if
-
-         !$omp target teams distribute parallel do
-         do n_f=n_f_start,n_f_stop
-            df(n_f,n_cheb)=fac_cheb*f(n_f,n_cheb+1)
-         end do
-         !$omp end target teams distribute parallel do
-
          !----- Recursion
+#ifdef OLD_VERSION
          !$omp target teams distribute parallel do
          do n_f=n_f_start,n_f_stop
-            !----- Recursion
             do n_cheb=n_cheb_max-2,1,-1
                fac_cheb=d_fac*real(2*n_cheb,kind=cp)
                df(n_f,n_cheb)=df(n_f,n_cheb+2) + fac_cheb*f(n_f,n_cheb+1)
             end do
          end do
          !$omp end target teams distribute parallel do
+#else
+#ifdef FIRST_OMP
+         !$omp target teams private(n_f,n_cheb,fac_cheb)
+         do n_cheb=n_cheb_max-2,1,-1
+            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            !$omp distribute parallel do
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_cheb)=df(n_f,n_cheb+2) + fac_cheb*f(n_f,n_cheb+1)
+            end do
+            !$omp end distribute parallel do
+         end do
+         !$omp end target teams
+#else
+         !$omp target teams private(n_f,df_tmp,n_cheb,fac_cheb)
+         if (n_cheb_max - 2 >= 1) then
+            !$omp distribute parallel do
+            do n_f=n_f_start,n_f_stop
+               df_tmp = df(n_f,n_cheb_max)
+               do n_cheb=n_cheb_max-2,1,-2
+                  fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+                  df_tmp = df_tmp + fac_cheb*f(n_f,n_cheb+1)
+                  df(n_f,n_cheb) = df_tmp
+               end do
+            end do
+            !$omp end distribute parallel do
+         end if
+         if (n_cheb_max - 3 >= 1) then
+            !$omp distribute parallel do
+            do n_f=n_f_start,n_f_stop
+               df_tmp = df(n_f,n_cheb_max-1)
+               do n_cheb=n_cheb_max-3,1,-2
+                  fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+                  df_tmp = df_tmp + fac_cheb*f(n_f,n_cheb+1)
+                  df(n_f,n_cheb) = df_tmp
+               end do
+            end do
+            !$omp end distribute parallel do
+         end if
+         !$omp end target teams
 #endif
-
+#endif
+#endif
       else
-
          !-- initialize derivatives:
          do n_cheb=n_cheb_max,n_r_max
             do n_f=n_f_start,n_f_stop
@@ -176,7 +214,6 @@ contains
          end do
 
       end if
-
    end subroutine get_dcheb_complex
 !------------------------------------------------------------------------------
    subroutine get_dcheb_real_1d(f,df, n_r_max,n_cheb_max,d_fac)
@@ -619,7 +656,6 @@ contains
       else
 
          if(loc_use_gpu) then
-
 #ifdef WITH_OMP_GPU
             !-- Initialise to zero:
             !$omp target teams distribute parallel do collapse(2)
@@ -654,9 +690,7 @@ contains
             end do
             !$omp end target teams distribute parallel do
 #endif
-
         else
-
             !-- Initialise to zero:
             do n_r=1,n_r_max
                do n_f=n_f_start,n_f_stop
@@ -683,7 +717,6 @@ contains
                   end do
                end do
             end do
-
         end if
 
       end if
