@@ -13,7 +13,6 @@ module cosine_transform_gpu
    use omp_lib
    use hipfort_hipfft
    use hipfort_check
-   use hipfort, only: hipDeviceSynchronize
 
    implicit none
 
@@ -203,27 +202,22 @@ contains
 
       !-- Local variables:
       complex(cp), allocatable, target :: tmp_in(:,:), tmp_out(:,:)
-      integer :: n_r, n_f
-      n_r = 0; n_f = 0
+      integer :: n_r, n_f, tmp_n_r_max
+      n_r = 0; n_f = 0; tmp_n_r_max = this%n_r_max
 
       !-- Allocate temp arrays
       allocate(tmp_in(n_f_start:n_f_stop,2*this%n_r_max-2), tmp_out(n_f_start:n_f_stop,2*this%n_r_max-2))
-      tmp_in(:,:) = zero; tmp_out(:,:) = zero
       !$omp target enter data map(alloc : tmp_in, tmp_out)
-      !$omp target update to(tmp_in, tmp_out)
 
       !-- Prepare array for dft many
       !$omp target teams distribute parallel do collapse(2)
-      do n_r=1,this%n_r_max
+      do n_r=1,2*tmp_n_r_max-2
          do n_f=n_f_start,n_f_stop
-            tmp_in(n_f,n_r)=array_in(n_f,n_r)
-         end do
-      end do
-      !$omp end target teams distribute parallel do
-      !$omp target teams distribute parallel do collapse(2)
-      do n_r=this%n_r_max+1,2*this%n_r_max-2
-         do n_f=n_f_start,n_f_stop
-            tmp_in(n_f,n_r)=array_in(n_f,2*this%n_r_max-n_r)
+            if(n_r <= tmp_n_r_max) then
+               tmp_in(n_f,n_r)=array_in(n_f,n_r)
+            else
+               tmp_in(n_f,n_r)=array_in(n_f,2*tmp_n_r_max-n_r)
+            end if
          end do
       end do
       !$omp end target teams distribute parallel do
@@ -233,11 +227,9 @@ contains
       call hipfftCheck(hipfftExecZ2Z(this%plan_many, c_loc(tmp_in), c_loc(tmp_out), HIPFFT_FORWARD))
       !$omp end target data
 
-      call hipCheck(hipDeviceSynchronize())
-
       !-- Copy output onto array_in
       !$omp target teams distribute parallel do collapse(2)
-      do n_r=1,this%n_r_max
+      do n_r=1,tmp_n_r_max
          do n_f=n_f_start,n_f_stop
             array_in(n_f,n_r)=this%cheb_fac*tmp_out(n_f,n_r)
          end do
