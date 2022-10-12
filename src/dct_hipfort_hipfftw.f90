@@ -203,6 +203,7 @@ contains
       !-- Local variables:
       complex(cp), allocatable, target :: tmp_in(:,:), tmp_out(:,:)
       integer :: n_r, n_f, tmp_n_r_max
+      real(cp) :: tmp_fac_cheb
       n_r = 0; n_f = 0; tmp_n_r_max = this%n_r_max
 
       !-- Allocate temp arrays
@@ -228,10 +229,11 @@ contains
       !$omp end target data
 
       !-- Copy output onto array_in
+      tmp_fac_cheb = this%cheb_fac
       !$omp target teams distribute parallel do collapse(2)
       do n_r=1,tmp_n_r_max
          do n_f=n_f_start,n_f_stop
-            array_in(n_f,n_r)=this%cheb_fac*tmp_out(n_f,n_r)
+            array_in(n_f,n_r)=tmp_fac_cheb*tmp_out(n_f,n_r)
          end do
       end do
       !$omp end target teams distribute parallel do
