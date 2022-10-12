@@ -34,6 +34,8 @@ module cosine_transform_gpu
       generic :: costf1 => costf1_real_1d, costf1_complex, costf1_complex_1d
    end type gpu_costf_odd_t
 
+   complex(cp), allocatable, target :: tmp_in(:,:), tmp_out(:,:)
+
 contains
 
    subroutine initialize(this, n_r_max, n_in, n_in2)
@@ -72,6 +74,12 @@ contains
       call hipfftCheck(hipfftPlanMany(this%plan_many, 1, c_loc(this%plan_many_size), c_loc(inembed), istride, &
                                     & idist, c_loc(onembed), ostride, odist, HIPFFT_Z2Z, howmany))
 
+      !-- Allocate tmp_* arrays
+      allocate(tmp_in(llm:ulm,2*this%n_r_max-2), tmp_out(llm:ulm,2*this%n_r_max-2))
+      tmp_in(:,:) = zero; tmp_out(:,:) = zero
+      !$omp target enter data map(alloc : tmp_in, tmp_out)
+      !$omp target update to(tmp_in, tmp_out)
+
    end subroutine initialize
 !------------------------------------------------------------------------------
    subroutine finalize(this)
@@ -83,6 +91,10 @@ contains
 
       call hipfftcheck( hipfftDestroy(this%plan_1d))
       call hipfftcheck( hipfftDestroy(this%plan_many))
+
+      !-- Free tmp_* arrays
+      !$omp target exit data map(delete : tmp_in, tmp_out)
+      deallocate(tmp_in, tmp_out)
 
    end subroutine finalize
 !------------------------------------------------------------------------------
@@ -201,14 +213,10 @@ contains
       complex(cp), intent(inout) :: work_2d(n_f_max,*)  ! Help array (not needed)
 
       !-- Local variables:
-      complex(cp), allocatable, target :: tmp_in(:,:), tmp_out(:,:)
       integer :: n_r, n_f, tmp_n_r_max
       real(cp) :: tmp_fac_cheb
-      n_r = 0; n_f = 0; tmp_n_r_max = this%n_r_max
 
-      !-- Allocate temp arrays
-      allocate(tmp_in(n_f_start:n_f_stop,2*this%n_r_max-2), tmp_out(n_f_start:n_f_stop,2*this%n_r_max-2))
-      !$omp target enter data map(alloc : tmp_in, tmp_out)
+      n_r = 0; n_f = 0; tmp_n_r_max = this%n_r_max
 
       !-- Prepare array for dft many
       !$omp target teams distribute parallel do collapse(2)
@@ -237,10 +245,6 @@ contains
          end do
       end do
       !$omp end target teams distribute parallel do
-
-      !-- Free allocated arrays
-      !$omp target exit data map(delete : tmp_in, tmp_out)
-      deallocate(tmp_in, tmp_out)
 
    end subroutine costf1_complex
 !------------------------------------------------------------------------------
