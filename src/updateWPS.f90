@@ -1140,9 +1140,11 @@ contains
                                &                 stop_lm-llm+1,.true.)
          !$omp target update from(s)
       end if
+      !$omp target update to(w, dw, ddw, work_LMloc)
       call get_dddr( w, dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1, &
            &         stop_lm-llm+1, n_r_max, rscheme_oc,                &
            &         l_dct_in=.not. l_in_cheb)
+      !$omp target update from(dw, ddw, work_LMloc)
       if ( l_in_cheb ) then
          !$omp target update to(w)
          call rscheme_oc%costf1(w,ulm-llm+1,start_lm-llm+1, &

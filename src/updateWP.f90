@@ -1654,9 +1654,11 @@ contains
               &       stop_lm-llm+1, n_r_max, rscheme_oc )
          !$omp target update from(dw, ddw, work_LMloc, ddddw)
       else
+         !$omp target update to(w, dw, ddw, work_LMloc)
          call get_dddr( w, dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1, &
               &         stop_lm-llm+1, n_r_max, rscheme_oc,                &
               &         l_dct_in=.not. l_in_cheb)
+         !$omp target update from(dw, ddw, work_LMloc)
          call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
               &       n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
          if ( l_in_cheb ) then
