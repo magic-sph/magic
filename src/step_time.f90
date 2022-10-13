@@ -1411,8 +1411,14 @@ contains
                call lo2r_one%transp_lm2r(phi_LMloc,phi_Rloc)
             end if
             if ( (l_conv .or. l_mag_kin) .and. (.not. l_parallel_solve) ) then
+#ifdef WITH_OMP_GPU
+               !$omp target update to(w_Rloc)
+#endif
                call get_ddr_Rloc(w_Rloc, dw_Rloc, ddw_Rloc, lm_max, nRstart, nRstop, &
                     &            n_r_max, rscheme_oc)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(dw_Rloc, ddw_Rloc)
+#endif
 #ifdef WITH_OMP_GPU
                !$omp target update to(z_Rloc, dz_Rloc)
 #endif
@@ -1434,8 +1440,14 @@ contains
 #endif
             end if
             if ( l_mag .and. ( .not. l_mag_par_solve ) ) then
+#ifdef WITH_OMP_GPU
+               !$omp target update to(b_Rloc)
+#endif
                call get_ddr_Rloc(b_Rloc, db_Rloc, ddb_Rloc, lm_max, nRstart, nRstop, &
                     &            n_r_max, rscheme_oc)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(db_Rloc, ddb_Rloc)
+#endif
 #ifdef WITH_OMP_GPU
                !$omp target update to(aj_Rloc, dj_Rloc)
 #endif
@@ -1486,8 +1498,14 @@ contains
             end if
             if ( (l_conv .or. l_mag_kin) .and. (.not. l_parallel_solve) ) then
                call lo2r_one%transp_lm2r(w_LMloc, w_Rloc)
+#ifdef WITH_OMP_GPU
+               !$omp target update to(w_Rloc)
+#endif
                call get_ddr_Rloc(w_Rloc, dw_Rloc, ddw_Rloc, lm_max, nRstart, nRstop, &
                     &            n_r_max, rscheme_oc)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(dw_Rloc, ddw_Rloc)
+#endif
                call lo2r_one%transp_lm2r(z_LMloc, z_Rloc)
 #ifdef WITH_OMP_GPU
                !$omp target update to(z_Rloc, dz_Rloc)
@@ -1511,8 +1529,14 @@ contains
             end if
             if ( l_mag .and. ( .not. l_mag_par_solve ) ) then
                call lo2r_one%transp_lm2r(b_LMloc, b_Rloc)
+#ifdef WITH_OMP_GPU
+               !$omp target update to(b_Rloc)
+#endif
                call get_ddr_Rloc(b_Rloc, db_Rloc, ddb_Rloc, lm_max, nRstart, nRstop, &
                     &            n_r_max, rscheme_oc)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(db_Rloc, ddb_Rloc)
+#endif
                call lo2r_one%transp_lm2r(aj_LMloc, aj_Rloc)
 #ifdef WITH_OMP_GPU
                !$omp target update to(aj_Rloc, dj_Rloc)
