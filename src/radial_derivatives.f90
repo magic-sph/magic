@@ -669,7 +669,7 @@ contains
             !$omp end target teams distribute parallel do
 
             !-- Boundary points for 1st derivative
-            !$omp target teams distribute parallel do
+            !$omp target teams distribute parallel do collapse(2)
             do n_r=1,r_scheme%order/2
                do n_f=n_f_start,n_f_stop
                   do od=0,r_scheme%order_boundary
