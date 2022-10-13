@@ -200,15 +200,13 @@ class MagicRadial(MagicSetup):
         if self.name == 'eKinR':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(x_axis, self.ekin_pol, ls='-', c='#30a2da',
-                    label='ekin pol')
-            ax.plot(x_axis, self.ekin_tor, ls='-', c='#fc4f30',
-                    label='ekin tor')
-            ax.plot(x_axis, self.ekin_pol_axi, ls='--', c='#30a2da',
+            ax.plot(x_axis, self.ekin_pol, ls='-', c='C0', label='ekin pol')
+            ax.plot(x_axis, self.ekin_tor, ls='-', c='C1', label='ekin tor')
+            ax.plot(x_axis, self.ekin_pol_axi, ls='--', c='C0',
                     label='ekin pol axi')
-            ax.plot(x_axis, self.ekin_tor_axi, ls='--', c='#fc4f30',
+            ax.plot(x_axis, self.ekin_tor_axi, ls='--', c='C1',
                     label='ekin tor axi')
-            ax.plot(x_axis, self.ekin_pol+self.ekin_tor, ls='-', c='#31363B',
+            ax.plot(x_axis, self.ekin_pol+self.ekin_tor, ls='-', c='0.25',
                     label='ekin tot')
             ax.set_xlabel('Radius')
             ax.set_ylabel('Kinetic energy')
@@ -218,15 +216,13 @@ class MagicRadial(MagicSetup):
         elif self.name == 'eMagR':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(x_axis, self.emag_pol, ls='-', c='#30a2da',
-                    label='emag pol')
-            ax.plot(x_axis, self.emag_tor, ls='-', c='#fc4f30',
-                    label='emag tor')
-            ax.plot(x_axis, self.emag_pol_axi, ls='--', c='#30a2da',
+            ax.plot(x_axis, self.emag_pol, ls='-', c='C0', label='emag pol')
+            ax.plot(x_axis, self.emag_tor, ls='-', c='C1', label='emag tor')
+            ax.plot(x_axis, self.emag_pol_axi, ls='--', c='C0',
                     label='emag pol axi')
-            ax.plot(x_axis, self.emag_tor_axi, ls='--', c='#fc4f30',
+            ax.plot(x_axis, self.emag_tor_axi, ls='--', c='C1',
                     label='emag tor axi')
-            ax.plot(x_axis, self.emag_pol+self.emag_tor, ls='-', c='#31363B',
+            ax.plot(x_axis, self.emag_pol+self.emag_tor, ls='-', c='0.25',
                     label='emag tot')
 
             ax.legend(loc='best', frameon=False)
