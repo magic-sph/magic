@@ -455,8 +455,6 @@ contains
                            bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
                            if ( real(b(l1m0,n_r_cmb)) > 1.0e-9_cp ) &
                            &    direction=real(b(l1m0,n_r_cmb))/abs(real(b(l1m0,n_r_cmb)))
-                           rhs1(1,2*lmB-1,threadid)=bpeaktop
-                           rhs1(1,2*lmB,threadid)  =0.0_cp
                            rhs1(1,2*lmB-1,threadid)=bpeaktop*direction
                            rhs1(1,2*lmB,threadid)  =0.0_cp
                         else if ( n_imp == 4 ) then
