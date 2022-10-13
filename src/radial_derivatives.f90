@@ -741,6 +741,11 @@ contains
       !-- Local variables:
       integer :: n_r,n_f,od
       logical :: l_dct_in_loc
+      logical :: loc_use_gpu
+      loc_use_gpu = .false.
+#ifdef WITH_OMP_GPU
+      loc_use_gpu = .true.
+#endif
 
       if ( r_scheme%version == 'cheb' ) then
 
@@ -765,16 +770,16 @@ contains
 
          !-- Transform f to cheb space:
          if ( l_dct_in_loc ) then
-            call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop,.true.)
+            call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
          end if
     
          !-- Get derivatives:
          call get_ddcheb(work,df,ddf,n_f_max,n_f_start,n_f_stop, &
-              &          n_r_max,r_scheme%n_max,one,.true.)
+              &          n_r_max,r_scheme%n_max,one,loc_use_gpu)
     
          !-- Transform back:
-         call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,.true.)
-         call r_scheme%costf1(ddf,n_f_max,n_f_start,n_f_stop,.true.)
+         call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
+         call r_scheme%costf1(ddf,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
     
          !-- New map:
 #ifdef WITH_OMP_GPU
