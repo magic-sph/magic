@@ -930,7 +930,7 @@ def zderavg(data, rad, colat=None, exclude=False):
 
     dtheta = thetaderavg(data)
     dr = rderavg(data, rad, exclude)
-    dz = np.cos(thmD)*dr - np.sin(thmD)/rr*dtheta
+    dz = np.cos(thmD)*dr - np.sin(thmD)/rad*dtheta
 
     return dz
 
@@ -959,7 +959,7 @@ def sderavg(data, rad, colat=None, exclude=False):
         th = colat
     else:
         th = np.linspace(0., np.pi, ntheta)
-    rr2D, th2D = np.meshgrid(rr,th)
+    rr2D, th2D = np.meshgrid(rad, th)
     dtheta = thetaderavg(data)
     dr = rderavg(data, rad, exclude)
     ds = np.sin(th2D)*dr + np.cos(th2D)/rr2D*dtheta

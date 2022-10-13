@@ -226,8 +226,7 @@ else:
             phi = np.linspace(0., 2.*np.pi/minc, nphi)
             output = np.zeros((nphi, ns-2), dtype=input[0].dtype)
             for iphi in progressbar(range(nphi)):
-                Z, S, out2D = sph2cyl_plane([input[0][iphi, ...]], radius, ns,
-                                            nz)
+                Z, S, out2D = sph2cyl_plane([input[0][iphi, ...]], radius, ns)
                 S = S[:, 1:-1]
                 Z = Z[:, 1:-1]
                 output[iphi, :] = np.trapz(out2D[0][:, 1:-1], z, axis=0)
@@ -242,7 +241,7 @@ else:
                 file.close()
             return height, cylRad, phi, output
         elif len(input[0].shape) == 2:
-            Z, S, out2D = sph2cyl_plane(input, radius, ns, nz)
+            Z, S, out2D = sph2cyl_plane(input, radius, ns)
             S = S[:, 1:-1]
             Z = Z[:, 1:-1]
             output = []
@@ -410,7 +409,7 @@ class Cyl(MagicSetup):
             beta[i, :] = beta0
         Z, S, [rho, beta] = sph2cyl_plane([rho,beta],
                                  np.linspace(self.ro, self.ri, self.ns),
-                                 self.ns, self.nz)
+                                 self.ns)
         self.rho = np.zeros_like(self.vs)
         self.beta = np.zeros_like(self.vs)
         for i in range(self.npI):
