@@ -825,18 +825,8 @@ contains
 
          !-- Boundary points for 1st derivative
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do
-         do n_f=n_f_start,n_f_stop
-            do n_r=1,r_scheme%order/2
-               do od=0,r_scheme%order_boundary
-                  df(n_f,n_r) = df(n_f,n_r)+r_scheme%dr_top(n_r,od) * f(n_f,od+1)
-                  df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
-                  &                       r_scheme%dr_bot(n_r,od)*f(n_f,n_r_max-od)
-               end do
-            end do
-         end do
-         !$omp end target teams distribute parallel do
-#else
+         !$omp target teams distribute parallel do collapse(2)
+#endif
          do n_r=1,r_scheme%order/2
             do n_f=n_f_start,n_f_stop
                do od=0,r_scheme%order_boundary
@@ -846,22 +836,14 @@ contains
                end do
             end do
          end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #endif
 
          !-- Boundary points for 2nd derivative
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do
-         do n_f=n_f_start,n_f_stop
-            do n_r=1,r_scheme%order/2
-               do od=0,r_scheme%order_boundary+1
-                  ddf(n_f,n_r) = ddf(n_f,n_r)+r_scheme%ddr_top(n_r,od) * f(n_f,od+1)
-                  ddf(n_f,n_r_max-n_r+1) = ddf(n_f,n_r_max-n_r+1)+               &
-                  &                       r_scheme%ddr_bot(n_r,od)*f(n_f,n_r_max-od)
-               end do
-            end do
-         end do
-         !$omp end target teams distribute parallel do
-#else
+         !$omp target teams distribute parallel do collapse(2)
+#endif
          do n_r=1,r_scheme%order/2
             do n_f=n_f_start,n_f_stop
                do od=0,r_scheme%order_boundary+1
@@ -871,6 +853,8 @@ contains
                end do
             end do
          end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #endif
 
       end if
