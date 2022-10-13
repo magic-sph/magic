@@ -1659,8 +1659,10 @@ contains
               &         stop_lm-llm+1, n_r_max, rscheme_oc,                &
               &         l_dct_in=.not. l_in_cheb)
          !$omp target update from(dw, ddw, work_LMloc)
+         !$omp target update to(p)
          call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &       n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
+              &       n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb, use_gpu=.true.)
+         !$omp target update from(p, dp)
          if ( l_in_cheb ) then
             !$omp target update to(p)
             call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1, &
@@ -1890,8 +1892,14 @@ contains
       ! In case pressure is needed in the double curl formulation
       ! we also have to compute the radial derivative of p
       if ( lPressNext .and. l_double_curl ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(p)
+#endif
          call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &       n_r_max, rscheme_oc)
+              &       n_r_max, rscheme_oc, use_gpu=.true.)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(p, dp)
+#endif
 #ifndef WITH_OMP_GPU
          !$omp barrier
 #endif
