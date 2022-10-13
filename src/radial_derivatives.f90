@@ -1103,10 +1103,6 @@ contains
          end if
       end do
 
-#ifdef WITH_OMP_GPU
-      !$omp target data map(to: work_ghost, fbot, ftop)
-#endif
-
       !-- Exchange the ghost zones
 #ifndef WITH_OMP_GPU
       !$omp barrier
@@ -1179,10 +1175,6 @@ contains
 
 #ifndef WITH_OMP_GPU
       !$omp end parallel
-#endif
-
-#ifdef WITH_OMP_GPU
-      !$omp end target data
 #endif
 
    end subroutine get_dr_Rloc
