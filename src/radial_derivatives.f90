@@ -1212,7 +1212,7 @@ contains
          call abortRun('Distributed r-der not implemented in this case yet!')
       end if
 
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
       start_lm=1; stop_lm=lm_max
 #else
       !$omp parallel default(shared) private(start_lm,stop_lm,n_r,od)
@@ -1235,18 +1235,18 @@ contains
       end do
 
       !-- Exchange the ghost zones
-#ifndef WITH_OMP_GPU_OFF
+#ifndef WITH_OMP_GPU
       !$omp barrier
       !$omp master
 #endif
       call exch_ghosts(work_ghost, lm_max, nRstart, nRstop, r_scheme%order/2)
-#ifndef WITH_OMP_GPU_OFF
+#ifndef WITH_OMP_GPU
       !$omp end master
       !$omp barrier
 #endif
 
       !-- Bulk points for 1st and 2nd derivatives
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
 #endif
       do n_r=nRstart,nRstop
@@ -1259,25 +1259,25 @@ contains
             &                r_scheme%ddr(n_r,2)*work_ghost(lm,n_r+1)
          end do
       end do
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
 #endif
 
       !-- Exchange boundary values
-#ifndef WITH_OMP_GPU_OFF
+#ifndef WITH_OMP_GPU
       !$omp barrier
       !$omp master
 #endif
       call get_bound_vals(fbot, ftop, lm_max, nRstart, nRstop, n_r_max, &
            &              r_scheme%order_boundary+2)
-#ifndef WITH_OMP_GPU_OFF
+#ifndef WITH_OMP_GPU
       !$omp end master
       !$omp barrier
 #endif
 
       !-- Boundary points
       if ( rank == 0 ) then
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
 #endif
          do lm=start_lm,stop_lm
@@ -1290,13 +1290,13 @@ contains
                ddf_Rloc(lm,1) = ddf_Rloc(lm,1) + r_scheme%ddr_top(1,od)*ftop(lm,od+1)
             end do
          end do
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
 #endif
       end if
 
       if ( rank == n_procs-1 ) then
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
 #endif
          do lm=start_lm,stop_lm
@@ -1311,12 +1311,12 @@ contains
                &             r_scheme%ddr_bot(1,od)*fbot(lm,n_r_max-od)
             end do
          end do
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
 #endif
       end if
 
-#ifndef WITH_OMP_GPU_OFF
+#ifndef WITH_OMP_GPU
       !$omp end parallel
 #endif
 
