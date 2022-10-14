@@ -2666,50 +2666,53 @@ contains
       real(cp) :: l_P_1
       real(cp) :: dLh
       real(cp) :: rRatio
-      real(cp) :: datJmat(n_r_tot,n_r_tot)
-      real(cp) :: datBmat(n_r_tot,n_r_tot)
+      real(cp), allocatable :: datJmat(:,:)
+      real(cp), allocatable :: datBmat(:,:)
+      real(cp) :: wimp_lin
 
+      allocate(datJmat(n_r_tot,n_r_tot), datBmat(n_r_tot,n_r_tot))
       nRall=n_r_max
       if ( l_cond_ic ) nRall=nRall+n_r_ic_max
       dLh=real(l*(l+1),kind=cp)
       datJmat = 0.0_cp
       datBmat = 0.0_cp
+      wimp_lin = tscheme%wimp_lin(1)
 
       !-- matrices depend on degree l but not on order m,
       !   we thus have to construct bmat and ajmat for each l:
 
       l_P_1=real(l+1,kind=cp)
 
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: datJmat, datBmat)
       !$omp target update to(datJmat, datBmat)
 #endif
 
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
 #endif
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
             datBmat(nR,nR_out)=                       rscheme_oc%rnorm * (  &
             &                 dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) -      &
-            &    tscheme%wimp_lin(1)*opm*lambda(nR)*hdif*dLh*or2(nR) * (    &
+            &    wimp_lin*opm*lambda(nR)*hdif*dLh*or2(nR) * (               &
             &                                rscheme_oc%d2rMat(nR,nR_out) - &
             &                      dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) ) )
 
             datJmat(nR,nR_out)=                       rscheme_oc%rnorm * (  &
             &                 dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) -      &
-            &   tscheme%wimp_lin(1)*opm*lambda(nR)*hdif*dLh*or2(nR) * (     &
+            &   wimp_lin*opm*lambda(nR)*hdif*dLh*or2(nR) * (                &
             &                                rscheme_oc%d2rMat(nR,nR_out) + &
             &                    dLlambda(nR)*rscheme_oc%drMat(nR,nR_out) - &
             &                      dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) ) )
          end do
       end do
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
 #endif
 
       if  ( l_LCR ) then
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
 #endif
          do nR=2,n_r_max-1
@@ -2723,12 +2726,12 @@ contains
                end do
             end if
          end do
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
 #endif
       end if
 
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
       !$omp target update from(datJmat, datBmat)
 #endif
 
@@ -2854,12 +2857,12 @@ contains
          end if
       end do
 
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
       !$omp target update to(datJmat, datBmat)
 #endif
 
       !----- normalization for highest and lowest Cheb mode:
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
 #endif
       do nR=1,n_r_max
@@ -2868,29 +2871,30 @@ contains
          datJmat(nR,1)      =rscheme_oc%boundary_fac*datJmat(nR,1)
          datJmat(nR,n_r_max)=rscheme_oc%boundary_fac*datJmat(nR,n_r_max)
       end do
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
-      !$omp target update from(datJmat, datBmat)
 #endif
       if ( kbotb == 3 ) then
+#ifdef WITH_OMP_GPU
+      !$omp target update from(datJmat, datBmat)
+#endif
          datBmat(n_r_max+1,1)      =rscheme_oc%boundary_fac*datBmat(n_r_max+1,1)
          datBmat(n_r_max+1,n_r_max)=rscheme_oc%boundary_fac* &
          &                          datBmat(n_r_max+1,n_r_max)
          datJmat(n_r_max+1,1)      =rscheme_oc%boundary_fac*datJmat(n_r_max+1,1)
          datJmat(n_r_max+1,n_r_max)=rscheme_oc%boundary_fac* &
          &                          datJmat(n_r_max+1,n_r_max)
-      end if
-
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
       !$omp target update to(datJmat, datBmat)
 #endif
+      end if
 
       !----- Conducting inner core:
       if ( l_cond_ic ) then
          !----- inner core implicit time step matrices for the grid
          !      points n_r=n_r_max+1,...,n_r_max+n_r_ic
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do nCheb=1,n_r_ic_max ! counts even IC cheb modes
             do nR=2,n_r_ic_max-1 ! counts IC radial grid points
@@ -2903,7 +2907,7 @@ contains
                datBmat(n_r_max+nR,n_r_max+nCheb) =    &
                &    cheb_norm_ic*dLh*or2(n_r_max) * ( &
                &             cheb_ic(nCheb,nR) -      &
-               &     tscheme%wimp_lin(1)*opm*O_sr * ( &
+               &     wimp_lin*opm*O_sr * (            &
                &                d2cheb_ic(nCheb,nR) + &
                &    two*l_P_1*O_r_ic(nR)*dcheb_ic(nCheb,nR) )   )
 
@@ -2915,18 +2919,18 @@ contains
             datBmat(n_r_max+nR,n_r_max+nCheb) =    &
             &    cheb_norm_ic*dLh*or2(n_r_max) * ( &
             &                  cheb_ic(nCheb,nR) - &
-            &       tscheme%wimp_lin(1)*opm*O_sr * &
+            &       wimp_lin*opm*O_sr *            &
             &    (one+two*l_P_1)*d2cheb_ic(nCheb,nR) )
 
             datJmat(n_r_max+nR,n_r_max+nCheb)=datBmat(n_r_max+nR,n_r_max+nCheb)
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
 
          !-------- boundary condition at r_icb:
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do nCheb=1,n_cheb_ic_max
             datBmat(n_r_max,n_r_max+nCheb)=-cheb_norm_ic*cheb_ic(nCheb,1)
@@ -2937,12 +2941,12 @@ contains
             datJmat(n_r_max+1,n_r_max+nCheb)=datBmat(n_r_max+1,n_r_max+nCheb)
          end do ! cheb modes
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
 
          !-------- fill with zeros:
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do nCheb=n_cheb_ic_max+1,n_r_ic_max
             datBmat(n_r_max,n_r_max+nCheb)  =0.0_cp
@@ -2951,12 +2955,12 @@ contains
             datJmat(n_r_max+1,n_r_max+nCheb)=0.0_cp
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
 
          !-------- normalization for lowest Cheb mode:
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do nR=n_r_max,n_r_tot
             datBmat(nR,n_r_max+1)=half*datBmat(nR,n_r_max+1)
@@ -2965,12 +2969,12 @@ contains
             datJmat(nR,n_r_tot)  =half*datJmat(nR,n_r_tot)
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
 
          !-------- fill matrices up with zeros:
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do collapse(2)
 #endif
          do nCheb=n_r_max+1,n_r_tot
             do nR=1,n_r_max-1
@@ -2979,7 +2983,8 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
+         !$omp target teams distribute parallel do collapse(2)
 #endif
          do nCheb=1,n_r_max
             do nR=n_r_max+2,n_r_tot
@@ -2988,7 +2993,7 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
 
       end if  ! conducting inner core ?
@@ -2996,25 +3001,25 @@ contains
 #ifdef WITH_PRECOND_BJ
       ! compute the linesum of each line
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,nRall
          bMat_fac(nR)=one/maxval(abs(datBmat(nR,1:nRall)))
          datBmat(nR,:) = datBmat(nR,:)*bMat_fac(nR)
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,nRall
          jMat_fac(nR)=one/maxval(abs(datJmat(nR,1:nRall)))
          datJmat(nR,:) = datJmat(nR,:)*jMat_fac(nR)
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 #endif
 
@@ -3030,6 +3035,10 @@ contains
       integer, save :: counter=0
       integer :: filehandle
       character(len=100) :: filename
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(datJmat, datBmat)
+#endif
 
       ! copy the bMat to a temporary variable for modification
       write(filename,"(A,I3.3,A,I3.3,A)") "bMat_",l,"_",counter,".dat"
@@ -3091,6 +3100,10 @@ contains
       end block
 #endif
 
+#ifdef WITH_OMP_GPU
+      !$omp target update from(datJmat, datBmat) !-- TODO:  Remove after
+#endif
+
       !-- Array copy
       call bMat%set_data(datBmat)
       call jMat%set_data(datJmat)
@@ -3102,6 +3115,11 @@ contains
       !----- LU decomposition:
       call jMat%prepare(info)
       if ( info /= 0 ) call abortRun('! Singular matrix jMat in get_bmat!')
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: datJmat, datBmat)
+#endif
+      deallocate(datJmat, datBmat)
 
    end subroutine get_bMat
 !-----------------------------------------------------------------------------
