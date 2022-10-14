@@ -40,8 +40,7 @@ module output_mod
    use fields_average_mod, only: fields_average
    use spectra, only: spectrum, spectrum_temp, get_amplitude
    use outTO_mod, only: outTO
-   use output_data, only: tag, l_max_cmb, n_coeff_r, l_max_r, n_coeff_r_max,&
-       &                  n_r_array, n_r_step,  n_log_file, log_file
+   use output_data, only: tag, l_max_cmb, n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three, zero
    use outMisc_mod, only: outHeat, outHelicity, outHemi, outPhase, get_onset
    use geos, only: outGeos, outOmega
