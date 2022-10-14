@@ -1232,11 +1232,11 @@ contains
       if ( l_in_cheb ) then
          call rscheme_oc%costf1(z,ulm-llm+1,start_lm-llm+1, &
                                &                 stop_lm-llm+1,.true.)
-         !$omp target update from(z)
       end if
 
       call dct_counter%stop_count(l_increment=.false.)
 
+      !$omp target update from(z)
       !$omp target update from(dz, work_LMloc)
 #else
       !$omp parallel default(shared)  private(start_lm, stop_lm)

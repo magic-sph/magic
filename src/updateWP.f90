@@ -1631,6 +1631,17 @@ contains
       end if
 
 #ifdef WITH_OMP_GPU
+      if ( l_double_curl ) then
+         !$omp target update to(dw, ddw, work_LMloc, ddddw)
+         !$omp target update to(w)
+      else
+         !$omp target update to(w, dw, ddw, work_LMloc)
+         !$omp target update to(p)
+      end if
+      !$omp target update to(w)
+#endif
+
+#ifdef WITH_OMP_GPU
       start_lm=llm; stop_lm=ulm
       call dct_counter%start_count()
 #else
@@ -1645,36 +1656,25 @@ contains
 
 #ifdef WITH_OMP_GPU
       if ( l_double_curl ) then
-         !$omp target update to(dw, ddw, work_LMloc, ddddw)
-         !$omp target update to(w)
          call get_ddr( w, dw, ddw, ulm-llm+1, start_lm-llm+1,  &
               &       stop_lm-llm+1, n_r_max, rscheme_oc,      &
               &       l_dct_in=.not. l_in_cheb )
          call get_ddr( ddw, work_LMloc, ddddw, ulm-llm+1, start_lm-llm+1,  &
               &       stop_lm-llm+1, n_r_max, rscheme_oc )
-         !$omp target update from(dw, ddw, work_LMloc, ddddw)
       else
-         !$omp target update to(w, dw, ddw, work_LMloc)
          call get_dddr( w, dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1, &
               &         stop_lm-llm+1, n_r_max, rscheme_oc,                &
               &         l_dct_in=.not. l_in_cheb)
-         !$omp target update from(dw, ddw, work_LMloc)
-         !$omp target update to(p)
          call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
               &       n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb, use_gpu=.true.)
-         !$omp target update from(p, dp)
          if ( l_in_cheb ) then
-            !$omp target update to(p)
             call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1, &
                                   &                 stop_lm-llm+1,.true.)
-            !$omp target update from(p)
          end if
       end if
       if ( l_in_cheb ) then
-         !$omp target update to(w)
          call rscheme_oc%costf1(w,ulm-llm+1,start_lm-llm+1, &
                                &                 stop_lm-llm+1,.true.)
-         !$omp target update from(w)
       end if
 #else
       if ( l_double_curl ) then
@@ -1703,6 +1703,16 @@ contains
       !$omp single
       call dct_counter%stop_count()
       !$omp end single
+#endif
+
+#ifdef WITH_OMP_GPU
+      if ( l_double_curl ) then
+         !$omp target update from(dw, ddw, work_LMloc, ddddw)
+      else
+         !$omp target update from(dw, ddw, work_LMloc)
+         !$omp target update from(p, dp)
+      end if
+      !$omp target update from(w)
 #endif
 
       if ( istage == 1 ) then
@@ -2175,6 +2185,11 @@ contains
       if ( l_double_curl) then
 
 #ifdef WITH_OMP_GPU
+         !$omp target update to(dw, ddw, work_LMloc, ddddw)
+         !$omp target update to(w)
+#endif
+
+#ifdef WITH_OMP_GPU
          call dct_counter%start_count()
 #else
          !$omp single
@@ -2183,16 +2198,12 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-         !$omp target update to(dw, ddw, work_LMloc, ddddw)
-         !$omp target update to(w)
          call get_ddr( w, dw, ddw, ulm-llm+1, start_lm-llm+1,  &
               &       stop_lm-llm+1, n_r_max, rscheme_oc,      &
               &       l_dct_in=.false. )
          call get_ddr( ddw, work_LMloc, ddddw, ulm-llm+1, start_lm-llm+1,  &
               &       stop_lm-llm+1, n_r_max, rscheme_oc )
-         !$omp target update from(dw, ddw, work_LMloc, ddddw)
          call rscheme_oc%costf1(w,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1,.true.)
-         !$omp target update from(w)
 #else
          call get_ddr( w, dw, ddw, ulm-llm+1, start_lm-llm+1,  &
               &       stop_lm-llm+1, n_r_max, rscheme_oc,      &
@@ -2209,6 +2220,15 @@ contains
          !$omp single
          call dct_counter%stop_count()
          !$omp end single
+#endif
+
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dw, ddw, work_LMloc, ddddw)
+         !$omp target update from(w)
+#endif
+
+#ifdef WITH_OMP_GPU
+#else
 #endif
          do n_r=2,n_r_max-1
             do lm=start_lm,stop_lm
@@ -2310,8 +2330,14 @@ contains
          ! In case pressure is needed in the double curl formulation
          ! we also have to compute the radial derivative of p
          if ( lPressNext .and. l_double_curl ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(p)
+#endif
             call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-                 &       n_r_max, rscheme_oc)
+                 &       n_r_max, rscheme_oc, use_gpu=.true.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(p, dp)
+#endif
 #ifndef WITH_OMP_GPU
             !$omp barrier
 #endif

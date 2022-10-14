@@ -2246,6 +2246,13 @@ contains
       lmStart_00 =max(2,llmMag)
 
 #ifdef WITH_OMP_GPU
+      !$omp target update to(db, ddb)
+      !$omp target update to(b)
+      !$omp target update to(dj, ddj)
+      !$omp target update to(aj)
+#endif
+
+#ifdef WITH_OMP_GPU
       start_lm=llmMag; stop_lm=ulmMag
       call dct_counter%start_count()
 #else
@@ -2259,27 +2266,19 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update to(db, ddb)
-      !$omp target update to(b)
       call get_ddr(b,db,ddb,ulmMag-llmMag+1,start_lm-llmMag+1, &
            &       stop_lm-llmMag+1,n_r_max,rscheme_oc,        &
            &       l_dct_in=.not. l_in_cheb)
-      !$omp target update from(db, ddb)
       if ( l_in_cheb ) then
          call rscheme_oc%costf1(b,ulmMag-llmMag+1,start_lm-llmMag+1, &
                                &                 stop_lm-llmMag+1,.true.)
-         !$omp target update from(b)
       end if
-      !$omp target update to(dj, ddj)
-      !$omp target update to(aj)
       call get_ddr(aj,dj,ddj,ulmMag-llmMag+1,start_lm-llmMag+1, &
            &       stop_lm-llmMag+1,n_r_max,rscheme_oc,         &
            &       l_dct_in=.not. l_in_cheb)
-      !$omp target update from(dj, ddj)
       if ( l_in_cheb ) then
          call rscheme_oc%costf1(aj,ulmMag-llmMag+1,start_lm-llmMag+1,&
                                &                 stop_lm-llmMag+1,.true.)
-         !$omp target update from(aj)
       end if
 #else
       call get_ddr(b,db,ddb,ulmMag-llmMag+1,start_lm-llmMag+1, &
@@ -2301,6 +2300,13 @@ contains
       !$omp single
       call dct_counter%stop_count(l_increment=.false.)
       !$omp end single
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(db, ddb)
+      !$omp target update from(b)
+      !$omp target update from(dj, ddj)
+      !$omp target update from(aj)
 #endif
 
       if ( l_LCR ) then
