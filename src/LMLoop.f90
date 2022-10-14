@@ -503,7 +503,15 @@ contains
          call fill_ghosts_Z(z_ghost)
          call fill_ghosts_W(w_ghost, p0_ghost, lPress)
       end if
-      if ( l_mag_par_solve ) call fill_ghosts_B(b_ghost, aj_ghost)
+      if ( l_mag_par_solve ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(b_ghost, aj_ghost)
+#endif
+         call fill_ghosts_B(b_ghost, aj_ghost)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(b_ghost, aj_ghost)
+#endif
+      end if
 
       !-- Finally build the radial derivatives and the arrays for next iteration
       if ( l_heat ) then

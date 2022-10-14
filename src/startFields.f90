@@ -462,9 +462,15 @@ contains
             call bulk_to_ghost(aj_Rloc, aj_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
             call exch_ghosts(aj_ghost, lm_max, nRstart, nRstop, 1)
             call exch_ghosts(b_ghost, lm_max, nRstart, nRstop, 1)
+#ifdef WITH_OMP_GPU
+            !$omp target update to(b_ghost, aj_ghost)
+#endif
             call fill_ghosts_B(b_ghost, aj_ghost)
 #ifdef WITH_OMP_GPU
-            !$omp target update to(dbdt, djdt, b_ghost, aj_ghost)
+            !$omp target update from(b_ghost, aj_ghost)
+#endif
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dbdt, djdt)
 #endif
             call get_mag_rhs_imp_ghost(b_ghost, db_Rloc, ddb_Rloc, aj_ghost,     &
                  &                     dj_Rloc, ddj_Rloc, dbdt, djdt, tscheme, 1,&

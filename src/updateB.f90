@@ -1299,68 +1299,91 @@ contains
 
       !-- Upper boundary
       if ( nRstartMag == n_r_cmb ) then
-         dr = r(2)-r(1)
          do lm=lm_start,lm_stop
-            l = st_map%lm2l(lm)
-            if ( l == 0 ) cycle
-            if ( ktopb == 1 ) then
-               if ( l_LCR ) then
-                  bg(lm,nRstartMag-1) =bg(lm,nRstartMag+1)+dr*real(l,cp)*or1(1)* &
-                  &                    bg(lm,nRstartMag)
-               else
-                  bg(lm,nRstartMag-1) =bg(lm,nRstartMag+1)+two*dr*real(l,cp)*or1(1)* &
-                  &                    bg(lm,nRstartMag)
-               end if
-               ajg(lm,nRstartMag-1)=two*ajg(lm,nRstartMag)-ajg(lm,nRstartMag+1)
-            else if ( ktopb == 2 ) then
-               bg(lm,nRstartMag-1) =-bg(lm,nRstartMag+1)
-               ajg(lm,nRstartMag-1)=ajg(lm,nRstartMag+1)
-            else if ( ktopb == 3 ) then
+            if ( ktopb == 3 ) then
                call abortRun('! ktopb=3 is not implemented in this setup!')
-            else if ( ktopb == 4 ) then
-               bg(lm,nRstartMag-1) =bg(lm,nRstartMag+1)
-               ajg(lm,nRstartMag-1)=two*ajg(lm,nRstartMag)-ajg(lm,nRstartMag+1)
             end if
          end do
+         dr = r(2)-r(1)
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+#endif
+         do lm=lm_start,lm_stop
+            l = st_map%lm2l(lm)
+            if ( l /= 0 ) then
+               if ( ktopb == 1 ) then
+                  if ( l_LCR ) then
+                     bg(lm,nRstartMag-1) =bg(lm,nRstartMag+1)+dr*real(l,cp)*or1(1)* &
+                     &                    bg(lm,nRstartMag)
+                  else
+                     bg(lm,nRstartMag-1) =bg(lm,nRstartMag+1)+two*dr*real(l,cp)*or1(1)* &
+                     &                    bg(lm,nRstartMag)
+                  end if
+                  ajg(lm,nRstartMag-1)=two*ajg(lm,nRstartMag)-ajg(lm,nRstartMag+1)
+               else if ( ktopb == 2 ) then
+                  bg(lm,nRstartMag-1) =-bg(lm,nRstartMag+1)
+                  ajg(lm,nRstartMag-1)=ajg(lm,nRstartMag+1)
+               else if ( ktopb == 4 ) then
+                  bg(lm,nRstartMag-1) =bg(lm,nRstartMag+1)
+                  ajg(lm,nRstartMag-1)=two*ajg(lm,nRstartMag)-ajg(lm,nRstartMag+1)
+               end if
+            end if
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
       end if
 
       !-- Lower boundary
       if ( nRstopMag == n_r_icb ) then
-         dr = r(n_r_max)-r(n_r_max-1)
          do lm=lm_start,lm_stop
-            l = st_map%lm2l(lm)
-            if ( l == 0 ) cycle
-            if ( l_full_sphere ) then ! blm=ajlm=0 at the center
-               ajg(lm,nRstopMag+1)=two*ajg(lm,nRstopMag)-ajg(lm,nRstopMag-1)
-               bg(lm,nRstopMag+1) =two*bg(lm,nRstopMag)-bg(lm,nRstopMag-1)
-            else
-               if ( kbotb == 1 ) then
-                  bg(lm,nRstopMag+1) =bg(lm,nRstopMag-1)+two*dr*real(l+1,cp)* &
-                  &                   or1(n_r_max)*bg(lm,nRstopMag)
-                  ajg(lm,nRstopMag+1)=two*ajg(lm,nRstopMag)-ajg(lm,nRstopMag-1)
-               else if ( kbotb == 2 ) then
-                  bg(lm,nRstopMag+1) =-bg(lm,nRstopMag-1)
-                  ajg(lm,nRstopMag+1)=ajg(lm,nRstopMag-1)
-               else if ( kbotb == 3 ) then
+            if ( .not. l_full_sphere ) then
+               if ( kbotb == 3 ) then
                   call abortRun('! kbotb=3 is not implemented yet in this setup!')
-               else if ( kbotb == 4 ) then
-                  bg(lm,nRstopMag+1) =bg(lm,nRstopMag-1)
-                  ajg(lm,nRstopMag+1)=two*ajg(lm,nRstopMag)-ajg(lm,nRstopMag-1)
                end if
-
-               if ( l == 1 .and. ( imagcon == -1 .or. imagcon == -2 ) ) then
-                  bg(lm,nRstopMag+1) =two*bg(lm,nRstopMag)-bg(lm,nRstopMag-1)
-               else if ( l == 3 .and. imagcon == -10 ) then
-                  bg(lm,nRstopMag+1) =two*bg(lm,nRstopMag)-bg(lm,nRstopMag-1)
-                  ajg(lm,nRstopMag+1)=two*ajg(lm,nRstopMag)-ajg(lm,nRstopMag-1)
-               else if ( n_imp == 1 ) then
+               if ( n_imp == 1 ) then
                   call abortRun('! nimp=1 is not implemented yet in this setup!')
                end if
             end if
          end do
-      end if
+         dr = r(n_r_max)-r(n_r_max-1)
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
+#endif
+         do lm=lm_start,lm_stop
+            l = st_map%lm2l(lm)
+            if ( l /= 0 ) then
+               if ( l_full_sphere ) then ! blm=ajlm=0 at the center
+                  ajg(lm,nRstopMag+1)=two*ajg(lm,nRstopMag)-ajg(lm,nRstopMag-1)
+                  bg(lm,nRstopMag+1) =two*bg(lm,nRstopMag)-bg(lm,nRstopMag-1)
+               else
+                  if ( kbotb == 1 ) then
+                     bg(lm,nRstopMag+1) =bg(lm,nRstopMag-1)+two*dr*real(l+1,cp)* &
+                     &                   or1(n_r_max)*bg(lm,nRstopMag)
+                     ajg(lm,nRstopMag+1)=two*ajg(lm,nRstopMag)-ajg(lm,nRstopMag-1)
+                  else if ( kbotb == 2 ) then
+                     bg(lm,nRstopMag+1) =-bg(lm,nRstopMag-1)
+                     ajg(lm,nRstopMag+1)=ajg(lm,nRstopMag-1)
+                  else if ( kbotb == 4 ) then
+                     bg(lm,nRstopMag+1) =bg(lm,nRstopMag-1)
+                     ajg(lm,nRstopMag+1)=two*ajg(lm,nRstopMag)-ajg(lm,nRstopMag-1)
+                  end if
+
+                  if ( l == 1 .and. ( imagcon == -1 .or. imagcon == -2 ) ) then
+                     bg(lm,nRstopMag+1) =two*bg(lm,nRstopMag)-bg(lm,nRstopMag-1)
+                  else if ( l == 3 .and. imagcon == -10 ) then
+                     bg(lm,nRstopMag+1) =two*bg(lm,nRstopMag)-bg(lm,nRstopMag-1)
+                     ajg(lm,nRstopMag+1)=two*ajg(lm,nRstopMag)-ajg(lm,nRstopMag-1)
+                  end if
+               end if
+            end if
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
+      end if
+
+#ifndef WITH_OMP_GPU
       !$omp end parallel
 #endif
 
@@ -2239,7 +2262,13 @@ contains
 
       call exch_ghosts(b_ghost, lm_maxMag, nRstartMag, nRstopMag, 1)
       call exch_ghosts(aj_ghost, lm_maxMag, nRstartMag, nRstopMag, 1)
+#ifdef WITH_OMP_GPU
+      !$omp target update to(b_ghost, aj_ghost)
+#endif
       call fill_ghosts_B(b_ghost, aj_ghost)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(b_ghost, aj_ghost)
+#endif
 
       !-- Now finally compute the linear terms
 #ifdef WITH_OMP_GPU
