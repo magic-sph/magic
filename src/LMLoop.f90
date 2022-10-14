@@ -324,6 +324,14 @@ contains
          end if
       end if
       if ( l_mag ) then ! dwdt,dpdt used as work arrays
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dbdt, djdt)
+         if ( l_cond_ic ) then
+            !$omp target update to(dbdt_ic, djdt_ic)
+!            !$omp target update to(b_ic_LMloc, aj_ic_LMloc)
+         end if
+!         !$omp target update to(b_LMloc, aj_LMloc)
+#endif
          PERFON('up_B')
          call updateB( b_LMloc,db_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,ddj_LMloc, &
               &        dbdt, djdt, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,      &
@@ -331,6 +339,14 @@ contains
               &        djdt_ic, b_nl_cmb, aj_nl_cmb, aj_nl_icb, time, tscheme, &
               &        lRmsNext )
          PERFOFF
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dbdt, djdt)
+         !$omp target update from(b_LMloc, aj_LMloc)
+         !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
+         if ( l_cond_ic ) then
+            !$omp target update from(dbdt_ic, djdt_ic)
+         end if
+#endif
       end if
 
       PERFOFF
@@ -510,11 +526,27 @@ contains
       end if
 
       if ( l_mag .and. (.not. l_mag_par_solve) ) then ! dwdt,dpdt used as work arrays
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dbdt, djdt)
+         if ( l_cond_ic ) then
+            !$omp target update to(dbdt_ic, djdt_ic)
+!            !$omp target update to(b_ic_LMloc, aj_ic_LMloc)
+         end if
+!         !$omp target update to(b_LMloc, aj_LMloc)
+#endif
          call updateB( b_LMloc,db_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,ddj_LMloc, &
               &        dbdt, djdt, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,      &
               &        aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,        &
               &        djdt_ic, b_nl_cmb, aj_nl_cmb, aj_nl_icb, time, tscheme, &
               &        lRmsNext )
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dbdt, djdt)
+         !$omp target update from(b_LMloc, aj_LMloc)
+         !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
+         if ( l_cond_ic ) then
+            !$omp target update from(dbdt_ic, djdt_ic)
+         end if
+#endif
       end if
 
    end subroutine LMLoop_Rdist

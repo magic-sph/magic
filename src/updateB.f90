@@ -352,9 +352,6 @@ contains
       nLMB=1+rank
 
       !-- Now assemble the right hand side and store it in work_LMloc
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dbdt, djdt)
-#endif
       call tscheme%set_imex_rhs(work_LMloc, dbdt)
       call tscheme%set_imex_rhs(ddb, djdt)
 #ifdef WITH_OMP_GPU
@@ -363,9 +360,6 @@ contains
 
       if ( l_cond_ic ) then
          !-- Now assemble the right hand side and store it in work_LMloc
-#ifdef WITH_OMP_GPU
-         !$omp target update to(dbdt_ic, djdt_ic)
-#endif
          call tscheme%set_imex_rhs(ddb_ic, dbdt_ic)
          call tscheme%set_imex_rhs(ddj_ic, djdt_ic)
 #ifdef WITH_OMP_GPU
@@ -1092,72 +1086,40 @@ contains
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dbdt)
       call tscheme%rotate_imex(djdt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(dbdt, djdt)
-#endif
       if ( l_cond_ic ) then
          call tscheme%rotate_imex(dbdt_ic)
          call tscheme%rotate_imex(djdt_ic)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(dbdt_ic, djdt_ic)
-#endif
       end if
 
       !-- Get implicit terms
       if ( tscheme%istage == tscheme%nstages ) then
 #ifdef WITH_OMP_GPU
-         !$omp target update to(dbdt, djdt)
          !$omp target update to(b, aj)
 #endif
          call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, 1, &
               &               tscheme%l_imp_calc_rhs(1), lRmsNext,             &
               &               l_in_cheb_space=.true.)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dbdt, djdt)
-         !$omp target update from(b, aj)
-         !$omp target update from(db, dj, ddb, ddj)
-#endif
 
          if ( l_cond_ic ) then
-#ifdef WITH_OMP_GPU
-            !$omp target update to(dbdt_ic, djdt_ic)
-#endif
             call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,     &
                  &                  dbdt_ic, djdt_ic, 1, tscheme%l_imp_calc_rhs(1),&
                  &                  l_in_cheb_space=.true.)
-#ifdef WITH_OMP_GPU
-            !$omp target update from(dbdt_ic, djdt_ic)
-#endif
          end if
-
       else
 #ifdef WITH_OMP_GPU
-         !$omp target update to(dbdt, djdt)
          !$omp target update to(b, aj)
 #endif
          call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, &
               &               tscheme%istage+1,                             &
               &               tscheme%l_imp_calc_rhs(tscheme%istage+1),     &
               &               lRmsNext, l_in_cheb_space=.true.)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dbdt, djdt)
-         !$omp target update from(b, aj)
-         !$omp target update from(db, dj, ddb, ddj)
-#endif
 
          if ( l_cond_ic ) then
-#ifdef WITH_OMP_GPU
-            !$omp target update to(dbdt_ic, djdt_ic)
-#endif
             call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
                  &                  dbdt_ic, djdt_ic, tscheme%istage+1,         &
                  &                  tscheme%l_imp_calc_rhs(tscheme%istage+1),   &
                  &                  l_in_cheb_space=.true.)
-#ifdef WITH_OMP_GPU
-            !$omp target update from(dbdt_ic, djdt_ic)
-#endif
          end if
-
       end if
 
    end subroutine updateB
