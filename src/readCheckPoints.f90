@@ -584,9 +584,15 @@ contains
                           &                        djdt_ic%expl(llm:ulm,nR,2))
                   end do
 
-                  call get_mag_ic_rhs_imp(b_ic, db_ic_LMloc, ddb_ic_LMloc, aj_ic,  & 
+#ifdef WITH_OMP_GPU
+                  !$omp target update to(dbdt_ic, djdt_ic)
+#endif
+                  call get_mag_ic_rhs_imp(b_ic, db_ic_LMloc, ddb_ic_LMloc, aj_ic,  &
                        &                  dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,      &
                        &                  djdt_ic, 1, .true.)
+#ifdef WITH_OMP_GPU
+                  !$omp target update from(dbdt_ic, djdt_ic)
+#endif
                   dbdt_ic%expl(:,:,2)=dbdt_ic%expl(:,:,2)+coex*dbdt_ic%impl(:,:,1)
                   djdt_ic%expl(:,:,2)=djdt_ic%expl(:,:,2)+coex*djdt_ic%impl(:,:,1)
                end if
@@ -1476,9 +1482,15 @@ contains
          end if
 
          if ( l_cond_ic ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dbdt_ic, djdt_ic)
+#endif
             call get_mag_ic_rhs_imp(b_ic, db_ic_LMloc, ddb_ic_LMloc, aj_ic,  &
                  &                  dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,      &
                  &                  djdt_ic, 1, .true.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dbdt_ic, djdt_ic)
+#endif
             dbdt_ic%expl(:,:,2)=dbdt_ic%expl(:,:,2)+coex*dbdt_ic%impl(:,:,1)
             djdt_ic%expl(:,:,2)=djdt_ic%expl(:,:,2)+coex*djdt_ic%impl(:,:,1)
          end if
@@ -2319,9 +2331,15 @@ contains
          end if
 
          if ( l_cond_ic ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dbdt_ic, djdt_ic)
+#endif
             call get_mag_ic_rhs_imp(b_ic, db_ic_LMloc, ddb_ic_LMloc, aj_ic,  &
                  &                  dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,      &
                  &                  djdt_ic, 1, .true.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dbdt_ic, djdt_ic)
+#endif
             dbdt_ic%expl(:,:,2)=dbdt_ic%expl(:,:,2)+coex*dbdt_ic%impl(:,:,1)
             djdt_ic%expl(:,:,2)=djdt_ic%expl(:,:,2)+coex*djdt_ic%impl(:,:,1)
          end if

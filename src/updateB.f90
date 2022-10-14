@@ -1110,9 +1110,15 @@ contains
               &               l_in_cheb_space=.true.)
 
          if ( l_cond_ic ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dbdt_ic, djdt_ic)
+#endif
             call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,     &
                  &                  dbdt_ic, djdt_ic, 1, tscheme%l_imp_calc_rhs(1),&
                  &                  l_in_cheb_space=.true.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dbdt_ic, djdt_ic)
+#endif
          end if
 
       else
@@ -1122,10 +1128,16 @@ contains
               &               lRmsNext, l_in_cheb_space=.true.)
 
          if ( l_cond_ic ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dbdt_ic, djdt_ic)
+#endif
             call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
                  &                  dbdt_ic, djdt_ic, tscheme%istage+1,         &
                  &                  tscheme%l_imp_calc_rhs(tscheme%istage+1),   &
                  &                  l_in_cheb_space=.true.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dbdt_ic, djdt_ic)
+#endif
          end if
 
       end if
@@ -1702,8 +1714,13 @@ contains
       !$omp end single
 #endif
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic)
+#endif
+
       if ( istage == 1 ) then
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
 #else
          !$omp do private(n_r,lm,l1,dL) collapse(2)
 #endif
@@ -1716,6 +1733,7 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #else
          !$omp end do
 #endif
@@ -1723,6 +1741,7 @@ contains
 
       if ( l_calc_lin ) then
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
 #else
          !$omp do private(n_r,lm,l1,dL) collapse(2)
 #endif
@@ -1739,11 +1758,13 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #else
          !$omp end do
 #endif
          n_r=n_r_ic_max
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
 #else
          !$omp do private(lm,l1,dL)
 #endif
@@ -1756,6 +1777,7 @@ contains
             &                           (one+two*real(l1+1,cp))*ddj_ic(lm,n_r)
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #else
          !$omp end do
 #endif
@@ -2063,9 +2085,15 @@ contains
            &               tscheme%l_imp_calc_rhs(1), lRmsNext, .false.)
 
       if ( l_cond_ic ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dbdt_ic, djdt_ic)
+#endif
          call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,     &
               &                  dbdt_ic, djdt_ic, 1, tscheme%l_imp_calc_rhs(1),&
               &                  .false.)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dbdt_ic, djdt_ic)
+#endif
       end if
 
    end subroutine assemble_mag

@@ -1361,10 +1361,18 @@ contains
             end if
          end if
 
-         if ( l_cond_ic ) call get_mag_ic_rhs_imp(b_ic_LMloc, db_ic_LMloc,     &
-                               &                  ddb_ic_LMLoc, aj_ic_LMLoc,   &
-                               &                  dj_ic_LMloc, ddj_ic_LMloc,   &
-                               &                  dbdt_ic, djdt_ic, 1, .true.)
+         if ( l_cond_ic ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dbdt_ic, djdt_ic)
+#endif
+         call get_mag_ic_rhs_imp(b_ic_LMloc, db_ic_LMloc,     &
+              &                  ddb_ic_LMLoc, aj_ic_LMLoc,   &
+              &                  dj_ic_LMloc, ddj_ic_LMloc,   &
+              &                  dbdt_ic, djdt_ic, 1, .true.)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dbdt_ic, djdt_ic)
+#endif
+         end if
 
          call tscheme%bridge_with_cnab2()
 
