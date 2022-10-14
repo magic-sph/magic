@@ -503,8 +503,17 @@ contains
                call scatter_from_rank0_to_lo(workC(:,nR),djdt%expl(llm:ulm,nR,2))
             end do
 
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dbdt, djdt)
+            !$omp target update to(b, aj)
+#endif
             call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc, &
                  &               dbdt, djdt, tscheme, 1, .true., .false.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dbdt, djdt)
+            !$omp target update from(b, aj)
+            !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
+#endif
             dbdt%expl(:,:,2)=dbdt%expl(:,:,2)+coex*dbdt%impl(:,:,1)
             djdt%expl(:,:,2)=djdt%expl(:,:,2)+coex*djdt%impl(:,:,1)
          end if
@@ -1475,8 +1484,17 @@ contains
          end if
 
          if ( l_mag ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dbdt, djdt)
+            !$omp target update to(b, aj)
+#endif
             call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc, &
                  &               dbdt, djdt, tscheme, 1, .true., .false.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dbdt, djdt)
+            !$omp target update from(b, aj)
+            !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
+#endif
             dbdt%expl(:,:,2)=dbdt%expl(:,:,2)+coex*dbdt%impl(:,:,1)
             djdt%expl(:,:,2)=djdt%expl(:,:,2)+coex*djdt%impl(:,:,1)
          end if
@@ -2324,8 +2342,17 @@ contains
          end if
 
          if ( l_mag ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dbdt, djdt)
+            !$omp target update to(b, aj)
+#endif
             call get_mag_rhs_imp(b, db_LMloc, ddb_LMloc, aj, dj_LMloc, ddj_LMloc, &
                  &               dbdt, djdt, tscheme, 1, .true., .false.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dbdt, djdt)
+            !$omp target update from(b, aj)
+            !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
+#endif
             dbdt%expl(:,:,2)=dbdt%expl(:,:,2)+coex*dbdt%impl(:,:,1)
             djdt%expl(:,:,2)=djdt%expl(:,:,2)+coex*djdt%impl(:,:,1)
          end if

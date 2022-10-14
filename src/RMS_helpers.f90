@@ -197,6 +197,10 @@ contains
       real(cp) :: help,rE2,dLh
       integer :: lm,l,m
 
+#ifdef WITH_OMP_GPU
+      !$omp declare target
+#endif
+
       rE2=r(nR)*r(nR)
       do lm=lmStart,lmStop
          l=map%lm2l(lm)

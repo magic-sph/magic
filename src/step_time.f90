@@ -1356,8 +1356,17 @@ contains
                     &                     dj_Rloc, ddj_Rloc,  dbdt, djdt, tscheme, &
                     &                     1, .true., .false.)
             else
+#ifdef WITH_OMP_GPU
+               !$omp target update to(dbdt, djdt)
+               !$omp target update to(b_LMloc, aj_LMloc)
+#endif
                call get_mag_rhs_imp(b_LMloc, db_LMloc, ddb_LMLoc, aj_LMLoc, dj_LMloc, &
                     &               ddj_LMloc, dbdt, djdt, tscheme, 1, .true., .false.)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(dbdt, djdt)
+               !$omp target update from(b_LMloc, aj_LMloc)
+               !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
+#endif
             end if
          end if
 

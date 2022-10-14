@@ -1105,9 +1105,18 @@ contains
 
       !-- Get implicit terms
       if ( tscheme%istage == tscheme%nstages ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dbdt, djdt)
+         !$omp target update to(b, aj)
+#endif
          call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, 1, &
               &               tscheme%l_imp_calc_rhs(1), lRmsNext,             &
               &               l_in_cheb_space=.true.)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dbdt, djdt)
+         !$omp target update from(b, aj)
+         !$omp target update from(db, dj, ddb, ddj)
+#endif
 
          if ( l_cond_ic ) then
 #ifdef WITH_OMP_GPU
@@ -1122,10 +1131,19 @@ contains
          end if
 
       else
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dbdt, djdt)
+         !$omp target update to(b, aj)
+#endif
          call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, &
               &               tscheme%istage+1,                             &
               &               tscheme%l_imp_calc_rhs(tscheme%istage+1),     &
               &               lRmsNext, l_in_cheb_space=.true.)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dbdt, djdt)
+         !$omp target update from(b, aj)
+         !$omp target update from(db, dj, ddb, ddj)
+#endif
 
          if ( l_cond_ic ) then
 #ifdef WITH_OMP_GPU
@@ -2081,8 +2099,17 @@ contains
 #endif
 
       !-- Finally compute the required implicit stage if needed
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dbdt, djdt)
+      !$omp target update to(b, aj)
+#endif
       call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, 1, &
            &               tscheme%l_imp_calc_rhs(1), lRmsNext, .false.)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dbdt, djdt)
+      !$omp target update from(b, aj)
+      !$omp target update from(db, dj, ddb, ddj)
+#endif
 
       if ( l_cond_ic ) then
 #ifdef WITH_OMP_GPU
@@ -2262,6 +2289,8 @@ contains
       integer :: n_r_top, n_r_bot, l1, lmStart_00
       integer :: n_r, lm, start_lm, stop_lm
       integer, pointer :: lm2l(:),lm2m(:)
+      real(cp) :: loc_dt
+      integer :: loc_istage, loc_nstage
 
       if ( present(l_in_cheb_space) ) then
          l_in_cheb = l_in_cheb_space
@@ -2273,12 +2302,9 @@ contains
       lm2m(1:lm_max) => lo_map%lm2m
       lmStart_00 =max(2,llmMag)
 
-#ifdef WITH_OMP_GPU
-      !$omp target update to(db, ddb)
-      !$omp target update to(b)
-      !$omp target update to(dj, ddj)
-      !$omp target update to(aj)
-#endif
+      loc_dt = tscheme%dt(1)
+      loc_istage = tscheme%istage
+      loc_nstage = tscheme%nstages
 
 #ifdef WITH_OMP_GPU
       start_lm=llmMag; stop_lm=ulmMag
@@ -2330,15 +2356,9 @@ contains
       !$omp end single
 #endif
 
-#ifdef WITH_OMP_GPU
-      !$omp target update from(db, ddb)
-      !$omp target update from(b)
-      !$omp target update from(dj, ddj)
-      !$omp target update from(aj)
-#endif
-
       if ( l_LCR ) then
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
 #else
          !$omp do private(n_r,lm,l1)
 #endif
@@ -2346,7 +2366,6 @@ contains
             if ( n_r<=n_r_LCR ) then
                do lm=lmStart_00,ulmMag
                   l1=lm2l(lm)
-
                   b(lm,n_r)=(r(n_r_LCR)/r(n_r))**real(l1,cp)*b(lm,n_r_LCR)
                   db(lm,n_r)=-real(l1,cp)*(r(n_r_LCR))**real(l1,cp)/  &
                   &          (r(n_r))**(real(l1,cp)+1)*b(lm,n_r_LCR)
@@ -2359,6 +2378,7 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #else
          !$omp end do
 #endif
@@ -2366,6 +2386,7 @@ contains
 
       if ( istage == 1 ) then
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
 #else
          !$omp do private(n_r,lm,l1,dL)
 #endif
@@ -2378,12 +2399,13 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #else
          !$omp end do
 #endif
       end if
 
-      if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
+      if ( l_calc_lin .or. (loc_istage==loc_nstage .and. lRmsNext)) then
          if ( lRmsNext ) then
             n_r_top=n_r_cmb
             n_r_bot=n_r_icb
@@ -2393,6 +2415,7 @@ contains
          end if
 
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do private(l1,dtP,dtT,dL)
 #else
          !$omp do private(n_r,lm,l1,dtP,dtT,dL)
 #endif
@@ -2405,12 +2428,12 @@ contains
                djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(l1)*           &
                &                    dL*or2(n_r)*( ddj(lm,n_r)+dLlambda(n_r)*   &
                &                    dj(lm,n_r)-dL*or2(n_r)*aj(lm,n_r) )
-               if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
-                  dtP(lm)=dL*or2(n_r)/tscheme%dt(1) * (  b(lm,n_r)-workA(lm,n_r) )
-                  dtT(lm)=dL*or2(n_r)/tscheme%dt(1) * ( aj(lm,n_r)-workB(lm,n_r) )
+               if ( lRmsNext .and. loc_istage == loc_nstage ) then
+                  dtP(lm)=dL*or2(n_r)/loc_dt * (  b(lm,n_r)-workA(lm,n_r) )
+                  dtT(lm)=dL*or2(n_r)/loc_dt * ( aj(lm,n_r)-workB(lm,n_r) )
                end if
             end do
-            if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
+            if ( lRmsNext .and. loc_istage == loc_nstage ) then
                call hInt2PolLM(dtP,llmMag,ulmMag,n_r,lmStart_00,ulmMag, &
                     &          dtBPolLMr(llmMag:ulmMag,n_r),            &
                     &          dtBPol2hInt(llmMag:ulmMag,n_r),lo_map)
@@ -2419,6 +2442,7 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #else
          !$omp end do
 #endif
