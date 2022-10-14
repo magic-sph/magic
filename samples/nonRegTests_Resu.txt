@@ -1,4 +1,4 @@
-Results of commit "34f7ac0b7398b623211590c33dbf31ad37fe41cb" (08/10/2022) - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1MPIx1OMP
+Results of commit "fa10e74c6337a7efff329363312645a580457280" (14/10/2022) - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1 MPI x 1 OMP
 _________________________________________________________________________________________________________________________________________________________________
 _______________________________________________________l_batched_shts=.true._____________________________________________________________________________________
 
@@ -12,71 +12,28 @@ precession [OK]
 couetteAxi [OK]
 doubleDiffusion [OK]
 fluxPerturbation [OK]
-testTruncations [OK]
-varCond [OK]
+testTruncations []
 
-dynamo_benchmark_condICrotIC [Mismatched elements: 34 / 9918 (0.343%) Max absolute difference: 2.00000011e-06 Max relative difference: 1.99269892e-08]
-finite_differences [NOK: Mismatched elements: 228 / 297 (76.8%) Max absolute difference: 3712.70886 Max relative difference: 50.14626261]
-full_sphere [Mismatched elements: 84 / 99 (84.8%) Max absolute difference: 7.23741873 Max relative difference: 568.4645614]
-phase_field [Mismatched elements: 32 / 135 (23.7%) Max absolute difference: 5.92e-06 Max relative difference: 3.85601939e-06]
-testMapping [Mismatched elements: 206 / 459 (44.9%) Max absolute difference: 1.50000001e-05 Max relative difference: 2.82893053e-08]
-testOutputs [Mismatched elements: 40 / 1342 (2.98%) Max absolute difference: 222.6636877 Max relative difference: 1.]
-testRadialOutputs [Mismatched elements: 3 / 3120 (0.0962%) Max absolute difference: 1.e-10 Max relative difference: 8.33161563e-08]
-testRestart [Mismatched elements: 224 / 459 (48.8%) Max absolute difference: 6.99999998e-06 Max relative difference: 3.64931935e-08]
-testRMSOutputs [Mismatched elements: 49 / 324 (15.1%) Max absolute difference: 298.34124 Max relative difference: 0.6869591]
-varProps [NOK: Mismatched elements: 217 / 702 (30.9%) Max absolute difference: 54797.371139 Max relative difference: 31027.50593107]
-
-onset [Exec OK but I/O problems in output files: (shapes (51, 9), (37, 9) mismatch)]
-testCoeffOutputs [Exec OK but error in Python script for e_kin.test generation ]
-time_schemes [NOK: (shapes (846,), (603,) mismatch)]
-
-********************** CPU
-
-dynamo_benchmark_condICrotIC [(shapes (1102, 9), (1002, 9) mismatch)]
-finite_differences [Mismatched elements: 78 / 297 (26.3%) Max absolute difference: 1.00000007e-05 Max relative difference: 1.6403208e-06]
-testRadialOutputs[Mismatched elements: 2 / 3120 (0.0641%) Max absolute difference: 1.e-10 Max relative difference: 6.85562036e-08]
-testRMSOutputs[Mismatched elements: 8 / 324 (2.47%) Max absolute difference: 1.00000007e-05 Max relative difference: 3.56191898e-08]
-time_schemes [(shapes (846,), (774,) mismatch)]
-testCoeffOutputs[(shapes (40,), (10,) mismatch)]
-_________________________________________________________________________________________________________________________________________________________________
-_______________________________________________________l_batched_shts=.false.____________________________________________________________________________________
-
-boussBenchSat [OK]
-testTOGeosOutputs [OK]
-precession [OK]
-testTruncations [OK]
-varCond [OK]
-testRestart [NOK: Mismatched elements: 224 / 459 (48.8%) Max absolute difference: 6.99999998e-06 Max relative difference: 3.64931935e-08]
+finite_differences [NOK: Mismatched elements: 234 / 297 (78.8%) Max absolute difference: 938.88025 Max relative difference: 2.83560328]
+full_sphere [NOK: Mismatched elements: 84 / 99 (84.8%) Max absolute difference: 0.94571872 Max relative difference: 0.94597534]
+phase_field [NOK: Mismatched elements: 32 / 135 (23.7%) Max absolute difference: 5.92e-06 Max relative difference: 3.85601939e-06]
 testMapping [NOK: Mismatched elements: 206 / 459 (44.9%) Max absolute difference: 1.50000001e-05 Max relative difference: 2.82893053e-08]
-testOutputs [NOK: Mismatched elements: 40 / 1342 (2.98%) Max absolute difference: 220.9873977 Max relative difference: 1.]
+testOutputs [NOK: Mismatched elements: 40 / 1342 (2.98%) Max absolute difference: 223.0992867 Max relative difference: 2.]
+testRadialOutputs [NOK: Mismatched elements: 2 / 3120 (0.0641%) Max absolute difference: 1.e-10 Max relative difference: 6.73792744e-08]
+testRestart [NOK: Mismatched elements: 224 / 459 (48.8%) Max absolute difference: 6.99999998e-06 Max relative difference: 3.64931935e-08]
+testRMSOutputs [NOK: Mismatched elements: 13 / 324 (4.01%) Max absolute difference: 22.9865248 Max relative difference: 0.36837041]
+varProps [NOK: Mismatched elements: 200 / 702 (28.5%) Max absolute difference: 108.220318 Max relative difference: 2.2060309e+14]
+dynamo_benchmark_condICrotIC [NOK: Mismatched elements: 34 / 9918 (0.343%) Max absolute difference: 2.00000011e-06 Max relative difference: 1.99269892e-08]
 
-ALL OTHER FALL at :
-b{0}: Program received signal SIGSEGV.
-b{0}: In MPIOI_File_write at :0
-dbg all> bt
-b{0}: #8  magic at magic.f90:433
-b{0}: #7  step_time at step_time.f90:579
-b{0}: #6  radialloopg at radialLoop.f90:98
-b{0}: #5  radialloop at rIter.f90:361
-b{0}: #4  graphout_mpi_nobatch at out_graph_file.f90:376
-b{0}: #3  write_one_field$graphout_mod__clone_578785_1665243262_1 at out_graph_file.f90:376
-b{0}: #2  pmpi_file_write__
-b{0}: #1  PMPI_File_write
-b{0}: #0  MPIOI_File_write
+onset [Exec OK but I/O problems in output files: (shapes (51, 9), (10, 9) mismatch)]
+testCoeffOutputs [Exec OK but error in Python script for e_kin.test generation ]
+varCond [Exec OK but I/O problems in output files: (shapes (51, 9), (40, 9) mismatch)]
 
-testCoeffOutputs [Exec OK but error in Python script for e_kin.test generation]
-finite_differences [NOK: Time series of e_kin contains NaNs, run will stop now]
-full_sphere [NOK: NaN]
-testRMSOutputs [NOK: NaN]
-time_schemes [NOK: (shapes (846,), (603,) mismatch)]
+time_schemes []
 
-********************** CPU
+********************** CPU (4MPIx1 OMP)
 
-dynamo_benchmark_condICrotIC [(shapes (1102, 9), (1002, 9) mismatch)]
-testCoeffOutputs[(shapes (40,), (10,) mismatch)]
-testRMSOutputs[Mismatched elements: 8 / 324 (2.47%) Max absolute difference: 1.00000007e-05 Max relative difference: 3.56191898e-08]
-testRadialOutputs[Mismatched elements: 1 / 3120 (0.0321%) Max absolute difference: 1.e-10 Max relative difference: 6.73792744e-08]
 time_schemes [(shapes (846,), (774,) mismatch)]
-
+testCoeffOutputs[(shapes (40,), (10,) mismatch)]
+testTOGeosOutputs[Mismatched elements: 6 / 122 (4.92%) Max absolute difference: 9.99999972e-10 Max relative difference: 2.61095292e-09]
 _________________________________________________________________________________________________________________________________________________________________
-
