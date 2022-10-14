@@ -802,7 +802,11 @@ contains
       !-- Local variable
       integer :: lm, nR
 
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)
+#else
       !$omp parallel do private(lm)
+#endif
       do nR=nRstart,nRstop
          do lm=1,lmP_max
             this%AdvrLM(lm,nR)=zero
@@ -827,10 +831,10 @@ contains
             end if
          end do
       end do
-      !$omp end parallel do
-
 #ifdef WITH_OMP_GPU
-      !$omp target update to(this)
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
 #endif
 
    end subroutine set_zero
