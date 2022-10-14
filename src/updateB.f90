@@ -1416,6 +1416,7 @@ contains
 
       if ( lRmsNext .and. tscheme%istage == 1) then
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
 #else
          !$omp parallel do collapse(2)
 #endif
@@ -1426,48 +1427,30 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #else
          !$omp end parallel do
 #endif
       end if
 
       !-- Roll the arrays before filling again the first block
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dbdt, djdt)
-#endif
       call tscheme%rotate_imex(dbdt)
       call tscheme%rotate_imex(djdt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(dbdt, djdt)
-#endif
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(dbdt, djdt, b_ghost, aj_ghost)
-#endif
          call get_mag_rhs_imp_ghost(b_ghost, db, ddb, aj_ghost, dj, ddj, dbdt, djdt, &
               &                     tscheme, 1, tscheme%l_imp_calc_rhs(1), lRmsNext)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dbdt, djdt, b_ghost, aj_ghost)
-         !$omp target update from(db, ddb, dj, ddj)
-#endif
       else
-#ifdef WITH_OMP_GPU
-         !$omp target update to(dbdt, djdt, b_ghost, aj_ghost)
-#endif
          call get_mag_rhs_imp_ghost(b_ghost, db, ddb, aj_ghost, dj, ddj, dbdt, djdt, &
               &                     tscheme, tscheme%istage+1,                       &
               &                     tscheme%l_imp_calc_rhs(tscheme%istage+1), lRmsNext)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dbdt, djdt, b_ghost, aj_ghost)
-         !$omp target update from(db, ddb, dj, ddj)
-#endif
       end if
 
       !-- Array copy from b_ghost to b and aj_ghost to aj
 #ifdef WITH_OMP_GPU
       lm_start=1; lm_stop=lm_max
+      !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp parallel default(shared) private(lm_start,lm_stop,nR,lm,l)
       lm_start=1; lm_stop=lm_max
@@ -1483,6 +1466,7 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #else
       !$omp end parallel
 #endif

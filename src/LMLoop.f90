@@ -545,8 +545,17 @@ contains
            &          lRmsNext, lPressNext, lP00Next)
 
       if ( l_mag_par_solve ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dbdt, djdt)
+         !$omp target update to(b_Rloc, aj_Rloc)
+         !$omp target update to(b_ghost, aj_ghost)
+#endif
          call updateB_FD(b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc, dj_Rloc, ddj_Rloc, dbdt, &
               &          djdt, tscheme, lRmsNext)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dbdt, djdt)
+         !$omp target update from(b_Rloc, aj_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, ddj_Rloc)
+#endif
       end if
 
       if ( l_mag .and. (.not. l_mag_par_solve) ) then ! dwdt,dpdt used as work arrays
@@ -554,9 +563,7 @@ contains
          !$omp target update to(dbdt, djdt)
          if ( l_cond_ic ) then
             !$omp target update to(dbdt_ic, djdt_ic)
-!            !$omp target update to(b_ic_LMloc, aj_ic_LMloc)
          end if
-!         !$omp target update to(b_LMloc, aj_LMloc)
 #endif
          call updateB( b_LMloc,db_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,ddj_LMloc, &
               &        dbdt, djdt, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,      &
