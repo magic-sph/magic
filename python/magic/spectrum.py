@@ -71,8 +71,11 @@ class MagicSpectrum(MagicSetup):
         elif field in ('dtVrms'):
             self.name = 'dtVrms_spec'
             self.ave = True
-        elif field in ('T','temperature','S','entropy'):
-            self.name = 'T_spec_'
+        elif field in ('T','temperature','S','entropy', 'temp'):
+            if self.ave:
+                self.name = 'T_spec_ave'
+            else:
+                self.name = 'T_spec_'
         elif field == 'combined':
             self.__init__(datadir=datadir, field='e_kin', iplot=False, ispec=ispec,
                           ave=ave, normalize=normalize, tag=tag, tags=tags,
@@ -524,26 +527,45 @@ class MagicSpectrum(MagicSetup):
             ax.legend(loc='lower right', frameon=False, ncol=2)
             fig.tight_layout()
 
-        elif self.name == 'T_spec_':
+        elif self.name == 'T_spec_' or self.name == 'T_spec_ave':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.loglog(self.index[1:], self.T_l[1:])
-            ax.loglog(self.index[1:], self.T_icb_l[1:])
-            if labTex:
-                ax.set_xlabel('$\ell$')
+            ax.loglog(self.index+1, self.T_l[0:], label='T')
+            if self.ave:
+                ax.fill_between(self.index+1, self.T_l-self.T_l_SD,
+                                self.T_l+self.T_l_SD, alpha=0.2)
+            if self.kbots != 1:
+                ax.loglog(self.index+1, self.T_icb_l, label='T(ri)')
+                if self.ave:
+                    ax.fill_between(self.index+1, self.T_icb_l-self.T_icb_l_SD,
+                                    self.T_icb_l+self.T_icb_l_SD, alpha=0.2)
             else:
-                ax.set_xlabel('l')
-            ax.set_xlim(1, self.index[-1])
+                ax.loglog(self.index+1, self.dT_icb_l, label='dT/dr(ri)')
+                if self.ave:
+                    ax.fill_between(self.index+1, self.dT_icb_l-self.dT_icb_l_SD,
+                                    self.dT_icb_l+self.dT_icb_l_SD, alpha=0.2)
+            if labTex:
+                ax.set_xlabel('$\ell+1$')
+            else:
+                ax.set_xlabel('l+1')
+            ax.set_ylabel('Temperature')
+            ax.set_xlim(1, self.index[-1]+1)
+            ax.legend(loc='best', frameon=False)
             fig.tight_layout()
 
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.loglog(self.index[::self.minc]+1,
-                      self.T_m[::self.minc],color='g')
+            ax.loglog(self.index[::self.minc]+1, self.T_m[::self.minc])
+            if self.ave:
+                ax.fill_between(self.index[::self.minc]+1,
+                                self.T_m[::self.minc]-self.T_m_SD[::self.minc],
+                                self.T_m[::self.minc]+self.T_m_SD[::self.minc],
+                                alpha=0.2)
             if labTex:
                 ax.set_xlabel('Order $m+1$')
             else:
                 ax.set_xlabel('m+1')
+            ax.set_ylabel('Temperature')
             ax.set_xlim(1, self.index[-1]+1)
             fig.tight_layout()
 
@@ -686,7 +708,7 @@ class SpecLookUpTable:
                 self.cia_SD = data[:, 28]
                 self.ChemRms = np.zeros_like(self.cia)
                 self.ChemRms_SD = np.zeros_like(self.cia)
-            else:
+            elif data.shape[1] == 31:
                 self.ChemRms = data[:,7]
                 self.PreRms = data[:, 8]
                 self.geos = data[:, 9] # geostrophic balance
@@ -711,15 +733,57 @@ class SpecLookUpTable:
                 self.corLor_SD = data[:, 28]
                 self.preLor_SD = data[:, 29]
                 self.cia_SD = data[:, 30]
+            elif data.shape[1] == 35:
+                self.ChemRms = data[:,7]
+                self.PreRms = data[:, 8]
+                self.MagTensRms = data[:, 9]
+                self.MagPreRms = data[:, 10]
+                self.geos = data[:, 11] # geostrophic balance
+                self.mageos = data[:,12] # magnetostrophic balance
+                self.arc = data[:, 13] # Pressure/Coriolis/Buoyancy
+                self.arcMag = data[:, 14] # Pressure/Coriolis/Lorentz/Buoyancy
+                self.corLor = data[:, 15] # Coriolis/Lorentz
+                self.preLor = data[:, 16] # Pressure/Lorentz
+                self.cia = data[:, 17] # Coriolis/Inertia/Archimedean
+                self.InerRms_SD = data[:, 18]
+                self.CorRms_SD = data[:, 19]
+                self.LFRms_SD = data[:, 20]
+                self.AdvRms_SD = data[:, 21]
+                self.DifRms_SD = data[:, 22]
+                self.BuoRms_SD = data[:, 23]
+                self.ChemRms_SD = data[:, 24]
+                self.PreRms_SD = data[:, 25]
+                self.MagTensRms_SD = data[:, 26]
+                self.MagPreRms_SD = data[:, 27]
+                self.geos_SD = data[:, 28]
+                self.mageos_SD = data[:, 29]
+                self.arc_SD = data[:, 30]
+                self.arcMag_SD = data[:, 31]
+                self.corLor_SD = data[:, 32]
+                self.preLor_SD = data[:, 33]
+                self.cia_SD = data[:, 34]
 
             self.index = self.index-1
         elif self.name == 'T_spec_':
-            self.T_l = data[:,1]
-            self.T_m = data[:,2]
-            self.T_icb_l = data[:,3]
-            self.T_icb_m = data[:,4]
-            self.dT_icb_l = data[:,5]
-            self.dT_icb_m = data[:,6]
+            self.T_l = data[:, 1]
+            self.T_m = data[:, 2]
+            self.T_icb_l = data[:, 3]
+            self.T_icb_m = data[:, 4]
+            self.dT_icb_l = data[:, 5]
+            self.dT_icb_m = data[:, 6]
+        elif self.name == 'T_spec_ave':
+            self.T_l = data[:, 1]
+            self.T_m = data[:, 2]
+            self.T_icb_l = data[:, 3]
+            self.T_icb_m = data[:, 4]
+            self.dT_icb_l = data[:, 5]
+            self.dT_icb_m = data[:, 6]
+            self.T_l_SD = data[:, 7]
+            self.T_m_SD = data[:, 8]
+            self.T_icb_l_SD = data[:, 9]
+            self.T_icb_m_SD = data[:, 10]
+            self.dT_icb_l_SD = data[:, 11]
+            self.dT_icb_m_SD = data[:, 12]
 
     def __add__(self, new):
         """
@@ -914,6 +978,11 @@ class MagicSpectrum2D(MagicSetup):
                                            shape=(self.n_r_max, self.l_max+1))
                 self.Iner_r_l = f.fort_read(precision,
                                             shape=(self.n_r_max, self.l_max+1))
+                if self.version > 1:
+                    self.MagTens_r_l = f.fort_read(precision,
+                                                   shape=(self.n_r_max, self.l_max+1))
+                    self.MagPre_r_l = f.fort_read(precision,
+                                                  shape=(self.n_r_max, self.l_max+1))
                 self.Geo_r_l = f.fort_read(precision,
                                            shape=(self.n_r_max, self.l_max+1))
                 self.Mag_r_l = f.fort_read(precision,
