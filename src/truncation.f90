@@ -64,7 +64,7 @@ contains
 
       integer :: n_r_maxML,n_r_ic_maxML,n_r_totML,l_maxML,lm_maxML
       integer :: lm_max_dL,lmP_max_dL,n_r_max_dL,n_r_ic_max_dL
-      integer :: n_r_maxSL,n_theta_maxSL,n_phi_maxSL, delta, l, m
+      integer :: n_r_maxSL,n_theta_maxSL,n_phi_maxSL, l, m
 
       if ( .not. l_axi ) then
          if ( l_max == 0 ) then
@@ -111,12 +111,6 @@ contains
 
       ! max number of ms (different oders)
       n_m_max=m_max/minc+1
-
-      if ( m_min == 0 ) then
-         delta = 0
-      else
-         delta = m_min
-      end if
 
       ! number of l/m combinations
       lm_max=0

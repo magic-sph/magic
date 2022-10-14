@@ -35,13 +35,13 @@ module preCalculations
        &                          PolInd, nVarCond, nVarDiff, nVarVisc,    &
        &                          rho_ratio_ic, rho_ratio_ma, epsc, epsc0, &
        &                          ktops, kbots, interior_model, r_LCR,     &
-       &                          n_r_LCR, mode, tmagcon, oek, Bn,         &
+       &                          n_r_LCR, mode, tmagcon, oek, Bn, imagcon,&
        &                          ktopxi, kbotxi, epscxi, epscxi0, sc, osc,&
        &                          ChemFac, raxi, Po, prec_angle
    use horizontal_data, only: horizontal
    use integration, only: rInt_R
    use useful, only: logWrite, abortRun
-   use special, only: l_curr, fac_loop, loopRadRatio, amp_curr, Le
+   use special, only: l_curr, fac_loop, loopRadRatio, amp_curr, Le, n_imp, l_imp
    use time_schemes, only: type_tscheme
 
 #ifdef WITH_OMP_GPU
@@ -741,17 +741,12 @@ contains
 
       end if
 
-
       !--- Compute fac_loop for current carrying loop
-
       if ( l_curr ) then
-
          allocate(fac_loop(l_max))
 
          do l=1,l_max
-
             fac_loop(l)=0.0_cp
-
             if (mod(l,2)/=0) then
                if(l==1) then
                   fac_loop(l)= one
@@ -760,7 +755,6 @@ contains
                   &            real(l-1,kind=cp)
                end if
             end if
-
          end do
 
          if (l_non_rot) then
@@ -768,7 +762,14 @@ contains
          else
             amp_curr = Le * sqrt(prmag/ek)
          end if
+      end if
 
+      if ( (n_imp == 3 .or. n_imp == 4 .or. n_imp == 7) .and. ( l_imp /= 1 ) ) then
+         call abortRun('l_imp /= 1 not implemented for this imposed field setup!')
+      end if
+
+      if ( ((imagcon /= 0) .or. l_curr .or. (n_imp > 1)) .and. l_LCR ) then
+         call abortRun('LCR not compatible with imposed field!')
       end if
 
       !-- From radial_data
