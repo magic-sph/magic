@@ -1845,27 +1845,16 @@ contains
       end if
 
       !-- Assemble IMEX using ddb and ddj as a work array
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dbdt, djdt)
-#endif
       call tscheme%assemble_imex(ddb, dbdt)
       call tscheme%assemble_imex(ddj, djdt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(ddb, ddj)
-#endif
       if ( l_cond_ic ) then
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dbdt_ic, djdt_ic)
-#endif
          call tscheme%assemble_imex(ddb_ic, dbdt_ic)
          call tscheme%assemble_imex(ddj_ic, djdt_ic)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(ddb_ic, ddj_ic)
-#endif
       end if
 
       !-- Now get the toroidal potential from the assembly
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp parallel default(shared)
       !$omp do private(n_r,lm,l1,m1,dL)
@@ -1885,12 +1874,14 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #else
       !$omp end do
 #endif
 
       if ( l_cond_ic ) then
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
 #else
          !$omp do private(n_r,lm,l1,m1,dL)
 #endif
@@ -1909,10 +1900,18 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #else
          !$omp end do
 #endif
       end if
+
+#ifdef WITH_OMP_GPU
+         !$omp target update from(b, aj)
+         if ( l_cond_ic ) then
+            !$omp target update from(b_ic, aj_ic)
+         end if
+#endif
 
       !-- Now handle boundary conditions !
       if ( imagcon /= 0 ) call abortRun('imagcon/=0 not implemented with assembly stage!')
@@ -1922,6 +1921,7 @@ contains
       if ( l_full_sphere ) then
          if ( ktopb == 1 ) then
 #ifdef WITH_OMP_GPU
+            !$omp parallel do private(lm,l1,fac_top)
 #else
             !$omp do private(lm,l1,fac_top)
 #endif
@@ -1933,11 +1933,13 @@ contains
                aj(lm,n_r_max)=zero
             end do
 #ifdef WITH_OMP_GPU
+            !$omp end parallel do
 #else
             !$omp end do
 #endif
          else if (ktopb == 4 ) then
 #ifdef WITH_OMP_GPU
+            !$omp parallel do private(lm)
 #else
             !$omp do private(lm)
 #endif
@@ -1947,6 +1949,7 @@ contains
                aj(lm,n_r_max)=zero
             end do
 #ifdef WITH_OMP_GPU
+            !$omp end parallel do
 #else
             !$omp end do
 #endif
@@ -1957,6 +1960,7 @@ contains
          if ( kbotb == 3 ) then ! Conducting inner core
             if ( ktopb==1 ) then ! Vacuum outside + cond. I. C.
 #ifdef WITH_OMP_GPU
+               !$omp parallel do private(lm,l1,fac_top,fac_bot,val_bot)
 #else
                !$omp do private(lm,l1,fac_top,fac_bot,val_bot)
 #endif
@@ -1981,11 +1985,13 @@ contains
                   aj_ic(lm,1)=aj(lm,n_r_max)
                end do
 #ifdef WITH_OMP_GPU
+               !$omp end parallel do
 #else
                !$omp end do
 #endif
             else if ( ktopb == 4 ) then ! Pseudo-Vacuum outside + cond. I. C.
 #ifdef WITH_OMP_GPU
+               !$omp parallel do private(lm,l1,fac_bot,val_bot)
 #else
                !$omp do private(lm,l1,fac_bot,val_bot)
 #endif
@@ -2009,6 +2015,7 @@ contains
                   aj_ic(lm,1)=aj(lm,n_r_max)
                end do
 #ifdef WITH_OMP_GPU
+               !$omp end parallel do
 #else
                !$omp end do
 #endif
@@ -2018,6 +2025,7 @@ contains
          else if ( kbotb == 4 ) then
             if ( ktopb==1 ) then
 #ifdef WITH_OMP_GPU
+               !$omp parallel do private(lm,l1,fac_top)
 #else
                !$omp do private(lm,l1,fac_top)
 #endif
@@ -2029,11 +2037,13 @@ contains
                   aj(lm,n_r_max)=zero
                end do
 #ifdef WITH_OMP_GPU
+               !$omp end parallel do
 #else
                !$omp end do
 #endif
             else if ( ktopb == 4 ) then
 #ifdef WITH_OMP_GPU
+               !$omp parallel do private(lm)
 #else
                !$omp do private(lm)
 #endif
@@ -2043,6 +2053,7 @@ contains
                   aj(lm,n_r_max)=zero
                end do
 #ifdef WITH_OMP_GPU
+               !$omp end parallel do
 #else
                !$omp end do
 #endif
@@ -2052,6 +2063,7 @@ contains
          else if ( kbotb == 1 ) then ! Insulating inner core
             if ( ktopb==1 ) then ! Vacuum on both sides
 #ifdef WITH_OMP_GPU
+               !$omp parallel do private(lm,l1,fac_bot,fac_top)
 #else
                !$omp do private(lm,l1,fac_bot,fac_top)
 #endif
@@ -2064,11 +2076,13 @@ contains
                   aj(lm,n_r_max)=zero
                end do
 #ifdef WITH_OMP_GPU
+               !$omp end parallel do
 #else
                !$omp end do
 #endif
             else if ( ktopb == 4 ) then ! Pseudo-vacuum on the outer boundary
 #ifdef WITH_OMP_GPU
+               !$omp parallel do private(lm,l1,fac_bot)
 #else
                !$omp do private(lm,l1,fac_bot)
 #endif
@@ -2080,6 +2094,7 @@ contains
                   aj(lm,n_r_max)=zero
                end do
 #ifdef WITH_OMP_GPU
+               !$omp end parallel do
 #else
                !$omp end do
 #endif
@@ -2088,34 +2103,26 @@ contains
             call abortRun('Combination not implemented yet!')
          end if
       end if
-#ifdef WITH_OMP_GPU
-#else
+
+#ifndef WITH_OMP_GPU
       !$omp end parallel
 #endif
 
-      !-- Finally compute the required implicit stage if needed
 #ifdef WITH_OMP_GPU
-      !$omp target update to(dbdt, djdt)
-      !$omp target update to(b, aj)
-#endif
-      call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, 1, &
-           &               tscheme%l_imp_calc_rhs(1), lRmsNext, .false.)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(dbdt, djdt)
-      !$omp target update from(b, aj)
-      !$omp target update from(db, dj, ddb, ddj)
+         !$omp target update to(b, aj)
+         if ( l_cond_ic ) then
+            !$omp target update to(b_ic, aj_ic)
+         end if
 #endif
 
+      !-- Finally compute the required implicit stage if needed
+      call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, 1, &
+           &               tscheme%l_imp_calc_rhs(1), lRmsNext, .false.)
+
       if ( l_cond_ic ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(dbdt_ic, djdt_ic)
-#endif
          call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,     &
               &                  dbdt_ic, djdt_ic, 1, tscheme%l_imp_calc_rhs(1),&
               &                  .false.)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dbdt_ic, djdt_ic)
-#endif
       end if
 
    end subroutine assemble_mag

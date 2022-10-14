@@ -791,10 +791,30 @@ contains
            &            lorentz_torque_ic_dt, lorentz_torque_ma_dt, omega_ic,      &
            &            omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
 
-      if ( l_mag ) call assemble_mag(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc,  &
-                        &            ddj_LMloc, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,  &
-                        &            aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, dbdt, djdt,&
-                        &            dbdt_ic, djdt_ic, lRmsNext, tscheme)
+      if ( l_mag ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dbdt, djdt)
+         !$omp target update to(b_LMloc, aj_LMloc)
+         if ( l_cond_ic ) then
+            !$omp target update to(dbdt_ic, djdt_ic)
+            !$omp target update to(b_ic_LMloc, aj_ic_LMloc)
+         end if
+#endif
+         call assemble_mag(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc,  &
+              &            ddj_LMloc, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,  &
+              &            aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, dbdt, djdt,&
+              &            dbdt_ic, djdt_ic, lRmsNext, tscheme)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dbdt, djdt)
+         !$omp target update from(b_LMloc, aj_LMloc)
+         !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
+         if ( l_cond_ic ) then
+            !$omp target update from(dbdt_ic, djdt_ic)
+            !$omp target update from(b_ic_LMloc, aj_ic_LMloc)
+            !$omp target update from(db_ic_LMloc, dj_ic_LMloc, ddb_ic_LMloc, ddj_ic_LMloc)
+         end if
+#endif
+      end if
 
    end subroutine assemble_stage
 !--------------------------------------------------------------------------------
@@ -872,10 +892,28 @@ contains
             call assemble_mag_Rloc(b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc, dj_Rloc,   &
                  &                 ddj_Rloc, dbdt, djdt, lRmsNext, tscheme)
          else
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dbdt, djdt)
+            !$omp target update to(b_LMloc, aj_LMloc)
+            if ( l_cond_ic ) then
+               !$omp target update to(dbdt_ic, djdt_ic)
+               !$omp target update to(b_ic_LMloc, aj_ic_LMloc)
+            end if
+#endif
             call assemble_mag(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc,   &
                  &            ddj_LMloc, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,   &
                  &            aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, dbdt, djdt, &
                  &            dbdt_ic, djdt_ic, lRmsNext, tscheme)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dbdt, djdt)
+            !$omp target update from(b_LMloc, aj_LMloc)
+            !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
+            if ( l_cond_ic ) then
+               !$omp target update from(dbdt_ic, djdt_ic)
+               !$omp target update from(b_ic_LMloc, aj_ic_LMloc)
+               !$omp target update from(db_ic_LMloc, dj_ic_LMloc, ddb_ic_LMloc, ddj_ic_LMloc)
+            end if
+#endif
          end if
       end if
 
