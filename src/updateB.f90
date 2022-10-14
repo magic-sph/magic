@@ -1158,24 +1158,14 @@ contains
 #endif
 
       !-- Now assemble the right hand side
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dbdt, djdt)
-#endif
       call tscheme%set_imex_rhs_ghost(b_ghost, dbdt, lm_start, lm_stop, 1)
       call tscheme%set_imex_rhs_ghost(aj_ghost, djdt, lm_start, lm_stop, 1)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(b_ghost, aj_ghost)
-#endif
-
-#ifdef WITH_OMP_GPU
-      !$omp parallel default(shared) private(lm_start,lm_stop, nR, l, m, lm)
-      lm_start=1; lm_stop=lm_max
-      call get_openmp_blocks(lm_start,lm_stop)
-      !$omp barrier
-#endif
 
       !-- Set to zero in case of low conductivity region
       if ( l_LCR ) then
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
+#endif
          do nR=nRstartMag,nRstopMag
             do lm=lm_start,lm_stop
                if ( nR<=n_r_LCR ) then
@@ -1184,78 +1174,100 @@ contains
                end if
             end do
          end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
       end if
 
       !-- Set boundary values
       if ( nRstartMag == n_r_cmb ) then
-         nR=n_r_cmb
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
             if ( l == 0 ) cycle
-            m = st_map%lm2m(lm)
-
-            if ( ktopb /= 2 ) aj_ghost(lm,nR)=zero
             if (imagcon /= 0 .and. tmagcon <= time ) then
                if ( l_LCR ) call abortRun('LCR not compatible with imposed field!')
-               if ( m==0 .and. l==2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
-                  aj_ghost(lm,nR)=cmplx(bpeaktop,0.0_cp,cp)
-               else if ( m == 0 .and. l==1 .and. imagcon == 12 ) then
-                  aj_ghost(lm,nR)=cmplx(bpeaktop,0.0_cp,cp)
-               else if ( m == 0 .and. l==1 .and. imagcon == -2 ) then
-                  b_ghost(lm,nR)=cmplx(bpeaktop,0.0_cp,cp)
-               else if ( m == 0 .and. l==3 .and. imagcon == -10 ) then
-                  aj_ghost(lm,nR)=cmplx(bpeaktop,0.0_cp,cp)
-               end if
             end if
-
-            if ( l_curr .and. mod(l,2) /= 0 ) then ! Current-carrying loop
-               call abortRun('in updateB: not implemented yet in this configuration')
-            end if
-
             if ( n_imp > 1 ) then ! Imposed field
                call abortRun('in updateB: not implemented yet in this configuration')
             endif
-
-            !-- Fill ghost zones
-            aj_ghost(lm,nR-1)=zero
-            b_ghost(lm,nR-1) =zero
+            if ( l_curr .and. mod(l,2) /= 0 ) then ! Current-carrying loop
+               call abortRun('in updateB: not implemented yet in this configuration')
+            end if
          end do
+         nR=n_r_cmb
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+#endif
+         do lm=lm_start,lm_stop
+            l = st_map%lm2l(lm)
+            if ( l /= 0 ) then
+               m = st_map%lm2m(lm)
+               if ( ktopb /= 2 ) aj_ghost(lm,nR)=zero
+               if (imagcon /= 0 .and. tmagcon <= time ) then
+                  if ( m==0 .and. l==2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
+                     aj_ghost(lm,nR)=cmplx(bpeaktop,0.0_cp,cp)
+                  else if ( m == 0 .and. l==1 .and. imagcon == 12 ) then
+                     aj_ghost(lm,nR)=cmplx(bpeaktop,0.0_cp,cp)
+                  else if ( m == 0 .and. l==1 .and. imagcon == -2 ) then
+                     b_ghost(lm,nR)=cmplx(bpeaktop,0.0_cp,cp)
+                  else if ( m == 0 .and. l==3 .and. imagcon == -10 ) then
+                     aj_ghost(lm,nR)=cmplx(bpeaktop,0.0_cp,cp)
+                  end if
+               end if
+               !-- Fill ghost zones
+               aj_ghost(lm,nR-1)=zero
+               b_ghost(lm,nR-1) =zero
+            end if
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
       end if
 
       if ( nRstopMag == n_r_icb ) then
          nR=n_r_icb
          do lm=lm_start,lm_stop
-            l = st_map%lm2l(lm)
-            if ( l == 0 ) cycle
-            m = st_map%lm2m(lm)
-            if ( l_full_sphere ) then
-               b_ghost(lm,nR) =zero
-               aj_ghost(lm,nR)=zero
-            else
-               if ( ktopb /= 2 ) aj_ghost(lm,nR)=zero
+            if ( .not. l_full_sphere ) then
                if (imagcon /= 0 .and. tmagcon <= time ) then
                   if ( l_LCR ) call abortRun('LCR not compatible with imposed field!')
-                  if ( m==0 .and. l==2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
-                     aj_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
-                  else if ( m == 0 .and. l==1 .and. imagcon == 12 ) then
-                     aj_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
-                  else if ( m == 0 .and. l==1 .and. imagcon == -1 ) then
-                     b_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
-                  else if ( m == 0 .and. l==3 .and. imagcon == -10 ) then
-                     aj_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
-                  end if
                end if
             end if
-
-            !-- Fill ghost zones
-            aj_ghost(lm,nR+1)=zero
-            b_ghost(lm,nR+1) =zero
          end do
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+#endif
+         do lm=lm_start,lm_stop
+            l = st_map%lm2l(lm)
+            if ( l /= 0 ) then
+               m = st_map%lm2m(lm)
+               if ( l_full_sphere ) then
+                  b_ghost(lm,nR) =zero
+                  aj_ghost(lm,nR)=zero
+               else
+                  if ( ktopb /= 2 ) aj_ghost(lm,nR)=zero
+                  if (imagcon /= 0 .and. tmagcon <= time ) then
+                     if ( m==0 .and. l==2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
+                        aj_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
+                     else if ( m == 0 .and. l==1 .and. imagcon == 12 ) then
+                        aj_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
+                     else if ( m == 0 .and. l==1 .and. imagcon == -1 ) then
+                        b_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
+                     else if ( m == 0 .and. l==3 .and. imagcon == -10 ) then
+                        aj_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
+                     end if
+                  end if
+               end if
+               !-- Fill ghost zones
+               aj_ghost(lm,nR+1)=zero
+               b_ghost(lm,nR+1) =zero
+            end if
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
       end if
 
-#ifdef WITH_OMP_GPU
-      !$omp end parallel
-#else
+#ifndef WITH_OMP_GPU
       !$omp end parallel
 #endif
 

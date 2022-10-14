@@ -168,7 +168,15 @@ contains
               &           dum_scal)
          call prepareW_FD(tscheme, dummy, .false.)
       end if
-      if ( l_mag_par_solve ) call prepareB_FD(0.0_cp, tscheme, dummy, dummy)
+      if ( l_mag_par_solve ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dummy)
+#endif
+         call prepareB_FD(0.0_cp, tscheme, dummy, dummy)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(b_ghost, aj_ghost)
+#endif
+      end if
 
       call find_faster_block() ! Find the fastest blocking
 
@@ -451,7 +459,15 @@ contains
          call prepareW_FD(tscheme, dwdt, lPress)
          if ( lPress ) call p0Mat_FD%solver_single(p0_ghost, nRstart, nRstop)
       end if
-      if ( l_mag_par_solve ) call prepareB_FD(time, tscheme, dbdt, djdt)
+      if ( l_mag_par_solve ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dbdt, djdt)
+#endif
+         call prepareB_FD(time, tscheme, dbdt, djdt)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(b_ghost, aj_ghost)
+#endif
+      end if
 
       !-----------------------------------------------------------
       !--- This is where the matrices are solved
