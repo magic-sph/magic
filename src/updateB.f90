@@ -1446,12 +1446,26 @@ contains
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dbdt, djdt, b_ghost, aj_ghost)
+#endif
          call get_mag_rhs_imp_ghost(b_ghost, db, ddb, aj_ghost, dj, ddj, dbdt, djdt, &
               &                     tscheme, 1, tscheme%l_imp_calc_rhs(1), lRmsNext)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dbdt, djdt, b_ghost, aj_ghost)
+         !$omp target update from(db, ddb, dj, ddj)
+#endif
       else
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dbdt, djdt, b_ghost, aj_ghost)
+#endif
          call get_mag_rhs_imp_ghost(b_ghost, db, ddb, aj_ghost, dj, ddj, dbdt, djdt, &
               &                     tscheme, tscheme%istage+1,                       &
               &                     tscheme%l_imp_calc_rhs(tscheme%istage+1), lRmsNext)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dbdt, djdt, b_ghost, aj_ghost)
+         !$omp target update from(db, ddb, dj, ddj)
+#endif
       end if
 
       !-- Array copy from b_ghost to b and aj_ghost to aj
@@ -2254,8 +2268,15 @@ contains
       call fill_ghosts_B(b_ghost, aj_ghost)
 
       !-- Now finally compute the linear terms
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dbdt, djdt, b_ghost, aj_ghost)
+#endif
       call get_mag_rhs_imp_ghost(b_ghost, db, ddb, aj_ghost, dj, ddj, dbdt, djdt, &
            &                     tscheme, 1, tscheme%l_imp_calc_rhs(1), lRmsNext)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dbdt, djdt, b_ghost, aj_ghost)
+      !$omp target update from(db, ddb, dj, ddj)
+#endif
 
    end subroutine assemble_mag_Rloc
 !-----------------------------------------------------------------------------
@@ -2509,7 +2530,6 @@ contains
       lm2l(1:lm_max) => st_map%lm2l
 
 #ifdef WITH_OMP_GPU
-      !$omp target update to(bg, ajg)
       start_lm=1; stop_lm=lm_max
       call dct_counter%start_count()
 #else
@@ -2529,7 +2549,6 @@ contains
 
 #ifdef WITH_OMP_GPU
       call dct_counter%stop_count(l_increment=.false.)
-      !$omp target update from(db, ddb, dj, ddj)
 #else
       !$omp single
       call dct_counter%stop_count(l_increment=.false.)
@@ -2538,7 +2557,7 @@ contains
 
       if ( l_LCR ) then
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do n_r=nRstartMag,nRstopMag
             if ( n_r<=n_r_LCR ) then
@@ -2558,13 +2577,13 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
       if ( istage == 1 ) then
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do collapse(2)
 #endif
          do n_r=nRstartMag,nRstopMag
             do lm=start_lm,stop_lm
@@ -2575,28 +2594,29 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
       if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
 
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do private(l,dtP,dtT,dL)
 #endif
          do n_r=nRstartMag,nRstopMag
             do lm=start_lm,stop_lm
                l=lm2l(lm)
-               if ( l == 0 ) cycle
-               dL=real(l*(l+1),cp)
-               dbdt%impl(lm,n_r,istage)=opm*lambda(n_r)*hdif_B(l)*            &
-               &                    dL*or2(n_r)*(ddb(lm,n_r)-dL*or2(n_r)*bg(lm,n_r) )
-               djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(l)*            &
-               &                    dL*or2(n_r)*( ddj(lm,n_r)+dLlambda(n_r)*   &
-               &                    dj(lm,n_r)-dL*or2(n_r)*ajg(lm,n_r) )
-               if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
-                  dtP(lm)=dL*or2(n_r)/tscheme%dt(1) * (  bg(lm,n_r)-workA(lm,n_r) )
-                  dtT(lm)=dL*or2(n_r)/tscheme%dt(1) * ( ajg(lm,n_r)-workB(lm,n_r) )
+               if ( l /= 0 ) then
+                  dL=real(l*(l+1),cp)
+                  dbdt%impl(lm,n_r,istage)=opm*lambda(n_r)*hdif_B(l)*            &
+                  &                    dL*or2(n_r)*(ddb(lm,n_r)-dL*or2(n_r)*bg(lm,n_r) )
+                  djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(l)*            &
+                  &                    dL*or2(n_r)*( ddj(lm,n_r)+dLlambda(n_r)*   &
+                  &                    dj(lm,n_r)-dL*or2(n_r)*ajg(lm,n_r) )
+                  if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
+                     dtP(lm)=dL*or2(n_r)/tscheme%dt(1) * (  bg(lm,n_r)-workA(lm,n_r) )
+                     dtT(lm)=dL*or2(n_r)/tscheme%dt(1) * ( ajg(lm,n_r)-workB(lm,n_r) )
+                  end if
                end if
             end do
             if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
@@ -2607,12 +2627,12 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
 
       end if
-#ifdef WITH_OMP_GPU
-#else
+
+#ifndef WITH_OMP_GPU
       !$omp end parallel
 #endif
 
