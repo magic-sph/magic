@@ -308,10 +308,6 @@ contains
          call tscheme%set_imex_rhs(ddj_ic, djdt_ic)
       end if
 
-      if ( (n_imp == 3 .or. n_imp == 4 .or. n_imp == 7) .and. ( l_imp /= 1 ) ) then
-         call abortRun('l_imp /= 1 not implemented for this imposed field setup!')
-      end if
-
       !$omp parallel default(shared)
 
       !$omp single
@@ -387,9 +383,6 @@ contains
 
                   if ( m1 == 0 ) then   ! Magnetoconvection boundary conditions
                      if ( imagcon /= 0 .and. tmagcon <= time ) then
-                        if ( l_LCR ) then
-                           call abortRun('LCR not compatible with imposed field!')
-                        end if
                         if ( l1 == 2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
                            rhs2(1,2*lmB-1,threadid)      =bpeaktop
                            rhs2(1,2*lmB,threadid)        =0.0_cp
@@ -414,11 +407,7 @@ contains
                         end if
                      end if
 
-                    if (l_curr .and. (mod(l1,2) /= 0) ) then    !Current carrying loop around equator of sphere, only odd harmonics
-
-                        if ( l_LCR ) then
-                           call abortRun('LCR not compatible with imposed field!')
-                        end if
+                    if ( l_curr .and. (mod(l1,2) /= 0) ) then    !Current carrying loop around equator of sphere, only odd harmonics
 
                         !General normalization for spherical harmonics of degree l and order 0
                         yl0_norm=half*sqrt((2*l1+1)/pi)
@@ -435,9 +424,6 @@ contains
                      end if
 
                      if ( n_imp > 1 .and. l1 == l_imp ) then
-                         if ( l_LCR ) then
-                            call abortRun('LCR not compatible with imposed field!')
-                         end if
                          ! General normalization for degree l and order 0
                          yl0_norm = half*sqrt((2*l1+1)/pi)
                          ! Prefactor for CMB matching condition
@@ -742,6 +728,10 @@ contains
 
       if ( .not. l_update_b ) return
 
+      if ( l_curr .or. n_imp > 1 ) then ! Current-carrying loop or imposed field
+         call abortRun('in updateB: not implemented yet in this configuration')
+      end if
+
       if ( .not. lBmat(1) ) then
          call get_bMat_Rdist(tscheme, hdif_B, bMat_FD, jMat_FD)
          lBmat(:)=.true.
@@ -778,7 +768,6 @@ contains
 
             if ( ktopb /= 2 ) aj_ghost(lm,nR)=zero
             if (imagcon /= 0 .and. tmagcon <= time ) then
-               if ( l_LCR ) call abortRun('LCR not compatible with imposed field!')
                if ( m==0 .and. l==2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
                   aj_ghost(lm,nR)=cmplx(bpeaktop,0.0_cp,cp)
                else if ( m == 0 .and. l==1 .and. imagcon == 12 ) then
@@ -789,14 +778,6 @@ contains
                   aj_ghost(lm,nR)=cmplx(bpeaktop,0.0_cp,cp)
                end if
             end if
-
-            if ( l_curr .and. mod(l,2) /= 0 ) then ! Current-carrying loop
-               call abortRun('in updateB: not implemented yet in this configuration')
-            end if
-
-            if ( n_imp > 1 ) then ! Imposed field
-               call abortRun('in updateB: not implemented yet in this configuration')
-            endif
 
             !-- Fill ghost zones
             aj_ghost(lm,nR-1)=zero
@@ -816,7 +797,6 @@ contains
             else
                if ( ktopb /= 2 ) aj_ghost(lm,nR)=zero
                if (imagcon /= 0 .and. tmagcon <= time ) then
-                  if ( l_LCR ) call abortRun('LCR not compatible with imposed field!')
                   if ( m==0 .and. l==2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
                      aj_ghost(lm,nR)=cmplx(bpeakbot,0.0_cp,cp)
                   else if ( m == 0 .and. l==1 .and. imagcon == 12 ) then
