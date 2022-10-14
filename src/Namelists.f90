@@ -568,6 +568,15 @@ contains
          l_phase_field = .true.
       end if
 
+      if ( l_phase_field ) then
+         if ( ktopphi /= 1 ) then
+            phi_top=0.0_cp ! Neumann
+         else
+            phi_top=sq4pi ! Dirichlet
+         end if
+         phi_bot=0.0_cp
+      end if
+
       if ( l_centrifuge .and. .not.  &
       &    (l_anel .and. .not. l_isothermal .and. (index(interior_model, "NONE")/=0)) )  then
          call abortRun("This case is not implemented.")
@@ -1025,13 +1034,8 @@ contains
          end do
       end if
 
+      !-- Phase field related diagnostics
       if ( l_phase_field ) then
-         if ( ktopphi /= 1 ) then
-            phi_top=0.0_cp ! Neumann
-         else
-            phi_top=sq4pi ! Dirichlet
-         end if
-         phi_bot=0.0_cp
          write(n_out,'(''  ktopphi         ='',i3,'','')') ktopphi
          write(n_out,'(''  kbotphi         ='',i3,'','')') kbotphi
          write(n_out,'(''  phi_top         ='',ES14.6,'','')') phi_top/sq4pi
