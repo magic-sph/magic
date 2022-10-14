@@ -889,8 +889,20 @@ contains
 
       if ( l_mag ) then
          if ( l_mag_par_solve ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dbdt, djdt)
+            !$omp target update to(b_Rloc, aj_Rloc)
+            !$omp target update to(b_ghost, aj_ghost)
+#endif
             call assemble_mag_Rloc(b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc, dj_Rloc,   &
                  &                 ddj_Rloc, dbdt, djdt, lRmsNext, tscheme)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dbdt, djdt)
+            !$omp target update from(b_Rloc, aj_Rloc)
+            !$omp target update from(db_Rloc, dj_Rloc)
+            !$omp target update from(ddb_Rloc, ddj_Rloc)
+            !$omp target update from(b_ghost, aj_ghost)
+#endif
          else
 #ifdef WITH_OMP_GPU
             !$omp target update to(dbdt, djdt)

@@ -2157,19 +2157,13 @@ contains
       if ( conductance_ma /=0 ) call abortRun('conducting ma not implemented here!')
 
       !-- Assemble IMEX using ddb and ddj as a work array
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dbdt, djdt)
-#endif
       call tscheme%assemble_imex(ddb, dbdt)
       call tscheme%assemble_imex(ddj, djdt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(ddb, ddj)
-#endif
-
 
       !-- Now get the poloidal and toroidal potentials from the assembly
 #ifdef WITH_OMP_GPU
       start_lm=1; stop_lm=lm_maxMag
+      !$omp target teams distribute parallel do
 #else
       !$omp parallel default(shared) private(start_lm, stop_lm, l, m, dL, n_r, r2)
       start_lm=1; stop_lm=lm_maxMag
@@ -2194,14 +2188,14 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
       !-- Boundary points if needed
       if ( nRstartMag == n_r_cmb) then
          n_r = n_r_cmb
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do lm=start_lm,stop_lm
             l = st_map%lm2l(lm)
@@ -2214,14 +2208,14 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
       if ( nRstopMag == n_r_icb) then
          n_r = n_r_icb
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do lm=start_lm,stop_lm
             l = st_map%lm2l(lm)
@@ -2239,38 +2233,34 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
+#ifdef WITH_OMP_GPU
+      call bulk_to_ghost(b, b_ghost, 1, nRstartMag, nRstopMag, lm_max, start_lm, stop_lm, .true.)
+      call bulk_to_ghost(aj, aj_ghost, 1, nRstartMag, nRstopMag, lm_max, start_lm, stop_lm, .true.)
+      !$omp target update from(b_ghost, aj_ghost) !-- Need for exch_ghosts
+#else
       call bulk_to_ghost(b, b_ghost, 1, nRstartMag, nRstopMag, lm_max, start_lm, stop_lm)
       call bulk_to_ghost(aj, aj_ghost, 1, nRstartMag, nRstopMag, lm_max, start_lm, stop_lm)
+#endif
 
-#ifdef WITH_OMP_GPU
-#else
+#ifndef WITH_OMP_GPU
       !$omp end parallel
 #endif
 
       call exch_ghosts(b_ghost, lm_maxMag, nRstartMag, nRstopMag, 1)
       call exch_ghosts(aj_ghost, lm_maxMag, nRstartMag, nRstopMag, 1)
 #ifdef WITH_OMP_GPU
-      !$omp target update to(b_ghost, aj_ghost)
-#endif
-      call fill_ghosts_B(b_ghost, aj_ghost)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(b_ghost, aj_ghost)
+      !$omp target update to(b_ghost, aj_ghost) !-- Need for fill_ghosts_B & get_mag_rhs_imp_ghost
 #endif
 
+      call fill_ghosts_B(b_ghost, aj_ghost)
+
       !-- Now finally compute the linear terms
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dbdt, djdt, b_ghost, aj_ghost)
-#endif
       call get_mag_rhs_imp_ghost(b_ghost, db, ddb, aj_ghost, dj, ddj, dbdt, djdt, &
            &                     tscheme, 1, tscheme%l_imp_calc_rhs(1), lRmsNext)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(dbdt, djdt, b_ghost, aj_ghost)
-      !$omp target update from(db, ddb, dj, ddj)
-#endif
 
    end subroutine assemble_mag_Rloc
 !-----------------------------------------------------------------------------
