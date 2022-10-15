@@ -1062,6 +1062,7 @@ contains
       logical :: l_in_cheb
       integer, pointer :: lm2l(:),lm2m(:)
       real(cp) :: dL
+      complex(cp), pointer :: old_ptr(:,:,:)
 
       if ( present(l_in_cheb_space) ) then
          l_in_cheb = l_in_cheb_space
@@ -1071,6 +1072,8 @@ contains
 
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
+
+      old_ptr => dsdt%old
 
 #ifdef WITH_OMP_GPU
       start_lm=llm; stop_lm=ulm
@@ -1102,12 +1105,14 @@ contains
 
       if ( istage == 1 ) then
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do
+         !$omp target teams distribute parallel do collapse(2)
 #else
          !$omp do private(n_r)
 #endif
          do n_r=1,n_r_max
-            dsdt%old(:,n_r,istage)=s(:,n_r)
+            do lm=llm,ulm
+               old_ptr(lm,n_r,istage)=s(lm,n_r)
+            end do
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
@@ -1116,12 +1121,14 @@ contains
 #endif
          if ( l_phase_field ) then
 #ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do
+            !$omp target teams distribute parallel do collapse(2)
 #else
             !$omp do private(n_r)
 #endif
             do n_r=1,n_r_max
-               dsdt%old(:,n_r,istage)=dsdt%old(:,n_r,istage)-stef*phi(:,n_r)
+               do lm=llm,ulm
+                  old_ptr(lm,n_r,istage)=old_ptr(lm,n_r,istage)-stef*phi(lm,n_r)
+               end do
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
