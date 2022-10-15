@@ -1346,14 +1346,16 @@ contains
       !-- local variables:
       integer :: nR,nR_out,nR_p,nR_s,nR_out_p,nR_out_s,info
       real(cp) :: dLh
+      real(cp) :: wimp_lin
 
       dLh =real(l*(l+1),kind=cp)
+      wimp_lin = tscheme%wimp_lin(1)
 
       !-- Now mode l>0
 
       !----- Boundary conditions, see above:
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR_out=1,rscheme_oc%n_max
          nR_out_p=nR_out+n_r_max
@@ -1457,12 +1459,12 @@ contains
 
       end do   !  loop over nR_out
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do nR_out=rscheme_oc%n_max+1,n_r_max
             nR_out_p=nR_out+n_r_max
@@ -1487,14 +1489,14 @@ contains
             wpsMat(3*n_r_max,nR_out_s)  =0.0_cp
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
       if ( l_temperature_diff ) then ! temperature diffusion
 
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do nR_out=1,n_r_max
             nR_out_p=nR_out+n_r_max
@@ -1506,7 +1508,7 @@ contains
                ! W equation
                wpsMat(nR,nR_out)= rscheme_oc%rnorm *  (                        &
                &                 dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out)        &
-               &  - tscheme%wimp_lin(1)*hdif_vel*visc(nR)*dLh*or2(nR) * (      &
+               &  - wimp_lin*hdif_vel*visc(nR)*dLh*or2(nR) * (                 &
                &                                rscheme_oc%d2rMat(nR,nR_out)   &
                &+(two*dLvisc(nR)-third*beta(nR))*rscheme_oc%drMat(nR,nR_out)   &
                &         -( dLh*or2(nR)+four*third*( dLvisc(nR)*beta(nR)       &
@@ -1514,19 +1516,19 @@ contains
                &          )                      *rscheme_oc%rMat(nR,nR_out) )  )
 
                ! Buoyancy
-               wpsMat(nR,nR_out_s)=-rscheme_oc%rnorm*tscheme%wimp_lin(1)*  &
+               wpsMat(nR,nR_out_s)=-rscheme_oc%rnorm*wimp_lin*             &
                &                    BuoFac*rgrav(nR)*rho0(nR)*             &
                &                                 rscheme_oc%rMat(nR,nR_out)
 
                ! Pressure gradient
-               wpsMat(nR,nR_out_p)= rscheme_oc%rnorm*tscheme%wimp_lin(1)*(  &
+               wpsMat(nR,nR_out_p)= rscheme_oc%rnorm*wimp_lin*(             &
                &                              rscheme_oc%drMat(nR,nR_out)   &
                &                    -beta(nR)* rscheme_oc%rMat(nR,nR_out) )
 
                ! P equation
                wpsMat(nR_p,nR_out)= rscheme_oc%rnorm * (                       &
                &             -dLh*or2(nR)*    rscheme_oc%drMat(nR,nR_out)      &
-               &   -tscheme%wimp_lin(1)*hdif_vel*visc(nR)*dLh*or2(nR)      *(  &
+               &   -wimp_lin*hdif_vel*visc(nR)*dLh*or2(nR)      *(             &
                &                                 -rscheme_oc%d3rMat(nR,nR_out) &
                &         +( beta(nR)-dLvisc(nR) )*rscheme_oc%d2rMat(nR,nR_out) &
                &             +( dLh*or2(nR)+dbeta(nR)+dLvisc(nR)*beta(nR)      &
@@ -1535,7 +1537,7 @@ contains
                &        -dLh*or2(nR)*( two*or1(nR)+dLvisc(nR)                  &
                &           +two*third*beta(nR)   )* rscheme_oc%rMat(nR,nR_out) ) )
 
-               wpsMat(nR_p,nR_out_p)=-rscheme_oc%rnorm*tscheme%wimp_lin(1)*   &
+               wpsMat(nR_p,nR_out_p)=-rscheme_oc%rnorm*wimp_lin*   &
                &                      dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out)
 
                wpsMat(nR_p,nR_out_s)=0.0_cp
@@ -1543,7 +1545,7 @@ contains
                ! S equation
                wpsMat(nR_s,nR_out_s)= rscheme_oc%rnorm * (                        &
                &                                    rscheme_oc%rMat(nR,nR_out) -  &
-               &           tscheme%wimp_lin(1)*opr*hdif_s*kappa(nR)*(             &
+               &           wimp_lin*opr*hdif_s*kappa(nR)*(                        &
                &                                  rscheme_oc%d2rMat(nR,nR_out) +  &
                &      ( beta(nR)+two*dLtemp0(nR)+                                 &
                &        two*or1(nR)+dLkappa(nR) )* rscheme_oc%drMat(nR,nR_out) +  &
@@ -1551,7 +1553,7 @@ contains
                &  two*or1(nR)+dLkappa(nR)+dLtemp0(nR)+beta(nR) )   -              &
                &           dLh*or2(nR) )*           rscheme_oc%rMat(nR,nR_out) ) )
 
-               wpsMat(nR_s,nR_out_p)= -tscheme%wimp_lin(1)*rscheme_oc%rnorm*      &
+               wpsMat(nR_s,nR_out_p)= -wimp_lin*rscheme_oc%rnorm*      &
                &           hdif_s*kappa(nR)*opr*alpha0(nR)*orho1(nR)*             &
                &           ViscHeatFac*ThExpNb*(  rscheme_oc%d2rMat(nR,nR_out) +  &
                &      ( dLkappa(nR)+two*(dLalpha0(nR)+dLtemp0(nR)) -              &
@@ -1563,20 +1565,20 @@ contains
 
 
                !Advection of the background entropy u_r * dso/dr
-               wpsMat(nR_s,nR_out)=rscheme_oc%rnorm*tscheme%wimp_lin(1)*dLh*      &
+               wpsMat(nR_s,nR_out)=rscheme_oc%rnorm*wimp_lin*dLh*      &
                &                   or2(nR)*dentropy0(nR)*orho1(nR)*               &
                &                                       rscheme_oc%rMat(nR,nR_out)
 
             end do
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
 
       else ! entropy diffusion
 
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do nR_out=1,n_r_max
             nR_out_p=nR_out+n_r_max
@@ -1588,7 +1590,7 @@ contains
                ! W equation
                wpsMat(nR,nR_out)= rscheme_oc%rnorm *  (                          &
                &                         dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out)  &
-               &   - tscheme%wimp_lin(1)*hdif_vel*visc(nR)*dLh*or2(nR) * (       &
+               &   - wimp_lin*hdif_vel*visc(nR)*dLh*or2(nR) * (                  &
                &                                   rscheme_oc%d2rMat(nR,nR_out)  &
                &   +(two*dLvisc(nR)-third*beta(nR))*rscheme_oc%drMat(nR,nR_out)  &
                &         -( dLh*or2(nR)+four*third*( dLvisc(nR)*beta(nR)         &
@@ -1596,18 +1598,18 @@ contains
                &          )                         *rscheme_oc%rMat(nR,nR_out) ) )
 
                ! Buoyancy
-               wpsMat(nR,nR_out_s)=-rscheme_oc%rnorm*tscheme%wimp_lin(1)*BuoFac* &
+               wpsMat(nR,nR_out_s)=-rscheme_oc%rnorm*wimp_lin*BuoFac*            &
                &                    rgrav(nR)*rho0(nR)*rscheme_oc%rMat(nR,nR_out)
 
                ! Pressure gradient
-               wpsMat(nR,nR_out_p)= rscheme_oc%rnorm*tscheme%wimp_lin(1)*(  &
+               wpsMat(nR,nR_out_p)= rscheme_oc%rnorm*wimp_lin*(             &
                &                                rscheme_oc%drMat(nR,nR_out) &
                &                      -beta(nR)* rscheme_oc%rMat(nR,nR_out) )
 
                ! P equation
                wpsMat(nR_p,nR_out)= rscheme_oc%rnorm * (                         &
                &                  -     dLh*or2(nR)*rscheme_oc%drMat(nR,nR_out)  &
-               &  -tscheme%wimp_lin(1)*hdif_vel*visc(nR)*dLh*or2(nR)  *(         &
+               &  -wimp_lin*hdif_vel*visc(nR)*dLh*or2(nR)  *(                    &
                                                   -rscheme_oc%d3rMat(nR,nR_out)  &
                &   +( beta(nR)-dLvisc(nR) )*       rscheme_oc%d2rMat(nR,nR_out)  &
                &          +( dLh*or2(nR)+dbeta(nR)+dLvisc(nR)*beta(nR)           &
@@ -1616,7 +1618,7 @@ contains
                &          -dLh*or2(nR)*( two*or1(nR)+dLvisc(nR)                  &
                &            +two*third*beta(nR)   )* rscheme_oc%rMat(nR,nR_out)  ) )
 
-               wpsMat(nR_p,nR_out_p)= -rscheme_oc%rnorm*tscheme%wimp_lin(1)*dLh* &
+               wpsMat(nR_p,nR_out_p)= -rscheme_oc%rnorm*wimp_lin*dLh*            &
                &                       or2(nR)*rscheme_oc%rMat(nR,nR_out)
 
                wpsMat(nR_p,nR_out_s)=0.0_cp
@@ -1624,7 +1626,7 @@ contains
                ! S equation
                wpsMat(nR_s,nR_out_s)= rscheme_oc%rnorm * (                       &
                &                                    rscheme_oc%rMat(nR,nR_out) - &
-               &              tscheme%wimp_lin(1)*opr*hdif_s*kappa(nR)*(         &
+               &              wimp_lin*opr*hdif_s*kappa(nR)*(                    &
                &                                  rscheme_oc%d2rMat(nR,nR_out)+  &
                &      ( beta(nR)+dLtemp0(nR)+                                    &
                &        two*or1(nR)+dLkappa(nR) )*rscheme_oc%drMat(nR,nR_out) -  &
@@ -1633,20 +1635,20 @@ contains
                wpsMat(nR_s,nR_out_p)=0.0_cp ! temperature diffusion
 
                !Advection of the background entropy u_r * dso/dr
-               wpsMat(nR_s,nR_out)=rscheme_oc%rnorm*tscheme%wimp_lin(1)*dLh* &
+               wpsMat(nR_s,nR_out)=rscheme_oc%rnorm*wimp_lin*dLh*            &
                &                   or2(nR)*dentropy0(nR)*orho1(nR)*          &
                &                                   rscheme_oc%rMat(nR,nR_out)
 
             end do
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
       !----- Factor for highest and lowest cheb:
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,n_r_max
          nR_p=nR+n_r_max
@@ -1671,56 +1673,55 @@ contains
          wpsMat(nR_s,3*n_r_max)  =rscheme_oc%boundary_fac*wpsMat(nR_s,3*n_r_max)
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
       ! compute the linesum of each line
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,3*n_r_max
          wpsMat_fac(nR,1)=one/maxval(abs(wpsMat(nR,:)))
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
       ! now divide each line by the linesum to regularize the matrix
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nr=1,3*n_r_max
          wpsMat(nR,:) = wpsMat(nR,:)*wpsMat_fac(nR,1)
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
       ! also compute the rowsum of each column
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,3*n_r_max
          wpsMat_fac(nR,2)=one/maxval(abs(wpsMat(:,nR)))
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
       ! now divide each row by the rowsum
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,3*n_r_max
          wpsMat(:,nR) = wpsMat(:,nR)*wpsMat_fac(nR,2)
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update to(wpsMat)
       call gpu_prepare_mat(wpsMat,3*n_r_max,3*n_r_max,wpsPivot,info)
-      !$omp target update from(wpsMat, wpsPivot)
+      !$omp target update from(wpsMat_fac)
 #else
       call prepare_mat(wpsMat,3*n_r_max,3*n_r_max,wpsPivot,info)
 #endif
