@@ -162,11 +162,15 @@ contains
 
       !-- Output variables:
       complex(cp), intent(out) :: PolLMr(lb:ub)
-      real(cp),    intent(inout) :: Pol2hInt(0:l_max)
+      real(cp),    intent(inout) :: Pol2hInt(0:map%l_max)
 
       !-- Local variables:
       real(cp) :: help,rE2,dLh
       integer :: lm,l,m
+
+#ifdef WITH_OMP_GPU
+      !$omp declare target
+#endif
 
       rE2=r(nR)*r(nR)
       do lm=lmStart,lmStop

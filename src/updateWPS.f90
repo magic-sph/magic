@@ -183,10 +183,16 @@ contains
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
+      complex(cp), pointer :: dwdt_ptr(:,:)
 
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
 
       if ( .not. l_update_v ) return
+
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dwdt, dpdt, dsdt)
+      !$omp target update to(w, dw, p, ds)
+#endif
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
@@ -196,6 +202,7 @@ contains
       lm2(0:,0:) => lo_map%lm2
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
+      dwdt_ptr(llm:,1:) => dwdt%expl(llm:,1:,tscheme%istage)
 
       nLMB=1+rank
 
@@ -203,15 +210,9 @@ contains
       rhs = 0.0_cp
 
       !-- Now assemble the right hand side and store it in work_LMloc, dp and ds
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dwdt, dpdt, dsdt)
-#endif
       call tscheme%set_imex_rhs(work_LMloc, dwdt)
       call tscheme%set_imex_rhs(dp, dpdt)
       call tscheme%set_imex_rhs(ds, dsdt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(work_LMloc, dp, ds)
-#endif
 
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: rhs)
@@ -242,6 +243,7 @@ contains
          end do
 
          !-- Assemble RHS (amenable to OpenMP GPU)
+         !$omp target map(tofrom: lmB)
          do lm=1,sizeLMB2(nLMB2,nLMB)
             lm1=lm22lm(lm,nLMB2,nLMB)
             l1=lm22l(lm,nLMB2,nLMB)
@@ -251,7 +253,7 @@ contains
 
                do nR=1,n_r_max
                   rhs(nR)        =real(ds(lm1,nR))
-                  rhs(nR+n_r_max)=real(dwdt%expl(lm1,nR,tscheme%istage))+&
+                  rhs(nR+n_r_max)=real(dwdt_ptr(lm1,nR))+&
                   &               Cor00_fac*CorFac*or1(nR)*z10(nR)
                end do
                rhs(1)        =real(tops(0,0))
@@ -292,25 +294,23 @@ contains
                rhs1(:,2*lmB,0)  =rhs1(:,2*lmB,0)*wpsMat_fac(:,1,nLMB2)
             end if
          end do
+         !$omp end target
          !PERFOFF
 
          !PERFON('upWP_sol')
          !-- Solve matrices with batched RHS (hipsolver)
          if ( lmB == 0 ) then
-            !$omp target update to(rhs)
             call gpu_solve_mat(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
-            !$omp target update from(rhs)
          else
-            !$omp target update to(rhs1)
             call gpu_solve_mat(wpsMat(:,:,nLMB2),3*n_r_max,3*n_r_max, &
                  &             wpsPivot(:,nLMB2),rhs1(:,:,0),2*lmB)
-            !$omp target update from(rhs1)
          end if
          !PERFOFF
 
          !PERFON('upWP_aft')
          lmB=0
          !-- Loop to reassemble fields (OpenMP GPU possible)
+         !$omp target map(tofrom: lmB)
          do lm=1,sizeLMB2(nLMB2,nLMB)
             lm1=lm22lm(lm,nLMB2,nLMB)
             l1=lm22l(lm,nLMB2,nLMB)
@@ -352,6 +352,7 @@ contains
                end if
             end if
          end do
+         !$omp end target
          !PERFOFF
 
       end do   ! end of loop over l1 subblocks
@@ -534,7 +535,7 @@ contains
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
-      !$omp parallel do private(n_r_out,lm1) collapse(2)
+      !$omp target
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
 #endif
@@ -546,7 +547,7 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
-      !$omp end parallel do
+      !$omp end target
 #else
       !$omp end do
       !$omp end parallel
@@ -556,10 +557,12 @@ contains
       call tscheme%rotate_imex(dwdt)
       call tscheme%rotate_imex(dpdt)
       call tscheme%rotate_imex(dsdt)
+
 #ifdef WITH_OMP_GPU
       !$omp target update from(dwdt, dpdt, dsdt)
+      !$omp target update from(w, dw, p, ds)
+      !$omp target update from(ddw, dp, s)
 #endif
-
       if ( tscheme%istage == tscheme%nstages ) then
          call get_single_rhs_imp(s, ds, w, dw, ddw, p, dp, dsdt, dwdt, dpdt, &
               &                  tscheme, 1, tscheme%l_imp_calc_rhs(1),      &
@@ -696,6 +699,11 @@ contains
       real(cp) :: dL, fac_bot, fac_top
       integer, pointer :: lm2l(:), lm2m(:)
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dwdt, dpdt, dsdt)
+      !$omp target update to(s, w)
+#endif
+
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
       if ( m_min == 0 ) then
@@ -709,15 +717,9 @@ contains
       end if
 
       !-- First assemble and store in temporary arrays
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dwdt, dpdt, dsdt)
-#endif
       call tscheme%assemble_imex(ddw, dwdt)
       call tscheme%assemble_imex(work_LMloc, dpdt)
       call tscheme%assemble_imex(ds, dsdt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(ddw, work_LMloc, ds)
-#endif
 
 #ifdef WITH_OMP_GPU
       start_lm=llm; stop_lm=ulm
@@ -729,6 +731,7 @@ contains
 
       !-- Now get the fields from the assembly
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp do private(n_r,lm,l1,m1,dL)
 #endif
@@ -753,17 +756,20 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+      !$omp target update from(s, dw) !-- Need for robin_bc
 #else
       !$omp end do
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp parallel default(shared)
 #endif
 
       !-- Get the entropy boundary points using Canuto (1986) approach
       if ( l_full_sphere) then
          if ( ktops == 1 ) then ! Fixed entropy at the outer boundary
-#ifdef WITH_OMP_GPU
-#else
             !$omp do private(lm,l1,m1)
-#endif
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
@@ -775,15 +781,9 @@ contains
                        &                   bots(l1,m1), s(lm,:))
                end if
             end do
-#ifdef WITH_OMP_GPU
-#else
             !$omp end do
-#endif
          else ! Fixed flux at the outer boundary
-#ifdef WITH_OMP_GPU
-#else
             !$omp do private(lm,l1,m1)
-#endif
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
@@ -795,99 +795,63 @@ contains
                        &                   bots(l1,m1), s(lm,:))
                end if
             end do
-#ifdef WITH_OMP_GPU
-#else
             !$omp end do
-#endif
          end if
       else ! Spherical shell
          !-- Boundary conditions
          if ( ktops==1 .and. kbots==1 ) then ! Dirichlet on both sides
-#ifdef WITH_OMP_GPU
-#else
             !$omp do private(lm,l1,m1)
-#endif
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
                     &                   bots(l1,m1), s(lm,:))
             end do
-#ifdef WITH_OMP_GPU
-#else
             !$omp end do
-#endif
          else if ( ktops==1 .and. kbots /= 1 ) then ! Dirichlet: top and Neumann: bot
-#ifdef WITH_OMP_GPU
-#else
             !$omp do private(lm,l1,m1)
-#endif
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
                     &                   bots(l1,m1), s(lm,:))
             end do
-#ifdef WITH_OMP_GPU
-#else
             !$omp end do
-#endif
          else if ( kbots==1 .and. ktops /= 1 ) then ! Dirichlet: bot and Neumann: top
-#ifdef WITH_OMP_GPU
-#else
             !$omp do private(lm,l1,m1)
-#endif
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
                     &                   bots(l1,m1), s(lm,:))
             end do
-#ifdef WITH_OMP_GPU
-#else
             !$omp end do
-#endif
          else if ( kbots /=1 .and. kbots /= 1 ) then ! Neumann on both sides
-#ifdef WITH_OMP_GPU
-#else
             !$omp do private(lm,l1,m1)
-#endif
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), one, 0.0_cp, &
                     &                   bots(l1,m1), s(lm,:))
             end do
-#ifdef WITH_OMP_GPU
-#else
             !$omp end do
-#endif
          end if
       end if
 
       !-- Boundary conditions for the poloidal
       !-- Non-penetration: u_r=0 -> w_lm=0 on both boundaries
-#ifdef WITH_OMP_GPU
-#else
       !$omp do
-#endif
       do lm=lmStart_00,ulm
          w(lm,1)      =zero
          w(lm,n_r_max)=zero
       end do
-#ifdef WITH_OMP_GPU
-#else
       !$omp end do
-#endif
 
       !-- Other boundary condition: stress-free or rigid
       if ( l_full_sphere ) then
          if ( ktopv == 1 ) then ! Stress-free
             fac_top=-two*or1(1)-beta(1)
-#ifdef WITH_OMP_GPU
-#else
             !$omp do private(lm,l1)
-#endif
             do lm=lmStart_00,ulm
                l1 = lm2l(lm)
                if ( l1 == 1 ) then
@@ -896,15 +860,9 @@ contains
                   call rscheme_oc%robin_bc(one, fac_top, zero, one, 0.0_cp, zero, dw(lm,:))
                end if
             end do
-#ifdef WITH_OMP_GPU
-#else
             !$omp end do
-#endif
          else
-#ifdef WITH_OMP_GPU
-#else
             !$omp do private(lm,l1)
-#endif
             do lm=lmStart_00,ulm
                l1 = lm2l(lm)
                if ( l1 == 1 ) then
@@ -914,78 +872,54 @@ contains
                   call rscheme_oc%robin_bc(0.0_cp, one, zero, one, 0.0_cp, zero, dw(lm,:))
                end if
             end do
-#ifdef WITH_OMP_GPU
-#else
             !$omp end do
-#endif
          end if
       else ! Spherical shell
          if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid at both boundaries
-#ifdef WITH_OMP_GPU
-#else
             !$omp do
-#endif
             do lm=lmStart_00,ulm
                dw(lm,1)      =zero
                dw(lm,n_r_max)=zero
             end do
-#ifdef WITH_OMP_GPU
-#else
             !$omp end do
-#endif
          else if ( ktopv /= 1 .and. kbotv == 1 ) then ! Rigid top/Stress-free bottom
             fac_bot=-two*or1(n_r_max)-beta(n_r_max)
-#ifdef WITH_OMP_GPU
-#else
             !$omp do
-#endif
             do lm=lmStart_00,ulm
                call rscheme_oc%robin_bc(0.0_cp, one, zero, one, fac_bot, zero, dw(lm,:))
             end do
-#ifdef WITH_OMP_GPU
-#else
             !$omp end do
-#endif
          else if ( ktopv == 1 .and. kbotv /= 1 ) then ! Rigid bottom/Stress-free top
             fac_top=-two*or1(1)-beta(1)
-#ifdef WITH_OMP_GPU
-#else
             !$omp do
-#endif
             do lm=lmStart_00,ulm
                call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, zero, dw(lm,:))
             end do
-#ifdef WITH_OMP_GPU
-#else
             !$omp end do
-#endif
          else if ( ktopv == 1 .and. kbotv == 1 ) then ! Stress-free at both boundaries
             fac_bot=-two*or1(n_r_max)-beta(n_r_max)
             fac_top=-two*or1(1)-beta(1)
-#ifdef WITH_OMP_GPU
-#else
             !$omp do
-#endif
             do lm=lmStart_00,ulm
                call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, zero, dw(lm,:))
             end do
-#ifdef WITH_OMP_GPU
-#else
             !$omp end do
-#endif
          end if
       end if
 
 #ifdef WITH_OMP_GPU
-      !$omp target update to(ds, workB, ddw, work_LMloc)
-      !$omp target update to(s, dw)
+      !$omp end parallel
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target update to(s, dw) !-- Need after robin_bc
       call dct_counter%start_count()
       call get_ddr(s, ds, workB, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
            &       n_r_max, rscheme_oc)
       call get_ddr( dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1, &
            &         stop_lm-llm+1, n_r_max, rscheme_oc)
       call dct_counter%stop_count()
-      !$omp target update from(ds, workB, ddw, work_LMloc)
+!      !$omp target update from(ds, workB, ddw, work_LMloc)
 #else
       !$omp single
       call dct_counter%start_count()
@@ -1001,6 +935,7 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp do private(n_r,lm,l1,dL)
 #endif
@@ -1014,6 +949,7 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #else
       !$omp end do
 #endif
@@ -1029,6 +965,7 @@ contains
          end if
 
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do private(l1,Dif,Pre,Buo,dL)
 #else
          !$omp do private(n_r,lm,l1,Dif,Pre,Buo,dL)
 #endif
@@ -1066,6 +1003,7 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #else
          !$omp end do
 #endif
@@ -1073,6 +1011,12 @@ contains
 
 #ifndef WITH_OMP_GPU
       !$omp end parallel
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dwdt, dpdt, dsdt)
+      !$omp target update from(s, w)
+      !$omp target update from(ds, dw, ddw)
 #endif
 
    end subroutine assemble_single
@@ -1721,7 +1665,6 @@ contains
 
 #ifdef WITH_OMP_GPU
       call gpu_prepare_mat(wpsMat,3*n_r_max,3*n_r_max,wpsPivot,info)
-      !$omp target update from(wpsMat_fac)
 #else
       call prepare_mat(wpsMat,3*n_r_max,3*n_r_max,wpsPivot,info)
 #endif
@@ -2055,7 +1998,6 @@ contains
       !---- LU decomposition:
 #ifdef WITH_OMP_GPU
       call gpu_prepare_mat(psMat,2*n_r_max,2*n_r_max,psPivot,info)
-      !$omp target update from(psMat_fac)
 #else
       call prepare_mat(psMat,2*n_r_max,2*n_r_max,psPivot,info)
 #endif
