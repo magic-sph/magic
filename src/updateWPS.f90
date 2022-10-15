@@ -1051,6 +1051,11 @@ contains
       integer :: n_r, lm, start_lm, stop_lm
       integer, pointer :: lm2l(:),lm2m(:)
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dsdt, dwdt, dpdt)
+      !$omp target update to(s, w, p)
+#endif
+
       if ( present(l_in_cheb_space) ) then
          l_in_cheb = l_in_cheb_space
       else
@@ -1074,37 +1079,19 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update to(ds, workB)
-      !$omp target update to(s)
       call get_ddr( s, ds, workB, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
            &        n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
-      !$omp target update from(ds, workB)
-      if ( l_in_cheb ) then
-         call rscheme_oc%costf1(s,ulm-llm+1,start_lm-llm+1, &
-                               &                 stop_lm-llm+1,.true.)
-         !$omp target update from(s)
-      end if
-      !$omp target update to(w, dw, ddw, work_LMloc)
+      if ( l_in_cheb ) call rscheme_oc%costf1(s,ulm-llm+1,start_lm-llm+1, &
+                            &                 stop_lm-llm+1,.true.)
       call get_dddr( w, dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1, &
            &         stop_lm-llm+1, n_r_max, rscheme_oc,                &
            &         l_dct_in=.not. l_in_cheb)
-      !$omp target update from(dw, ddw, work_LMloc)
-      if ( l_in_cheb ) then
-         !$omp target update to(w)
-         call rscheme_oc%costf1(w,ulm-llm+1,start_lm-llm+1, &
-                               &                 stop_lm-llm+1,.true.)
-         !$omp target update from(w)
-      end if
-      !$omp target update to(dp, workC)
-      !$omp target update to(p)
+      if ( l_in_cheb ) call rscheme_oc%costf1(w,ulm-llm+1,start_lm-llm+1, &
+                            &                 stop_lm-llm+1,.true.)
       call get_ddr( p, dp, workC, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
            &       n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
-      !$omp target update from(dp, workC)
-      if ( l_in_cheb ) then
-         call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1, &
-                               &                 stop_lm-llm+1,.true.)
-         !$omp target update from(p)
-      end if
+      if ( l_in_cheb ) call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1, &
+                            &                 stop_lm-llm+1,.true.)
 #else
       call get_ddr( s, ds, workB, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
            &        n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
@@ -1132,6 +1119,7 @@ contains
 
       if ( istage == 1 ) then
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
 #else
          !$omp do private(n_r,lm,l1,dL)
 #endif
@@ -1145,6 +1133,7 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #else
          !$omp end do
 #endif
@@ -1163,6 +1152,7 @@ contains
          !-- Calculate explicit time step part:
          if ( l_temperature_diff ) then
 #ifdef WITH_OMP_GPU
+            !$omp target teams distribute parallel do private(l1,Dif,Pre,Buo,dL)
 #else
             !$omp do private(n_r,lm,l1,Dif,Pre,Buo,dL)
 #endif
@@ -1211,6 +1201,7 @@ contains
                end if
             end do
 #ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
 #else
             !$omp end do
 #endif
@@ -1218,6 +1209,7 @@ contains
          else ! entropy diffusion
 
 #ifdef WITH_OMP_GPU
+            !$omp target teams distribute parallel do private(l1,Dif,Pre,Buo,dL)
 #else
             !$omp do private(n_r,lm,l1,Dif,Pre,Buo,dL)
 #endif
@@ -1257,6 +1249,7 @@ contains
                end if
             end do
 #ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
 #else
             !$omp end do
 #endif
@@ -1266,6 +1259,12 @@ contains
 
 #ifndef WITH_OMP_GPU
       !$omp end parallel
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dsdt, dwdt, dpdt)
+      !$omp target update from(s, w, p)
+      !$omp target update from(ds, dp, dw, ddw)
 #endif
 
    end subroutine get_single_rhs_imp
