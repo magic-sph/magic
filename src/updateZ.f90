@@ -2304,13 +2304,15 @@ contains
       !-- local variables:
       integer :: nR,nR_out,info
       real(cp) :: dLh
-      real(cp) :: dat(n_r_max,n_r_max)
+      real(cp), allocatable :: dat(:,:)
       real(cp) :: wimp_lin
 
       !-- Copie into local variable
       wimp_lin = tscheme%wimp_lin(1)
 
       dLh=real(l*(l+1),kind=cp)
+
+      allocate(dat(n_r_max,n_r_max))
 
       !-- Boundary conditions:
       !----- CMB condition:
@@ -2363,20 +2365,24 @@ contains
       end if
 
 #ifdef WITH_OMP_GPU
+      !$omp target enter data map(to: dat)
 #endif
 
       !-- Fill up with zeros:
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
 #endif
       do nR_out=rscheme_oc%n_max+1,n_r_max
          dat(1,nR_out)      =0.0_cp
          dat(n_r_max,nR_out)=0.0_cp
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #endif
 
       !----- Other points: (same as zMat)
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)
 #endif
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
@@ -2391,31 +2397,37 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #endif
 
       !-- Normalisation
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,n_r_max
          dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
          dat(nR,n_r_max)=rscheme_oc%boundary_fac*dat(nR,n_r_max)
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #endif
 
 #ifdef WITH_PRECOND_Z10
       ! compute the linesum of each line
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,n_r_max
          zMat_fac(nR)=one/maxval(abs(dat(nR,:)))
          dat(nR,:) = dat(nR,:)*zMat_fac(nR)
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #endif
 #endif
 
 #ifdef WITH_OMP_GPU
+      !$omp target update from(dat) !-- TODO: Remove after
 #endif
 
       !-- Array copy
@@ -2425,6 +2437,11 @@ contains
       call zMat%prepare(info)
 
       if ( info /= 0 ) call abortRun('Error from get_z10Mat: singular matrix!')
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: dat)
+#endif
+      deallocate(dat)
 
    end subroutine get_z10Mat
 !-------------------------------------------------------------------------------
@@ -2453,10 +2470,12 @@ contains
       integer :: nR,nR_out
       integer :: info
       real(cp) :: dLh
-      real(cp) :: dat(n_r_max,n_r_max)
+      real(cp), allocatable :: dat(:,:)
       character(len=80) :: message
       character(len=14) :: str, str_1
       real(cp) :: wimp_lin
+
+      allocate(dat(n_r_max,n_r_max))
 
       !-- Copie into local variable
       wimp_lin = tscheme%wimp_lin(1)
@@ -2485,27 +2504,26 @@ contains
          end if
       end if
 
-#ifndef MATRIX_CHECK
 #ifdef WITH_OMP_GPU
-#endif
-#else
-#ifdef WITH_OMP_GPU
-#endif
+      !$omp target enter data map(to: dat)
 #endif
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
 #endif
          do nR_out=rscheme_oc%n_max+1,n_r_max
             dat(1,nR_out)      =0.0_cp
             dat(n_r_max,nR_out)=0.0_cp
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
       !----- Bulk points:
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)
 #endif
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
@@ -2520,27 +2538,32 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #endif
 
       !----- Factor for highest and lowest cheb:
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,n_r_max
          dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
          dat(nR,n_r_max)=rscheme_oc%boundary_fac*dat(nR,n_r_max)
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #endif
 
 #ifdef WITH_PRECOND_Z
       ! compute the linesum of each line
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,n_r_max
          zMat_fac(nR)=one/maxval(abs(dat(nR,:)))
          dat(nR,:)   =dat(nR,:)*zMat_fac(nR)
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #endif
 #endif
 
@@ -2555,6 +2578,10 @@ contains
       integer, save :: counter=0
       integer :: filehandle
       character(len=100) :: filename
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dat)
+#endif
 
       ! copy the zMat to a temporary variable for modification
       write(filename,"(A,I3.3,A,I3.3,A)") "zMat_",l,"_",counter,".dat"
@@ -2587,6 +2614,10 @@ contains
       end block
 #endif
 
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dat) !-- TODO: Remove after
+#endif
+
       !-- Array copy
       call zMat%set_data(dat)
 
@@ -2600,6 +2631,11 @@ contains
          &       ', info = '//trim(adjustl(str_1))
          call abortRun(message)
       end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: dat)
+#endif
+      deallocate(dat)
 
    end subroutine get_zMat
 !------------------------------------------------------------------------------
