@@ -2756,14 +2756,17 @@ contains
       integer :: nR,nR_out,nR_p,nR_out_p
       integer :: info
       real(cp) :: dLh
+      real(cp) :: wimp_lin
 
       dLh =real(l*(l+1),kind=cp)
+
+      wimp_lin = tscheme%wimp_lin(1)
 
       !-- Now mode l>0
 
       !----- Boundary conditions, see above:
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR_out=1,rscheme_oc%n_max
          nR_out_p=nR_out+n_r_max
@@ -2807,12 +2810,12 @@ contains
 
       end do   !  loop over nR_out
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do nR_out=rscheme_oc%n_max+1,n_r_max
             nR_out_p=nR_out+n_r_max
@@ -2826,13 +2829,13 @@ contains
             wpMat%dat(2*n_r_max,nR_out_p)=0.0_cp
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
       !----- Other points:
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR_out=1,n_r_max
          nR_out_p=nR_out+n_r_max
@@ -2841,7 +2844,7 @@ contains
             nR_p=nR+n_r_max
             wpMat%dat(nR,nR_out)= rscheme_oc%rnorm *  (                     &
             &               dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out)          &
-            &         - tscheme%wimp_lin(1)*hdif*visc(nR)*dLh*or2(nR) * (   &
+            &         - wimp_lin*hdif*visc(nR)*dLh*or2(nR) * (              &
             &                              rscheme_oc%d2rMat(nR,nR_out)     &
             &        +(two*dLvisc(nR)-third*beta(nR))*                      &
             &                               rscheme_oc%drMat(nR,nR_out)     &
@@ -2849,14 +2852,14 @@ contains
             &          +(three*dLvisc(nR)+beta(nR))*or1(nR)+dbeta(nR) )     &
             &          )                    *rscheme_oc%rMat(nR,nR_out)  )  )
 
-            wpMat%dat(nR,nR_out_p)= rscheme_oc%rnorm*tscheme%wimp_lin(1)*(  &
+            wpMat%dat(nR,nR_out_p)= rscheme_oc%rnorm*wimp_lin*(             &
             &                            rscheme_oc%drMat(nR,nR_out)        &
             &                  -beta(nR)* rscheme_oc%rMat(nR,nR_out))
             ! the following part gives sometimes very large
             ! matrix entries
             wpMat%dat(nR_p,nR_out)=rscheme_oc%rnorm * (                       &
             &                  -dLh*or2(nR)*rscheme_oc%drMat(nR,nR_out)       &
-            &         -tscheme%wimp_lin(1)*hdif*visc(nR)*dLh*or2(nR)      *(  &
+            &         -wimp_lin*hdif*visc(nR)*dLh*or2(nR)      *(             &
             &                                 - rscheme_oc%d3rMat(nR,nR_out)  &
             &          +( beta(nR)-dLvisc(nR) )*rscheme_oc%d2rMat(nR,nR_out)  &
             &          +( dLh*or2(nR)+dbeta(nR)+dLvisc(nR)*beta(nR)           &
@@ -2865,17 +2868,17 @@ contains
             &          -dLh*or2(nR)*( two*or1(nR)+dLvisc(nR)                  &
             &          +two*third*beta(nR)   )*   rscheme_oc%rMat(nR,nR_out) ) )
 
-            wpMat%dat(nR_p,nR_out_p)= -rscheme_oc%rnorm*tscheme%wimp_lin(1)*  &
+            wpMat%dat(nR_p,nR_out_p)= -rscheme_oc%rnorm*wimp_lin*           &
             &                          dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out)
          end do
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
       !----- Factor for highest and lowest cheb:
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,n_r_max
          nR_p=nR+n_r_max
@@ -2889,49 +2892,49 @@ contains
          wpMat%dat(nR_p,2*n_r_max)=rscheme_oc%boundary_fac*wpMat%dat(nR_p,2*n_r_max)
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
       ! compute the linesum of each line
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,2*n_r_max
          wpMat_fac(nR,1)=one/maxval(abs(wpMat%dat(nR,:)))
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
       ! now divide each line by the linesum to regularize the matrix
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nr=1,2*n_r_max
          wpMat%dat(nR,:) = wpMat%dat(nR,:)*wpMat_fac(nR,1)
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
       ! also compute the rowsum of each column
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,2*n_r_max
          wpMat_fac(nR,2)=one/maxval(abs(wpMat%dat(:,nR)))
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
       ! now divide each row by the rowsum
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,2*n_r_max
          wpMat%dat(:,nR) = wpMat%dat(:,nR)*wpMat_fac(nR,2)
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
 #ifdef MATRIX_CHECK
@@ -2945,6 +2948,9 @@ contains
       character(len=100) :: filename
       logical :: first_run=.true.
 
+#ifdef WITH_OMP_GPU
+      !$omp target update from(wpMat%dat)
+#endif
       write(filename,"(A,I3.3,A,I3.3,A)") "wpMat_",l,"_",counter,".dat"
       open(newunit=filehandle,file=trim(filename))
       counter= counter+1
@@ -2975,9 +2981,6 @@ contains
       end block
 #endif
 
-#ifdef WITH_OMP_GPU
-      !$omp target update to(wpMat%dat)
-#endif
       call wpMat%prepare(info)
       if ( info /= 0 ) call abortRun('Singular matrix wpMat!')
 
@@ -3000,9 +3003,11 @@ contains
       integer :: nR, nR_out
       integer :: info
       real(cp) :: dLh
-      real(cp) :: dat(n_r_max,n_r_max)
+      real(cp), allocatable :: dat(:,:)
 
       dLh =real(l*(l+1),kind=cp)
+
+      allocate(dat(n_r_max,n_r_max))
 
       !----- Boundary conditions:
       dat(1,:)      =rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
@@ -3020,9 +3025,14 @@ contains
          dat(n_r_max-1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
       end if
 
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: dat)
+      !$omp target update to(dat)
+#endif
+
       !----- Bulk points:
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do collapse(2)
 #endif
       do nR_out=1,n_r_max
          do nR=3,n_r_max-2
@@ -3033,19 +3043,23 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
       !----- Factor for highest and lowest cheb:
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,n_r_max
          dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
          dat(nR,n_r_max)=rscheme_oc%boundary_fac*dat(nR,n_r_max)
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dat) !-- TODO: Remove after
 #endif
 
       !-- Array copy
@@ -3054,6 +3068,11 @@ contains
       !-- Lu factorisation
       call ellMat%prepare(info)
       if ( info /= 0 ) call abortRun('Singular matrix ellMat!')
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: dat)
+#endif
+      deallocate(dat)
 
    end subroutine get_elliptic_mat
 !-----------------------------------------------------------------------------
@@ -3077,9 +3096,14 @@ contains
       integer :: nR, nR_out
       integer :: info
       real(cp) :: dLh
-      real(cp) :: dat(n_r_max,n_r_max)
+      real(cp), allocatable :: dat(:,:)
+      real(cp) :: wimp_lin
+
+      allocate(dat(n_r_max,n_r_max))
 
       dLh =real(l*(l+1),kind=cp)
+
+      wimp_lin = tscheme%wimp_lin(1)
 
       !----- Boundary conditions:
       !-- Non-penetration condition at both boundaries
@@ -3110,9 +3134,14 @@ contains
          end if
       end if
 
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: dat)
+      !$omp target update to(dat)
+#endif
+
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do nR_out=rscheme_oc%n_max+1,n_r_max
             dat(1,nR_out)        =0.0_cp
@@ -3121,13 +3150,13 @@ contains
             dat(n_r_max,nR_out)  =0.0_cp
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
       !----- Bulk points:
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do collapse(2)
 #endif
       do nR_out=1,n_r_max
          do nR=3,n_r_max-2
@@ -3136,7 +3165,7 @@ contains
             &                              rscheme_oc%d2rMat(nR,nR_out)     &
             &                     -beta(nR)*rscheme_oc%drMat(nR,nR_out) -   &
             &                    dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) )   &
-            &  + tscheme%wimp_lin(1)*orho1(nR)*hdif*visc(nR)*dLh*or2(nR) * (&
+            &  + wimp_lin*orho1(nR)*hdif*visc(nR)*dLh*or2(nR) * (           &
             &                               rscheme_oc%d4rMat(nR,nR_out)    &
             &   +two*(dLvisc(nR)-beta(nR))* rscheme_oc%d3rMat(nR,nR_out)    &
             &    +( ddLvisc(nR)-two*dbeta(nR)+dLvisc(nR)*dLvisc(nR)+        &
@@ -3158,61 +3187,65 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
       !----- Factor for highest and lowest cheb:
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,n_r_max
          dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
          dat(nR,n_r_max)=rscheme_oc%boundary_fac*dat(nR,n_r_max)
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
       ! compute the linesum of each line
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,n_r_max
          wMat_fac(nR,1)=one/maxval(abs(dat(nR,:)))
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
       ! now divide each line by the linesum to regularize the matrix
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nr=1,n_r_max
          dat(nR,:) = dat(nR,:)*wMat_fac(nR,1)
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
       ! also compute the rowsum of each column
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,n_r_max
          wMat_fac(nR,2)=one/maxval(abs(dat(:,nR)))
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
       ! now divide each row by the rowsum
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,n_r_max
          dat(:,nR) = dat(:,nR)*wMat_fac(nR,2)
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dat) !-- TODO: Remove after
 #endif
 
       !-- Array copy
@@ -3221,6 +3254,11 @@ contains
       call wMat%prepare(info)
 
       if ( info /= 0 ) call abortRun('Singular matrix wMat!')
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: dat)
+#endif
+      deallocate(dat)
 
    end subroutine get_wMat
 !-----------------------------------------------------------------------------
@@ -3447,12 +3485,18 @@ contains
       class(type_realmat), intent(inout) :: pMat ! matrix
 
       !-- Local variables:
-      real(cp) :: dat(n_r_max,n_r_max), delr, work(n_r_max)
+      real(cp), allocatable :: dat(:,:)
+      real(cp) :: delr, work(n_r_max)
       integer :: info, nCheb, nR_out, nR, nCheb_in
+
+      allocate(dat(n_r_max,n_r_max))
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: dat)
+#endif
 
       !-- Bulk points
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do collapse(2)
 #endif
       do nR_out=1,n_r_max
          do nR=2,n_r_max
@@ -3462,7 +3506,7 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
 #endif
 
       !-- Boundary condition for spherically-symmetric pressure
@@ -3478,7 +3522,7 @@ contains
          if ( rscheme_oc%version == 'cheb' ) then
 
 #ifdef WITH_OMP_GPU
-#else
+            !$omp target teams distribute parallel do
 #endif
             do nCheb=1,rscheme_oc%n_max
                dat(1,nCheb)=0.0_cp
@@ -3492,7 +3536,7 @@ contains
                end do
             end do
 #ifdef WITH_OMP_GPU
-#else
+            !$omp end target teams distribute parallel do
 #endif
 
          else
@@ -3503,6 +3547,9 @@ contains
             !   dat(1,nR_out)=half*work(nR_out)*( r(nR_out+1)-r(nR_out-1) )
             !end do
             !dat(1,1)=half*work(1)*(r(2)-r(1))
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dat)
+#endif
             dat(1,:)=rscheme_oc%rMat(1,:)
             delr = r(n_r_max)-r(n_r_max-1)
 
@@ -3510,10 +3557,16 @@ contains
             dat(n_r_max,n_r_max)    =one/delr-beta(n_r_max)
             dat(n_r_max,n_r_max-1)  =-one/delr
             dat(n_r_max,1:n_r_max-2)=0.0_cp
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dat)
+#endif
          end if
 
       else
 
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dat)
+#endif
          dat(1,:)=rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
          if ( rscheme_oc%version == 'fd' ) then
             delr = r(n_r_max)-r(n_r_max-1)
@@ -3521,31 +3574,38 @@ contains
             dat(n_r_max,n_r_max)  =one/delr-beta(n_r_max)
             dat(n_r_max,n_r_max-1)=-one/delr
          end if
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dat)
+#endif
 
       end if
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do nR_out=rscheme_oc%n_max+1,n_r_max
             dat(1,nR_out)=0.0_cp
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
       !----- Factors for highest and lowest cheb mode:
 #ifdef WITH_OMP_GPU
-#else
+      !$omp target teams distribute parallel do
 #endif
       do nR=1,n_r_max
          dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
          dat(nR,n_r_max)=rscheme_oc%boundary_fac*dat(nR,n_r_max)
       end do
 #ifdef WITH_OMP_GPU
-#else
+      !$omp end target teams distribute parallel do
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dat) !-- TODO: Remove after
 #endif
 
       !-- Array copy
@@ -3554,6 +3614,11 @@ contains
       !---- LU decomposition:
       call pMat%prepare(info)
       if ( info /= 0 ) call abortRun('! Singular matrix p0Mat!')
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: dat)
+#endif
+      deallocate(dat)
 
    end subroutine get_p0Mat
 !-----------------------------------------------------------------------------
