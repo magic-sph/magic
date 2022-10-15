@@ -406,9 +406,18 @@ contains
          end do
 
          if ( l_single_matrix ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dsdt, dwdt, dpdt)
+            !$omp target update to(s, w, p)
+#endif
             call get_single_rhs_imp(s, ds_LMloc, w, dw_LMloc, ddw_LMloc, p,     &
                  &                  dp_LMloc, dsdt, dwdt, dpdt, tscheme, 1,     &
                  &                  .true., .false.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dsdt, dwdt, dpdt)
+            !$omp target update from(s, w, p)
+            !$omp target update from(ds_LMloc, dp_LMloc, dw_LMloc, ddw_LMloc)
+#endif
          else
             call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
                  &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
@@ -1437,9 +1446,18 @@ contains
          coex = two*(one-alpha)
 
          if ( l_single_matrix ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dsdt, dwdt, dpdt)
+            !$omp target update to(s, w, p)
+#endif
             call get_single_rhs_imp(s, ds_LMloc, w, dw_LMloc, ddw_LMloc, p,     &
                  &                  dp_LMloc, dsdt, dwdt, dpdt, tscheme, 1,     &
                  &                  .true., .false.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dsdt, dwdt, dpdt)
+            !$omp target update from(s, w, p)
+            !$omp target update from(ds_LMloc, dp_LMloc, dw_LMloc, ddw_LMloc)
+#endif
          else
             call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
                  &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
@@ -2299,9 +2317,18 @@ contains
       &    version == 1 ) then
          coex = two*(one-alpha)
          if ( l_single_matrix ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dsdt, dwdt, dpdt)
+            !$omp target update to(s, w, p)
+#endif
             call get_single_rhs_imp(s, ds_LMloc, w, dw_LMloc, ddw_LMloc, p,     &
                  &                  dp_LMloc, dsdt, dwdt, dpdt, tscheme, 1,     &
                  &                  .true., .false.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dsdt, dwdt, dpdt)
+            !$omp target update from(s, w, p)
+            !$omp target update from(ds_LMloc, dp_LMloc, dw_LMloc, ddw_LMloc)
+#endif
          else
             call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
                  &               dwdt, dpdt, tscheme, 1, .true., .false.,    &

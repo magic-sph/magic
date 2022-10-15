@@ -189,11 +189,6 @@ contains
 
       if ( .not. l_update_v ) return
 
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dwdt, dpdt, dsdt)
-      !$omp target update to(w, dw, p, ds)
-#endif
-
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
@@ -558,11 +553,6 @@ contains
       call tscheme%rotate_imex(dpdt)
       call tscheme%rotate_imex(dsdt)
 
-#ifdef WITH_OMP_GPU
-      !$omp target update from(dwdt, dpdt, dsdt)
-      !$omp target update from(w, dw, p, ds)
-      !$omp target update from(ddw, dp, s)
-#endif
       if ( tscheme%istage == tscheme%nstages ) then
          call get_single_rhs_imp(s, ds, w, dw, ddw, p, dp, dsdt, dwdt, dpdt, &
               &                  tscheme, 1, tscheme%l_imp_calc_rhs(1),      &
@@ -698,11 +688,6 @@ contains
       integer :: n_r_top, n_r_bot
       real(cp) :: dL, fac_bot, fac_top
       integer, pointer :: lm2l(:), lm2m(:)
-
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dwdt, dpdt, dsdt)
-      !$omp target update to(s, w)
-#endif
 
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
@@ -919,7 +904,6 @@ contains
       call get_ddr( dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1, &
            &         stop_lm-llm+1, n_r_max, rscheme_oc)
       call dct_counter%stop_count()
-!      !$omp target update from(ds, workB, ddw, work_LMloc)
 #else
       !$omp single
       call dct_counter%start_count()
@@ -1013,12 +997,6 @@ contains
       !$omp end parallel
 #endif
 
-#ifdef WITH_OMP_GPU
-      !$omp target update from(dwdt, dpdt, dsdt)
-      !$omp target update from(s, w)
-      !$omp target update from(ds, dw, ddw)
-#endif
-
    end subroutine assemble_single
 !------------------------------------------------------------------------------
    subroutine get_single_rhs_imp(s, ds, w, dw, ddw, p, dp, dsdt, dwdt, dpdt, &
@@ -1050,11 +1028,6 @@ contains
       integer :: n_r_top, n_r_bot, l1
       integer :: n_r, lm, start_lm, stop_lm
       integer, pointer :: lm2l(:),lm2m(:)
-
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dsdt, dwdt, dpdt)
-      !$omp target update to(s, w, p)
-#endif
 
       if ( present(l_in_cheb_space) ) then
          l_in_cheb = l_in_cheb_space
@@ -1259,12 +1232,6 @@ contains
 
 #ifndef WITH_OMP_GPU
       !$omp end parallel
-#endif
-
-#ifdef WITH_OMP_GPU
-      !$omp target update from(dsdt, dwdt, dpdt)
-      !$omp target update from(s, w, p)
-      !$omp target update from(ds, dp, dw, ddw)
 #endif
 
    end subroutine get_single_rhs_imp

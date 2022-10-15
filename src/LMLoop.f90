@@ -322,9 +322,18 @@ contains
                     &         MPI_COMM_WORLD,ierr)
             end if
 #endif
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dwdt, dpdt, dsdt)
+            !$omp target update to(w_LMloc, dw_LMloc, p_LMloc, ds_LMloc)
+#endif
             call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
                  &          p_LMloc, dp_LMloc, dpdt, s_LMloc, ds_LMloc, &
                  &          dsdt, tscheme, lRmsNext )
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dwdt, dpdt, dsdt)
+            !$omp target update from(w_LMloc, dw_LMloc, p_LMloc, ds_LMloc)
+            !$omp target update from(ddw_LMloc, dp_LMloc, s_LMloc)
+#endif
          else
             PERFON('up_WP')
             call updateWP( s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc, ddw_LMloc, &
@@ -768,8 +777,17 @@ contains
       end if
 
       if ( l_single_matrix ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dwdt, dpdt, dsdt)
+         !$omp target update to(s_LMloc, w_LMloc)
+#endif
          call assemble_single(s_LMloc, ds_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, &
               &               dsdt, dwdt, dpdt, tscheme,lRmsNext)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dwdt, dpdt, dsdt)
+         !$omp target update from(s_LMloc, w_LMloc)
+         !$omp target update from(ds_LMloc, dw_LMloc, ddw_LMloc)
+#endif
       else
          if ( l_heat )  then
 #ifdef WITH_OMP_GPU

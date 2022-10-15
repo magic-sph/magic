@@ -1214,9 +1214,18 @@ contains
            tscheme%family=='MULTISTEP' ) then
 
          if ( l_single_matrix ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dsdt, dwdt, dpdt)
+            !$omp target update to(s_LMloc, w_LMloc, p_LMloc)
+#endif
             call get_single_rhs_imp(s_LMloc, ds_LMloc, w_LMloc, dw_LMloc,     &
                  &                  ddw_LMloc, p_LMloc, dp_LMloc, dsdt, dwdt, &
                  &                  dpdt, tscheme, 1, .true., .false.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dsdt, dwdt, dpdt)
+            !$omp target update from(s_LMloc, w_LMloc, p_LMloc)
+            !$omp target update from(ds_LMloc, dp_LMloc, dw_LMloc, ddw_LMloc)
+#endif
          else
             if ( l_parallel_solve ) then
                call bulk_to_ghost(w_Rloc, w_ghost, 2, nRstart, nRstop, lm_max, 1, lm_max)
