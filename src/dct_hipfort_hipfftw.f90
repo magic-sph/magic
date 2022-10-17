@@ -209,7 +209,7 @@ contains
       integer, intent(in) :: n_f_max   ! Number of vectors
 
       !-- Output variables:
-      complex(cp), intent(inout) :: array_in(:,:) ! Array to be transformed
+      complex(cp), intent(inout) :: array_in(n_f_max,this%n_r_max) ! Array to be transformed
       complex(cp), intent(inout) :: work_2d(n_f_max,*)  ! Help array (not needed)
 
       !-- Local variables:
