@@ -1,39 +1,18 @@
-Results of commit "fa10e74c6337a7efff329363312645a580457280" (14/10/2022) - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1 MPI x 1 OMP
+Results of commit "7fc2c94d098822b26949f11a817ed2472b028c1d" (17/10/2022) - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1 MPI x 1 OMP
 _________________________________________________________________________________________________________________________________________________________________
-_______________________________________________________l_batched_shts=.true._____________________________________________________________________________________
+_______________________________________________________l_batched_shts=.true. GPU_________________________________________________________________________________
 
-boussBenchSat [OK]
-dynamo_benchmark [OK]
-hydro_bench_anel [OK]
-testGraphMovieOutputs [OK]
-testTOGeosOutputs [OK]
-isothermal_nrho3 [OK]
-precession [OK]
-couetteAxi [OK]
-doubleDiffusion [OK]
-fluxPerturbation [OK]
-testTruncations []
-
-finite_differences [NOK: Mismatched elements: 234 / 297 (78.8%) Max absolute difference: 938.88025 Max relative difference: 2.83560328]
-full_sphere [NOK: Mismatched elements: 84 / 99 (84.8%) Max absolute difference: 0.94571872 Max relative difference: 0.94597534]
-phase_field [NOK: Mismatched elements: 32 / 135 (23.7%) Max absolute difference: 5.92e-06 Max relative difference: 3.85601939e-06]
-testMapping [NOK: Mismatched elements: 206 / 459 (44.9%) Max absolute difference: 1.50000001e-05 Max relative difference: 2.82893053e-08]
-testOutputs [NOK: Mismatched elements: 40 / 1342 (2.98%) Max absolute difference: 223.0992867 Max relative difference: 2.]
-testRadialOutputs [NOK: Mismatched elements: 2 / 3120 (0.0641%) Max absolute difference: 1.e-10 Max relative difference: 6.73792744e-08]
-testRestart [NOK: Mismatched elements: 224 / 459 (48.8%) Max absolute difference: 6.99999998e-06 Max relative difference: 3.64931935e-08]
-testRMSOutputs [NOK: Mismatched elements: 13 / 324 (4.01%) Max absolute difference: 22.9865248 Max relative difference: 0.36837041]
-varProps [NOK: Mismatched elements: 200 / 702 (28.5%) Max absolute difference: 108.220318 Max relative difference: 2.2060309e+14]
 dynamo_benchmark_condICrotIC [NOK: Mismatched elements: 34 / 9918 (0.343%) Max absolute difference: 2.00000011e-06 Max relative difference: 1.99269892e-08]
-
-onset [Exec OK but I/O problems in output files: (shapes (51, 9), (10, 9) mismatch)]
+finite_differences [NOK: Mismatched elements: 234 / 297 (78.8%) Max absolute difference: 938.71544 Max relative difference: 2.83560328]
+full_sphere [NOK: Mismatched elements: 84 / 99 (84.8%) Max absolute difference: 0.94571872 Max relative difference: 0.94597534]
+onset [Exec OK but I/O problems in output files: (shapes (51, 9), (11, 9) mismatch)]
+phase_field [NOK: Mismatched elements: Mismatched elements: 32 / 135 (23.7%) Max absolute difference: 5.92e-06 Max relative difference: 3.85601939e-06]
+testMapping [NOK:Mismatched elements: 206 / 459 (44.9%) Max absolute difference: 1.50000001e-05 Max relative difference: 2.82893053e-088]
+testOutputs [NOK: Mismatched elements: 40 / 1342 (2.98%) Max absolute difference: 222.5149267 Max relative difference: 0.99526484]
+testRadialOutputs [NOK: Mismatched elements: 3 / 3120 (0.0962%) Max absolute difference: 1.e-10 Max relative difference: 6.85562036e-08]
+testRestart [NOK: Mismatched elements: 224 / 459 (48.8%) Max absolute difference: 6.99999998e-06 Max relative difference: 3.64931935e-08]
+testRMSOutputs [NOK: Mismatched elements: 49 / 324 (15.1%) Max absolute difference: 298.34124 Max relative difference: 0.6869591]
 testCoeffOutputs [Exec OK but error in Python script for e_kin.test generation ]
-varCond [Exec OK but I/O problems in output files: (shapes (51, 9), (40, 9) mismatch)]
-
 time_schemes []
-
-********************** CPU (4MPIx1 OMP)
-
-time_schemes [(shapes (846,), (774,) mismatch)]
-testCoeffOutputs[(shapes (40,), (10,) mismatch)]
-testTOGeosOutputs[Mismatched elements: 6 / 122 (4.92%) Max absolute difference: 9.99999972e-10 Max relative difference: 2.61095292e-09]
-_________________________________________________________________________________________________________________________________________________________________
+varCond [Exec OK but I/O problems in output files: (shapes (51, 9), (35, 9) mismatch)]
+varProps [NOK: Mismatched elements: 200 / 702 (28.5%) Max absolute difference: 108.220318 Max relative difference: 2.2060309e+14]
