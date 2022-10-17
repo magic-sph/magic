@@ -313,6 +313,7 @@ contains
          !$omp end target teams distribute parallel do
 
          !----- recursion
+#ifdef OLD_VERSION
          !$omp target teams distribute parallel do
          do n_f=n_f_start,n_f_stop
             do n_cheb=n_cheb_max-2,1,-1
@@ -322,6 +323,19 @@ contains
             end do
          end do
          !$omp end target teams distribute parallel do
+#else
+         !$omp target teams private(n_f,n_cheb,fac_cheb)
+         do n_cheb=n_cheb_max-2,1,-1
+            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            !$omp distribute parallel do
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_cheb) = df(n_f,n_cheb+2) + fac_cheb* f(n_f,n_cheb+1)
+               ddf(n_f,n_cheb)=ddf(n_f,n_cheb+2) + fac_cheb*df(n_f,n_cheb+1)
+            end do
+            !$omp end distribute parallel do
+         end do
+         !$omp end target teams
+#endif
 #endif
       else
          !----- initialize derivatives:
@@ -420,6 +434,7 @@ contains
          !$omp end target teams distribute parallel do
 
          !----- Recursion
+#ifdef OLD_VERSION
          !$omp target teams distribute parallel do
          do n_f=n_f_start,n_f_stop
             do n_cheb=n_cheb_max-2,1,-1
@@ -430,6 +445,20 @@ contains
             end do
          end do
          !$omp end target teams distribute parallel do
+#else
+         !$omp target teams private(n_f,n_cheb,fac_cheb)
+         do n_cheb=n_cheb_max-2,1,-1
+            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            !$omp distribute parallel do
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_cheb)  =  df(n_f,n_cheb+2) + fac_cheb*  f(n_f,n_cheb+1)
+               ddf(n_f,n_cheb) = ddf(n_f,n_cheb+2) + fac_cheb* df(n_f,n_cheb+1)
+               dddf(n_f,n_cheb)=dddf(n_f,n_cheb+2) + fac_cheb*ddf(n_f,n_cheb+1)
+            end do
+            !$omp end distribute parallel do
+         end do
+         !$omp end target teams
+#endif
 #endif
       else
          !----- initialize derivatives:
