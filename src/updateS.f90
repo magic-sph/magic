@@ -1664,23 +1664,17 @@ contains
          end if
       end if
 
-#ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: dat)
-      !$omp target update to(dat)
-#endif
-
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
-#ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do
-#endif
          do nR_out=rscheme_oc%n_max+1,n_r_max
             dat(1,nR_out)      =0.0_cp
             dat(n_r_max,nR_out)=0.0_cp
          end do
-#ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
-#endif
       end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: dat)
+      !$omp target update to(dat)
+#endif
 
       !-- Fill bulk points:
       if ( l_anelastic_liquid ) then
@@ -1753,7 +1747,7 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update from(dat)
+      !$omp target update from(dat) !-- TODO: Remove after
 #endif
 
       !-- Array copy
@@ -1825,23 +1819,17 @@ contains
          end if
       end if
 
-#ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: dat)
-      !$omp target update to(dat)
-#endif
-
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
-#ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do
-#endif
          do nR_out=rscheme_oc%n_max+1,n_r_max
             dat(1,nR_out)      =0.0_cp
             dat(n_r_max,nR_out)=0.0_cp
          end do
-#ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
-#endif
       end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: dat)
+      !$omp target update to(dat)
+#endif
 
       !----- Bulk points:
       if ( l_anelastic_liquid ) then
@@ -1916,7 +1904,7 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update from(dat)
+      !$omp target update from(dat) !-- TODO: Remove after
 #endif
 
 #ifdef MATRIX_CHECK
@@ -1930,6 +1918,10 @@ contains
       integer,save :: counter=0
       integer :: filehandle
       character(len=100) :: filename
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dat)
+#endif
 
       ! copy the sMat to a temporary variable for modification
       write(filename,"(A,I3.3,A,I3.3,A)") "sMat_",l,"_",counter,".dat"
