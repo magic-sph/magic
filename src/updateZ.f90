@@ -480,13 +480,25 @@ contains
             lm1=lm22lm(lm,nLMB2,nLMB)
             if ( l_z10mat .and. lm1 == l1m0 ) then
                !-- Small solve for l=1, m=0 in case this is needed
+               if(z10Mat%gpu_is_used) then
+                  !$omp target update to(rhs)
+               end if
                call z10Mat%solve(rhs)
+               if(z10Mat%gpu_is_used) then
+                  !$omp target update from(rhs)
+               end if
             end if
          end do
 
          if ( lmB > 0 ) then
             !-- Big solve for other modes
+            if(zMat(nLMB2)%gpu_is_used) then
+               !$omp target update to(rhs1)
+            end if
             call zMat(nLMB2)%solve(rhs1(:,:,0),2*lmB)
+            if(zMat(nLMB2)%gpu_is_used) then
+               !$omp target update from(rhs1)
+            end if
          end if
 
          lmB=0

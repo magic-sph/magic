@@ -319,13 +319,24 @@ contains
             end if
          end do
          !$omp end target
-         !$omp target update from(rhs, rhs1) !-- TODO: To remove when all update routines will be on GPU
 
          !-- Solve matrices with batched RHS (hipsolver)
          if ( lmB == 0 ) then
+            if(.not. phi0Mat%gpu_is_used) then
+               !$omp target update from(rhs)
+            end if
             call phi0Mat%solve(rhs)
+            if(.not. phi0Mat%gpu_is_used) then
+               !$omp target update to(rhs)
+            end if
          else
+            if(.not. phiMat(nLMB2)%gpu_is_used) then
+               !$omp target update from(rhs1)
+            end if
             call phiMat(nLMB2)%solve(rhs1(:,:,0),2*lmB)
+            if(.not. phiMat(nLMB2)%gpu_is_used) then
+               !$omp target update to(rhs1)
+            end if
          end if
 
          lmB=0

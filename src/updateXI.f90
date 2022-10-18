@@ -347,13 +347,24 @@ contains
             end if
          end do
          !$omp end target
-         !$omp target update from(rhs, rhs1) !-- TODO: Remove after offload of all update* routines & modif in matrices.f90
 
          !-- Solve matrices with batched RHS (hipsolver)
          if ( lmB  ==  0 ) then
+            if(.not. xi0Mat%gpu_is_used) then
+               !$omp target update from(rhs)
+            end if
             call xi0Mat%solve(rhs)
+            if(.not. xi0Mat%gpu_is_used) then
+               !$omp target update to(rhs)
+            end if
          else
+            if(.not. xiMat(nLMB2)%gpu_is_used) then
+               !$omp target update from(rhs1)
+            end if
             call xiMat(nLMB2)%solve(rhs1(:,:,0),2*lmB)
+            if(.not. xiMat(nLMB2)%gpu_is_used) then
+               !$omp target update to(rhs1)
+            end if
          end if
 
          lmB=0

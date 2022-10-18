@@ -549,9 +549,21 @@ contains
 
          !-- Solve matrices with batched RHS (hipsolver)
          if ( lmB == 0 ) then
+            if(p0Mat%gpu_is_used) then
+               !$omp target update to(rhs)
+            end if
             call p0Mat%solve(rhs)
+            if(p0Mat%gpu_is_used) then
+               !$omp target update from(rhs)
+            end if
          else
+            if(wpMat(nLMB2)%gpu_is_used) then
+               !$omp target update to(rhs1)
+            end if
             call wpMat(nLMB2)%solve(rhs1(:,:,0),2*lmB)
+            if(wpMat(nLMB2)%gpu_is_used) then
+               !$omp target update from(rhs1)
+            end if
          end if
 
          if ( l_double_curl .and. lPressNext .and. tscheme%istage == 1) then

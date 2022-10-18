@@ -149,16 +149,14 @@ contains
       !--
       logical :: loc_use_gpu
       loc_use_gpu = .false.
+      this%gpu_is_used=.false.
 #ifdef WITH_OMP_GPU
       if ( present(use_gpu) ) then
          loc_use_gpu = use_gpu
       end if
-      this%gpu_is_used = .false.
       if(loc_use_gpu) then
          this%gpu_is_used = .true.
       end if
-#else
-      this%gpu_is_used=.false.
 #endif
 
       this%nrow = nx
@@ -231,16 +229,10 @@ contains
 
       class(type_densemat) :: this
       real(cp), intent(inout) :: rhs(:)
-#ifdef WITH_OMP_GPU
-      logical :: update_rhs
-#endif
 
       if ( this%gpu_is_used ) then
 #ifdef WITH_OMP_GPU
-         update_rhs = .true.
-         !$omp target update if(update_rhs) to(rhs)
          call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)
-         !$omp target update if(update_rhs) from(rhs)
 #endif
       else
          call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)
@@ -252,16 +244,10 @@ contains
 
       class(type_densemat) :: this
       complex(cp), intent(inout) :: rhs(:)
-#ifdef WITH_OMP_GPU
-      logical :: update_rhs
-#endif
 
       if ( this%gpu_is_used ) then
 #ifdef WITH_OMP_GPU
-         update_rhs = .true.
-         !$omp target update if(update_rhs) to(rhs)
          call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)
-         !$omp target update if(update_rhs) from(rhs)
 #endif
       else
          call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)
@@ -274,16 +260,10 @@ contains
       class(type_densemat) :: this
       integer,  intent(in) :: nRHS
       real(cp), intent(inout) :: rhs(:,:)
-#ifdef WITH_OMP_GPU
-      logical :: update_rhs
-#endif
 
       if ( this%gpu_is_used ) then
 #ifdef WITH_OMP_GPU
-         update_rhs = .true.
-         !$omp target update if(update_rhs) to(rhs)
          call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, nRHS)
-         !$omp target update if(update_rhs) from(rhs)
 #endif
       else
          call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, nRHS)
@@ -296,18 +276,19 @@ contains
       class(type_densemat) :: this
       real(cp), intent(in) :: dat(:,:)
 
-      !--
+#ifdef WITH_OMP_GPU
       integer :: i,j
+#endif
 
       if ( this%gpu_is_used ) then
 #ifdef WITH_OMP_GPU
-!          !$omp target teams distribute simd
+!          !$omp target teams distribute parallel do collapse(2)
 !          do i=1,this%nrow
 !             do j=1,this%ncol
 !                this%dat(i,j) = dat(i,j)
 !             end do
 !          end do
-!          !$omp end target teams distribute simd
+!          !$omp end target teams distribute parallel do
          this%dat(:,:) = dat(:,:)
          !$omp target update to(this%dat)
 #endif
@@ -370,12 +351,7 @@ contains
       !--
       logical :: loc_use_gpu
       loc_use_gpu = .false.
-#ifdef WITH_OMP_GPU
-      if ( present(use_gpu) ) then
-         loc_use_gpu = use_gpu
-      end if
-      if( loc_use_gpu ) this%gpu_is_used = .true.
-#endif
+      this%gpu_is_used=.false.
 
       this%nrow = nx
       this%ncol = ny
@@ -388,43 +364,19 @@ contains
          allocate( this%dat(nx+(nx-1)/2, ny) )
          this%dat(:,:) = 0.0_cp
          bytes_allocated = bytes_allocated+(nx+(nx-1)/2)*ny*SIZEOF_DEF_REAL
-#ifdef WITH_OMP_GPU
-         if(loc_use_gpu) then
-            !$omp target enter data map(to: this%dat)
-            gpu_bytes_allocated = gpu_bytes_allocated+(nx+(nx-1)/2)*ny*SIZEOF_DEF_REAL
-         end if
-#endif
       else
          allocate( this%dat(nx, ny) )
          this%dat(:,:) = 0.0_cp
          bytes_allocated = bytes_allocated+nx*ny*SIZEOF_DEF_REAL
-#ifdef WITH_OMP_GPU
-         if(loc_use_gpu) then
-            !$omp target enter data map(to: this%dat)
-            gpu_bytes_allocated = gpu_bytes_allocated+nx*ny*SIZEOF_DEF_REAL
-         end if
-#endif
       end if
       if ( this%l_pivot ) then
          allocate( this%pivot(this%ncol) )
          this%pivot(:) = 0
          bytes_allocated = bytes_allocated+this%ncol*SIZEOF_INTEGER
-#ifdef WITH_OMP_GPU
-         if(loc_use_gpu) then
-            !$omp target enter data map(to: this%pivot)
-            gpu_bytes_allocated = gpu_bytes_allocated+this%ncol*SIZEOF_INTEGER
-         end if
-#endif
          if ( nx == 3 ) then ! Only require for tridiag arrays
             allocate( this%du2(this%ncol-2) ) ! Help array for tridiag
             this%du2(:) = 0
             bytes_allocated = bytes_allocated+(this%ncol-2)*SIZEOF_DEF_REAL
-#ifdef WITH_OMP_GPU
-            if(loc_use_gpu) then
-               !$omp target enter data map(to: this%du2)
-               gpu_bytes_allocated = gpu_bytes_allocated+(this%ncol-2)*SIZEOF_DEF_REAL
-            end if
-#endif
          end if
       end if
 
@@ -436,26 +388,11 @@ contains
       !
       class(type_bandmat) :: this
 
-#ifdef WITH_OMP_GPU
-      if( this%gpu_is_used ) then
-         !$omp target exit data map(delete: this%dat)
-      end if
-#endif
       deallocate( this%dat )
 
       if ( this%l_pivot ) then
-#ifdef WITH_OMP_GPU
-         if(this%gpu_is_used) then
-            !$omp target exit data map(delete: this%pivot)
-         end if
-#endif
          deallocate (this%pivot)
          if ( this%nrow == 3 ) then
-#ifdef WITH_OMP_GPU
-            if(this%gpu_is_used) then
-               !$omp target exit data map(delete: this%du2)
-            end if
-#endif
             deallocate(this%du2)
          end if
       end if
@@ -617,13 +554,7 @@ contains
       !--
       logical :: loc_use_gpu
       loc_use_gpu = .false.
-
-#ifdef WITH_OMP_GPU
-      if ( present(use_gpu) ) then
-         loc_use_gpu = use_gpu
-      end if
-      if( loc_use_gpu ) this%gpu_is_used = .true.
-#endif
+      this%gpu_is_used=.false.
 
       this%nrow = nx
       this%ncol = ny

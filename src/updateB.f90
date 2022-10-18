@@ -598,8 +598,20 @@ contains
 
          !-- Solve matrices with batched RHS (hipsolver)
          if ( lmB > 0 ) then
+            if(bMat(nLMB2)%gpu_is_used) then
+               !$omp target update to(rhs1)
+            end if
             call bMat(nLMB2)%solve(rhs1(:,:,0),2*lmB)
+            if(bMat(nLMB2)%gpu_is_used) then
+               !$omp target update from(rhs1)
+            end if
+            if(jMat(nLMB2)%gpu_is_used) then
+               !$omp target update to(rhs2)
+            end if
             call jMat(nLMB2)%solve(rhs2(:,:,0),2*lmB)
+            if(jMat(nLMB2)%gpu_is_used) then
+               !$omp target update from(rhs2)
+            end if
          end if
 
          if ( lRmsNext .and. tscheme%istage == 1 ) then ! Store old b,aj
