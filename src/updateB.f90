@@ -2381,38 +2381,62 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
+         if(lRmsNext) then
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do private(l1,dtP,dtT,dL)
+            !$omp target teams distribute parallel do private(l1,dtP,dtT,dL)
 #else
-         !$omp do private(n_r,lm,l1,dtP,dtT,dL)
+            !$omp do private(n_r,lm,l1,dtP,dtT,dL)
 #endif
-         do n_r=n_r_top,n_r_bot
-            do lm=lmStart_00,ulmMag
-               l1=lm2l(lm)
-               dL=real(l1*(l1+1),cp)
-               dbdt%impl(lm,n_r,istage)=opm*lambda(n_r)*hdif_B(l1)*     &
-               &                    dL*or2(n_r)*(ddb(lm,n_r)-dL*or2(n_r)*b(lm,n_r) )
-               djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(l1)*           &
-               &                    dL*or2(n_r)*( ddj(lm,n_r)+dLlambda(n_r)*   &
-               &                    dj(lm,n_r)-dL*or2(n_r)*aj(lm,n_r) )
-               if ( lRmsNext .and. loc_istage == loc_nstage ) then
-                  dtP(lm)=dL*or2(n_r)/loc_dt * (  b(lm,n_r)-workA(lm,n_r) )
-                  dtT(lm)=dL*or2(n_r)/loc_dt * ( aj(lm,n_r)-workB(lm,n_r) )
+            do n_r=n_r_top,n_r_bot
+               do lm=lmStart_00,ulmMag
+                  l1=lm2l(lm)
+                  dL=real(l1*(l1+1),cp)
+                  dbdt%impl(lm,n_r,istage)=opm*lambda(n_r)*hdif_B(l1)*     &
+                  &                    dL*or2(n_r)*(ddb(lm,n_r)-dL*or2(n_r)*b(lm,n_r) )
+                  djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(l1)*           &
+                  &                    dL*or2(n_r)*( ddj(lm,n_r)+dLlambda(n_r)*   &
+                  &                    dj(lm,n_r)-dL*or2(n_r)*aj(lm,n_r) )
+                  if (loc_istage == loc_nstage ) then
+                     dtP(lm)=dL*or2(n_r)/loc_dt * (  b(lm,n_r)-workA(lm,n_r) )
+                     dtT(lm)=dL*or2(n_r)/loc_dt * ( aj(lm,n_r)-workB(lm,n_r) )
+                  end if
+               end do
+               if (loc_istage == loc_nstage ) then
+                  call hInt2PolLM(dtP,llmMag,ulmMag,n_r,lmStart_00,ulmMag, &
+                       &          dtBPolLMr(llmMag:ulmMag,n_r),            &
+                       &          dtBPol2hInt(llmMag:ulmMag,n_r),lo_map)
+                  call hInt2TorLM(dtT,llmMag,ulmMag,n_r,lmStart_00,ulmMag, &
+                       &          dtBTor2hInt(llmMag:ulmMag,n_r),lo_map)
                end if
             end do
-            if ( lRmsNext .and. loc_istage == loc_nstage ) then
-               call hInt2PolLM(dtP,llmMag,ulmMag,n_r,lmStart_00,ulmMag, &
-                    &          dtBPolLMr(llmMag:ulmMag,n_r),            &
-                    &          dtBPol2hInt(llmMag:ulmMag,n_r),lo_map)
-               call hInt2TorLM(dtT,llmMag,ulmMag,n_r,lmStart_00,ulmMag, &
-                    &          dtBTor2hInt(llmMag:ulmMag,n_r),lo_map)
-            end if
-         end do
 #ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
+            !$omp end target teams distribute parallel do
 #else
-         !$omp end do
+            !$omp end do
 #endif
+         else
+#ifdef WITH_OMP_GPU
+            !$omp target teams distribute parallel do collapse(2)
+#else
+            !$omp do private(n_r,lm,l1,dL)
+#endif
+            do n_r=n_r_top,n_r_bot
+               do lm=lmStart_00,ulmMag
+                  l1=lm2l(lm)
+                  dL=real(l1*(l1+1),cp)
+                  dbdt%impl(lm,n_r,istage)=opm*lambda(n_r)*hdif_B(l1)*     &
+                  &                    dL*or2(n_r)*(ddb(lm,n_r)-dL*or2(n_r)*b(lm,n_r) )
+                  djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(l1)*           &
+                  &                    dL*or2(n_r)*( ddj(lm,n_r)+dLlambda(n_r)*   &
+                  &                    dj(lm,n_r)-dL*or2(n_r)*aj(lm,n_r) )
+               end do
+            end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+#else
+            !$omp end do
+#endif
+         end if
 
       end if
 #ifndef WITH_OMP_GPU
