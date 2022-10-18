@@ -1,11 +1,11 @@
-Results of commit "e7f0cbe9161efe9cf4ea61487510030c510ec803" (18/10/2022) - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1 MPI x 1 OMP
+Results of commit "1e0aaeb8a5e587245961820901f263a0eb021421" (18/10/2022) - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1 MPI x 1 OMP
 _________________________________________________________________________________________________________________________________________________________________
 _______________________________________________________l_batched_shts=.true. GPU_________________________________________________________________________________
 
-finite_differences [NOK: Mismatched elements: 234 / 297 (78.8%) Max absolute difference: 938.71544 Max relative difference: 2.83560328]
-full_sphere [NOK: Mismatched elements: 84 / 99 (84.8%) Max absolute difference: 0.94571872 Max relative difference: 0.94597534]
-onset [Exec OK but I/O problems in output files: (shapes (51, 9), (10, 9) mismatch) - Results NOK]
-testOutputs [NOK: Mismatched elements: 40 / 1342 (2.98%) Max absolute difference: 222.5149267 Max relative difference: 0.99526484]
+finite_differences [NOK: Mismatched elements: 228 / 297 (76.8%) Max absolute difference: 12.15667 Max relative difference: 0.05019903]
+full_sphere [NOK: Mismatched elements: 84 / 99 (84.8%) Max absolute difference: 0.0399923 Max relative difference: 0.0748564]
+onset [Exec OK but I/O problems in output files: (shapes (51, 9), (11, 9) mismatch) - Results NOK]
+testOutputs [NOK: Mismatched elements: 40 / 1342 (2.98%) Max absolute difference: 222.5149267 Max relative difference: 2.]
 testRMSOutputs [NOK: Mismatched elements: 49 / 324 (15.1%) Max absolute difference: 298.34124 Max relative difference: 0.6869591]
 time_schemes [NOK]
-varProps [NOK: Mismatched elements: 200 / 702 (28.5%) Max absolute difference: 108.220318 Max relative difference: 2.2060309e+14]
+varProps [NOK: Mismatched elements: 200 / 702 (28.5%) Max absolute difference: 108.21982266 Max relative difference: 4.35364661e+08]
