@@ -457,6 +457,46 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
+#ifndef  NEW_VERSION
+      !$omp target data map(to: wimp_ptr, wexp_ptr, wimp_lin_ptr)
+      !$omp target teams
+      !$omp distribute parallel do collapse(2)
+      do n_r=nr_start,nr_stop
+         do lm=start_lm,stop_lm
+            rhs(lm,n_r)=wimp_ptr(1)*old_ptr(lm,n_r,1)
+         end do
+      end do
+      !$omp end distribute parallel do
+      do n_o=2,nold
+         !$omp distribute parallel do collapse(2)
+         do n_r=nr_start,nr_stop
+            do lm=start_lm,stop_lm
+               rhs(lm,n_r)=rhs(lm,n_r)+wimp_ptr(n_o)*old_ptr(lm,n_r,n_o)
+            end do
+         end do
+         !$omp end distribute parallel do
+      end do
+      do n_o=1,nimp
+         !$omp distribute parallel do collapse(2)
+         do n_r=nr_start,nr_stop
+            do lm=start_lm,stop_lm
+               rhs(lm,n_r)=rhs(lm,n_r)+wimp_lin_ptr(n_o+1)*impl_ptr(lm,n_r,n_o)
+            end do
+         end do
+         !$omp end distribute parallel do
+      end do
+      do n_o=1,nexp
+         !$omp distribute parallel do collapse(2)
+         do n_r=nr_start,nr_stop
+            do lm=start_lm,stop_lm
+               rhs(lm,n_r)=rhs(lm,n_r)+wexp_ptr(n_o)*expl_ptr(lm,n_r,n_o)
+            end do
+         end do
+         !$omp end distribute parallel do
+      end do
+      !$omp end target teams
+      !$omp end target data
+#else
       !$omp target data map(to: wimp_ptr, wexp_ptr, wimp_lin_ptr)
 
       !$omp target teams distribute parallel do collapse(2)
@@ -477,6 +517,7 @@ contains
       !$omp end target teams distribute parallel do
 
       !$omp end target data
+#endif
 #else
       !$omp parallel default(shared) private(start_lm, stop_lm)
       start_lm=dfdt%llm; stop_lm=dfdt%ulm
