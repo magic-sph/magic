@@ -2960,9 +2960,6 @@ contains
       character(len=100) :: filename
       logical :: first_run=.true.
 
-#ifdef WITH_OMP_GPU
-      !$omp target update from(wpMat%dat)
-#endif
       write(filename,"(A,I3.3,A,I3.3,A)") "wpMat_",l,"_",counter,".dat"
       open(newunit=filehandle,file=trim(filename))
       counter= counter+1
@@ -3071,7 +3068,9 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update from(dat) !-- TODO: Remove after
+      if( .not. ellMat%gpu_is_used) then
+         !$omp target update from(dat)
+      end if
 #endif
 
       !-- Array copy
@@ -3251,7 +3250,9 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update from(dat) !-- TODO: Remove after
+      if( .not. wMat%gpu_is_used) then
+         !$omp target update from(dat)
+      end if
 #endif
 
       !-- Array copy
@@ -3588,13 +3589,13 @@ contains
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do
+         !$omp target
 #endif
          do nR_out=rscheme_oc%n_max+1,n_r_max
             dat(1,nR_out)=0.0_cp
          end do
 #ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
+         !$omp end target
 #endif
       end if
 
@@ -3611,7 +3612,9 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update from(dat) !-- TODO: Remove after
+      if( .not. pMat%gpu_is_used) then
+         !$omp target update from(dat)
+      end if
 #endif
 
       !-- Array copy

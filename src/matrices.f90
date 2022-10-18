@@ -10,7 +10,7 @@ module real_matrices
       integer :: nrow ! Number of rows
       integer :: ncol ! Number of columns or number of bands
       logical :: l_pivot
-      real(cp), allocatable :: dat(:,:) ! Actual data
+      real(cp), pointer :: dat(:,:) ! Actual data
       integer, allocatable :: pivot(:)
       logical :: gpu_is_used
    contains
@@ -90,11 +90,11 @@ contains
 
       class(type_realmat), allocatable :: mat_add
 
-      if ( .not. allocated(mat_add%dat) ) then
-         call mat_add%initialize(this%nrow,this%ncol,this%l_pivot)
-      end if
-
-      mat_add%dat(:,:) = this%dat(:,:)+B%dat(:,:)
+!       if ( .not. allocated(mat_add%dat) ) then
+!          call mat_add%initialize(this%nrow,this%ncol,this%l_pivot)
+!       end if
+!
+!       mat_add%dat(:,:) = this%dat(:,:)+B%dat(:,:)
 
    end function mat_add
 !------------------------------------------------------------------------------
@@ -277,20 +277,22 @@ contains
       real(cp), intent(in) :: dat(:,:)
 
 #ifdef WITH_OMP_GPU
-      integer :: i,j
+      integer :: i,j, row, col
+      real(cp), pointer :: ptr_dat(:,:)
+      ptr_dat => this%dat
+      row = this%nrow
+      col = this%ncol
 #endif
 
       if ( this%gpu_is_used ) then
 #ifdef WITH_OMP_GPU
-!          !$omp target teams distribute parallel do collapse(2)
-!          do i=1,this%nrow
-!             do j=1,this%ncol
-!                this%dat(i,j) = dat(i,j)
-!             end do
-!          end do
-!          !$omp end target teams distribute parallel do
-         this%dat(:,:) = dat(:,:)
-         !$omp target update to(this%dat)
+         !$omp target teams distribute parallel do collapse(2)
+         do i=1,row
+            do j=1,col
+               ptr_dat(i,j) = dat(i,j)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
 #endif
       else
          this%dat(:,:) = dat(:,:)

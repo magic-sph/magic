@@ -2433,7 +2433,9 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update from(dat) !-- TODO: Remove after
+      if(.not. zMat%gpu_is_used) then
+         !$omp target update from(dat)
+      end if
 #endif
 
       !-- Array copy
@@ -2616,7 +2618,9 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update from(dat) !-- TODO: Remove after
+      if(.not. zMat%gpu_is_used) then
+         !$omp target update from(dat)
+      end if
 #endif
 
       !-- Array copy

@@ -1758,7 +1758,9 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update from(dat) !-- TODO: Remove after
+      if(.not. sMat%gpu_is_used) then
+         !$omp target update from(dat)
+      end if
 #endif
 
       !-- Array copy
@@ -1914,10 +1916,6 @@ contains
 #endif
 #endif
 
-#ifdef WITH_OMP_GPU
-      !$omp target update from(dat) !-- TODO: Remove after
-#endif
-
 #ifdef MATRIX_CHECK
       block
 
@@ -1963,6 +1961,12 @@ contains
       write(*,"(A,I3,A,ES11.3)") "inverse condition number of sMat for l=",l," is ",rcond
 
       end block
+#endif
+
+#ifdef WITH_OMP_GPU
+      if(.not. sMat%gpu_is_used) then
+         !$omp target update from(dat)
+      end if
 #endif
 
       !-- Array copy

@@ -1397,7 +1397,9 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update from(dat) !-- TODO: Remove when all get_*Mat will be on GPU
+      if(.not. phiMat%gpu_is_used) then
+         !$omp target update from(dat)
+      end if
 #endif
 
       !-- Array copy
@@ -1531,7 +1533,9 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update from(dat) !-- TODO: Remove when all get_*Mat will be on GPU
+      if(.not. phiMat%gpu_is_used) then
+         !$omp target update from(dat)
+      end if
 #endif
 
       !-- Array copy

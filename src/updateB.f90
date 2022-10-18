@@ -3083,7 +3083,12 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update from(datJmat, datBmat) !-- TODO:  Remove after
+      if(.not. bMat%gpu_is_used) then
+         !$omp target update from(datBmat)
+      end if
+      if(.not. jMat%gpu_is_used) then
+         !$omp target update from(datJmat)
+      end if
 #endif
 
       !-- Array copy

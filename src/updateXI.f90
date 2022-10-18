@@ -1565,7 +1565,9 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target update from(dat) !-- TODO: Remove when all dat will be on GPU and try GPU version again in set_data routine
+      if(.not. xiMat%gpu_is_used) then
+         !$omp target update from(dat)
+      end if
 #endif
 
       !-- Array copy
@@ -1706,7 +1708,9 @@ contains
 
       !-- Array copy
 #ifdef WITH_OMP_GPU
-      !$omp target update from(dat) !-- TODO: Remove when all dat will be on GPU and try GPU version again in set_data routine
+      if(.not. xiMat%gpu_is_used) then
+         !$omp target update from(dat)
+      end if
 #endif
       call xiMat%set_data(dat)
 
