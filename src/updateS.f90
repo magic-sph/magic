@@ -315,66 +315,58 @@ contains
          end do
 
          !-- Assemble RHS
-         lmB=0
-         !$omp target map(tofrom: lmB) &
-         !$omp& private(lm1, l1, m1, nR)
+          !$omp target teams distribute parallel do private(lm1, l1, m1, nR)
          do lm=1,sizeLMB2(nLMB2,nLMB)
 
             lm1=lm22lm(lm,nLMB2,nLMB)
             l1=lm22l(lm,nLMB2,nLMB)
             m1=lm22m(lm,nLMB2,nLMB)
 
-            lmB=lmB+1
-
-            rhs1(1,2*lmB-1,0)      = real(tops(l1,m1))
-            rhs1(1,2*lmB,0)        =aimag(tops(l1,m1))
-            rhs1(n_r_max,2*lmB-1,0)= real(bots(l1,m1))
-            rhs1(n_r_max,2*lmB,0)  =aimag(bots(l1,m1))
+            rhs1(1,2*lm-1,0)      = real(tops(l1,m1))
+            rhs1(1,2*lm,0)        =aimag(tops(l1,m1))
+            rhs1(n_r_max,2*lm-1,0)= real(bots(l1,m1))
+            rhs1(n_r_max,2*lm,0)  =aimag(bots(l1,m1))
             do nR=2,n_r_max-1
-               rhs1(nR,2*lmB-1,0)= real(work_LMloc(lm1,nR))
-               rhs1(nR,2*lmB,0)  =aimag(work_LMloc(lm1,nR))
+               rhs1(nR,2*lm-1,0)= real(work_LMloc(lm1,nR))
+               rhs1(nR,2*lm,0)  =aimag(work_LMloc(lm1,nR))
             end do
 
 #ifdef WITH_PRECOND_S
-            rhs1(:,2*lmB-1,0)=sMat_fac(:,nLMB2)*rhs1(:,2*lmB-1,0)
-            rhs1(:,2*lmB,0)  =sMat_fac(:,nLMB2)*rhs1(:,2*lmB,0)
+            rhs1(:,2*lm-1,0)=sMat_fac(:,nLMB2)*rhs1(:,2*lm-1,0)
+            rhs1(:,2*lm,0)  =sMat_fac(:,nLMB2)*rhs1(:,2*lm,0)
 #endif
 
          end do
-         !$omp end target
+         !$omp end target teams distribute parallel do
 
          !-- Solve matrices with batched RHS (hipsolver)
          if(.not. sMat(nLMB2)%gpu_is_used) then
             !$omp target update from(rhs1)
          end if
-         call sMat(nLMB2)%solve(rhs1(:,:,0),2*lmB)
+         call sMat(nLMB2)%solve(rhs1(:,:,0),2*(lm-1))
          if(.not. sMat(nLMB2)%gpu_is_used) then
             !$omp target update to(rhs1)
          end if
 
-         lmB=0
-
          !-- Loop to reassemble fields
-         !$omp target map(tofrom: lmB) &
-         !$omp& private(lm1, m1, n_r_out)
+         !$omp target teams distribute parallel do private(lm1, m1, n_r_out)
          do lm=1,sizeLMB2(nLMB2,nLMB)
             lm1=lm22lm(lm,nLMB2,nLMB)
             m1=lm22m(lm,nLMB2,nLMB)
 
-            lmB=lmB+1
             if ( m1 > 0 ) then
                do n_r_out=1,rscheme_oc%n_max
-                  s(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,0), &
-                  &                     rhs1(n_r_out,2*lmB,0),kind=cp)
+                  s(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lm-1,0), &
+                  &                     rhs1(n_r_out,2*lm,0),kind=cp)
                end do
             else
                do n_r_out=1,rscheme_oc%n_max
-                  s(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,0), &
+                  s(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lm-1,0), &
                   &                     0.0_cp,kind=cp)
                end do
             end if
          end do
-         !$omp end target
+         !$omp end target teams distribute parallel do
 
       end do     ! loop over lm blocks
       !$omp single
