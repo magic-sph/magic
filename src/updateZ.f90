@@ -1201,14 +1201,32 @@ contains
       real(cp) :: angular_moment_oc(3)! x,y,z component of outer core angular mom.
       real(cp) :: angular_moment_ic(3)! x,y,z component of inner core angular mom.
       real(cp) :: angular_moment_ma(3)! x,y,z component of mantle angular mom.
-      complex(cp) :: z10(n_r_max), z11(n_r_max)
+      complex(cp), allocatable :: z10(:), z11(:)
       complex(cp) :: corr_l1m0, corr_l1m1
       real(cp) :: r_E_2, nomi, dL, prec_fac
       logical :: l_in_cheb
       integer :: n_r, lm, start_lm, stop_lm, n_r_bot, n_r_top, i
       integer :: lmStart_00, l1, m1, l1m0, l1m1
       integer, pointer :: lm2l(:),lm2m(:), lm2(:,:)
-      real(cp) :: ddzASL_loc(l_max+1,n_r_max)
+      real(cp), allocatable :: ddzASL_loc(:,:)
+#ifdef WITH_OMP_GPU_OFF
+      complex(cp), pointer :: old_ptr(:,:), imp_ptr(:,:)
+      old_ptr => dzdt%old(1:n_r_max,llm:ulm,istage)
+      imp_ptr => dzdt%impl(1:n_r_max,llm:ulm,istage)
+#endif
+
+      allocate(z10(n_r_max), z11(n_r_max))
+      allocate(ddzASL_loc(l_max+1,n_r_max))
+      z10(:) = zero; z11(:) = zero; ddzASL_loc(:,:) = 0.0_cp
+
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: z10, z11, ddzASL_loc)
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target update to(z)
+!      !$omp target update to(dzdt)
+#endif
 
       if ( l_precession ) then
          prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
@@ -1233,23 +1251,14 @@ contains
 
 #ifdef WITH_OMP_GPU
       start_lm=llm; stop_lm=ulm
-
-      !$omp target update to(dz, work_LMloc)
-      !$omp target update to(z)
-
       call dct_counter%start_count()
-
       call get_ddr( z, dz, work_LMloc, ulm-llm+1, start_lm-llm+1, &
            &       stop_lm-llm+1, n_r_max, rscheme_oc, l_dct_in=.not. l_in_cheb)
       if ( l_in_cheb ) then
          call rscheme_oc%costf1(z,ulm-llm+1,start_lm-llm+1, &
                                &                 stop_lm-llm+1,.true.)
       end if
-
       call dct_counter%stop_count(l_increment=.false.)
-
-      !$omp target update from(z)
-      !$omp target update from(dz, work_LMloc)
 #else
       !$omp parallel default(shared)  private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
@@ -1271,7 +1280,6 @@ contains
       l1m0=lm2(1,0)
       l1m1=lm2(1,1)
 
-
       !--- We correct so that the angular moment about axis in the equatorial plane
       !    vanish and the angular moment about the (planetary) rotation axis
       !    is kept constant.
@@ -1281,8 +1289,18 @@ contains
       if ( l_correct_AMz .and.  l1m0 > 0 .and. lmStart_00 <= l1m0 .and. &
       &    ulm >= l1m0 ) then
 
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+         do n_r= 1,n_r_max
+            z10(n_r) = z(l1m0,n_r)
+            z11(n_r) = zero
+         end do
+         !$omp end target teams distribute parallel do
+         !$omp target update from(z10,z11)
+#else
          z10(:)=z(l1m0,:)
          z11(:)=zero
+#endif
          call get_angular_moment(z10,z11,omega_ic,omega_ma,          &
               &                  angular_moment_oc,angular_moment_ic,&
               &                  angular_moment_ma)
@@ -1306,6 +1324,7 @@ contains
          !-------- Correct z(2,n_r) and z(l_max+2,n_r) plus the respective
          !         derivatives:
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
 #endif
          do n_r=1,n_r_max
             r_E_2=r(n_r)*r(n_r)
@@ -1318,12 +1337,21 @@ contains
             &              beta(n_r)*beta(n_r)*r_E_2 )*corr_l1m0
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #endif
 
-         if ( ktopv == 2 .and. l_rot_ma ) &
-         &    omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
-         if ( kbotv == 2 .and. l_rot_ic ) &
-         &    omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
+         if ( ktopv == 2 .and. l_rot_ma ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update from(z(l1m0,n_r_cmb))
+#endif
+            omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
+         end if
+         if ( kbotv == 2 .and. l_rot_ic ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update from(z(l1m0,n_r_icb))
+#endif
+            omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
+         end if
          omega_ic1=omega_ic
          omega_ma1=omega_ma
 
@@ -1332,8 +1360,18 @@ contains
       if ( l_correct_AMe .and.  l1m1 > 0 .and. &
       &    lmStart_00 <= l1m1 .and. ulm >= l1m1 ) then
 
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+         do n_r= 1,n_r_max
+            z10(n_r) = zero
+            z11(n_r) = z(l1m1,n_r)
+         end do
+         !$omp end target teams distribute parallel do
+         !$omp target update from(z10,z11)
+#else
          z10(:)=zero
          z11(:)=z(l1m1,:)
+#endif
          call get_angular_moment(z10,z11,omega_ic,omega_ma,          &
               &                  angular_moment_oc,angular_moment_ic,&
               &                  angular_moment_ma)
@@ -1347,6 +1385,7 @@ contains
          !-------- Correct z(2,n_r) and z(l_max+2,n_r) plus the respective
          !         derivatives:
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
 #endif
          do n_r=1,n_r_max
             r_E_2=r(n_r)*r(n_r)
@@ -1359,14 +1398,21 @@ contains
             &                beta(n_r)*beta(n_r)*r_E_2 )*corr_l1m1
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #endif
       end if ! l=1,m=1 contained in lm-block ?
+
 #ifndef WITH_OMP_GPU
       !$omp end single
 #endif
 
+#ifdef WITH_OMP_GPU
+      !$omp target update from(z, dz, work_LMloc) !-- TODO: Remove when solve the problem of dzdt%
+#endif
+
       if ( istage == 1 ) then
 #ifdef WITH_OMP_GPU
+!         !$omp target teams distribute parallel do collapse(2)
 #else
          !$omp do private(n_r,lm,l1,dL)
 #endif
@@ -1374,10 +1420,15 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                dL = real(l1*(l1+1),cp)
+#ifdef WITH_OMP_GPU_OFF
+               old_ptr(lm,n_r)=dL*or2(n_r)*z(lm,n_r)
+#else
                dzdt%old(lm,n_r,istage)=dL*or2(n_r)*z(lm,n_r)
+#endif
             end do
          end do
 #ifdef WITH_OMP_GPU
+!         !$omp end target teams distribute parallel do
 #else
          !$omp end do
 #endif
@@ -1394,6 +1445,7 @@ contains
          end if
 
 #ifdef WITH_OMP_GPU
+!         !$omp target teams distribute parallel do private(Dif,l1,dL)
 #else
          !$omp do private(n_r,lm,Dif,l1,dL)
 #endif
@@ -1420,6 +1472,7 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
+!         !$omp end target teams distribute parallel do
 #else
          !$omp end do
 #endif
@@ -1433,11 +1486,17 @@ contains
       if ( ( llm <= l1m0 .and. ulm >= l1m0 ) .and. l_z10mat ) then
          !----- NOTE opposite sign of viscous torque on ICB and CMB:
          if ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update from(z(l1m0,1), dz(l1m0,1))
+#endif
             domega_ma_dt%impl(istage)=visc(1)*( (two*or1(1)+beta(1))* &
             &                         real(z(l1m0,1))-real(dz(l1m0,1)) )
             if ( istage == 1 ) domega_ma_dt%old(istage)=c_dt_z10_ma*real(z(l1m0,1))
          end if
          if ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update from(z(l1m0,n_r_max), dz(l1m0,n_r_max))
+#endif
             domega_ic_dt%impl(istage)=-visc(n_r_max)* ( (two*or1(n_r_max)+   &
             &                          beta(n_r_max))*real(z(l1m0,n_r_max))- &
             &                          real(dz(l1m0,n_r_max)) )
@@ -1450,6 +1509,7 @@ contains
       !    beyond this point for the TO calculation.
       if ( l_TO ) then
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
 #else
          !$omp parallel do default(shared) private(n_r,lm,l1,m1)
 #endif
@@ -1462,6 +1522,8 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+         !$omp target update from(ddzASL_loc)
 #else
          !$omp end parallel do
 #endif
@@ -1475,6 +1537,16 @@ contains
 #endif
          end do
       end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: z10, z11, ddzASL_loc)
+#endif
+      deallocate(z10, z11, ddzASL_loc)
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(z, dz)
+!      !$omp target update from(dzdt)
+#endif
 
    end subroutine get_tor_rhs_imp
 !------------------------------------------------------------------------------
