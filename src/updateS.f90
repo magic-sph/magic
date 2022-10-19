@@ -93,13 +93,12 @@ contains
             end if
 
             !print*, 'S', n_bands
+            call s0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
 #ifdef WITH_OMP_GPU
-            call s0Mat%initialize(n_bands,n_r_max,use_pivot,use_gpu)
             do ll=1,nLMBs2(1+rank)
                call sMat(ll)%initialize(n_bands,n_r_max,use_pivot,use_gpu)
             end do
 #else
-            call s0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
             do ll=1,nLMBs2(1+rank)
                call sMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
             end do
@@ -108,14 +107,13 @@ contains
             allocate( type_densemat :: sMat(nLMBs2(1+rank)) )
             allocate( type_densemat :: s0Mat )
 
+            call s0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
 #ifdef WITH_OMP_GPU
             use_gpu = .true.
-            call s0Mat%initialize(n_r_max,n_r_max,use_pivot,use_gpu)
             do ll=1,nLMBs2(1+rank)
                call sMat(ll)%initialize(n_r_max,n_r_max,use_pivot,use_gpu)
             end do
 #else
-            call s0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
             do ll=1,nLMBs2(1+rank)
                call sMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
             end do
@@ -136,11 +134,6 @@ contains
          allocate(s0Mat_fac(n_r_max))
          s0Mat_fac(:) = 0.0_cp
          bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
-#ifdef WITH_OMP_GPU
-         !$omp target enter data map(alloc: s0Mat_fac)
-         !$omp target update to(s0Mat_fac)
-         gpu_bytes_allocated = gpu_bytes_allocated+n_r_max*SIZEOF_DEF_REAL
-#endif
 #endif
 
 #ifdef WITHOMP
@@ -217,9 +210,6 @@ contains
          deallocate( sMat_fac )
 #endif
 #ifdef WITH_PRECOND_S0
-#ifdef WITH_OMP_GPU
-         !$omp target exit data map(delete: s0Mat_fac)
-#endif
          deallocate( s0Mat_fac )
 #endif
       else
@@ -287,7 +277,7 @@ contains
       if ( l_phase_field ) then
          !-- Add the last remaining term to assemble St*\partial \phi/\partial t
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do
+         !$omp target teams distribute parallel do collapse(2)
 #else
          !$omp do private(nR,lm)
 #endif
@@ -304,39 +294,28 @@ contains
       end if
 
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: rhs)
-      !$omp target update to(rhs)
       !$omp single
       call solve_counter%start_count()
       !$omp end single
       ! one subblock is linked to one l value and needs therefore once the matrix
       !-- MPI Level
       do nLMB2=1,nLMBs2(nLMB)
-         lmB=0
 
          !-- LU factorisation (big loop but hardly any work because of lSmat)
-         !-- No openMP GPU (hipSolver)
          do lm=1,sizeLMB2(nLMB2,nLMB)
             l1=lm22l(lm,nLMB2,nLMB)
             if ( .not. lSmat(l1) ) then
-               if ( l1 == 0 ) then
-#ifdef WITH_PRECOND_S0
-                  call get_s0Mat(tscheme,s0Mat,s0Mat_fac)
-#else
-                  call get_s0Mat(tscheme,s0Mat)
-#endif
-               else ! l/= 0
 #ifdef WITH_PRECOND_S
-                  call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2),sMat_fac(:,nLMB2))
+               call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2),sMat_fac(:,nLMB2))
 #else
-                  call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2))
+               call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2))
 #endif
-               end if
                lSmat(l1)=.true.
             end if
          end do
 
-         !-- Assemble RHS (amenable to OpenMP GPU)
+         !-- Assemble RHS
+         lmB=0
          !$omp target map(tofrom: lmB) &
          !$omp& private(lm1, l1, m1, nR)
          do lm=1,sizeLMB2(nLMB2,nLMB)
@@ -345,83 +324,54 @@ contains
             l1=lm22l(lm,nLMB2,nLMB)
             m1=lm22m(lm,nLMB2,nLMB)
 
-            if ( l1 == 0 ) then
-               rhs(1)      =real(tops(0,0))
-               rhs(n_r_max)=real(bots(0,0))
-               do nR=2,n_r_max-1
-                  rhs(nR)=real(work_LMloc(lm1,nR))
-               end do
-#ifdef WITH_PRECOND_S0
-               rhs(:) = s0Mat_fac(:)*rhs(:)
-#endif
+            lmB=lmB+1
 
-            else ! l /= 0
-
-               lmB=lmB+1
-
-               rhs1(1,2*lmB-1,0)      = real(tops(l1,m1))
-               rhs1(1,2*lmB,0)        =aimag(tops(l1,m1))
-               rhs1(n_r_max,2*lmB-1,0)= real(bots(l1,m1))
-               rhs1(n_r_max,2*lmB,0)  =aimag(bots(l1,m1))
-               do nR=2,n_r_max-1
-                  rhs1(nR,2*lmB-1,0)= real(work_LMloc(lm1,nR))
-                  rhs1(nR,2*lmB,0)  =aimag(work_LMloc(lm1,nR))
-               end do
+            rhs1(1,2*lmB-1,0)      = real(tops(l1,m1))
+            rhs1(1,2*lmB,0)        =aimag(tops(l1,m1))
+            rhs1(n_r_max,2*lmB-1,0)= real(bots(l1,m1))
+            rhs1(n_r_max,2*lmB,0)  =aimag(bots(l1,m1))
+            do nR=2,n_r_max-1
+               rhs1(nR,2*lmB-1,0)= real(work_LMloc(lm1,nR))
+               rhs1(nR,2*lmB,0)  =aimag(work_LMloc(lm1,nR))
+            end do
 
 #ifdef WITH_PRECOND_S
-               rhs1(:,2*lmB-1,0)=sMat_fac(:,nLMB2)*rhs1(:,2*lmB-1,0)
-               rhs1(:,2*lmB,0)  =sMat_fac(:,nLMB2)*rhs1(:,2*lmB,0)
+            rhs1(:,2*lmB-1,0)=sMat_fac(:,nLMB2)*rhs1(:,2*lmB-1,0)
+            rhs1(:,2*lmB,0)  =sMat_fac(:,nLMB2)*rhs1(:,2*lmB,0)
 #endif
-            end if
 
          end do
          !$omp end target
 
          !-- Solve matrices with batched RHS (hipsolver)
-         if ( lmB  ==  0 ) then
-            if(.not. s0Mat%gpu_is_used) then
-               !$omp target update from(rhs)
-            end if
-            call s0Mat%solve(rhs)
-            if(.not. s0Mat%gpu_is_used) then
-               !$omp target update to(rhs)
-            end if
-         else
-            if(.not. sMat(nLMB2)%gpu_is_used) then
-               !$omp target update from(rhs1)
-            end if
-            call sMat(nLMB2)%solve(rhs1(:,:,0),2*lmB)
-            if(.not. sMat(nLMB2)%gpu_is_used) then
-               !$omp target update to(rhs1)
-            end if
+         if(.not. sMat(nLMB2)%gpu_is_used) then
+            !$omp target update from(rhs1)
+         end if
+         call sMat(nLMB2)%solve(rhs1(:,:,0),2*lmB)
+         if(.not. sMat(nLMB2)%gpu_is_used) then
+            !$omp target update to(rhs1)
          end if
 
          lmB=0
 
          !-- Loop to reassemble fields
          !$omp target map(tofrom: lmB) &
-         !$omp& private(lm1, l1, m1, n_r_out)
+         !$omp& private(lm1, m1, n_r_out)
          do lm=1,sizeLMB2(nLMB2,nLMB)
             lm1=lm22lm(lm,nLMB2,nLMB)
-            l1=lm22l(lm,nLMB2,nLMB)
             m1=lm22m(lm,nLMB2,nLMB)
-            if ( l1 == 0 ) then
+
+            lmB=lmB+1
+            if ( m1 > 0 ) then
                do n_r_out=1,rscheme_oc%n_max
-                  s(lm1,n_r_out)=rhs(n_r_out)
+                  s(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,0), &
+                  &                     rhs1(n_r_out,2*lmB,0),kind=cp)
                end do
             else
-               lmB=lmB+1
-               if ( m1 > 0 ) then
-                  do n_r_out=1,rscheme_oc%n_max
-                     s(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,0), &
-                     &                     rhs1(n_r_out,2*lmB,0),kind=cp)
-                  end do
-               else
-                  do n_r_out=1,rscheme_oc%n_max
-                     s(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,0), &
-                     &                     0.0_cp,kind=cp)
-                  end do
-               end if
+               do n_r_out=1,rscheme_oc%n_max
+                  s(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,0), &
+                  &                     0.0_cp,kind=cp)
+               end do
             end if
          end do
          !$omp end target
@@ -430,7 +380,6 @@ contains
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
-      !$omp target exit data map(delete: rhs)
 #else
       !$omp single
       call solve_counter%start_count()
