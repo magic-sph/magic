@@ -260,114 +260,73 @@ contains
       !$omp end single
       ! one subblock is linked to one l value and needs therefore once the matrix
       do nLMB2=1,nLMBs2(nLMB)
-         lmB=0
 
          !-- LU factorisation (big loop but hardly any work because of lPhimat)
          do lm=1,sizeLMB2(nLMB2,nLMB)
             l1=lm22l(lm,nLMB2,nLMB)
             if ( .not. lPhimat(l1) ) then
-
-               if ( l1 == 0 ) then
-#ifdef WITH_PRECOND_S0
-                  call get_phi0Mat(tscheme,phi0Mat,phi0Mat_fac)
-#else
-                  call get_phi0Mat(tscheme,phi0Mat)
-#endif
-               else ! l /= 0
 #ifdef WITH_PRECOND_S
                   call get_phiMat(tscheme,l1,phiMat(nLMB2),phiMat_fac(:,nLMB2))
 #else
                   call get_phiMat(tscheme,l1,phiMat(nLMB2))
 #endif
-               end if
                lPhimat(l1)=.true.
             end if
          end do
 
          !-- Assemble RHS
-         !$omp target map(tofrom: lmB) &
-         !$omp& private(lm1, l1, nR)
+         !$omp target teams distribute parallel do private(lm1, l1, nR)
          do lm=1,sizeLMB2(nLMB2,nLMB)
+
             lm1=lm22lm(lm,nLMB2,nLMB)
             l1=lm22l(lm,nLMB2,nLMB)
-            if ( l1 == 0 ) then
-               rhs(1)      =phi_top
-               rhs(n_r_max)=phi_bot
-               do nR=2,n_r_max-1
-                  rhs(nR)=real(work_LMloc(lm1,nR))
-               end do
 
-#ifdef WITH_PRECOND_S0
-               rhs(:) = phi0Mat_fac(:)*rhs(:)
-#endif
-            else ! l1  /=  0
-               lmB=lmB+1
-
-               rhs1(1,2*lmB-1,0)      =0.0_cp
-               rhs1(1,2*lmB,0)        =0.0_cp
-               rhs1(n_r_max,2*lmB-1,0)=0.0_cp
-               rhs1(n_r_max,2*lmB,0)  =0.0_cp
-               do nR=2,n_r_max-1
-                  rhs1(nR,2*lmB-1,0)= real(work_LMloc(lm1,nR))
-                  rhs1(nR,2*lmB,0)  =aimag(work_LMloc(lm1,nR))
-               end do
+            rhs1(1,2*lm-1,0)      = 0.0_cp
+            rhs1(1,2*lm,0)        = 0.0_cp
+            rhs1(n_r_max,2*lm-1,0)= 0.0_cp
+            rhs1(n_r_max,2*lm,0)  = 0.0_cp
+            do nR=2,n_r_max-1
+               rhs1(nR,2*lm-1,0)= real(work_LMloc(lm1,nR))
+               rhs1(nR,2*lm,0)  =aimag(work_LMloc(lm1,nR))
+            end do
 
 #ifdef WITH_PRECOND_S
-               rhs1(:,2*lmB-1,0)=phiMat_fac(:,nLMB2)*rhs1(:,2*lmB-1,0)
-               rhs1(:,2*lmB,0)  =phiMat_fac(:,nLMB2)*rhs1(:,2*lmB,0)
+            rhs1(:,2*lm-1,0)=phiMat_fac(:,nLMB2)*rhs1(:,2*lm-1,0)
+            rhs1(:,2*lm,0)  =phiMat_fac(:,nLMB2)*rhs1(:,2*lm,0)
 #endif
-            end if
+
          end do
-         !$omp end target
+         !$omp end target teams distribute parallel do
 
          !-- Solve matrices with batched RHS (hipsolver)
-         if ( lmB == 0 ) then
-            if(.not. phi0Mat%gpu_is_used) then
-               !$omp target update from(rhs)
-            end if
-            call phi0Mat%solve(rhs)
-            if(.not. phi0Mat%gpu_is_used) then
-               !$omp target update to(rhs)
-            end if
-         else
-            if(.not. phiMat(nLMB2)%gpu_is_used) then
-               !$omp target update from(rhs1)
-            end if
-            call phiMat(nLMB2)%solve(rhs1(:,:,0),2*lmB)
-            if(.not. phiMat(nLMB2)%gpu_is_used) then
-               !$omp target update to(rhs1)
-            end if
+         lm=sizeLMB2(nLMB2,nLMB)
+         if(.not. phiMat(nLMB2)%gpu_is_used) then
+            !$omp target update from(rhs1)
+         end if
+         call phiMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
+         if(.not. phiMat(nLMB2)%gpu_is_used) then
+            !$omp target update to(rhs1)
          end if
 
-         lmB=0
          !-- Loop to reassemble fields
-         !$omp target map(tofrom: lmB) &
-         !$omp& private(lm1, l1, m1, n_r_out)
+         !$omp target teams distribute parallel do private(lm1, m1, n_r_out)
          do lm=1,sizeLMB2(nLMB2,nLMB)
             lm1=lm22lm(lm,nLMB2,nLMB)
-            l1=lm22l(lm,nLMB2,nLMB)
             m1=lm22m(lm,nLMB2,nLMB)
 
-            if ( l1 == 0 ) then
+            if ( m1 > 0 ) then
                do n_r_out=1,rscheme_oc%n_max
-                  phi(lm1,n_r_out)=rhs(n_r_out)
+                  phi(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lm-1,0), &
+                  &                     rhs1(n_r_out,2*lm,0),kind=cp)
                end do
             else
-               lmB=lmB+1
-               if ( m1 > 0 ) then
-                  do n_r_out=1,rscheme_oc%n_max
-                     phi(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,0), &
-                     &                      rhs1(n_r_out,2*lmB,0),kind=cp)
-                  end do
-               else
-                  do n_r_out=1,rscheme_oc%n_max
-                     phi(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,0), &
-                     &                       0.0_cp,kind=cp)
-                  end do
-               end if
+               do n_r_out=1,rscheme_oc%n_max
+                  phi(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lm-1,0), &
+                  &                     0.0_cp,kind=cp)
+               end do
             end if
          end do
-         !$omp end target
+         !$omp end target teams distribute parallel do
 
       end do     ! loop over lm blocks
       !$omp single
