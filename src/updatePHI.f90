@@ -223,8 +223,6 @@ contains
       call tscheme%set_imex_rhs(work_LMloc, dphidt)
 
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: rhs)
-      !$omp target update to(rhs)
       !$omp single
       call solve_counter%start_count()
       !$omp end single
