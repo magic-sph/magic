@@ -255,10 +255,14 @@ class MagicTs(MagicSetup):
                     label='Total dipolarity CMB')
             ax.plot(self.time, self.dip_cmb, ls='--', c='C2',
                     label='Axisym dipolarity')
+            if hasattr(self, 'l_geo'):
+                lcut = self.l_geo
+            else:
+                lcut = 11
             ax.plot(self.time, self.dip_l11, ls='-', c='C3',
-                    label='Axisym dip l={:d}'.format(self.l_geo))
+                    label='Axisym dip l={:d}'.format(lcut))
             ax.plot(self.time, self.dipTot_l11, ls='--', c='C3',
-                    label='Total dip l={:d}'.format(self.l_geo))
+                    label='Total dip l={:d}'.format(lcut))
             # ax.plot(self.time, self.dip3, ls='-', c='#e5ae38',
             #         label='Epol axi/Ecmb')
             ax.legend(loc='best', frameon=False)
@@ -647,6 +651,7 @@ class TsLookUpTable:
             self.ekin_pol_es_axi = data[:, 7]
             self.ekin_tor_es_axi = data[:, 8]
             self.ekin_tot = self.ekin_pol + self.ekin_tor
+            self.ekin_axi = self.ekin_pol_axi + self.ekin_tor_axi
             self.ekin_es = self.ekin_pol_es + self.ekin_tor_es
             self.ekin_es_axi = self.ekin_pol_es_axi + self.ekin_tor_es_axi
             self.ekin_pol_naxi = self.ekin_pol-self.ekin_pol_axi
