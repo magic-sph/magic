@@ -315,7 +315,7 @@ contains
          end do
 
          !-- Assemble RHS
-          !$omp target teams distribute parallel do private(lm1, l1, m1, nR)
+         !$omp target teams distribute parallel do private(lm1, l1, m1, nR)
          do lm=1,sizeLMB2(nLMB2,nLMB)
 
             lm1=lm22lm(lm,nLMB2,nLMB)
@@ -340,10 +340,11 @@ contains
          !$omp end target teams distribute parallel do
 
          !-- Solve matrices with batched RHS (hipsolver)
+         lm=sizeLMB2(nLMB2,nLMB)
          if(.not. sMat(nLMB2)%gpu_is_used) then
             !$omp target update from(rhs1)
          end if
-         call sMat(nLMB2)%solve(rhs1(:,:,0),2*(lm-1))
+         call sMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
          if(.not. sMat(nLMB2)%gpu_is_used) then
             !$omp target update to(rhs1)
          end if
