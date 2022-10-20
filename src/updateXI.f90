@@ -84,13 +84,12 @@ contains
                n_bands = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
             end if
 
+            call xi0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
 #ifdef WITH_OMP_GPU
-            call xi0Mat%initialize(n_bands,n_r_max,use_pivot,use_gpu)
             do ll=1,nLMBs2(1+rank)
                call xiMat(ll)%initialize(n_bands,n_r_max,use_pivot,use_gpu)
             end do
 #else
-            call xi0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
             do ll=1,nLMBs2(1+rank)
                call xiMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
             end do
@@ -99,14 +98,13 @@ contains
             allocate( type_densemat :: xiMat(nLMBs2(1+rank)) )
             allocate( type_densemat :: xi0Mat )
 
+            call xi0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
 #ifdef WITH_OMP_GPU
             use_gpu = .true.
-            call xi0Mat%initialize(n_r_max,n_r_max,use_pivot,use_gpu)
             do ll=1,nLMBs2(1+rank)
                call xiMat(ll)%initialize(n_r_max,n_r_max,use_pivot,use_gpu)
             end do
 #else
-            call xi0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
             do ll=1,nLMBs2(1+rank)
                call xiMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
             end do
@@ -127,11 +125,6 @@ contains
          allocate(xi0Mat_fac(n_r_max))
          xi0Mat_fac(:) = 0.0_cp
          bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
-#ifdef WITH_OMP_GPU
-         !$omp target enter data map(alloc: xi0Mat_fac)
-         !$omp target update to(xi0Mat_fac)
-         gpu_bytes_allocated = gpu_bytes_allocated+n_r_max*SIZEOF_DEF_REAL
-#endif
 #endif
 
 #ifdef WITHOMP
@@ -207,9 +200,6 @@ contains
          deallocate(xiMat_fac)
 #endif
 #ifdef WITH_PRECOND_S0
-#ifdef WITH_OMP_GPU
-         !$omp target exit data map(delete: xi0Mat_fac)
-#endif
          deallocate(xi0Mat_fac)
 #endif
 #ifdef WITH_OMP_GPU
@@ -258,10 +248,6 @@ contains
 
       allocate(rhs(n_r_max))
       rhs(:) = 0.0_cp
-#ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: rhs)
-      !$omp target update to(rhs)
-#endif
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
@@ -289,112 +275,70 @@ contains
          !-- LU factorisation (big loop but hardly any work because of lXimat)
          do lm=1,sizeLMB2(nLMB2,nLMB)
             l1=lm22l(lm,nLMB2,nLMB)
-
             if ( .not. lXimat(l1) ) then
-               if ( l1 == 0 ) then
-#ifdef WITH_PRECOND_S0
-                  call get_xi0Mat(tscheme,xi0Mat,xi0Mat_fac)
-#else
-                  call get_xi0Mat(tscheme,xi0Mat)
-#endif
-               else
 #ifdef WITH_PRECOND_S
                   call get_xiMat(tscheme,l1,hdif_Xi(l1),xiMat(nLMB2),xiMat_fac(:,nLMB2))
 #else
                   call get_xiMat(tscheme,l1,hdif_Xi(l1),xiMat(nLMB2))
 #endif
-               end if
                lXimat(l1)=.true.
             end if
          end do
 
          !-- Assemble RHS
-         !$omp target map(tofrom: lmB) &
-         !$omp& private(lm1, l1, m1, nR)
+         !$omp target teams distribute parallel do private(lm1, l1, m1, nR)
          do lm=1,sizeLMB2(nLMB2,nLMB)
+
             lm1=lm22lm(lm,nLMB2,nLMB)
             l1=lm22l(lm,nLMB2,nLMB)
             m1=lm22m(lm,nLMB2,nLMB)
 
-            if ( l1 == 0 ) then
-               rhs(1)      =real(topxi(0,0))
-               rhs(n_r_max)=real(botxi(0,0))
-               do nR=2,n_r_max-1
-                  rhs(nR)=real(work_LMloc(lm1,nR))
-               end do
-
-#ifdef WITH_PRECOND_S0
-               rhs(:) = xi0Mat_fac(:)*rhs(:)
-#endif
-
-            else ! l1  /=  0
-               lmB=lmB+1
-
-               rhs1(1,2*lmB-1,0)      = real(topxi(l1,m1))
-               rhs1(1,2*lmB,0)        =aimag(topxi(l1,m1))
-               rhs1(n_r_max,2*lmB-1,0)= real(botxi(l1,m1))
-               rhs1(n_r_max,2*lmB,0)  =aimag(botxi(l1,m1))
-               do nR=2,n_r_max-1
-                  rhs1(nR,2*lmB-1,0)= real(work_LMloc(lm1,nR))
-                  rhs1(nR,2*lmB,0)  =aimag(work_LMloc(lm1,nR))
-               end do
+            rhs1(1,2*lm-1,0)      = real(topxi(l1,m1))
+            rhs1(1,2*lm,0)        =aimag(topxi(l1,m1))
+            rhs1(n_r_max,2*lm-1,0)= real(botxi(l1,m1))
+            rhs1(n_r_max,2*lm,0)  =aimag(botxi(l1,m1))
+            do nR=2,n_r_max-1
+               rhs1(nR,2*lm-1,0)= real(work_LMloc(lm1,nR))
+               rhs1(nR,2*lm,0)  =aimag(work_LMloc(lm1,nR))
+            end do
 
 #ifdef WITH_PRECOND_S
-               rhs1(:,2*lmB-1,0)=xiMat_fac(:,nLMB2)*rhs1(:,2*lmB-1,0)
-               rhs1(:,2*lmB,0)  =xiMat_fac(:,nLMB2)*rhs1(:,2*lmB,0)
+            rhs1(:,2*lm-1,0)=xiMat_fac(:,nLMB2)*rhs1(:,2*lm-1,0)
+            rhs1(:,2*lm,0)  =xiMat_fac(:,nLMB2)*rhs1(:,2*lm,0)
 #endif
 
-            end if
          end do
-         !$omp end target
+         !$omp end target teams distribute parallel do
 
          !-- Solve matrices with batched RHS (hipsolver)
-         if ( lmB  ==  0 ) then
-            if(.not. xi0Mat%gpu_is_used) then
-               !$omp target update from(rhs)
-            end if
-            call xi0Mat%solve(rhs)
-            if(.not. xi0Mat%gpu_is_used) then
-               !$omp target update to(rhs)
-            end if
-         else
-            if(.not. xiMat(nLMB2)%gpu_is_used) then
-               !$omp target update from(rhs1)
-            end if
-            call xiMat(nLMB2)%solve(rhs1(:,:,0),2*lmB)
-            if(.not. xiMat(nLMB2)%gpu_is_used) then
-               !$omp target update to(rhs1)
-            end if
+         lm=sizeLMB2(nLMB2,nLMB)
+         if(.not. xiMat(nLMB2)%gpu_is_used) then
+            !$omp target update from(rhs1)
+         end if
+         call xiMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
+         if(.not. xiMat(nLMB2)%gpu_is_used) then
+            !$omp target update to(rhs1)
          end if
 
-         lmB=0
          !-- Loop to reassemble fields
-         !$omp target map(tofrom: lmB) &
-         !$omp& private(lm1, l1, m1, n_r_out)
+         !$omp target teams distribute parallel do private(lm1, m1, n_r_out)
          do lm=1,sizeLMB2(nLMB2,nLMB)
             lm1=lm22lm(lm,nLMB2,nLMB)
-            l1=lm22l(lm,nLMB2,nLMB)
             m1=lm22m(lm,nLMB2,nLMB)
-            if ( l1 == 0 ) then
+
+            if ( m1 > 0 ) then
                do n_r_out=1,rscheme_oc%n_max
-                  xi(lm1,n_r_out)=rhs(n_r_out)
+                  xi(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lm-1,0), &
+                  &                     rhs1(n_r_out,2*lm,0),kind=cp)
                end do
             else
-               lmB=lmB+1
-               if ( m1 > 0 ) then
-                  do n_r_out=1,rscheme_oc%n_max
-                     xi(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,0), &
-                     &                     rhs1(n_r_out,2*lmB,0),kind=cp)
-                  end do
-               else
-                  do n_r_out=1,rscheme_oc%n_max
-                     xi(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,0), &
-                     &                      0.0_cp,kind=cp)
-                  end do
-               end if
+               do n_r_out=1,rscheme_oc%n_max
+                  xi(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lm-1,0), &
+                  &                     0.0_cp,kind=cp)
+               end do
             end if
          end do
-         !$omp end target
+         !$omp end target teams distribute parallel do
 
       end do
 
@@ -570,9 +514,6 @@ contains
               &                l_in_cheb_space=.true.)
       end if
 
-#ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: rhs)
-#endif
       deallocate(rhs)
 
    end subroutine updateXi
@@ -1495,28 +1436,14 @@ contains
          end if
       end if
 
-#ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: dat)
-      !$omp target update to(dat)
-#endif
-
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
-#ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do
-#endif
          do nR_out=rscheme_oc%n_max+1,n_r_max
             dat(1,nR_out)      =0.0_cp
             dat(n_r_max,nR_out)=0.0_cp
          end do
-#ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
-#endif
       end if
 
       !-- Fill bulk points
-#ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do collapse(2)
-#endif
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
             dat(nR,nR_out)= rscheme_oc%rnorm * (                          &
@@ -1525,49 +1452,22 @@ contains
             &    (beta(nR)+two*or1(nR))*    rscheme_oc%drMat(nR,nR_out) ) )
          end do
       end do
-#ifdef WITH_OMP_GPU
-      !$omp end target teams distribute parallel do
-#endif
 
       !----- Factors for highest and lowest cheb mode:
-#ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do
-#endif
       do nR=1,n_r_max
          dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
          dat(nR,n_r_max)=rscheme_oc%boundary_fac*dat(nR,n_r_max)
       end do
-#ifdef WITH_OMP_GPU
-      !$omp end target teams distribute parallel do
-#endif
 
 #ifdef WITH_PRECOND_S0
       ! compute the linesum of each line
-#ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do
-#endif
       do nR=1,n_r_max
          xiMat_fac(nR)=one/maxval(abs(dat(nR,:)))
       end do
-#ifdef WITH_OMP_GPU
-      !$omp end target teams distribute parallel do
-#endif
       ! now divide each line by the linesum to regularize the matrix
-#ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do
-#endif
       do nr=1,n_r_max
          dat(nR,:) = dat(nR,:)*xiMat_fac(nR)
       end do
-#ifdef WITH_OMP_GPU
-      !$omp end target teams distribute parallel do
-#endif
-#endif
-
-#ifdef WITH_OMP_GPU
-      if(.not. xiMat%gpu_is_used) then
-         !$omp target update from(dat)
-      end if
 #endif
 
       !-- Array copy
@@ -1577,9 +1477,6 @@ contains
       call xiMat%prepare(info)
       if ( info /= 0 ) call abortRun('! Singular matrix xiMat0!')
 
-#ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: dat)
-#endif
       deallocate(dat)
 
    end subroutine get_xi0Mat
