@@ -281,18 +281,16 @@ contains
       !-- MPI Level
       do nLMB2=1,nLMBs2(nLMB)
 
-         !-- LU factorisation (big loop but hardly any work because of lSmat)
-         do lm=1,sizeLMB2(nLMB2,nLMB)
-            l1=lm22l(lm,nLMB2,nLMB)
-            if ( .not. lSmat(l1) ) then
+         ! This task treats one l given by l1
+         l1=lm22l(1,nLMB2,nLMB)
+         if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
-               call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2),sMat_fac(:,nLMB2))
+            call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2),sMat_fac(:,nLMB2))
 #else
-               call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2))
+            call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2))
 #endif
-               lSmat(l1)=.true.
-            end if
-         end do
+            lSmat(l1)=.true.
+         end if
 
          !-- Assemble RHS
          !$omp target teams distribute parallel do private(lm1, l1, m1, nR)
