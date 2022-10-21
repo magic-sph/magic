@@ -75,7 +75,7 @@ contains
                                     & idist, c_loc(onembed), ostride, odist, HIPFFT_Z2Z, howmany))
 
       !-- Allocate tmp_* arrays
-      allocate(tmp_in(llm:ulm,2*this%n_r_max-2), tmp_out(llm:ulm,2*this%n_r_max-2))
+      allocate(tmp_in(1:ulm-llm+1,2*this%n_r_max-2), tmp_out(1:ulm-llm+1,2*this%n_r_max-2))
       tmp_in(:,:) = zero; tmp_out(:,:) = zero
       !$omp target enter data map(alloc : tmp_in, tmp_out)
       !$omp target update to(tmp_in, tmp_out)
@@ -209,7 +209,7 @@ contains
       integer, intent(in) :: n_f_max   ! Number of vectors
 
       !-- Output variables:
-      complex(cp), intent(inout) :: array_in(n_f_max,this%n_r_max) ! Array to be transformed
+      complex(cp), intent(inout) :: array_in(:,:) ! Array to be transformed
       complex(cp), intent(inout) :: work_2d(n_f_max,*)  ! Help array (not needed)
 
       !-- Local variables:
