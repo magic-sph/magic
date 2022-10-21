@@ -280,18 +280,18 @@ contains
       end if
 
       if ( l_heat .and. .not. l_single_matrix ) then
-         PERFON('up_S')
 #ifdef WITH_OMP_GPU
          !$omp target update to(s_LMloc, dsdt)
          if ( l_phase_field ) then
             !$omp target update to(phi_LMloc)
          end if
 #endif
+         PERFON('up_S')
          call updateS( s_LMloc, ds_LMloc, dsdt, phi_LMloc, tscheme )
+         PERFOFF
 #ifdef WITH_OMP_GPU
          !$omp target update from(s_LMloc, ds_LMloc, dsdt)
 #endif
-         PERFOFF
       end if
 
       if ( l_chemical_conv ) then
@@ -345,11 +345,11 @@ contains
       if ( l_mag ) then ! dwdt,dpdt used as work arrays
 #ifdef WITH_OMP_GPU
          !$omp target update to(dbdt, djdt)
+         !$omp target update to(b_LMloc, aj_LMloc)
          if ( l_cond_ic ) then
             !$omp target update to(dbdt_ic, djdt_ic)
-!            !$omp target update to(b_ic_LMloc, aj_ic_LMloc)
+            !$omp target update to(b_ic_LMloc, aj_ic_LMloc)
          end if
-!         !$omp target update to(b_LMloc, aj_LMloc)
 #endif
          PERFON('up_B')
          call updateB( b_LMloc,db_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,ddj_LMloc, &
@@ -364,6 +364,8 @@ contains
          !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
          if ( l_cond_ic ) then
             !$omp target update from(dbdt_ic, djdt_ic)
+            !$omp target update from(b_ic_LMloc, aj_ic_LMloc)
+            !$omp target update from(db_ic_LMloc, dj_ic_LMloc, ddb_ic_LMloc, ddj_ic_LMloc)
          end if
 #endif
       end if
@@ -572,8 +574,10 @@ contains
       if ( l_mag .and. (.not. l_mag_par_solve) ) then ! dwdt,dpdt used as work arrays
 #ifdef WITH_OMP_GPU
          !$omp target update to(dbdt, djdt)
+         !$omp target update to(b_LMloc, aj_LMloc)
          if ( l_cond_ic ) then
             !$omp target update to(dbdt_ic, djdt_ic)
+            !$omp target update to(b_ic_LMloc, aj_ic_LMloc)
          end if
 #endif
          call updateB( b_LMloc,db_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,ddj_LMloc, &
@@ -587,6 +591,8 @@ contains
          !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
          if ( l_cond_ic ) then
             !$omp target update from(dbdt_ic, djdt_ic)
+            !$omp target update from(b_ic_LMloc, aj_ic_LMloc)
+            !$omp target update from(db_ic_LMloc, dj_ic_LMloc, ddb_ic_LMloc, ddj_ic_LMloc)
          end if
 #endif
       end if

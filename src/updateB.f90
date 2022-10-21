@@ -354,17 +354,11 @@ contains
       !-- Now assemble the right hand side and store it in work_LMloc
       call tscheme%set_imex_rhs(work_LMloc, dbdt)
       call tscheme%set_imex_rhs(ddb, djdt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(work_LMloc, ddb)
-#endif
 
       if ( l_cond_ic ) then
          !-- Now assemble the right hand side and store it in work_LMloc
          call tscheme%set_imex_rhs(ddb_ic, dbdt_ic)
          call tscheme%set_imex_rhs(ddj_ic, djdt_ic)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(ddb_ic, ddj_ic)
-#endif
       end if
 
 #ifndef WITH_OMP_GPU
@@ -373,6 +367,7 @@ contains
 
       if ( lRmsNext .and. tscheme%istage == 1 ) then ! Store old b,aj
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
 #else
          !$omp do private(lm)
 #endif
@@ -383,6 +378,7 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #else
          !$omp end do
 #endif
@@ -399,7 +395,6 @@ contains
          l1=lm22l(1,nLMB2,nLMB)
 
          if ( l1 > 0 ) then
-            !-- LU factorisation (big loop but hardly any work because of lBmat
             if ( .not. lBmat(l1) ) then
 #ifdef WITH_PRECOND_BJ
                call get_bMat(tscheme,l1,hdif_B(l1),bMat(nLMB2), &
@@ -411,6 +406,7 @@ contains
             end if
 
             !-- Assemble RHS
+            !$omp target
             do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1=lm22m(lm,nLMB2,nLMB)
@@ -611,6 +607,8 @@ contains
                end do
 #endif
             end do    ! loop over lm in block
+            !$omp end target
+            !$omp target update from(rhs1, rhs2)
 
             !-- Solve matrices with batched RHS (hipsolver)
             lm=sizeLMB2(nLMB2,nLMB)
@@ -631,6 +629,7 @@ contains
 
             !----- Update magnetic field in cheb space:
             !-- Loop to reassemble fields
+            !$omp target
             do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1=lm22m(lm,nLMB2,nLMB)
@@ -667,19 +666,24 @@ contains
                   end if
                end if
             end do
+            !$omp end target
 
          else ! l=0 set value to zero
 
             lm1 = lo_map%lm2(0,0)
+            !$omp target
             do n_r_out=1,rscheme_oc%n_max  ! outer core
                b(lm1,n_r_out) =zero
                aj(lm1,n_r_out)=zero
             end do
+            !$omp end target
             if ( l_cond_ic ) then
+               !$omp target
                do n_r_out=1,n_cheb_ic_max
                   b_ic(lm1,n_r_out) =zero
                   aj_ic(lm1,n_r_out)=zero
                end do
+               !$omp end target
             end if
          end if
 
@@ -1009,7 +1013,8 @@ contains
       !-- Set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       !   for inner core modes > 2*n_cheb_ic_max = 0
 #ifdef WITH_OMP_GPU
-      !$omp parallel do private(n_r_out,lm1) collapse(2)
+      !$omp target
+!      !$omp parallel do private(n_r_out,lm1) collapse(2)
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
 #endif
@@ -1020,14 +1025,16 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
-      !$omp end parallel do
+      !$omp end target
+!      !$omp end parallel do
 #else
       !$omp end do
 #endif
 
       if ( l_cond_ic ) then
 #ifdef WITH_OMP_GPU
-         !$omp parallel do private(n_r_out, lm1) collapse(2)
+!         !$omp parallel do private(n_r_out, lm1) collapse(2)
+         !$omp target
 #else
          !$omp do private(n_r_out, lm1) collapse(2)
 #endif
@@ -1038,7 +1045,8 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-         !$omp end parallel do
+         !$omp end target
+!         !$omp end parallel do
 #else
          !$omp end do
 #endif
@@ -1058,28 +1066,30 @@ contains
 
       !-- Get implicit terms
       if ( tscheme%istage == tscheme%nstages ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(b, aj)
-#endif
          call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, 1, &
               &               tscheme%l_imp_calc_rhs(1), lRmsNext,             &
               &               l_in_cheb_space=.true.)
 
          if ( l_cond_ic ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update from(b_ic, aj_ic, dbdt_ic, djdt_ic)
+!            !$omp target update from(ddb_ic, ddj_ic)
+#endif
             call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,     &
                  &                  dbdt_ic, djdt_ic, 1, tscheme%l_imp_calc_rhs(1),&
                  &                  l_in_cheb_space=.true.)
          end if
       else
-#ifdef WITH_OMP_GPU
-         !$omp target update to(b, aj)
-#endif
          call get_mag_rhs_imp(b, db, ddb, aj, dj, ddj, dbdt, djdt, tscheme, &
               &               tscheme%istage+1,                             &
               &               tscheme%l_imp_calc_rhs(tscheme%istage+1),     &
               &               lRmsNext, l_in_cheb_space=.true.)
 
          if ( l_cond_ic ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update from(b_ic, aj_ic, dbdt_ic, djdt_ic)
+!            !$omp target update from(ddb_ic, ddj_ic)
+#endif
             call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
                  &                  dbdt_ic, djdt_ic, tscheme%istage+1,         &
                  &                  tscheme%l_imp_calc_rhs(tscheme%istage+1),   &
