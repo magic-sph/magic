@@ -1603,6 +1603,9 @@ contains
       integer :: n_r, lm, start_lm, stop_lm
       integer, pointer :: lm2l(:),lm2m(:)
       real(cp) :: dL
+      complex(cp) :: tmp_Dif, tmp_Buo, tmp_Pre
+      integer :: istage_loc, nstages
+      real(cp) :: dt_loc
 
       if ( present(l_in_cheb_space) ) then
          l_in_cheb = l_in_cheb_space
@@ -1617,6 +1620,10 @@ contains
       else
          lmStart_00=llm
       end if
+
+      istage_loc  = tscheme%istage
+      nstages     = tscheme%nstages
+      dt_loc      = tscheme%dt(1)
 
 #ifdef WITH_OMP_GPU
       if ( l_double_curl ) then
@@ -1706,6 +1713,8 @@ contains
       if ( istage == 1 ) then
          if ( l_double_curl ) then
 #ifdef WITH_OMP_GPU
+            !$omp target update to(w, dw, ddw, dwdt)
+            !$omp target teams distribute parallel do collapse(2)
 #else
             !$omp do private(n_r,lm,l1,dL)
 #endif
@@ -1719,11 +1728,15 @@ contains
                end do
             end do
 #ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+            !$omp target update from(dwdt)
 #else
             !$omp end do
 #endif
          else
 #ifdef WITH_OMP_GPU
+            !$omp target update to(w, dw, dwdt, dpdt)
+            !$omp target teams distribute parallel do collapse(2)
 #else
             !$omp do private(n_r,lm,l1,dL)
 #endif
@@ -1736,6 +1749,8 @@ contains
                end do
             end do
 #ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+            !$omp target update from(dwdt, dpdt)
 #else
             !$omp end do
 #endif
@@ -1760,7 +1775,85 @@ contains
                n_r_bot=n_r_icb
             end if
 
+            if (.not. lRmsNext) then
 #ifdef WITH_OMP_GPU
+            !$omp target update to(w, dw, ddw, ddddw, work_LMloc)
+            !$omp target update to(s)
+            !$omp target update if(l_chemical_conv) to(xi)
+            !$omp target update to(dwdt)
+            !$omp target update to(dp_expl)
+            !$omp target update if(lPressNext) to(p)
+            !$omp target teams distribute parallel do collapse(2) private(l1,tmp_Dif,tmp_Buo,dL)
+#else
+            !$omp do private(n_r,lm,l1,tmp_Dif,tmp_Buo,dL)
+#endif
+            do n_r=n_r_top,n_r_bot
+               do lm=lmStart_00,ulm
+                  l1=lm2l(lm)
+                  dL=real(l1*(l1+1),cp)
+
+                  tmp_Dif=-hdif_V(l1)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (      &
+                  &                                                  ddddw(lm,n_r)  &
+                  &            +two*( dLvisc(n_r)-beta(n_r) ) * work_LMloc(lm,n_r)  &
+                  &        +( ddLvisc(n_r)-two*dbeta(n_r)+dLvisc(n_r)*dLvisc(n_r)+  &
+                  &           beta(n_r)*beta(n_r)-three*dLvisc(n_r)*beta(n_r)-two*  &
+                  &           or1(n_r)*(dLvisc(n_r)+beta(n_r))-two*or2(n_r)*dL ) *  &
+                  &                                                    ddw(lm,n_r)  &
+                  &        +( -ddbeta(n_r)-dbeta(n_r)*(two*dLvisc(n_r)-beta(n_r)+   &
+                  &           two*or1(n_r))-ddLvisc(n_r)*(beta(n_r)+two*or1(n_r))+  &
+                  &           beta(n_r)*beta(n_r)*(dLvisc(n_r)+two*or1(n_r))-       &
+                  &           beta(n_r)*(dLvisc(n_r)*dLvisc(n_r)-two*or2(n_r))-     &
+                  &           two*dLvisc(n_r)*or1(n_r)*(dLvisc(n_r)-or1(n_r))+      &
+                  &           two*(two*or1(n_r)+beta(n_r)-dLvisc(n_r))*or2(n_r)*dL) &
+                  &                                    *                dw(lm,n_r)  &
+                  &        + dL*or2(n_r)* ( two*dbeta(n_r)+ddLvisc(n_r)+            &
+                  &          dLvisc(n_r)*dLvisc(n_r)-two*third*beta(n_r)*beta(n_r)+ &
+                  &          dLvisc(n_r)*beta(n_r)+two*or1(n_r)*(two*dLvisc(n_r)-   &
+                  &          beta(n_r)-three*or1(n_r))+dL*or2(n_r) ) *   w(lm,n_r) )
+
+                  tmp_Buo = zero
+                  if ( l_heat ) tmp_Buo = BuoFac*dL*or2(n_r)*rgrav(n_r)*s(lm,n_r)
+                  if ( l_chemical_conv ) tmp_Buo = tmp_Buo+ChemFac*dL*or2(n_r)*&
+                  &                                rgrav(n_r)*xi(lm,n_r)
+
+                  if ( l_parallel_solve ) then
+                     dwdt%impl(lm,n_r,istage)=tmp_Dif
+                  else
+                     dwdt%impl(lm,n_r,istage)=tmp_Dif+tmp_Buo
+                  end if
+
+                  if ( l1 /= 0 .and. lPressNext .and. &
+                  &    istage_loc==nstages) then
+                     ! In the double curl formulation, we can estimate the pressure
+                     ! if required.
+                     p(lm,n_r)=-r(n_r)*r(n_r)/dL*                 dp_expl(lm,n_r)  &
+                     &            -one/dt_loc*(dw(lm,n_r)-dwold(lm,n_r))+   &
+                     &              hdif_V(l1)*visc(n_r)* ( work_LMloc(lm,n_r)     &
+                     &                       - (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
+                     &            - ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
+                     &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
+                     &                                              ) * dw(lm,n_r) &
+                     &             + dL*or2(n_r)*(two*or1(n_r)+two*third*beta(n_r) &
+                     &                     +dLvisc(n_r) )   *            w(lm,n_r) )
+                  end if
+               end do
+            end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+            !$omp target update from(dwdt)
+            !$omp target update if(lPressNext) from(p)
+#else
+            !$omp end do
+#endif
+            else
+#ifdef WITH_OMP_GPU
+            !$omp target update to(w, dw, ddw, ddddw, work_LMloc)
+            !$omp target update to(s)
+            !$omp target update if(l_chemical_conv) to(xi)
+            !$omp target update to(dwdt)
+            !$omp target update to(dp_expl)
+            !$omp target update if(lPressNext) to(p)
+            !$omp target teams distribute parallel do private(l1,Dif,Buo,dL)
 #else
             !$omp do private(n_r,lm,l1,Dif,Buo,dL)
 #endif
@@ -1800,11 +1893,11 @@ contains
                   end if
 
                   if ( l1 /= 0 .and. lPressNext .and. &
-                  &    tscheme%istage==tscheme%nstages) then
+                  &    istage_loc==nstages) then
                      ! In the double curl formulation, we can estimate the pressure
                      ! if required.
                      p(lm,n_r)=-r(n_r)*r(n_r)/dL*                 dp_expl(lm,n_r)  &
-                     &            -one/tscheme%dt(1)*(dw(lm,n_r)-dwold(lm,n_r))+   &
+                     &            -one/dt_loc*(dw(lm,n_r)-dwold(lm,n_r))+   &
                      &              hdif_V(l1)*visc(n_r)* ( work_LMloc(lm,n_r)     &
                      &                       - (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
                      &            - ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
@@ -1814,7 +1907,7 @@ contains
                      &                     +dLvisc(n_r) )   *            w(lm,n_r) )
                   end if
 
-                  if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
+                  if ( istage_loc==nstages ) then
                      !-- In case RMS force balance is required, one needs to also
                      !-- compute the classical diffusivity that is used in the non
                      !-- double-curl version
@@ -1825,20 +1918,79 @@ contains
                      &                                         *       w(lm,n_r) )
                   end if
                end do
-               if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
+               if ( istage_loc==nstages ) then
                   call hInt2Pol(Dif,llm,ulm,n_r,lmStart_00,ulm, &
                        &        DifPolLMr(llm:ulm,n_r),         &
                        &        DifPol2hInt(:,n_r),lo_map)
                end if
             end do
 #ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+            !$omp target update from(dwdt)
+            !$omp target update if(lPressNext) from(p)
 #else
             !$omp end do
 #endif
+            end if
 
          else
 
+            if(.not. lRmsNext) then
 #ifdef WITH_OMP_GPU
+            !$omp target update to(w, dw, ddw, work_LMloc)
+            !$omp target update to(s)
+            !$omp target update if(l_chemical_conv) to(xi)
+            !$omp target update to(dwdt, dpdt)
+            !$omp target update to(p, dp)
+            !$omp target teams distribute parallel do collapse(2) private(l1,tmp_Dif,tmp_Buo,tmp_Pre,dL)
+#else
+            !$omp do private(n_r,lm,l1,tmp_Dif,tmp_Buo,tmp_Pre,dL)
+#endif
+            do n_r=n_r_top,n_r_bot
+               do lm=lmStart_00,ulm
+                  l1=lm2l(lm)
+                  dL=real(l1*(l1+1),cp)
+
+                  tmp_Dif = hdif_V(l1)*dL*or2(n_r)*visc(n_r)*(      ddw(lm,n_r)   &
+                  &        +(two*dLvisc(n_r)-third*beta(n_r))*       dw(lm,n_r)   &
+                  &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*    &
+                  &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)) )* &
+                  &                                                   w(lm,n_r)  )
+                  tmp_Pre = -dp(lm,n_r)+beta(n_r)*p(lm,n_r)
+                  tmp_Buo = zero
+                  if ( l_heat )  tmp_Buo = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
+                  if ( l_chemical_conv ) tmp_Buo = tmp_Buo+ChemFac*rho0(n_r)* &
+                  &                                rgrav(n_r)*xi(lm,n_r)
+                  if ( l_parallel_solve ) then
+                     dwdt%impl(lm,n_r,istage)=tmp_Pre+tmp_Dif
+                  else
+                     dwdt%impl(lm,n_r,istage)=tmp_Pre+tmp_Dif+tmp_Buo
+                  end if
+                  dpdt%impl(lm,n_r,istage)=               dL*or2(n_r)*p(lm,n_r) &
+                  &            + hdif_V(l1)*visc(n_r)*dL*or2(n_r)               &
+                  &                                     * ( -work_LMloc(lm,n_r) &
+                  &                       + (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
+                  &            + ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
+                  &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
+                  &                                           ) *    dw(lm,n_r) &
+                  &            - dL*or2(n_r)* ( two*or1(n_r)+two*third*beta(n_r)&
+                  &                     +dLvisc(n_r) )   *           w(lm,n_r)  )
+               end do
+            end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+            !$omp target update from(dwdt, dpdt)
+#else
+            !$omp end do
+#endif
+            else
+#ifdef WITH_OMP_GPU
+            !$omp target update to(w, dw, ddw, ddddw, work_LMloc)
+            !$omp target update to(s)
+            !$omp target update if(l_chemical_conv) to(xi)
+            !$omp target update to(dwdt, dpdt)
+            !$omp target update to(p, dp)
+            !$omp target teams distribute parallel do private(l1,Dif,Buo,dL)
 #else
             !$omp do private(n_r,lm,l1,Dif,Buo,Pre,dL)
 #endif
@@ -1872,16 +2024,19 @@ contains
                   &            - dL*or2(n_r)* ( two*or1(n_r)+two*third*beta(n_r)&
                   &                     +dLvisc(n_r) )   *           w(lm,n_r)  )
                end do
-               if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
+               if ( lRmsNext .and. istage_loc==nstages ) then
                   call hInt2Pol(Dif,llm,ulm,n_r,lmStart_00,ulm, &
                        &        DifPolLMr(llm:ulm,n_r),         &
                        &        DifPol2hInt(:,n_r),lo_map)
                end if
             end do
 #ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+            !$omp target update from(dwdt, dpdt)
 #else
             !$omp end do
 #endif
+            end if
 
          end if
 
