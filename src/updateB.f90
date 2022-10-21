@@ -166,7 +166,14 @@ contains
 #ifdef WITH_PRECOND_BJ
          allocate(bMat_fac(n_r_tot,nLMBs2(1+rank)))
          allocate(jMat_fac(n_r_tot,nLMBs2(1+rank)))
+         bMat_fac(:,:) = 0.0_cp
+         jMat_fac(:,:) = 0.0_cp
          bytes_allocated = bytes_allocated+2*n_r_tot*nLMBs2(1+rank)*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: bMat_fac, jMat_fac)
+         !$omp target update to(bMat_fac, jMat_fac)
+         gpu_bytes_allocated = gpu_bytes_allocated+2*n_r_tot*nLMBs2(1+rank)*SIZEOF_DEF_REAL
+#endif
 #endif
 
          if ( l_RMS ) then
@@ -265,6 +272,9 @@ contains
          if ( l_cond_ic ) deallocate ( work_ic_LMloc )
 
 #ifdef WITH_PRECOND_BJ
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: bMat_fac, jMat_fac)
+#endif
          deallocate(bMat_fac,jMat_fac)
 #endif
 #ifdef WITH_OMP_GPU
@@ -406,7 +416,7 @@ contains
             end if
 
             !-- Assemble RHS
-            !$omp target
+            !$omp target teams distribute parallel do private(lm1,m1,nR,ff,cimp,aimp)
             do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1=lm22m(lm,nLMB2,nLMB)
@@ -607,29 +617,28 @@ contains
                end do
 #endif
             end do    ! loop over lm in block
-            !$omp end target
-            !$omp target update from(rhs1, rhs2)
+            !$omp end target teams distribute parallel do
 
             !-- Solve matrices with batched RHS (hipsolver)
             lm=sizeLMB2(nLMB2,nLMB)
-            if (bMat(nLMB2)%gpu_is_used) then
-               !$omp target update to(rhs1)
-            end if
-            call bMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
-            if (bMat(nLMB2)%gpu_is_used) then
+            if (.not. bMat(nLMB2)%gpu_is_used) then
                !$omp target update from(rhs1)
             end if
-            if (jMat(nLMB2)%gpu_is_used) then
-               !$omp target update to(rhs2)
+            call bMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
+            if (.not. bMat(nLMB2)%gpu_is_used) then
+               !$omp target update to(rhs1)
+            end if
+            if (.not. jMat(nLMB2)%gpu_is_used) then
+               !$omp target update from(rhs2)
             end if
             call jMat(nLMB2)%solve(rhs2(:,:,0),2*lm)
-            if (jMat(nLMB2)%gpu_is_used) then
-               !$omp target update from(rhs2)
+            if (.not. jMat(nLMB2)%gpu_is_used) then
+               !$omp target update to(rhs2)
             end if
 
             !----- Update magnetic field in cheb space:
             !-- Loop to reassemble fields
-            !$omp target
+            !$omp target teams distribute parallel do private(lm1, m1, n_r_out)
             do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1=lm22m(lm,nLMB2,nLMB)
@@ -666,24 +675,24 @@ contains
                   end if
                end if
             end do
-            !$omp end target
+            !$omp end target teams distribute parallel do
 
          else ! l=0 set value to zero
 
             lm1 = lo_map%lm2(0,0)
-            !$omp target
+            !$omp target teams distribute parallel do
             do n_r_out=1,rscheme_oc%n_max  ! outer core
                b(lm1,n_r_out) =zero
                aj(lm1,n_r_out)=zero
             end do
-            !$omp end target
+            !$omp end target teams distribute parallel do
             if ( l_cond_ic ) then
-               !$omp target
+               !$omp target teams distribute parallel do
                do n_r_out=1,n_cheb_ic_max
                   b_ic(lm1,n_r_out) =zero
                   aj_ic(lm1,n_r_out)=zero
                end do
-               !$omp end target
+               !$omp end target teams distribute parallel do
             end if
          end if
 
@@ -1014,7 +1023,6 @@ contains
       !   for inner core modes > 2*n_cheb_ic_max = 0
 #ifdef WITH_OMP_GPU
       !$omp target
-!      !$omp parallel do private(n_r_out,lm1) collapse(2)
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
 #endif
@@ -1026,14 +1034,12 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target
-!      !$omp end parallel do
 #else
       !$omp end do
 #endif
 
       if ( l_cond_ic ) then
 #ifdef WITH_OMP_GPU
-!         !$omp parallel do private(n_r_out, lm1) collapse(2)
          !$omp target
 #else
          !$omp do private(n_r_out, lm1) collapse(2)
@@ -1046,7 +1052,6 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target
-!         !$omp end parallel do
 #else
          !$omp end do
 #endif
@@ -1073,7 +1078,6 @@ contains
          if ( l_cond_ic ) then
 #ifdef WITH_OMP_GPU
             !$omp target update from(b_ic, aj_ic, dbdt_ic, djdt_ic)
-!            !$omp target update from(ddb_ic, ddj_ic)
 #endif
             call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,     &
                  &                  dbdt_ic, djdt_ic, 1, tscheme%l_imp_calc_rhs(1),&
@@ -1088,7 +1092,6 @@ contains
          if ( l_cond_ic ) then
 #ifdef WITH_OMP_GPU
             !$omp target update from(b_ic, aj_ic, dbdt_ic, djdt_ic)
-!            !$omp target update from(ddb_ic, ddj_ic)
 #endif
             call get_mag_ic_rhs_imp(b_ic, db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic,  &
                  &                  dbdt_ic, djdt_ic, tscheme%istage+1,         &
