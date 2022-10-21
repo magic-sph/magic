@@ -77,6 +77,8 @@ module num_param
    type(timer_type), public :: phy2lm_counter
    type(timer_type), public :: nl_counter
    type(timer_type), public :: td_counter
+
+   type(timer_type), public :: upWP_counter, upS_counter, upZ_counter, upB_counter
    character(len=72), public :: time_scheme ! Time scheme
 
    public :: initialize_num_param      ! Subroutine that allocates auxiliary arrays delxr2 and delxh2
@@ -101,6 +103,11 @@ contains
       call phy2lm_counter%initialize()
       call nl_counter%initialize()
       call td_counter%initialize()
+
+      call upWP_counter%initialize()
+      call upS_counter%initialize()
+      call upZ_counter%initialize()
+      call upB_counter%initialize()
 
    end subroutine initialize_num_param
 !-------------------------------------------------------------------------------

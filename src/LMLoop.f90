@@ -7,7 +7,8 @@ module LMLoop_mod
    use parallel_mod
    use constants, only: one
    use useful, only: abortRun, logWrite
-   use num_param, only: solve_counter
+   use num_param, only: solve_counter, upB_counter, upZ_counter, upS_counter, &
+       &                upWP_counter
 #ifdef WITH_OMP_GPU
    use mem_alloc, only: memWrite, bytes_allocated, gpu_bytes_allocated
 #else
@@ -269,6 +270,7 @@ contains
          if ( l_phase_field ) lPhimat(:)=.false.
       end if
 
+      call upS_counter%start_count()
       if ( l_phase_field ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(phi_LMloc, dphidt)
@@ -303,13 +305,16 @@ contains
       !$omp target update from(xi_LMloc, dxi_LMloc, dxidt)
 #endif
       end if
+      call upS_counter%stop_count()
 
       if ( l_conv ) then
          PERFON('up_Z')
+         call upZ_counter%start_count()
          call updateZ( time, timeNext, z_LMloc, dz_LMloc, dzdt, omega_ma,  &
               &        omega_ic, domega_ma_dt,domega_ic_dt,                &
               &        lorentz_torque_ma_dt,lorentz_torque_ic_dt, tscheme, &
               &        lRmsNext)
+         call upZ_counter%stop_count()
          PERFOFF
 
          if ( l_single_matrix ) then
@@ -322,6 +327,7 @@ contains
                     &         MPI_COMM_WORLD,ierr)
             end if
 #endif
+            call upWP_counter%start_count()
 #ifdef WITH_OMP_GPU
             !$omp target update to(dwdt, dpdt, dsdt)
             !$omp target update to(w_LMloc, dw_LMloc, p_LMloc, ds_LMloc)
@@ -334,15 +340,19 @@ contains
             !$omp target update from(w_LMloc, dw_LMloc, p_LMloc, ds_LMloc)
             !$omp target update from(ddw_LMloc, dp_LMloc, s_LMloc)
 #endif
+            call upWP_counter%stop_count()
          else
+            call upWP_counter%start_count()
             PERFON('up_WP')
             call updateWP( s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc, ddw_LMloc, &
                  &         dwdt, p_LMloc, dp_LMloc, dpdt, tscheme,          &
                  &         lRmsNext, lPressNext )
             PERFOFF
+            call upWP_counter%stop_count()
          end if
       end if
       if ( l_mag ) then ! dwdt,dpdt used as work arrays
+         call upB_counter%start_count()
 #ifdef WITH_OMP_GPU
          !$omp target update to(dbdt, djdt)
          if ( l_cond_ic ) then
@@ -366,6 +376,7 @@ contains
             !$omp target update from(dbdt_ic, djdt_ic)
          end if
 #endif
+         call upB_counter%stop_count()
       end if
 
       PERFOFF
