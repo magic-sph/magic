@@ -1266,10 +1266,14 @@ contains
       !-- Upper boundary
       if ( nRstartMag == n_r_cmb ) then
          do lm=lm_start,lm_stop
+            l = st_map%lm2l(lm)
+            if ( l == 0 ) cycle
             if ( ktopb == 3 ) then
                call abortRun('! ktopb=3 is not implemented in this setup!')
             end if
          end do
+      end if
+      if ( nRstartMag == n_r_cmb ) then
          dr = r(2)-r(1)
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
@@ -1303,7 +1307,9 @@ contains
       !-- Lower boundary
       if ( nRstopMag == n_r_icb ) then
          do lm=lm_start,lm_stop
-            if ( .not. l_full_sphere ) then
+            l = st_map%lm2l(lm)
+            if ( l == 0 ) cycle
+            if ( .not. l_full_sphere ) then ! blm=ajlm=0 at the center
                if ( kbotb == 3 ) then
                   call abortRun('! kbotb=3 is not implemented yet in this setup!')
                end if
@@ -1312,6 +1318,8 @@ contains
                end if
             end if
          end do
+      end if
+      if ( nRstopMag == n_r_icb ) then
          dr = r(n_r_max)-r(n_r_max-1)
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
@@ -1334,7 +1342,6 @@ contains
                      bg(lm,nRstopMag+1) =bg(lm,nRstopMag-1)
                      ajg(lm,nRstopMag+1)=two*ajg(lm,nRstopMag)-ajg(lm,nRstopMag-1)
                   end if
-
                   if ( l == 1 .and. ( imagcon == -1 .or. imagcon == -2 ) ) then
                      bg(lm,nRstopMag+1) =two*bg(lm,nRstopMag)-bg(lm,nRstopMag-1)
                   else if ( l == 3 .and. imagcon == -10 ) then
