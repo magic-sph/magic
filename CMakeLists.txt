@@ -28,6 +28,7 @@ set(USE_OMP     "yes"  CACHE STRING "Use OpenMP")
 set(USE_LAPACKLIB "MKL"  CACHE STRING "Use the Math Kernel Library for lapack calls")
 set(USE_PRECOND "yes"  CACHE STRING "Use matrix preconditioning")
 set(USE_SHTNS   "no"   CACHE STRING "Use libshtns for SH projection")
+set(USE_GPU     "no"   CACHE STRING "Use GPU")
 find_package(SSE)
 
 # Specific compiler options
@@ -69,7 +70,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Cray)
    #set(CMAKE_EXE_LINKER_FLAGS "-h dynamic")
    # Remove -rdynamic option (workaround for test machine):
    # https://cmake.org/pipermail/cmake/2014-November/059154.html
-   set(CMAKE_SHARED_LIBRARY_LINK_Fortran_FLAGS "")
+   #set(CMAKE_SHARED_LIBRARY_LINK_Fortran_FLAGS "")
 endif()
 if(CMAKE_Fortran_COMPILER_ID MATCHES PGI)
    set(FFLAG_ARCH      "-m${ARCH}")
@@ -237,18 +238,22 @@ if(USE_LAPACKLIB MATCHES LIBFLAME)
 endif()
 
 # Detect LIBSCI (Cray)
-#if(USE_LAPACKLIB MATCHES LIBSCI)
-   #find_library(SCI NAME sci_cray_mp
-      #PATHS $ENV{CRAY_LIBSCI_PREFIX}/lib
-      #      $ENV{HOME}/local/lib
-      #      $ENV{HOME}/local/lib64)
-   #if ( SCI MATCHES SCI-NOTFOUND )
-      #message(STATUS "LIBSCI was not found")
-      #set(USE_LAPACKLIB "LAPACK")
-   #else()
-      #message(STATUS "LIBSCI: '${SCI}'")
-   #endif()
-#endif()
+if(USE_LAPACKLIB MATCHES LIBSCI)
+   if(CMAKE_Fortran_COMPILER_ID MATCHES Cray)
+      message(STATUS "LIBSCI: 'built-in with ftn'")
+   else()
+      find_library(SCI NAME sci_cray_mp
+         PATHS $ENV{CRAY_LIBSCI_PREFIX}/lib
+               $ENV{HOME}/local/lib
+               $ENV{HOME}/local/lib64)
+      if ( SCI MATCHES SCI-NOTFOUND )
+         message(STATUS "LIBSCI was not found")
+         set(USE_LAPACKLIB "LAPACK")
+      else()
+         message(STATUS "LIBSCI: '${SCI}'")
+      endif()
+   endif()
+endif()
 
 # Detect LAPACK
 if(USE_LAPACKLIB MATCHES LAPACK)
@@ -322,7 +327,7 @@ if(USE_SHTNS MATCHES yes)
       find_library(SHTNS shtns_hip_omp HINTS $ENV{HOME}/local/lib)
    else()
       if(USE_OMP)
-         find_library(SHTNS shtns_hip_omp HINTS $ENV{HOME}/local/lib)
+         find_library(SHTNS shtns_omp HINTS $ENV{HOME}/local/lib)
       else()
          find_library(SHTNS shtns HINTS $ENV{HOME}/local/lib)
       endif(USE_OMP)
@@ -396,7 +401,6 @@ if(USE_GPU MATCHES yes)
            message(STATUS "Failed to find HIPFORT")
    endif()
 endif()
-
 
 # Final Fortran flags (after OpenMP/MPI to avoid the conflict
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${FFLAG_ARCH} ${FFLAG_STD} -g ${FFLAG_TRACEBACK} ${FFLAG_CONVERT} ${FFLAG_PREPROCESSOR}")
