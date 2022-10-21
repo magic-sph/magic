@@ -292,12 +292,12 @@ contains
 
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
 
-!#ifdef WITH_OMP_GPU
+#ifdef WITH_OMP_GPU
       real(cp) :: wimp_lin
 
       !-- Copie into local variable
       wimp_lin = tscheme%wimp_lin(1)
-!#endif
+#endif
 
       if ( l_precession ) then
          prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
