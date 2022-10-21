@@ -70,7 +70,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Cray)
    #set(CMAKE_EXE_LINKER_FLAGS "-h dynamic")
    # Remove -rdynamic option (workaround for test machine):
    # https://cmake.org/pipermail/cmake/2014-November/059154.html
-   #set(CMAKE_SHARED_LIBRARY_LINK_Fortran_FLAGS "")
+   set(CMAKE_SHARED_LIBRARY_LINK_Fortran_FLAGS "")
 endif()
 if(CMAKE_Fortran_COMPILER_ID MATCHES PGI)
    set(FFLAG_ARCH      "-m${ARCH}")
