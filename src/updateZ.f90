@@ -1437,9 +1437,9 @@ contains
             !-- TODO: Make testRMSOutputs (for restart) fails :
             !-- ACC: libcrayacc/acc_dopevector.c:31 CRAY_ACC_ERROR - Invalid dope vector
             !$omp target update from(work_LMloc, z, dz, dzdt) !-- TODO: Remove after solving this problem
-!            !$omp target teams distribute parallel do private(Dif,l1,dL)
+!            !$omp target teams distribute parallel do private(Dif,l1,m1,dL)
 #else
-            !$omp do private(n_r,lm,Dif,l1,dL)
+            !$omp do private(n_r,lm,Dif,l1,m1,dL)
 #endif
             do n_r=n_r_top,n_r_bot
                do lm=lmStart_00,ulm
@@ -1474,7 +1474,7 @@ contains
 #ifdef WITH_OMP_GPU
                !$omp target teams distribute parallel do collapse(2) private(Dif,l1,dL,m1)
 #else
-               !$omp do private(n_r,lm,Dif,l1,dL)
+               !$omp do private(n_r,lm,Dif,l1,m1,dL)
 #endif
                do n_r=n_r_top,n_r_bot
                   do lm=lmStart_00,ulm
@@ -1501,14 +1501,13 @@ contains
 #endif
             else
 #ifdef WITH_OMP_GPU
-               !$omp target teams distribute parallel do collapse(2) private(l1,dL,m1)
+               !$omp target teams distribute parallel do collapse(2) private(l1,dL)
 #else
-               !$omp do private(n_r,lm,Dif,l1,dL)
+               !$omp do private(n_r,lm,Dif,l1,dL,tmp_Dif)
 #endif
                do n_r=n_r_top,n_r_bot
                   do lm=lmStart_00,ulm
                      l1 = lm2l(lm)
-                     m1 = lm2m(lm)
                      dL = real(l1*(l1+1),cp)
                      tmp_Dif=hdif_V(l1)*dL*or2(n_r)*visc(n_r)* ( work_LMloc(lm,n_r) +  &
                      &         (dLvisc(n_r)-beta(n_r))    *              dz(lm,n_r) -  &
@@ -1769,7 +1768,7 @@ contains
 #ifdef WITH_OMP_GPU
       start_lm=1; stop_lm=lm_max
 #else
-      !$omp parallel default(shared) private(start_lm, stop_lm, n_r, lm, l, m)
+      !$omp parallel default(shared) private(start_lm, stop_lm, n_r, lm, l, m, dL, Dif)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
 #endif
@@ -2096,7 +2095,7 @@ contains
       !-- Local variables
       complex(cp), allocatable :: work_Rloc(:,:)
       integer :: start_lm, stop_lm, lm, n_r, l, m
-      real(cp) :: dLh, lo_ic, lo_ma, dom_ma, dom_ic, r2
+      real(cp) :: dLh, lo_ic, lo_ma, dom_ma, dom_ic
 
       allocate(work_Rloc(lm_max,nRstart:nRstop))
       work_Rloc(:,:) = zero

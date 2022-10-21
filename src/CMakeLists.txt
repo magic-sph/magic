@@ -178,7 +178,7 @@ if(USE_GPU MATCHES yes)
       #target_link_libraries(${EXEC} -lamdhip64)
    endif()
 else()
-   target_link_libraries(${EXEC} -lhipfft)	   
+   #target_link_libraries(${EXEC} -lhipfft)
 endif()
 
 # Link LIBFLAME and BLIS

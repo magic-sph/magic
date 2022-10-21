@@ -320,11 +320,11 @@ contains
       !-- Local variables:
       real(cp) :: yl0_norm,prefac    !External magnetic field of general l
 
-      integer :: l1,m1               ! degree and order
-      integer :: lm1,lm,lmB          ! position of (l,m) in array
+      integer :: l1,m1           ! degree and order
+      integer :: lm1,lm          ! position of (l,m) in array
       integer :: nLMB2, nLMB
-      integer :: n_r_out             ! No of cheb polynome (degree+1)
-      integer :: nR                  ! No of radial grid point
+      integer :: n_r_out         ! No of cheb polynome (degree+1)
+      integer :: nR              ! No of radial grid point
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -367,6 +367,27 @@ contains
 #endif
       end if
 
+#ifndef WITH_OMP_GPU
+      !$omp parallel default(shared)
+#endif
+
+      if ( lRmsNext .and. tscheme%istage == 1 ) then ! Store old b,aj
+#ifdef WITH_OMP_GPU
+#else
+         !$omp do private(lm)
+#endif
+         do nR=1,n_r_max
+            do lm=llmMag,ulmMag
+               workA(lm,nR)= b(lm,nR)
+               workB(lm,nR)=aj(lm,nR)
+            end do
+         end do
+#ifdef WITH_OMP_GPU
+#else
+         !$omp end do
+#endif
+      end if
+
 #ifdef WITH_OMP_GPU
       !$omp single
       call solve_counter%start_count()
@@ -374,12 +395,12 @@ contains
       ! This is a loop over all l values which should be treated on
       ! the actual MPI rank
       do nLMB2=1,nLMBs2(nLMB)
-         lmB=0
 
-         !-- LU factorisation (big loop but hardly any work because of lBmat
-         do lm=1,sizeLMB2(nLMB2,nLMB)
-            l1=lm22l(lm,nLMB2,nLMB)
-            if ( .not. lBmat(l1) .and. l1 > 0 ) then
+         l1=lm22l(1,nLMB2,nLMB)
+
+         if ( l1 > 0 ) then
+            !-- LU factorisation (big loop but hardly any work because of lBmat
+            if ( .not. lBmat(l1) ) then
 #ifdef WITH_PRECOND_BJ
                call get_bMat(tscheme,l1,hdif_B(l1),bMat(nLMB2), &
                     &        bMat_fac(:,nLMB2),jMat(nLMB2),jMat_fac(:,nLMB2))
@@ -388,60 +409,56 @@ contains
 #endif
                lBmat(l1)=.true.
             end if
-         end do
 
-         !-- Assemble RHS
-         do lm=1,sizeLMB2(nLMB2,nLMB)
-            lm1=lm22lm(lm,nLMB2,nLMB)
-            l1=lm22l(lm,nLMB2,nLMB)
-            m1=lm22m(lm,nLMB2,nLMB)
+            !-- Assemble RHS
+            do lm=1,sizeLMB2(nLMB2,nLMB)
+               lm1=lm22lm(lm,nLMB2,nLMB)
+               m1=lm22m(lm,nLMB2,nLMB)
 
-            if ( l1 > 0 ) then
-               lmB=lmB+1
                !-------- Magnetic boundary conditions, outer core:
                !         Note: the CMB condition is not correct if we assume free slip
                !         and a conducting mantle (conductance_ma>0).
                if ( l_b_nl_cmb ) then ! finitely conducting mantle
-                  rhs1(1,2*lmB-1,0) =  real(b_nl_cmb(st_map%lm2(l1,m1)))
-                  rhs1(1,2*lmB,0)   = aimag(b_nl_cmb(st_map%lm2(l1,m1)))
-                  rhs2(1,2*lmB-1,0) =  real(aj_nl_cmb(st_map%lm2(l1,m1)))
-                  rhs2(1,2*lmB,0)   = aimag(aj_nl_cmb(st_map%lm2(l1,m1)))
+                  rhs1(1,2*lm-1,0) =  real(b_nl_cmb(st_map%lm2(l1,m1)))
+                  rhs1(1,2*lm,0)   = aimag(b_nl_cmb(st_map%lm2(l1,m1)))
+                  rhs2(1,2*lm-1,0) =  real(aj_nl_cmb(st_map%lm2(l1,m1)))
+                  rhs2(1,2*lm,0)   = aimag(aj_nl_cmb(st_map%lm2(l1,m1)))
                else
-                  rhs1(1,2*lmB-1,0) = 0.0_cp
-                  rhs1(1,2*lmB,0)   = 0.0_cp
-                  rhs2(1,2*lmB-1,0) = 0.0_cp
-                  rhs2(1,2*lmB,0)   = 0.0_cp
+                  rhs1(1,2*lm-1,0) = 0.0_cp
+                  rhs1(1,2*lm,0)   = 0.0_cp
+                  rhs2(1,2*lm-1,0) = 0.0_cp
+                  rhs2(1,2*lm,0)   = 0.0_cp
                end if
 
                !-------- inner core
-               rhs1(n_r_max,2*lmB-1,0)=0.0_cp
-               rhs1(n_r_max,2*lmB,0)  =0.0_cp
-               rhs2(n_r_max,2*lmB-1,0)=0.0_cp
-               rhs2(n_r_max,2*lmB,0)  =0.0_cp
+               rhs1(n_r_max,2*lm-1,0)=0.0_cp
+               rhs1(n_r_max,2*lm,0)  =0.0_cp
+               rhs2(n_r_max,2*lm-1,0)=0.0_cp
+               rhs2(n_r_max,2*lm,0)  =0.0_cp
 
                if ( m1 == 0 ) then   ! Magnetoconvection boundary conditions
                   if ( imagcon /= 0 .and. tmagcon <= time ) then
                      if ( l1 == 2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
-                        rhs2(1,2*lmB-1,0)      =bpeaktop
-                        rhs2(1,2*lmB,0)        =0.0_cp
-                        rhs2(n_r_max,2*lmB-1,0)=bpeakbot
-                        rhs2(n_r_max,2*lmB,0)  =0.0_cp
+                        rhs2(1,2*lm-1,0)      =bpeaktop
+                        rhs2(1,2*lm,0)        =0.0_cp
+                        rhs2(n_r_max,2*lm-1,0)=bpeakbot
+                        rhs2(n_r_max,2*lm,0)  =0.0_cp
                      else if( l1 == 1 .and. imagcon == 12 ) then
-                        rhs2(1,2*lmB-1,0)      =bpeaktop
-                        rhs2(1,2*lmB,0)        =0.0_cp
-                        rhs2(n_r_max,2*lmB-1,0)=bpeakbot
-                        rhs2(n_r_max,2*lmB,0)  =0.0_cp
+                        rhs2(1,2*lm-1,0)      =bpeaktop
+                        rhs2(1,2*lm,0)        =0.0_cp
+                        rhs2(n_r_max,2*lm-1,0)=bpeakbot
+                        rhs2(n_r_max,2*lm,0)  =0.0_cp
                      else if( l1 == 1 .and. imagcon == -1) then
-                        rhs1(n_r_max,2*lmB-1,0)=bpeakbot
-                        rhs1(n_r_max,2*lmB,0)  =0.0_cp
+                        rhs1(n_r_max,2*lm-1,0)=bpeakbot
+                        rhs1(n_r_max,2*lm,0)  =0.0_cp
                      else if( l1 == 1 .and. imagcon == -2) then
-                        rhs1(1,2*lmB-1,0)      =bpeaktop
-                        rhs1(1,2*lmB,0)        =0.0_cp
+                        rhs1(1,2*lm-1,0)      =bpeaktop
+                        rhs1(1,2*lm,0)        =0.0_cp
                      else if( l1 == 3 .and. imagcon == -10 ) then
-                        rhs2(1,2*lmB-1,0)      =bpeaktop
-                        rhs2(1,2*lmB,0)        =0.0_cp
-                        rhs2(n_r_max,2*lmB-1,0)=bpeakbot
-                        rhs2(n_r_max,2*lmB,0)  =0.0_cp
+                        rhs2(1,2*lm-1,0)      =bpeaktop
+                        rhs2(1,2*lm,0)        =0.0_cp
+                        rhs2(n_r_max,2*lm-1,0)=bpeakbot
+                        rhs2(n_r_max,2*lm,0)  =0.0_cp
                      end if
                   end if
 
@@ -456,8 +473,8 @@ contains
 
                      bpeaktop=prefac*fac_loop(l1)*amp_curr*r_cmb/yl0_norm
 
-                     rhs1(1,2*lmB-1,0)=bpeaktop
-                     rhs1(1,2*lmB,0)  =0.0_cp
+                     rhs1(1,2*lm-1,0)=bpeaktop
+                     rhs1(1,2*lm,0)  =0.0_cp
 
                   end if
 
@@ -471,23 +488,23 @@ contains
                         !  Chose external field coefficient so that amp_imp is
                         !  the amplitude of the external field:
                         bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
-                        rhs1(1,2*lmB-1,0)=bpeaktop
-                        rhs1(1,2*lmB,0)  =0.0_cp
+                        rhs1(1,2*lm-1,0)=bpeaktop
+                        rhs1(1,2*lm,0)  =0.0_cp
                      else if ( n_imp == 3 ) then
                         !  Chose external field coefficient so that amp_imp is
                         !  the amplitude of the external field:
                         bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
                         if ( real(b(l1m0,n_r_cmb)) > 1.0e-9_cp ) &
                         &    direction=real(b(l1m0,n_r_cmb))/abs(real(b(l1m0,n_r_cmb)))
-                        rhs1(1,2*lmB-1,0)=bpeaktop
-                        rhs1(1,2*lmB,0)  =0.0_cp
-                        rhs1(1,2*lmB-1,0)=bpeaktop*direction
-                        rhs1(1,2*lmB,0)  =0.0_cp
+                        rhs1(1,2*lm-1,0)=bpeaktop
+                        rhs1(1,2*lm,0)  =0.0_cp
+                        rhs1(1,2*lm-1,0)=bpeaktop*direction
+                        rhs1(1,2*lm,0)  =0.0_cp
                      else if ( n_imp == 4 ) then
                         !  I have forgotten what this was supposed to do:
                         bpeaktop=three/r_cmb*amp_imp*real(b(l1m0,n_r_cmb))**2
-                        rhs1(1,2*lmB-1,0)=bpeaktop/real(b(l1m0,n_r_cmb))
-                        rhs1(1,2*lmB,0)  =0.0_cp
+                        rhs1(1,2*lm-1,0)=bpeaktop/real(b(l1m0,n_r_cmb))
+                        rhs1(1,2*lm,0)  =0.0_cp
 
                      else
 
@@ -533,161 +550,144 @@ contains
                            ff=  aimp*real(b(l1m0,n_r_cmb))**expo_imp/ &
                            &    (cimp+real(b(l1m0,n_r_cmb))**expo_imp)
                         end if
-                        rhs1(1,2*lmB-1,0)=(2*l1+1)/r_cmb*ff
-                        rhs1(1,2*lmB,0)  =0.0_cp
+                        rhs1(1,2*lm-1,0)=(2*l1+1)/r_cmb*ff
+                        rhs1(1,2*lm,0)  =0.0_cp
 
                      end if
-                  end if
-               end if
+                  end if ! n_imp  > 0
+               end if ! m = 0
 
                do nR=2,n_r_max-1
                   if ( l_LCR .and. nR<=n_r_LCR ) then
-                     rhs1(nR,2*lmB-1,0)=0.0_cp
-                     rhs1(nR,2*lmB,0)  =0.0_cp
-                     rhs2(nR,2*lmB-1,0)=0.0_cp
-                     rhs2(nR,2*lmB,0)  =0.0_cp
+                     rhs1(nR,2*lm-1,0)=0.0_cp
+                     rhs1(nR,2*lm,0)  =0.0_cp
+                     rhs2(nR,2*lm-1,0)=0.0_cp
+                     rhs2(nR,2*lm,0)  =0.0_cp
                   else
-                     rhs1(nR,2*lmB-1,0)= real(work_LMloc(lm1,nR))
-                     rhs1(nR,2*lmB,0)  =aimag(work_LMloc(lm1,nR))
-                     rhs2(nR,2*lmB-1,0)= real(ddb(lm1,nR)) ! ddb is used as a work array here
-                     rhs2(nR,2*lmB,0)  =aimag(ddb(lm1,nR))
+                     rhs1(nR,2*lm-1,0)= real(work_LMloc(lm1,nR))
+                     rhs1(nR,2*lm,0)  =aimag(work_LMloc(lm1,nR))
+                     rhs2(nR,2*lm-1,0)= real(ddb(lm1,nR)) ! ddb is used as a work array here
+                     rhs2(nR,2*lm,0)  =aimag(ddb(lm1,nR))
                   end if
                end do
 
                !-- Overwrite RHS when perfect conductor
                if ( ktopb == 2 ) then
-                  rhs1(2,2*lmB-1,0) = 0.0_cp
-                  rhs1(2,2*lmB,0)   = 0.0_cp
+                  rhs1(2,2*lm-1,0) = 0.0_cp
+                  rhs1(2,2*lm,0)   = 0.0_cp
                end if
                if ( kbotb == 2 ) then
-                  rhs1(n_r_max-1,2*lmB-1,0) = 0.0_cp
-                  rhs1(n_r_max-1,2*lmB,0)   = 0.0_cp
+                  rhs1(n_r_max-1,2*lm-1,0) = 0.0_cp
+                  rhs1(n_r_max-1,2*lm,0)   = 0.0_cp
                end if
 
                !-- Magnetic boundary conditions, inner core for radial derivatives
                !         of poloidal and toroidal magnetic potentials:
                if ( l_cond_ic ) then    ! inner core
-                  rhs1(n_r_max+1,2*lmB-1,0)=0.0_cp
-                  rhs1(n_r_max+1,2*lmB,0)  =0.0_cp
+                  rhs1(n_r_max+1,2*lm-1,0)=0.0_cp
+                  rhs1(n_r_max+1,2*lm,0)  =0.0_cp
                   if ( l_b_nl_icb ) then
-                     rhs2(n_r_max+1,2*lmB-1,0)=real(aj_nl_icb(st_map%lm2(l1,m1)) )
-                     rhs2(n_r_max+1,2*lmB,0)  =aimag(aj_nl_icb(st_map%lm2(l1,m1)) )
+                     rhs2(n_r_max+1,2*lm-1,0)=real(aj_nl_icb(st_map%lm2(l1,m1)) )
+                     rhs2(n_r_max+1,2*lm,0)  =aimag(aj_nl_icb(st_map%lm2(l1,m1)) )
                   else
-                     rhs2(n_r_max+1,2*lmB-1,0)=0.0_cp
-                     rhs2(n_r_max+1,2*lmB,0)  =0.0_cp
+                     rhs2(n_r_max+1,2*lm-1,0)=0.0_cp
+                     rhs2(n_r_max+1,2*lm,0)  =0.0_cp
                   end if
 
                   do nR=2,n_r_ic_max
-                     rhs1(n_r_max+nR,2*lmB-1,0)= real(ddb_ic(lm1,nR)) ! ddb_ic as work array
-                     rhs1(n_r_max+nR,2*lmB,0)  =aimag(ddb_ic(lm1,nR))
-                     rhs2(n_r_max+nR,2*lmB-1,0)= real(ddj_ic(lm1,nR))
-                     rhs2(n_r_max+nR,2*lmB,0)  =aimag(ddj_ic(lm1,nR))
+                     rhs1(n_r_max+nR,2*lm-1,0)= real(ddb_ic(lm1,nR)) ! ddb_ic as work array
+                     rhs1(n_r_max+nR,2*lm,0)  =aimag(ddb_ic(lm1,nR))
+                     rhs2(n_r_max+nR,2*lm-1,0)= real(ddj_ic(lm1,nR))
+                     rhs2(n_r_max+nR,2*lm,0)  =aimag(ddj_ic(lm1,nR))
                   end do
                end if
 
 #ifdef WITH_PRECOND_BJ
                do nR=1,n_r_tot
-                  rhs1(nR,2*lmB-1,0)=rhs1(nR,2*lmB-1,0)*bMat_fac(nR,nLMB2)
-                  rhs1(nR,2*lmB,0)  =rhs1(nR,2*lmB,0)*bMat_fac(nR,nLMB2)
-                  rhs2(nR,2*lmB-1,0)=rhs2(nR,2*lmB-1,0)*jMat_fac(nR,nLMB2)
-                  rhs2(nR,2*lmB,0)  =rhs2(nR,2*lmB,0)*jMat_fac(nR,nLMB2)
+                  rhs1(nR,2*lm-1,0)=rhs1(nR,2*lm-1,0)*bMat_fac(nR,nLMB2)
+                  rhs1(nR,2*lm,0)  =rhs1(nR,2*lm,0)*bMat_fac(nR,nLMB2)
+                  rhs2(nR,2*lm-1,0)=rhs2(nR,2*lm-1,0)*jMat_fac(nR,nLMB2)
+                  rhs2(nR,2*lm,0)  =rhs2(nR,2*lm,0)*jMat_fac(nR,nLMB2)
                end do
 #endif
-            end if ! l>0
-         end do    ! loop over lm in block
+            end do    ! loop over lm in block
 
-         !-- Solve matrices with batched RHS (hipsolver)
-         if ( lmB > 0 ) then
-            if(bMat(nLMB2)%gpu_is_used) then
+            !-- Solve matrices with batched RHS (hipsolver)
+            lm=sizeLMB2(nLMB2,nLMB)
+            if (bMat(nLMB2)%gpu_is_used) then
                !$omp target update to(rhs1)
             end if
-            call bMat(nLMB2)%solve(rhs1(:,:,0),2*lmB)
-            if(bMat(nLMB2)%gpu_is_used) then
+            call bMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
+            if (bMat(nLMB2)%gpu_is_used) then
                !$omp target update from(rhs1)
             end if
-            if(jMat(nLMB2)%gpu_is_used) then
+            if (jMat(nLMB2)%gpu_is_used) then
                !$omp target update to(rhs2)
             end if
-            call jMat(nLMB2)%solve(rhs2(:,:,0),2*lmB)
-            if(jMat(nLMB2)%gpu_is_used) then
+            call jMat(nLMB2)%solve(rhs2(:,:,0),2*lm)
+            if (jMat(nLMB2)%gpu_is_used) then
                !$omp target update from(rhs2)
             end if
-         end if
 
-         if ( lRmsNext .and. tscheme%istage == 1 ) then ! Store old b,aj
-            do nR=1,n_r_max
-               do lm=1,sizeLMB2(nLMB2,nLMB)
-                  lm1=lm22lm(lm,nLMB2,nLMB)
-                  workA(lm1,nR)= b(lm1,nR)
-                  workB(lm1,nR)=aj(lm1,nR)
-               end do
-            end do
-         end if
-
-         !----- Update magnetic field in cheb space:
-         lmB=0
-         !-- Loop to reassemble fields
-         do lm=1,sizeLMB2(nLMB2,nLMB)
-            lm1=lm22lm(lm,nLMB2,nLMB)
-            l1=lm22l(lm,nLMB2,nLMB)
-            m1=lm22m(lm,nLMB2,nLMB)
-
-            if ( l1 > 0 ) then
-               lmB=lmB+1
+            !----- Update magnetic field in cheb space:
+            !-- Loop to reassemble fields
+            do lm=1,sizeLMB2(nLMB2,nLMB)
+               lm1=lm22lm(lm,nLMB2,nLMB)
+               m1=lm22m(lm,nLMB2,nLMB)
 
                if ( m1 > 0 ) then
                   do n_r_out=1,rscheme_oc%n_max  ! outer core
-                     b(lm1,n_r_out) =cmplx(rhs1(n_r_out,2*lmB-1,0), &
-                     &                     rhs1(n_r_out,2*lmB,0),cp)
-                     aj(lm1,n_r_out)=cmplx(rhs2(n_r_out,2*lmB-1,0), &
-                     &                     rhs2(n_r_out,2*lmB,0),cp)
+                     b(lm1,n_r_out) =cmplx(rhs1(n_r_out,2*lm-1,0), &
+                     &                     rhs1(n_r_out,2*lm,0),cp)
+                     aj(lm1,n_r_out)=cmplx(rhs2(n_r_out,2*lm-1,0), &
+                     &                     rhs2(n_r_out,2*lm,0),cp)
                   end do
                   if ( l_cond_ic ) then   ! inner core
                      do n_r_out=1,n_cheb_ic_max
-                        b_ic(lm1,n_r_out) =cmplx(rhs1(n_r_max+n_r_out,2*lmB-1,0), &
-                        &                        rhs1(n_r_max+n_r_out,2*lmB,0),cp)
-                        aj_ic(lm1,n_r_out)=cmplx(rhs2(n_r_max+n_r_out,2*lmB-1,0), &
-                        &                        rhs2(n_r_max+n_r_out,2*lmB,0),cp)
+                        b_ic(lm1,n_r_out) =cmplx(rhs1(n_r_max+n_r_out,2*lm-1,0), &
+                        &                        rhs1(n_r_max+n_r_out,2*lm,0),cp)
+                        aj_ic(lm1,n_r_out)=cmplx(rhs2(n_r_max+n_r_out,2*lm-1,0), &
+                        &                        rhs2(n_r_max+n_r_out,2*lm,0),cp)
                      end do
                   end if
                else
                   do n_r_out=1,rscheme_oc%n_max   ! outer core
-                     b(lm1,n_r_out) = cmplx(rhs1(n_r_out,2*lmB-1,0), &
+                     b(lm1,n_r_out) = cmplx(rhs1(n_r_out,2*lm-1,0), &
                      &                      0.0_cp,kind=cp)
-                     aj(lm1,n_r_out)= cmplx(rhs2(n_r_out,2*lmB-1,0), &
+                     aj(lm1,n_r_out)= cmplx(rhs2(n_r_out,2*lm-1,0), &
                      &                      0.0_cp,kind=cp)
                   end do
                   if ( l_cond_ic ) then    ! inner core
                      do n_r_out=1,n_cheb_ic_max
-                        b_ic(lm1,n_r_out)= cmplx(rhs1(n_r_max+n_r_out,2*lmB-1,0), &
+                        b_ic(lm1,n_r_out) =cmplx(rhs1(n_r_max+n_r_out,2*lm-1,0),&
                         &                        0.0_cp,kind=cp)
-                        aj_ic(lm1,n_r_out)= cmplx(rhs2(n_r_max+n_r_out,2*lmB-1,0),&
-                        &                         0.0_cp,kind=cp)
+                        aj_ic(lm1,n_r_out)=cmplx(rhs2(n_r_max+n_r_out,2*lm-1,0),&
+                        &                        0.0_cp,kind=cp)
                      end do
                   end if
                end if
+            end do
 
-            else ! set l=0 to zero!
-               do n_r_out=1,rscheme_oc%n_max  ! outer core
-                  b(lm1,n_r_out) =zero
-                  aj(lm1,n_r_out)=zero
+         else ! l=0 set value to zero
+
+            lm1 = lo_map%lm2(0,0)
+            do n_r_out=1,rscheme_oc%n_max  ! outer core
+               b(lm1,n_r_out) =zero
+               aj(lm1,n_r_out)=zero
+            end do
+            if ( l_cond_ic ) then
+               do n_r_out=1,n_cheb_ic_max
+                  b_ic(lm1,n_r_out) =zero
+                  aj_ic(lm1,n_r_out)=zero
                end do
-               if ( l_cond_ic ) then
-                  do n_r_out=1,n_cheb_ic_max
-                     b_ic(lm1,n_r_out) =zero
-                     aj_ic(lm1,n_r_out)=zero
-                  end do
-               end if
-
             end if
-         end do
+         end if
+
       end do      ! end of do loop over lm1
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
 #else
-      !$omp parallel default(shared)
-
       !$omp single
       call solve_counter%start_count()
       !$omp end single
@@ -697,7 +697,7 @@ contains
       do nLMB2=1,nLMBs2(nLMB)
          !$omp task default(shared) &
          !$omp firstprivate(nLMB2) &
-         !$omp private(lmB,lm,lm1,l1,m1,nR,iChunk,nChunks,size_of_last_chunk) &
+         !$omp private(lm,lm1,l1,m1,nR,iChunk,nChunks,size_of_last_chunk) &
          !$omp private(bpeaktop,ff,cimp,aimp,threadid)
          ! determine the number of chunks of m
          ! total number for l1 is sizeLMB2(nLMB2,nLMB)
@@ -716,73 +716,71 @@ contains
 #endif
                lBmat(l1)=.true.
             end if
-         end if
 
-         do iChunk=1,nChunks
-            !$omp task if (nChunks>1) default(shared) &
-            !$omp firstprivate(iChunk) &
-            !$omp private(lmB0,lmB,lm,lm1,m1,nR) &
-            !$omp private(bpeaktop,ff,threadid)
+            do iChunk=1,nChunks
+               !$omp task if (nChunks>1) default(shared) &
+               !$omp firstprivate(iChunk) &
+               !$omp private(lmB0,lm,lm1,m1,nR) &
+               !$omp private(bpeaktop,ff,threadid)
 #ifdef WITHOMP
-            threadid = omp_get_thread_num()
+               threadid = omp_get_thread_num()
 #else
-            threadid = 0
+               threadid = 0
 #endif
-            lmB0=(iChunk-1)*chunksize
-            lmB=lmB0
-            do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-               lm1=lm22lm(lm,nLMB2,nLMB)
-               m1 =lm22m(lm,nLMB2,nLMB)
-               if ( l1 > 0 ) then
-                  lmB=lmB+1
+               lmB0=(iChunk-1)*chunksize
+               do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+                  !do lm=1,sizeLMB2(nLMB2,nLMB)
+                  lm1=lm22lm(lm,nLMB2,nLMB)
+                  !l1 =lm22l(lm,nLMB2,nLMB)
+                  m1 =lm22m(lm,nLMB2,nLMB)
                   !-------- Magnetic boundary conditions, outer core:
                   !         Note: the CMB condition is not correct if we assume free slip
                   !         and a conducting mantle (conductance_ma>0).
                   if ( l_b_nl_cmb ) then ! finitely conducting mantle
-                     rhs1(1,2*lmB-1,threadid) =  real(b_nl_cmb(st_map%lm2(l1,m1)))
-                     rhs1(1,2*lmB,threadid)   = aimag(b_nl_cmb(st_map%lm2(l1,m1)))
-                     rhs2(1,2*lmB-1,threadid) =  real(aj_nl_cmb(st_map%lm2(l1,m1)))
-                     rhs2(1,2*lmB,threadid)   = aimag(aj_nl_cmb(st_map%lm2(l1,m1)))
+                     rhs1(1,2*lm-1,threadid) =  real(b_nl_cmb(st_map%lm2(l1,m1)))
+                     rhs1(1,2*lm,threadid)   = aimag(b_nl_cmb(st_map%lm2(l1,m1)))
+                     rhs2(1,2*lm-1,threadid) =  real(aj_nl_cmb(st_map%lm2(l1,m1)))
+                     rhs2(1,2*lm,threadid)   = aimag(aj_nl_cmb(st_map%lm2(l1,m1)))
                   else
-                     rhs1(1,2*lmB-1,threadid) = 0.0_cp
-                     rhs1(1,2*lmB,threadid)   = 0.0_cp
-                     rhs2(1,2*lmB-1,threadid) = 0.0_cp
-                     rhs2(1,2*lmB,threadid)   = 0.0_cp
+                     rhs1(1,2*lm-1,threadid) = 0.0_cp
+                     rhs1(1,2*lm,threadid)   = 0.0_cp
+                     rhs2(1,2*lm-1,threadid) = 0.0_cp
+                     rhs2(1,2*lm,threadid)   = 0.0_cp
                   end if
 
                   !-------- inner core
-                  rhs1(n_r_max,2*lmB-1,threadid)=0.0_cp
-                  rhs1(n_r_max,2*lmB,threadid)  =0.0_cp
-                  rhs2(n_r_max,2*lmB-1,threadid)=0.0_cp
-                  rhs2(n_r_max,2*lmB,threadid)  =0.0_cp
+                  rhs1(n_r_max,2*lm-1,threadid)=0.0_cp
+                  rhs1(n_r_max,2*lm,threadid)  =0.0_cp
+                  rhs2(n_r_max,2*lm-1,threadid)=0.0_cp
+                  rhs2(n_r_max,2*lm,threadid)  =0.0_cp
 
                   if ( m1 == 0 ) then   ! Magnetoconvection boundary conditions
                      if ( imagcon /= 0 .and. tmagcon <= time ) then
                         if ( l1 == 2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
-                           rhs2(1,2*lmB-1,threadid)      =bpeaktop
-                           rhs2(1,2*lmB,threadid)        =0.0_cp
-                           rhs2(n_r_max,2*lmB-1,threadid)=bpeakbot
-                           rhs2(n_r_max,2*lmB,threadid)  =0.0_cp
+                           rhs2(1,2*lm-1,threadid)      =bpeaktop
+                           rhs2(1,2*lm,threadid)        =0.0_cp
+                           rhs2(n_r_max,2*lm-1,threadid)=bpeakbot
+                           rhs2(n_r_max,2*lm,threadid)  =0.0_cp
                         else if( l1 == 1 .and. imagcon == 12 ) then
-                           rhs2(1,2*lmB-1,threadid)      =bpeaktop
-                           rhs2(1,2*lmB,threadid)        =0.0_cp
-                           rhs2(n_r_max,2*lmB-1,threadid)=bpeakbot
-                           rhs2(n_r_max,2*lmB,threadid)  =0.0_cp
+                           rhs2(1,2*lm-1,threadid)      =bpeaktop
+                           rhs2(1,2*lm,threadid)        =0.0_cp
+                           rhs2(n_r_max,2*lm-1,threadid)=bpeakbot
+                           rhs2(n_r_max,2*lm,threadid)  =0.0_cp
                         else if( l1 == 1 .and. imagcon == -1) then
-                           rhs1(n_r_max,2*lmB-1,threadid)=bpeakbot
-                           rhs1(n_r_max,2*lmB,threadid)  =0.0_cp
+                           rhs1(n_r_max,2*lm-1,threadid)=bpeakbot
+                           rhs1(n_r_max,2*lm,threadid)  =0.0_cp
                         else if( l1 == 1 .and. imagcon == -2) then
-                           rhs1(1,2*lmB-1,threadid)      =bpeaktop
-                           rhs1(1,2*lmB,threadid)        =0.0_cp
+                           rhs1(1,2*lm-1,threadid)      =bpeaktop
+                           rhs1(1,2*lm,threadid)        =0.0_cp
                         else if( l1 == 3 .and. imagcon == -10 ) then
-                           rhs2(1,2*lmB-1,threadid)      =bpeaktop
-                           rhs2(1,2*lmB,threadid)        =0.0_cp
-                           rhs2(n_r_max,2*lmB-1,threadid)=bpeakbot
-                           rhs2(n_r_max,2*lmB,threadid)  =0.0_cp
+                           rhs2(1,2*lm-1,threadid)      =bpeaktop
+                           rhs2(1,2*lm,threadid)        =0.0_cp
+                           rhs2(n_r_max,2*lm-1,threadid)=bpeakbot
+                           rhs2(n_r_max,2*lm,threadid)  =0.0_cp
                         end if
                      end if
 
-                     if ( l_curr .and. (mod(l1,2) /= 0) ) then    !Current carrying loop around equator of sphere, only odd harmonics
+                     if ( l_curr .and. (mod(l1,2) /= 0) ) then !Current carrying loop around equator of sphere, only odd harmonics
 
                         !General normalization for spherical harmonics of degree l and order 0
                         yl0_norm=half*sqrt((2*l1+1)/pi)
@@ -793,8 +791,8 @@ contains
 
                         bpeaktop=prefac*fac_loop(l1)*amp_curr*r_cmb/yl0_norm
 
-                        rhs1(1,2*lmB-1,threadid)=bpeaktop
-                        rhs1(1,2*lmB,threadid)  =0.0_cp
+                        rhs1(1,2*lm-1,threadid)=bpeaktop
+                        rhs1(1,2*lm,threadid)  =0.0_cp
 
                      end if
 
@@ -808,21 +806,21 @@ contains
                            !  Chose external field coefficient so that amp_imp is
                            !  the amplitude of the external field:
                            bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
-                           rhs1(1,2*lmB-1,threadid)=bpeaktop
-                           rhs1(1,2*lmB,threadid)  =0.0_cp
+                           rhs1(1,2*lm-1,threadid)=bpeaktop
+                           rhs1(1,2*lm,threadid)  =0.0_cp
                         else if ( n_imp == 3 ) then
                            !  Chose external field coefficient so that amp_imp is
                            !  the amplitude of the external field:
                            bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
                            if ( real(b(l1m0,n_r_cmb)) > 1.0e-9_cp ) &
                            &    direction=real(b(l1m0,n_r_cmb))/abs(real(b(l1m0,n_r_cmb)))
-                           rhs1(1,2*lmB-1,threadid)=bpeaktop*direction
-                           rhs1(1,2*lmB,threadid)  =0.0_cp
+                           rhs1(1,2*lm-1,threadid)=bpeaktop*direction
+                           rhs1(1,2*lm,threadid)  =0.0_cp
                         else if ( n_imp == 4 ) then
                            !  I have forgotten what this was supposed to do:
                            bpeaktop=three/r_cmb*amp_imp*real(b(l1m0,n_r_cmb))**2
-                           rhs1(1,2*lmB-1,threadid)=bpeaktop/real(b(l1m0,n_r_cmb))
-                           rhs1(1,2*lmB,threadid)  =0.0_cp
+                           rhs1(1,2*lm-1,threadid)=bpeaktop/real(b(l1m0,n_r_cmb))
+                           rhs1(1,2*lm,threadid)  =0.0_cp
 
                         else
 
@@ -868,155 +866,136 @@ contains
                               ff=  aimp*real(b(l1m0,n_r_cmb))**expo_imp/ &
                               &    (cimp+real(b(l1m0,n_r_cmb))**expo_imp)
                            end if
-                           rhs1(1,2*lmB-1,threadid)=(2*l1+1)/r_cmb*ff
-                           rhs1(1,2*lmB,threadid)  =0.0_cp
+                           rhs1(1,2*lm-1,threadid)=(2*l1+1)/r_cmb*ff
+                           rhs1(1,2*lm,threadid)  =0.0_cp
 
                         end if
-                     end if
-                  end if
+                     end if ! n_imp > 2
+                  end if ! m1 = 0
 
                   do nR=2,n_r_max-1
                      if ( l_LCR .and. nR<=n_r_LCR ) then
-                        rhs1(nR,2*lmB-1,threadid)=0.0_cp
-                        rhs1(nR,2*lmB,threadid)  =0.0_cp
-                        rhs2(nR,2*lmB-1,threadid)=0.0_cp
-                        rhs2(nR,2*lmB,threadid)  =0.0_cp
+                        rhs1(nR,2*lm-1,threadid)=0.0_cp
+                        rhs1(nR,2*lm,threadid)  =0.0_cp
+                        rhs2(nR,2*lm-1,threadid)=0.0_cp
+                        rhs2(nR,2*lm,threadid)  =0.0_cp
                      else
-                        rhs1(nR,2*lmB-1,threadid)= real(work_LMloc(lm1,nR))
-                        rhs1(nR,2*lmB,threadid)  =aimag(work_LMloc(lm1,nR))
-                        rhs2(nR,2*lmB-1,threadid)= real(ddb(lm1,nR)) ! ddb is used as a work array here
-                        rhs2(nR,2*lmB,threadid)  =aimag(ddb(lm1,nR))
+                        rhs1(nR,2*lm-1,threadid)= real(work_LMloc(lm1,nR))
+                        rhs1(nR,2*lm,threadid)  =aimag(work_LMloc(lm1,nR))
+                        rhs2(nR,2*lm-1,threadid)= real(ddb(lm1,nR)) ! ddb is used as a work array here
+                        rhs2(nR,2*lm,threadid)  =aimag(ddb(lm1,nR))
                      end if
                   end do
 
                   !-- Overwrite RHS when perfect conductor
                   if ( ktopb == 2 ) then
-                     rhs1(2,2*lmB-1,threadid) = 0.0_cp
-                     rhs1(2,2*lmB,threadid)   = 0.0_cp
+                     rhs1(2,2*lm-1,threadid)=0.0_cp
+                     rhs1(2,2*lm,threadid)  =0.0_cp
                   end if
                   if ( kbotb == 2 ) then
-                     rhs1(n_r_max-1,2*lmB-1,threadid) = 0.0_cp
-                     rhs1(n_r_max-1,2*lmB,threadid)   = 0.0_cp
+                     rhs1(n_r_max-1,2*lm-1,threadid)=0.0_cp
+                     rhs1(n_r_max-1,2*lm,threadid)  =0.0_cp
                   end if
 
                   !-- Magnetic boundary conditions, inner core for radial derivatives
                   !         of poloidal and toroidal magnetic potentials:
                   if ( l_cond_ic ) then    ! inner core
-                     rhs1(n_r_max+1,2*lmB-1,threadid)=0.0_cp
-                     rhs1(n_r_max+1,2*lmB,threadid)  =0.0_cp
+                     rhs1(n_r_max+1,2*lm-1,threadid)=0.0_cp
+                     rhs1(n_r_max+1,2*lm,threadid)  =0.0_cp
                      if ( l_b_nl_icb ) then
-                        rhs2(n_r_max+1,2*lmB-1,threadid)=real( &
+                        rhs2(n_r_max+1,2*lm-1,threadid)=real( &
                         &                        aj_nl_icb(st_map%lm2(l1,m1)) )
-                        rhs2(n_r_max+1,2*lmB,threadid)  =aimag( &
+                        rhs2(n_r_max+1,2*lm,threadid)  =aimag( &
                         &                        aj_nl_icb(st_map%lm2(l1,m1)) )
                      else
-                        rhs2(n_r_max+1,2*lmB-1,threadid)=0.0_cp
-                        rhs2(n_r_max+1,2*lmB,threadid)  =0.0_cp
+                        rhs2(n_r_max+1,2*lm-1,threadid)=0.0_cp
+                        rhs2(n_r_max+1,2*lm,threadid)  =0.0_cp
                      end if
 
 
                      do nR=2,n_r_ic_max
-                        rhs1(n_r_max+nR,2*lmB-1,threadid)= real(ddb_ic(lm1,nR)) ! ddb_ic as work array
-                        rhs1(n_r_max+nR,2*lmB,threadid)  =aimag(ddb_ic(lm1,nR))
-                        rhs2(n_r_max+nR,2*lmB-1,threadid)= real(ddj_ic(lm1,nR))
-                        rhs2(n_r_max+nR,2*lmB,threadid)  =aimag(ddj_ic(lm1,nR))
+                        rhs1(n_r_max+nR,2*lm-1,threadid)= real(ddb_ic(lm1,nR)) ! ddb_ic as work array
+                        rhs1(n_r_max+nR,2*lm,threadid)  =aimag(ddb_ic(lm1,nR))
+                        rhs2(n_r_max+nR,2*lm-1,threadid)= real(ddj_ic(lm1,nR))
+                        rhs2(n_r_max+nR,2*lm,threadid)  =aimag(ddj_ic(lm1,nR))
                      end do
                   end if
 
-               end if ! l>0
-            end do    ! loop over lm in block
 
-            if ( lmB > lmB0 ) then
-               !write(*,"(2(A,I5))") "updateB: Calling cgeslML for l1=",l1," WITH lmB=",lmB
 #ifdef WITH_PRECOND_BJ
-               do lm=lmB0+1,lmB
                   do nR=1,n_r_tot
                      rhs1(nR,2*lm-1,threadid)=rhs1(nR,2*lm-1,threadid)*bMat_fac(nR,nLMB2)
                      rhs1(nR,2*lm,threadid)  =rhs1(nR,2*lm,threadid)*bMat_fac(nR,nLMB2)
                      rhs2(nR,2*lm-1,threadid)=rhs2(nR,2*lm-1,threadid)*jMat_fac(nR,nLMB2)
                      rhs2(nR,2*lm,threadid)  =rhs2(nR,2*lm,threadid)*jMat_fac(nR,nLMB2)
                   end do
-               end do
 #endif
+               end do    ! loop over lm in block
+                  !LIKWID_ON('upB_sol')
 
-               !LIKWID_ON('upB_sol')
-               call bMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*lmB,threadid), &
-                    &                 2*(lmB-lmB0))
-               call jMat(nLMB2)%solve(rhs2(:,2*(lmB0+1)-1:2*lmB,threadid), &
-                    &                 2*(lmB-lmB0))
-               !LIKWID_OFF('upB_sol')
-            end if
+               call bMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*(lm-1),threadid), &
+                    &                 2*(lm-1-lmB0))
+               call jMat(nLMB2)%solve(rhs2(:,2*(lmB0+1)-1:2*(lm-1),threadid), &
+                    &                 2*(lm-1-lmB0))
 
-            if ( lRmsNext .and. tscheme%istage == 1 ) then ! Store old b,aj
-               do nR=1,n_r_max
-                  do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-                     lm1=lm22lm(lm,nLMB2,nLMB)
-                     workA(lm1,nR)= b(lm1,nR)
-                     workB(lm1,nR)=aj(lm1,nR)
-                  end do
-               end do
-            end if
-
-            !----- Update magnetic field in cheb space:
-            lmB=lmB0
-            do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-               lm1=lm22lm(lm,nLMB2,nLMB)
-               l1 =lm22l(lm,nLMB2,nLMB)
-               m1 =lm22m(lm,nLMB2,nLMB)
-
-               if ( l1 > 0 ) then
-                  lmB=lmB+1
+               !----- Update magnetic field in cheb space:
+               do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+                  lm1=lm22lm(lm,nLMB2,nLMB)
+                  m1 =lm22m(lm,nLMB2,nLMB)
 
                   if ( m1 > 0 ) then
                      do n_r_out=1,rscheme_oc%n_max  ! outer core
-                        b(lm1,n_r_out) =cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
-                        &                     rhs1(n_r_out,2*lmB,threadid),cp)
-                        aj(lm1,n_r_out)=cmplx(rhs2(n_r_out,2*lmB-1,threadid), &
-                        &                     rhs2(n_r_out,2*lmB,threadid),cp)
+                        b(lm1,n_r_out) =cmplx(rhs1(n_r_out,2*lm-1,threadid), &
+                        &                     rhs1(n_r_out,2*lm,threadid),cp)
+                        aj(lm1,n_r_out)=cmplx(rhs2(n_r_out,2*lm-1,threadid), &
+                        &                     rhs2(n_r_out,2*lm,threadid),cp)
                      end do
                      if ( l_cond_ic ) then   ! inner core
                         do n_r_out=1,n_cheb_ic_max
-                           b_ic(lm1,n_r_out) =cmplx(rhs1(n_r_max+n_r_out,2*lmB-1,  &
+                           b_ic(lm1,n_r_out) =cmplx(rhs1(n_r_max+n_r_out,2*lm-1,   &
                            &                        threadid),rhs1(n_r_max+n_r_out,&
-                           &                        2*lmB,threadid),cp)
-                           aj_ic(lm1,n_r_out)=cmplx(rhs2(n_r_max+n_r_out,2*lmB-1,  &
+                           &                        2*lm,threadid),cp)
+                           aj_ic(lm1,n_r_out)=cmplx(rhs2(n_r_max+n_r_out,2*lm-1,   &
                            &                        threadid),rhs2(n_r_max+n_r_out,&
-                           &                        2*lmB,threadid),cp)
+                           &                        2*lm,threadid),cp)
                         end do
                      end if
                   else
                      do n_r_out=1,rscheme_oc%n_max   ! outer core
-                        b(lm1,n_r_out) = cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
+                        b(lm1,n_r_out) = cmplx(rhs1(n_r_out,2*lm-1,threadid), &
                         &                      0.0_cp,kind=cp)
-                        aj(lm1,n_r_out)= cmplx(rhs2(n_r_out,2*lmB-1,threadid), &
+                        aj(lm1,n_r_out)= cmplx(rhs2(n_r_out,2*lm-1,threadid), &
                         &                      0.0_cp,kind=cp)
                      end do
                      if ( l_cond_ic ) then    ! inner core
                         do n_r_out=1,n_cheb_ic_max
                            b_ic(lm1,n_r_out)= cmplx(rhs1(n_r_max+n_r_out, &
-                           &                   2*lmB-1,threadid),0.0_cp,kind=cp)
-                           aj_ic(lm1,n_r_out)= cmplx(rhs2(n_r_max+n_r_out,2*lmB-1,&
+                           &                   2*lm-1,threadid),0.0_cp,kind=cp)
+                           aj_ic(lm1,n_r_out)= cmplx(rhs2(n_r_max+n_r_out,2*lm-1,&
                            &                   threadid),0.0_cp,kind=cp)
                         end do
                      end if
                   end if
 
-               else ! set l=0 to zero!
-                  do n_r_out=1,rscheme_oc%n_max  ! outer core
-                     b(lm1,n_r_out) =zero
-                     aj(lm1,n_r_out)=zero
-                  end do
-                  if ( l_cond_ic ) then
-                     do n_r_out=1,n_cheb_ic_max
-                        b_ic(lm1,n_r_out) =zero
-                        aj_ic(lm1,n_r_out)=zero
-                     end do
-                  end if
-
-               end if
+               end do
+               !$omp end task
             end do
-            !$omp end task
-         end do
+
+         else ! set l=0 to zero!
+
+            lm1 = lo_map%lm2(0,0)
+            do n_r_out=1,rscheme_oc%n_max  ! outer core
+               b(lm1,n_r_out) =zero
+               aj(lm1,n_r_out)=zero
+            end do
+            if ( l_cond_ic ) then
+               do n_r_out=1,n_cheb_ic_max
+                  b_ic(lm1,n_r_out) =zero
+                  aj_ic(lm1,n_r_out)=zero
+               end do
+            end if
+
+         end if
          !$omp taskwait
          !$omp end task
       end do      ! end of do loop over lm1
