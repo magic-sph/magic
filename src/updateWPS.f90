@@ -1,4 +1,3 @@
-#include "perflib_preproc.cpp"
 module updateWPS_mod
    !
    ! This module handles the time advance of the poloidal potential w,
@@ -136,10 +135,10 @@ contains
 
       !-- Local variables:
       integer :: l1,m1          ! degree and order
-      integer :: lm1,lm,lmB     ! position of (l,m) in array
+      integer :: lm1,lm         ! position of (l,m) in array
       integer :: nLMB2, nLMB
       integer :: nR             ! counts radial grid points
-      integer :: n_r_out         ! counts cheb modes
+      integer :: n_r_out        ! counts cheb modes
       real(cp) :: rhs(2*n_r_max)  ! real RHS for l=m=0
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
@@ -171,14 +170,13 @@ contains
       !$omp single
       call solve_counter%start_count()
       !$omp end single
-      !PERFON('upWP_ssol')
       !$omp single
       ! each of the nLMBs2(nLMB) subblocks have one l value
       do nLMB2=1,nLMBs2(nLMB)
 
          !$omp task default(shared) &
          !$omp firstprivate(nLMB2) &
-         !$omp private(lm,lm1,l1,m1,lmB,iChunk,nChunks,size_of_last_chunk,threadid)
+         !$omp private(lm,lm1,l1,m1,iChunk,nChunks,size_of_last_chunk,threadid)
 
          ! determine the number of chunks of m
          ! total number for l1 is sizeLMB2(nLMB2,nLMB)
@@ -187,148 +185,129 @@ contains
          size_of_last_chunk = chunksize + (sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
 
          l1=lm22l(1,nLMB2,nLMB)
-         if ( l1 == 0 ) then
+         if ( l1 == 0 ) then ! Spherically-symmetric, l=0 mode
+            lm1 = lm2(0,0)
+
             if ( .not. lWPSmat(l1) ) then
                call get_ps0Mat(tscheme,ps0Mat,ps0Pivot,ps0Mat_fac)
                lWPSmat(l1)=.true.
             end if
-         else
+
+            do nR=1,n_r_max
+               rhs(nR)        =real(ds(lm1,nR))
+               rhs(nR+n_r_max)=real(dwdt%expl(lm1,nR,tscheme%istage))+&
+               &               Cor00_fac*CorFac*or1(nR)*z10(nR)
+            end do
+            rhs(1)        =real(tops(0,0))
+            rhs(n_r_max)  =real(bots(0,0))
+            rhs(n_r_max+1)=0.0_cp
+
+            do nR=1,2*n_r_max
+               rhs(nR)=rhs(nR)*ps0Mat_fac(nR,1)
+            end do
+
+            call solve_mat(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
+
+            do nR=1,2*n_r_max
+               rhs(nR)=rhs(nR)*ps0Mat_fac(nR,2)
+            end do
+
+            do n_r_out=1,rscheme_oc%n_max
+               s(lm1,n_r_out)=rhs(n_r_out)
+               p(lm1,n_r_out)=rhs(n_r_out+n_r_max)
+               w(lm1,n_r_out)=zero
+            end do
+
+         else ! l1 /= 0
+
             if ( .not. lWPSmat(l1) ) then
                call get_wpsMat(tscheme, l1, hdif_V(l1), hdif_S(l1), wpsMat(:,:,nLMB2), &
                     &          wpsPivot(:,nLMB2), wpsMat_fac(:,:,nLMB2))
                lWPSmat(l1)=.true.
             end if
-         end if
 
-         do iChunk=1,nChunks
-            !$omp task default(shared) &
-            !$omp firstprivate(iChunk) &
-            !$omp private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
-            !$omp private(threadid)
+            do iChunk=1,nChunks
+               !$omp task default(shared) &
+               !$omp firstprivate(iChunk) &
+               !$omp private(lmB0,lm,lm1,m1,nR,n_r_out) &
+               !$omp private(threadid)
 
-            !PERFON('upWP_set')
 #ifdef WITHOMP
-            threadid = omp_get_thread_num()
+               threadid = omp_get_thread_num()
 #else
-            threadid = 0
+               threadid = 0
 #endif
-            lmB0=(iChunk-1)*chunksize
-            lmB=lmB0
-            do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-               lm1=lm22lm(lm,nLMB2,nLMB)
-               m1 =lm22m(lm,nLMB2,nLMB)
+               lmB0=(iChunk-1)*chunksize
+               do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+                  lm1=lm22lm(lm,nLMB2,nLMB)
+                  m1 =lm22m(lm,nLMB2,nLMB)
 
-               if ( l1 == 0 ) then
-
-                  do nR=1,n_r_max
-                     rhs(nR)        =real(ds(lm1,nR))
-                     rhs(nR+n_r_max)=real(dwdt%expl(lm1,nR,tscheme%istage))+&
-                     &               Cor00_fac*CorFac*or1(nR)*z10(nR)
-                  end do
-                  rhs(1)        =real(tops(0,0))
-                  rhs(n_r_max)  =real(bots(0,0))
-                  rhs(n_r_max+1)=0.0_cp
-
-                  do nR=1,2*n_r_max
-                     rhs(nR)=rhs(nR)*ps0Mat_fac(nR,1)
-                  end do
-
-                  call solve_mat(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
-
-                  do nR=1,2*n_r_max
-                     rhs(nR)=rhs(nR)*ps0Mat_fac(nR,2)
-                  end do
-
-               else ! l1 /= 0
-                  lmB=lmB+1
-                  rhs1(1,2*lmB-1,threadid)          =0.0_cp
-                  rhs1(1,2*lmB,threadid)            =0.0_cp
-                  rhs1(n_r_max,2*lmB-1,threadid)    =0.0_cp
-                  rhs1(n_r_max,2*lmB,threadid)      =0.0_cp
-                  rhs1(n_r_max+1,2*lmB-1,threadid)  =0.0_cp
-                  rhs1(n_r_max+1,2*lmB,threadid)    =0.0_cp
-                  rhs1(2*n_r_max,2*lmB-1,threadid)  =0.0_cp
-                  rhs1(2*n_r_max,2*lmB,threadid)    =0.0_cp
-                  rhs1(2*n_r_max+1,2*lmB-1,threadid)= real(tops(l1,m1))
-                  rhs1(2*n_r_max+1,2*lmB,threadid)  =aimag(tops(l1,m1))
-                  rhs1(3*n_r_max,2*lmB-1,threadid)  = real(bots(l1,m1))
-                  rhs1(3*n_r_max,2*lmB,threadid)    =aimag(bots(l1,m1))
+                  rhs1(1,2*lm-1,threadid)          =0.0_cp
+                  rhs1(1,2*lm,threadid)            =0.0_cp
+                  rhs1(n_r_max,2*lm-1,threadid)    =0.0_cp
+                  rhs1(n_r_max,2*lm,threadid)      =0.0_cp
+                  rhs1(n_r_max+1,2*lm-1,threadid)  =0.0_cp
+                  rhs1(n_r_max+1,2*lm,threadid)    =0.0_cp
+                  rhs1(2*n_r_max,2*lm-1,threadid)  =0.0_cp
+                  rhs1(2*n_r_max,2*lm,threadid)    =0.0_cp
+                  rhs1(2*n_r_max+1,2*lm-1,threadid)= real(tops(l1,m1))
+                  rhs1(2*n_r_max+1,2*lm,threadid)  =aimag(tops(l1,m1))
+                  rhs1(3*n_r_max,2*lm-1,threadid)  = real(bots(l1,m1))
+                  rhs1(3*n_r_max,2*lm,threadid)    =aimag(bots(l1,m1))
                   do nR=2,n_r_max-1
                      !-- dp and ds used as work arrays here
-                     rhs1(nR,2*lmB-1,threadid)          = real(work_LMloc(lm1,nR))
-                     rhs1(nR,2*lmB,threadid)            =aimag(work_LMloc(lm1,nR))
-                     rhs1(nR+n_r_max,2*lmB-1,threadid)  = real(dp(lm1,nR))
-                     rhs1(nR+n_r_max,2*lmB,threadid)    =aimag(dp(lm1,nR))
-                     rhs1(nR+2*n_r_max,2*lmB-1,threadid)= real(ds(lm1,nR))
-                     rhs1(nR+2*n_r_max,2*lmB,threadid)  =aimag(ds(lm1,nR))
+                     rhs1(nR,2*lm-1,threadid)          = real(work_LMloc(lm1,nR))
+                     rhs1(nR,2*lm,threadid)            =aimag(work_LMloc(lm1,nR))
+                     rhs1(nR+n_r_max,2*lm-1,threadid)  = real(dp(lm1,nR))
+                     rhs1(nR+n_r_max,2*lm,threadid)    =aimag(dp(lm1,nR))
+                     rhs1(nR+2*n_r_max,2*lm-1,threadid)= real(ds(lm1,nR))
+                     rhs1(nR+2*n_r_max,2*lm,threadid)  =aimag(ds(lm1,nR))
                   end do
-               end if
-            end do
-            !PERFOFF
 
-            !PERFON('upWP_sol')
-            if ( lmB > lmB0 ) then
-
-               ! use the mat_fac(:,1) to scale the rhs
-               do lm=lmB0+1,lmB
                   rhs1(:,2*lm-1,threadid)=rhs1(:,2*lm-1,threadid)*wpsMat_fac(:,1,nLMB2)
                   rhs1(:,2*lm,threadid)  =rhs1(:,2*lm,threadid)*wpsMat_fac(:,1,nLMB2)
                end do
+
                call solve_mat(wpsMat(:,:,nLMB2),3*n_r_max,3*n_r_max,                &
-                    &         wpsPivot(:,nLMB2),rhs1(:,2*(lmB0+1)-1:2*lmB,threadid),&
-                    &         2*(lmB-lmB0))
-               ! rescale the solution with mat_fac(:,2)
-               do lm=lmB0+1,lmB
+                    &         wpsPivot(:,nLMB2),rhs1(:,2*(lmB0+1)-1:2*(lm-1),threadid),&
+                    &         2*(lm-1-lmB0))
+
+               do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+                  lm1=lm22lm(lm,nLMB2,nLMB)
+                  m1 =lm22m(lm,nLMB2,nLMB)
+
                   rhs1(:,2*lm-1,threadid)=rhs1(:,2*lm-1,threadid)*wpsMat_fac(:,2,nLMB2)
                   rhs1(:,2*lm,threadid)  =rhs1(:,2*lm,threadid)*wpsMat_fac(:,2,nLMB2)
-               end do
-            end if
-            !PERFOFF
 
-            !PERFON('upWP_aft')
-            lmB=lmB0
-            do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-               lm1=lm22lm(lm,nLMB2,nLMB)
-               m1 =lm22m(lm,nLMB2,nLMB)
-               if ( l1 == 0 ) then
-                  do n_r_out=1,rscheme_oc%n_max
-                     s(lm1,n_r_out)=rhs(n_r_out)
-                     p(lm1,n_r_out)=rhs(n_r_out+n_r_max)
-                     w(lm1,n_r_out)=zero
-                  end do
-               else
-                  lmB=lmB+1
                   if ( m1 > 0 ) then
                      do n_r_out=1,rscheme_oc%n_max
-                        w(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
-                        &                    rhs1(n_r_out,2*lmB,threadid),cp)
-                        p(lm1,n_r_out)=cmplx(rhs1(n_r_max+n_r_out,2*lmB-1,threadid),&
-                        &                    rhs1(n_r_max+n_r_out,2*lmB,threadid),cp)
-                        s(lm1,n_r_out)=cmplx(rhs1(2*n_r_max+n_r_out,2*lmB-1,  &
+                        w(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lm-1,threadid), &
+                        &                    rhs1(n_r_out,2*lm,threadid),cp)
+                        p(lm1,n_r_out)=cmplx(rhs1(n_r_max+n_r_out,2*lm-1,threadid),&
+                        &                    rhs1(n_r_max+n_r_out,2*lm,threadid),cp)
+                        s(lm1,n_r_out)=cmplx(rhs1(2*n_r_max+n_r_out,2*lm-1,  &
                         &                    threadid),rhs1(2*n_r_max+n_r_out,&
-                        &                    2*lmB,threadid),cp)
+                        &                    2*lm,threadid),cp)
                      end do
                   else
                      do n_r_out=1,rscheme_oc%n_max
-                        w(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
-                                       &      0.0_cp,kind=cp)
-                        p(lm1,n_r_out)= cmplx(rhs1(n_r_max+n_r_out,2*lmB-1,threadid), &
-                                       &      0.0_cp,kind=cp)
-                        s(lm1,n_r_out)= cmplx(rhs1(2*n_r_max+n_r_out,2*lmB-1,threadid), &
-                                       &      0.0_cp,kind=cp)
+                        w(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lm-1,threadid), &
+                        &                     0.0_cp,kind=cp)
+                        p(lm1,n_r_out)= cmplx(rhs1(n_r_max+n_r_out,2*lm-1,threadid), &
+                        &                     0.0_cp,kind=cp)
+                        s(lm1,n_r_out)= cmplx(rhs1(2*n_r_max+n_r_out,2*lm-1,threadid), &
+                        &                     0.0_cp,kind=cp)
                      end do
                   end if
-               end if
+               end do
+               !$omp end task
             end do
-            !PERFOFF
-            !$omp end task
-         end do
+         end if
          !$omp taskwait
          !$omp end task
       end do   ! end of loop over l1 subblocks
       !$omp end single
       !$omp taskwait
-      !PERFOFF
       !$omp single
       call solve_counter%stop_count()
       !$omp end single
