@@ -1768,7 +1768,7 @@ contains
 #ifdef WITH_OMP_GPU
       start_lm=1; stop_lm=lm_max
 #else
-      !$omp parallel default(shared) private(start_lm, stop_lm, n_r, lm, l, m)
+      !$omp parallel default(shared) private(start_lm, stop_lm, n_r, lm, l, m, dL, Dif)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
 #endif
