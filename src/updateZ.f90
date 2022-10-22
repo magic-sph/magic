@@ -68,10 +68,6 @@ module updateZ_mod
 
    integer :: maxThreads
 
-#ifdef WITH_OMP_GPU
-   logical :: omp_update_to_dtStructs, omp_update_from_dtStructs
-#endif
-
    public :: updateZ, initialize_updateZ, finalize_updateZ, get_tor_rhs_imp,  &
    &         assemble_tor, finish_exp_tor, updateZ_FD, get_tor_rhs_imp_ghost, &
    &         prepareZ_FD, fill_ghosts_Z, assemble_tor_Rloc
@@ -148,11 +144,23 @@ contains
 
 #ifdef WITH_PRECOND_Z10
          allocate(z10Mat_fac(n_r_max))
+         z10Mat_fac(:) = 0.0_cp
          bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc:z10Mat_fac)
+         !$omp target update to(z10Mat_fac)
+         gpu_bytes_allocated = gpu_bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+#endif
 #endif
 #ifdef WITH_PRECOND_Z
          allocate(zMat_fac(n_r_max,nLMBs2(1+rank)))
+         zMat_fac(:,:) = 0.0_cp
          bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc:zMat_fac)
+         !$omp target update to(zMat_fac)
+         gpu_bytes_allocated = gpu_bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
+#endif
 #endif
 
          allocate( Dif(llm:ulm) )
@@ -203,10 +211,6 @@ contains
 
       AMstart=0.0_cp
 
-#ifdef WITH_OMP_GPU
-      omp_update_to_dtStructs = .true.; omp_update_from_dtStructs = .true.
-#endif
-
    end subroutine initialize_updateZ
 !-------------------------------------------------------------------------------
    subroutine finalize_updateZ
@@ -226,9 +230,15 @@ contains
          call z10Mat%finalize()
 
 #ifdef WITH_PRECOND_Z10
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete:z10Mat_fac)
+#endif
          deallocate( z10Mat_fac )
 #endif
 #ifdef WITH_PRECOND_Z
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete:zMat_fac)
+#endif
          deallocate( zMat_fac )
 #endif
 
@@ -335,13 +345,7 @@ contains
       end if
 
       !-- Now assemble the right hand side and store it in work_LMloc
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dzdt)
-#endif
       call tscheme%set_imex_rhs(work_LMloc, dzdt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(work_LMloc)
-#endif
 
 #ifndef WITH_OMP_GPU
       !$omp parallel default(shared)
@@ -376,7 +380,9 @@ contains
                lZ10mat=.true.
             end if
 
-            !-- Assemble RHS (amenable to OpenMP GPU)
+            !-- Assemble RHS
+            !$omp target teams distribute parallel do &
+            !$omp& private(tOmega_ma1, tOmega_ma2, tOmega_ic1, tOmega_ic2, lm1, m1, nR)
             do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
@@ -436,7 +442,6 @@ contains
                      end if
                   end if
 
-                  !!$omp parallel do
                   do nR=2,n_r_max-1
                      rhs1(nR,2*lm-1,0)=real(work_LMloc(lm1,nR))
                      rhs1(nR,2*lm,0)  =aimag(work_LMloc(lm1,nR))
@@ -447,7 +452,6 @@ contains
                         &                 wimp_lin*prec_fac*cos(oek*time)
                      end if
                   end do
-                  !!$omp end parallel do
 
 #ifdef WITH_PRECOND_Z
                   rhs1(:,2*lm-1,0)=zMat_fac(:,nLMB2)*rhs1(:,2*lm-1,0)
@@ -455,32 +459,32 @@ contains
 #endif
                end if
             end do
+            !$omp end target teams distribute parallel do
 
             !-- Solve matrices with batched RHS (hipsolver)
-
             !-- This one is only for the single l=1,m=0 mode
             if ( l1 == 1 .and. l_z10mat ) then
                !-- Small solve for l=1, m=0 in case this is needed
-               if (z10Mat%gpu_is_used) then
-                  !$omp target update to(rhs)
-               end if
-               call z10Mat%solve(rhs)
-               if (z10Mat%gpu_is_used) then
+               if (.not. z10Mat%gpu_is_used) then
                   !$omp target update from(rhs)
                end if
+               call z10Mat%solve(rhs)
+               if (.not. z10Mat%gpu_is_used) then
+                  !$omp target update to(rhs)
+               end if
             end if
-
             !-- Big solve for other modes
             lm=sizeLMB2(nLMB2,nLMB)
-            if (zMat(nLMB2)%gpu_is_used) then
-               !$omp target update to(rhs1)
+            if (.not. zMat(nLMB2)%gpu_is_used) then
+               !$omp target update from(rhs1)
             end if
             call zMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
-            if (zMat(nLMB2)%gpu_is_used) then
-               !$omp target update from(rhs1)
+            if (.not. zMat(nLMB2)%gpu_is_used) then
+               !$omp target update to(rhs1)
             end if
 
             !-- Loop to reassemble fields
+            !$omp target teams distribute parallel do private(lm1, m1, n_r_out)
             do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
@@ -503,13 +507,16 @@ contains
                   end if
                end if
             end do
+            !$omp end target teams distribute parallel do
 
          else if ( l1 == 0 ) then ! make sure l=m=0 toroidal potential is zero
 
             lm1 = lm2(0,0)
+            !$omp target teams distribute parallel do
             do n_r_out=1,rscheme_oc%n_max
                z(lm1,n_r_out)=zero
             end do
+            !$omp end target teams distribute parallel do
          end if
 
       end do
@@ -517,7 +524,6 @@ contains
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
-      !$omp target exit data map(delete: rhs)
 #else
 
       !$omp single
@@ -712,7 +718,7 @@ contains
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
-      !$omp parallel do private(n_r_out,lm1) collapse(2)
+      !$omp target
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
 #endif
@@ -722,7 +728,7 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
-      !$omp end parallel do
+      !$omp end target
 #else
       !$omp end do
       !$omp end parallel
@@ -730,13 +736,14 @@ contains
 
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dzdt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(dzdt)
-#endif
       call tscheme%rotate_imex_scalar(domega_ma_dt)
       call tscheme%rotate_imex_scalar(domega_ic_dt)
       call tscheme%rotate_imex_scalar(lorentz_torque_ma_dt)
       call tscheme%rotate_imex_scalar(lorentz_torque_ic_dt)
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(z) !-- Mandatory for update_rot_rates
+#endif
 
       !-- Calculation of the implicit part
       if (  tscheme%istage == tscheme%nstages ) then
@@ -1196,11 +1203,6 @@ contains
       !$omp target enter data map(alloc: z10, z11, ddzASL_loc)
 #endif
 
-#ifdef WITH_OMP_GPU
-      !$omp target update to(z)
-      !$omp target update to(dzdt)
-#endif
-
       if ( l_precession ) then
          prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
       else
@@ -1567,11 +1569,6 @@ contains
       !$omp target exit data map(delete: z10, z11, ddzASL_loc)
 #endif
       deallocate(z10, z11, ddzASL_loc)
-
-#ifdef WITH_OMP_GPU
-      !$omp target update from(z, dz)
-      !$omp target update from(dzdt)
-#endif
 
    end subroutine get_tor_rhs_imp
 !------------------------------------------------------------------------------
@@ -2033,6 +2030,11 @@ contains
       !$omp end parallel
 #endif
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(z)
+      !$omp target update to(dzdt)
+#endif
+
       call update_rot_rates(z, lo_ma, lo_ic, lorentz_torque_ma_dt,    &
            &                lorentz_torque_ic_dt, omega_ma,           &
            &                omega_ma1, omega_ic, omega_ic1, 1)
@@ -2040,6 +2042,11 @@ contains
            &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
            &               tscheme, 1, tscheme%l_imp_calc_rhs(1),         &
            &               lRmsNext, .false.)
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(z, dz)
+      !$omp target update from(dzdt)
+#endif
 
    end subroutine assemble_tor
 !------------------------------------------------------------------------------

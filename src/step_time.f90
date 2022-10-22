@@ -1316,9 +1316,17 @@ contains
                  &                     domega_ic_dt, omega_ic, omega_ma, omega_ic1, &
                  &                     omega_ma1, tscheme, 1, .true., .false.)
          else
+#ifdef WITH_OMP_GPU
+            !$omp target update to(z_LMloc)
+            !$omp target update to(dzdt)
+#endif
             call get_tor_rhs_imp(time, z_LMloc, dz_LMloc, dzdt, domega_ma_dt,  &
                  &               domega_ic_dt, omega_ic, omega_ma, omega_ic1,  &
                  &               omega_ma1, tscheme, 1, .true., .false.)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(z_LMloc, dz_LMloc)
+            !$omp target update from(dzdt)
+#endif
          end if
 
          if ( l_chemical_conv ) then

@@ -308,6 +308,9 @@ contains
       call upS_counter%stop_count()
 
       if ( l_conv ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(z_LMloc, dzdt)
+#endif
          PERFON('up_Z')
          call upZ_counter%start_count()
          call updateZ( time, timeNext, z_LMloc, dz_LMloc, dzdt, omega_ma,  &
@@ -316,6 +319,9 @@ contains
               &        lRmsNext)
          call upZ_counter%stop_count()
          PERFOFF
+#ifdef WITH_OMP_GPU
+         !$omp target update from(z_LMloc, dz_LMloc, dzdt)
+#endif
 
          if ( l_single_matrix ) then
             if ( rank == rank_with_l1m0 ) then
