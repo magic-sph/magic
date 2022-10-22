@@ -51,7 +51,7 @@ module updateZ_mod
 
    !-- Input of recycled work arrays:
    real(cp), allocatable :: rhs1(:,:,:) ! RHS for other modes
-
+   complex(cp), allocatable :: rhs(:) ! rhs for l=1, m=0
    complex(cp), allocatable :: Dif(:)
    class(type_realmat), pointer :: zMat(:), z10Mat
 #ifdef WITH_PRECOND_Z
@@ -167,12 +167,16 @@ contains
          allocate(rhs1(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1))
          bytes_allocated=bytes_allocated+n_r_max*maxThreads* &
          &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
-         rhs1 = 0.0_cp
+         allocate(rhs(n_r_max))
+         bytes_allocated=bytes_allocated+n_r_max*SIZEOF_DEF_COMPLEX
+         rhs1 = zero
+         rhs(:)=zero
 #ifdef WITH_OMP_GPU
-         !$omp target enter data map(alloc: rhs1)
-         !$omp target update to(rhs1)
+         !$omp target enter data map(alloc: rhs1, rhs)
+         !$omp target update to(rhs1, rhs)
          gpu_bytes_allocated=gpu_bytes_allocated+n_r_max*maxThreads* &
          &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+         gpu_bytes_allocated=gpu_bytes_allocated+n_r_max*SIZEOF_DEF_COMPLEX
 #endif
       else
          allocate( Dif(lm_max) )
@@ -229,9 +233,9 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-         !$omp target exit data map(delete: rhs1)
+         !$omp target exit data map(delete: rhs1, rhs)
 #endif
-         deallocate( rhs1 )
+         deallocate( rhs1, rhs )
       else
 #ifdef WITH_OMP_GPU
          !$omp target exit data map(delete: z_ghost, z10_ghost)
@@ -276,7 +280,6 @@ contains
       integer :: nLMB2
       integer :: nR                 ! counts radial grid points
       integer :: n_r_out            ! counts cheb modes
-      complex(cp), allocatable :: rhs(:)   ! RHS of matrix multiplication
 
       real(cp) :: prec_fac
       real(cp) :: dom_ma, dom_ic, lo_ma, lo_ic
@@ -295,9 +298,6 @@ contains
       !-- Copie into local variable
       wimp_lin = tscheme%wimp_lin(1)
 #endif
-
-      allocate(rhs(n_r_max))
-      rhs = zero
 
       if ( l_precession ) then
          prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
@@ -343,220 +343,18 @@ contains
       !$omp target update from(work_LMloc)
 #endif
 
+#ifndef WITH_OMP_GPU
+      !$omp parallel default(shared)
+#endif
+
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: rhs)
-      !$omp target update to(rhs)
       !$omp single
       call solve_counter%start_count()
       !$omp end single
 
       !-- MPI Level
       do nLMB2=1,nLMBs2(nLMB)
-         lmB= 0
 
-         !-- LU factorisation (big loop but hardly any work because of lZmat)
-         do lm=1,sizeLMB2(nLMB2,nLMB)
-            lm1=lm22lm(lm,nLMB2,nLMB)
-            l1=lm22l(lm,nLMB2,nLMB)
-
-            if ( l_z10mat .and. lm1 == l1m0 ) then
-               !----- Special treatment of z10 component if ic or mantle
-               !      are allowed to rotate about z-axis (l_z10mat=.true.) and
-               !      we use no slip boundary condition (ktopv=2,kbotv=2):
-               !      Lorentz torque is the explicit part of this time integration
-               !      at the boundaries!
-               !      Note: no angular momentum correction necessary for this case !
-               if ( .not. lZ10mat ) then
-#ifdef WITH_PRECOND_Z10
-                  call get_z10Mat(tscheme,l1,hdif_V(l1),z10Mat,z10Mat_fac)
-#else
-                  call get_z10Mat(tscheme,l1,hdif_V(l1),z10Mat)
-#endif
-                  lZ10mat=.true.
-               end if
-            end if
-
-            if ( l1 /= 0 ) then
-               if ( .not. lZmat(l1) ) then
-#ifdef WITH_PRECOND_Z
-                  call get_zMat(tscheme,l1,hdif_V(l1),zMat(nLMB2),zMat_fac(:,nLMB2))
-#else
-                  call get_zMat(tscheme,l1,hdif_V(l1),zMat(nLMB2))
-#endif
-                  lZmat(l1)=.true.
-               end if
-            end if
-         end do
-
-         !-- Assemble RHS (amenable to OpenMP GPU)
-         do lm=1,sizeLMB2(nLMB2,nLMB)
-            lm1=lm22lm(lm,nLMB2,nLMB)
-            l1=lm22l(lm,nLMB2,nLMB)
-            m1 =lm22m(lm,nLMB2,nLMB)
-
-            if ( l_z10mat .and. lm1 == l1m0 ) then
-               if ( l_SRMA ) then
-                  tOmega_ma1=time+tShift_ma1
-                  tOmega_ma2=time+tShift_ma2
-                  omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
-                  &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
-                  rhs(1)=omega_ma
-               else if ( ktopv == 2 .and. l_rot_ma ) then  ! time integration
-                  rhs(1)=dom_ma
-               else
-                  rhs(1)=0.0_cp
-               end if
-
-               if ( l_SRIC ) then
-                  tOmega_ic1=time+tShift_ic1
-                  tOmega_ic2=time+tShift_ic2
-                  omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
-                  &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
-                  rhs(n_r_max)=omega_ic
-               else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
-                  rhs(n_r_max)=dom_ic
-               else
-                  rhs(n_r_max)=0.0_cp
-               end if
-
-               !----- This is the normal RHS for the other radial grid points:
-               !$omp parallel do
-               do nR=2,n_r_max-1
-                  rhs(nR)=work_LMloc(lm1,nR)
-               end do
-               !$omp end parallel do
-
-#ifdef WITH_PRECOND_Z10
-               rhs(:) = z10Mat_fac(:)*rhs(:)
-#endif
-
-            else if ( l1 /= 0 ) then
-
-               lmB=lmB+1
-
-               rhs1(1,2*lmB-1,0)      =0.0_cp
-               rhs1(1,2*lmB,0)        =0.0_cp
-               rhs1(n_r_max,2*lmB-1,0)=0.0_cp
-               rhs1(n_r_max,2*lmB,0)  =0.0_cp
-
-               if (amp_RiIc /= 0.0_cp) then
-                  if (l1 == (m_RiIc + RiSymmIc) .and. m1 == m_RiIc) then
-                     rhs1(n_r_max,2*lmB-1,0)=amp_RiIc*cos(omega_RiIc*time)
-                     rhs1(n_r_max,2*lmB,0)  =amp_RiIc*sin(omega_RiIc*time)
-                  end if
-               end if
-
-               if (amp_RiMa /= 0.0_cp) then
-                  if (l1 == (m_RiMa + RiSymmMa) .and. m1 == m_RiMa) then
-                     rhs1(1,2*lmB-1,0)=amp_RiMa*cos(omega_RiMa*time)
-                     rhs1(1,2*lmB,0)  =amp_RiMa*sin(omega_RiMa*time)
-                  end if
-               end if
-
-               !$omp parallel do
-               do nR=2,n_r_max-1
-                  rhs1(nR,2*lmB-1,0)=real(work_LMloc(lm1,nR))
-                  rhs1(nR,2*lmB,0)  =aimag(work_LMloc(lm1,nR))
-                  if ( l_precession .and. l1 == 1 .and. m1 == 1 ) then
-                     rhs1(nR,2*lmB-1,0)=rhs1(nR,2*lmB-1,0)+               &
-                     &                         wimp_lin*       &
-                     &                         prec_fac*sin(oek*time)
-                     rhs1(nR,2*lmB,0)=rhs1(nR,2*lmB,0)-                   &
-                     &                       wimp_lin*prec_fac*&
-                     &                       cos(oek*time)
-                  end if
-               end do
-               !$omp end parallel do
-
-#ifdef WITH_PRECOND_Z
-               rhs1(:,2*lmB-1,0)=zMat_fac(:,nLMB2)*rhs1(:,2*lmB-1,0)
-               rhs1(:,2*lmB,0)  =zMat_fac(:,nLMB2)*rhs1(:,2*lmB,0)
-#endif
-            end if
-         end do
-
-         !-- Solve matrices with batched RHS (hipsolver)
-         do lm=1,sizeLMB2(nLMB2,nLMB)
-            lm1=lm22lm(lm,nLMB2,nLMB)
-            if ( l_z10mat .and. lm1 == l1m0 ) then
-               !-- Small solve for l=1, m=0 in case this is needed
-               if(z10Mat%gpu_is_used) then
-                  !$omp target update to(rhs)
-               end if
-               call z10Mat%solve(rhs)
-               if(z10Mat%gpu_is_used) then
-                  !$omp target update from(rhs)
-               end if
-            end if
-         end do
-
-         if ( lmB > 0 ) then
-            !-- Big solve for other modes
-            if(zMat(nLMB2)%gpu_is_used) then
-               !$omp target update to(rhs1)
-            end if
-            call zMat(nLMB2)%solve(rhs1(:,:,0),2*lmB)
-            if(zMat(nLMB2)%gpu_is_used) then
-               !$omp target update from(rhs1)
-            end if
-         end if
-
-         lmB=0
-         !-- Loop to reassemble fields
-         do lm=1,sizeLMB2(nLMB2,nLMB)
-            lm1=lm22lm(lm,nLMB2,nLMB)
-            m1 =lm22m(lm,nLMB2,nLMB)
-
-            if ( l_z10mat .and. lm1 == l1m0 ) then
-               do n_r_out=1,rscheme_oc%n_max
-                  z(lm1,n_r_out)=real(rhs(n_r_out))
-               end do
-            else if ( l1 == 0 ) then
-               do n_r_out=1,rscheme_oc%n_max
-                  z(lm1,n_r_out)=zero
-               end do
-            else if ( l1 /= 0 ) then
-               lmB=lmB+1
-               if ( m1 > 0 ) then
-                  do n_r_out=1,rscheme_oc%n_max
-                     z(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,0), &
-                     &                    rhs1(n_r_out,2*lmB,0),kind=cp)
-                  end do
-               else
-                  do n_r_out=1,rscheme_oc%n_max
-                     z(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,0), &
-                     &                    0.0_cp,kind=cp)
-                  end do
-               end if
-            end if
-         end do
-
-      end do
-
-      !$omp single
-      call solve_counter%stop_count(l_increment=.false.)
-      !$omp end single
-      !$omp target exit data map(delete: rhs)
-#else
-      !$omp parallel default(shared)
-
-      !$omp single
-      call solve_counter%start_count()
-      !$omp end single
-
-      !$omp single
-      do nLMB2=1,nLMBs2(nLMB)
-         !$omp task default(shared) &
-         !$omp firstprivate(nLMB2) &
-         !$omp private(lmB,lm,lm1,l1,m1,n_r_out,nR) &
-         !$omp private(nChunks,size_of_last_chunk,iChunk) &
-         !$omp private(tOmega_ma1,tOmega_ma2,threadid) &
-         !$omp private(tOmega_ic1,tOmega_ic2)
-
-         nChunks = (sizeLMB2(nLMB2,nLMB)+chunksize-1)/chunksize
-         size_of_last_chunk=chunksize+(sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
-
-         ! This task treats one l given by l1
          l1=lm22l(1,nLMB2,nLMB)
 
          if ( l1 /= 0 ) then
@@ -568,43 +366,22 @@ contains
 #endif
                lZmat(l1)=.true.
             end if
-         end if
 
-         do iChunk=1,nChunks
-            !$omp task default(shared) &
-            !$omp firstprivate(iChunk) &
-            !$omp private(lmB0,lmB,lm,lm1,m1,nR,n_r_out,threadid) &
-            !$omp private(tOmega_ma1,tOmega_ma2,tOmega_ic1,tOmega_ic2)
-
-#ifdef WITHOMP
-            threadid = omp_get_thread_num()
+            if ( (l1==1) .and. l_z10mat .and. (.not. lZ10mat) ) then
+#ifdef WITH_PRECOND_Z10
+               call get_z10Mat(tscheme,l1,hdif_V(l1),z10Mat,z10Mat_fac)
 #else
-            threadid = 0
+               call get_z10Mat(tscheme,l1,hdif_V(l1),z10Mat)
 #endif
+               lZ10mat=.true.
+            end if
 
-            lmB0=(iChunk-1)*chunksize
-            lmB=lmB0
-
-            do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+            !-- Assemble RHS (amenable to OpenMP GPU)
+            do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
 
                if ( l_z10mat .and. lm1 == l1m0 ) then
-                  !----- Special treatment of z10 component if ic or mantle
-                  !      are allowed to rotate about z-axis (l_z10mat=.true.) and
-                  !      we use no slip boundary condition (ktopv=2,kbotv=2):
-                  !      Lorentz torque is the explicit part of this time integration
-                  !      at the boundaries!
-                  !      Note: no angular momentum correction necessary for this case !
-                  if ( .not. lZ10mat ) then
-#ifdef WITH_PRECOND_Z10
-                     call get_z10Mat(tscheme,l1,hdif_V(l1),z10Mat,z10Mat_fac)
-#else
-                     call get_z10Mat(tscheme,l1,hdif_V(l1),z10Mat)
-#endif
-                     lZ10mat=.true.
-                  end if
-
                   if ( l_SRMA ) then
                      tOmega_ma1=time+tShift_ma1
                      tOmega_ma2=time+tShift_ma2
@@ -638,58 +415,73 @@ contains
                   rhs(:) = z10Mat_fac(:)*rhs(:)
 #endif
 
-                  call z10Mat%solve(rhs)
+               else
 
-               else if ( l1 /= 0 ) then
-                  lmB=lmB+1
-
-                  rhs1(1,2*lmB-1,threadid)      =0.0_cp
-                  rhs1(1,2*lmB,threadid)        =0.0_cp
-                  rhs1(n_r_max,2*lmB-1,threadid)=0.0_cp
-                  rhs1(n_r_max,2*lmB,threadid)  =0.0_cp
+                  rhs1(1,2*lm-1,0)      =0.0_cp
+                  rhs1(1,2*lm,0)        =0.0_cp
+                  rhs1(n_r_max,2*lm-1,0)=0.0_cp
+                  rhs1(n_r_max,2*lm,0)  =0.0_cp
 
                   if (amp_RiIc /= 0.0_cp) then
                      if (l1 == (m_RiIc + RiSymmIc) .and. m1 == m_RiIc) then
-                        rhs1(n_r_max,2*lmB-1,threadid)=amp_RiIc* &
-                        &                              cos(omega_RiIc*time)
-                        rhs1(n_r_max,2*lmB,threadid)  =amp_RiIc* &
-                        &                              sin(omega_RiIc*time)
+                        rhs1(n_r_max,2*lm-1,0)=amp_RiIc*cos(omega_RiIc*time)
+                        rhs1(n_r_max,2*lm,0)  =amp_RiIc*sin(omega_RiIc*time)
                      end if
                   end if
 
                   if (amp_RiMa /= 0.0_cp) then
                      if (l1 == (m_RiMa + RiSymmMa) .and. m1 == m_RiMa) then
-                        rhs1(1,2*lmB-1,threadid)=amp_RiMa*cos(omega_RiMa*time)
-                        rhs1(1,2*lmB,threadid)  =amp_RiMa*sin(omega_RiMa*time)
+                        rhs1(1,2*lm-1,0)=amp_RiMa*cos(omega_RiMa*time)
+                        rhs1(1,2*lm,0)  =amp_RiMa*sin(omega_RiMa*time)
                      end if
                   end if
 
+                  !!$omp parallel do
                   do nR=2,n_r_max-1
-                     rhs1(nR,2*lmB-1,threadid)=real(work_LMloc(lm1,nR))
-                     rhs1(nR,2*lmB,threadid)  =aimag(work_LMloc(lm1,nR))
+                     rhs1(nR,2*lm-1,0)=real(work_LMloc(lm1,nR))
+                     rhs1(nR,2*lm,0)  =aimag(work_LMloc(lm1,nR))
                      if ( l_precession .and. l1 == 1 .and. m1 == 1 ) then
-                        rhs1(nR,2*lmB-1,threadid)=rhs1(nR,2*lmB-1,threadid)+ &
-                        &                         tscheme%wimp_lin(1)*       &
-                        &                         prec_fac*sin(oek*time)
-                        rhs1(nR,2*lmB,threadid)=rhs1(nR,2*lmB,threadid)-     &
-                        &                       tscheme%wimp_lin(1)*prec_fac*&
-                        &                       cos(oek*time)
+                        rhs1(nR,2*lm-1,0)=rhs1(nR,2*lm-1,0) + &
+                        &                 wimp_lin*prec_fac*sin(oek*time)
+                        rhs1(nR,2*lm,0)  =rhs1(nR,2*lm,0) - &
+                        &                 wimp_lin*prec_fac*cos(oek*time)
                      end if
                   end do
+                  !!$omp end parallel do
 
 #ifdef WITH_PRECOND_Z
-                  rhs1(:,2*lmB-1,threadid)=zMat_fac(:,nLMB2)*rhs1(:,2*lmB-1,threadid)
-                  rhs1(:,2*lmB,threadid)  =zMat_fac(:,nLMB2)*rhs1(:,2*lmB,threadid)
+                  rhs1(:,2*lm-1,0)=zMat_fac(:,nLMB2)*rhs1(:,2*lm-1,0)
+                  rhs1(:,2*lm,0)  =zMat_fac(:,nLMB2)*rhs1(:,2*lm,0)
 #endif
                end if
             end do
 
-            if ( lmB > lmB0 ) then
-               call zMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*lmB,threadid),2*(lmB-lmB0))
+            !-- Solve matrices with batched RHS (hipsolver)
+
+            !-- This one is only for the single l=1,m=0 mode
+            if ( l1 == 1 .and. l_z10mat ) then
+               !-- Small solve for l=1, m=0 in case this is needed
+               if (z10Mat%gpu_is_used) then
+                  !$omp target update to(rhs)
+               end if
+               call z10Mat%solve(rhs)
+               if (z10Mat%gpu_is_used) then
+                  !$omp target update from(rhs)
+               end if
             end if
 
-            lmB=lmB0
-            do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+            !-- Big solve for other modes
+            lm=sizeLMB2(nLMB2,nLMB)
+            if (zMat(nLMB2)%gpu_is_used) then
+               !$omp target update to(rhs1)
+            end if
+            call zMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
+            if (zMat(nLMB2)%gpu_is_used) then
+               !$omp target update from(rhs1)
+            end if
+
+            !-- Loop to reassemble fields
+            do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
 
@@ -697,33 +489,220 @@ contains
                   do n_r_out=1,rscheme_oc%n_max
                      z(lm1,n_r_out)=real(rhs(n_r_out))
                   end do
-               else if ( l1 == 0 ) then
-                  do n_r_out=1,rscheme_oc%n_max
-                     z(lm1,n_r_out)=zero
-                  end do
-               else if ( l1 /= 0 ) then
-                  lmB=lmB+1
+               else
                   if ( m1 > 0 ) then
                      do n_r_out=1,rscheme_oc%n_max
-                        z(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
-                        &                    rhs1(n_r_out,2*lmB,threadid),kind=cp)
+                        z(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lm-1,0), &
+                        &                    rhs1(n_r_out,2*lm,0),kind=cp)
                      end do
                   else
                      do n_r_out=1,rscheme_oc%n_max
-                        z(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
+                        z(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lm-1,0), &
                         &                    0.0_cp,kind=cp)
                      end do
                   end if
                end if
             end do
-            !$omp end task
-         end do
+
+         else if ( l1 == 0 ) then ! make sure l=m=0 toroidal potential is zero
+
+            lm1 = lm2(0,0)
+            do n_r_out=1,rscheme_oc%n_max
+               z(lm1,n_r_out)=zero
+            end do
+         end if
+
+      end do
+
+      !$omp single
+      call solve_counter%stop_count(l_increment=.false.)
+      !$omp end single
+      !$omp target exit data map(delete: rhs)
+#else
+
+      !$omp single
+      call solve_counter%start_count()
+      !$omp end single
+
+      !$omp single
+      do nLMB2=1,nLMBs2(nLMB)
+         !$omp task default(shared) &
+         !$omp firstprivate(nLMB2) &
+         !$omp private(lmB,lm,lm1,l1,m1,n_r_out,nR) &
+         !$omp private(nChunks,size_of_last_chunk,iChunk) &
+         !$omp private(tOmega_ma1,tOmega_ma2,threadid) &
+         !$omp private(tOmega_ic1,tOmega_ic2)
+
+         nChunks = (sizeLMB2(nLMB2,nLMB)+chunksize-1)/chunksize
+         size_of_last_chunk=chunksize+(sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
+
+         ! This task treats one l given by l1
+         l1=lm22l(1,nLMB2,nLMB)
+
+         if ( l1 /= 0 ) then
+            if ( .not. lZmat(l1) ) then
+#ifdef WITH_PRECOND_Z
+               call get_zMat(tscheme,l1,hdif_V(l1),zMat(nLMB2),zMat_fac(:,nLMB2))
+#else
+               call get_zMat(tscheme,l1,hdif_V(l1),zMat(nLMB2))
+#endif
+               lZmat(l1)=.true.
+            end if
+
+            if ( (l1==1) .and. l_z10mat .and. (.not. lZ10mat) ) then
+#ifdef WITH_PRECOND_Z10
+               call get_z10Mat(tscheme,l1,hdif_V(l1),z10Mat,z10Mat_fac)
+#else
+               call get_z10Mat(tscheme,l1,hdif_V(l1),z10Mat)
+#endif
+               lZ10mat=.true.
+            end if
+
+            do iChunk=1,nChunks
+               !$omp task default(shared) &
+               !$omp firstprivate(iChunk) &
+               !$omp private(lmB0,lmB,lm,lm1,m1,nR,n_r_out,threadid) &
+               !$omp private(tOmega_ma1,tOmega_ma2,tOmega_ic1,tOmega_ic2)
+#ifdef WITHOMP
+               threadid = omp_get_thread_num()
+#else
+               threadid = 0
+#endif
+
+               lmB0=(iChunk-1)*chunksize
+               lmB=lmB0
+
+               do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+                  lm1=lm22lm(lm,nLMB2,nLMB)
+                  m1 =lm22m(lm,nLMB2,nLMB)
+
+                  if ( l_z10mat .and. lm1 == l1m0 ) then
+                     !----- Special treatment of z10 component if ic or mantle
+                     !      are allowed to rotate about z-axis (l_z10mat=.true.) and
+                     !      we use no slip boundary condition (ktopv=2,kbotv=2):
+                     !      Lorentz torque is the explicit part of this time integration
+                     !      at the boundaries!
+                     !      Note: no angular momentum correction necessary for this case !
+
+                     if ( l_SRMA ) then
+                        tOmega_ma1=time+tShift_ma1
+                        tOmega_ma2=time+tShift_ma2
+                        omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
+                        &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+                        rhs(1)=omega_ma
+                     else if ( ktopv == 2 .and. l_rot_ma ) then  ! time integration
+                        rhs(1)=dom_ma
+                     else
+                        rhs(1)=0.0_cp
+                     end if
+
+                     if ( l_SRIC ) then
+                        tOmega_ic1=time+tShift_ic1
+                        tOmega_ic2=time+tShift_ic2
+                        omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
+                        &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+                        rhs(n_r_max)=omega_ic
+                     else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
+                        rhs(n_r_max)=dom_ic
+                     else
+                        rhs(n_r_max)=0.0_cp
+                     end if
+
+                     !----- This is the normal RHS for the other radial grid points:
+                     do nR=2,n_r_max-1
+                        rhs(nR)=work_LMloc(lm1,nR)
+                     end do
+
+#ifdef WITH_PRECOND_Z10
+                     rhs(:) = z10Mat_fac(:)*rhs(:)
+#endif
+                     call z10Mat%solve(rhs)
+
+                  else ! Everything but l=0 and l=1,m=0 (if Inner core or Mantle rotates)
+
+                     lmB=lmB+1
+
+                     rhs1(1,2*lmB-1,threadid)      =0.0_cp
+                     rhs1(1,2*lmB,threadid)        =0.0_cp
+                     rhs1(n_r_max,2*lmB-1,threadid)=0.0_cp
+                     rhs1(n_r_max,2*lmB,threadid)  =0.0_cp
+
+                     if (amp_RiIc /= 0.0_cp) then
+                        if (l1 == (m_RiIc + RiSymmIc) .and. m1 == m_RiIc) then
+                           rhs1(n_r_max,2*lmB-1,threadid)=amp_RiIc* &
+                           &                              cos(omega_RiIc*time)
+                           rhs1(n_r_max,2*lmB,threadid)  =amp_RiIc* &
+                           &                              sin(omega_RiIc*time)
+                        end if
+                     end if
+
+                     if (amp_RiMa /= 0.0_cp) then
+                        if (l1 == (m_RiMa + RiSymmMa) .and. m1 == m_RiMa) then
+                           rhs1(1,2*lmB-1,threadid)=amp_RiMa*cos(omega_RiMa*time)
+                           rhs1(1,2*lmB,threadid)  =amp_RiMa*sin(omega_RiMa*time)
+                        end if
+                     end if
+
+                     do nR=2,n_r_max-1
+                        rhs1(nR,2*lmB-1,threadid)=real(work_LMloc(lm1,nR))
+                        rhs1(nR,2*lmB,threadid)  =aimag(work_LMloc(lm1,nR))
+                        if ( l_precession .and. l1 == 1 .and. m1 == 1 ) then
+                           rhs1(nR,2*lmB-1,threadid)=rhs1(nR,2*lmB-1,threadid)+ &
+                           &                         tscheme%wimp_lin(1)*       &
+                           &                         prec_fac*sin(oek*time)
+                           rhs1(nR,2*lmB,threadid)=rhs1(nR,2*lmB,threadid)-     &
+                           &                       tscheme%wimp_lin(1)*prec_fac*&
+                           &                       cos(oek*time)
+                        end if
+                     end do
+
+#ifdef WITH_PRECOND_Z
+                     rhs1(:,2*lmB-1,threadid)=zMat_fac(:,nLMB2)*rhs1(:,2*lmB-1,threadid)
+                     rhs1(:,2*lmB,threadid)  =zMat_fac(:,nLMB2)*rhs1(:,2*lmB,threadid)
+#endif
+                  end if
+               end do
+
+               !-- Linear solves
+               call zMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*lmB,threadid),2*(lmB-lmB0))
+
+               lmB=lmB0
+               do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+                  lm1=lm22lm(lm,nLMB2,nLMB)
+                  m1 =lm22m(lm,nLMB2,nLMB)
+
+                  if ( l_z10mat .and. lm1 == l1m0 ) then
+                     do n_r_out=1,rscheme_oc%n_max
+                        z(lm1,n_r_out)=real(rhs(n_r_out))
+                     end do
+                  else
+                     lmB=lmB+1
+                     if ( m1 > 0 ) then
+                        do n_r_out=1,rscheme_oc%n_max
+                           z(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
+                           &                    rhs1(n_r_out,2*lmB,threadid),kind=cp)
+                        end do
+                     else
+                        do n_r_out=1,rscheme_oc%n_max
+                           z(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
+                           &                    0.0_cp,kind=cp)
+                        end do
+                     end if
+                  end if
+               end do
+               !$omp end task
+            end do
+
+         else ! l == 0, make sure spherically-symmetric part is zero
+
+            lm1=lm2(0,0)
+            do n_r_out=1,rscheme_oc%n_max
+               z(lm1,n_r_out)=zero
+            end do
+         end if
          !$omp taskwait
          !$omp end task
       end do       ! end of loop over lm blocks
-
-      call solve_counter%stop_count(l_increment=.false.)
-
       !$omp end single
       !$omp taskwait
       !$omp single
@@ -780,8 +759,6 @@ contains
               &               tscheme%istage+1, tscheme%l_imp_calc_rhs(          &
               &               tscheme%istage+1), lRmsNext, l_in_cheb_space=.true.)
       end if
-
-      deallocate(rhs)
 
    end subroutine updateZ
 !------------------------------------------------------------------------------

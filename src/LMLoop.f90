@@ -7,7 +7,8 @@ module LMLoop_mod
    use parallel_mod
    use constants, only: one
    use useful, only: abortRun, logWrite
-   use num_param, only: solve_counter
+   use num_param, only: solve_counter, upB_counter, upZ_counter, upS_counter, &
+       &                upWP_counter
 #ifdef WITH_OMP_GPU
    use mem_alloc, only: memWrite, bytes_allocated, gpu_bytes_allocated
 #else
@@ -269,6 +270,7 @@ contains
          if ( l_phase_field ) lPhimat(:)=.false.
       end if
 
+      call upS_counter%start_count()
       if ( l_phase_field ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(phi_LMloc, dphidt)
@@ -303,13 +305,16 @@ contains
       !$omp target update from(xi_LMloc, dxi_LMloc, dxidt)
 #endif
       end if
+      call upS_counter%stop_count()
 
       if ( l_conv ) then
          PERFON('up_Z')
+         call upZ_counter%start_count()
          call updateZ( time, timeNext, z_LMloc, dz_LMloc, dzdt, omega_ma,  &
               &        omega_ic, domega_ma_dt,domega_ic_dt,                &
               &        lorentz_torque_ma_dt,lorentz_torque_ic_dt, tscheme, &
               &        lRmsNext)
+         call upZ_counter%stop_count()
          PERFOFF
 
          if ( l_single_matrix ) then
@@ -326,9 +331,11 @@ contains
             !$omp target update to(dwdt, dpdt, dsdt)
             !$omp target update to(w_LMloc, dw_LMloc, p_LMloc, ds_LMloc)
 #endif
+            call upWP_counter%start_count()
             call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
                  &          p_LMloc, dp_LMloc, dpdt, s_LMloc, ds_LMloc, &
                  &          dsdt, tscheme, lRmsNext )
+            call upWP_counter%stop_count()
 #ifdef WITH_OMP_GPU
             !$omp target update from(dwdt, dpdt, dsdt)
             !$omp target update from(w_LMloc, dw_LMloc, p_LMloc, ds_LMloc)
@@ -343,12 +350,13 @@ contains
             !$omp target update to(s_LMloc)
             !$omp target update if(l_chemical_conv) to(xi_LMLoc)
             !$omp target update to(dw_LMloc, ddw_LMloc)
-!            !$omp target update to(dp_LMloc)
 #endif
             PERFON('up_WP')
+            call upWP_counter%start_count()
             call updateWP( s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc, ddw_LMloc, &
                  &         dwdt, p_LMloc, dp_LMloc, dpdt, tscheme,          &
                  &         lRmsNext, lPressNext )
+            call upWP_counter%stop_count()
             PERFOFF
 #ifdef WITH_OMP_GPU
             !$omp target update from(w_LMloc)
@@ -372,11 +380,13 @@ contains
          end if
 #endif
          PERFON('up_B')
+         call upB_counter%start_count()
          call updateB( b_LMloc,db_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,ddj_LMloc, &
               &        dbdt, djdt, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,      &
               &        aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,        &
               &        djdt_ic, b_nl_cmb, aj_nl_cmb, aj_nl_icb, time, tscheme, &
               &        lRmsNext )
+         call upB_counter%stop_count()
          PERFOFF
 #ifdef WITH_OMP_GPU
          !$omp target update from(dbdt, djdt)

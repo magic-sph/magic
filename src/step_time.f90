@@ -16,7 +16,8 @@ module step_time_mod
    use num_param, only: n_time_steps, run_time_limit, tEnd, dtMax, &
        &                dtMin, tScale, dct_counter, nl_counter,    &
        &                solve_counter, lm2phy_counter, td_counter, &
-       &                phy2lm_counter, nl_counter, f_exp_counter
+       &                phy2lm_counter, nl_counter, f_exp_counter, &
+       &                upWP_counter, upS_counter, upZ_counter, upB_counter
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag, &
        &                  n_r_icb, n_r_cmb
    use radial_der, only: get_dr_Rloc, get_ddr_Rloc, exch_ghosts, bulk_to_ghost
@@ -1166,6 +1167,14 @@ contains
       call lmLoop_counter%finalize('! Mean wall time for LM Loop                :',&
            &                       n_log_file)
       call f_exp_counter%finalize('!     - Time taken to compute r-der of adv. :', &
+           &                      n_log_file)
+      call upWP_counter%finalize('!     - Time taken for updateWP,WPS         :', &
+           &                      n_log_file)
+      call upS_counter%finalize('!     - Time taken for updateS,XI,PHI       :', &
+           &                      n_log_file)
+      call upZ_counter%finalize('!     - Time taken for updateZ              :', &
+           &                      n_log_file)
+      call upB_counter%finalize('!     - Time taken for updateB              :', &
            &                      n_log_file)
       call dct_counter%finalize('!     - Time taken for DCTs and r-der       :',   &
            &                    n_log_file)
