@@ -335,11 +335,31 @@ contains
             !$omp target update from(ddw_LMloc, dp_LMloc, s_LMloc)
 #endif
          else
+#ifdef WITH_OMP_GPU
+            !$omp target update to(w_LMloc)
+            !$omp target update to(p_LMloc)
+            !$omp target update to(dwdt)
+            !$omp target update if(.not. l_double_curl) to(dpdt)
+            !$omp target update to(s_LMloc)
+            !$omp target update if(l_chemical_conv) to(xi_LMLoc)
+            !$omp target update to(dw_LMloc, ddw_LMloc)
+!            !$omp target update to(dp_LMloc)
+#endif
             PERFON('up_WP')
             call updateWP( s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc, ddw_LMloc, &
                  &         dwdt, p_LMloc, dp_LMloc, dpdt, tscheme,          &
                  &         lRmsNext, lPressNext )
             PERFOFF
+#ifdef WITH_OMP_GPU
+            !$omp target update from(w_LMloc)
+            !$omp target update from(p_LMloc)
+            !$omp target update from(dwdt)
+            !$omp target update if(.not. l_double_curl) from(dpdt)
+            !$omp target update from(s_LMloc)
+            !$omp target update if(l_chemical_conv) from(xi_LMLoc)
+            !$omp target update from(dw_LMloc, ddw_LMloc)
+            !$omp target update from(dp_LMloc)
+#endif
          end if
       end if
       if ( l_mag ) then ! dwdt,dpdt used as work arrays

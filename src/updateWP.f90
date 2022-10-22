@@ -106,9 +106,15 @@ contains
                call wpMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
             end do
             allocate( wpMat_fac(n_r_max,2,nLMBs2(1+rank)) )
+            wpMat_fac(:,:) = 0.0_cp
             bytes_allocated=bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
             &               SIZEOF_DEF_REAL
-
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: wpMat_fac)
+            !$omp target update to(wpMat_fac)
+            gpu_bytes_allocated=gpu_bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
+            &                   SIZEOF_DEF_REAL
+#endif
             allocate( type_bandmat :: p0Mat )
             n_bands = rscheme_oc%order+1
             call p0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
@@ -128,6 +134,12 @@ contains
                allocate( wpMat_fac(n_r_max,2,nLMBs2(1+rank)) )
                bytes_allocated=bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
                &               SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: wpMat_fac)
+            !$omp target update to(wpMat_fac)
+            gpu_bytes_allocated=gpu_bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
+            &                   SIZEOF_DEF_REAL
+#endif
             else
 #ifdef WITH_OMP_GPU
                use_gpu = .true.
@@ -142,6 +154,12 @@ contains
                allocate( wpMat_fac(2*n_r_max,2,nLMBs2(1+rank)) )
                bytes_allocated=bytes_allocated+4*n_r_max*nLMBs2(1+rank)*    &
                &               SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+               !$omp target enter data map(alloc: wpMat_fac)
+               !$omp target update to(wpMat_fac)
+               gpu_bytes_allocated=bytes_allocated+4*n_r_max*nLMBs2(1+rank)*    &
+               &                   SIZEOF_DEF_REAL
+#endif
             end if
 
             allocate( type_densemat :: p0Mat )
@@ -307,7 +325,7 @@ contains
          call p0Mat%finalize()
 
 #ifdef WITH_OMP_GPU
-         !$omp target exit data map(delete: rhs1, rhs)
+         !$omp target exit data map(delete: rhs1, rhs, wpMat_fac)
 #endif
          deallocate( wpMat_fac, rhs1, work, rhs )
          deallocate( Dif, Pre, Buo )
@@ -369,6 +387,12 @@ contains
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
+#ifdef WITH_OMP_GPU
+      complex(cp), pointer :: ptr_expl(:,:)
+      real(cp) :: wimp_lin
+      ptr_expl => dwdt%expl(:,:,tscheme%istage)
+      wimp_lin = tscheme%wimp_lin(1)
+#endif
 
       if ( .not. l_update_v ) return
 
@@ -384,21 +408,9 @@ contains
       nLMB=1+rank
 
       !-- Now assemble the right hand side and store it in work_LMloc
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dwdt)
-#endif
       call tscheme%set_imex_rhs(work_LMloc, dwdt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(work_LMloc)
-#endif
       if ( .not. l_double_curl ) then
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dpdt)
-#endif
          call tscheme%set_imex_rhs(ddw, dpdt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(ddw)
-#endif
       end if
 
 #ifndef WITH_OMP_GPU
@@ -408,6 +420,7 @@ contains
       if ( l_double_curl .and. lPressNext .and. tscheme%istage == 1) then
          ! Store old dw
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
 #else
          !$omp do private(lm)
 #endif
@@ -417,6 +430,7 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #else
          !$omp end do
 #endif
@@ -443,44 +457,54 @@ contains
             !-- The integral of rho' r^2 dr vanishes
             if ( ThExpNb*ViscHeatFac /= 0 .and. ktopp==1 ) then
                if ( rscheme_oc%version == 'cheb' ) then
+                  !$omp target teams distribute parallel do
                   do nR=1,n_r_max
                      work(nR)=ThExpNb*alpha0(nR)*temp0(nR)*rho0(nR)*r(nR)*&
-                     &        r(nR)*real(s(lm2(0,0),nR))
+                     &        r(nR)*real(s(lm1,nR))
                   end do
+                  !$omp end target teams distribute parallel do
                   rhs(1)=rInt_R(work,r,rscheme_oc)
                else
                   rhs(1)=0.0_cp
                end if
+               !$omp target update to(rhs(1))
             else
                rhs(1)=0.0_cp
+               !$omp target update to(rhs(1))
             end if
 
             if ( l_chemical_conv ) then
+               !$omp target teams distribute parallel do
                do nR=2,n_r_max
-                  rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*real(s(lm2(0,0),nR))+   &
-                  &       rho0(nR)*ChemFac*rgrav(nR)*real(xi(lm2(0,0),nR))+ &
-                  &       real(dwdt%expl(lm2(0,0),nR,tscheme%istage))
+                  rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*real(s(lm1,nR))+   &
+                  &       rho0(nR)*ChemFac*rgrav(nR)*real(xi(lm1,nR))+ &
+                  &       real(ptr_expl(lm1,nR))
                end do
+               !$omp end target teams distribute parallel do
             else
+               !$omp target teams distribute parallel do
                do nR=2,n_r_max
-                  rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*real(s(lm2(0,0),nR))+  &
-                  &       real(dwdt%expl(lm2(0,0),nR,tscheme%istage))
+                  rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*real(s(lm1,nR))+  &
+                  &       real(ptr_expl(lm1,nR))
                end do
+               !$omp end target teams distribute parallel do
             end if
 
             !-- Matrix solve for l=m=0
-            if (p0Mat%gpu_is_used) then
-               !$omp target update to(rhs)
-            end if
-            call p0Mat%solve(rhs)
-            if (p0Mat%gpu_is_used) then
+            if (.not. p0Mat%gpu_is_used) then
                !$omp target update from(rhs)
             end if
+            call p0Mat%solve(rhs)
+            if (.not. p0Mat%gpu_is_used) then
+               !$omp target update to(rhs)
+            end if
 
+            !$omp target teams distribute parallel do
             do n_r_out=1,rscheme_oc%n_max
                p(lm1,n_r_out)=rhs(n_r_out)
                w(lm1,n_r_out)=zero
             end do
+            !$omp end target teams distribute parallel do
 
          else ! l /= 0 
 
@@ -496,6 +520,7 @@ contains
             end if
 
             !-- Assemble RHS
+            !$omp target teams distribute parallel do private(lm1,m1,nR)
             do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1=lm22m(lm,nLMB2,nLMB)
@@ -517,10 +542,10 @@ contains
                   if ( l_heat .and. (.not. l_parallel_solve) ) then
                      do nR=3,n_r_max-2
                         rhs1(nR,2*lm-1,0)=rhs1(nR,2*lm-1,0)+             &
-                        &      tscheme%wimp_lin(1)*real(l1*(l1+1),cp) *  &
+                        &      wimp_lin*real(l1*(l1+1),cp) *             &
                         &      or2(nR)*BuoFac*rgrav(nR)*real(s(lm1,nR))
                         rhs1(nR,2*lm,0)  =rhs1(nR,2*lm,0)+               &
-                        &      tscheme%wimp_lin(1)*real(l1*(l1+1),cp) *  &
+                        &      wimp_lin*real(l1*(l1+1),cp) *             &
                         &      or2(nR)*BuoFac*rgrav(nR)*aimag(s(lm1,nR))
                      end do
                   end if
@@ -528,10 +553,10 @@ contains
                   if ( l_chemical_conv .and. ( .not. l_parallel_solve ) ) then
                      do nR=3,n_r_max-2
                         rhs1(nR,2*lm-1,0)=rhs1(nR,2*lm-1,0)+            &
-                        &      tscheme%wimp_lin(1)*real(l1*(l1+1),cp) * &
+                        &      wimp_lin*real(l1*(l1+1),cp) *            &
                         &      or2(nR)*ChemFac*rgrav(nR)*real(xi(lm1,nR))
                         rhs1(nR,2*lm,0)  =rhs1(nR,2*lm,0)+            &
-                        &      tscheme%wimp_lin(1)*real(l1*(l1+1),cp) * &
+                        &      wimp_lin*real(l1*(l1+1),cp) *          &
                         &      or2(nR)*ChemFac*rgrav(nR)*aimag(xi(lm1,nR))
                      end do
                   end if
@@ -550,10 +575,10 @@ contains
                   if ( l_heat ) then
                      do nR=2,n_r_max-1
                         rhs1(nR,2*lm-1,0)=rhs1(nR,2*lm-1,0)+              &
-                        &         tscheme%wimp_lin(1)*rho0(nR)*BuoFac*    &
+                        &         wimp_lin*rho0(nR)*BuoFac*               &
                         &                      rgrav(nR)*real(s(lm1,nR))
                         rhs1(nR,2*lm,0)  =rhs1(nR,2*lm,0)+                &
-                        &         tscheme%wimp_lin(1)*rho0(nR)*BuoFac*    &
+                        &         wimp_lin*rho0(nR)*BuoFac*               &
                         &                      rgrav(nR)*aimag(s(lm1,nR))
                      end do
                   end if
@@ -561,10 +586,10 @@ contains
                   if ( l_chemical_conv ) then
                      do nR=2,n_r_max-1
                         rhs1(nR,2*lm-1,0)=rhs1(nR,2*lm-1,0)+               &
-                        &         tscheme%wimp_lin(1)*rho0(nR)*ChemFac*    &
+                        &         wimp_lin*rho0(nR)*ChemFac*               &
                         &                      rgrav(nR)*real(xi(lm1,nR))
                         rhs1(nR,2*lm,0)  =rhs1(nR,2*lm,0)+                 &
-                        &         tscheme%wimp_lin(1)*rho0(nR)*ChemFac*    &
+                        &         wimp_lin*rho0(nR)*ChemFac*               &
                         &                      rgrav(nR)*aimag(xi(lm1,nR))
                      end do
                   end if
@@ -576,18 +601,20 @@ contains
                   rhs1(nR,2*lm,0)  =rhs1(nR,2*lm,0)*wpMat_fac(nR,1,nLMB2)
                end do
             end do
+            !$omp end target teams distribute parallel do
 
             !-- Solve matrices with batched RHS (hipsolver)
             lm=sizeLMB2(nLMB2,nLMB)
-            if (wpMat(nLMB2)%gpu_is_used) then
-               !$omp target update to(rhs1)
+            if (.not. wpMat(nLMB2)%gpu_is_used) then
+               !$omp target update from(rhs1)
             end if
             call wpMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
-            if (wpMat(nLMB2)%gpu_is_used) then
-               !$omp target update from(rhs1)
+            if (.not. wpMat(nLMB2)%gpu_is_used) then
+               !$omp target update to(rhs1)
             end if
 
             !-- Loop to reassemble fields
+            !$omp target teams distribute parallel do private(lm1,m1,nR,n_r_out)
             do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1=lm22m(lm,nLMB2,nLMB)
@@ -627,6 +654,7 @@ contains
                   end if
                end if
             end do
+            !$omp end target teams distribute parallel do
 
          end if ! Test of l /= 0
       end do
@@ -867,7 +895,7 @@ contains
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
-      !$omp parallel do private(n_r_out,lm1) collapse(2)
+      !$omp target
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
 #endif
@@ -878,33 +906,15 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
-      !$omp end parallel do
+      !$omp end target
 #else
       !$omp end do
       !$omp end parallel
 #endif
 
       !-- Roll the arrays before filling again the first block
-#ifdef WITH_OMP_GPU
-      call tscheme%rotate_imex(dwdt)
-      !$omp target update from(dwdt)
-      if ( .not. l_double_curl ) then
-         call tscheme%rotate_imex(dpdt)
-         !$omp target update from(dpdt)
-      end if
-#else
       call tscheme%rotate_imex(dwdt)
       if ( .not. l_double_curl ) call tscheme%rotate_imex(dpdt)
-#endif
-
-#ifdef WITH_OMP_GPU
-      !$omp target update to(w)
-      !$omp target update to(p)
-      !$omp target update to(dwdt)
-      !$omp target update if(.not. l_double_curl) to(dpdt)
-      !$omp target update to(s)
-      !$omp target update if(l_chemical_conv) to(xi)
-#endif
 
       if ( tscheme%istage == tscheme%nstages ) then
          call get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, dwdt, dpdt,       &
@@ -919,16 +929,6 @@ contains
               &               lPressNext, lRmsNext,                       &
               &               dpdt%expl(:,:,1), l_in_cheb_space=.true.)
       end if
-
-#ifdef WITH_OMP_GPU
-      !$omp target update from(w)
-      !$omp target update from(p)
-      !$omp target update from(dwdt)
-      !$omp target update if(.not. l_double_curl) from(dpdt)
-      !$omp target update from(dp)
-      !$omp target update from(dw)
-      !$omp target update from(ddw)
-#endif
 
    end subroutine updateWP
 !------------------------------------------------------------------------------
