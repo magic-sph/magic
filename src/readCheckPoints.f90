@@ -419,9 +419,27 @@ contains
             !$omp target update from(ds_LMloc, dp_LMloc, dw_LMloc, ddw_LMloc)
 #endif
          else
+#ifdef WITH_OMP_GPU
+            !$omp target update to(w)
+            !$omp target update to(p)
+            !$omp target update to(dwdt)
+            !$omp target update if(.not. l_double_curl) to(dpdt)
+            !$omp target update to(s)
+            !$omp target update if(l_chemical_conv) to(xi)
+            !$omp target update to(z)
+#endif
             call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
                  &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
                  &               .false., z)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(w)
+            !$omp target update from(p)
+            !$omp target update from(dwdt)
+            !$omp target update if(.not. l_double_curl) from(dpdt)
+            !$omp target update from(dp_LMloc)
+            !$omp target update from(dw_LMloc)
+            !$omp target update from(ddw_LMloc)
+#endif
             !-- z is a work array in the above expression
             if ( l_heat ) then
 #ifdef WITH_OMP_GPU
@@ -1459,9 +1477,27 @@ contains
             !$omp target update from(ds_LMloc, dp_LMloc, dw_LMloc, ddw_LMloc)
 #endif
          else
+#ifdef WITH_OMP_GPU
+            !$omp target update to(w)
+            !$omp target update to(p)
+            !$omp target update to(dwdt)
+            !$omp target update if(.not. l_double_curl) to(dpdt)
+            !$omp target update to(s)
+            !$omp target update if(l_chemical_conv) to(xi)
+            !$omp target update to(z)
+#endif
             call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
                  &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
                  &               .false., z)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(w)
+            !$omp target update from(p)
+            !$omp target update from(dwdt)
+            !$omp target update if(.not. l_double_curl) from(dpdt)
+            !$omp target update from(dp_LMloc)
+            !$omp target update from(dw_LMloc)
+            !$omp target update from(ddw_LMloc)
+#endif
             !-- z is a work array in the above expression
             if ( l_heat ) then
 #ifdef WITH_OMP_GPU
@@ -2330,9 +2366,27 @@ contains
             !$omp target update from(ds_LMloc, dp_LMloc, dw_LMloc, ddw_LMloc)
 #endif
          else
+#ifdef WITH_OMP_GPU
+            !$omp target update to(w)
+            !$omp target update to(p)
+            !$omp target update to(dwdt)
+            !$omp target update if(.not. l_double_curl) to(dpdt)
+            !$omp target update to(s)
+            !$omp target update if(l_chemical_conv) to(xi)
+            !$omp target update to(z)
+#endif
             call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
                  &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
                  &               .false., z)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(w)
+            !$omp target update from(p)
+            !$omp target update from(dwdt)
+            !$omp target update if(.not. l_double_curl) from(dpdt)
+            !$omp target update from(dp_LMloc)
+            !$omp target update from(dw_LMloc)
+            !$omp target update from(ddw_LMloc)
+#endif
             !-- z is a work array in the above expression
             if ( l_heat ) then
 #ifdef WITH_OMP_GPU

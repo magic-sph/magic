@@ -1236,9 +1236,27 @@ contains
                     &                     dwdt, tscheme, 1, .true., .false., .false.,  &
                     &                     dwdt%expl(:,:,1)) ! Work array
             else
+#ifdef WITH_OMP_GPU
+               !$omp target update to(w_LMloc)
+               !$omp target update to(p_LMloc)
+               !$omp target update to(dwdt)
+               !$omp target update if(.not. l_double_curl) to(dpdt)
+               !$omp target update to(s_LMloc)
+               !$omp target update if(l_chemical_conv) to(xi_LMloc)
+               !$omp target update to(work_LMloc)
+#endif
                call get_pol_rhs_imp(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,  &
                     &               p_LMloc, dp_LMloc, dwdt, dpdt, tscheme, 1,        &
                     &               .true., .false., .false., work_LMloc)
+#ifdef WITH_OMP_GPU
+               !$omp target update from(w_LMloc)
+               !$omp target update from(p_LMloc)
+               !$omp target update from(dwdt)
+               !$omp target update if(.not. l_double_curl) from(dpdt)
+               !$omp target update from(dp_LMloc)
+               !$omp target update from(dw_LMloc)
+               !$omp target update from(ddw_LMloc)
+#endif
             end if
             if ( l_heat ) then
                if ( l_parallel_solve ) then

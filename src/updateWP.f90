@@ -897,6 +897,15 @@ contains
       if ( .not. l_double_curl ) call tscheme%rotate_imex(dpdt)
 #endif
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(w)
+      !$omp target update to(p)
+      !$omp target update to(dwdt)
+      !$omp target update if(.not. l_double_curl) to(dpdt)
+      !$omp target update to(s)
+      !$omp target update if(l_chemical_conv) to(xi)
+#endif
+
       if ( tscheme%istage == tscheme%nstages ) then
          call get_pol_rhs_imp(s, xi, w, dw, ddw, p, dp, dwdt, dpdt,       &
               &               tscheme, 1, tscheme%l_imp_calc_rhs(1),      &
@@ -910,6 +919,16 @@ contains
               &               lPressNext, lRmsNext,                       &
               &               dpdt%expl(:,:,1), l_in_cheb_space=.true.)
       end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(w)
+      !$omp target update from(p)
+      !$omp target update from(dwdt)
+      !$omp target update if(.not. l_double_curl) from(dpdt)
+      !$omp target update from(dp)
+      !$omp target update from(dw)
+      !$omp target update from(ddw)
+#endif
 
    end subroutine updateWP
 !------------------------------------------------------------------------------
@@ -1626,17 +1645,6 @@ contains
       dt_loc      = tscheme%dt(1)
 
 #ifdef WITH_OMP_GPU
-      if ( l_double_curl ) then
-         !$omp target update to(dw, ddw, work_LMloc, ddddw)
-         !$omp target update to(w)
-      else
-         !$omp target update to(w, dw, ddw, work_LMloc)
-         !$omp target update to(p)
-      end if
-      !$omp target update to(w)
-#endif
-
-#ifdef WITH_OMP_GPU
       start_lm=llm; stop_lm=ulm
       call dct_counter%start_count()
 #else
@@ -1700,20 +1708,9 @@ contains
       !$omp end single
 #endif
 
-#ifdef WITH_OMP_GPU
-      if ( l_double_curl ) then
-         !$omp target update from(dw, ddw, work_LMloc, ddddw)
-      else
-         !$omp target update from(dw, ddw, work_LMloc)
-         !$omp target update from(p, dp)
-      end if
-      !$omp target update from(w)
-#endif
-
       if ( istage == 1 ) then
          if ( l_double_curl ) then
 #ifdef WITH_OMP_GPU
-            !$omp target update to(w, dw, ddw, dwdt)
             !$omp target teams distribute parallel do collapse(2)
 #else
             !$omp do private(n_r,lm,l1,dL)
@@ -1729,13 +1726,11 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
-            !$omp target update from(dwdt)
 #else
             !$omp end do
 #endif
          else
 #ifdef WITH_OMP_GPU
-            !$omp target update to(w, dw, dwdt, dpdt)
             !$omp target teams distribute parallel do collapse(2)
 #else
             !$omp do private(n_r,lm,l1,dL)
@@ -1750,7 +1745,6 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
-            !$omp target update from(dwdt, dpdt)
 #else
             !$omp end do
 #endif
@@ -1777,12 +1771,6 @@ contains
 
             if (.not. lRmsNext) then
 #ifdef WITH_OMP_GPU
-            !$omp target update to(w, dw, ddw, ddddw, work_LMloc)
-            !$omp target update to(s)
-            !$omp target update if(l_chemical_conv) to(xi)
-            !$omp target update to(dwdt)
-            !$omp target update to(dp_expl)
-            !$omp target update if(lPressNext) to(p)
             !$omp target teams distribute parallel do collapse(2) private(l1,tmp_Dif,tmp_Buo,dL)
 #else
             !$omp do private(n_r,lm,l1,tmp_Dif,tmp_Buo,dL)
@@ -1840,19 +1828,11 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
-            !$omp target update from(dwdt)
-            !$omp target update if(lPressNext) from(p)
 #else
             !$omp end do
 #endif
             else
 #ifdef WITH_OMP_GPU
-            !$omp target update to(w, dw, ddw, ddddw, work_LMloc)
-            !$omp target update to(s)
-            !$omp target update if(l_chemical_conv) to(xi)
-            !$omp target update to(dwdt)
-            !$omp target update to(dp_expl)
-            !$omp target update if(lPressNext) to(p)
             !$omp target teams distribute parallel do private(l1,Dif,Buo,dL)
 #else
             !$omp do private(n_r,lm,l1,Dif,Buo,dL)
@@ -1926,8 +1906,6 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
-            !$omp target update from(dwdt)
-            !$omp target update if(lPressNext) from(p)
 #else
             !$omp end do
 #endif
@@ -1937,11 +1915,6 @@ contains
 
             if(.not. lRmsNext) then
 #ifdef WITH_OMP_GPU
-            !$omp target update to(w, dw, ddw, work_LMloc)
-            !$omp target update to(s)
-            !$omp target update if(l_chemical_conv) to(xi)
-            !$omp target update to(dwdt, dpdt)
-            !$omp target update to(p, dp)
             !$omp target teams distribute parallel do collapse(2) private(l1,tmp_Dif,tmp_Buo,tmp_Pre,dL)
 #else
             !$omp do private(n_r,lm,l1,tmp_Dif,tmp_Buo,tmp_Pre,dL)
@@ -1979,17 +1952,11 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
-            !$omp target update from(dwdt, dpdt)
 #else
             !$omp end do
 #endif
             else
 #ifdef WITH_OMP_GPU
-            !$omp target update to(w, dw, ddw, ddddw, work_LMloc)
-            !$omp target update to(s)
-            !$omp target update if(l_chemical_conv) to(xi)
-            !$omp target update to(dwdt, dpdt)
-            !$omp target update to(p, dp)
             !$omp target teams distribute parallel do private(l1,Dif,Buo,dL)
 #else
             !$omp do private(n_r,lm,l1,Dif,Buo,Pre,dL)
@@ -2032,7 +1999,6 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
-            !$omp target update from(dwdt, dpdt)
 #else
             !$omp end do
 #endif
@@ -2045,14 +2011,8 @@ contains
       ! In case pressure is needed in the double curl formulation
       ! we also have to compute the radial derivative of p
       if ( lPressNext .and. l_double_curl ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(p)
-#endif
          call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
               &       n_r_max, rscheme_oc, use_gpu=.true.)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(p, dp)
-#endif
 #ifndef WITH_OMP_GPU
          !$omp barrier
 #endif
