@@ -1050,6 +1050,45 @@ contains
             !---------------
             if ( (.not. tscheme%l_assembly) .or. (tscheme%istage/=tscheme%nstages) ) then
                if ( lVerbose ) write(output_unit,*) '! starting lm-loop!'
+#ifdef WITH_OMP_GPU
+               if( .not. l_parallel_solve) then
+                  if ( l_phase_field ) then
+                     !$omp target update to(phi_LMloc, dphidt)
+                  end if
+                  if ( l_heat .and. .not. l_single_matrix ) then
+                     !$omp target update to(s_LMloc, dsdt)
+                     if ( l_phase_field ) then
+                        !$omp target update to(phi_LMloc)
+                     end if
+                  end if
+                  if ( l_chemical_conv ) then
+                     !$omp target update to(xi_LMloc, dxidt)
+                  end if
+                  if ( l_conv ) then
+                     !$omp target update to(z_LMloc, dzdt)
+                     if ( l_single_matrix ) then
+                        !$omp target update to(dwdt, dpdt, dsdt)
+                        !$omp target update to(w_LMloc, dw_LMloc, p_LMloc, ds_LMloc)
+                     else
+                        !$omp target update to(w_LMloc)
+                        !$omp target update to(p_LMloc)
+                        !$omp target update to(dwdt)
+                        !$omp target update if(.not. l_double_curl) to(dpdt)
+                        !$omp target update to(s_LMloc)
+                        !$omp target update if(l_chemical_conv) to(xi_LMLoc)
+                        !$omp target update to(dw_LMloc, ddw_LMloc)
+                     end if
+                  end if
+                  if ( l_mag ) then
+                     !$omp target update to(dbdt, djdt)
+                     !$omp target update to(b_LMloc, aj_LMloc)
+                     if ( l_cond_ic ) then
+                        !$omp target update to(dbdt_ic, djdt_ic)
+                        !$omp target update to(b_ic_LMloc, aj_ic_LMloc)
+                     end if
+                  end if
+               end if
+#endif
                call lmLoop_counter%start_count()
                if ( l_parallel_solve ) then
                   call LMLoop_Rdist(timeStage,time,tscheme,lMat,lRmsNext,lPressNext, &
@@ -1068,6 +1107,46 @@ contains
 
                !-- Timer counters
                call lmLoop_counter%stop_count()
+#ifdef WITH_OMP_GPU
+               if( .not. l_parallel_solve) then
+                  if ( l_phase_field ) then
+                     !$omp target update from(phi_LMloc, dphidt)
+                  end if
+                  if ( l_heat .and. .not. l_single_matrix ) then
+                     !$omp target update from(s_LMloc, ds_LMloc, dsdt)
+                  end if
+                  if ( l_chemical_conv ) then
+                  !$omp target update from(xi_LMloc, dxi_LMloc, dxidt)
+                  end if
+                  if ( l_conv ) then
+                     !$omp target update from(z_LMloc, dz_LMloc, dzdt)
+                     if ( l_single_matrix ) then
+                        !$omp target update from(dwdt, dpdt, dsdt)
+                        !$omp target update from(w_LMloc, dw_LMloc, p_LMloc, ds_LMloc)
+                        !$omp target update from(ddw_LMloc, dp_LMloc, s_LMloc)
+                     else
+                        !$omp target update from(w_LMloc)
+                        !$omp target update from(p_LMloc)
+                        !$omp target update from(dwdt)
+                        !$omp target update if(.not. l_double_curl) from(dpdt)
+                        !$omp target update from(s_LMloc)
+                        !$omp target update if(l_chemical_conv) from(xi_LMLoc)
+                        !$omp target update from(dw_LMloc, ddw_LMloc)
+                        !$omp target update from(dp_LMloc)
+                     end if
+                  end if
+                  if ( l_mag ) then
+                     !$omp target update from(dbdt, djdt)
+                     !$omp target update from(b_LMloc, aj_LMloc)
+                     !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
+                     if ( l_cond_ic ) then
+                        !$omp target update from(dbdt_ic, djdt_ic)
+                        !$omp target update from(b_ic_LMloc, aj_ic_LMloc)
+                        !$omp target update from(db_ic_LMloc, dj_ic_LMloc, ddb_ic_LMloc, ddj_ic_LMloc)
+                     end if
+                  end if
+               end if
+#endif
                if ( tscheme%istage == 1 .and. lMat ) l_mat_time=.true.
                if ( tscheme%istage == 1 .and. .not. lMat .and. &
                &    .not. l_log ) l_pure=.true.

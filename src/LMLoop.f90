@@ -251,6 +251,9 @@ contains
 
       !--- Inner core rotation from last time step
       real(cp) :: z10(n_r_max)
+#ifdef WITH_OMP_GPU
+      integer :: lm2_loc, nR
+#endif
 
       PERFON('LMloop')
       if ( lMat ) then ! update matrices:
@@ -271,46 +274,24 @@ contains
       end if
 
       call upS_counter%start_count()
+
       if ( l_phase_field ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(phi_LMloc, dphidt)
-#endif
          call updatePhi(phi_LMloc, dphidt, tscheme)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(phi_LMloc, dphidt)
-#endif
       end if
 
       if ( l_heat .and. .not. l_single_matrix ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(s_LMloc, dsdt)
-         if ( l_phase_field ) then
-            !$omp target update to(phi_LMloc)
-         end if
-#endif
          PERFON('up_S')
          call updateS( s_LMloc, ds_LMloc, dsdt, phi_LMloc, tscheme )
          PERFOFF
-#ifdef WITH_OMP_GPU
-         !$omp target update from(s_LMloc, ds_LMloc, dsdt)
-#endif
       end if
 
       if ( l_chemical_conv ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(xi_LMloc, dxidt)
-#endif
          call updateXi(xi_LMloc, dxi_LMloc, dxidt, tscheme)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(xi_LMloc, dxi_LMloc, dxidt)
-#endif
       end if
+
       call upS_counter%stop_count()
 
       if ( l_conv ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(z_LMloc, dzdt)
-#endif
          PERFON('up_Z')
          call upZ_counter%start_count()
          call updateZ( time, timeNext, z_LMloc, dz_LMloc, dzdt, omega_ma,  &
@@ -319,13 +300,19 @@ contains
               &        lRmsNext)
          call upZ_counter%stop_count()
          PERFOFF
-#ifdef WITH_OMP_GPU
-         !$omp target update from(z_LMloc, dz_LMloc, dzdt)
-#endif
 
          if ( l_single_matrix ) then
             if ( rank == rank_with_l1m0 ) then
+#ifdef WITH_OMP_GPU
+               lm2_loc = lo_map%lm2(1,0)
+               !$omp target teams distribute parallel do
+               do nR=1,n_r_max
+                  z10(nR)=real(z_LMloc(lm2_loc,nR))
+               end do
+               !$omp end target teams distribute parallel do
+#else
                z10(:)=real(z_LMloc(lo_map%lm2(1,0),:))
+#endif
             end if
 #ifdef WITH_MPI
             if ( rank_with_l1m0 >= 0 ) then ! This is -1 if m_min > 0
@@ -333,30 +320,12 @@ contains
                     &         MPI_COMM_WORLD,ierr)
             end if
 #endif
-#ifdef WITH_OMP_GPU
-            !$omp target update to(dwdt, dpdt, dsdt)
-            !$omp target update to(w_LMloc, dw_LMloc, p_LMloc, ds_LMloc)
-#endif
             call upWP_counter%start_count()
             call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
                  &          p_LMloc, dp_LMloc, dpdt, s_LMloc, ds_LMloc, &
                  &          dsdt, tscheme, lRmsNext )
             call upWP_counter%stop_count()
-#ifdef WITH_OMP_GPU
-            !$omp target update from(dwdt, dpdt, dsdt)
-            !$omp target update from(w_LMloc, dw_LMloc, p_LMloc, ds_LMloc)
-            !$omp target update from(ddw_LMloc, dp_LMloc, s_LMloc)
-#endif
          else
-#ifdef WITH_OMP_GPU
-            !$omp target update to(w_LMloc)
-            !$omp target update to(p_LMloc)
-            !$omp target update to(dwdt)
-            !$omp target update if(.not. l_double_curl) to(dpdt)
-            !$omp target update to(s_LMloc)
-            !$omp target update if(l_chemical_conv) to(xi_LMLoc)
-            !$omp target update to(dw_LMloc, ddw_LMloc)
-#endif
             PERFON('up_WP')
             call upWP_counter%start_count()
             call updateWP( s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc, ddw_LMloc, &
@@ -364,27 +333,9 @@ contains
                  &         lRmsNext, lPressNext )
             call upWP_counter%stop_count()
             PERFOFF
-#ifdef WITH_OMP_GPU
-            !$omp target update from(w_LMloc)
-            !$omp target update from(p_LMloc)
-            !$omp target update from(dwdt)
-            !$omp target update if(.not. l_double_curl) from(dpdt)
-            !$omp target update from(s_LMloc)
-            !$omp target update if(l_chemical_conv) from(xi_LMLoc)
-            !$omp target update from(dw_LMloc, ddw_LMloc)
-            !$omp target update from(dp_LMloc)
-#endif
          end if
       end if
       if ( l_mag ) then ! dwdt,dpdt used as work arrays
-#ifdef WITH_OMP_GPU
-         !$omp target update to(dbdt, djdt)
-         !$omp target update to(b_LMloc, aj_LMloc)
-         if ( l_cond_ic ) then
-            !$omp target update to(dbdt_ic, djdt_ic)
-            !$omp target update to(b_ic_LMloc, aj_ic_LMloc)
-         end if
-#endif
          PERFON('up_B')
          call upB_counter%start_count()
          call updateB( b_LMloc,db_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,ddj_LMloc, &
@@ -394,16 +345,6 @@ contains
               &        lRmsNext )
          call upB_counter%stop_count()
          PERFOFF
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dbdt, djdt)
-         !$omp target update from(b_LMloc, aj_LMloc)
-         !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
-         if ( l_cond_ic ) then
-            !$omp target update from(dbdt_ic, djdt_ic)
-            !$omp target update from(b_ic_LMloc, aj_ic_LMloc)
-            !$omp target update from(db_ic_LMloc, dj_ic_LMloc, ddb_ic_LMloc, ddj_ic_LMloc)
-         end if
-#endif
       end if
 
       PERFOFF
