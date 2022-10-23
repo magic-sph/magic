@@ -318,7 +318,7 @@ contains
          ds_LMloc(llm:,1:) => s_LMloc_container(llm:ulm,1:n_r_max,2)
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: s_LMloc, ds_LMloc)
-         !$omp target update to(s_Rloc, ds_Rloc) nowait
+         !$omp target update to(s_LMloc, ds_LMloc) nowait
 #endif
          allocate( s_Rloc_container(lm_max,nRstart:nRstop,1:2) )
          s_Rloc_container(:,:,:)=zero
