@@ -129,6 +129,45 @@ square of temperature/entropy. It is written by the subroutine
    |               | versus order                                              |
    +---------------+-----------------------------------------------------------+
 
+This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with the following options:
+
+   >>> # To read the file ``T_spec_3.test_a``:
+   >>> sp = MagicSpectrum(field='T', ispec=3, tag='test_a')
+
+.. _secXiSpecFile:
+
+``Xi_spec_#.TAG``
+-----------------
+
+This file contains the spectra of chemical composition, this is defined by taking the
+square of chemical composition. It is written by the subroutine
+:f:subr:`spectrum <spectra/spectrum()>`.
+
+   +---------------+-------------------------------------------------------------+
+   | No. of column | Contents                                                    |
+   +===============+=============================================================+
+   | 1             | degree / order                                              |
+   +---------------+-------------------------------------------------------------+
+   | 2             | Square chemical composition versus degree                   |
+   +---------------+-------------------------------------------------------------+
+   | 3             | Square chemical composition versus order                    |
+   +---------------+-------------------------------------------------------------+
+   | 4             | Square chemical composition at the ICB versus degree        |
+   +---------------+-------------------------------------------------------------+
+   | 5             | Square chemical composition at the ICB versus order         |
+   +---------------+-------------------------------------------------------------+
+   | 6             | Square radial derivative of chemical composition at the ICB |
+   |               | versus degree                                               |
+   +---------------+-------------------------------------------------------------+
+   | 7             | Square radial derivative of chemical composition at the ICB |
+   |               | versus order                                                |
+   +---------------+-------------------------------------------------------------+
+
+This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with the following options:
+
+   >>> # To read the file ``Xi_spec_ave.test``:
+   >>> sp = MagicSpectrum(field='Xi', ave=True, tag='test')
+
 .. _sec2DSpectra:
 
 2D spectra ``2D_[kin|mag]_spec_#.TAG`` and ``2D_[kin|mag]_spec_ave.TAG``
