@@ -25,6 +25,10 @@ module mean_sd
       real(cp), allocatable :: mean(:,:)
       real(cp), allocatable :: SD(:,:)
       logical :: l_SD
+      integer :: n_start_col
+      integer :: n_stop_col
+      integer :: n_start_row
+      integer :: n_stop_row
    contains
       procedure :: initialize => initialize_2D
       procedure :: compute_2D_1D_input
@@ -118,6 +122,10 @@ contains
       logical, intent(in) :: l_SD
 
       this%l_SD=l_SD
+      this%n_start_col=n_start_col
+      this%n_stop_col =n_stop_col
+      this%n_start_row=n_start_row
+      this%n_stop_row =n_stop_row
 
       allocate( this%mean(n_start_row:n_stop_row,n_start_col:n_stop_col) )
       bytes_allocated=bytes_allocated+(n_stop_row-n_start_row+1)* &
@@ -168,7 +176,8 @@ contains
    subroutine compute_2D_2D_input(this, input_data, n_ave, dt, totalTime)
 
       class(mean_sd_2D_type) :: this
-      real(cp), intent(in)   :: input_data(:,:)
+      real(cp), intent(in)   :: input_data(this%n_start_row:this%n_stop_row, &
+      &                                    this%n_start_col:this%n_stop_col)
       real(cp), intent(in)   :: dt
       real(cp), intent(in)   :: totalTime
       integer,  intent(in)   :: n_ave
@@ -183,8 +192,8 @@ contains
             this%SD(:,:)  =0.0_cp
          end if
       else
-         do n=1,size(input_data,1)
-            do m=1,size(input_data,2)
+         do m=this%n_start_col,this%n_stop_col
+            do n=this%n_start_row,this%n_stop_row
                delta         =input_data(n,m)-this%mean(n,m)
                this%mean(n,m)=this%mean(n,m)+delta*dt/totalTime
                if ( this%l_SD ) then
