@@ -17,7 +17,8 @@ module step_time_mod
        &                dtMin, tScale, dct_counter, nl_counter,    &
        &                solve_counter, lm2phy_counter, td_counter, &
        &                phy2lm_counter, nl_counter, f_exp_counter, &
-       &                upWP_counter, upS_counter, upZ_counter, upB_counter
+       &                upWP_counter, upS_counter, upZ_counter,    &
+       &                upB_counter, up1_counter, up2_counter, up3_counter, up4_counter
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag, &
        &                  n_r_icb, n_r_cmb
    use radial_der, only: get_dr_Rloc, get_ddr_Rloc, exch_ghosts, bulk_to_ghost
@@ -1250,6 +1251,14 @@ contains
       call upWP_counter%finalize('!     - Time taken for updateWP,WPS         :', &
            &                      n_log_file)
       call upS_counter%finalize('!     - Time taken for updateS,XI,PHI       :', &
+           &                      n_log_file)
+      call up1_counter%finalize('!           * Set IMEX RHS                  :', &
+           &                      n_log_file)
+      call up2_counter%finalize('!           * Solve loop                    :', &
+           &                      n_log_file)
+      call up3_counter%finalize('!           * Rotate IMEX                   :', &
+           &                      n_log_file)
+      call up4_counter%finalize('!           * get_rhs_imp                   :', &
            &                      n_log_file)
       call upZ_counter%finalize('!     - Time taken for updateZ              :', &
            &                      n_log_file)

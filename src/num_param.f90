@@ -79,6 +79,7 @@ module num_param
    type(timer_type), public :: td_counter
 
    type(timer_type), public :: upWP_counter, upS_counter, upZ_counter, upB_counter
+   type(timer_type), public :: up1_counter, up2_counter, up3_counter, up4_counter
    character(len=72), public :: time_scheme ! Time scheme
 
    public :: initialize_num_param      ! Subroutine that allocates auxiliary arrays delxr2 and delxh2
@@ -106,6 +107,10 @@ contains
 
       call upWP_counter%initialize()
       call upS_counter%initialize()
+      call up1_counter%initialize()
+      call up2_counter%initialize()
+      call up3_counter%initialize()
+      call up4_counter%initialize()
       call upZ_counter%initialize()
       call upB_counter%initialize()
 

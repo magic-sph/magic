@@ -106,7 +106,7 @@ contains
                call wpMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
             end do
             allocate( wpMat_fac(n_r_max,2,nLMBs2(1+rank)) )
-            wpMat_fac(:,:) = 0.0_cp
+            wpMat_fac(:,:,:) = 0.0_cp
             bytes_allocated=bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
             &               SIZEOF_DEF_REAL
 #ifdef WITH_OMP_GPU

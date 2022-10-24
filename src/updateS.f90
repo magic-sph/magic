@@ -17,7 +17,7 @@ module updateS_mod
    use radial_functions, only: orho1, or1, or2, beta, dentropy0, rscheme_oc,  &
        &                       kappa, dLkappa, dLtemp0, temp0, r
    use physical_parameters, only: opr, kbots, ktops, stef
-   use num_param, only: dct_counter, solve_counter
+   use num_param, only: dct_counter, solve_counter, up1_counter, up2_counter, up3_counter, up4_counter
    use init_fields, only: tops, bots
    use blocking, only: lo_map, lo_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_S
@@ -248,8 +248,11 @@ contains
       nLMB=1+rank
 
       !-- Now assemble the right hand side and store it in work_LMloc
+      call up1_counter%start_count()
       call tscheme%set_imex_rhs(work_LMloc, dsdt)
+      call up1_counter%stop_count()
 
+      call up2_counter%start_count()
 #ifndef WITH_OMP_GPU
       !$omp parallel default(shared)
 #endif
@@ -458,10 +461,14 @@ contains
       !$omp end do
       !$omp end parallel
 #endif
+      call up2_counter%stop_count()
 
+      call up3_counter%start_count()
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dsdt)
+      call up3_counter%stop_count()
 
+      call up4_counter%start_count()
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
          call get_entropy_rhs_imp(s, ds, dsdt, phi, 1, tscheme%l_imp_calc_rhs(1), &
@@ -471,6 +478,7 @@ contains
               &                   tscheme%l_imp_calc_rhs(tscheme%istage+1), &
               &                   l_in_cheb_space=.true.)
       end if
+      call up4_counter%stop_count()
 
    end subroutine updateS
 !------------------------------------------------------------------------------
