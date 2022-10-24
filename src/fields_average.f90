@@ -27,7 +27,7 @@ module fields_average_mod
 #else
    use out_coeff, only: write_Pot
 #endif
-   use spectra, only: spectrum, spectrum_temp
+   use spectra, only: spectrum
    use graphOut_mod, only: graphOut_IC, open_graph_file, close_graph_file
 #ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi, graphOut_mpi_header
@@ -205,7 +205,7 @@ contains
       real(cp) :: Dip,DipCMB,e_cmb,elsAnel
 
       integer :: nR, n_graph_handle
-      integer :: n_e_sets,n_spec
+      integer :: n_e_sets
 
       character(len=80) :: outFile
       integer :: nOut,n_cmb_sets,nPotSets
@@ -279,16 +279,11 @@ contains
 
          !----- Get averaged spectra:
          !      Note: average spectra will be in file no 0
-         n_spec=0
-         call spectrum(n_spec,time,.false.,nAve,l_stop_time,time_passed, &
-              &        time_norm,w_ave_LMloc,dw_ave_LMloc,z_ave_LMloc,   &
-              &        b_ave_LMloc,db_ave_LMloc,aj_ave_LMloc,b_ic_ave,   &
-              &        db_ic_ave,aj_ic_ave)
+         call spectrum(0,time,.false.,nAve,l_stop_time,time_passed,      &
+              &        time_norm,s_ave_LMloc,ds_ave_LMloc,w_ave_LMloc,   &
+              &        dw_ave_LMloc,z_ave_LMloc,b_ave_LMloc,db_ave_LMloc,&
+              &        aj_ave_LMloc,b_ic_ave,db_ic_ave,aj_ic_ave)
 
-         if ( l_heat ) then
-            call spectrum_temp(n_spec,time,.false.,0,l_stop_time,     &
-                 &             0.0_cp,0.0_cp,s_ave_LMloc,ds_ave_LMloc)
-         end if
          if ( rank==0 .and. l_save_out ) then
             open(newunit=n_log_file, file=log_file, status='unknown', &
             &    position='append')
