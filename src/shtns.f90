@@ -9,7 +9,7 @@ module sht
    use blocking, only: st_map
    use constants, only: ci, one, zero
    use truncation, only: m_max, l_max, n_theta_max, n_phi_max, &
-       &                 minc, lm_max, lmP_max, nlat_padded
+       &                 minc, lm_max, nlat_padded
    use horizontal_data, only: dLh, O_sin_theta_E2, O_sin_theta
    use parallel_mod
 
@@ -26,7 +26,7 @@ module sht
    &         spat_to_qst, sphtor_to_spat, toraxi_to_spat, finalize_sht,         &
    &         axi_to_spat
 
-   type(c_ptr) :: sht_l, sht_lP
+   type(c_ptr) :: sht_l
 
 contains
 
@@ -71,18 +71,12 @@ contains
          write(output_unit,*) ''
       end if
 
-      sht_lP = shtns_create(l_max+1, m_max/minc, minc, norm)
-      call shtns_set_grid(sht_lP, layout, eps_polar, n_theta_max, n_phi_max)
-
-
    end subroutine initialize_sht
 !------------------------------------------------------------------------------
    subroutine finalize_sht
 
       call shtns_unset_grid(sht_l)
       call shtns_destroy(sht_l)
-      call shtns_unset_grid(sht_lP)
-      call shtns_destroy(sht_lP)
 
    end subroutine finalize_sht
 !------------------------------------------------------------------------------
@@ -394,7 +388,7 @@ contains
       !-- Output variable
       complex(cp), intent(out) :: fLM(:)
 
-      call spat_to_SH_l(sht_lP, f, fLM, lcut+1)
+      call spat_to_SH_l(sht_l, f, fLM, lcut)
 
    end subroutine scal_to_SH
 !------------------------------------------------------------------------------
@@ -411,7 +405,7 @@ contains
       complex(cp), intent(out) :: sLM(:)
       complex(cp), intent(out) :: tLM(:)
 
-      call spat_to_SHqst_l(sht_lP, f, g, h, qLM, sLM, tLM, lcut+1)
+      call spat_to_SHqst_l(sht_l, f, g, h, qLM, sLM, tLM, lcut)
 
    end subroutine spat_to_qst
 !------------------------------------------------------------------------------
@@ -426,7 +420,7 @@ contains
       complex(cp), intent(out) :: fLM(:)
       complex(cp), intent(out) :: gLM(:)
 
-      call spat_to_SHsphtor_l(sht_lP, f, g, fLM, gLM, lcut+1)
+      call spat_to_SHsphtor_l(sht_l, f, g, fLM, gLM, lcut)
 
    end subroutine spat_to_sphertor
 !------------------------------------------------------------------------------
@@ -474,11 +468,7 @@ contains
       complex(cp) :: tmpLM(size(fLM))
 
       tmp(:)=cmplx(f(:),0.0_cp,kind=cp)
-      if ( size(fLM) == l_max+2 ) then
-         call spat_to_SH_ml(sht_lP, 0, tmp, tmpLM, l_max+1)
-      else if ( size(fLM) == l_max+1 ) then
-         call spat_to_SH_ml(sht_l, 0, tmp, tmpLM, l_max)
-      end if
+      call spat_to_SH_ml(sht_l, 0, tmp, tmpLM, l_max)
       fLM(:)=real(tmpLM(:))
 
    end subroutine spat_to_SH_axi
