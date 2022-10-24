@@ -1,10 +1,15 @@
 module shtransforms
+   !
+   ! This module is used when the native built-in SH transforms of MagIC are
+   ! used. Those are much slower than SHTns, and are not recommanded for
+   ! production runs!
+   !
 
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_m_max, l_max, l_axi, n_theta_max, minc, &
-       &                 n_phi_max, lmP_max, m_max, m_min
-   use blocking, only: lmP2l, lmP2lm
+       &                 n_phi_max, m_max, m_min
+   use blocking, only: lm2l
    use horizontal_data, only: gauleg, O_sin_theta_E2
    use plms_theta, only: plm_theta
    use constants, only: zero, half, one, ci, pi, two
@@ -14,7 +19,7 @@ module shtransforms
    implicit none
 
    !-- Legendres:
-   real(cp), allocatable :: Plm(:,:)
+   real(cp), allocatable :: Plm(:,:) ! Legendre polynomials :math:`P_{\ell m}`
    real(cp), allocatable :: wPlm(:,:)
    real(cp), allocatable :: wdPlm(:,:)
    real(cp), allocatable :: dPlm(:,:)
@@ -22,7 +27,6 @@ module shtransforms
    !-- Limiting l for a given m, used in legtf
    real(cp), public, allocatable :: D_mc2m(:)
    integer, allocatable :: lStart(:),lStop(:)
-   integer, allocatable :: lStartP(:),lStopP(:)
 
    public :: initialize_transforms, finalize_transforms, native_qst_to_spat,   &
    &         native_sphtor_to_spat, native_sph_to_spat, native_spat_to_sph,    &
@@ -32,26 +36,26 @@ module shtransforms
 contains
 
    subroutine initialize_transforms
+      !
+      ! This subroutine allocates the arrays needed when the native SH transforms
+      ! are used. This also defines the Legendre polynomials and the Gauss weights.
+      !
 
       !-- Local variables
-      integer :: n_theta, lmP, norm, l, lm, mc, m
+      integer :: n_theta, norm, lm, mc, m
       real(cp) :: colat,theta_ord(n_theta_max), gauss(n_theta_max)
-      real(cp) :: plma(lmP_max), dtheta_plma(lmP_max)
+      real(cp) :: plma(lm_max), dtheta_plma(lm_max)
 
-      allocate( Plm(lm_max,n_theta_max/2) )
-      allocate( wPlm(lmP_max,n_theta_max/2) )
-      allocate( wdPlm(lmP_max,n_theta_max/2) )
-      allocate( dPlm(lm_max,n_theta_max/2) )
-      bytes_allocated = bytes_allocated+(lm_max*n_theta_max+ &
-      &                 lmP_max*n_theta_max)*SIZEOF_DEF_REAL
+      allocate( Plm(lm_max,n_theta_max/2), wPlm(lm_max,n_theta_max/2) )
+      allocate( wdPlm(lm_max,n_theta_max/2), dPlm(lm_max,n_theta_max/2) )
+      bytes_allocated = bytes_allocated+2*lm_max*n_theta_max*SIZEOF_DEF_REAL
 
       allocate( D_mc2m(n_m_max) )
       bytes_allocated = bytes_allocated+n_m_max*SIZEOF_DEF_REAL
 
       !-- Limiting l for a given m, used in legtf
       allocate( lStart(n_m_max),lStop(n_m_max) )
-      allocate( lStartP(n_m_max),lStopP(n_m_max) )
-      bytes_allocated = bytes_allocated+4*n_m_max*SIZEOF_INTEGER
+      bytes_allocated = bytes_allocated+2*n_m_max*SIZEOF_INTEGER
 
       norm=2 ! norm chosen so that a surface integral over
              ! any ylm**2 is 1.
@@ -63,34 +67,25 @@ contains
       do n_theta=1,n_theta_max/2  ! Loop over colat in NHS
          colat=theta_ord(n_theta)
          !----- plmtheta calculates plms and their derivatives
-         !      up to degree and order l_max+1 and m_max at
+         !      up to degree and order l_max and m_max at
          !      the points cos(theta_ord(n_theta)):
-         call plm_theta(colat,l_max+1,m_min,m_max,minc,plma,dtheta_plma,lmP_max,norm)
-         do lmP=1,lmP_max
-            l=lmP2l(lmP)
-            if ( l <= l_max ) then
-               lm=lmP2lm(lmP)
-               Plm(lm,n_theta) =plma(lmP)
-               dPlm(lm,n_theta)=dtheta_plma(lmP)
-            end if
-            wPlm(lmP,n_theta) =two*pi*gauss(n_theta)*plma(lmP)
-            wdPlm(lmP,n_theta)=two*pi*gauss(n_theta)*dtheta_plma(lmP)
+         call plm_theta(colat,l_max,m_min,m_max,minc,plma,dtheta_plma,lm_max,norm)
+         do lm=1,lm_max
+            Plm(lm,n_theta) =plma(lm)
+            dPlm(lm,n_theta)=dtheta_plma(lm)
+            wPlm(lm,n_theta) =two*pi*gauss(n_theta)*plma(lm)
+            wdPlm(lm,n_theta)=two*pi*gauss(n_theta)*dtheta_plma(lm)
          end do
       end do
 
       !-- Build auxiliary index arrays for Legendre transform:
-      !   lStartP, lStopP give start and end positions in lmP-block.
       !   lStart, lStop give start and end positions in lm-block.
-      lStartP(1)=1
-      lStopP(1) =l_max+2
       lStart(1) =1
       lStop(1)  =l_max+1
       D_mc2m(1)=0
       do mc=2,n_m_max
          m=(mc-1)*minc
          D_mc2m(mc) =real(m,cp)
-         lStartP(mc)=lStopP(mc-1)+1
-         lStopP(mc) =lStartP(mc) +l_max-m+1
          lStart(mc) =lStop(mc-1) +1
          lStop(mc)  =lStart(mc)  +l_max-m
       end do
@@ -98,9 +93,12 @@ contains
    end subroutine initialize_transforms
 !------------------------------------------------------------------------------
    subroutine finalize_transforms
+      !
+      ! This subroutine handles the memory deallocation of arrays used with the
+      ! native SH transforms.
+      !
 
-      deallocate( Plm, wPlm, wdPlm, dPlm)
-      deallocate( D_mc2m, lStart, lStop, lStartP, lStopP)
+      deallocate( Plm, wPlm, wdPlm, dPlm, D_mc2m, lStart, lStop)
 
    end subroutine finalize_transforms
 !------------------------------------------------------------------------------
@@ -653,7 +651,7 @@ contains
       integer,  intent(in) :: lcut
 
       !-- Output variable:
-      complex(cp), intent(out) :: f1LM(lmP_max)
+      complex(cp), intent(out) :: f1LM(lm_max)
 
       !-- Local variables:
       integer :: nThetaN     ! No. of theta in NHS
@@ -688,8 +686,8 @@ contains
       nThStart=4*nThstart-3 ; nThStop=4*nThStop
       !-- Unscrambles equatorially symmetric and antisymmetric contributions:
       do mc=1,n_m_max        ! counts spherical harmonic orders
-         lmS=lStopP(mc)-l_max-1+lcut
-         if ( mod(lmS-lStartP(mc),2) == 0 ) then
+         lmS=lStop(mc)-l_max+lcut
+         if ( mod(lmS-lStart(mc),2) == 0 ) then
             l_Odd=.true.
          else
             l_Odd=.false.
@@ -713,7 +711,7 @@ contains
             f1ES2=f1ES(nTheta2,mc)
             f1EA1=f1EA(nTheta1,mc)
             f1EA2=f1EA(nTheta2,mc)
-            do lm=lStartP(mc),lmS-1,2
+            do lm=lStart(mc),lmS-1,2
                f1LM(lm)  =f1LM(lm)  +f1ES1*wPlm(lm,nTheta1)  +f1ES2*wPlm(lm,nTheta2)
                f1LM(lm+1)=f1LM(lm+1)+f1EA1*wPlm(lm+1,nTheta1)+f1EA2*wPlm(lm+1,nTheta2)
             end do
@@ -738,7 +736,7 @@ contains
       integer,  intent(in) :: lcut
 
       !-- Output variables:
-      complex(cp), intent(out) :: f1LM(lmP_max),f2LM(lmP_max)
+      complex(cp), intent(out) :: f1LM(lm_max),f2LM(lm_max)
 
       !-- Local variables:
       integer :: nThetaN     ! No. of theta in NHS
@@ -793,8 +791,8 @@ contains
 
       !-- Unscrambles equatorially symmetric and antisymmetric contributions:
       do mc=1,n_m_max         ! counts spherical harmonic orders
-         lmS=lStopP(mc)-l_max-1+lcut
-         if ( mod(lmS-lStartP(mc),2) == 0 ) then
+         lmS=lStop(mc)-l_max+lcut
+         if ( mod(lmS-lStart(mc),2) == 0 ) then
             l_Odd=.true.
          else
             l_Odd=.false.
@@ -827,7 +825,7 @@ contains
             f2ES2=f2ES(nTheta2,mc)
             f2EA1=f2EA(nTheta1,mc)
             f2EA2=f2EA(nTheta2,mc)
-            do lm=lStartP(mc),lmS-1,2
+            do lm=lStart(mc),lmS-1,2
                f1LM(lm)  =f1LM(lm)-ci*dm*f1ES1* wPlm(lm,nTheta1)      &
                &                  -ci*dm*f1ES2* wPlm(lm,nTheta2)      &
                &                  +      f2EA1*wdPlm(lm,nTheta1)      &
@@ -861,8 +859,8 @@ contains
       !$omp end parallel
 
       !-- Division by l(l+1) except for (l=0,m=0)
-      do lm=2,lmP_max
-         l=lmP2l(lm)
+      do lm=2,lm_max
+         l=lm2l(lm)
          f1LM(lm)=f1LM(lm)/real(l*(l+1),cp)
          f2LM(lm)=f2LM(lm)/real(l*(l+1),cp)
       end do
