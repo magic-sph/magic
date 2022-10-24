@@ -178,6 +178,7 @@ contains
       complex(cp) :: dw_ave_LMloc(llm:ulm,n_r_max)
       complex(cp) :: dw_ave_Rloc(lm_max,nRstart:nRstop)
       complex(cp) :: ds_ave_LMloc(llm:ulm,n_r_max)
+      complex(cp) :: dxi_ave_LMloc(llm:ulm,n_r_max)
       complex(cp) :: db_ave_LMloc(llm:ulm,n_r_maxMag)
       complex(cp) :: db_ave_Rloc(lm_maxMag,nRstart:nRstop)
       complex(cp) :: db_ic_ave(llm:ulm,n_r_ic_max)
@@ -268,6 +269,10 @@ contains
             call get_dr(s_ave_LMloc,ds_ave_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max, &
                  &      rscheme_oc,nocopy=.true.)
          end if
+         if ( l_chemical_conv ) then
+            call get_dr(xi_ave_LMloc,dxi_ave_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max, &
+                 &      rscheme_oc,nocopy=.true.)
+         end if
          if ( l_cond_ic ) then
             call get_ddrNS_even(b_ic_ave,db_ic_ave,ddb_ic_ave,ulm-llm+1,1,     &
                  &              ulm-llm+1,n_r_ic_max,n_cheb_ic_max,dr_fac_ic,  &
@@ -279,10 +284,11 @@ contains
 
          !----- Get averaged spectra:
          !      Note: average spectra will be in file no 0
-         call spectrum(0,time,.false.,nAve,l_stop_time,time_passed,      &
-              &        time_norm,s_ave_LMloc,ds_ave_LMloc,w_ave_LMloc,   &
-              &        dw_ave_LMloc,z_ave_LMloc,b_ave_LMloc,db_ave_LMloc,&
-              &        aj_ave_LMloc,b_ic_ave,db_ic_ave,aj_ic_ave)
+         call spectrum(0,time,.false.,nAve,l_stop_time,time_passed,        &
+              &        time_norm,s_ave_LMloc,ds_ave_LMloc,xi_ave_LMloc,    &
+              &        dxi_ave_LMloc,w_ave_LMloc,dw_ave_LMloc,z_ave_LMloc, &
+              &        b_ave_LMloc,db_ave_LMloc,aj_ave_LMloc,b_ic_ave,     &
+              &        db_ic_ave,aj_ic_ave)
 
          if ( rank==0 .and. l_save_out ) then
             open(newunit=n_log_file, file=log_file, status='unknown', &

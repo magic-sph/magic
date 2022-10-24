@@ -16,7 +16,7 @@ module spectra
    use physical_parameters, only: LFfac
    use num_param, only: eScale, tScale
    use blocking, only: lo_map, llm, ulm, llmMag, ulmMag
-   use logic, only: l_mag, l_anel, l_cond_ic, l_heat, l_save_out, &
+   use logic, only: l_mag, l_anel, l_cond_ic, l_heat, l_save_out, l_chemical_conv, &
        &            l_energy_modes, l_2D_spectra
    use output_data, only: tag, m_max_modes
    use useful, only: cc2real, cc22real, logWrite, round_off
@@ -46,6 +46,9 @@ module spectra
 
    type(mean_sd_type) :: T_l_ave, T_ICB_l_ave, dT_ICB_l_ave
    type(mean_sd_type) :: T_m_ave, T_ICB_m_ave, dT_ICB_m_ave
+
+   type(mean_sd_type) :: Xi_l_ave, Xi_ICB_l_ave, dXi_ICB_l_ave
+   type(mean_sd_type) :: Xi_m_ave, Xi_ICB_m_ave, dXi_ICB_m_ave
 
    integer :: n_am_kpol_file, n_am_ktor_file
    integer :: n_am_mpol_file, n_am_mtor_file
@@ -105,6 +108,15 @@ contains
          call T_m_ave%initialize(0,l_max)
          call T_ICB_m_ave%initialize(0,l_max)
          call dT_ICB_m_ave%initialize(0,l_max)
+      end if
+
+      if ( l_chemical_conv ) then
+         call Xi_l_ave%initialize(0,l_max)
+         call Xi_ICB_l_ave%initialize(0,l_max)
+         call dXi_ICB_l_ave%initialize(0,l_max)
+         call Xi_m_ave%initialize(0,l_max)
+         call Xi_ICB_m_ave%initialize(0,l_max)
+         call dXi_ICB_m_ave%initialize(0,l_max)
       end if
 
       am_kpol_file='am_kin_pol.'//tag
@@ -167,6 +179,15 @@ contains
          call e_kin_t_r_m_ave%finalize()
       end if
 
+      if ( l_chemical_conv ) then
+         call Xi_l_ave%finalize()
+         call Xi_ICB_l_ave%finalize()
+         call dXi_ICB_l_ave%finalize()
+         call Xi_m_ave%finalize()
+         call Xi_ICB_m_ave%finalize()
+         call dXi_ICB_m_ave%finalize()
+      end if
+
       if ( l_heat ) then
          call T_l_ave%finalize()
          call T_ICB_l_ave%finalize()
@@ -188,7 +209,7 @@ contains
    end subroutine finalize_spectra
 !----------------------------------------------------------------------------
    subroutine spectrum(n_spec,time,l_avg,n_time_ave,l_stop_time,time_passed, &
-              &        time_norm,s,ds,w,dw,z,b,db,aj,b_ic,db_ic,aj_ic)
+              &        time_norm,s,ds,xi,dxi,w,dw,z,b,db,aj,b_ic,db_ic,aj_ic)
       !
       ! This routine handles the computation and the writing of kinetic energy,
       ! magnetic energy and temperture spectra, depending on the field of interest.
@@ -202,6 +223,8 @@ contains
       real(cp),    intent(in) :: time_norm
       complex(cp), intent(in) :: s(llm:ulm,n_r_max)
       complex(cp), intent(in) :: ds(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: xi(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dxi(llm:ulm,n_r_max)
       complex(cp), intent(in) :: w(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dw(llm:ulm,n_r_max)
       complex(cp), intent(in) :: z(llm:ulm,n_r_max)
@@ -227,6 +250,8 @@ contains
       real(cp) :: eCMB(0:l_max),eCMB_global(0:l_max)
       real(cp) :: T_l(0:l_max), T_m(0:l_max), T_ICB_l(0:l_max), T_ICB_m(0:l_max)
       real(cp) :: dT_ICB_l(0:l_max), dT_ICB_m(0:l_max)
+      real(cp) :: Xi_l(0:l_max), Xi_m(0:l_max), Xi_ICB_l(0:l_max), Xi_ICB_m(0:l_max)
+      real(cp) :: dXi_ICB_l(0:l_max), dXi_ICB_m(0:l_max)
 
       !-- Local variables
       character(len=14) :: string
@@ -252,14 +277,14 @@ contains
       call spectrum_vec(w,dw,z,e_kin_p_r_l,e_kin_t_r_l,e_kin_p_r_m,e_kin_t_r_m, &
            &            e_kin_p_l,e_kin_t_l,e_kin_p_m,e_kin_t_m,fac_kin,orho1)
 
-      if ( l_anel ) then
-         call spectrum_vec(w,dw,z,u2_p_r_l,u2_t_r_l,u2_p_r_m,u2_t_r_m, &
-              &            u2_p_l,u2_t_l,u2_p_m,u2_t_m,fac_kin,orho2)
-      end if
+      if ( l_anel ) call spectrum_vec(w,dw,z,u2_p_r_l,u2_t_r_l,u2_p_r_m,u2_t_r_m, &
+                         &            u2_p_l,u2_t_l,u2_p_m,u2_t_m,fac_kin,orho2)
 
-      if ( l_heat ) then
-         call spectrum_scal(s, ds, T_l, T_m, T_ICB_l, T_ICB_m, dT_ICB_l, dT_ICB_m)
-      end if
+      if ( l_heat ) call spectrum_scal(s, ds, T_l, T_m, T_ICB_l, T_ICB_m, &
+                         &             dT_ICB_l, dT_ICB_m)
+
+      if ( l_chemical_conv ) call spectrum_scal(xi, dxi, Xi_l, Xi_m, Xi_ICB_l, &
+                                  &             Xi_ICB_m, dXi_ICB_l, dXi_ICB_m)
 
       !-- Compute the kinetic energy spectra near the external boundary
       if ( rank == 0 ) then
@@ -345,6 +370,15 @@ contains
             call dT_ICB_m_ave%compute(dT_ICB_m, n_time_ave, time_passed, time_norm)
          end if
 
+         if ( l_chemical_conv ) then
+            call Xi_l_ave%compute(Xi_l, n_time_ave, time_passed, time_norm)
+            call Xi_ICB_l_ave%compute(Xi_ICB_l, n_time_ave, time_passed, time_norm)
+            call dXi_ICB_l_ave%compute(dXi_ICB_l, n_time_ave, time_passed, time_norm)
+            call Xi_m_ave%compute(Xi_m, n_time_ave, time_passed, time_norm)
+            call Xi_ICB_m_ave%compute(Xi_ICB_m, n_time_ave, time_passed, time_norm)
+            call dXi_ICB_m_ave%compute(dXi_ICB_m, n_time_ave, time_passed, time_norm)
+         end if
+
          if ( l_mag ) then
             call e_mag_p_l_ave%compute(e_mag_p_l, n_time_ave, time_passed, time_norm)
             call e_mag_t_l_ave%compute(e_mag_t_l, n_time_ave, time_passed, time_norm)
@@ -428,6 +462,27 @@ contains
                &     round_off(T_ICB_m(l),maxval(T_ICB_m),cut),   &
                &     round_off(dT_ICB_l(l),maxval(dT_ICB_l),cut), &
                &     round_off(dT_ICB_m(l),maxval(dT_ICB_m),cut)
+            end do
+            close(file_handle)
+         end if
+
+         if ( l_chemical_conv ) then
+            file_name='Xi_spec_'//trim(adjustl(string))//'.'//tag
+            open(newunit=file_handle, file=file_name, status='unknown')
+            if ( n_spec == 0 ) then
+               write(file_handle,'(1x,''Chemical comp. spectra of time averaged field:'')')
+            else
+               write(file_handle,'(1x,''Chemical comp. spectra at time:'', ES20.12)')  &
+               &     time*tScale
+            end if
+            do l=0,l_max
+               write(file_handle,'(1P,I4,6ES12.4)') l,            &
+               &     round_off(Xi_l(l),maxval(Xi_l),cut),           &
+               &     round_off(Xi_m(l),maxval(Xi_m),cut),           &
+               &     round_off(Xi_ICB_l(l),maxval(Xi_ICB_l),cut),   &
+               &     round_off(Xi_ICB_m(l),maxval(Xi_ICB_m),cut),   &
+               &     round_off(dXi_ICB_l(l),maxval(dXi_ICB_l),cut), &
+               &     round_off(dXi_ICB_m(l),maxval(dXi_ICB_m),cut)
             end do
             close(file_handle)
          end if
@@ -546,6 +601,34 @@ contains
             end do
             close(file_handle)
          end if ! l_heat ?
+
+         if ( l_chemical_conv ) then
+            call Xi_l_ave%finalize_SD(time_norm)
+            call Xi_ICB_l_ave%finalize_SD(time_norm)
+            call dXi_ICB_l_ave%finalize_SD(time_norm)
+            call Xi_m_ave%finalize_SD(time_norm)
+            call Xi_ICB_m_ave%finalize_SD(time_norm)
+            call dXi_ICB_m_ave%finalize_SD(time_norm)
+
+            file_name='Xi_spec_ave.'//tag
+            open(newunit=file_handle, file=file_name, status='unknown')
+            do l=0,l_max
+               write(file_handle,'(2X,1P,I4,12ES16.8)') l,                            &
+               &     round_off(Xi_l_ave%mean(l),maxval(Xi_l_ave%mean),cut),           &
+               &     round_off(Xi_m_ave%mean(l),maxval(Xi_m_ave%mean),cut),           &
+               &     round_off(Xi_ICB_l_ave%mean(l),maxval(Xi_ICB_l_ave%mean),cut),   &
+               &     round_off(Xi_ICB_m_ave%mean(l),maxval(Xi_ICB_m_ave%mean),cut),   &
+               &     round_off(dXi_ICB_l_ave%mean(l),maxval(dXi_ICB_l_ave%mean),cut), &
+               &     round_off(dXi_ICB_m_ave%mean(l),maxval(dXi_ICB_m_ave%mean),cut), &
+               &     round_off(Xi_l_ave%SD(l),maxval(Xi_l_ave%SD),cut),               &
+               &     round_off(Xi_m_ave%SD(l),maxval(Xi_m_ave%SD),cut),               &
+               &     round_off(Xi_ICB_l_ave%SD(l),maxval(Xi_ICB_l_ave%SD),cut),       &
+               &     round_off(Xi_ICB_m_ave%SD(l),maxval(Xi_ICB_m_ave%SD),cut),       &
+               &     round_off(dXi_ICB_l_ave%SD(l),maxval(dXi_ICB_l_ave%SD),cut),     &
+               &     round_off(dXi_ICB_m_ave%SD(l),maxval(dXi_ICB_m_ave%SD),cut)
+            end do
+            close(file_handle)
+         end if ! l_chemical_conv ?
 
          if ( l_mag ) then
             !-- Output: at end of run
