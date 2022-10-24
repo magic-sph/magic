@@ -117,6 +117,9 @@ module dense_matrices
    implicit none
 
    type, public, extends(type_realmat) :: type_densemat
+#ifdef WITH_OMP_GPU
+      real(cp), pointer :: tmpr(:), tmpi(:)
+#endif
    contains
       procedure :: initialize
       procedure :: finalize
@@ -184,6 +187,16 @@ contains
 #endif
       end if
 
+#ifdef WITH_OMP_GPU
+      if( this%gpu_is_used ) then
+         allocate(this%tmpr(this%nrow), this%tmpi(this%nrow))
+         this%tmpi(:) = 0.0_cp
+         this%tmpr(:) = 0.0_cp
+         !$omp target enter data map(alloc : this%tmpi, this%tmpr)
+         !$omp target update to(this%tmpi, this%tmpr)
+      end if
+#endif
+
    end subroutine initialize
 !------------------------------------------------------------------------------
    subroutine finalize(this)
@@ -207,6 +220,13 @@ contains
 #endif
          deallocate (this%pivot)
       end if
+
+#ifdef WITH_OMP_GPU
+      if( this%gpu_is_used ) then
+         !$omp target exit data map(delete : this%tmpi, this%tmpr)
+         deallocate(this%tmpr, this%tmpi)
+      end if
+#endif
 
    end subroutine finalize
 !------------------------------------------------------------------------------
@@ -245,9 +265,30 @@ contains
       class(type_densemat) :: this
       complex(cp), intent(inout) :: rhs(:)
 
+      !--
+#ifdef WITH_OMP_GPU
+      integer :: n, i
+      real(cp), pointer :: ptr_tmpr(:), ptr_tmpi(:)
+      n =this%nrow
+      ptr_tmpr => this%tmpr
+      ptr_tmpi => this%tmpi
+#endif
+
       if ( this%gpu_is_used ) then
 #ifdef WITH_OMP_GPU
-         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)
+         !-- Extract real and imag parts of input rhs matrix
+         !$omp target teams distribute parallel do
+         do i=1,n
+            ptr_tmpr(i) = real(rhs(i))
+            ptr_tmpi(i) = aimag(rhs(i))
+         end do
+         !$omp end target teams distribute parallel do
+         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, this%tmpr, this%tmpi)
+         !$omp target teams distribute parallel do
+         do i=1,n
+            rhs(i)=cmplx(ptr_tmpr(i),ptr_tmpi(i),kind=cp)
+         end do
+         !$omp end target teams distribute parallel do
 #endif
       else
          call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)

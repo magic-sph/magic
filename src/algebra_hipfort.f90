@@ -27,7 +27,7 @@ module algebra_hipfort
 
 contains
 
-   subroutine gpu_solve_mat_complex_rhs(a,len_a,n,pivot,rhs)
+   subroutine gpu_solve_mat_complex_rhs(a,len_a,n,pivot,tmpr,tmpi)
 
       !
       !  This routine does the backward substitution into a LU-decomposed real
@@ -42,33 +42,19 @@ contains
       real(cp), intent(in) :: a(len_a,n) ! real n X n matrix
 
       !-- Output variables
-      complex(cp), intent(inout) :: rhs(n) ! on input RHS of problem
+      real(cp), intent(inout) :: tmpr(n) ! on input RHS of problem
+      real(cp), intent(inout) :: tmpi(n) ! on input RHS of problem
 
       !-- Local variables:
-      real(cp), allocatable, target :: tmpr(:), tmpi(:)
       type(c_ptr) :: handle = c_null_ptr
       integer, allocatable, target :: devInfo(:)
       real(cp), allocatable, target :: dWork_r(:)
       real(cp), allocatable, target :: dWork_i(:)
       integer(c_int) :: size_work_bytes_r ! size of workspace to pass to getrs
       integer(c_int) :: size_work_bytes_i ! size of workspace to pass to getrs
-      integer :: i
 
       !-- Create handle
       call hipsolverCheck(hipsolverCreate(handle))
-
-      allocate(tmpr(n), tmpi(n))
-      tmpi(:) = 0.0_cp; tmpr(:) = 0.0_cp
-      !$omp target enter data map(alloc : tmpi, tmpr)
-      !$omp target update to(tmpi, tmpr)
-
-      !-- Extract real and imag parts of input rhs matrix
-      !$omp target teams distribute simd
-      do i=1,n
-         tmpr(i) = real(rhs(i))
-         tmpi(i) = aimag(rhs(i))
-      end do
-      !$omp end target teams distribute simd
 
 #if (DEFAULT_PRECISION==sngl)
       !-- Real
@@ -135,17 +121,6 @@ contains
       !$omp target exit data map(delete : devInfo, dWork_i, dWork_r)
       deallocate(dWork_i, dWork_r, devInfo)
 #endif
-
-      call hipCheck(hipDeviceSynchronize())
-
-      !$omp target teams distribute parallel do
-      do i=1,n
-         rhs(i)=cmplx(tmpr(i),tmpi(i),kind=cp)
-      end do
-      !$omp end target teams distribute parallel do
-
-      !$omp target exit data map(delete : tmpi, tmpr)
-      deallocate(tmpi, tmpr)
 
       !-- Destroy handle
       call hipsolverCheck(hipsolverDestroy(handle))
@@ -223,8 +198,6 @@ contains
       deallocate(dWork, devInfo)
 #endif
 
-      call hipCheck(hipDeviceSynchronize())
-
       !-- Destroy handle
       call hipsolverCheck(hipsolverDestroy(handle))
 
@@ -299,8 +272,6 @@ contains
       !$omp target exit data map(delete : dWork, devInfo)
       deallocate(dWork, devInfo)
 #endif
-
-      call hipCheck(hipDeviceSynchronize())
 
       !-- Destroy handle
       call hipsolverCheck(hipsolverDestroy(handle))
@@ -380,8 +351,6 @@ contains
 #ifdef WITH_LIBFLAME
       !$omp end critical
 #endif
-
-      call hipCheck(hipDeviceSynchronize())
 
       !-- Destroy handle
       call hipsolverCheck(hipsolverDestroy(handle))
