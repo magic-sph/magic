@@ -231,8 +231,9 @@ contains
             l=map%lm2l(lm)
             m=map%lm2m(lm)
          else
-            l=map%lmP2l(lm)
-            m=map%lmP2m(lm)
+            stop
+            !l=map%lmP2l(lm)
+            !m=map%lmP2m(lm)
          end if
 
          if ( l <= l_max ) then
