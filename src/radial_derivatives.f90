@@ -1,4 +1,5 @@
-#define FIRST_OMP
+!-- TODO: All GPU kernels are sequentiels ("!$omp target") for "FD" branch in get_dr_complex, get_ddr, get_dddr routines.
+!-- This makes finite_differences, testRMSOutputs, & varProps work again. Next: Debug kernel by kernel
 module radial_der
    !
    ! Radial derivatives functions
@@ -135,17 +136,6 @@ contains
          !$omp end target teams distribute parallel do
 
          !----- Recursion
-#ifdef OLD_VERSION
-         !$omp target teams distribute parallel do
-         do n_f=n_f_start,n_f_stop
-            do n_cheb=n_cheb_max-2,1,-1
-               fac_cheb=d_fac*real(2*n_cheb,kind=cp)
-               df(n_f,n_cheb)=df(n_f,n_cheb+2) + fac_cheb*f(n_f,n_cheb+1)
-            end do
-         end do
-         !$omp end target teams distribute parallel do
-#else
-#ifdef FIRST_OMP
          !$omp target teams private(n_f,n_cheb,fac_cheb)
          do n_cheb=n_cheb_max-2,1,-1
             fac_cheb=d_fac*real(2*n_cheb,kind=cp)
@@ -156,35 +146,6 @@ contains
             !$omp end distribute parallel do
          end do
          !$omp end target teams
-#else
-         !$omp target teams private(n_f,df_tmp,n_cheb,fac_cheb)
-         if (n_cheb_max - 2 >= 1) then
-            !$omp distribute parallel do
-            do n_f=n_f_start,n_f_stop
-               df_tmp = df(n_f,n_cheb_max)
-               do n_cheb=n_cheb_max-2,1,-2
-                  fac_cheb=d_fac*real(2*n_cheb,kind=cp)
-                  df_tmp = df_tmp + fac_cheb*f(n_f,n_cheb+1)
-                  df(n_f,n_cheb) = df_tmp
-               end do
-            end do
-            !$omp end distribute parallel do
-         end if
-         if (n_cheb_max - 3 >= 1) then
-            !$omp distribute parallel do
-            do n_f=n_f_start,n_f_stop
-               df_tmp = df(n_f,n_cheb_max-1)
-               do n_cheb=n_cheb_max-3,1,-2
-                  fac_cheb=d_fac*real(2*n_cheb,kind=cp)
-                  df_tmp = df_tmp + fac_cheb*f(n_f,n_cheb+1)
-                  df(n_f,n_cheb) = df_tmp
-               end do
-            end do
-            !$omp end distribute parallel do
-         end if
-         !$omp end target teams
-#endif
-#endif
 #endif
       else
          !-- initialize derivatives:
@@ -313,17 +274,6 @@ contains
          !$omp end target teams distribute parallel do
 
          !----- recursion
-#ifdef OLD_VERSION
-         !$omp target teams distribute parallel do
-         do n_f=n_f_start,n_f_stop
-            do n_cheb=n_cheb_max-2,1,-1
-               fac_cheb=d_fac*real(2*n_cheb,kind=cp)
-               df(n_f,n_cheb) = df(n_f,n_cheb+2) + fac_cheb* f(n_f,n_cheb+1)
-               ddf(n_f,n_cheb)=ddf(n_f,n_cheb+2) + fac_cheb*df(n_f,n_cheb+1)
-            end do
-         end do
-         !$omp end target teams distribute parallel do
-#else
          !$omp target teams private(n_f,n_cheb,fac_cheb)
          do n_cheb=n_cheb_max-2,1,-1
             fac_cheb=d_fac*real(2*n_cheb,kind=cp)
@@ -335,7 +285,6 @@ contains
             !$omp end distribute parallel do
          end do
          !$omp end target teams
-#endif
 #endif
       else
          !----- initialize derivatives:
@@ -434,18 +383,6 @@ contains
          !$omp end target teams distribute parallel do
 
          !----- Recursion
-#ifdef OLD_VERSION
-         !$omp target teams distribute parallel do
-         do n_f=n_f_start,n_f_stop
-            do n_cheb=n_cheb_max-2,1,-1
-               fac_cheb=d_fac*real(2*n_cheb,kind=cp)
-               df(n_f,n_cheb)  =  df(n_f,n_cheb+2) + fac_cheb*  f(n_f,n_cheb+1)
-               ddf(n_f,n_cheb) = ddf(n_f,n_cheb+2) + fac_cheb* df(n_f,n_cheb+1)
-               dddf(n_f,n_cheb)=dddf(n_f,n_cheb+2) + fac_cheb*ddf(n_f,n_cheb+1)
-            end do
-         end do
-         !$omp end target teams distribute parallel do
-#else
          !$omp target teams private(n_f,n_cheb,fac_cheb)
          do n_cheb=n_cheb_max-2,1,-1
             fac_cheb=d_fac*real(2*n_cheb,kind=cp)
@@ -458,7 +395,6 @@ contains
             !$omp end distribute parallel do
          end do
          !$omp end target teams
-#endif
 #endif
       else
          !----- initialize derivatives:
@@ -678,16 +614,16 @@ contains
          if(loc_use_gpu) then
 #ifdef WITH_OMP_GPU
             !-- Initialise to zero:
-            !$omp target teams distribute parallel do collapse(2)
+            !$omp target
             do n_r=1,n_r_max
                do n_f=n_f_start,n_f_stop
                   df(n_f,n_r) =zero
                end do
             end do
-            !$omp end target teams distribute parallel do
+            !$omp end target
 
             !-- Bulk points for 1st derivative
-            !$omp target teams distribute parallel do collapse(2)
+            !$omp target
             do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
                do n_f=n_f_start,n_f_stop
                   do od=0,r_scheme%order
@@ -695,10 +631,10 @@ contains
                   end do
                end do
             end do
-            !$omp end target teams distribute parallel do
+            !$omp end target
 
             !-- Boundary points for 1st derivative
-            !$omp target teams distribute parallel do collapse(2)
+            !$omp target
             do n_r=1,r_scheme%order/2
                do n_f=n_f_start,n_f_stop
                   do od=0,r_scheme%order_boundary
@@ -708,7 +644,7 @@ contains
                   end do
                end do
             end do
-            !$omp end target teams distribute parallel do
+            !$omp end target
 #endif
         else
             !-- Initialise to zero:
@@ -829,7 +765,7 @@ contains
 
          !-- Initialise to zero:
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do collapse(2)
+         !$omp target
 #endif
          do n_r=1,n_r_max
             do n_f=n_f_start,n_f_stop
@@ -838,12 +774,12 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
+         !$omp end target
 #endif
 
          !-- Bulk points for 1st and 2nd derivatives
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do collapse(2)
+         !$omp target
 #endif
          do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
             do n_f=n_f_start,n_f_stop
@@ -854,12 +790,12 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
+         !$omp end target
 #endif
 
          !-- Boundary points for 1st derivative
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do collapse(2)
+         !$omp target
 #endif
          do n_r=1,r_scheme%order/2
             do n_f=n_f_start,n_f_stop
@@ -871,12 +807,12 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
+         !$omp end target
 #endif
 
          !-- Boundary points for 2nd derivative
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do collapse(2)
+         !$omp target
 #endif
          do n_r=1,r_scheme%order/2
             do n_f=n_f_start,n_f_stop
@@ -888,7 +824,7 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
+         !$omp end target
 #endif
 
       end if
@@ -988,7 +924,7 @@ contains
 
          !-- Initialise to zero:
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do collapse(2)
+         !$omp target
 #endif
          do n_r=1,n_r_max
             do n_f=n_f_start,n_f_stop
@@ -998,12 +934,12 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
+         !$omp end target
 #endif
 
          !-- Bulk points for 1st and 2nd derivatives
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do collapse(2)
+         !$omp target
 #endif
          do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
             do n_f=n_f_start,n_f_stop
@@ -1014,12 +950,12 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
+         !$omp end target
 #endif
 
          !-- Bulk points for 3rd derivative
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do collapse(2)
+         !$omp target
 #endif
          do n_r=2+r_scheme%order/2,n_r_max-r_scheme%order/2-1
             do n_f=n_f_start,n_f_stop
@@ -1029,12 +965,12 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
+         !$omp end target
 #endif
 
          !-- Boundary points for 1st derivative
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do collapse(2)
+         !$omp target
 #endif
          do n_r=1,r_scheme%order/2
             do n_f=n_f_start,n_f_stop
@@ -1046,12 +982,12 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
+         !$omp end target
 #endif
 
          !-- Boundary points for 2nd derivative
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do collapse(2)
+         !$omp target
 #endif
          do n_r=1,r_scheme%order/2
             do n_f=n_f_start,n_f_stop
@@ -1063,12 +999,12 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
+         !$omp end target
 #endif
 
          !-- Boundary points for 3rd derivative
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do collapse(2)
+         !$omp target
 #endif
          do n_r=1,r_scheme%order/2+1
             do n_f=n_f_start,n_f_stop
@@ -1080,7 +1016,7 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
+         !$omp end target
 #endif
 
       end if
