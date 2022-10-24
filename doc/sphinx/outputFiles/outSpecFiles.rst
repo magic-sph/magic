@@ -105,26 +105,27 @@ This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with
 ``T_spec_#.TAG``
 ----------------
 
-This file contains the temperature/entropy spectra. It is written by the subroutine
-:f:subr:`spectrum_temp <spectra/spectrum_temp()>`.
+This file contains the temperature/entropy spectra, those are defined by taking the
+square of temperature/entropy. It is written by the subroutine
+:f:subr:`spectrum <spectra/spectrum()>`.
 
    +---------------+-----------------------------------------------------------+
    | No. of column | Contents                                                  |
    +===============+===========================================================+
    | 1             | degree / order                                            |
    +---------------+-----------------------------------------------------------+
-   | 2             | RMS temperature/entropy versus degree                     |
+   | 2             | Square temperature/entropy versus degree                  |
    +---------------+-----------------------------------------------------------+
-   | 3             | RMS temperature/entropy versus order                      |
+   | 3             | Square temperature/entropy versus order                   |
    +---------------+-----------------------------------------------------------+
-   | 4             | RMS temperature/entropy at the ICB versus degree          |
+   | 4             | Square temperature/entropy at the ICB versus degree       |
    +---------------+-----------------------------------------------------------+
-   | 5             | RMS temperature/entropy at the ICB versus order           |
+   | 5             | Square temperature/entropy at the ICB versus order        |
    +---------------+-----------------------------------------------------------+
-   | 6             | RMS radial derivative of temperature/entropy at the ICB   |
+   | 6             | Square radial derivative of temperature/entropy at the ICB|
    |               | versus degree                                             |
    +---------------+-----------------------------------------------------------+
-   | 7             | RMS radial derivative of temperature/entropy at the ICB   |
+   | 7             | Square radial derivative of temperature/entropy at the ICB|
    |               | versus order                                              |
    +---------------+-----------------------------------------------------------+
 
