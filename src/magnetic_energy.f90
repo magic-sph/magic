@@ -15,7 +15,6 @@ module magnetic_energy
    use physical_parameters, only: LFfac, kbotb, ktopb
    use num_param, only: eScale, tScale
    use blocking, only: st_map, lo_map, llmMag, ulmMag
-   use horizontal_data, only: dLh
    use logic, only: l_cond_ic, l_mag, l_mag_LF, l_save_out, l_earth_likeness, &
        &            l_full_sphere
    use movie_data, only: movieDipColat, movieDipLon, movieDipStrength, &
@@ -24,7 +23,7 @@ module magnetic_energy
    use constants, only: pi, zero, one, two, half, four, osq4pi
    use special, only: n_imp, rrMP
    use integration, only: rInt_R,rIntIC
-   use useful, only: cc2real,cc22real
+   use useful, only: cc2real, cc22real
    use plms_theta, only: plm_theta
    use communications, only: gather_from_lo_to_rank0, reduce_radial, &
        &                     reduce_scalar, send_lm_pair_to_master
@@ -279,10 +278,10 @@ contains
             l=lo_map%lm2l(lm)
             m=lo_map%lm2m(lm)
 
-            e_p_temp= dLh(st_map%lm2(l,m))*( dLh(st_map%lm2(l,m))*    &
+            e_p_temp= real(l*(l+1),cp)*( real(l*(l+1),cp)*            &
             &                            or2(nR)*cc2real( b(lm,nR),m) &
             &                                  + cc2real(db(lm,nR),m) )
-            e_t_temp= dLh(st_map%lm2(l,m)) * cc2real(aj(lm,nR),m)
+            e_t_temp= real(l*(l+1),cp) * cc2real(aj(lm,nR),m)
 
             if ( m == 0 ) then  ! axisymmetric part
                e_p_as_r(nR)=e_p_as_r(nR) + e_p_temp
@@ -504,11 +503,11 @@ contains
                m=lo_map%lm2m(lm)
                r_dr_b=r_ic(nR)*db_ic(lm,nR)
 
-               e_p_temp=dLh(st_map%lm2(l,m))*O_r_icb_E_2*r_ratio**(2*l) * (     &
+               e_p_temp=real(l*(l+1),cp)*O_r_icb_E_2*r_ratio**(2*l) * (         &
                &           real((l+1)*(2*l+1),cp)*cc2real(b_ic(lm,nR),m)     +  &
                &           real(2*(l+1),cp)*cc22real(b_ic(lm,nR),r_dr_b,m)   +  &
                &                              cc2real(r_dr_b,m)            )
-               e_t_temp=dLh(st_map%lm2(l,m))*r_ratio**(2*l+2)*cc2real(aj_ic(lm,nR),m)
+               e_t_temp=real(l*(l+1),cp)*r_ratio**(2*l+2)*cc2real(aj_ic(lm,nR),m)
 
                if ( m == 0 ) then  ! axisymmetric part
                   e_p_as_ic_r(nR)=e_p_as_ic_r(nR) + e_p_temp
