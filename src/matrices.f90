@@ -11,7 +11,7 @@ module real_matrices
       integer :: ncol ! Number of columns or number of bands
       logical :: l_pivot
       real(cp), pointer :: dat(:,:) ! Actual data
-      integer, allocatable :: pivot(:)
+      integer,  pointer :: pivot(:)
       logical :: gpu_is_used
    contains
       procedure(initialize_if), deferred :: initialize
@@ -112,6 +112,10 @@ module dense_matrices
    use algebra, only: solve_mat, prepare_mat
 #ifdef WITH_OMP_GPU
    use algebra_hipfort, only: gpu_solve_mat, gpu_prepare_mat
+   use iso_c_binding
+   use hipfort_check
+   use hipfort_hipblas
+   use hipfort_hipsolver
 #endif
 
    implicit none
@@ -119,6 +123,12 @@ module dense_matrices
    type, public, extends(type_realmat) :: type_densemat
 #ifdef WITH_OMP_GPU
       real(cp), pointer :: tmpr(:), tmpi(:)
+      type(c_ptr) :: handle = c_null_ptr
+      integer,  pointer :: devInfo(:)
+      real(cp), pointer :: dWork_r(:)
+      real(cp), pointer :: dWork_i(:)
+      integer(c_int) :: size_work_bytes_r ! size of workspace to pass to getrs
+      integer(c_int) :: size_work_bytes_i ! size of workspace to pass to getrs
 #endif
    contains
       procedure :: initialize
@@ -151,6 +161,10 @@ contains
 
       !--
       logical :: loc_use_gpu
+#ifdef WITH_OMP_GPU
+      real(cp), pointer :: ptr_dat(:,:), ptr_tmpr(:), ptr_tmpi(:)
+      integer, pointer  :: ptr_pivot(:)
+#endif
       loc_use_gpu = .false.
       this%gpu_is_used=.false.
 #ifdef WITH_OMP_GPU
@@ -173,6 +187,7 @@ contains
          !$omp target enter data map(to : this%dat)
          gpu_bytes_allocated = gpu_bytes_allocated+nx*ny*SIZEOF_DEF_REAL
       end if
+      ptr_dat => this%dat
 #endif
 
       if ( this%l_pivot ) then
@@ -184,16 +199,56 @@ contains
             !$omp target enter data map(to : this%pivot)
             gpu_bytes_allocated = gpu_bytes_allocated+this%nrow*SIZEOF_INTEGER
          end if
+         ptr_pivot => this%pivot
 #endif
       end if
 
 #ifdef WITH_OMP_GPU
       if( this%gpu_is_used ) then
+
          allocate(this%tmpr(this%nrow), this%tmpi(this%nrow))
          this%tmpi(:) = 0.0_cp
          this%tmpr(:) = 0.0_cp
          !$omp target enter data map(alloc : this%tmpi, this%tmpr)
          !$omp target update to(this%tmpi, this%tmpr)
+         ptr_tmpr => this%tmpr
+         ptr_tmpi => this%tmpi
+
+         !-- Create handle
+         call hipsolverCheck(hipsolverCreate(this%handle))
+
+#if (DEFAULT_PRECISION==sngl)
+      !$omp target data use_device_addr(ptr_dat, ptr_pivot, ptr_tmpr)
+      call hipsolverCheck(hipsolverSgetrs_bufferSize(this%handle, HIPSOLVER_OP_N, this%nrow, 1, c_loc(ptr_dat), this%nrow, &
+                   & c_loc(ptr_pivot), c_loc(ptr_tmpr), this%nrow, this%size_work_bytes_r))
+      !$omp end target data
+      !$omp target data use_device_addr(ptr_dat, ptr_pivot, ptr_tmpi)
+      call hipsolverCheck(hipsolverSgetrs_bufferSize(this%handle, HIPSOLVER_OP_N, this%nrow, 1, c_loc(ptr_dat), this%nrow, &
+                   & c_loc(ptr_pivot), c_loc(ptr_tmpi), this%nrow, this%size_work_bytes_i))
+      !$omp end target data
+      allocate(this%dWork_i(this%size_work_bytes_i), this%dWork_r(this%size_work_bytes_r), this%devInfo(1))
+      this%dWork_i(:) = 0.0_cp
+      this%dWork_r(:) = 0.0_cp
+      this%devInfo(1) = 0
+      !$omp target enter data map(alloc : this%dWork_i, this%dWork_r, this%devInfo)
+      !$omp target update to(this%dWork_i, this%dWork_r, this%devInfo)
+#elif (DEFAULT_PRECISION==dble)
+      !$omp target data use_device_addr(ptr_dat, ptr_pivot, ptr_tmpr)
+      call hipsolverCheck(hipsolverDgetrs_bufferSize(this%handle, HIPSOLVER_OP_N, this%nrow, 1, c_loc(ptr_dat), this%nrow, &
+                   & c_loc(ptr_pivot), c_loc(ptr_tmpr), this%nrow, this%size_work_bytes_r))
+      !$omp end target data
+      !$omp target data use_device_addr(ptr_dat, ptr_pivot, ptr_tmpi)
+      call hipsolverCheck(hipsolverDgetrs_bufferSize(this%handle, HIPSOLVER_OP_N, this%nrow, 1, c_loc(ptr_dat), this%nrow, &
+                   & c_loc(ptr_pivot), c_loc(ptr_tmpi), this%nrow, this%size_work_bytes_i))
+      !$omp end target data
+      allocate(this%dWork_i(this%size_work_bytes_i), this%dWork_r(this%size_work_bytes_r), this%devInfo(1))
+      this%dWork_i(:) = 0.0_cp
+      this%dWork_r(:) = 0.0_cp
+      this%devInfo(1) = 0
+      !$omp target enter data map(alloc : this%dWork_i, this%dWork_r, this%devInfo)
+      !$omp target update to(this%dWork_i, this%dWork_r, this%devInfo)
+#endif
+
       end if
 #endif
 
@@ -223,8 +278,16 @@ contains
 
 #ifdef WITH_OMP_GPU
       if( this%gpu_is_used ) then
+
          !$omp target exit data map(delete : this%tmpi, this%tmpr)
          deallocate(this%tmpr, this%tmpi)
+
+         !-- Destroy handle
+         call hipsolverCheck(hipsolverDestroy(this%handle))
+
+         !$omp target exit data map(delete : this%dWork_i, this%dWork_r, this%devInfo)
+         deallocate(this%dWork_i, this%dWork_r, this%devInfo)
+
       end if
 #endif
 
@@ -283,7 +346,9 @@ contains
             ptr_tmpi(i) = aimag(rhs(i))
          end do
          !$omp end target teams distribute parallel do
-         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, this%tmpr, this%tmpi)
+         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, this%tmpr, this%tmpi, this%handle, &
+         &                  this%devInfo, this%dWork_r, this%dWork_i, this%size_work_bytes_r, this%size_work_bytes_i)
+
          !$omp target teams distribute parallel do
          do i=1,n
             rhs(i)=cmplx(ptr_tmpr(i),ptr_tmpi(i),kind=cp)

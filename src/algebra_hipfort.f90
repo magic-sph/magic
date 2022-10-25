@@ -9,7 +9,6 @@ module algebra_hipfort
    use hipfort_hipblas
    use hipfort_hipsolver
    use omp_lib
-   use hipfort, only: hipDeviceSynchronize
 
    implicit none
 
@@ -27,7 +26,8 @@ module algebra_hipfort
 
 contains
 
-   subroutine gpu_solve_mat_complex_rhs(a,len_a,n,pivot,tmpr,tmpi)
+   subroutine gpu_solve_mat_complex_rhs(a,len_a,n,pivot,tmpr,tmpi,handle, &
+   &                                    devInfo,dWork_r,dWork_i,size_work_bytes_r,size_work_bytes_i)
 
       !
       !  This routine does the backward substitution into a LU-decomposed real
@@ -36,79 +36,29 @@ contains
       !
 
       !-- Input variables:
-      integer,  intent(in) :: n          ! dimension of problem
-      integer,  intent(in) :: len_a      ! first dim of a
-      integer,  intent(in) :: pivot(n)   ! pivot pointer of legth n
-      real(cp), intent(in) :: a(len_a,n) ! real n X n matrix
+      integer,        intent(in) :: n          ! dimension of problem
+      integer,        intent(in) :: len_a      ! first dim of a
+      integer,        intent(in) :: pivot(n)   ! pivot pointer of legth n
+      real(cp),       intent(in) :: a(len_a,n) ! real n X n matrix
+      integer(c_int), intent(in) :: size_work_bytes_r ! size of workspace to pass to getrs
+      integer(c_int), intent(in) :: size_work_bytes_i ! size of workspace to pass to getrs
 
       !-- Output variables
-      real(cp), intent(inout) :: tmpr(n) ! on input RHS of problem
-      real(cp), intent(inout) :: tmpi(n) ! on input RHS of problem
-
-      !-- Local variables:
-      type(c_ptr) :: handle = c_null_ptr
-      integer, allocatable, target :: devInfo(:)
-      real(cp), allocatable, target :: dWork_r(:)
-      real(cp), allocatable, target :: dWork_i(:)
-      integer(c_int) :: size_work_bytes_r ! size of workspace to pass to getrs
-      integer(c_int) :: size_work_bytes_i ! size of workspace to pass to getrs
-
-      !-- Create handle
-      call hipsolverCheck(hipsolverCreate(handle))
+      real(cp),    intent(inout) :: tmpr(n) ! on input RHS of problem
+      real(cp),    intent(inout) :: tmpi(n) ! on input RHS of problem
+      type(c_ptr), intent(inout) :: handle
+      integer,     intent(inout) :: devInfo(:)
+      real(cp),    intent(inout) :: dWork_r(:)
+      real(cp),    intent(inout) :: dWork_i(:)
 
 #if (DEFAULT_PRECISION==sngl)
-      !-- Real
-      !$omp target data use_device_addr(a, pivot, tmpr)
-      call hipsolverCheck(hipsolverSgetrs_bufferSize(handle, HIPSOLVER_OP_N, n, 1, c_loc(a), len_a, &
-                   & c_loc(pivot), c_loc(tmpr), n, size_work_bytes_r))
-      !$omp end target data
-
-      !-- Imag
-      !$omp target data use_device_addr(a, pivot, tmpi)
-      call hipsolverCheck(hipsolverSgetrs_bufferSize(handle, HIPSOLVER_OP_N, n, 1, c_loc(a), len_a, &
-                   & c_loc(pivot), c_loc(tmpi), n, size_work_bytes_i))
-      !$omp end target data
-
-      !--
-      allocate(dWork_i(size_work_bytes_i), dWork_r(size_work_bytes_r), devInfo(1))
-      dWork_i(:) = 0.0_cp
-      dWork_r(:) = 0.0_cp
-      devInfo(1) = 0
-      !$omp target enter data map(alloc : dWork_i, dWork_r, devInfo)
-      !$omp target update to(dWork_i, dWork_r, devInfo)
-
-      !--
       !$omp target data use_device_addr(a, pivot, tmpr, tmpi, devInfo, dWork_i, dWork_r)
       call hipsolverCheck(hipsolverSgetrs(handle, HIPSOLVER_OP_N, n, 1, c_loc(a), len_a, c_loc(pivot), &
                    & c_loc(tmpr), n, c_loc(dWork_r), size_work_bytes_r, devInfo(1)))
       call hipsolverCheck(hipsolverSgetrs(handle, HIPSOLVER_OP_N, n, 1, c_loc(a), len_a, c_loc(pivot), &
                    & c_loc(tmpi), n, c_loc(dWork_i), size_work_bytes_i, devInfo(1)))
       !$omp end target data
-
-      !--
-      !$omp target exit data map(delete : dWork_i, dWork_r, devInfo)
-      deallocate(dWork_i, dWork_r, devInfo)
 #elif (DEFAULT_PRECISION==dble)
-      !-- Real
-      !$omp target data use_device_addr(a, pivot, tmpr)
-      call hipsolverCheck(hipsolverDgetrs_bufferSize(handle, HIPSOLVER_OP_N, n, 1, c_loc(a), len_a, &
-                   & c_loc(pivot), c_loc(tmpr), n, size_work_bytes_r))
-      !$omp end target data
-
-      !-- Imag
-      !$omp target data use_device_addr(a, pivot, tmpi)
-      call hipsolverCheck(hipsolverDgetrs_bufferSize(handle, HIPSOLVER_OP_N, n, 1, c_loc(a), len_a, &
-                   & c_loc(pivot), c_loc(tmpi), n, size_work_bytes_i))
-      !$omp end target data
-
-      !--
-      allocate(dWork_i(size_work_bytes_i), dWork_r(size_work_bytes_r), devInfo(1))
-      dWork_i(:) = 0.0_cp
-      dWork_r(:) = 0.0_cp
-      devInfo(1) = 0
-      !$omp target enter data map(alloc : dWork_i, dWork_r, devInfo)
-      !$omp target update to(dWork_i, dWork_r, devInfo)
-
       !-- TODO: Replace these two call by a single to hipsolverZgetrs direcly on input complex rhs
       !$omp target data use_device_addr(a, pivot, tmpr, tmpi, devInfo, dWork_i, dWork_r)
       call hipsolverCheck(hipsolverDgetrs(handle, HIPSOLVER_OP_N, n, 1, c_loc(a), len_a, c_loc(pivot), &
@@ -116,14 +66,7 @@ contains
       call hipsolverCheck(hipsolverDgetrs(handle, HIPSOLVER_OP_N, n, 1, c_loc(a), len_a, c_loc(pivot), &
                    & c_loc(tmpi), n, c_loc(dWork_i), size_work_bytes_i, devInfo(1)))
       !$omp end target data
-
-      !--
-      !$omp target exit data map(delete : devInfo, dWork_i, dWork_r)
-      deallocate(dWork_i, dWork_r, devInfo)
 #endif
-
-      !-- Destroy handle
-      call hipsolverCheck(hipsolverDestroy(handle))
 
    end subroutine gpu_solve_mat_complex_rhs
 !-----------------------------------------------------------------------------
