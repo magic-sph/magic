@@ -1177,7 +1177,7 @@ contains
          end do
       end if ! l=1,m=1 contained in lm-block ?
 
-      !$omp parallel default(shared) private(start_lm, stop_lm, n_r, lm, l, m, dL) &
+      !$omp parallel default(shared) private(start_lm, stop_lm, n_r, lm, l, m, dL, Dif) &
       !$omp reduction(+:DifTor2hInt)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)

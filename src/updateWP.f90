@@ -1356,7 +1356,7 @@ contains
          !-- Recompute third derivative to have the boundary point right
          call get_dr_Rloc(ddw, dddw_Rloc, lm_max, nRstart, nRstop, n_r_max, rscheme_oc )
 
-         !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l, m, dL) &
+         !$omp parallel default(shared) private(start_lm, stop_lm, n_r, lm, l, m, dL, Dif) &
          !$omp reduction(+:DifPol2hInt)
          start_lm=1; stop_lm=lm_max
          call get_openmp_blocks(start_lm,stop_lm)
