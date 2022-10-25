@@ -71,11 +71,16 @@ class MagicSpectrum(MagicSetup):
         elif field in ('dtVrms'):
             self.name = 'dtVrms_spec'
             self.ave = True
-        elif field in ('T','temperature','S','entropy', 'temp'):
+        elif field in ('T', 'temperature', 'S', 'entropy', 'temp'):
             if self.ave:
                 self.name = 'T_spec_ave'
             else:
                 self.name = 'T_spec_'
+        elif field in ('Xi', 'xi', 'Comp', 'comp', 'composition'):
+            if self.ave:
+                self.name = 'Xi_spec_ave'
+            else:
+                self.name = 'Xi_spec_'
         elif field == 'combined':
             self.__init__(datadir=datadir, field='e_kin', iplot=False, ispec=ispec,
                           ave=ave, normalize=normalize, tag=tag, tags=tags,
@@ -569,6 +574,48 @@ class MagicSpectrum(MagicSetup):
             ax.set_xlim(1, self.index[-1]+1)
             fig.tight_layout()
 
+        elif self.name == 'Xi_spec_' or self.name == 'Xi_spec_ave':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index+1, self.Xi_l[0:], label='Xi')
+            if self.ave:
+                ax.fill_between(self.index+1, self.Xi_l-self.Xi_l_SD,
+                                self.Xi_l+self.Xi_l_SD, alpha=0.2)
+            if self.kbots != 1:
+                ax.loglog(self.index+1, self.Xi_icb_l, label='Xi(ri)')
+                if self.ave:
+                    ax.fill_between(self.index+1, self.Xi_icb_l-self.Xi_icb_l_SD,
+                                    self.Xi_icb_l+self.Xi_icb_l_SD, alpha=0.2)
+            else:
+                ax.loglog(self.index+1, self.dXi_icb_l, label='dXi/dr(ri)')
+                if self.ave:
+                    ax.fill_between(self.index+1, self.dXi_icb_l-self.dXi_icb_l_SD,
+                                    self.dXi_icb_l+self.dXi_icb_l_SD, alpha=0.2)
+            if labTex:
+                ax.set_xlabel('$\ell+1$')
+            else:
+                ax.set_xlabel('l+1')
+            ax.set_ylabel('Chemical composition')
+            ax.set_xlim(1, self.index[-1]+1)
+            ax.legend(loc='best', frameon=False)
+            fig.tight_layout()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index[::self.minc]+1, self.Xi_m[::self.minc])
+            if self.ave:
+                ax.fill_between(self.index[::self.minc]+1,
+                                self.Xi_m[::self.minc]-self.Xi_m_SD[::self.minc],
+                                self.Xi_m[::self.minc]+self.Xi_m_SD[::self.minc],
+                                alpha=0.2)
+            if labTex:
+                ax.set_xlabel('Order $m+1$')
+            else:
+                ax.set_xlabel('m+1')
+            ax.set_ylabel('Chemical composition')
+            ax.set_xlim(1, self.index[-1]+1)
+            fig.tight_layout()
+
 class SpecLookUpTable:
     """
     The purpose of this class is to create a lookup table between the numpy
@@ -784,6 +831,26 @@ class SpecLookUpTable:
             self.T_icb_m_SD = data[:, 10]
             self.dT_icb_l_SD = data[:, 11]
             self.dT_icb_m_SD = data[:, 12]
+        elif self.name == 'Xi_spec_':
+            self.Xi_l = data[:, 1]
+            self.Xi_m = data[:, 2]
+            self.Xi_icb_l = data[:, 3]
+            self.Xi_icb_m = data[:, 4]
+            self.dXi_icb_l = data[:, 5]
+            self.dXi_icb_m = data[:, 6]
+        elif self.name == 'Xi_spec_ave':
+            self.Xi_l = data[:, 1]
+            self.Xi_m = data[:, 2]
+            self.Xi_icb_l = data[:, 3]
+            self.Xi_icb_m = data[:, 4]
+            self.dXi_icb_l = data[:, 5]
+            self.dXi_icb_m = data[:, 6]
+            self.Xi_l_SD = data[:, 7]
+            self.Xi_m_SD = data[:, 8]
+            self.Xi_icb_l_SD = data[:, 9]
+            self.Xi_icb_m_SD = data[:, 10]
+            self.dXi_icb_l_SD = data[:, 11]
+            self.dXi_icb_m_SD = data[:, 12]
 
     def __add__(self, new):
         """
