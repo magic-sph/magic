@@ -18,8 +18,7 @@ module RMS_helpers
 
    private
 
-   public :: get_PolTorRms, hInt2dPol, hInt2Pol, hInt2Tor, &
-   &         hIntRms, hInt2PolLM, hInt2TorLM, hInt2dPolLM
+   public :: get_PolTorRms, hInt2dPol, hIntRms, hInt2dPolLM
 
 contains
 
@@ -152,64 +151,6 @@ contains
 
    end subroutine hInt2dPolLM
 !-----------------------------------------------------------------------------
-   subroutine hInt2Pol(Pol,lb,ub,nR,lmStart,lmStop,PolLMr,Pol2hInt,map)
-
-      !-- Input variables:
-      integer,         intent(in) :: lb,ub
-      complex(cp),     intent(in) :: Pol(lb:ub)   ! Poloidal field Potential
-      integer,         intent(in) :: nR,lmStart,lmStop
-      type(mappings),  intent(in) :: map
-
-      !-- Output variables:
-      complex(cp), intent(out) :: PolLMr(lb:ub)
-      real(cp),    intent(inout) :: Pol2hInt(0:l_max)
-
-      !-- Local variables:
-      real(cp) :: help,rE2,dLh
-      integer :: lm,l,m
-
-      rE2=r(nR)*r(nR)
-      do lm=lmStart,lmStop
-         l=map%lm2l(lm)
-         if ( l==0 ) cycle
-         dLh =real(l*(l+1),cp)
-         m=map%lm2m(lm)
-         help=rE2*cc2real(Pol(lm),m)
-         Pol2hInt(l)=Pol2hInt(l)+help
-         PolLMr(lm)=rE2/dLh*Pol(lm)
-      end do
-
-   end subroutine hInt2Pol
-!-----------------------------------------------------------------------------
-   subroutine hInt2PolLM(Pol,lb,ub,nR,lmStart,lmStop,PolLMr,Pol2hInt,map)
-
-      !-- Input variables:
-      integer,         intent(in) :: lb,ub
-      complex(cp),     intent(in) :: Pol(lb:ub)   ! Poloidal field Potential
-      integer,         intent(in) :: nR,lmStart,lmStop
-      type(mappings),  intent(in) :: map
-
-      !-- Output variables:
-      complex(cp), intent(out) :: PolLMr(lb:ub)
-      real(cp),    intent(inout) :: Pol2hInt(lb:ub)
-
-      !-- Local variables:
-      real(cp) :: help,rE2,dLh
-      integer :: lm,l,m
-
-      rE2=r(nR)*r(nR)
-      do lm=lmStart,lmStop
-         l=map%lm2l(lm)
-         if ( l==0 ) cycle
-         dLh =real(l*(l+1),cp)
-         m=map%lm2m(lm)
-         help=rE2*cc2real(Pol(lm),m)
-         Pol2hInt(lm)=Pol2hInt(lm)+help
-         PolLMr(lm)=rE2/dLh*Pol(lm)
-      end do
-
-   end subroutine hInt2PolLM
-!-----------------------------------------------------------------------------
    subroutine hIntRms(f,nR,lmStart,lmStop,f2hInt,map,sphertor)
 
       !-- Input variables
@@ -243,61 +184,5 @@ contains
       end do
 
    end subroutine hIntRms
-!-----------------------------------------------------------------------------
-   subroutine hInt2Tor(Tor,lb,ub,nR,lmStart,lmStop,Tor2hInt,map)
-
-      !-- Input variables:
-      integer,         intent(in) :: lb,ub
-      complex(cp),     intent(in) :: Tor(lb:ub)   ! Toroidal field Potential
-      integer,         intent(in) :: nR
-      integer,         intent(in) :: lmStart,lmStop
-      type(mappings),  intent(in) :: map
-
-      !-- Output variables:
-      real(cp),        intent(inout) :: Tor2hInt(0:l_max)
-
-      !-- Local variables:
-      real(cp) :: help,rE4,dLh
-      integer :: lm,l,m
-
-      rE4=r(nR)**4
-      do lm=lmStart,lmStop
-         l=map%lm2l(lm)
-         if ( l == 0 ) cycle
-         dLh = real(l*(l+1),cp)
-         m=map%lm2m(lm)
-         help=rE4/dLh*cc2real(Tor(lm),m)
-         Tor2hInt(l)=Tor2hInt(l)+help
-      end do
-
-   end subroutine hInt2Tor
-!-----------------------------------------------------------------------------
-   subroutine hInt2TorLM(Tor,lb,ub,nR,lmStart,lmStop,Tor2hInt,map)
-
-      !-- Input variables:
-      integer,         intent(in) :: lb,ub
-      complex(cp),     intent(in) :: Tor(lb:ub)   ! Toroidal field Potential
-      integer,         intent(in) :: nR
-      integer,         intent(in) :: lmStart,lmStop
-      type(mappings),  intent(in) :: map
-
-      !-- Output variables:
-      real(cp),        intent(inout) :: Tor2hInt(lb:ub)
-
-      !-- Local variables:
-      real(cp) :: help,rE4,dLh
-      integer :: lm,l,m
-
-      rE4=r(nR)**4
-      do lm=lmStart,lmStop
-         l=map%lm2l(lm)
-         if ( l==0 ) cycle
-         dLh =real(l*(l+1),cp)
-         m=map%lm2m(lm)
-         help=rE4/dLh*cc2real(Tor(lm),m)
-         Tor2hInt(lm)=Tor2hInt(lm)+help
-      end do
-
-   end subroutine hInt2TorLM
 !-----------------------------------------------------------------------------
 end module RMS_helpers
