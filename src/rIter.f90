@@ -12,7 +12,7 @@ module rIter_mod
    use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter, &
        &                td_counter
    use parallel_mod
-   use truncation, only: lmP_max, n_phi_max, lm_max, lm_maxMag
+   use truncation, only: n_phi_max, lm_max, lm_maxMag
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel,  &
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
@@ -82,7 +82,7 @@ contains
       call this%gsa%initialize()
       if ( l_TO ) call this%TO_arrays%initialize()
       call this%dtB_arrays%initialize()
-      call this%nl_lm%initialize(lmP_max)
+      call this%nl_lm%initialize(lm_max)
 
    end subroutine initialize
 !------------------------------------------------------------------------------

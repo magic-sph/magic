@@ -11,8 +11,7 @@ module step_time_mod
    use parallel_mod
    use precision_mod
    use constants, only: zero, one, half
-   use truncation, only: n_r_max, l_max, l_maxMag, lm_max, lmP_max, fd_order, &
-       &                 fd_order_bound
+   use truncation, only: n_r_max, l_max, l_maxMag, lm_max, fd_order, fd_order_bound
    use num_param, only: n_time_steps, run_time_limit, tEnd, dtMax, &
        &                dtMin, tScale, dct_counter, nl_counter,    &
        &                solve_counter, lm2phy_counter, td_counter, &
@@ -159,10 +158,10 @@ contains
       real(cp) :: lorentz_torque_ma,lorentz_torque_ic
 
       !--- Nonlinear magnetic boundary conditions needed in s_updateB.f :
-      complex(cp) :: br_vt_lm_cmb(lmP_max)    ! product br*vt at CMB
-      complex(cp) :: br_vp_lm_cmb(lmP_max)    ! product br*vp at CMB
-      complex(cp) :: br_vt_lm_icb(lmP_max)    ! product br*vt at ICB
-      complex(cp) :: br_vp_lm_icb(lmP_max)    ! product br*vp at ICB
+      complex(cp) :: br_vt_lm_cmb(lm_max)    ! product br*vt at CMB
+      complex(cp) :: br_vp_lm_cmb(lm_max)    ! product br*vp at CMB
+      complex(cp) :: br_vt_lm_icb(lm_max)    ! product br*vt at ICB
+      complex(cp) :: br_vp_lm_icb(lm_max)    ! product br*vp at ICB
       complex(cp) :: b_nl_cmb(lm_max)         ! nonlinear bc for b at CMB
       complex(cp) :: aj_nl_cmb(lm_max)        ! nonlinear bc for aj at CMB
       complex(cp) :: aj_nl_icb(lm_max)        ! nonlinear bc for dr aj at ICB
@@ -257,20 +256,6 @@ contains
          call pure_counter%start_count()
          l_pure=.false.
          l_mat_time=.false.
-
-#ifdef WITH_MPI
-         ! Broadcast omega_ic and omega_ma
-         if ( l_parallel_solve ) then
-            if ( l_rot_ic ) call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,n_procs-1, &
-                                 &         MPI_COMM_WORLD,ierr)
-            if ( l_rot_ma ) call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-         else
-            if ( l_rot_ic ) call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0, &
-                                 &         MPI_COMM_WORLD,ierr)
-            if ( l_rot_ma ) call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0, &
-                                 &         MPI_COMM_WORLD,ierr)
-         end if
-#endif
 
          !----------------
          !-- This handling of the signal files is quite expensive
@@ -444,6 +429,21 @@ contains
          tscheme%istage = 1
 
          do n_stage=1,tscheme%nstages
+
+#ifdef WITH_MPI
+            ! Broadcast omega_ic and omega_ma
+            if ( l_parallel_solve ) then
+               if ( l_rot_ic ) call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,n_procs-1, &
+                                    &         MPI_COMM_WORLD,ierr)
+               if ( l_rot_ma ) call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+            else
+               if ( l_rot_ic ) call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0, &
+                                    &         MPI_COMM_WORLD,ierr)
+               if ( l_rot_ma ) call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0, &
+                                    &         MPI_COMM_WORLD,ierr)
+            end if
+#endif
+
 
             !--- Now the real work starts with the radial loop that calculates
             !    the nonlinear terms:

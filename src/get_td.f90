@@ -8,14 +8,14 @@ module nonlinear_lm_mod
    use, intrinsic :: iso_c_binding
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, l_max, lm_maxMag, lmP_max, m_min
+   use truncation, only: lm_max, l_max, lm_maxMag, m_min
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag,          &
        &             l_chemical_conv, l_single_matrix, l_double_curl,       &
        &             l_adv_curl, l_phase_field
    use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1
    use physical_parameters, only: CorFac, epsc,  n_r_LCR, epscXi
-   use blocking, only: lm2l, lm2m, lm2lmP, lm2lmA, lm2lmS
+   use blocking, only: lm2l, lm2m, lm2lmA, lm2lmS
    use horizontal_data, only: dLh, dPhi, dTheta2A, dTheta3A, dTheta4A, dTheta2S, &
        &                      dTheta3S, dTheta4S
    use constants, only: zero, two
@@ -110,7 +110,7 @@ contains
       integer :: lm
 
       !$omp parallel do private(lm)
-      do lm=1,lmP_max
+      do lm=1,lm_max
          this%AdvrLM(lm)=zero
          this%AdvtLM(lm)=zero
          this%AdvpLM(lm)=zero
@@ -161,7 +161,7 @@ contains
       complex(cp), intent(out) :: dVXirLM(:)
 
       !-- Local variables:
-      integer :: l,m,lm,lmS,lmA,lmP
+      integer :: l,m,lm,lmS,lmA
       complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc,dsdt_loc
       !integer, parameter :: DOUBLE_COMPLEX_PER_CACHELINE=4
 
@@ -178,11 +178,10 @@ contains
 
             lm =1   ! This is l=0,m=0
             lmA=lm2lmA(lm)
-            lmP=1
-            !lmPA=lmP2lmPA(lmP)
+            !lmA=lm2lmA(lm)
             if ( l_conv_nl ) then
-               AdvPol_loc=or2(nR)*this%AdvrLM(lmP)
-               AdvTor_loc=zero!-dTheta1A(lm)*this%AdvpLM(lmPA)
+               AdvPol_loc=or2(nR)*this%AdvrLM(lm)
+               AdvTor_loc=zero!-dTheta1A(lm)*this%AdvpLM(lmA)
             else
                AdvPol_loc=zero
                AdvTor_loc=zero
@@ -205,14 +204,13 @@ contains
 
             dzdt(lm)=AdvTor_loc+CorTor_loc
 
-            !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
+            !$omp parallel do default(shared) private(lm,l,m,lmS,lmA) &
             !$omp private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
             do lm=lm_min,lm_max
                l   =lm2l(lm)
                m   =lm2m(lm)
                lmS =lm2lmS(lm)
                lmA =lm2lmA(lm)
-               lmP =lm2lmP(lm)
 
                if ( l_double_curl ) then ! Pressure is not needed
 
@@ -248,8 +246,8 @@ contains
                   end if
 
                   if ( l_conv_nl ) then
-                     AdvPol_loc =dLh(lm)*or4(nR)*orho1(nR)*this%AdvrLM(lmP)
-                     dVxVhLM(lm)=-orho1(nR)*r(nR)*r(nR)*dLh(lm)*this%AdvtLM(lmP)
+                     AdvPol_loc =dLh(lm)*or4(nR)*orho1(nR)*this%AdvrLM(lm)
+                     dVxVhLM(lm)=-orho1(nR)*r(nR)*r(nR)*dLh(lm)*this%AdvtLM(lm)
                   else
                      AdvPol_loc =zero
                      dVxVhLM(lm)=zero
@@ -275,7 +273,7 @@ contains
                   end if
 
                   if ( l_conv_nl ) then
-                     AdvPol_loc=or2(nR)*this%AdvrLM(lmP)
+                     AdvPol_loc=or2(nR)*this%AdvrLM(lm)
                   else
                      AdvPol_loc=zero
                   endif
@@ -305,7 +303,7 @@ contains
                end if
 
                if ( l_conv_nl ) then
-                  AdvTor_loc=dLh(lm)*this%AdvpLM(lmP)
+                  AdvTor_loc=dLh(lm)*this%AdvpLM(lm)
                else
                   AdvTor_loc=zero
                end if
@@ -317,14 +315,13 @@ contains
             ! In case double curl is calculated dpdt is useless
             if ( (.not. l_double_curl) .or. lPressNext ) then
             !if ( .true. ) then
-               !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
+               !$omp parallel do default(shared) private(lm,l,m,lmS,lmA) &
                !$omp private(AdvPol_loc,CorPol_loc)
                do lm=lm_min,lm_max
                   l   =lm2l(lm)
                   m   =lm2m(lm)
                   lmS =lm2lmS(lm)
                   lmA =lm2lmA(lm)
-                  lmP =lm2lmP(lm)
 
                   !------ Recycle CorPol and AdvPol:
                   if ( l_corr ) then
@@ -353,7 +350,7 @@ contains
                      CorPol_loc=zero
                   end if
                   if ( l_conv_nl ) then
-                     AdvPol_loc=-dLh(lm)*this%AdvtLM(lmP)
+                     AdvPol_loc=-dLh(lm)*this%AdvtLM(lm)
                   else
                      AdvPol_loc=zero
                   end if
@@ -387,17 +384,16 @@ contains
             end if
             dsdt(1)=dsdt_loc
 
-            !$omp parallel do default(shared) private(lm,lmP,dsdt_loc,l)
+            !$omp parallel do default(shared) private(dsdt_loc,l)
             do lm=lm_min,lm_max
                l   =lm2l(lm)
-               lmP =lm2lmP(lm)
-               dVSrLM(lm)=this%VSrLM(lmP)
-               dsdt_loc  =dLh(lm)*this%VStLM(lmP)
+               dVSrLM(lm)=this%VSrLM(lm)
+               dsdt_loc  =dLh(lm)*this%VStLM(lm)
                if ( l_anel ) then
                   if ( l_anelastic_liquid ) then
-                     dsdt_loc = dsdt_loc+temp0(nR)*this%heatTermsLM(lmP)
+                     dsdt_loc = dsdt_loc+temp0(nR)*this%heatTermsLM(lm)
                   else
-                     dsdt_loc = dsdt_loc+this%heatTermsLM(lmP)
+                     dsdt_loc = dsdt_loc+this%heatTermsLM(lm)
                   end if
                end if
                dsdt(lm) = dsdt_loc
@@ -409,31 +405,28 @@ contains
             dVXirLM(1)=this%VXirLM(1)
             dxidt(1)  =epscXi
 
-            !$omp parallel do default(shared) private(lm,lmP)
+            !$omp parallel do default(shared)
             do lm=lm_min,lm_max
-               lmP=lm2lmP(lm)
-               dVXirLM(lm)=this%VXirLM(lmP)
-               dxidt(lm)  =dLh(lm)*this%VXitLM(lmP)
+               dVXirLM(lm)=this%VXirLM(lm)
+               dxidt(lm)  =dLh(lm)*this%VXitLM(lm)
             end do
             !$omp end parallel do
          end if
 
          if ( l_phase_field ) then
-            !$omp parallel do default(shared) private(lm,lmP)
+            !$omp parallel do default(shared)
             do lm=1,lm_max
-               lmP=lm2lmP(lm)
-               dphidt(lm)=this%dphidtLM(lmP)
+               dphidt(lm)=this%dphidtLM(lm)
             end do
             !$omp end parallel do
          end if
 
          if ( l_mag_nl .or. l_mag_kin  ) then
-            !$omp parallel do default(shared) private(lm,lmP)
+            !$omp parallel do default(shared)
             do lm=1,lm_max
-               lmP =lm2lmP(lm)
-               dbdt(lm)   = dLh(lm)*this%VxBpLM(lmP)
-               dVxBhLM(lm)=-dLh(lm)*this%VxBtLM(lmP)*r(nR)*r(nR)
-               djdt(lm)   = dLh(lm)*or4(nR)*this%VxBrLM(lmP)
+               dbdt(lm)   = dLh(lm)*this%VxBpLM(lm)
+               dVxBhLM(lm)=-dLh(lm)*this%VxBtLM(lm)*r(nR)*r(nR)
+               djdt(lm)   = dLh(lm)*or4(nR)*this%VxBrLM(lm)
             end do
             !$omp end parallel do
          else
@@ -452,10 +445,9 @@ contains
          if ( l_mag_nl .or. l_mag_kin ) then
             dVxBhLM(1)=zero
             dVSrLM(1) =zero
-            !$omp parallel do default(shared) private(lm,lmP)
+            !$omp parallel do default(shared)
             do lm=lm_min,lm_max
-               lmP =lm2lmP(lm)
-               dVxBhLM(lm)=-dLh(lm)*this%VxBtLM(lmP)*r(nR)*r(nR)
+               dVxBhLM(lm)=-dLh(lm)*this%VxBtLM(lm)*r(nR)*r(nR)
                dVSrLM(lm) =zero
             end do
             !$omp end parallel do

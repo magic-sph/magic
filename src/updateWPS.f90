@@ -24,14 +24,13 @@ module updateWPS_mod
    use horizontal_data, only: hdif_V, hdif_S
    use logic, only: l_update_v, l_temperature_diff, l_RMS, l_full_sphere
    use RMS, only: DifPol2hInt, DifPolLMr
-   use RMS_helpers, only:  hInt2Pol
    use algebra, only: prepare_mat, solve_mat
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize, rank, n_procs, get_openmp_blocks
    use radial_der, only: get_dddr, get_ddr, get_dr, get_dr_Rloc
    use constants, only: zero, one, two, three, four, third, half, pi, osq4pi
    use fields, only: work_LMloc
-   use useful, only: abortRun
+   use useful, only: abortRun, cc2real
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray
 
@@ -41,7 +40,6 @@ module updateWPS_mod
 
    !-- Input of recycled work arrays:
    complex(cp), allocatable :: workB(:,:), workC(:,:)
-   complex(cp), allocatable :: Dif(:),Pre(:),Buo(:)
    real(cp), allocatable :: rhs1(:,:,:)
    real(cp), allocatable :: ps0Mat(:,:), ps0Mat_fac(:,:)
    integer, allocatable :: ps0Pivot(:)
@@ -82,11 +80,6 @@ contains
       allocate( workC(llm:ulm,n_r_max) )
       bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 
-      allocate( Dif(llm:ulm) )
-      allocate( Pre(llm:ulm) )
-      allocate( Buo(llm:ulm) )
-      bytes_allocated = bytes_allocated+3*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
-
 #ifdef WITHOMP
       maxThreads=omp_get_max_threads()
 #else
@@ -106,7 +99,6 @@ contains
       deallocate( ps0Mat, ps0Mat_fac, ps0Pivot )
       deallocate( wpsMat, wpsMat_fac, wpsPivot, lWPSmat )
       deallocate( workB, workC, rhs1)
-      deallocate( Dif, Pre, Buo )
 
    end subroutine finalize_updateWPS
 !-----------------------------------------------------------------------------
@@ -421,6 +413,7 @@ contains
       complex(cp),       intent(out) :: ddw(llm:ulm,n_r_max)
 
       !-- Local variables:
+      complex(cp) :: Dif, Buo
       integer :: n_r, lm, l1, m1, start_lm,stop_lm, lmStart_00
       integer :: n_r_top, n_r_bot
       real(cp) :: dL, fac_bot, fac_top
@@ -646,19 +639,20 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
-         !$omp do private(n_r,lm,l1,Dif,Pre,Buo,dL)
+         !$omp do private(n_r,lm,l1,m1,Dif,Buo,dL)
          do n_r=n_r_top,n_r_bot
             do lm=llm,ulm
                l1=lm2l(lm)
+               m1=lm2m(lm)
                dL = real(l1*(l1+1),cp)
 
-               Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
-               &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
-               &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*   &
-               &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))*&
-               &                                                    w(lm,n_r) )
-               Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
-               dwdt%impl(lm,n_r,1)=Buo(lm)+Dif(lm)
+               Dif = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
+               &    +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
+               &    -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*   &
+               &       beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))*&
+               &                                                w(lm,n_r) )
+               Buo = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
+               dwdt%impl(lm,n_r,1)=Buo+Dif
                dpdt%impl(lm,n_r,1)=       hdif_V(l1)* visc(n_r)*dL*or2(n_r) &
                &                                   * ( -work_LMloc(lm,n_r)  &
                &                     + (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r)  &
@@ -673,12 +667,12 @@ contains
                &                 - dL*or2(n_r) * s(lm,n_r) ) -dL*or2(n_r)   &
                &              *orho1(n_r)*dentropy0(n_r)*        w(lm,n_r)
 
-            end do
+               if ( lRmsNext .and. l1 > 0 ) then
+                  DifPol2hInt(l1,n_r)=DifPol2hInt(l1,n_r)+r(n_r)**2*cc2real(Dif,m1)
+                  DifPolLMr(lm,n_r)  =r(n_r)**2/dL * Dif
+               end if
 
-            if ( lRmsNext ) then
-               call hInt2Pol(Dif,llm,ulm,n_r,llm,ulm,DifPolLMr(llm:ulm,n_r), &
-                    &        DifPol2hInt(:,n_r),lo_map)
-            end if
+            end do
          end do
          !$omp end do
       end if
@@ -711,9 +705,10 @@ contains
       complex(cp),       intent(out) :: ddw(llm:ulm,n_r_max)
 
       !-- Local variables
+      complex(cp) :: Pre, Buo, Dif
       logical :: l_in_cheb
       real(cp) :: dL
-      integer :: n_r_top, n_r_bot, l1
+      integer :: n_r_top, n_r_bot, l1, m1
       integer :: n_r, lm, start_lm, stop_lm
       integer, pointer :: lm2l(:),lm2m(:)
 
@@ -777,20 +772,21 @@ contains
 
          !-- Calculate explicit time step part:
          if ( l_temperature_diff ) then
-            !$omp do private(n_r,lm,l1,Dif,Pre,Buo,dL)
+            !$omp do private(n_r,lm,l1,m1,Dif,Pre,Buo,dL)
             do n_r=n_r_top,n_r_bot
                do lm=llm,ulm
                   l1=lm2l(lm)
+                  m1=lm2m(lm)
                   dL = real(l1*(l1+1),cp)
 
-                  Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
-                  &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
-                  &        -( dL*or2(n_r)+four*third* (dbeta(n_r)+dLvisc(n_r)*   &
-                  &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))* &
-                  &                                                    w(lm,n_r) )
-                  Pre(lm) = -dp(lm,n_r)+beta(n_r)*p(lm,n_r)
-                  Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
-                  dwdt%impl(lm,n_r,istage)=Pre(lm)+Buo(lm)+Dif(lm)
+                  Dif = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
+                  &    +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
+                  &    -( dL*or2(n_r)+four*third* (dbeta(n_r)+dLvisc(n_r)*   &
+                  &      beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))* &
+                  &                                                w(lm,n_r) )
+                  Pre = -dp(lm,n_r)+beta(n_r)*p(lm,n_r)
+                  Buo = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
+                  dwdt%impl(lm,n_r,istage)=Pre+Buo+Dif
                   dpdt%impl(lm,n_r,istage)=               dL*or2(n_r)*p(lm,n_r)  &
                   &           + hdif_V(l1)*visc(n_r)*dL*or2(n_r)                 &
                   &                                     * ( -work_LMloc(lm,n_r)  &
@@ -816,30 +812,32 @@ contains
                   &               beta(n_r))+ddLtemp0(n_r)+ddLalpha0(n_r)-       &
                   &               dbeta(n_r)-dL*or2(n_r) )*           p(lm,n_r)))&
                   &          - dL*or2(n_r)*orho1(n_r)*dentropy0(n_r)* w(lm,n_r)
+
+                  if ( lRmsNext .and. l1 > 0 ) then
+                     DifPol2hInt(l1,n_r)=DifPol2hInt(l1,n_r)+r(n_r)**2*cc2real(Dif,m1)
+                     DifPolLMr(lm,n_r)  =r(n_r)**2/dL * Dif
+                  end if
                end do
-               if ( lRmsNext ) then
-                  call hInt2Pol(Dif,llm,ulm,n_r,llm,ulm,DifPolLMr(llm:ulm,n_r), &
-                       &        DifPol2hInt(:,n_r),lo_map)
-               end if
             end do
             !$omp end do
 
          else ! entropy diffusion
 
-            !$omp do private(n_r,lm,l1,Dif,Pre,Buo,dL)
+            !$omp do private(n_r,lm,l1,m1,Dif,Pre,Buo,dL)
             do n_r=n_r_top,n_r_bot
                do lm=llm,ulm
                   l1=lm2l(lm)
+                  m1=lm2m(lm)
                   dL = real(l1*(l1+1),cp)
 
-                  Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
-                  &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
-                  &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*   &
-                  &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))*&
-                  &                                                    w(lm,n_r) )
-                  Pre(lm) = -dp(lm,n_r)+beta(n_r)*p(lm,n_r)
-                  Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
-                  dwdt%impl(lm,n_r,istage)=Pre(lm)+Buo(lm)+Dif(lm)
+                  Dif = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
+                  &    +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
+                  &    -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*   &
+                  &       beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))*&
+                  &                                                w(lm,n_r) )
+                  Pre = -dp(lm,n_r)+beta(n_r)*p(lm,n_r)
+                  Buo = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
+                  dwdt%impl(lm,n_r,istage)=Pre+Buo+Dif
                   dpdt%impl(lm,n_r,istage)=               dL*or2(n_r)*p(lm,n_r)&
                   &                        + hdif_V(l1)* visc(n_r)*dL*or2(n_r) &
                   &                                   * ( -work_LMloc(lm,n_r)  &
@@ -855,18 +853,17 @@ contains
                   &                 - dL*or2(n_r) * s(lm,n_r) ) -dL*or2(n_r)   &
                   &              *orho1(n_r)*dentropy0(n_r)*        w(lm,n_r)
 
-               end do
+                  if ( lRmsNext .and. l1 > 0 ) then
+                     DifPol2hInt(l1,n_r)=DifPol2hInt(l1,n_r)+r(n_r)**2*cc2real(Dif,m1)
+                     DifPolLMr(lm,n_r)  =r(n_r)**2/dL * Dif
+                  end if
 
-               if ( lRmsNext ) then
-                  call hInt2Pol(Dif,llm,ulm,n_r,llm,ulm,DifPolLMr(llm:ulm,n_r), &
-                       &        DifPol2hInt(:,n_r),lo_map)
-               end if
+               end do
             end do
             !$omp end do
          end if
 
       end if
-
       !$omp end parallel
 
    end subroutine get_single_rhs_imp
