@@ -23,7 +23,6 @@ module updateWP_mod
    use RMS, only: DifPol2hInt, DifPolLMr
    use communications, only: get_global_sum
    use parallel_mod
-   use RMS_helpers, only:  hInt2Pol
    use radial_der, only: get_dddr, get_ddr, get_dr, get_dr_Rloc, get_ddddr_ghost, &
        &                 bulk_to_ghost, exch_ghosts
    use integration, only: rInt_R
@@ -45,7 +44,6 @@ module updateWP_mod
    complex(cp), allocatable :: ddddw(:,:)
    complex(cp), allocatable :: dwold(:,:)
    real(cp), allocatable :: work(:)
-   complex(cp), allocatable :: Dif(:),Pre(:),Buo(:)
    real(cp), allocatable :: rhs1(:,:,:), rhs(:)
    real(cp), allocatable :: rhs0(:,:,:)
    real(cp), allocatable :: wpMat_fac(:,:,:)
@@ -139,9 +137,6 @@ contains
          allocate( work(n_r_max) )
          bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
 
-         allocate( Dif(llm:ulm), Pre(llm:ulm), Buo(llm:ulm) )
-         bytes_allocated = bytes_allocated+3*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
-
          allocate( rhs(n_r_max) )
          bytes_allocated=bytes_allocated+n_r_max*SIZEOF_DEF_COMPLEX
          if ( l_double_curl ) then
@@ -185,9 +180,6 @@ contains
          &               +(nRstop-nRstart+3)*SIZEOF_DEF_COMPLEX
          w_ghost(:,:)=zero
          p0_ghost(:) =zero
-
-         allocate( Dif(lm_max) )
-         bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
 
          if ( l_RMS .or. l_FluxProfs ) then
             allocate( dwold(lm_max,nRstart:nRstop) )
@@ -239,7 +231,6 @@ contains
          call p0Mat%finalize()
 
          deallocate( wpMat_fac, rhs1, work, rhs )
-         deallocate( Dif, Pre, Buo )
          if ( l_double_curl ) then
             deallocate( ddddw )
             if ( l_RMS .or. l_FluxProfs ) deallocate( dwold )
@@ -247,7 +238,7 @@ contains
       else ! Parallel solver
          call p0Mat_FD%finalize()
          call wMat_FD%finalize()
-         deallocate( w_ghost, Dif, p0_ghost )
+         deallocate( w_ghost, p0_ghost )
          if ( l_RMS .or. l_FluxProfs ) deallocate( dwold )
          if ( tscheme%l_assembly .and. l_double_curl ) call ellMat_FD%finalize()
       end if
@@ -1054,8 +1045,9 @@ contains
       complex(cp),       intent(out) :: ddw(llm:ulm,n_r_max)
 
       !-- Local variables
+      complex(cp) :: Dif, Buo, Pre
       logical :: l_in_cheb
-      integer :: n_r_top, n_r_bot, l1, lmStart_00
+      integer :: n_r_top, n_r_bot, l1, m1, lmStart_00
       integer :: n_r, lm, start_lm, stop_lm
       integer, pointer :: lm2l(:),lm2m(:)
       real(cp) :: dL
@@ -1148,40 +1140,41 @@ contains
                n_r_bot=n_r_icb
             end if
 
-            !$omp do private(n_r,lm,l1,dL,Dif,Buo,Pre)
+            !$omp do private(n_r,lm,l1,m1,dL,Dif,Buo,Pre)
             do n_r=n_r_top,n_r_bot
                do lm=lmStart_00,ulm
                   l1=lm2l(lm)
+                  m1=lm2m(lm)
                   dL=real(l1*(l1+1),cp)
 
-                  Dif(lm)=-hdif_V(l1)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (      &
-                  &                                                  ddddw(lm,n_r)  &
-                  &            +two*( dLvisc(n_r)-beta(n_r) ) * work_LMloc(lm,n_r)  &
-                  &        +( ddLvisc(n_r)-two*dbeta(n_r)+dLvisc(n_r)*dLvisc(n_r)+  &
-                  &           beta(n_r)*beta(n_r)-three*dLvisc(n_r)*beta(n_r)-two*  &
-                  &           or1(n_r)*(dLvisc(n_r)+beta(n_r))-two*or2(n_r)*dL ) *  &
-                  &                                                    ddw(lm,n_r)  &
-                  &        +( -ddbeta(n_r)-dbeta(n_r)*(two*dLvisc(n_r)-beta(n_r)+   &
-                  &           two*or1(n_r))-ddLvisc(n_r)*(beta(n_r)+two*or1(n_r))+  &
-                  &           beta(n_r)*beta(n_r)*(dLvisc(n_r)+two*or1(n_r))-       &
-                  &           beta(n_r)*(dLvisc(n_r)*dLvisc(n_r)-two*or2(n_r))-     &
-                  &           two*dLvisc(n_r)*or1(n_r)*(dLvisc(n_r)-or1(n_r))+      &
-                  &           two*(two*or1(n_r)+beta(n_r)-dLvisc(n_r))*or2(n_r)*dL) &
-                  &                                    *                dw(lm,n_r)  &
-                  &        + dL*or2(n_r)* ( two*dbeta(n_r)+ddLvisc(n_r)+            &
-                  &          dLvisc(n_r)*dLvisc(n_r)-two*third*beta(n_r)*beta(n_r)+ &
-                  &          dLvisc(n_r)*beta(n_r)+two*or1(n_r)*(two*dLvisc(n_r)-   &
-                  &          beta(n_r)-three*or1(n_r))+dL*or2(n_r) ) *   w(lm,n_r) )
+                  Dif=-hdif_V(l1)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (      &
+                  &                                              ddddw(lm,n_r)  &
+                  &        +two*( dLvisc(n_r)-beta(n_r) ) * work_LMloc(lm,n_r)  &
+                  &    +( ddLvisc(n_r)-two*dbeta(n_r)+dLvisc(n_r)*dLvisc(n_r)+  &
+                  &       beta(n_r)*beta(n_r)-three*dLvisc(n_r)*beta(n_r)-two*  &
+                  &       or1(n_r)*(dLvisc(n_r)+beta(n_r))-two*or2(n_r)*dL ) *  &
+                  &                                                ddw(lm,n_r)  &
+                  &    +( -ddbeta(n_r)-dbeta(n_r)*(two*dLvisc(n_r)-beta(n_r)+   &
+                  &       two*or1(n_r))-ddLvisc(n_r)*(beta(n_r)+two*or1(n_r))+  &
+                  &       beta(n_r)*beta(n_r)*(dLvisc(n_r)+two*or1(n_r))-       &
+                  &       beta(n_r)*(dLvisc(n_r)*dLvisc(n_r)-two*or2(n_r))-     &
+                  &       two*dLvisc(n_r)*or1(n_r)*(dLvisc(n_r)-or1(n_r))+      &
+                  &       two*(two*or1(n_r)+beta(n_r)-dLvisc(n_r))*or2(n_r)*dL) &
+                  &                                *                dw(lm,n_r)  &
+                  &    + dL*or2(n_r)* ( two*dbeta(n_r)+ddLvisc(n_r)+            &
+                  &      dLvisc(n_r)*dLvisc(n_r)-two*third*beta(n_r)*beta(n_r)+ &
+                  &      dLvisc(n_r)*beta(n_r)+two*or1(n_r)*(two*dLvisc(n_r)-   &
+                  &      beta(n_r)-three*or1(n_r))+dL*or2(n_r) ) *   w(lm,n_r) )
 
-                  Buo(lm) = zero
-                  if ( l_heat ) Buo(lm) = BuoFac*dL*or2(n_r)*rgrav(n_r)*s(lm,n_r)
-                  if ( l_chemical_conv ) Buo(lm) = Buo(lm)+ChemFac*dL*or2(n_r)*&
+                  Buo=zero
+                  if ( l_heat ) Buo=BuoFac*dL*or2(n_r)*rgrav(n_r)*s(lm,n_r)
+                  if ( l_chemical_conv ) Buo=Buo+ChemFac*dL*or2(n_r)*&
                   &                                rgrav(n_r)*xi(lm,n_r)
 
                   if ( l_parallel_solve ) then
-                     dwdt%impl(lm,n_r,istage)=Dif(lm)
+                     dwdt%impl(lm,n_r,istage)=Dif
                   else
-                     dwdt%impl(lm,n_r,istage)=Dif(lm)+Buo(lm)
+                     dwdt%impl(lm,n_r,istage)=Dif+Buo
                   end if
 
                   if ( l1 /= 0 .and. lPressNext .and. &
@@ -1203,43 +1196,41 @@ contains
                      !-- In case RMS force balance is required, one needs to also
                      !-- compute the classical diffusivity that is used in the non
                      !-- double-curl version
-                     Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
-                     &        +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
-                     &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
-                     &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
-                     &                                         *       w(lm,n_r) )
+                     Dif = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
+                     &    +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
+                     &    -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
+                     &       beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
+                     &                                     *       w(lm,n_r) )
+                     DifPol2hInt(l1,n_r)=DifPol2hInt(l1,n_r)+r(n_r)**2*cc2real(Dif,m1)
+                     DifPolLMr(lm,n_r)  =r(n_r)**2/dL * Dif
                   end if
                end do
-               if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
-                  call hInt2Pol(Dif,llm,ulm,n_r,lmStart_00,ulm, &
-                       &        DifPolLMr(llm:ulm,n_r),         &
-                       &        DifPol2hInt(:,n_r),lo_map)
-               end if
             end do
             !$omp end do
 
          else
 
-            !$omp do private(n_r,lm,l1,dL,Dif,Buo,Pre)
+            !$omp do private(n_r,lm,l1,m1,dL,Dif,Buo,Pre)
             do n_r=n_r_top,n_r_bot
                do lm=lmStart_00,ulm
                   l1=lm2l(lm)
+                  m1=lm2m(lm)
                   dL=real(l1*(l1+1),cp)
 
-                  Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r)*(      ddw(lm,n_r)   &
-                  &        +(two*dLvisc(n_r)-third*beta(n_r))*       dw(lm,n_r)   &
-                  &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*    &
-                  &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)) )* &
-                  &                                                   w(lm,n_r)  )
-                  Pre(lm) = -dp(lm,n_r)+beta(n_r)*p(lm,n_r)
-                  Buo(lm) = zero
-                  if ( l_heat )  Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
-                  if ( l_chemical_conv ) Buo(lm) = Buo(lm)+ChemFac*rho0(n_r)* &
-                  &                                rgrav(n_r)*xi(lm,n_r)
+                  Dif = hdif_V(l1)*dL*or2(n_r)*visc(n_r)*(      ddw(lm,n_r)   &
+                  &    +(two*dLvisc(n_r)-third*beta(n_r))*       dw(lm,n_r)   &
+                  &    -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*    &
+                  &      beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)) )* &
+                  &                                               w(lm,n_r)  )
+                  Pre = -dp(lm,n_r)+beta(n_r)*p(lm,n_r)
+                  Buo = zero
+                  if ( l_heat )  Buo=BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
+                  if ( l_chemical_conv ) Buo=Buo+ChemFac*rho0(n_r)* &
+                  &                              rgrav(n_r)*xi(lm,n_r)
                   if ( l_parallel_solve ) then
-                     dwdt%impl(lm,n_r,istage)=Pre(lm)+Dif(lm)
+                     dwdt%impl(lm,n_r,istage)=Pre+Dif
                   else
-                     dwdt%impl(lm,n_r,istage)=Pre(lm)+Dif(lm)+Buo(lm)
+                     dwdt%impl(lm,n_r,istage)=Pre+Dif+Buo
                   end if
                   dpdt%impl(lm,n_r,istage)=               dL*or2(n_r)*p(lm,n_r) &
                   &            + hdif_V(l1)*visc(n_r)*dL*or2(n_r)               &
@@ -1250,12 +1241,11 @@ contains
                   &                                           ) *    dw(lm,n_r) &
                   &            - dL*or2(n_r)* ( two*or1(n_r)+two*third*beta(n_r)&
                   &                     +dLvisc(n_r) )   *           w(lm,n_r)  )
+                  if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
+                     DifPol2hInt(l1,n_r)=DifPol2hInt(l1,n_r)+r(n_r)**2*cc2real(Dif,m1)
+                     DifPolLMr(lm,n_r)  =r(n_r)**2/dL * Dif
+                  end if
                end do
-               if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
-                  call hInt2Pol(Dif,llm,ulm,n_r,lmStart_00,ulm, &
-                       &        DifPolLMr(llm:ulm,n_r),         &
-                       &        DifPol2hInt(:,n_r),lo_map)
-               end if
             end do
             !$omp end do
 
@@ -1299,6 +1289,7 @@ contains
       complex(cp),       intent(out) :: ddw(lm_max,nRstart:nRstop)
 
       !-- Local variables
+      complex(cp) :: Dif
       complex(cp) :: work_Rloc(lm_max,nRstart:nRstop), dddw_Rloc(lm_max,nRstart:nRstop)
       integer :: n_r, l, m, lm, start_lm, stop_lm
       real(cp) :: dL
@@ -1395,16 +1386,16 @@ contains
                   !-- In case RMS force balance is required, one needs to also
                   !-- compute the classical diffusion that is used in the non
                   !-- double-curl version
-                  Dif(lm) =  hdif_V(l)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
-                  &        +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
-                  &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
-                  &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
-                  &                                         *       wg(lm,n_r) )
+                  Dif =  hdif_V(l)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
+                  &    +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
+                  &    -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
+                  &       beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
+                  &                                     *       wg(lm,n_r) )
                end if
 
                if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
-                  DifPol2hInt(l,n_r)=DifPol2hInt(l,n_r)+r(n_r)**2*cc2real(Dif(lm),m)
-                  DifPolLMr(lm,n_r) =r(n_r)**2/dL * Dif(lm)
+                  DifPol2hInt(l,n_r)=DifPol2hInt(l,n_r)+r(n_r)**2*cc2real(Dif,m)
+                  DifPolLMr(lm,n_r) =r(n_r)**2/dL * Dif
                end if
             end do
          end do
@@ -1445,6 +1436,7 @@ contains
       complex(cp),       intent(inout) :: dp(llm:ulm,n_r_max)
 
       !-- Local variables
+      complex(cp) :: Dif, Buo
       real(cp) :: fac_top, fac_bot
       integer :: n_r_top, n_r_bot, l1, m1, lmStart_00
       integer :: n_r, lm, start_lm, stop_lm
@@ -1466,7 +1458,8 @@ contains
          call tscheme%assemble_imex(ddw, dpdt) ! Use ddw as a work array
       end if
 
-      !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l1, dL, m1)
+      !$omp parallel default(shared)  private(start_lm,stop_lm,n_r,lm,l1,dL,m1,Dif,Buo) &
+      !$omp reduction(+:DifPol2hInt)
       start_lm=lmStart_00; stop_lm=ulm
       call get_openmp_blocks(start_lm,stop_lm)
       !$omp barrier
@@ -1509,36 +1502,37 @@ contains
             do n_r=n_r_top,n_r_bot
                do lm=start_lm,stop_lm
                   l1=lm2l(lm)
+                  m1=lm2m(lm)
                   dL=real(l1*(l1+1),cp)
 
-                  Dif(lm)=-hdif_V(l1)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (      &
-                  &                                                  ddddw(lm,n_r)  &
-                  &            +two*( dLvisc(n_r)-beta(n_r) ) * work_LMloc(lm,n_r)  &
-                  &        +( ddLvisc(n_r)-two*dbeta(n_r)+dLvisc(n_r)*dLvisc(n_r)+  &
-                  &           beta(n_r)*beta(n_r)-three*dLvisc(n_r)*beta(n_r)-two*  &
-                  &           or1(n_r)*(dLvisc(n_r)+beta(n_r))-two*or2(n_r)*dL ) *  &
-                  &                                                    ddw(lm,n_r)  &
-                  &        +( -ddbeta(n_r)-dbeta(n_r)*(two*dLvisc(n_r)-beta(n_r)+   &
-                  &           two*or1(n_r))-ddLvisc(n_r)*(beta(n_r)+two*or1(n_r))+  &
-                  &           beta(n_r)*beta(n_r)*(dLvisc(n_r)+two*or1(n_r))-       &
-                  &           beta(n_r)*(dLvisc(n_r)*dLvisc(n_r)-two*or2(n_r))-     &
-                  &           two*dLvisc(n_r)*or1(n_r)*(dLvisc(n_r)-or1(n_r))+      &
-                  &           two*(two*or1(n_r)+beta(n_r)-dLvisc(n_r))*or2(n_r)*dL) &
-                  &                                    *                dw(lm,n_r)  &
-                  &        + dL*or2(n_r)* ( two*dbeta(n_r)+ddLvisc(n_r)+            &
-                  &          dLvisc(n_r)*dLvisc(n_r)-two*third*beta(n_r)*beta(n_r)+ &
-                  &          dLvisc(n_r)*beta(n_r)+two*or1(n_r)*(two*dLvisc(n_r)-   &
-                  &          beta(n_r)-three*or1(n_r))+dL*or2(n_r) ) *   w(lm,n_r) )
+                  Dif=-hdif_V(l1)*dL*or2(n_r)*visc(n_r)*orho1(n_r)*      (      &
+                  &                                              ddddw(lm,n_r)  &
+                  &        +two*( dLvisc(n_r)-beta(n_r) ) * work_LMloc(lm,n_r)  &
+                  &    +( ddLvisc(n_r)-two*dbeta(n_r)+dLvisc(n_r)*dLvisc(n_r)+  &
+                  &       beta(n_r)*beta(n_r)-three*dLvisc(n_r)*beta(n_r)-two*  &
+                  &       or1(n_r)*(dLvisc(n_r)+beta(n_r))-two*or2(n_r)*dL ) *  &
+                  &                                                ddw(lm,n_r)  &
+                  &    +( -ddbeta(n_r)-dbeta(n_r)*(two*dLvisc(n_r)-beta(n_r)+   &
+                  &       two*or1(n_r))-ddLvisc(n_r)*(beta(n_r)+two*or1(n_r))+  &
+                  &       beta(n_r)*beta(n_r)*(dLvisc(n_r)+two*or1(n_r))-       &
+                  &       beta(n_r)*(dLvisc(n_r)*dLvisc(n_r)-two*or2(n_r))-     &
+                  &       two*dLvisc(n_r)*or1(n_r)*(dLvisc(n_r)-or1(n_r))+      &
+                  &       two*(two*or1(n_r)+beta(n_r)-dLvisc(n_r))*or2(n_r)*dL) &
+                  &                                *                dw(lm,n_r)  &
+                  &    + dL*or2(n_r)* ( two*dbeta(n_r)+ddLvisc(n_r)+            &
+                  &      dLvisc(n_r)*dLvisc(n_r)-two*third*beta(n_r)*beta(n_r)+ &
+                  &      dLvisc(n_r)*beta(n_r)+two*or1(n_r)*(two*dLvisc(n_r)-   &
+                  &      beta(n_r)-three*or1(n_r))+dL*or2(n_r) ) *   w(lm,n_r) )
 
-                  Buo(lm) = zero
-                  if ( l_heat ) Buo(lm) = BuoFac*dL*or2(n_r)*rgrav(n_r)*s(lm,n_r)
-                  if ( l_chemical_conv ) Buo(lm) = Buo(lm)+ChemFac*dL*or2(n_r)*&
-                  &                                rgrav(n_r)*xi(lm,n_r)
+                  Buo=zero
+                  if ( l_heat ) Buo=BuoFac*dL*or2(n_r)*rgrav(n_r)*s(lm,n_r)
+                  if ( l_chemical_conv ) Buo=Buo+ChemFac*dL*or2(n_r)*&
+                  &                              rgrav(n_r)*xi(lm,n_r)
 
                   if ( l_parallel_solve ) then
-                     dwdt%impl(lm,n_r,1)=Dif(lm)
+                     dwdt%impl(lm,n_r,1)=Dif
                   else
-                     dwdt%impl(lm,n_r,1)=Dif(lm)+Buo(lm)
+                     dwdt%impl(lm,n_r,1)=Dif+Buo
                   end if
 
                   if ( l1 /= 0 .and. lPressNext ) then
@@ -1559,19 +1553,15 @@ contains
                      !-- In case RMS force balance is required, one needs to also
                      !-- compute the classical diffusivity that is used in the non
                      !-- double-curl version
-                     Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
-                     &        +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
-                     &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
-                     &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
-                     &                                         *       w(lm,n_r) )
+                     Dif = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
+                     &    +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
+                     &    -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
+                     &       beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
+                     &                                     *       w(lm,n_r) )
+                     DifPol2hInt(l1,n_r)=DifPol2hInt(l1,n_r)+r(n_r)**2*cc2real(Dif,m1)
+                     DifPolLMr(lm,n_r) =r(n_r)**2/dL * Dif
                   end if
                end do
-               if ( lRmsNext ) then
-                  !$omp barrier
-                  call hInt2Pol(Dif,llm,ulm,n_r,lmStart_00,ulm, &
-                       &        DifPolLMr(llm:ulm,n_r),         &
-                       &        DifPol2hInt(:,n_r),lo_map)
-               end if
             end do
 
          end if
@@ -1688,21 +1678,22 @@ contains
             do n_r=n_r_top,n_r_bot
                do lm=start_lm,stop_lm
                   l1=lm2l(lm)
+                  m1=lm2m(lm)
                   dL=real(l1*(l1+1),cp)
 
-                  Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r)*(       ddw(lm,n_r)  &
-                  &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r)  &
-                  &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*    &
-                  &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)) )* &
-                  &                                                   w(lm,n_r)  )
-                  Buo(lm) = zero
-                  if ( l_heat )  Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
-                  if ( l_chemical_conv ) Buo(lm) = Buo(lm)+ChemFac*rho0(n_r)* &
-                  &                                rgrav(n_r)*xi(lm,n_r)
+                  Dif=hdif_V(l1)*dL*or2(n_r)*visc(n_r)*(       ddw(lm,n_r)   &
+                  &   +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r)  &
+                  &   -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*    &
+                  &     beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)) )* &
+                  &                                              w(lm,n_r)  )
+                  Buo=zero
+                  if ( l_heat )  Buo=BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
+                  if ( l_chemical_conv ) Buo=Buo+ChemFac*rho0(n_r)* &
+                  &                              rgrav(n_r)*xi(lm,n_r)
                   if ( l_parallel_solve ) then
-                     dwdt%impl(lm,n_r,1)=Dif(lm)+Buo(lm)
+                     dwdt%impl(lm,n_r,1)=Dif+Buo
                   else
-                     dwdt%impl(lm,n_r,1)=Dif(lm)+Buo(lm)
+                     dwdt%impl(lm,n_r,1)=Dif+Buo
                   end if
                   dpdt%impl(lm,n_r,1)=hdif_V(l1)*visc(n_r)*dL*or2(n_r)*         &
                   &                                       ( -work_LMloc(lm,n_r) &
@@ -1712,13 +1703,12 @@ contains
                   &                                           ) *    dw(lm,n_r) &
                   &            - dL*or2(n_r)* ( two*or1(n_r)+two*third*beta(n_r)&
                   &                     +dLvisc(n_r) )   *            w(lm,n_r) )
-               end do
 
-               if ( lRmsNext ) then
-                  !$omp barrier
-                  call hInt2Pol(Dif,llm,ulm,n_r,lmStart_00,ulm,DifPolLMr(llm:ulm,n_r), &
-                       &        DifPol2hInt(:,n_r),lo_map)
-               end if
+                  if ( lRmsNext ) then
+                     DifPol2hInt(l1,n_r)=DifPol2hInt(l1,n_r)+r(n_r)**2*cc2real(Dif,m1)
+                     DifPolLMr(lm,n_r) =r(n_r)**2/dL * Dif
+                  end if
+               end do
             end do
          end if
 
