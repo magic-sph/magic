@@ -257,20 +257,6 @@ contains
          l_pure=.false.
          l_mat_time=.false.
 
-#ifdef WITH_MPI
-         ! Broadcast omega_ic and omega_ma
-         if ( l_parallel_solve ) then
-            if ( l_rot_ic ) call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,n_procs-1, &
-                                 &         MPI_COMM_WORLD,ierr)
-            if ( l_rot_ma ) call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-         else
-            if ( l_rot_ic ) call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0, &
-                                 &         MPI_COMM_WORLD,ierr)
-            if ( l_rot_ma ) call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0, &
-                                 &         MPI_COMM_WORLD,ierr)
-         end if
-#endif
-
          !----------------
          !-- This handling of the signal files is quite expensive
          !-- as the file can be read only on one rank and the result
@@ -443,6 +429,21 @@ contains
          tscheme%istage = 1
 
          do n_stage=1,tscheme%nstages
+
+#ifdef WITH_MPI
+            ! Broadcast omega_ic and omega_ma
+            if ( l_parallel_solve ) then
+               if ( l_rot_ic ) call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,n_procs-1, &
+                                    &         MPI_COMM_WORLD,ierr)
+               if ( l_rot_ma ) call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+            else
+               if ( l_rot_ic ) call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0, &
+                                    &         MPI_COMM_WORLD,ierr)
+               if ( l_rot_ma ) call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0, &
+                                    &         MPI_COMM_WORLD,ierr)
+            end if
+#endif
+
 
             !--- Now the real work starts with the radial loop that calculates
             !    the nonlinear terms:
