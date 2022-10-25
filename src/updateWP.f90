@@ -1352,7 +1352,7 @@ contains
       end if
       !$omp end parallel
 
-      if ( tscheme%istage==tscheme%nstages .and. lRmsNext) then
+      if ( (tscheme%istage==tscheme%nstages .and. lRmsNext) .or. lPressNext ) then
          !-- Recompute third derivative to have the boundary point right
          call get_dr_Rloc(ddw, dddw_Rloc, lm_max, nRstart, nRstop, n_r_max, rscheme_oc )
 
