@@ -210,11 +210,11 @@ contains
 
    end subroutine hInt2PolLM
 !-----------------------------------------------------------------------------
-   subroutine hIntRms(f,nR,lmStart,lmStop,lmP,f2hInt,map,sphertor)
+   subroutine hIntRms(f,nR,lmStart,lmStop,f2hInt,map,sphertor)
 
       !-- Input variables
       complex(cp),    intent(in) :: f(*)
-      integer,        intent(in) :: nR, lmStart, lmStop, lmP
+      integer,        intent(in) :: nR, lmStart, lmStop
       type(mappings), intent(in) :: map
       logical,        intent(in) :: sphertor
 
@@ -227,14 +227,8 @@ contains
 
       rE2=r(nR)*r(nR)
       do lm=lmStart,lmStop
-         if ( lmP == 0 ) then
-            l=map%lm2l(lm)
-            m=map%lm2m(lm)
-         else
-            stop
-            !l=map%lmP2l(lm)
-            !m=map%lmP2m(lm)
-         end if
+         l=map%lm2l(lm)
+         m=map%lm2m(lm)
 
          if ( l <= l_max ) then
             if ( sphertor ) then
