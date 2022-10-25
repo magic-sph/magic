@@ -1276,7 +1276,7 @@ contains
       real(cp), intent(in) :: time
 
       !-- Local
-      integer :: nR,l1m0,l1m1,lm,m
+      integer :: nR,l1m0,l1m1,lm,l,m
 
       real(cp) :: dtBPolRms,dtBPolAsRms
       real(cp) :: dtBTorRms,dtBTorAsRms
@@ -1347,16 +1347,18 @@ contains
            &             dummy1,TomeRms,dummy2,TomeAsRms,lo_map)
 
       !--- B changes:
+      dtBP(:)  =0.0_cp
+      dtBT(:)  =0.0_cp
+      dtBPAs(:)=0.0_cp
+      dtBTAs(:)=0.0_cp
       if ( l_mag_par_solve ) then
          call get_dr_Rloc(dtBPolLMr,work_Rloc,lm_maxMag,nRstartMag,nRstopMag, &
               &           n_r_max,rscheme_oc)
          do nR=nRstartMag,nRstopMag
             call hInt2dPolLM(work_Rloc(:,nR),1,lm_max,dtBPol2hInt(:,nR),st_map)
-            dtBP(nR)  =0.0_cp
-            dtBT(nR)  =0.0_cp
-            dtBPAs(nR)=0.0_cp
-            dtBTAs(nR)=0.0_cp
             do lm=1,lm_maxMag
+               l=st_map%lm2m(lm)
+               if ( l == 0 ) cycle
                m=st_map%lm2m(lm)
                dtBP(nR)=dtBP(nR)+dtBPol2hInt(lm,nR)
                dtBT(nR)=dtBT(nR)+dtBTor2hInt(lm,nR)
@@ -1374,12 +1376,10 @@ contains
          do nR=1,n_r_max
             call hInt2dPolLM(work_LMloc(llm:ulm,nR),llm,ulm, &
                  &           dtBPol2hInt(llm:ulm,nR),lo_map)
-            dtBP(nR)  =0.0_cp
-            dtBT(nR)  =0.0_cp
-            dtBPAs(nR)=0.0_cp
-            dtBTAs(nR)=0.0_cp
             do lm=llm,ulm
+               l=lo_map%lm2m(lm)
                m=lo_map%lm2m(lm)
+               if ( l == 0 ) cycle
                dtBP(nR)=dtBP(nR)+dtBPol2hInt(lm,nR)
                dtBT(nR)=dtBT(nR)+dtBTor2hInt(lm,nR)
                if ( m == 0 ) then
