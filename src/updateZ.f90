@@ -22,14 +22,13 @@ module updateZ_mod
    use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, l_precession, &
        &            l_correct_AMe, l_correct_AMz, l_update_v, l_TO,             &
        &            l_finite_diff, l_full_sphere, l_parallel_solve
-   use RMS, only: DifTor2hInt
    use constants, only: c_lorentz_ma, c_lorentz_ic, c_dt_z10_ma, c_dt_z10_ic, &
        &                c_moi_ma, c_moi_ic, c_z10_omega_ma, c_z10_omega_ic,   &
        &                c_moi_oc, y10_norm, y11_norm, zero, one, two, four,   &
        &                pi, third
    use parallel_mod
    use outRot, only: get_angular_moment, get_angular_moment_Rloc
-   use RMS_helpers, only: hInt2Tor
+   use RMS, only: DifTor2hInt
    use radial_der, only: get_ddr, get_ddr_ghost, bulk_to_ghost, exch_ghosts
    use fields, only: work_LMloc
    use useful, only: abortRun, cc2real
@@ -48,7 +47,6 @@ module updateZ_mod
    !-- Input of recycled work arrays:
    real(cp), allocatable :: rhs1(:,:,:) ! RHS for other modes
    complex(cp), allocatable :: rhs(:) ! rhs for l=1, m=0
-   complex(cp), allocatable :: Dif(:)
    class(type_realmat), pointer :: zMat(:), z10Mat
 #ifdef WITH_PRECOND_Z
    real(cp), allocatable :: zMat_fac(:,:)
@@ -127,10 +125,6 @@ contains
          bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
 #endif
 
-         allocate( Dif(llm:ulm) )
-         Dif(:)=zero
-         bytes_allocated=bytes_allocated+(ulm-llm+1)*SIZEOF_DEF_COMPLEX
-
 #ifdef WITHOMP
          maxThreads=omp_get_max_threads()
 #else
@@ -143,8 +137,6 @@ contains
          allocate(rhs(n_r_max))
          bytes_allocated=bytes_allocated+n_r_max*SIZEOF_DEF_COMPLEX
       else
-         allocate( Dif(lm_max) )
-         bytes_allocated=bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
          allocate(z_ghost(lm_max,nRstart-1:nRstop+1),z10_ghost(nRstart-1:nRstop+1))
          bytes_allocated=bytes_allocated+(lm_max+1)*(nRstop-nRstart+3)*SIZEOF_DEF_COMPLEX
          z_ghost(:,:)=zero
@@ -191,7 +183,7 @@ contains
          call zMat_FD%finalize()
          call z10Mat_FD%finalize()
       end if
-      deallocate(Dif,lZmat)
+      deallocate(lZmat)
 
    end subroutine finalize_updateZ
 !-------------------------------------------------------------------------------
@@ -821,7 +813,7 @@ contains
       real(cp) :: angular_moment_ic(3)! x,y,z component of inner core angular mom.
       real(cp) :: angular_moment_ma(3)! x,y,z component of mantle angular mom.
       complex(cp) :: z10(n_r_max), z11(n_r_max)
-      complex(cp) :: corr_l1m0, corr_l1m1
+      complex(cp) :: corr_l1m0, corr_l1m1, Dif
       real(cp) :: r_E_2, nomi, dL, prec_fac
       logical :: l_in_cheb
       integer :: n_r, lm, start_lm, stop_lm, n_r_bot, n_r_top, i
@@ -980,22 +972,21 @@ contains
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                dL = real(l1*(l1+1),cp)
-               Dif(lm)=hdif_V(l1)*dL*or2(n_r)*visc(n_r)* ( work_LMloc(lm,n_r) +  &
-               &         (dLvisc(n_r)-beta(n_r))    *              dz(lm,n_r) -  &
-               &         ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
-               &          + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
-               &                                                    z(lm,n_r) )
+               Dif=hdif_V(l1)*dL*or2(n_r)*visc(n_r)* ( work_LMloc(lm,n_r) +  &
+               &     (dLvisc(n_r)-beta(n_r))    *              dz(lm,n_r) -  &
+               &     ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
+               &      + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
+               &                                                z(lm,n_r) )
 
-               dzdt%impl(lm,n_r,istage)=Dif(lm)
+               dzdt%impl(lm,n_r,istage)=Dif
                if ( l_precession .and. l1==1 .and. m1==1 ) then
                   dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
                   &                        sin(oek*time),-cos(oek*time),kind=cp)
                end if
+               if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
+                  DifTor2hInt(l1,n_r)=DifTor2hInt(l1,n_r)+r(n_r)**4/dL*cc2real(Dif,m1)
+               end if
             end do
-            if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
-               call hInt2Tor(Dif,llm,ulm,n_r,lmStart_00,ulm, &
-                    &        DifTor2hInt(:,n_r),lo_map)
-            end if
          end do
          !$omp end do
 
@@ -1073,7 +1064,7 @@ contains
       real(cp) :: angular_moment_ic(3)! x,y,z component of inner core angular mom.
       real(cp) :: angular_moment_ma(3)! x,y,z component of mantle angular mom.
       complex(cp) :: z10(nRstart:nRstop), z11(nRstart:nRstop)
-      complex(cp) :: corr_l1m0, corr_l1m1
+      complex(cp) :: corr_l1m0, corr_l1m1, Dif
       real(cp) :: r_E_2, nomi, dL, prec_fac
       integer :: n_r, lm, start_lm, stop_lm, i
       integer :: l, m, l1m0, l1m1
@@ -1209,19 +1200,19 @@ contains
                if ( l == 0 ) cycle
                m = st_map%lm2m(lm)
                dL = real(l*(l+1),cp)
-               Dif(lm)=hdif_V(l)*dL*or2(n_r)*visc(n_r)* ( work_Rloc(lm,n_r) +    &
-               &         (dLvisc(n_r)-beta(n_r))    *            dz(lm,n_r) -    &
-               &         ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
-               &          + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
-               &                                                   zg(lm,n_r) )
+               Dif=hdif_V(l)*dL*or2(n_r)*visc(n_r)* ( work_Rloc(lm,n_r) +    &
+               &     (dLvisc(n_r)-beta(n_r))    *            dz(lm,n_r) -    &
+               &     ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
+               &      + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
+               &                                             zg(lm,n_r) )
 
-               dzdt%impl(lm,n_r,istage)=Dif(lm)
+               dzdt%impl(lm,n_r,istage)=Dif
                if ( l_precession .and. l==1 .and. m==1 ) then
                   dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
                   &                        sin(oek*time),-cos(oek*time),kind=cp)
                end if
                if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
-                  DifTor2hInt(l,n_r)=DifTor2hInt(l,n_r)+r(n_r)**4/dL*cc2real(Dif(lm),m)
+                  DifTor2hInt(l,n_r)=DifTor2hInt(l,n_r)+r(n_r)**4/dL*cc2real(Dif,m)
                end if
             end do
          end do
