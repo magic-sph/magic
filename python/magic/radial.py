@@ -487,17 +487,21 @@ class MagicRadial(MagicSetup):
         elif self.name == 'heatR':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(x_axis, self.entropy, label='s', color='C0')
+            if self.DissNb == 0.:
+                label = 'T'
+            else:
+                label = 's'
+            ax.plot(x_axis, self.entropy, label=label, color='C0')
             if hasattr(self, 'entropy_SD'):
                 ax.fill_between(x_axis, self.entropy-self.entropy_SD,
                                 self.entropy+self.entropy_SD,
                                 color='C0', alpha=0.3)
-            if self.DissNb > 0:
-                ax.plot(x_axis, self.temperature, label='T', color='C1')
-                if hasattr(self, 'temperature_SD'):
-                    ax.fill_between(x_axis, self.temperature-self.temperature_SD,
-                                    self.temperature+self.temperature_SD,
-                                    color='C1', alpha=0.3)
+            #if self.DissNb > 0:
+            #    ax.plot(x_axis, self.temperature, label='T', color='C1')
+            #    if hasattr(self, 'temperature_SD'):
+            #        ax.fill_between(x_axis, self.temperature-self.temperature_SD,
+            #                        self.temperature+self.temperature_SD,
+            #                       color='C1', alpha=0.3)
             if self.xi.max() > 1e-10:
                 ax.plot(x_axis, self.xi, label='xi', color='C2')
                 if hasattr(self, 'xi_SD'):
@@ -516,7 +520,7 @@ class MagicRadial(MagicSetup):
             ax1.set_xlabel('Radius')
             ax1.set_ylabel('Pressure')
             ax1.set_xlim(x_axis[-1], x_axis[0])
-            fig.tight_layout()
+            fig1.tight_layout()
         elif self.name == 'perpParR':
             fig = plt.figure()
             ax = fig.add_subplot(111)
