@@ -1458,13 +1458,11 @@ contains
          call tscheme%assemble_imex(ddw, dpdt) ! Use ddw as a work array
       end if
 
-      !$omp parallel default(shared)  private(start_lm,stop_lm,n_r,lm,l1,dL,m1,Dif,Buo) &
-      !$omp reduction(+:DifPol2hInt)
-      start_lm=lmStart_00; stop_lm=ulm
-      call get_openmp_blocks(start_lm,stop_lm)
-      !$omp barrier
-
       if ( l_double_curl) then
+         !$omp parallel default(shared)  private(start_lm,stop_lm,n_r,lm,l1,dL,m1,Dif,Buo)
+         start_lm=lmStart_00; stop_lm=ulm
+         call get_openmp_blocks(start_lm,stop_lm)
+         !$omp barrier
 
          !$omp single
          call dct_counter%start_count()
@@ -1490,14 +1488,9 @@ contains
             end do
          end do
 
-         if ( tscheme%l_imp_calc_rhs(1) .or. lRmsNext ) then
-            if ( lRmsNext ) then
-               n_r_top=n_r_cmb
-               n_r_bot=n_r_icb
-            else
-               n_r_top=n_r_cmb+1
-               n_r_bot=n_r_icb-1
-            end if
+         if ( tscheme%l_imp_calc_rhs(1) .or. lPressNext ) then
+            n_r_top=n_r_cmb+1
+            n_r_bot=n_r_icb-1
 
             do n_r=n_r_top,n_r_bot
                do lm=start_lm,stop_lm
@@ -1535,7 +1528,7 @@ contains
                      dwdt%impl(lm,n_r,1)=Dif+Buo
                   end if
 
-                  if ( l1 /= 0 .and. lPressNext ) then
+                  if ( lPressNext ) then
                      ! In the double curl formulation, we can estimate the pressure
                      ! if required.
                      p(lm,n_r)=-r(n_r)*r(n_r)/dL*                 dp_expl(lm,n_r)  &
@@ -1547,19 +1540,6 @@ contains
                      &                                              ) * dw(lm,n_r) &
                      &             + dL*or2(n_r)*(two*or1(n_r)+two*third*beta(n_r) &
                      &                     +dLvisc(n_r) )   *            w(lm,n_r) )
-                  end if
-
-                  if ( lRmsNext ) then
-                     !-- In case RMS force balance is required, one needs to also
-                     !-- compute the classical diffusivity that is used in the non
-                     !-- double-curl version
-                     Dif = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
-                     &    +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
-                     &    -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
-                     &       beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
-                     &                                     *       w(lm,n_r) )
-                     DifPol2hInt(l1,n_r)=DifPol2hInt(l1,n_r)+r(n_r)**2*cc2real(Dif,m1)
-                     DifPolLMr(lm,n_r) =r(n_r)**2/dL * Dif
                   end if
                end do
             end do
@@ -1573,8 +1553,37 @@ contains
                  &       n_r_max, rscheme_oc)
             !$omp barrier
          end if
+         !$omp end parallel
+
+         if ( lRmsNext ) then
+            !$omp parallel default(shared)  private(start_lm,stop_lm,n_r,lm,l1,dL,m1,Dif) &
+            !$omp reduction(+:DifPol2hInt)
+            start_lm=lmStart_00; stop_lm=ulm
+            call get_openmp_blocks(start_lm,stop_lm)
+            !$omp barrier
+            do n_r=n_r_cmb,n_r_icb
+               do lm=start_lm,stop_lm
+                  l1=lm2l(lm)
+                  m1=lm2m(lm)
+                  dL=real(l1*(l1+1),cp)
+                  Dif = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
+                  &    +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
+                  &    -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
+                  &       beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
+                  &                                     *       w(lm,n_r) )
+                  DifPol2hInt(l1,n_r)=DifPol2hInt(l1,n_r)+r(n_r)**2*cc2real(Dif,m1)
+                  DifPolLMr(lm,n_r) =r(n_r)**2/dL * Dif
+               end do
+            end do
+            !$omp end parallel
+         end if
 
       else
+
+         !$omp parallel default(shared)  private(start_lm,stop_lm,n_r,lm,l1,dL,m1,Dif,Buo)
+         start_lm=lmStart_00; stop_lm=ulm
+         call get_openmp_blocks(start_lm,stop_lm)
+         !$omp barrier
 
          !-- Now get the poloidal from the assembly
          do n_r=2,n_r_max-1
@@ -1666,14 +1675,9 @@ contains
             end do
          end do
 
-         if ( tscheme%l_imp_calc_rhs(1) .or. lRmsNext ) then
-            if ( lRmsNext ) then
-               n_r_top=n_r_cmb
-               n_r_bot=n_r_icb
-            else
-               n_r_top=n_r_cmb+1
-               n_r_bot=n_r_icb-1
-            end if
+         if ( tscheme%l_imp_calc_rhs(1) ) then
+            n_r_top=n_r_cmb+1
+            n_r_bot=n_r_icb-1
 
             do n_r=n_r_top,n_r_bot
                do lm=start_lm,stop_lm
@@ -1703,17 +1707,35 @@ contains
                   &                                           ) *    dw(lm,n_r) &
                   &            - dL*or2(n_r)* ( two*or1(n_r)+two*third*beta(n_r)&
                   &                     +dLvisc(n_r) )   *            w(lm,n_r) )
-
-                  if ( lRmsNext ) then
-                     DifPol2hInt(l1,n_r)=DifPol2hInt(l1,n_r)+r(n_r)**2*cc2real(Dif,m1)
-                     DifPolLMr(lm,n_r) =r(n_r)**2/dL * Dif
-                  end if
                end do
             end do
          end if
+         !$omp end parallel
+
+         if ( lRmsNext ) then
+            !$omp parallel default(shared) private(start_lm,stop_lm,n_r,lm,l1,dL,m1,Dif)
+            start_lm=lmStart_00; stop_lm=ulm
+            call get_openmp_blocks(start_lm,stop_lm)
+            !$omp barrier
+            do n_r=n_r_cmb,n_r_icb
+               do lm=start_lm,stop_lm
+                  l1=lm2l(lm)
+                  m1=lm2m(lm)
+                  dL=real(l1*(l1+1),cp)
+
+                  Dif=hdif_V(l1)*dL*or2(n_r)*visc(n_r)*(       ddw(lm,n_r)   &
+                  &   +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r)  &
+                  &   -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*    &
+                  &     beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)) )* &
+                  &                                              w(lm,n_r)  )
+                  DifPol2hInt(l1,n_r)=DifPol2hInt(l1,n_r)+r(n_r)**2*cc2real(Dif,m1)
+                  DifPolLMr(lm,n_r) =r(n_r)**2/dL * Dif
+               end do
+            end do
+            !$omp end parallel
+         end if
 
       end if
-      !$omp end parallel
 
    end subroutine assemble_pol
 !------------------------------------------------------------------------------

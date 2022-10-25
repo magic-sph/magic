@@ -1177,8 +1177,7 @@ contains
          end do
       end if ! l=1,m=1 contained in lm-block ?
 
-      !$omp parallel default(shared) private(start_lm, stop_lm, n_r, lm, l, m, dL, Dif) &
-      !$omp reduction(+:DifTor2hInt)
+      !$omp parallel default(shared) private(start_lm,stop_lm,n_r,lm,l,m,dL,Dif)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
 
@@ -1192,8 +1191,7 @@ contains
          end do
       end if
 
-      if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
-
+      if ( l_calc_lin ) then
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
@@ -1211,15 +1209,33 @@ contains
                   dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
                   &                        sin(oek*time),-cos(oek*time),kind=cp)
                end if
-               if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
-                  DifTor2hInt(l,n_r)=DifTor2hInt(l,n_r)+r(n_r)**4/dL*cc2real(Dif,m)
-               end if
             end do
          end do
-
       end if
       !$omp end parallel
 
+      if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
+         !$omp parallel default(shared) private(start_lm,stop_lm,n_r,lm,l,m,dL,Dif) &
+         !$omp reduction(+:DifTor2hInt)
+         start_lm=1; stop_lm=lm_max
+         call get_openmp_blocks(start_lm,stop_lm)
+
+         do n_r=nRstart,nRstop
+            do lm=start_lm,stop_lm
+               l = st_map%lm2l(lm)
+               if ( l == 0 ) cycle
+               m = st_map%lm2m(lm)
+               dL = real(l*(l+1),cp)
+               Dif=hdif_V(l)*dL*or2(n_r)*visc(n_r)* ( work_Rloc(lm,n_r) +    &
+               &     (dLvisc(n_r)-beta(n_r))    *            dz(lm,n_r) -    &
+               &     ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
+               &      + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
+               &                                             zg(lm,n_r) )
+               DifTor2hInt(l,n_r)=DifTor2hInt(l,n_r)+r(n_r)**4/dL*cc2real(Dif,m)
+            end do
+         end do
+         !$omp end parallel
+      end if
 
       if ( l_z10mat ) then
          !----- NOTE opposite sign of viscous torque on ICB and CMB:
