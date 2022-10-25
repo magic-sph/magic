@@ -29,7 +29,7 @@ module updateWP_mod
    use integration, only: rInt_R
    use fields, only: work_LMloc, s_Rloc, xi_Rloc !TODO> pass directly
    use constants, only: zero, one, two, three, four, third, half
-   use useful, only: abortRun
+   use useful, only: abortRun, cc2real
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray
    use parallel_solvers
@@ -1148,7 +1148,7 @@ contains
                n_r_bot=n_r_icb
             end if
 
-            !$omp do private(n_r,lm,l1,Dif,Buo,dL)
+            !$omp do private(n_r,lm,l1,dL,Dif,Buo,Pre)
             do n_r=n_r_top,n_r_bot
                do lm=lmStart_00,ulm
                   l1=lm2l(lm)
@@ -1220,7 +1220,7 @@ contains
 
          else
 
-            !$omp do private(n_r,lm,l1,Dif,Buo,Pre,dL)
+            !$omp do private(n_r,lm,l1,dL,Dif,Buo,Pre)
             do n_r=n_r_top,n_r_bot
                do lm=lmStart_00,ulm
                   l1=lm2l(lm)
@@ -1300,7 +1300,7 @@ contains
 
       !-- Local variables
       complex(cp) :: work_Rloc(lm_max,nRstart:nRstop), dddw_Rloc(lm_max,nRstart:nRstop)
-      integer :: n_r, l, lm, start_lm, stop_lm
+      integer :: n_r, l, m, lm, start_lm, stop_lm
       real(cp) :: dL
 
       !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l, dL)
@@ -1365,16 +1365,19 @@ contains
          !-- Recompute third derivative to have the boundary point right
          call get_dr_Rloc(ddw, dddw_Rloc, lm_max, nRstart, nRstop, n_r_max, rscheme_oc )
 
-         !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l, dL)
+         !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l, m, dL) &
+         !$omp reduction(+:DifPol2hInt)
          start_lm=1; stop_lm=lm_max
          call get_openmp_blocks(start_lm,stop_lm)
 
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l=st_map%lm2l(lm)
+               m=st_map%lm2m(lm)
                dL=real(l*(l+1),cp)
+               if ( l == 0 ) cycle
 
-               if ( l /= 0 .and. lPressNext ) then
+               if ( lPressNext ) then
                   ! In the double curl formulation, we can estimate the pressure
                   ! if required.
                   p(lm,n_r)=-r(n_r)*r(n_r)/dL*                 dp_expl(lm,n_r)  &
@@ -1398,13 +1401,13 @@ contains
                   &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
                   &                                         *       wg(lm,n_r) )
                end if
-            end do
-            if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
-               call hInt2Pol(Dif,1,lm_max,n_r,start_lm,stop_lm,DifPolLMr(:,n_r),  &
-                    &        DifPol2hInt(:,n_r),st_map)
-            end if
-         end do
 
+               if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
+                  DifPol2hInt(l,n_r)=DifPol2hInt(l,n_r)+r(n_r)**2*cc2real(Dif(lm),m)
+                  DifPolLMr(lm,n_r) =r(n_r)**2/dL * Dif(lm)
+               end if
+            end do
+         end do
          !$omp end parallel
       end if
 

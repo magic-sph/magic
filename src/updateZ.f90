@@ -32,7 +32,7 @@ module updateZ_mod
    use RMS_helpers, only: hInt2Tor
    use radial_der, only: get_ddr, get_ddr_ghost, bulk_to_ghost, exch_ghosts
    use fields, only: work_LMloc
-   use useful, only: abortRun
+   use useful, only: abortRun, cc2real
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray, type_tscalar
    use special
@@ -128,6 +128,7 @@ contains
 #endif
 
          allocate( Dif(llm:ulm) )
+         Dif(:)=zero
          bytes_allocated=bytes_allocated+(ulm-llm+1)*SIZEOF_DEF_COMPLEX
 
 #ifdef WITHOMP
@@ -973,7 +974,7 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
-         !$omp do private(n_r,lm,Dif,l1,m1,dL)
+         !$omp do private(n_r,lm,l1,m1,dL,Dif)
          do n_r=n_r_top,n_r_bot
             do lm=lmStart_00,ulm
                l1 = lm2l(lm)
@@ -1185,7 +1186,8 @@ contains
          end do
       end if ! l=1,m=1 contained in lm-block ?
 
-      !$omp parallel default(shared) private(start_lm, stop_lm, n_r, lm, l, m, dL, Dif)
+      !$omp parallel default(shared) private(start_lm, stop_lm, n_r, lm, l, m, dL) &
+      !$omp reduction(+:DifTor2hInt)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
 
@@ -1218,10 +1220,10 @@ contains
                   dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
                   &                        sin(oek*time),-cos(oek*time),kind=cp)
                end if
+               if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
+                  DifTor2hInt(l,n_r)=DifTor2hInt(l,n_r)+r(n_r)**4/dL*cc2real(Dif(lm),m)
+               end if
             end do
-            if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
-               call hInt2Tor(Dif,1,lm_max,n_r,start_lm,stop_lm,DifTor2hInt(:,n_r),st_map)
-            end if
          end do
 
       end if
