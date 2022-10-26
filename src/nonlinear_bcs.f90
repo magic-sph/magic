@@ -2,16 +2,15 @@ module nonlinear_bcs
 
    use iso_fortran_env, only: output_unit
    use precision_mod
-   use truncation, only: lmP_max, n_phi_max, l_max, n_theta_max, nlat_padded
+   use truncation, only: lm_max, n_phi_max, l_max, n_theta_max, nlat_padded
    use grid_blocking, only: radlatlon2spat
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: r_cmb, r_icb, rho0, orho1, or2
-   use blocking, only: lm2lmP
    use physical_parameters, only: sigma_ratio, conductance_ma, prmag, oek
    use horizontal_data, only: cosTheta, sinTheta_E2
    use constants, only: two
    use useful, only: abortRun
-   use sht, only: spat_to_sphertor, sht_lP_single
+   use sht, only: spat_to_sphertor, sht_l_single
 
    implicit none
 
@@ -55,9 +54,9 @@ contains
 
       !-- Output variables:
       ! br*vt/(sin(theta)**2*r**2)
-      complex(cp), intent(inout) :: br_vt_lm(lmP_max)
+      complex(cp), intent(inout) :: br_vt_lm(lm_max)
       ! br*(vp/(sin(theta)**2*r**2)-omega_ma)
-      complex(cp), intent(inout) :: br_vp_lm(lmP_max)
+      complex(cp), intent(inout) :: br_vp_lm(lm_max)
 
       !-- Local variables:
       integer :: n_theta, n_phi, nelem
@@ -76,7 +75,7 @@ contains
       end do
       !$omp end target teams distribute parallel do
 
-      call spat_to_sphertor(sht_lP_single, br_vt, br_vp, br_vt_lm, br_vp_lm, l_max)
+      call spat_to_sphertor(sht_l_single, br_vt, br_vp, br_vt_lm, br_vp_lm, l_max)
 
    end subroutine get_br_v_bcs
 
@@ -107,9 +106,9 @@ contains
 
       !-- Output variables:
       ! br*vt/(sin(theta)**2*r**2)
-      complex(cp), intent(inout) :: br_vt_lm(lmP_max)
+      complex(cp), intent(inout) :: br_vt_lm(lm_max)
       ! br*(vp/(sin(theta)**2*r**2)-omega_ma)
-      complex(cp), intent(inout) :: br_vp_lm(lmP_max)
+      complex(cp), intent(inout) :: br_vp_lm(lm_max)
 
       !-- Local variables:
       integer :: n_theta, n_phi, nelem
@@ -128,7 +127,7 @@ contains
       end do
       !$omp end target teams distribute parallel do
 
-      call spat_to_sphertor(sht_lP_single, br_vt, br_vp, br_vt_lm, br_vp_lm, l_max)
+      call spat_to_sphertor(sht_l_single, br_vt, br_vp, br_vt_lm, br_vp_lm, l_max)
 
    end subroutine get_br_v_bcs_batch
 #else
@@ -159,9 +158,9 @@ contains
 
       !-- Output variables:
       ! br*vt/(sin(theta)**2*r**2)
-      complex(cp), intent(inout) :: br_vt_lm(lmP_max)
+      complex(cp), intent(inout) :: br_vt_lm(lm_max)
       ! br*(vp/(sin(theta)**2*r**2)-omega_ma)
-      complex(cp), intent(inout) :: br_vp_lm(lmP_max)
+      complex(cp), intent(inout) :: br_vp_lm(lm_max)
 
       !-- Local variables:
       integer :: n_theta, n_phi, nelem
@@ -181,7 +180,7 @@ contains
       end do
       !$omp end parallel do
 
-      call spat_to_sphertor(sht_lP_single, br_vt, br_vp, br_vt_lm, br_vp_lm, l_max)
+      call spat_to_sphertor(sht_l_single, br_vt, br_vp, br_vt_lm, br_vp_lm, l_max)
 
    end subroutine get_br_v_bcs
 #endif
@@ -202,8 +201,8 @@ contains
       !-- Input variables:
       character(len=3), intent(in) :: bc                 ! Distinguishes 'CMB' and 'ICB'
       integer,          intent(in) :: lm_min_b,lm_max_b  ! limits of lm-block
-      complex(cp),      intent(in) :: br_vt_lm(lmP_max)  ! :math:`B_r u_\theta/(r^2\sin^2\theta)`
-      complex(cp),      intent(in) :: br_vp_lm(lmP_max)  ! :math:`B_r u_\phi/(r^2\sin^2\theta)`
+      complex(cp),      intent(in) :: br_vt_lm(lm_max)  ! :math:`B_r u_\theta/(r^2\sin^2\theta)`
+      complex(cp),      intent(in) :: br_vp_lm(lm_max)  ! :math:`B_r u_\phi/(r^2\sin^2\theta)`
 
       !-- Output variables:
       complex(cp), intent(out) :: b_nl_bc(lm_min_b:lm_max_b)  ! nonlinear bc for b
@@ -211,27 +210,24 @@ contains
 
       !-- Local variables:
       integer :: lm        ! position of degree and order
-      integer :: lmP       ! same as lm but for l running to l_max+1
       real(cp) :: fac
 
       if ( bc == 'CMB' ) then
 
          fac=conductance_ma*prmag
-         !$omp parallel do default(shared) private(lmP)
+         !$omp parallel do default(shared)
          do lm=lm_min_b,lm_max_b
-            lmP =lm2lmP(lm)
-            b_nl_bc(lm) =-fac * br_vt_lm(lmP)
-            aj_nl_bc(lm)=-fac * br_vp_lm(lmP)
+            b_nl_bc(lm) =-fac * br_vt_lm(lm)
+            aj_nl_bc(lm)=-fac * br_vp_lm(lm)
          end do
          !$omp end parallel do
 
       else if ( bc == 'ICB' ) then
 
          fac=sigma_ratio*prmag
-         !$omp parallel do default(shared) private(lmP)
+         !$omp parallel do default(shared) private(lm)
          do lm=lm_min_b,lm_max_b
-            lmP =lm2lmP(lm)
-            aj_nl_bc(lm)=-fac * br_vp_lm(lmP)
+            aj_nl_bc(lm)=-fac * br_vp_lm(lm)
          end do
          !$omp end parallel do
 

@@ -33,7 +33,6 @@ module truncation
    integer :: m_max       ! max order of Plms
    integer :: n_m_max     ! max number of ms (different oders)
    integer :: lm_max      ! number of l/m combinations
-   integer :: lmP_max     ! number of l/m combination if l runs to l_max+1
    integer :: n_r_tot     ! total number of radial grid points
  
    !--- Now quantities for magnetic fields:
@@ -50,7 +49,6 @@ module truncation
    integer :: lm_max_dtB     ! Number of l/m combinations for movie output
    integer :: n_r_max_dtB    ! Number of radial points for movie output
    integer :: n_r_ic_max_dtB ! Number of IC radial points for movie output
-   integer :: lmP_max_dtB    ! Number of l/m combinations for movie output if l runs to l_max+1
  
    !--- Memory control for stress output:
    integer :: lStressMem     ! Memory for stress output
@@ -63,7 +61,7 @@ contains
    subroutine initialize_truncation
 
       integer :: n_r_maxML,n_r_ic_maxML,n_r_totML,l_maxML,lm_maxML
-      integer :: lm_max_dL,lmP_max_dL,n_r_max_dL,n_r_ic_max_dL
+      integer :: lm_max_dL,n_r_max_dL,n_r_ic_max_dL
       integer :: n_r_maxSL,n_theta_maxSL,n_phi_maxSL, l, m
 
       if ( .not. l_axi ) then
@@ -120,9 +118,6 @@ contains
          end do
       end do
 
-      ! number of l/m combination if l runs to l_max+1
-      lmP_max=lm_max+(m_max/minc-m_min/minc+1)
-
       ! total number of radial grid points
       n_r_tot = n_r_max
       if ( l_cond_ic ) n_r_tot=n_r_max+n_r_ic_max
@@ -142,11 +137,9 @@ contains
 
       !-- Movie memory control:
       lm_max_dL    =ldtBMem*lm_max
-      lmP_max_dL   =ldtBMem*lmP_max
       n_r_max_dL   =ldtBMem*n_r_max
       n_r_ic_max_dL=ldtBMem*n_r_ic_max
       lm_max_dtB    =max(lm_max_DL,1) 
-      lmP_max_dtB   =max(lmP_max_DL,1)
       n_r_max_dtB   =max(n_r_max_DL,1)
       n_r_ic_max_dtB=max(n_r_ic_max_DL,1)
 

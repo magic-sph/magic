@@ -3,7 +3,7 @@ module radialLoop
    use precision_mod
    use logic, only: l_batched_shts
    use mem_alloc, only: memWrite, bytes_allocated
-   use truncation, only: lm_max, lm_maxMag, l_max, l_maxMag, lmP_max
+   use truncation, only: lm_max, lm_maxMag, l_max, l_maxMag
    use radial_data,only: nRstart, nRstop, nRstartMag, nRstopMag
    use time_schemes, only: type_tscheme
    use rIteration, only: rIter_t
@@ -86,10 +86,10 @@ contains
 
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
-      complex(cp), intent(out) :: br_vt_lm_cmb(lmP_max) ! product br*vt at CMB
-      complex(cp), intent(out) :: br_vp_lm_cmb(lmP_max) ! product br*vp at CMB
-      complex(cp), intent(out) :: br_vt_lm_icb(lmP_max) ! product br*vt at ICB
-      complex(cp), intent(out) :: br_vp_lm_icb(lmP_max) ! product br*vp at ICB
+      complex(cp), intent(out) :: br_vt_lm_cmb(lm_max) ! product br*vt at CMB
+      complex(cp), intent(out) :: br_vp_lm_cmb(lm_max) ! product br*vp at CMB
+      complex(cp), intent(out) :: br_vt_lm_icb(lm_max) ! product br*vt at ICB
+      complex(cp), intent(out) :: br_vp_lm_icb(lm_max) ! product br*vp at ICB
       real(cp),    intent(out) :: lorentz_torque_ma,lorentz_torque_ic
 
       !---- Output for Courant criteria:

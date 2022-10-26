@@ -40,12 +40,11 @@ module updateB_mod
    use constants, only: pi, zero, one, two, three, half
    use special, only: n_imp, l_imp, amp_imp, expo_imp, bmax_imp, rrMP, l_curr, &
        &              amp_curr, fac_loop
-   use RMS_helpers, only: hInt2PolLM, hInt2TorLM
    use fields, only: work_LMloc
    use radial_der_even, only: get_ddr_even
    use radial_der, only: get_dr, get_ddr, get_dr_Rloc, get_ddr_ghost, exch_ghosts, &
        &                 bulk_to_ghost
-   use useful, only: abortRun
+   use useful, only: abortRun, cc2real
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray
    use dense_matrices
@@ -62,7 +61,6 @@ module updateB_mod
    complex(cp), allocatable :: workA(:,:), workB(:,:)
    complex(cp), allocatable :: work_ic_LMloc(:,:)
    real(cp), allocatable :: rhs1(:,:,:),rhs2(:,:,:)
-   complex(cp), allocatable :: dtT(:), dtP(:)
    class(type_realmat), pointer :: bMat(:), jMat(:)
 #ifdef WITH_PRECOND_BJ
    real(cp), allocatable :: bMat_fac(:,:)
@@ -189,10 +187,6 @@ contains
             &                 SIZEOF_DEF_COMPLEX
          end if
 
-         allocate( dtT(llmMag:ulmMag) )
-         allocate( dtP(llmMag:ulmMag) )
-         bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*SIZEOF_DEF_COMPLEX
-
 #ifdef WITHOMP
          maxThreads=omp_get_max_threads()
 #else
@@ -231,9 +225,6 @@ contains
          &                   SIZEOF_DEF_COMPLEX
 #endif
 
-         allocate( dtT(lm_maxMag), dtP(lm_maxMag) )
-         bytes_allocated = bytes_allocated+2*lm_maxMag*SIZEOF_DEF_COMPLEX
-
          !-- Arrays needed for R.M.S outputs
          if ( l_RMS ) then
             allocate( workA(lm_max,nRstartMag:nRstopmag) )
@@ -259,7 +250,6 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll
 
-      deallocate( lBmat, dtT, dtP )
       if ( l_RMS ) deallocate( workA, workB )
       if ( .not. l_mag_par_solve ) then
          nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
@@ -2262,9 +2252,10 @@ contains
       complex(cp),       intent(out) :: ddb(llmMag:ulmMag,n_r_max)
 
       !-- Local variables
+      complex(cp) :: dtP, dtT
       real(cp) :: dL
       logical :: l_in_cheb
-      integer :: n_r_top, n_r_bot, l1, lmStart_00
+      integer :: n_r_top, n_r_bot, l1, m1, lmStart_00
       integer :: n_r, lm, start_lm, stop_lm
       integer, pointer :: lm2l(:),lm2m(:)
       real(cp) :: loc_dt
@@ -2392,62 +2383,35 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
-         if(lRmsNext) then
 #ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do private(l1,dtP,dtT,dL)
+         !$omp target teams distribute parallel do collapse(2) private(l1,m1,dL,dtP,dtT)
 #else
-            !$omp do private(n_r,lm,l1,dtP,dtT,dL)
+         !$omp do private(n_r,lm,l1,m1,dtP,dtT,dL)
 #endif
-            do n_r=n_r_top,n_r_bot
-               do lm=lmStart_00,ulmMag
-                  l1=lm2l(lm)
-                  dL=real(l1*(l1+1),cp)
-                  dbdt%impl(lm,n_r,istage)=opm*lambda(n_r)*hdif_B(l1)*     &
-                  &                    dL*or2(n_r)*(ddb(lm,n_r)-dL*or2(n_r)*b(lm,n_r) )
-                  djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(l1)*           &
-                  &                    dL*or2(n_r)*( ddj(lm,n_r)+dLlambda(n_r)*   &
-                  &                    dj(lm,n_r)-dL*or2(n_r)*aj(lm,n_r) )
-                  if (loc_istage == loc_nstage ) then
-                     dtP(lm)=dL*or2(n_r)/loc_dt * (  b(lm,n_r)-workA(lm,n_r) )
-                     dtT(lm)=dL*or2(n_r)/loc_dt * ( aj(lm,n_r)-workB(lm,n_r) )
-                  end if
-               end do
-               if (loc_istage == loc_nstage ) then
-                  call hInt2PolLM(dtP,llmMag,ulmMag,n_r,lmStart_00,ulmMag, &
-                       &          dtBPolLMr(llmMag:ulmMag,n_r),            &
-                       &          dtBPol2hInt(llmMag:ulmMag,n_r),lo_map)
-                  call hInt2TorLM(dtT,llmMag,ulmMag,n_r,lmStart_00,ulmMag, &
-                       &          dtBTor2hInt(llmMag:ulmMag,n_r),lo_map)
+         do n_r=n_r_top,n_r_bot
+            do lm=lmStart_00,ulmMag
+               l1=lm2l(lm)
+               m1=lm2m(lm)
+               dL=real(l1*(l1+1),cp)
+               dbdt%impl(lm,n_r,istage)=opm*lambda(n_r)*hdif_B(l1)*     &
+               &                    dL*or2(n_r)*(ddb(lm,n_r)-dL*or2(n_r)*b(lm,n_r) )
+               djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(l1)*           &
+               &                    dL*or2(n_r)*( ddj(lm,n_r)+dLlambda(n_r)*   &
+               &                    dj(lm,n_r)-dL*or2(n_r)*aj(lm,n_r) )
+               if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
+                  dtP=dL*or2(n_r)/tscheme%dt(1) * (  b(lm,n_r)-workA(lm,n_r) )
+                  dtT=dL*or2(n_r)/tscheme%dt(1) * ( aj(lm,n_r)-workB(lm,n_r) )
+                  dtBPolLMr(lm,n_r)  =r(n_r)**2/dL * dtP
+                  dtBPol2hInt(lm,n_r)=r(n_r)**2 * cc2real(dtP, m1)
+                  dtBTor2hInt(lm,n_r)=r(n_r)**4/dL * cc2real(dtT, m1)
                end if
             end do
+         end do
 #ifdef WITH_OMP_GPU
-            !$omp end target teams distribute parallel do
+         !$omp end target teams distribute parallel do
 #else
-            !$omp end do
+         !$omp end do
 #endif
-         else
-#ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do collapse(2)
-#else
-            !$omp do private(n_r,lm,l1,dL)
-#endif
-            do n_r=n_r_top,n_r_bot
-               do lm=lmStart_00,ulmMag
-                  l1=lm2l(lm)
-                  dL=real(l1*(l1+1),cp)
-                  dbdt%impl(lm,n_r,istage)=opm*lambda(n_r)*hdif_B(l1)*     &
-                  &                    dL*or2(n_r)*(ddb(lm,n_r)-dL*or2(n_r)*b(lm,n_r) )
-                  djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(l1)*           &
-                  &                    dL*or2(n_r)*( ddj(lm,n_r)+dLlambda(n_r)*   &
-                  &                    dj(lm,n_r)-dL*or2(n_r)*aj(lm,n_r) )
-               end do
-            end do
-#ifdef WITH_OMP_GPU
-            !$omp end target teams distribute parallel do
-#else
-            !$omp end do
-#endif
-         end if
 
       end if
 #ifndef WITH_OMP_GPU
@@ -2480,10 +2444,10 @@ contains
       complex(cp),       intent(out) :: ddj(lm_max,nRstartMag:nRstopMag)
 
       !-- Local variables
-      complex(cp) :: b_r_LCR(lm_max)
+      complex(cp) :: b_r_LCR(lm_max), dtT, dtP
       real(cp) :: dL
-      integer :: l, lm, start_lm, stop_lm, n_r, tag, p, recv
-      integer, pointer :: lm2l(:)
+      integer :: l, m, lm, start_lm, stop_lm, n_r, tag, p, recv
+      integer, pointer :: lm2l(:), lm2m(:)
 
       if ( l_LCR ) then
          tag = 73429
@@ -2509,12 +2473,13 @@ contains
       end if
 
       lm2l(1:lm_max) => st_map%lm2l
+      lm2m(1:lm_max) => st_map%lm2m
 
 #ifdef WITH_OMP_GPU
       start_lm=1; stop_lm=lm_max
       call dct_counter%start_count()
 #else
-      !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l, dL)
+      !$omp parallel default(shared) private(start_lm,stop_lm,n_r,lm,l,m,dL,dtP,dtT)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
 
@@ -2582,12 +2547,13 @@ contains
       if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
 
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do private(l,dtP,dtT,dL)
+         !$omp target teams distribute parallel do private(l,m,dtP,dtT,dL)
 #endif
          do n_r=nRstartMag,nRstopMag
             do lm=start_lm,stop_lm
                l=lm2l(lm)
-               if ( l /= 0 ) then
+               m=lm2m(lm)
+               if ( l > 0 ) then
                   dL=real(l*(l+1),cp)
                   dbdt%impl(lm,n_r,istage)=opm*lambda(n_r)*hdif_B(l)*            &
                   &                    dL*or2(n_r)*(ddb(lm,n_r)-dL*or2(n_r)*bg(lm,n_r) )
@@ -2595,17 +2561,15 @@ contains
                   &                    dL*or2(n_r)*( ddj(lm,n_r)+dLlambda(n_r)*   &
                   &                    dj(lm,n_r)-dL*or2(n_r)*ajg(lm,n_r) )
                   if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
-                     dtP(lm)=dL*or2(n_r)/tscheme%dt(1) * (  bg(lm,n_r)-workA(lm,n_r) )
-                     dtT(lm)=dL*or2(n_r)/tscheme%dt(1) * ( ajg(lm,n_r)-workB(lm,n_r) )
+                     dtP=dL*or2(n_r)/tscheme%dt(1) * (  bg(lm,n_r)-workA(lm,n_r) )
+                     dtT=dL*or2(n_r)/tscheme%dt(1) * ( ajg(lm,n_r)-workB(lm,n_r) )
+
+                     dtBPolLMr(lm,n_r)  =r(n_r)**2/dL * dtP
+                     dtBPol2hInt(lm,n_r)=r(n_r)**2 * cc2real(dtP, m)
+                     dtBTor2hInt(lm,n_r)=r(n_r)**4/dL * cc2real(dtT, m)
                   end if
                end if
             end do
-            if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
-               call hInt2PolLM(dtP,1,lm_max,n_r,start_lm,stop_lm, dtBPolLMr(:,n_r),  &
-                    &          dtBPol2hInt(:,n_r),st_map)
-               call hInt2TorLM(dtT,1,lm_max,n_r,start_lm,stop_lm,dtBTor2hInt(:,n_r), &
-                    &          st_map)
-            end if
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do

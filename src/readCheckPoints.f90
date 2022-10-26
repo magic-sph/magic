@@ -2904,16 +2904,26 @@ contains
          do lm=lmStart,lmStop
             lmo=lm2lmo(lm)
             if ( lmo > 0 ) then
-               if ( dim1 /= n_r_max_old .or. ratio1 /= ratio1_old .or.        &
-               &    ratio2 /= ratio2_old .or.                                 &
-               &    rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary&
-               &    .or. rscheme_oc%version /= rscheme_oc_old%version ) then
+               if ( l_IC ) then ! remap inner core
+                  if ( dim1 /= n_r_max_old ) then
+                     woR(1:n_r_max_old)=wo(lmo,:)
+                     call mapDataR(woR,r_old,dim1,n_r_max_old,n_r_maxL,lBc1,l_IC)
+                     w(lm,:)=scale_w*woR(1:dim1)
+                  else
+                     w(lm,:)=scale_w*wo(lmo,:)
+                  end if
+               else ! remap outer core
+                  if ( dim1 /= n_r_max_old .or. ratio1 /= ratio1_old .or.        &
+                  &    ratio2 /= ratio2_old .or.                                 &
+                  &    rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary&
+                  &    .or. rscheme_oc%version /= rscheme_oc_old%version ) then
 
-                  woR(1:n_r_max_old)=wo(lmo,:)
-                  call mapDataR(woR,r_old,dim1,n_r_max_old,n_r_maxL,lBc1,l_IC)
-                  w(lm,:)=scale_w*woR(1:dim1)
-               else
-                  w(lm,:)=scale_w*wo(lmo,:)
+                     woR(1:n_r_max_old)=wo(lmo,:)
+                     call mapDataR(woR,r_old,dim1,n_r_max_old,n_r_maxL,lBc1,l_IC)
+                     w(lm,:)=scale_w*woR(1:dim1)
+                  else
+                     w(lm,:)=scale_w*wo(lmo,:)
+                  end if
                end if
             else
                w(lm,:)=zero

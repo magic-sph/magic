@@ -229,7 +229,7 @@ contains
       integer,     intent(in) :: lcut
       complex(cp), intent(out) :: fLM(*)
 
-      call native_spat_to_sph(f, fLM, lcut+1)
+      call native_spat_to_sph(f, fLM, lcut)
 
    end subroutine scal_to_SH
 !------------------------------------------------------------------------------
@@ -246,8 +246,8 @@ contains
       complex(cp), intent(out) :: sLM(*)
       complex(cp), intent(out) :: tLM(*)
 
-      call native_spat_to_sph(f, qLM, lcut+1)
-      call native_spat_to_sph_tor(g, h, sLM, tLM, lcut+1)
+      call native_spat_to_sph(f, qLM, lcut)
+      call native_spat_to_sph_tor(g, h, sLM, tLM, lcut)
 
    end subroutine spat_to_qst
 !------------------------------------------------------------------------------
@@ -263,7 +263,7 @@ contains
       complex(cp), intent(out) :: fLM(*)
       complex(cp), intent(out) :: gLM(*)
 
-      call native_spat_to_sph_tor(f, g, fLM, gLM, lcut+1)
+      call native_spat_to_sph_tor(f, g, fLM, gLM, lcut)
 
    end subroutine spat_to_sphertor
 !------------------------------------------------------------------------------

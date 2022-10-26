@@ -12,14 +12,14 @@ module nonlinear_lm_mod
 #else
    use mem_alloc, only: bytes_allocated
 #endif
-   use truncation, only: lm_max, l_max, lm_maxMag, lmP_max
+   use truncation, only: lm_max, l_max, lm_maxMag
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag,          &
        &             l_chemical_conv, l_single_matrix, l_double_curl,       &
        &             l_adv_curl, l_phase_field
    use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1
    use physical_parameters, only: CorFac, epsc,  n_r_LCR, epscXi
-   use blocking, only: lm2l, lm2m, lm2lmP, lm2lmA, lm2lmS
+   use blocking, only: lm2l, lm2m, lm2lmA, lm2lmS
    use horizontal_data, only: dLh, dPhi, dTheta2A, dTheta3A, dTheta4A, dTheta2S, &
        &                      dTheta3S, dTheta4S
    use constants, only: zero, two
@@ -144,7 +144,7 @@ contains
       integer :: lm
 
       !$omp parallel do private(lm)
-      do lm=1,lmP_max
+      do lm=1,lm_max
          this%AdvrLM(lm)=zero
          this%AdvtLM(lm)=zero
          this%AdvpLM(lm)=zero
@@ -201,7 +201,7 @@ contains
       complex(cp), intent(out) :: dVXirLM(:)
 
       !-- Local variables:
-      integer :: l,m,lm,lmS,lmA,lmP
+      integer :: l,m,lm,lmS,lmA
       complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc,dsdt_loc
       !integer, parameter :: DOUBLE_COMPLEX_PER_CACHELINE=4
 
@@ -217,10 +217,10 @@ contains
          if ( l_conv ) then  ! Convection
 
 #ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do private(l,m,lmS,lmA,lmP) &
+            !$omp target teams distribute parallel do private(l,m,lmS,lmA) &
             !$omp& private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
 #else
-            !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
+            !$omp parallel do default(shared) private(lm,l,m,lmS,lmA) &
             !$omp private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
 #endif
             do lm=1,lm_max
@@ -228,15 +228,12 @@ contains
                m   =lm2m(lm)
                lmS =lm2lmS(lm)
                lmA =lm2lmA(lm)
-               lmP =lm2lmP(lm)
 
                if ( l == 0 ) then ! This is l=0,m=0
                   lmA=lm2lmA(1)
-                  lmP=1
-                  !lmPA=lmP2lmPA(lmP)
                   if ( l_conv_nl ) then
-                     AdvPol_loc=or2(nR)*this%AdvrLM(lmP)
-                     AdvTor_loc=zero!-dTheta1A(lm)*this%AdvpLM(lmPA)
+                     AdvPol_loc=or2(nR)*this%AdvrLM(lm)
+                     AdvTor_loc=zero!-dTheta1A(lm)*this%AdvpLM(lmA)
                   else
                      AdvPol_loc=zero
                      AdvTor_loc=zero
@@ -294,8 +291,8 @@ contains
                      end if
 
                      if ( l_conv_nl ) then
-                        AdvPol_loc =dLh(lm)*or4(nR)*orho1(nR)*this%AdvrLM(lmP)
-                        dVxVhLM(lm)=-orho1(nR)*r(nR)*r(nR)*dLh(lm)*this%AdvtLM(lmP)
+                        AdvPol_loc =dLh(lm)*or4(nR)*orho1(nR)*this%AdvrLM(lm)
+                        dVxVhLM(lm)=-orho1(nR)*r(nR)*r(nR)*dLh(lm)*this%AdvtLM(lm)
                      else
                         AdvPol_loc =zero
                         dVxVhLM(lm)=zero
@@ -321,7 +318,7 @@ contains
                      end if
 
                      if ( l_conv_nl ) then
-                        AdvPol_loc=or2(nR)*this%AdvrLM(lmP)
+                        AdvPol_loc=or2(nR)*this%AdvrLM(lm)
                      else
                         AdvPol_loc=zero
                      endif
@@ -350,7 +347,7 @@ contains
                      CorTor_loc=zero
                   end if
                   if ( l_conv_nl ) then
-                     AdvTor_loc=dLh(lm)*this%AdvpLM(lmP)
+                     AdvTor_loc=dLh(lm)*this%AdvpLM(lm)
                   else
                      AdvTor_loc=zero
                   end if
@@ -368,10 +365,10 @@ contains
             if ( (.not. l_double_curl) .or. lPressNext ) then
             !if ( .true. ) then
 #ifdef WITH_OMP_GPU
-               !$omp target teams distribute parallel do private(lm,l,m,lmS,lmA,lmP) &
+               !$omp target teams distribute parallel do private(lm,l,m,lmS,lmA) &
                !$omp& private(AdvPol_loc,CorPol_loc)
 #else
-               !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
+               !$omp parallel do default(shared) private(lm,l,m,lmS,lmA) &
                !$omp private(AdvPol_loc,CorPol_loc)
 #endif
                do lm=1,lm_max
@@ -380,7 +377,6 @@ contains
                   m   =lm2m(lm)
                   lmS =lm2lmS(lm)
                   lmA =lm2lmA(lm)
-                  lmP =lm2lmP(lm)
 
                   !------ Recycle CorPol and AdvPol:
                   if ( l_corr ) then
@@ -409,7 +405,7 @@ contains
                      CorPol_loc=zero
                   end if
                   if ( l_conv_nl ) then
-                     AdvPol_loc=-dLh(lm)*this%AdvtLM(lmP)
+                     AdvPol_loc=-dLh(lm)*this%AdvtLM(lm)
                   else
                      AdvPol_loc=zero
                   end if
@@ -444,13 +440,12 @@ contains
          if ( l_heat ) then
 
 #ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do private(lmP,dsdt_loc,l)
+            !$omp target teams distribute parallel do private(dsdt_loc,l)
 #else
-            !$omp parallel do default(shared) private(lm,lmP,dsdt_loc,l)
+            !$omp parallel do default(shared) private(dsdt_loc,l)
 #endif
             do lm=1,lm_max
                l   =lm2l(lm)
-               lmP =lm2lmP(lm)
                if ( l == 0 ) then
                   dsdt_loc =epsc*epscProf(nR)!+opr/epsS*divKtemp0(nR)
                   dVSrLM(1)=this%VSrLM(1)
@@ -463,13 +458,13 @@ contains
                   end if
                   dsdt(1)=dsdt_loc
                else
-                  dVSrLM(lm)=this%VSrLM(lmP)
-                  dsdt_loc  =dLh(lm)*this%VStLM(lmP)
+                  dVSrLM(lm)=this%VSrLM(lm)
+                  dsdt_loc  =dLh(lm)*this%VStLM(lm)
                   if ( l_anel ) then
                      if ( l_anelastic_liquid ) then
-                        dsdt_loc = dsdt_loc+temp0(nR)*this%heatTermsLM(lmP)
+                        dsdt_loc = dsdt_loc+temp0(nR)*this%heatTermsLM(lm)
                      else
-                        dsdt_loc = dsdt_loc+this%heatTermsLM(lmP)
+                        dsdt_loc = dsdt_loc+this%heatTermsLM(lm)
                      end if
                   end if
                   dsdt(lm) = dsdt_loc
@@ -485,19 +480,18 @@ contains
          if ( l_chemical_conv ) then
 
 #ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do private(lmP,l)
+            !$omp target teams distribute parallel do private(l)
 #else
-            !$omp parallel do default(shared) private(lm,lmP,l)
+            !$omp parallel do default(shared) private(lm,l)
 #endif
             do lm=1,lm_max
                l   =lm2l(lm)
-               lmP =lm2lmP(lm)
                if ( l == 0 ) then
                   dVXirLM(1)=this%VXirLM(1)
                   dxidt(1)  =epscXi
                else
-                  dVXirLM(lm)=this%VXirLM(lmP)
-                  dxidt(lm)  =dLh(lm)*this%VXitLM(lmP)
+                  dVXirLM(lm)=this%VXirLM(lm)
+                  dxidt(lm)  =dLh(lm)*this%VXitLM(lm)
                end if
             end do
 #ifdef WITH_OMP_GPU
@@ -509,13 +503,12 @@ contains
 
          if ( l_phase_field ) then
 #ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do private(lmP)
+            !$omp target teams distribute parallel
 #else
-            !$omp parallel do default(shared) private(lm,lmP)
+            !$omp parallel do default(shared)
 #endif
             do lm=1,lm_max
-               lmP=lm2lmP(lm)
-               dphidt(lm)=this%dphidtLM(lmP)
+               dphidt(lm)=this%dphidtLM(lm)
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
@@ -526,15 +519,14 @@ contains
 
          if ( l_mag_nl .or. l_mag_kin  ) then
 #ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do private(lmP)
+            !$omp target teams distribute parallel do
 #else
-            !$omp parallel do default(shared) private(lm,lmP)
+            !$omp parallel do default(shared)
 #endif
             do lm=1,lm_max
-               lmP =lm2lmP(lm)
-               dbdt(lm)   = dLh(lm)*this%VxBpLM(lmP)
-               dVxBhLM(lm)=-dLh(lm)*this%VxBtLM(lmP)*r(nR)*r(nR)
-               djdt(lm)   = dLh(lm)*or4(nR)*this%VxBrLM(lmP)
+               dbdt(lm)   = dLh(lm)*this%VxBpLM(lm)
+               dVxBhLM(lm)=-dLh(lm)*this%VxBtLM(lm)*r(nR)*r(nR)
+               djdt(lm)   = dLh(lm)*or4(nR)*this%VxBrLM(lm)
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
@@ -564,18 +556,17 @@ contains
       else   ! boundary !
          if ( l_mag_nl .or. l_mag_kin ) then
 #ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do private(lmP,l)
+            !$omp target teams distribute parallel do private(l)
 #else
-            !$omp parallel do default(shared) private(lm,lmP,l)
+            !$omp parallel do default(shared) private(l)
 #endif
             do lm=1,lm_max
                l   =lm2l(lm)
-               lmP =lm2lmP(lm)
                if ( l == 0 ) then
                   dVxBhLM(1)=zero
                   dVSrLM(1) =zero
                else
-                  dVxBhLM(lm)=-dLh(lm)*this%VxBtLM(lmP)*r(nR)*r(nR)
+                  dVxBhLM(lm)=-dLh(lm)*this%VxBtLM(lm)*r(nR)*r(nR)
                   dVSrLM(lm) =zero
                end if
             end do
@@ -650,7 +641,7 @@ module nonlinear_lm_2d_mod
 #endif
    use radial_data, only: nRstart, nRstop, n_r_cmb, n_r_icb, nRstartMag, &
        &                  nRstopMag
-   use truncation, only: lm_max, l_max, lm_maxMag, lmP_max
+   use truncation, only: lm_max, l_max, lm_maxMag
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag,          &
        &             l_chemical_conv, l_single_matrix, l_double_curl,       &
@@ -658,7 +649,7 @@ module nonlinear_lm_2d_mod
        &             l_temperature_diff
    use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1
    use physical_parameters, only: CorFac, epsc,  n_r_LCR, epscXi
-   use blocking, only: lm2l, lm2m, lm2lmP, lm2lmA, lm2lmS
+   use blocking, only: lm2l, lm2m, lm2lmA, lm2lmS
    use horizontal_data, only: dLh, dPhi, dTheta2A, dTheta3A, dTheta4A, dTheta2S, &
        &                      dTheta3S, dTheta4S
    use constants, only: zero, two
@@ -808,7 +799,7 @@ contains
       !$omp parallel do private(lm)
 #endif
       do nR=nRstart,nRstop
-         do lm=1,lmP_max
+         do lm=1,lm_max
             this%AdvrLM(lm,nR)=zero
             this%AdvtLM(lm,nR)=zero
             this%AdvpLM(lm,nR)=zero
@@ -868,17 +859,17 @@ contains
       complex(cp), intent(out) :: dVXirLM(lm_max,nRstart:nRstop)
 
       !-- Local variables:
-      integer :: l,m,lm,lmS,lmA,lmP,nR
+      integer :: l,m,lm,lmS,lmA,nR
       complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc,dsdt_loc
 
       if ( l_conv ) then
 
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2) &
-         !$omp private(l,m,lmS,lmA,lmP) &
+         !$omp private(l,m,lmS,lmA) &
          !$omp private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
 #else
-         !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
+         !$omp parallel do default(shared) private(lm,l,m,lmS,lmA) &
          !$omp private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
 #endif
          do nR=nRstart,nRstop
@@ -887,16 +878,12 @@ contains
                m   =lm2m(lm)
                lmS =lm2lmS(lm)
                lmA =lm2lmA(lm)
-               lmP =lm2lmP(lm)
-
 
                if ( l == 0 ) then ! This is l=0,m=0
                   lmA=lm2lmA(1)
-                  lmP=1
-                  !lmPA=lmP2lmPA(lmP)
                   if ( l_conv_nl ) then
-                     AdvPol_loc=or2(nR)*this%AdvrLM(lmP,nR)
-                     AdvTor_loc=zero!-dTheta1A(lm)*this%AdvpLM(lmPA,nR)
+                     AdvPol_loc=or2(nR)*this%AdvrLM(lm,nR)
+                     AdvTor_loc=zero!-dTheta1A(lm)*this%AdvpLM(lmA,nR)
                   else
                      AdvPol_loc=zero
                      AdvTor_loc=zero
@@ -955,8 +942,8 @@ contains
                      end if
 
                      if ( l_conv_nl ) then
-                        AdvPol_loc    =dLh(lm)*or4(nR)*orho1(nR)*this%AdvrLM(lmP,nR)
-                        dVxVhLM(lm,nR)=-orho1(nR)*r(nR)*r(nR)*dLh(lm)*this%AdvtLM(lmP,nR)
+                        AdvPol_loc    =dLh(lm)*or4(nR)*orho1(nR)*this%AdvrLM(lm,nR)
+                        dVxVhLM(lm,nR)=-orho1(nR)*r(nR)*r(nR)*dLh(lm)*this%AdvtLM(lm,nR)
                      else
                         AdvPol_loc    =zero
                         dVxVhLM(lm,nR)=zero
@@ -982,7 +969,7 @@ contains
                      end if
 
                      if ( l_conv_nl ) then
-                        AdvPol_loc=or2(nR)*this%AdvrLM(lmP,nR)
+                        AdvPol_loc=or2(nR)*this%AdvrLM(lm,nR)
                      else
                         AdvPol_loc=zero
                      endif
@@ -1011,7 +998,7 @@ contains
                      CorTor_loc=zero
                   end if
                   if ( l_conv_nl ) then
-                     AdvTor_loc=dLh(lm)*this%AdvpLM(lmP,nR)
+                     AdvTor_loc=dLh(lm)*this%AdvpLM(lm,nR)
                   else
                      AdvTor_loc=zero
                   end if
@@ -1046,7 +1033,7 @@ contains
                         CorPol_loc=zero
                      end if
                      if ( l_conv_nl ) then
-                        AdvPol_loc=-dLh(lm)*this%AdvtLM(lmP,nR)
+                        AdvPol_loc=-dLh(lm)*this%AdvtLM(lm,nR)
                      else
                         AdvPol_loc=zero
                      end if
@@ -1086,14 +1073,13 @@ contains
 
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2) &
-         !$omp private(lmP,dsdt_loc,l)
+         !$omp private(dsdt_loc,l)
 #else
-         !$omp parallel do default(shared) private(lm,lmP,dsdt_loc,l)
+         !$omp parallel do default(shared) private(lm,dsdt_loc,l)
 #endif
          do nR=nRstart,nRstop
             do lm=1,lm_max
                l   =lm2l(lm)
-               lmP =lm2lmP(lm)
                if ( l == 0 ) then
                   dsdt_loc =epsc*epscProf(nR)!+opr/epsS*divKtemp0(nR)
                   dVSrLM(1,nR)=this%VSrLM(1,nR)
@@ -1106,13 +1092,13 @@ contains
                   end if
                   dsdt(1,nR)=dsdt_loc
                else
-                  dVSrLM(lm,nR)=this%VSrLM(lmP,nR)
-                  dsdt_loc     =dLh(lm)*this%VStLM(lmP,nR)
+                  dVSrLM(lm,nR)=this%VSrLM(lm,nR)
+                  dsdt_loc     =dLh(lm)*this%VStLM(lm,nR)
                   if ( l_anel ) then
                      if ( l_anelastic_liquid ) then
-                        dsdt_loc=dsdt_loc+temp0(nR)*this%heatTermsLM(lmP,nR)
+                        dsdt_loc=dsdt_loc+temp0(nR)*this%heatTermsLM(lm,nR)
                      else
-                        dsdt_loc=dsdt_loc+this%heatTermsLM(lmP,nR)
+                        dsdt_loc=dsdt_loc+this%heatTermsLM(lm,nR)
                      end if
                   end if
                   dsdt(lm,nR)=dsdt_loc
@@ -1130,20 +1116,19 @@ contains
 
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2) &
-         !$omp private(lmP,l)
+         !$omp private(l)
 #else
-         !$omp parallel do default(shared) private(lm,lmP,l)
+         !$omp parallel do default(shared) private(l,lm)
 #endif
          do nR=nRstart,nRstop
             do lm=1,lm_max
                l   =lm2l(lm)
-               lmP =lm2lmP(lm)
                if ( l == 0 ) then
                   dVXirLM(1,nR)=this%VXirLM(1,nR)
                   dxidt(1,nR)  =epscXi
                else
-                  dVXirLM(lm,nR)=this%VXirLM(lmP,nR)
-                  dxidt(lm,nR)  =dLh(lm)*this%VXitLM(lmP,nR)
+                  dVXirLM(lm,nR)=this%VXirLM(lm,nR)
+                  dxidt(lm,nR)  =dLh(lm)*this%VXitLM(lm,nR)
                end if
             end do
          end do
@@ -1156,14 +1141,13 @@ contains
 
       if ( l_phase_field ) then
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do collapse(2) private(lmP)
+         !$omp target teams distribute parallel do collapse(2)
 #else
-         !$omp parallel do default(shared) private(lm,lmP)
+         !$omp parallel do default(shared) private(lm)
 #endif
          do nR=nRstart,nRstop
             do lm=1,lm_max
-               lmP=lm2lmP(lm)
-               dphidt(lm,nR)=this%dphidtLM(lmP,nR)
+               dphidt(lm,nR)=this%dphidtLM(lm,nR)
             end do
          end do
 #ifdef WITH_OMP_GPU
@@ -1175,16 +1159,15 @@ contains
 
       if ( l_mag_nl .or. l_mag_kin  ) then
 #ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do collapse(2) private(lmP)
+         !$omp target teams distribute parallel do collapse(2)
 #else
-         !$omp parallel do default(shared) private(lm,lmP)
+         !$omp parallel do default(shared) private(lm)
 #endif
          do nR=nRstart,nRstop
             do lm=1,lm_max
-               lmP =lm2lmP(lm)
-               dbdt(lm,nR)   = dLh(lm)*this%VxBpLM(lmP,nR)
-               dVxBhLM(lm,nR)=-dLh(lm)*this%VxBtLM(lmP,nR)*r(nR)*r(nR)
-               djdt(lm,nR)   = dLh(lm)*or4(nR)*this%VxBrLM(lmP,nR)
+               dbdt(lm,nR)   = dLh(lm)*this%VxBpLM(lm,nR)
+               dVxBhLM(lm,nR)=-dLh(lm)*this%VxBtLM(lm,nR)*r(nR)*r(nR)
+               djdt(lm,nR)   = dLh(lm)*or4(nR)*this%VxBrLM(lm,nR)
             end do
          end do
 #ifdef WITH_OMP_GPU
@@ -1223,18 +1206,17 @@ contains
 
                if ( l_mag_nl .or. l_mag_kin ) then
 #ifdef WITH_OMP_GPU
-                  !$omp target teams distribute parallel do private(lmP,l)
+                  !$omp target teams distribute parallel do private(lm,l)
 #else
-                  !$omp parallel do default(shared) private(lm,lmP,l)
+                  !$omp parallel do default(shared) private(lm,l)
 #endif
                   do lm=1,lm_max
                      l   =lm2l(lm)
-                     lmP =lm2lmP(lm)
                      if ( l == 0 ) then
                         dVxBhLM(1,nR)=zero
                         dVSrLM(1,nR) =zero
                      else
-                        dVxBhLM(lm,nR)=-dLh(lm)*this%VxBtLM(lmP,nR)*r(nR)*r(nR)
+                        dVxBhLM(lm,nR)=-dLh(lm)*this%VxBtLM(lm,nR)*r(nR)*r(nR)
                         dVSrLM(lm,nR) =zero
                      end if
                   end do

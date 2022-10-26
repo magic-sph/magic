@@ -22,13 +22,13 @@ module dtB_mod
    use horizontal_data, only: dPhi, dLh, hdif_B, O_sin_theta_E2, &
        &                      dTheta1S, dTheta1A, O_sin_theta, cosn_theta_E2
    use logic, only: l_cond_ic, l_DTrMagSpec, l_dtBmovie
-   use blocking, only: lo_map, st_map, lm2l, lm2m, lmP2lmPS, lmP2lmPA, &
-                       lm2lmP, llmMag, ulmMag, llm, ulm
+   use blocking, only: lo_map, st_map, lm2l, lm2m, llmMag, ulmMag, llm, ulm, &
+       &               lm2lmS, lm2lmA
    use radial_spectra ! rBrSpec, rBpSpec
 #ifdef WITH_OMP_GPU
-   use sht, only: scal_to_SH, sht_lP_single, sht_lP_single_gpu, spat_to_sphertor
+   use sht, only: scal_to_SH, sht_l_single, sht_l_single_gpu, spat_to_sphertor
 #else
-   use sht, only: scal_to_SH, sht_lP_single, spat_to_sphertor
+   use sht, only: scal_to_SH, sht_l_single, spat_to_sphertor
 #endif
    use constants, only: two
    use radial_der, only: get_dr
@@ -312,18 +312,18 @@ contains
       end do
       !$omp end target teams distribute parallel do
 
-      call spat_to_sphertor(sht_lP_single_gpu, BtVr, BpVr, BtVrLM, BpVrLM, l_max, .true.)
-      call spat_to_sphertor(sht_lP_single_gpu, BrVt, BrVp, BrVtLM, BrVpLM, l_max, .true.)
+      call spat_to_sphertor(sht_l_single_gpu, BtVr, BpVr, BtVrLM, BpVrLM, l_max, .true.)
+      call spat_to_sphertor(sht_l_single_gpu, BrVt, BrVp, BrVtLM, BrVpLM, l_max, .true.)
 
-      call scal_to_SH(sht_lP_single_gpu, BtVp, BtVpLM, l_max, .true.)
-      call scal_to_SH(sht_lP_single_gpu, BpVt, BpVtLM, l_max, .true.)
+      call scal_to_SH(sht_l_single_gpu, BtVp, BtVpLM, l_max, .true.)
+      call scal_to_SH(sht_l_single_gpu, BpVt, BpVtLM, l_max, .true.)
 
-      call scal_to_SH(sht_lP_single_gpu, BpVtBtVpCot, BpVtBtVpCotLM, l_max, .true.)
-      call scal_to_SH(sht_lP_single_gpu, BpVtBtVpsn2, BpVtBtVpsn2LM, l_max, .true.)
+      call scal_to_SH(sht_l_single_gpu, BpVtBtVpCot, BpVtBtVpCotLM, l_max, .true.)
+      call scal_to_SH(sht_l_single_gpu, BpVtBtVpsn2, BpVtBtVpsn2LM, l_max, .true.)
 
-      call scal_to_SH(sht_lP_single_gpu, BrVZ, BrVZLM, l_max, .true.)
-      call scal_to_SH(sht_lP_single_gpu, BtVZ, BtVZLM, l_max, .true.)
-      call scal_to_SH(sht_lP_single_gpu, BtVZsn2, BtVZsn2LM, l_max, .true.)
+      call scal_to_SH(sht_l_single_gpu, BrVZ, BrVZLM, l_max, .true.)
+      call scal_to_SH(sht_l_single_gpu, BtVZ, BtVZLM, l_max, .true.)
+      call scal_to_SH(sht_l_single_gpu, BtVZsn2, BtVZsn2LM, l_max, .true.)
 
       call hipCheck(hipDeviceSynchronize())
 
@@ -435,18 +435,18 @@ contains
       end do
       !$omp end target teams distribute parallel do
 
-      call spat_to_sphertor(sht_lP_single_gpu, BtVr, BpVr, BtVrLM, BpVrLM, l_max, .true.)
-      call spat_to_sphertor(sht_lP_single_gpu, BrVt, BrVp, BrVtLM, BrVpLM, l_max, .true.)
+      call spat_to_sphertor(sht_l_single_gpu, BtVr, BpVr, BtVrLM, BpVrLM, l_max, .true.)
+      call spat_to_sphertor(sht_l_single_gpu, BrVt, BrVp, BrVtLM, BrVpLM, l_max, .true.)
 
-      call scal_to_SH(sht_lP_single_gpu, BtVp, BtVpLM, l_max, .true.)
-      call scal_to_SH(sht_lP_single_gpu, BpVt, BpVtLM, l_max, .true.)
+      call scal_to_SH(sht_l_single_gpu, BtVp, BtVpLM, l_max, .true.)
+      call scal_to_SH(sht_l_single_gpu, BpVt, BpVtLM, l_max, .true.)
 
-      call scal_to_SH(sht_lP_single_gpu, BpVtBtVpCot, BpVtBtVpCotLM, l_max, .true.)
-      call scal_to_SH(sht_lP_single_gpu, BpVtBtVpsn2, BpVtBtVpsn2LM, l_max, .true.)
+      call scal_to_SH(sht_l_single_gpu, BpVtBtVpCot, BpVtBtVpCotLM, l_max, .true.)
+      call scal_to_SH(sht_l_single_gpu, BpVtBtVpsn2, BpVtBtVpsn2LM, l_max, .true.)
 
-      call scal_to_SH(sht_lP_single_gpu, BrVZ, BrVZLM, l_max, .true.)
-      call scal_to_SH(sht_lP_single_gpu, BtVZ, BtVZLM, l_max, .true.)
-      call scal_to_SH(sht_lP_single_gpu, BtVZsn2, BtVZsn2LM, l_max, .true.)
+      call scal_to_SH(sht_l_single_gpu, BrVZ, BrVZLM, l_max, .true.)
+      call scal_to_SH(sht_l_single_gpu, BtVZ, BtVZLM, l_max, .true.)
+      call scal_to_SH(sht_l_single_gpu, BtVZsn2, BtVZsn2LM, l_max, .true.)
 
       call hipCheck(hipDeviceSynchronize())
 
@@ -534,18 +534,18 @@ contains
       end do
       !$omp end parallel do
 
-      call spat_to_sphertor(sht_lP_single, BtVr, BpVr, BtVrLM, BpVrLM, l_max)
-      call spat_to_sphertor(sht_lP_single, BrVt, BrVp, BrVtLM, BrVpLM, l_max)
+      call spat_to_sphertor(sht_l_single, BtVr, BpVr, BtVrLM, BpVrLM, l_max)
+      call spat_to_sphertor(sht_l_single, BrVt, BrVp, BrVtLM, BrVpLM, l_max)
 
-      call scal_to_SH(sht_lP_single, BtVp, BtVpLM, l_max)
-      call scal_to_SH(sht_lP_single, BpVt, BpVtLM, l_max)
+      call scal_to_SH(sht_l_single, BtVp, BtVpLM, l_max)
+      call scal_to_SH(sht_l_single, BpVt, BpVtLM, l_max)
 
-      call scal_to_SH(sht_lP_single, BpVtBtVpCot, BpVtBtVpCotLM, l_max)
-      call scal_to_SH(sht_lP_single, BpVtBtVpsn2, BpVtBtVpsn2LM, l_max)
+      call scal_to_SH(sht_l_single, BpVtBtVpCot, BpVtBtVpCotLM, l_max)
+      call scal_to_SH(sht_l_single, BpVtBtVpsn2, BpVtBtVpsn2LM, l_max)
 
-      call scal_to_SH(sht_lP_single, BrVZ, BrVZLM, l_max)
-      call scal_to_SH(sht_lP_single, BtVZ, BtVZLM, l_max)
-      call scal_to_SH(sht_lP_single, BtVZsn2, BtVZsn2LM, l_max)
+      call scal_to_SH(sht_l_single, BrVZ, BrVZLM, l_max)
+      call scal_to_SH(sht_l_single, BtVZ, BtVZLM, l_max)
+      call scal_to_SH(sht_l_single, BtVZsn2, BtVZsn2LM, l_max)
 
    end subroutine get_dtBLM
 #endif
@@ -568,11 +568,11 @@ contains
       complex(cp), intent(in) :: BrVZLM(:),BtVZLM(:)
 
       !-- Local variables:
-      integer :: l,m,lm,lmP,lmPS,lmPA
+      integer :: l,m,lm,lmS,lmA
       real(cp) :: fac
 
 #ifndef WITH_OMP_GPU
-      !$omp parallel default(shared) private(lm,l,m,lmP,lmPS,lmPA,fac)
+      !$omp parallel default(shared) private(lm,lmS,lmA,l,m,fac)
 #endif
 
       PstrLM_Rloc(1,nR)=0.0_cp
@@ -584,9 +584,8 @@ contains
       !$omp do
 #endif
       do lm=2,lm_max
-         lmP =lm2lmP(lm)
-         PstrLM_Rloc(lm,nR)=or2(nR) * BtVrLM(lmP)
-         PadvLM_Rloc(lm,nR)=or2(nR) * BrVtLM(lmP)
+         PstrLM_Rloc(lm,nR)=or2(nR) * BtVrLM(lm)
+         PadvLM_Rloc(lm,nR)=or2(nR) * BrVtLM(lm)
       end do
 #ifdef WITH_OMP_GPU
       !$omp target update from(dtB_Rloc_container)
@@ -606,24 +605,24 @@ contains
       do lm=2,lm_max
          l   =lm2l(lm)
          m   =lm2m(lm)
-         lmP =lm2lmP(lm)
-         lmPS=lmP2lmPS(lmP)
-         lmPA=lmP2lmPA(lmP)
+         lmS =lm2lmS(lm)
+         lmA =lm2lmA(lm)
          fac=or2(nR)/dLh(lm)
-         TstrRLM_Rloc(lm,nR)=or1(nR) * BrVpLM(lmP)
-         if ( l > m ) then
-            TstrLM_Rloc(lm,nR)=        -or2(nR)*BtVpLM(lmP)     - &
-            &          fac*dPhi(lm)*dPhi(lm)*BpVtBtVpSn2LM(lmP) + &
-            &                             or3(nR)* BpVrLM(lmP)  + &
-            &                                             fac * ( &
-            &             dTheta1S(lm) * BpVtBtVpCotLM(lmPS)  - &
-            &             dTheta1A(lm) * BpVtBtVpCotLM(lmPA) )
-         else if ( l == m ) then
-            TstrLM_Rloc(lm,nR)=        -or2(nR)*BtVpLM(lmP)     - &
-            &          fac*dPhi(lm)*dPhi(lm)*BpVtBtVpSn2LM(lmP) + &
-            &                             or3(nR)* BpVrLM(lmP)  + &
-            &                                             fac * ( &
-            &              - dTheta1A(lm) * BpVtBtVpCotLM(lmPA) )
+         TstrRLM_Rloc(lm,nR)=or1(nR) * BrVpLM(lm)
+         if ( l < l_max ) then
+            TstrLM_Rloc(lm,nR)=        -or2(nR)*BtVpLM(lm)     - &
+            &          fac*dPhi(lm)*dPhi(lm)*BpVtBtVpSn2LM(lm) + &
+            &                             or3(nR)* BpVrLM(lm)  + &
+            &                                            fac * ( &
+            &               dTheta1S(lm) * BpVtBtVpCotLM(lmS)  - &
+            &               dTheta1A(lm) * BpVtBtVpCotLM(lmA) )
+         else
+            TstrLM_Rloc(lm,nR)=        -or2(nR)*BtVpLM(lm)     - &
+            &          fac*dPhi(lm)*dPhi(lm)*BpVtBtVpSn2LM(lm) + &
+            &                             or3(nR)* BpVrLM(lm)  + &
+            &                                            fac *   &
+            &               dTheta1S(lm) * BpVtBtVpCotLM(lmS)
+            !TstrLM_Rloc(lm,nR)=0.0_cp
          end if
       end do
 #ifdef WITH_OMP_GPU
@@ -642,24 +641,24 @@ contains
       do lm=2,lm_max
          l   =lm2l(lm)
          m   =lm2m(lm)
-         lmP =lm2lmP(lm)
-         lmPS=lmP2lmPS(lmP)
-         lmPA=lmP2lmPA(lmP)
+         lmS =lm2lmS(lm)
+         lmA =lm2lmA(lm)
          fac=or2(nR)/dLh(lm)
-         TadvRLM_Rloc(lm,nR)=or2(nR) * BpVrLM(lmP)
-         if ( l > m ) then
-            TadvLM_Rloc(lm,nR)=       -or2(nR)*BpVtLM(lmP)     - &
-            &         fac*dPhi(lm)*dPhi(lm)*BpVtBtVpSn2LM(lmP) + &
-            &                            or3(nR) * BrVpLM(lmP) + &
-            &                                            fac * ( &
-            &            dTheta1S(lm) * BpVtBtVpCotLM(lmPS)   -  &
-            &            dTheta1A(lm) * BpVtBtVpCotLM(lmPA) )
-         else if ( l == m ) then
-            TadvLM_Rloc(lm,nR)=       -or2(nR)*BpVtLM(lmP)     - &
-            &         fac*dPhi(lm)*dPhi(lm)*BpVtBtVpSn2LM(lmP) + &
-            &                            or3(nR) * BrVpLM(lmP) + &
-            &                                            fac * ( &
-            &            - dTheta1A(lm) *  BpVtBtVpCotLM(lmPA) )
+         TadvRLM_Rloc(lm,nR)=or2(nR) * BpVrLM(lm)
+         if ( l < l_max ) then
+            TadvLM_Rloc(lm,nR)=       -or2(nR)*BpVtLM(lm)     - &
+            &         fac*dPhi(lm)*dPhi(lm)*BpVtBtVpSn2LM(lm) + &
+            &                            or3(nR) * BrVpLM(lm) + &
+            &                                           fac * ( &
+            &            dTheta1S(lm) * BpVtBtVpCotLM(lmS)   -  &
+            &            dTheta1A(lm) * BpVtBtVpCotLM(lmA) )
+         else
+            TadvLM_Rloc(lm,nR)=       -or2(nR)*BpVtLM(lm)     - &
+            &         fac*dPhi(lm)*dPhi(lm)*BpVtBtVpSn2LM(lm) + &
+            &                            or3(nR) * BrVpLM(lm) + &
+            &                                           fac *   &
+            &            dTheta1S(lm) * BpVtBtVpCotLM(lmS)
+            !TadvLM_Rloc(lm,nR)=0.0_cp
          end if
       end do
 #ifdef WITH_OMP_GPU
@@ -680,22 +679,22 @@ contains
       do lm=2,lm_max
          l  =lm2l(lm)
          m  =lm2m(lm)
-         lmP=lm2lmP(lm)
-         lmPS=lmP2lmPS(lmP)
-         lmPA=lmP2lmPA(lmP)
+         lmS=lm2lmS(lm)
+         lmA=lm2lmA(lm)
          fac=or2(nR)/dLh(lm)
-         if ( l > m ) then
-            TomeLM_Rloc(lm,nR)=    -or2(nR)*BtVZLM(lmP)       - &
-            &                                 fac*or1(nR)*(     &
-            &                       dTheta1S(lm)*BrVZLM(lmPS) - &
-            &                       dTheta1A(lm)*BrVZLM(lmPA) )
-            TomeRLM_Rloc(lm,nR)=                      fac * ( &
-            &                     dTheta1S(lm)*BrVZLM(lmPS) - &
-            &                     dTheta1A(lm)*BrVZLM(lmPA) )
-         else if ( l == m ) then
-            TomeLM_Rloc(lm,nR)=    -or2(nR)*BtVZLM(lmp)       + &
-            &         fac*or1(nR)*dTheta1A(lm)*BrVZLM(lmPA)
-            TomeRLM_Rloc(lm,nR)=-fac*dTheta1A(lm)*BrVZLM(lmPA)
+         if ( l < l_max ) then
+            TomeLM_Rloc(lm,nR) = -or2(nR)*BtVZLM(lm)       - &
+            &                              fac*or1(nR)*(     &
+            &                     dTheta1S(lm)*BrVZLM(lmS) - &
+            &                     dTheta1A(lm)*BrVZLM(lmA) )
+            TomeRLM_Rloc(lm,nR)=                    fac * ( &
+            &                    dTheta1S(lm)*BrVZLM(lmS) - &
+            &                    dTheta1A(lm)*BrVZLM(lmA) )
+         else
+            TomeLM_Rloc(lm,nR) = -or2(nR)*BtVZLM(lm)       - &
+            &                              fac*or1(nR)*      &
+            &                     dTheta1S(lm)*BrVZLM(lmS)
+            TomeRLM_Rloc(lm,nR)=fac * dTheta1S(lm)*BrVZLM(lmS)
          end if
       end do
 #ifdef WITH_OMP_GPU

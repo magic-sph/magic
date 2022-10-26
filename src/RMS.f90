@@ -12,15 +12,15 @@ module RMS
    use mem_alloc, only: bytes_allocated
 #endif
    use blocking, only: st_map, lo_map, lm2, lm2m, llm, ulm, llmMag, ulmMag, &
-       &               lm2lmA, lm2lmP, lm2l, lm2lmS
+       &               lm2lmA, lm2l, lm2lmS
    use finite_differences, only: type_fd
    use chebyshev, only: type_cheb_odd
    use radial_scheme, only: type_rscheme
    use truncation, only: n_r_max, n_cheb_max, n_r_maxMag, lm_max, lm_maxMag, &
        &                 l_max, n_phi_max, n_theta_max, minc, n_r_max_dtB,   &
-       &                 lm_max_dtB, fd_ratio, fd_stretch, lmP_max, nlat_padded
+       &                 lm_max_dtB, fd_ratio, fd_stretch, nlat_padded
    use grid_blocking, only: n_phys_space, spat2lat, spat2rad, spat2lon, &
-       &                    n_spec_space_lmP
+       &                    n_spec_space
    use physical_parameters, only: ra, ek, pr, prmag, radratio, CorFac, n_r_LCR, &
        &                          BuoFac, ChemFac, ThExpNb, ViscHeatFac
    use radial_data, only: nRstop, nRstart, radial_balance, nRstartMag, nRstopMag
@@ -48,10 +48,10 @@ module RMS
    use time_schemes, only: type_tscheme
 #ifdef WITH_OMP_GPU
    use sht, only: spat_to_sphertor, spat_to_qst, scal_to_SH, scal_to_grad_spat, &
-       &          sht_lP, sht_lP_gpu
+       &          sht_l, sht_l_gpu
 #else
    use sht, only: spat_to_sphertor, spat_to_qst, scal_to_SH, scal_to_grad_spat, &
-       &          sht_lP
+       &          sht_l
 #endif
 
    implicit none
@@ -204,27 +204,27 @@ contains
 #endif
       end if
 
-      allocate( dtVrLM(n_spec_space_lmP), dtVtLM(n_spec_space_lmP) )
-      allocate( dtVpLM(n_spec_space_lmP), LFrLM(n_spec_space_lmP) )
-      allocate( Advt2LM(n_spec_space_lmP), Advp2LM(n_spec_space_lmP) )
-      allocate( LFt2LM(n_spec_space_lmP), LFp2LM(n_spec_space_lmP) )
-      allocate( CFt2LM(n_spec_space_lmP), CFp2LM(n_spec_space_lmP) )
-      allocate( PFt2LM(n_spec_space_lmP), PFp2LM(n_spec_space_lmP) )
-      bytes_allocated = bytes_allocated + 12*n_spec_space_lmP*SIZEOF_DEF_COMPLEX
+      allocate( dtVrLM(n_spec_space), dtVtLM(n_spec_space) )
+      allocate( dtVpLM(n_spec_space), LFrLM(n_spec_space) )
+      allocate( Advt2LM(n_spec_space), Advp2LM(n_spec_space) )
+      allocate( LFt2LM(n_spec_space), LFp2LM(n_spec_space) )
+      allocate( CFt2LM(n_spec_space), CFp2LM(n_spec_space) )
+      allocate( PFt2LM(n_spec_space), PFp2LM(n_spec_space) )
+      bytes_allocated = bytes_allocated + 12*n_spec_space*SIZEOF_DEF_COMPLEX
       if ( l_adv_curl ) then
-         allocate( dpkindrLM(n_spec_space_lmP) )
-         bytes_allocated = bytes_allocated + n_spec_space_lmP*SIZEOF_DEF_COMPLEX
+         allocate( dpkindrLM(n_spec_space) )
+         bytes_allocated = bytes_allocated + n_spec_space*SIZEOF_DEF_COMPLEX
 #ifdef WITH_OMP_GPU
-         gpu_bytes_allocated = gpu_bytes_allocated + n_spec_space_lmP*SIZEOF_DEF_COMPLEX
+         gpu_bytes_allocated = gpu_bytes_allocated + n_spec_space*SIZEOF_DEF_COMPLEX
 #endif
       else
          !allocate( dpkindrLM(1) ) ! for debug
-         allocate( dpkindrLM(n_spec_space_lmP) )
+         allocate( dpkindrLM(n_spec_space) )
       end if
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, Advp2LM, &
       !$omp&                             PFt2LM, PFp2LM, LFt2LM, LFp2LM, CFt2LM, CFp2LM, LFrLM)
-      gpu_bytes_allocated = gpu_bytes_allocated + 12*n_spec_space_lmP*SIZEOF_DEF_COMPLEX
+      gpu_bytes_allocated = gpu_bytes_allocated + 12*n_spec_space*SIZEOF_DEF_COMPLEX
 #endif
 
       call InerRmsL%initialize(0,l_max)
@@ -963,15 +963,15 @@ contains
          !$omp target update to(dpkindrc)
       end if
 
-      if ( l_mag_LF .and. nR>n_r_LCR ) call scal_to_SH(sht_lP_gpu, LFr, LFrLM, l_R(nR), .true.)
-      call spat_to_sphertor(sht_lP_gpu, dpdtc, dpdpc, PFt2LM, PFp2LM, l_R(nR), .true.)
-      call spat_to_sphertor(sht_lP_gpu, CFt2, CFp2, CFt2LM, CFp2LM, l_R(nR), .true.)
+      if ( l_mag_LF .and. nR>n_r_LCR ) call scal_to_SH(sht_l_gpu, LFr, LFrLM, l_R(nR), .true.)
+      call spat_to_sphertor(sht_l_gpu, dpdtc, dpdpc, PFt2LM, PFp2LM, l_R(nR), .true.)
+      call spat_to_sphertor(sht_l_gpu, CFt2, CFp2, CFt2LM, CFp2LM, l_R(nR), .true.)
       call spat_to_qst(dtVr, dtVt, dtVp, dtVrLM, dtVtLM, dtVpLM, l_R(nR), .true.)
-      if ( l_conv_nl ) call spat_to_sphertor(sht_lP_gpu, Advt2, Advp2, &
+      if ( l_conv_nl ) call spat_to_sphertor(sht_l_gpu, Advt2, Advp2, &
                             &               Advt2LM, Advp2LM, l_R(nR), .true.)
       !-- Kinetic pressure : 1/2 d u^2 / dr
-      if ( l_adv_curl ) call scal_to_SH(sht_lP_gpu, dpkindrc, dpkindrLM, l_R(nR), .true.)
-      if ( l_mag_nl .and. nR>n_r_LCR ) call spat_to_sphertor(sht_lP_gpu, LFt2, LFp2,  &
+      if ( l_adv_curl ) call scal_to_SH(sht_l_gpu, dpkindrc, dpkindrLM, l_R(nR), .true.)
+      if ( l_mag_nl .and. nR>n_r_LCR ) call spat_to_sphertor(sht_l_gpu, LFt2, LFp2,  &
                                             &                LFt2LM, LFp2LM, l_R(nR), .true.)
 
       !$omp target update from(Advt2, Advp2, dtVr, dtVt, dtVp, LFt2, &
@@ -983,15 +983,15 @@ contains
       end if
 
 #else
-      if ( l_mag_LF .and. nR>n_r_LCR ) call scal_to_SH(sht_lP, LFr, LFrLM, l_R(nR))
-      call spat_to_sphertor(sht_lP, dpdtc, dpdpc, PFt2LM, PFp2LM, l_R(nR))
-      call spat_to_sphertor(sht_lP, CFt2, CFp2, CFt2LM, CFp2LM, l_R(nR))
+      if ( l_mag_LF .and. nR>n_r_LCR ) call scal_to_SH(sht_l, LFr, LFrLM, l_R(nR))
+      call spat_to_sphertor(sht_l, dpdtc, dpdpc, PFt2LM, PFp2LM, l_R(nR))
+      call spat_to_sphertor(sht_l, CFt2, CFp2, CFt2LM, CFp2LM, l_R(nR))
       call spat_to_qst(dtVr, dtVt, dtVp, dtVrLM, dtVtLM, dtVpLM, l_R(nR))
-      if ( l_conv_nl ) call spat_to_sphertor(sht_lP, Advt2, Advp2, &
+      if ( l_conv_nl ) call spat_to_sphertor(sht_l, Advt2, Advp2, &
                             &               Advt2LM, Advp2LM, l_R(nR))
       !-- Kinetic pressure : 1/2 d u^2 / dr
-      if ( l_adv_curl ) call scal_to_SH(sht_lP, dpkindrc, dpkindrLM, l_R(nR))
-      if ( l_mag_nl .and. nR>n_r_LCR ) call spat_to_sphertor(sht_lP, LFt2, LFp2,  &
+      if ( l_adv_curl ) call scal_to_SH(sht_l, dpkindrc, dpkindrLM, l_R(nR))
+      if ( l_mag_nl .and. nR>n_r_LCR ) call spat_to_sphertor(sht_l, LFt2, LFp2,  &
                                             &                LFt2LM, LFp2LM, l_R(nR))
 #endif
 
@@ -1023,7 +1023,7 @@ contains
       complex(cp), allocatable :: Geo(:),CLF(:),PLF(:)
       complex(cp), allocatable :: ArcMag(:),Mag(:),CIA(:),Arc(:)
       complex(cp) :: CorPol_loc, AdvPol_loc
-      integer :: lm, lmA, lmP, lmS, l, m
+      integer :: lm, lmA, lmS, l, m
 
       allocate(dpdr(lm_max), Buo_temp(lm_max), Buo_xi(lm_max))
       allocate(LFPol(lm_max), AdvPol(lm_max), CorPol(lm_max))
@@ -1037,11 +1037,10 @@ contains
       !-- l=m=0 spherically-symmetric contributions
       lm=1
       lmA=lm2lmA(lm)
-      lmP=lm2lmP(lm)
 
       if ( l_conv_nl ) then
-         AdvPol(lm)=or2(nR)*AdvrLM(lmP)
-         if ( l_adv_curl ) AdvPol(lm)=AdvPol(lm)-dpkindrLM(lmP)
+         AdvPol(lm)=or2(nR)*AdvrLM(lm)
+         if ( l_adv_curl ) AdvPol(lm)=AdvPol(lm)-dpkindrLM(lm)
       else
          AdvPol(lm)=zero
       end if
@@ -1065,7 +1064,7 @@ contains
       end if
 
       if ( l_mag_LF .and. nR>n_r_LCR ) then
-         LFPol(lm) =or2(nR)*LFrLM(lmP)
+         LFPol(lm) =or2(nR)*LFrLM(lm)
          AdvPol(lm)=AdvPol(lm)-LFPol(lm)
       end if
 
@@ -1089,10 +1088,10 @@ contains
 #endif
       !-- Loop over the other (l,m) modes
 #ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do private(lm,l,m,lmS,lmA,lmP) &
+      !$omp target teams distribute parallel do private(lm,l,m,lmS,lmA) &
       !$omp private(AdvPol_loc,CorPol_loc)
 #else
-      !$omp parallel do default(shared) private(lm,l,m,lmS,lmA,lmP) &
+      !$omp parallel do default(shared) private(lm,l,m,lmS,lmA) &
       !$omp private(AdvPol_loc,CorPol_loc)
 #endif
       do lm=2,lm_max
@@ -1100,7 +1099,6 @@ contains
          m   =lm2m(lm)
          lmS =lm2lmS(lm)
          lmA =lm2lmA(lm)
-         lmP =lm2lmP(lm)
 
          if ( l_anelastic_liquid ) then
             if (l_heat) then
@@ -1150,7 +1148,7 @@ contains
 
          ! We also need to recompute AdvPol_loc here
          if ( l_conv_nl ) then
-            AdvPol_loc=or2(nR)*AdvrLM(lmP)
+            AdvPol_loc=or2(nR)*AdvrLM(lm)
          else
             AdvPol_loc=zero
          end if
@@ -1158,7 +1156,7 @@ contains
          if ( l_double_curl ) then
             !-- Recalculate the pressure gradient based on the poloidal
             !-- equation equilibrium
-            dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)-dtVrLM(lmP)+              &
+            dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)-dtVrLM(lm)+               &
             &        dLh(lm)*or2(nR)*hdif_V(l)*visc(nR)*(              &
             &                                        ddw_Rloc(lm)+     &
             &         (two*dLvisc(nR)-third*beta(nR))*dw_Rloc(lm)-     &
@@ -1172,10 +1170,10 @@ contains
 
          ! We need to correct from kinetic pressure
          ! after computation of dpdr in case FD (l_double_curl) is used
-         if ( l_conv_nl .and. l_adv_curl ) AdvPol_loc=AdvPol_loc-dpkindrLM(lmP)
+         if ( l_conv_nl .and. l_adv_curl ) AdvPol_loc=AdvPol_loc-dpkindrLM(lm)
 
          if ( l_mag_LF .and. nR>n_r_LCR ) then
-            LFPol(lm) =or2(nR)*LFrLM(lmP)
+            LFPol(lm) =or2(nR)*LFrLM(lm)
             AdvPol(lm)=AdvPol_loc-LFPol(lm)
          else
             AdvPol(lm)=AdvPol_loc
@@ -1196,39 +1194,35 @@ contains
 
       !-- Now compute R.M.S spectra
       if ( l_conv_nl ) then
-         call hIntRms(AdvPol,nR,1,lm_max,0,Adv2hInt(:,nR),st_map, .false.)
-         call hIntRms(Advt2LM,nR,1,lmP_max,1,Adv2hInt(:,nR),st_map,.true.)
-         call hIntRms(Advp2LM,nR,1,lmP_max,1,Adv2hInt(:,nR),st_map,.true.)
+         call hIntRms(AdvPol,nR,1,lm_max,Adv2hInt(:,nR),st_map, .false.)
+         call hIntRms(Advt2LM,nR,1,lm_max,Adv2hInt(:,nR),st_map,.true.)
+         call hIntRms(Advp2LM,nR,1,lm_max,Adv2hInt(:,nR),st_map,.true.)
          do lm=1,lm_max
-            lmP=lm2lmP(lm)
             !-- Use Geo as work array
-            Geo(lm)=AdvPol(lm)-dtVrLM(lmP)
+            Geo(lm)=AdvPol(lm)-dtVrLM(lm)
          end do
-         call hIntRms(Geo,nR,1,lm_max,0,Iner2hInt(:,nR),st_map, .false.)
+         call hIntRms(Geo,nR,1,lm_max,Iner2hInt(:,nR),st_map, .false.)
          do lm=1,lm_max
-            lmP=lm2lmP(lm)
             !-- Use Geo as work array
-            Geo(lm)=Advt2LM(lmP)-dtVtLM(lmP)
+            Geo(lm)=Advt2LM(lm)-dtVtLM(lm)
          end do
-         call hIntRms(Geo,nR,1,lm_max,0,Iner2hInt(:,nR),st_map,.true.)
+         call hIntRms(Geo,nR,1,lm_max,Iner2hInt(:,nR),st_map,.true.)
          do lm=1,lm_max
-            lmP=lm2lmP(lm)
             !-- Use Geo as work array
-            Geo(lm)=Advp2LM(lmP)-dtVpLM(lmP)
+            Geo(lm)=Advp2LM(lm)-dtVpLM(lm)
          end do
-         call hIntRms(Geo,nR,1,lm_max,0,Iner2hInt(:,nR),st_map,.true.)
+         call hIntRms(Geo,nR,1,lm_max,Iner2hInt(:,nR),st_map,.true.)
       end if
 
       if ( l_anelastic_liquid ) then
-         call hIntRms(dpdr,nR,1,lm_max,0,Pre2hInt(:,nR),st_map,.false.)
+         call hIntRms(dpdr,nR,1,lm_max,Pre2hInt(:,nR),st_map,.false.)
       else
          ! rho* grad(p/rho) = grad(p) - beta*p
          !-- Geo is used to store the pressure Gradient
          if ( l_adv_curl ) then
             do lm=1,lm_max
-               lmP=lm2lmP(lm)
                !-- Use Geo as work array
-               Geo(lm)=dpdr(lm)-beta(nR)*p_Rloc(lm)-dpkindrLM(lmP)
+               Geo(lm)=dpdr(lm)-beta(nR)*p_Rloc(lm)-dpkindrLM(lm)
             end do
          else
             do lm=1,lm_max
@@ -1236,88 +1230,85 @@ contains
                Geo(lm)=dpdr(lm)-beta(nR)*p_Rloc(lm)
             end do
          end if
-         call hIntRms(Geo,nR,1,lm_max,0,Pre2hInt(:,nR),st_map,.false.)
+         call hIntRms(Geo,nR,1,lm_max,Pre2hInt(:,nR),st_map,.false.)
       end if
-      call hIntRms(PFt2LM,nR,1,lmP_max,1,Pre2hInt(:,nR),st_map,.true.)
-      call hIntRms(PFp2LM,nR,1,lmP_max,1,Pre2hInt(:,nR),st_map,.true.)
+      call hIntRms(PFt2LM,nR,1,lm_max,Pre2hInt(:,nR),st_map,.true.)
+      call hIntRms(PFp2LM,nR,1,lm_max,Pre2hInt(:,nR),st_map,.true.)
 
       if ( l_heat ) then
-         call hIntRms(Buo_temp,nR,1,lm_max,0,Buo_temp2hInt(:,nR),st_map,.false.)
+         call hIntRms(Buo_temp,nR,1,lm_max,Buo_temp2hInt(:,nR),st_map,.false.)
       end if
       if ( l_chemical_conv ) then
-         call hIntRms(Buo_xi,nR,1,lm_max,0,Buo_xi2hInt(:,nR),st_map,.false.)
+         call hIntRms(Buo_xi,nR,1,lm_max,Buo_xi2hInt(:,nR),st_map,.false.)
       end if
       if ( l_corr ) then
-         call hIntRms(CorPol,nR,1,lm_max,0,Cor2hInt(:,nR),st_map,.false.)
-         call hIntRms(CFt2LM,nR,1,lmP_max,1,Cor2hInt(:,nR),st_map,.true.)
-         call hIntRms(CFp2LM,nR,1,lmP_max,1,Cor2hInt(:,nR),st_map,.true.)
+         call hIntRms(CorPol,nR,1,lm_max,Cor2hInt(:,nR),st_map,.false.)
+         call hIntRms(CFt2LM,nR,1,lm_max,Cor2hInt(:,nR),st_map,.true.)
+         call hIntRms(CFp2LM,nR,1,lm_max,Cor2hInt(:,nR),st_map,.true.)
       end if
       if ( l_mag_LF .and. nR>n_r_LCR ) then
-         call hIntRms(LFPol,nR,1,lm_max,0,LF2hInt(:,nR),st_map,.false.)
-         call hIntRms(LFt2LM,nR,1,lmP_max,1,LF2hInt(:,nR),st_map,.true.)
-         call hIntRms(LFp2LM,nR,1,lmP_max,1,LF2hInt(:,nR),st_map,.true.)
+         call hIntRms(LFPol,nR,1,lm_max,LF2hInt(:,nR),st_map,.false.)
+         call hIntRms(LFt2LM,nR,1,lm_max,LF2hInt(:,nR),st_map,.true.)
+         call hIntRms(LFp2LM,nR,1,lm_max,LF2hInt(:,nR),st_map,.true.)
       end if
 
       do lm=1,lm_max
-         lmP=lm2lmP(lm)
          Geo(lm)=CorPol(lm)-dpdr(lm)+beta(nR)*p_Rloc(lm)
          PLF(lm)=LFPol(lm)-dpdr(lm)+beta(nR)*p_Rloc(lm)
          if ( l_adv_curl ) then
-            Geo(lm)=Geo(lm)+dpkindrLM(lmP)
-            PLF(lm)=PLF(lm)+dpkindrLM(lmP)
+            Geo(lm)=Geo(lm)+dpkindrLM(lm)
+            PLF(lm)=PLF(lm)+dpkindrLM(lm)
          end if
          CLF(lm)=CorPol(lm)+LFPol(lm)
          Mag(lm)=Geo(lm)+LFPol(lm)
          Arc(lm)=Geo(lm)+Buo_temp(lm)+Buo_xi(lm)
          ArcMag(lm)=Mag(lm)+Buo_temp(lm)+Buo_xi(lm)
-         CIA(lm)=ArcMag(lm)+AdvPol(lm)-dtVrLM(lmP)
+         CIA(lm)=ArcMag(lm)+AdvPol(lm)-dtVrLM(lm)
          !CIA(lm)=CorPol(lm)+Buo_temp(lm)+Buo_xi(lm)+AdvPol(lm)
       end do
-      call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.false.)
-      call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.false.)
-      call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.false.)
-      call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.false.)
-      call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.false.)
-      call hIntRms(ArcMag,nR,1,lm_max,0,ArcMag2hInt(:,nR),st_map,.false.)
-      call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.false.)
+      call hIntRms(Geo,nR,1,lm_max,Geo2hInt(:,nR),st_map,.false.)
+      call hIntRms(CLF,nR,1,lm_max,CLF2hInt(:,nR),st_map,.false.)
+      call hIntRms(PLF,nR,1,lm_max,PLF2hInt(:,nR),st_map,.false.)
+      call hIntRms(Mag,nR,1,lm_max,Mag2hInt(:,nR),st_map,.false.)
+      call hIntRms(Arc,nR,1,lm_max,Arc2hInt(:,nR),st_map,.false.)
+      call hIntRms(ArcMag,nR,1,lm_max,ArcMag2hInt(:,nR),st_map,.false.)
+      call hIntRms(CIA,nR,1,lm_max,CIA2hInt(:,nR),st_map,.false.)
 
       do lm=1,lm_max
-         lmP=lm2lmP(lm)
-         Geo(lm)=-CFt2LM(lmP)-PFt2LM(lmP)
-         CLF(lm)=-CFt2LM(lmP)+LFt2LM(lmP)
-         PLF(lm)=LFt2LM(lmP)-PFt2LM(lmP)
-         Mag(lm)=Geo(lm)+LFt2LM(lmP)
+         Geo(lm)=-CFt2LM(lm)-PFt2LM(lm)
+         CLF(lm)=-CFt2LM(lm)+LFt2LM(lm)
+         PLF(lm)=LFt2LM(lm)-PFt2LM(lm)
+         Mag(lm)=Geo(lm)+LFt2LM(lm)
          Arc(lm)=Geo(lm)
          ArcMag(lm)=Mag(lm)
-         CIA(lm)=ArcMag(lm)+Advt2LM(lmP)-dtVtLM(lmP)
-         !CIA(lm)=-CFt2LM(lmP)+Advt2LM(lmP)
+         CIA(lm)=ArcMag(lm)+Advt2LM(lm)-dtVtLM(lm)
+         !CIA(lm)=-CFt2LM(lm)+Advt2LM(lm)
       end do
-      call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.true.)
-      call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.true.)
-      call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.true.)
-      call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.true.)
-      call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.true.)
-      call hIntRms(ArcMag,nR,1,lm_max,0,ArcMag2hInt(:,nR),st_map,.true.)
-      call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.true.)
+      call hIntRms(Geo,nR,1,lm_max,Geo2hInt(:,nR),st_map,.true.)
+      call hIntRms(CLF,nR,1,lm_max,CLF2hInt(:,nR),st_map,.true.)
+      call hIntRms(PLF,nR,1,lm_max,PLF2hInt(:,nR),st_map,.true.)
+      call hIntRms(Mag,nR,1,lm_max,Mag2hInt(:,nR),st_map,.true.)
+      call hIntRms(Arc,nR,1,lm_max,Arc2hInt(:,nR),st_map,.true.)
+      call hIntRms(ArcMag,nR,1,lm_max,ArcMag2hInt(:,nR),st_map,.true.)
+      call hIntRms(CIA,nR,1,lm_max,CIA2hInt(:,nR),st_map,.true.)
 
       do lm=1,lm_max
-         lmP=lm2lmP(lm)
-         Geo(lm)=-CFp2LM(lmP)-PFp2LM(lmP)
-         CLF(lm)=-CFp2LM(lmP)+LFp2LM(lmP)
-         PLF(lm)=LFp2LM(lmP)-PFp2LM(lmP)
-         Mag(lm)=Geo(lm)+LFp2LM(lmP)
+         Geo(lm)=-CFp2LM(lm)-PFp2LM(lm)
+         CLF(lm)=-CFp2LM(lm)+LFp2LM(lm)
+         PLF(lm)=LFp2LM(lm)-PFp2LM(lm)
+         Mag(lm)=Geo(lm)+LFp2LM(lm)
          Arc(lm)=Geo(lm)
          ArcMag(lm)=Mag(lm)
-         CIA(lm)=ArcMag(lm)+Advp2LM(lmP)-dtVpLM(lmP)
-         !CIA(lm)=-CFp2LM(lmP)+Advp2LM(lmP)
+         CIA(lm)=ArcMag(lm)+Advp2LM(lm)-dtVpLM(lm)
+         !CIA(lm)=-CFp2LM(lm)+Advp2LM(lm)
       end do
-      call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.true.)
-      call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.true.)
-      call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.true.)
-      call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.true.)
-      call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.true.)
-      call hIntRms(ArcMag,nR,1,lm_max,0,ArcMag2hInt(:,nR),st_map,.true.)
-      call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.true.)
+      call hIntRms(Geo,nR,1,lm_max,Geo2hInt(:,nR),st_map,.true.)
+      call hIntRms(CLF,nR,1,lm_max,CLF2hInt(:,nR),st_map,.true.)
+      call hIntRms(PLF,nR,1,lm_max,PLF2hInt(:,nR),st_map,.true.)
+      call hIntRms(Mag,nR,1,lm_max,Mag2hInt(:,nR),st_map,.true.)
+      call hIntRms(Arc,nR,1,lm_max,Arc2hInt(:,nR),st_map,.true.)
+      call hIntRms(ArcMag,nR,1,lm_max,ArcMag2hInt(:,nR),st_map,.true.)
+      call hIntRms(CIA,nR,1,lm_max,CIA2hInt(:,nR),st_map,.true.)
 
       deallocate(dpdr, Buo_temp, Buo_xi)
       deallocate(LFPol, AdvPol, CorPol)
@@ -1716,7 +1707,7 @@ contains
       real(cp), intent(in) :: time
 
       !-- Local
-      integer :: nR,l1m0,l1m1,lm,m
+      integer :: nR,l1m0,l1m1,lm,l,m
 
       real(cp) :: dtBPolRms,dtBPolAsRms
       real(cp) :: dtBTorRms,dtBTorAsRms
@@ -1787,16 +1778,18 @@ contains
            &             dummy1,TomeRms,dummy2,TomeAsRms,lo_map)
 
       !--- B changes:
+      dtBP(:)  =0.0_cp
+      dtBT(:)  =0.0_cp
+      dtBPAs(:)=0.0_cp
+      dtBTAs(:)=0.0_cp
       if ( l_mag_par_solve ) then
          call get_dr_Rloc(dtBPolLMr,work_Rloc,lm_maxMag,nRstartMag,nRstopMag, &
               &           n_r_max,rscheme_oc)
          do nR=nRstartMag,nRstopMag
             call hInt2dPolLM(work_Rloc(:,nR),1,lm_max,dtBPol2hInt(:,nR),st_map)
-            dtBP(nR)  =0.0_cp
-            dtBT(nR)  =0.0_cp
-            dtBPAs(nR)=0.0_cp
-            dtBTAs(nR)=0.0_cp
             do lm=1,lm_maxMag
+               l=st_map%lm2l(lm)
+               if ( l == 0 ) cycle
                m=st_map%lm2m(lm)
                dtBP(nR)=dtBP(nR)+dtBPol2hInt(lm,nR)
                dtBT(nR)=dtBT(nR)+dtBTor2hInt(lm,nR)
@@ -1814,12 +1807,10 @@ contains
          do nR=1,n_r_max
             call hInt2dPolLM(work_LMloc(llm:ulm,nR),llm,ulm, &
                  &           dtBPol2hInt(llm:ulm,nR),lo_map)
-            dtBP(nR)  =0.0_cp
-            dtBT(nR)  =0.0_cp
-            dtBPAs(nR)=0.0_cp
-            dtBTAs(nR)=0.0_cp
             do lm=llm,ulm
+               l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
+               if ( l == 0 ) cycle
                dtBP(nR)=dtBP(nR)+dtBPol2hInt(lm,nR)
                dtBT(nR)=dtBT(nR)+dtBTor2hInt(lm,nR)
                if ( m == 0 ) then

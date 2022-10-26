@@ -26,17 +26,16 @@ module updateZ_mod
    use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, l_precession, &
        &            l_correct_AMe, l_correct_AMz, l_update_v, l_TO,             &
        &            l_finite_diff, l_full_sphere, l_parallel_solve
-   use RMS, only: DifTor2hInt
    use constants, only: c_lorentz_ma, c_lorentz_ic, c_dt_z10_ma, c_dt_z10_ic, &
        &                c_moi_ma, c_moi_ic, c_z10_omega_ma, c_z10_omega_ic,   &
        &                c_moi_oc, y10_norm, y11_norm, zero, one, two, four,   &
        &                pi, third
    use parallel_mod
    use outRot, only: get_angular_moment, get_angular_moment_Rloc
-   use RMS_helpers, only: hInt2Tor
+   use RMS, only: DifTor2hInt
    use radial_der, only: get_ddr, get_ddr_ghost, bulk_to_ghost, exch_ghosts
    use fields, only: work_LMloc
-   use useful, only: abortRun
+   use useful, only: abortRun, cc2real
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray, type_tscalar
    use special
@@ -52,7 +51,6 @@ module updateZ_mod
    !-- Input of recycled work arrays:
    real(cp), allocatable :: rhs1(:,:,:) ! RHS for other modes
    complex(cp), allocatable :: rhs(:) ! rhs for l=1, m=0
-   complex(cp), allocatable :: Dif(:)
    class(type_realmat), pointer :: zMat(:), z10Mat
 #ifdef WITH_PRECOND_Z
    real(cp), allocatable :: zMat_fac(:,:)
@@ -163,9 +161,6 @@ contains
 #endif
 #endif
 
-         allocate( Dif(llm:ulm) )
-         bytes_allocated=bytes_allocated+(ulm-llm+1)*SIZEOF_DEF_COMPLEX
-
 #ifdef WITHOMP
          maxThreads=omp_get_max_threads()
 #else
@@ -187,8 +182,6 @@ contains
          gpu_bytes_allocated=gpu_bytes_allocated+n_r_max*SIZEOF_DEF_COMPLEX
 #endif
       else
-         allocate( Dif(lm_max) )
-         bytes_allocated=bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
          allocate(z_ghost(lm_max,nRstart-1:nRstop+1),z10_ghost(nRstart-1:nRstop+1))
          bytes_allocated=bytes_allocated+(lm_max+1)*(nRstop-nRstart+3)*SIZEOF_DEF_COMPLEX
          z_ghost(:,:)=zero
@@ -254,7 +247,7 @@ contains
          call zMat_FD%finalize()
          call z10Mat_FD%finalize()
       end if
-      deallocate(Dif,lZmat)
+      deallocate(lZmat)
 
    end subroutine finalize_updateZ
 !-------------------------------------------------------------------------------
@@ -1186,14 +1179,13 @@ contains
       real(cp) :: angular_moment_ic(3)! x,y,z component of inner core angular mom.
       real(cp) :: angular_moment_ma(3)! x,y,z component of mantle angular mom.
       complex(cp), allocatable :: z10(:), z11(:)
-      complex(cp) :: corr_l1m0, corr_l1m1
+      complex(cp) :: corr_l1m0, corr_l1m1, Dif
       real(cp) :: r_E_2, nomi, dL, prec_fac
       logical :: l_in_cheb
       integer :: n_r, lm, start_lm, stop_lm, n_r_bot, n_r_top, i
       integer :: lmStart_00, l1, m1, l1m0, l1m1
       integer, pointer :: lm2l(:),lm2m(:), lm2(:,:)
       real(cp), allocatable :: ddzASL_loc(:,:)
-      complex(cp) :: tmp_Dif
 
       allocate(z10(n_r_max), z11(n_r_max))
       allocate(ddzASL_loc(l_max+1,n_r_max))
@@ -1411,101 +1403,43 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
-         if( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
 #ifdef WITH_OMP_GPU
             !-- TODO: Make testRMSOutputs (for restart) fails :
             !-- ACC: libcrayacc/acc_dopevector.c:31 CRAY_ACC_ERROR - Invalid dope vector
             !$omp target update from(work_LMloc, z, dz, dzdt) !-- TODO: Remove after solving this problem
 !            !$omp target teams distribute parallel do private(Dif,l1,m1,dL)
 #else
-            !$omp do private(n_r,lm,Dif,l1,m1,dL)
+         !$omp do private(n_r,lm,l1,m1,dL,Dif)
 #endif
-            do n_r=n_r_top,n_r_bot
-               do lm=lmStart_00,ulm
-                  l1 = lm2l(lm)
-                  m1 = lm2m(lm)
-                  dL = real(l1*(l1+1),cp)
-                  Dif(lm)=hdif_V(l1)*dL*or2(n_r)*visc(n_r)* ( work_LMloc(lm,n_r) +  &
-                  &         (dLvisc(n_r)-beta(n_r))    *              dz(lm,n_r) -  &
-                  &         ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
-                  &          + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
-                  &                                                    z(lm,n_r) )
+         do n_r=n_r_top,n_r_bot
+            do lm=lmStart_00,ulm
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               dL = real(l1*(l1+1),cp)
+               Dif=hdif_V(l1)*dL*or2(n_r)*visc(n_r)* ( work_LMloc(lm,n_r) +  &
+               &     (dLvisc(n_r)-beta(n_r))    *              dz(lm,n_r) -  &
+               &     ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
+               &      + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
+               &                                                z(lm,n_r) )
 
-                  dzdt%impl(lm,n_r,istage)=Dif(lm)
-                  if ( l_precession .and. l1==1 .and. m1==1 ) then
-                     dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
-                     &                        sin(oek*time),-cos(oek*time),kind=cp)
-                  end if
-               end do
-               if ( tscheme%istage==tscheme%nstages ) then
-                  call hInt2Tor(Dif,llm,ulm,n_r,lmStart_00,ulm, &
-                       &        DifTor2hInt(:,n_r),lo_map)
+               dzdt%impl(lm,n_r,istage)=Dif
+               if ( l_precession .and. l1==1 .and. m1==1 ) then
+                  dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
+                  &                        sin(oek*time),-cos(oek*time),kind=cp)
+               end if
+               if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
+                  DifTor2hInt(l1,n_r)=DifTor2hInt(l1,n_r)+r(n_r)**4/dL*cc2real(Dif,m1)
                end if
             end do
+         end do
 #ifdef WITH_OMP_GPU
 !            !$omp end target teams distribute parallel do
-            !$omp target update to(dzdt) !-- TODO: Remove after solving this problem
+         !$omp target update to(dzdt) !-- TODO: Remove after solving this problem
 #else
-            !$omp end do
+         !$omp end do
 #endif
-         else
-            if( l_precession ) then
-#ifdef WITH_OMP_GPU
-               !$omp target teams distribute parallel do collapse(2) private(Dif,l1,dL,m1)
-#else
-               !$omp do private(n_r,lm,Dif,l1,m1,dL)
-#endif
-               do n_r=n_r_top,n_r_bot
-                  do lm=lmStart_00,ulm
-                     l1 = lm2l(lm)
-                     m1 = lm2m(lm)
-                     dL = real(l1*(l1+1),cp)
-                     Dif(lm)=hdif_V(l1)*dL*or2(n_r)*visc(n_r)* ( work_LMloc(lm,n_r) +  &
-                     &         (dLvisc(n_r)-beta(n_r))    *              dz(lm,n_r) -  &
-                     &         ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
-                     &          + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
-                     &                                                    z(lm,n_r) )
-
-                     dzdt%impl(lm,n_r,istage)=Dif(lm)
-                     if ( l1==1 .and. m1==1 ) then
-                        dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
-                        &                        sin(oek*time),-cos(oek*time),kind=cp)
-                     end if
-                  end do
-               end do
-#ifdef WITH_OMP_GPU
-               !$omp end target teams distribute parallel do
-#else
-               !$omp end do
-#endif
-            else
-#ifdef WITH_OMP_GPU
-               !$omp target teams distribute parallel do collapse(2) private(l1,dL)
-#else
-               !$omp do private(n_r,lm,Dif,l1,dL,tmp_Dif)
-#endif
-               do n_r=n_r_top,n_r_bot
-                  do lm=lmStart_00,ulm
-                     l1 = lm2l(lm)
-                     dL = real(l1*(l1+1),cp)
-                     tmp_Dif=hdif_V(l1)*dL*or2(n_r)*visc(n_r)* ( work_LMloc(lm,n_r) +  &
-                     &         (dLvisc(n_r)-beta(n_r))    *              dz(lm,n_r) -  &
-                     &         ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
-                     &          + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
-                     &                                                    z(lm,n_r) )
-                     dzdt%impl(lm,n_r,istage)=tmp_Dif
-                  end do
-               end do
-#ifdef WITH_OMP_GPU
-               !$omp end target teams distribute parallel do
-#else
-               !$omp end do
-#endif
-            end if
-         end if
 
       end if
-
 #ifndef WITH_OMP_GPU
       !$omp end parallel
 #endif
@@ -1600,7 +1534,7 @@ contains
       real(cp) :: angular_moment_ic(3)! x,y,z component of inner core angular mom.
       real(cp) :: angular_moment_ma(3)! x,y,z component of mantle angular mom.
       complex(cp) :: z10(nRstart:nRstop), z11(nRstart:nRstop)
-      complex(cp) :: corr_l1m0, corr_l1m1
+      complex(cp) :: corr_l1m0, corr_l1m1, Dif
       real(cp) :: r_E_2, nomi, dL, prec_fac
       integer :: n_r, lm, start_lm, stop_lm, i
       integer :: l, m, l1m0, l1m1
@@ -1742,7 +1676,7 @@ contains
 #ifdef WITH_OMP_GPU
       start_lm=1; stop_lm=lm_max
 #else
-      !$omp parallel default(shared) private(start_lm, stop_lm, n_r, lm, l, m, dL, Dif)
+      !$omp parallel default(shared) private(start_lm,stop_lm,n_r,lm,l,m,dL,Dif)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
 #endif
@@ -1761,38 +1695,59 @@ contains
 #endif
       end if
 
-      if ( l_calc_lin .or. (tscheme%istage==tscheme%nstages .and. lRmsNext)) then
-#ifdef WITH_OMP_GPU
-#endif
+      if ( l_calc_lin ) then
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
-               if ( l /= 0 ) then
-                  m = st_map%lm2m(lm)
-                  dL = real(l*(l+1),cp)
-                  Dif(lm)=hdif_V(l)*dL*or2(n_r)*visc(n_r)* ( work_Rloc(lm,n_r) +    &
-                  &         (dLvisc(n_r)-beta(n_r))    *            dz(lm,n_r) -    &
-                  &         ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
-                  &          + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
-                  &                                                   zg(lm,n_r) )
+               if ( l == 0 ) cycle
+               m = st_map%lm2m(lm)
+               dL = real(l*(l+1),cp)
+               Dif=hdif_V(l)*dL*or2(n_r)*visc(n_r)* ( work_Rloc(lm,n_r) +    &
+               &     (dLvisc(n_r)-beta(n_r))    *            dz(lm,n_r) -    &
+               &     ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
+               &      + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
+               &                                             zg(lm,n_r) )
 
-                  dzdt%impl(lm,n_r,istage)=Dif(lm)
-                  if ( l_precession .and. l==1 .and. m==1 ) then
-                     dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
-                     &                        sin(oek*time),-cos(oek*time),kind=cp)
-                  end if
-                end if
+               dzdt%impl(lm,n_r,istage)=Dif
+               if ( l_precession .and. l==1 .and. m==1 ) then
+                  dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
+                  &                        sin(oek*time),-cos(oek*time),kind=cp)
+               end if
             end do
-            if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
-               call hInt2Tor(Dif,1,lm_max,n_r,start_lm,stop_lm,DifTor2hInt(:,n_r),st_map)
-            end if
          end do
-#ifdef WITH_OMP_GPU
-#endif
       end if
 #ifndef WITH_OMP_GPU
       !$omp end parallel
 #endif
+
+      if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
+#ifdef WITH_OMP_GPU
+#else
+         !$omp parallel default(shared) private(start_lm,stop_lm,n_r,lm,l,m,dL,Dif) &
+         !$omp reduction(+:DifTor2hInt)
+#endif
+         start_lm=1; stop_lm=lm_max
+         call get_openmp_blocks(start_lm,stop_lm)
+
+         do n_r=nRstart,nRstop
+            do lm=start_lm,stop_lm
+               l = st_map%lm2l(lm)
+               if ( l == 0 ) cycle
+               m = st_map%lm2m(lm)
+               dL = real(l*(l+1),cp)
+               Dif=hdif_V(l)*dL*or2(n_r)*visc(n_r)* ( work_Rloc(lm,n_r) +    &
+               &     (dLvisc(n_r)-beta(n_r))    *            dz(lm,n_r) -    &
+               &     ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
+               &      + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
+               &                                             zg(lm,n_r) )
+               DifTor2hInt(l,n_r)=DifTor2hInt(l,n_r)+r(n_r)**4/dL*cc2real(Dif,m)
+            end do
+         end do
+#ifdef WITH_OMP_GPU
+#else
+         !$omp end parallel
+#endif
+      end if
 
       if ( l_z10mat ) then
          !----- NOTE opposite sign of viscous torque on ICB and CMB:

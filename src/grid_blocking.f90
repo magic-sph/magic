@@ -6,7 +6,7 @@ module grid_blocking
 #else
    use mem_alloc, only: bytes_allocated
 #endif
-   use truncation, only: nlat_padded, n_phi_max, lm_max, lmP_max
+   use truncation, only: nlat_padded, n_phi_max, lm_max
    use radial_data, only: nRstart, nRstop
 
    implicit none
@@ -17,7 +17,6 @@ module grid_blocking
 
    integer, public :: n_phys_space   ! Number of indices in physical space
    integer, public :: n_spec_space   ! Number of indices in spectral space
-   integer, public :: n_spec_space_lmP   ! Number of indices in spectral space
 
    integer, public, allocatable :: spat2lat(:), spat2lon(:)
    integer, public, allocatable :: spat2rad(:), spec2rad(:)
@@ -42,11 +41,9 @@ contains
       if ( .not. l_batched ) then
          n_phys_space = nlat_padded * n_phi_max
          n_spec_space = lm_max !* n_r_max
-         n_spec_space_lmP = lmP_max
       else
          n_phys_space = nlat_padded * n_phi_max * (nRstop-nRstart+1)
          n_spec_space = lm_max * (nRstop-nRstart+1)
-         n_spec_space_lmP = lmP_max * (nRstop-nRstart+1)
       end if
 
       allocate( spat2lat(n_phys_space), spat2lon(n_phys_space) )

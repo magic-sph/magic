@@ -13,7 +13,7 @@ module rIter_mod
    use num_param, only: phy2lm_counter, lm2phy_counter, nl_counter, &
        &                td_counter
    use parallel_mod
-   use truncation, only: lmP_max, n_phi_max, lm_max, lm_maxMag, nlat_padded
+   use truncation, only: n_phi_max, lm_max, lm_maxMag, nlat_padded
    use grid_blocking, only: n_phys_space
    use blocking, only: st_map
    use horizontal_data, only: dLh, O_sin_theta_E2
@@ -103,7 +103,7 @@ contains
       call this%gsa%initialize()
       if ( l_TO ) call this%TO_arrays%initialize()
       call this%dtB_arrays%initialize()
-      call this%nl_lm%initialize(lmP_max)
+      call this%nl_lm%initialize(lm_max)
 
       allocate( dLw(lm_max), dLz(lm_max), dLdw(lm_max), dLddw(lm_max) )
       allocate( dmdw(lm_max), dmz(lm_max) )
@@ -1064,11 +1064,10 @@ contains
 #endif
          if ( l_anel ) then
 #ifdef WITH_OMP_GPU
-            call scal_to_SH(sht_lP_gpu, this%gsa%heatTerms, &
-                            &          this%nl_lm%heatTermsLM, l_R(nR), .true.)
+            call scal_to_SH(sht_l_gpu, this%gsa%heatTerms, this%nl_lm%heatTermsLM, &
+                 &          l_R(nR), .true.)
 #else
-            call scal_to_SH(sht_lP, this%gsa%heatTerms, &
-                            &          this%nl_lm%heatTermsLM, l_R(nR))
+            call scal_to_SH(sht_l, this%gsa%heatTerms, this%nl_lm%heatTermsLM, l_R(nR))
 #endif
          end if
       end if
@@ -1087,11 +1086,10 @@ contains
 
       if( l_phase_field ) then
 #ifdef WITH_OMP_GPU
-         call scal_to_SH(sht_lP_gpu, this%gsa%phiTerms, &
-                            &          this%nl_lm%dphidtLM, l_R(nR), .true.)
+         call scal_to_SH(sht_l_gpu, this%gsa%phiTerms, this%nl_lm%dphidtLM, &
+              &          l_R(nR), .true.)
 #else
-         call scal_to_SH(sht_lP, this%gsa%phiTerms, &
-                            &          this%nl_lm%dphidtLM, l_R(nR))
+         call scal_to_SH(sht_l, this%gsa%phiTerms, this%nl_lm%dphidtLM, l_R(nR))
 #endif
       end if
 
@@ -1108,10 +1106,10 @@ contains
 #endif
          else
 #ifdef WITH_OMP_GPU
-            call spat_to_sphertor(sht_lP_single_gpu, this%gsa%VxBt, this%gsa%VxBp, &
+            call spat_to_sphertor(sht_l_single_gpu, this%gsa%VxBt, this%gsa%VxBp, &
                  &                this%nl_lm%VxBtLM, this%nl_lm%VxBpLM, l_R(nR), .true.)
 #else
-            call spat_to_sphertor(sht_lP_single, this%gsa%VxBt, this%gsa%VxBp, &
+            call spat_to_sphertor(sht_l_single, this%gsa%VxBt, this%gsa%VxBp, &
                  &                this%nl_lm%VxBtLM, this%nl_lm%VxBpLM, l_R(nR))
 #endif
          end if

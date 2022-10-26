@@ -11,8 +11,7 @@ module blocking
    use mem_alloc, only: memWrite, bytes_allocated
 #endif
    use parallel_mod, only: nThreads, rank, n_procs, rank_with_l1m0, load, getBlocks
-   use truncation, only: lmP_max, lm_max, l_max, n_theta_max, &
-       &                 minc, n_r_max, m_max, m_min
+   use truncation, only: lm_max, l_max, n_theta_max, minc, n_r_max, m_max, m_min
    use logic, only: l_save_out, l_finite_diff, l_mag
    use output_data, only: n_log_file, log_file
    use LMmapping, only: mappings, allocate_mappings, deallocate_mappings,           &
@@ -39,11 +38,6 @@ module blocking
    ! nthreads > 1
    integer, public, pointer :: lm2(:,:),lm2l(:),lm2m(:)
    integer, public, pointer :: lm2lmS(:),lm2lmA(:)
-
-   integer, public, pointer :: lmP2(:,:),lmP2l(:)
-   integer, public, pointer :: lmP2lmPS(:),lmP2lmPA(:)
-
-   integer, public, pointer :: lm2lmP(:),lmP2lm(:)
 
    type(mappings), public, target :: st_map
    type(mappings), public, target :: lo_map
@@ -109,9 +103,9 @@ contains
 #ifdef WITH_OMP_GPU
       local_bytes_used_gpu = gpu_bytes_allocated
 #endif
-      call allocate_mappings(st_map,l_max,m_min,m_max,lm_max,lmP_max)
-      call allocate_mappings(lo_map,l_max,m_min,m_max,lm_max,lmP_max)
-      !call allocate_mappings(sn_map,l_max,lm_max,lmP_max)
+      call allocate_mappings(st_map,l_max,m_min,m_max,lm_max)
+      call allocate_mappings(lo_map,l_max,m_min,m_max,lm_max)
+      !call allocate_mappings(sn_map,l_max,lm_max)
 
       if ( rank == 0 ) then
          if ( l_save_out ) then
@@ -194,12 +188,6 @@ contains
       lm2m(1:lm_max) => st_map%lm2m
       lm2lmS(1:lm_max) => st_map%lm2lmS
       lm2lmA(1:lm_max) => st_map%lm2lmA
-      lmP2(0:,0:) => st_map%lmP2
-      lmP2l(1:lmP_max) => st_map%lmP2l
-      lmP2lmPS(1:lmP_max) => st_map%lmP2lmPS
-      lmP2lmPA(1:lmP_max) => st_map%lmP2lmPA
-      lm2lmP(1:lm_max) => st_map%lm2lmP
-      lmP2lm(1:lmP_max) => st_map%lmP2lm
 
       call allocate_subblocks_mappings(st_sub_map,st_map,n_procs,l_max, &
            &                           m_min,m_max,lm_balance)
@@ -387,48 +375,27 @@ contains
       integer,        intent(in) :: minc
 
       ! Local variables
-      integer :: m,l,lm,lmP
+      integer :: m,l,lm
 
       do m=0,map%l_max
          do l=m,map%l_max
             map%lm2(l,m)  =-1
-            map%lmP2(l,m) =-1
             !check(l,m)=0
          end do
          l=map%l_max+1
-         map%lmP2(l,m)=-1
       end do
 
       lm =0
-      lmP=0
       do m=map%m_min,map%m_max,minc
          do l=m,map%l_max
             lm         =lm+1
             map%lm2l(lm)   =l
             map%lm2m(lm)   =m
             map%lm2(l,m)   =lm
-            lmP        =lmP+1
-            map%lmP2l(lmP) = l
-            map%lmP2m(lmP) = m
-            map%lmP2(l,m)  =lmP
-            !if ( m == 0 ) l2lmPAS(l)=lmP
-            map%lm2lmP(lm) =lmP
-            map%lmP2lm(lmP)=lm
          end do
-         l=map%l_max+1    ! Extra l for lmP
-         lmP=lmP+1
-         map%lmP2l(lmP) =l
-         map%lmP2m(lmP) = m
-         map%lmP2(l,m)  =lmP
-         !if ( m == 0 ) l2lmPAS(l)=lmP
-         map%lmP2lm(lmP)=-1
       end do
       if ( lm /= map%lm_max ) then
          write(output_unit,"(2(A,I6))") 'Wrong lm=',lm," != map%lm_max = ",map%lm_max
-         call abortRun('Stop run in blocking')
-      end if
-      if ( lmP /= map%lmP_max ) then
-         write(output_unit,*) 'Wrong lmP!'
          call abortRun('Stop run in blocking')
       end if
       do lm=1,map%lm_max
@@ -437,26 +404,12 @@ contains
          if ( l > 0 .and. l > m ) then
             map%lm2lmS(lm)=map%lm2(l-1,m)
          else
-            map%lm2lmS(lm)=-1
+            map%lm2lmS(lm)=lm ! Dummy since it will be multiplied by zero
          end if
          if ( l < map%l_max ) then
             map%lm2lmA(lm)=map%lm2(l+1,m)
          else
             map%lm2lmA(lm)=-1
-         end if
-      end do
-      do lmP=1,map%lmP_max
-         l=map%lmP2l(lmP)
-         m=map%lmP2m(lmP)
-         if ( l > 0 .and. l > m ) then
-            map%lmP2lmPS(lmP)=map%lmP2(l-1,m)
-         else
-            map%lmP2lmPS(lmP)=-1
-         end if
-         if ( l < map%l_max+1 ) then
-            map%lmP2lmPA(lmP)=map%lmP2(l+1,m)
-         else
-            map%lmP2lmPA(lmP)=-1
          end if
       end do
 
@@ -468,52 +421,30 @@ contains
       integer,        intent(in) :: minc
 
       ! Local variables
-      integer :: m,l,lm,lmP
+      integer :: m,l,lm
 
       do m=0,map%l_max
          do l=m,map%l_max
             map%lm2(l,m)  =-1
-            map%lmP2(l,m) =-1
             !check(l,m)=0
          end do
          l=map%l_max+1
-         map%lmP2(l,m)=-1
       end do
 
       lm =0
-      lmP=0
       do l=map%m_min,map%l_max
          do m=map%m_min,min(map%m_max,l),minc
             lm         =lm+1
             map%lm2l(lm)   =l
             map%lm2m(lm)   =m
             map%lm2(l,m)   =lm
-
-            lmP        =lmP+1
-            map%lmP2l(lmP) = l
-            map%lmP2m(lmP) = m
-            map%lmP2(l,m)  =lmP
-            !if ( m == 0 ) l2lmPAS(l)=lmP
-            map%lm2lmP(lm) =lmP
-            map%lmP2lm(lmP)=lm
          end do
-      end do
-      l=map%l_max+1    ! Extra l for lmP
-      do m=map%m_min,map%m_max,minc
-         lmP=lmP+1
-         map%lmP2l(lmP) =l
-         map%lmP2m(lmP) = m
-         map%lmP2(l,m)  =lmP
-         map%lmP2lm(lmP)=-1
       end do
 
       if ( lm /= map%lm_max ) then
          write(output_unit,"(2(A,I6))") 'get_lorder_lm_blocking: Wrong lm = ',lm, &
                               " != map%lm_max = ",map%lm_max
          call abortRun('Stop run in blocking')
-      end if
-      if ( lmP /= map%lmP_max ) then
-         call abortRun('Wrong lmP!')
       end if
       do lm=1,map%lm_max
          l=map%lm2l(lm)
@@ -527,20 +458,6 @@ contains
             map%lm2lmA(lm)=map%lm2(l+1,m)
          else
             map%lm2lmA(lm)=-1
-         end if
-      end do
-      do lmP=1,map%lmP_max
-         l=map%lmP2l(lmP)
-         m=map%lmP2m(lmP)
-         if ( l > 0 .and. l > m ) then
-            map%lmP2lmPS(lmP)=map%lmP2(l-1,m)
-         else
-            map%lmP2lmPS(lmP)=-1
-         end if
-         if ( l < map%l_max+1 ) then
-            map%lmP2lmPA(lmP)=map%lmP2(l+1,m)
-         else
-            map%lmP2lmPA(lmP)=-1
          end if
       end do
 
@@ -553,7 +470,7 @@ contains
       integer,        intent(in) :: minc
 
       ! Local variables
-      integer :: l,proc,lm,m,i_l,lmP
+      integer :: l,proc,lm,m,i_l
       logical :: Ascending
       integer :: l_list(0:n_procs-1,map%l_max+1-map%m_min)
       integer :: l_counter(0:n_procs-1)
@@ -565,11 +482,9 @@ contains
       do m=0,map%l_max
          do l=m,map%l_max
             map%lm2(l,m)  =-1
-            map%lmP2(l,m) =-1
             !check(l,m)=0
          end do
          l=map%l_max+1
-         map%lmP2(l,m)=-1
       end do
 
       ! First we loop over all l values and jump for each
@@ -664,7 +579,6 @@ contains
       end if
 
       lm=0
-      lmP=0
       do proc=0,n_procs-1
          lm_balance(proc)%nStart=lm+1
          do i_l=1,l_counter(proc)-1
@@ -675,13 +589,6 @@ contains
                map%lm2(l,m)=lm
                map%lm2l(lm)=l
                map%lm2m(lm)=m
-
-               lmP = lmP+1
-               map%lmP2(l,m)=lmP
-               map%lmP2l(lmP)=l
-               map%lmP2m(lmP)= m
-               map%lm2lmP(lm)=lmP
-               map%lmP2lm(lmP)=lm
             end do
          end do
          lm_balance(proc)%nStop=lm
@@ -698,19 +605,6 @@ contains
          call abortRun('Stop run in blocking')
       end if
 
-      l=map%l_max+1    ! Extra l for lmP
-      do m=map%m_min,map%m_max,minc
-         lmP=lmP+1
-         map%lmP2l(lmP) =l
-         map%lmP2m(lmP) = m
-         map%lmP2(l,m)  =lmP
-         map%lmP2lm(lmP)=-1
-      end do
-
-      if ( lmP /= map%lmP_max ) then
-         call abortRun('Wrong lmP!')
-      end if
-
       do lm=1,map%lm_max
          l=map%lm2l(lm)
          m=map%lm2m(lm)
@@ -723,20 +617,6 @@ contains
             map%lm2lmA(lm)=map%lm2(l+1,m)
          else
             map%lm2lmA(lm)=-1
-         end if
-      end do
-      do lmP=1,map%lmP_max
-         l=map%lmP2l(lmP)
-         m=map%lmP2m(lmP)
-         if ( l > 0 .and. l > m ) then
-            map%lmP2lmPS(lmP)=map%lmP2(l-1,m)
-         else
-            map%lmP2lmPS(lmP)=-1
-         end if
-         if ( l < map%l_max+1 ) then
-            map%lmP2lmPA(lmP)=map%lmP2(l+1,m)
-         else
-            map%lmP2lmPA(lmP)=-1
          end if
       end do
 

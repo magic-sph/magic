@@ -159,8 +159,8 @@ contains
       real(cp), intent(in) :: cbr(*),cbt(*)
 
       !-- Output of arrays needing further treatment in s_getTOfinish.f:
-      real(cp), intent(out) :: dzRstrLM(l_max+2),dzAstrLM(l_max+2)
-      real(cp), intent(out) :: dzCorLM(l_max+2),dzLFLM(l_max+2)
+      real(cp), intent(out) :: dzRstrLM(l_max+1),dzAstrLM(l_max+1)
+      real(cp), intent(out) :: dzCorLM(l_max+1),dzLFLM(l_max+1)
 
       !-- Local variables:
       integer :: nTheta,nPhi,nTheta1,nelem
@@ -382,8 +382,8 @@ contains
       !-- Input of variables:
       integer,  intent(in) :: nR
       real(cp), intent(in) :: dtLast
-      real(cp), intent(in) :: dzRstrLM(l_max+2),dzAstrLM(l_max+2)
-      real(cp), intent(in) :: dzCorLM(l_max+2),dzLFLM(l_max+2)
+      real(cp), intent(in) :: dzRstrLM(l_max+1),dzAstrLM(l_max+1)
+      real(cp), intent(in) :: dzCorLM(l_max+1),dzLFLM(l_max+1)
 
       !-- Local variables:
       real(cp) :: dzStrLMr(l_max+1), dzRstrLMr(l_max+1), dzAstrLMr(l_max+1)
@@ -406,14 +406,21 @@ contains
          &         (dLh(lm)*or2(nR)+dbeta(nR)+two*beta(nR)*or1(nR))*zASL(l+1) )
          !---- -r**2/(l(l+1)) 1/sin(theta) dtheta sin(theta)**2
          !     minus sign to bring stuff on the RHS of NS equation !
-         dzRstrLMr(l+1)=-r(nR)*r(nR)/dLh(lm) * ( dTheta1S(lm)*dzRstrLM(lS) - &
-         &                                       dTheta1A(lm)*dzRstrLM(lA) )
-         dzAstrLMr(l+1)=-r(nR)*r(nR)/dLh(lm) * ( dTheta1S(lm)*dzAstrLM(lS) - &
-         &                                       dTheta1A(lm)*dzAstrLM(lA) )
-         dzCorLMr(l+1) =-r(nR)*r(nR)/dLh(lm) * ( dTheta1S(lm)*dzCorLM(lS) - &
-         &                                       dTheta1A(lm)*dzCorLM(lA) )
-         dzLFLMr(l+1)  = r(nR)*r(nR)/dLh(lm) * ( dTheta1S(lm)*dzLFLM(lS) - &
-         &                                       dTheta1A(lm)*dzLFLM(lA) )
+         if ( l < l_max ) then
+            dzRstrLMr(l+1)=-r(nR)*r(nR)/dLh(lm) * ( dTheta1S(lm)*dzRstrLM(lS) - &
+            &                                       dTheta1A(lm)*dzRstrLM(lA) )
+            dzAstrLMr(l+1)=-r(nR)*r(nR)/dLh(lm) * ( dTheta1S(lm)*dzAstrLM(lS) - &
+            &                                       dTheta1A(lm)*dzAstrLM(lA) )
+            dzCorLMr(l+1) =-r(nR)*r(nR)/dLh(lm) * ( dTheta1S(lm)*dzCorLM(lS) - &
+            &                                       dTheta1A(lm)*dzCorLM(lA) )
+            dzLFLMr(l+1)  = r(nR)*r(nR)/dLh(lm) * ( dTheta1S(lm)*dzLFLM(lS) - &
+            &                                       dTheta1A(lm)*dzLFLM(lA) )
+         else
+            dzRstrLMr(l+1)=-r(nR)*r(nR)/dLh(lm) * dTheta1S(lm)*dzRstrLM(lS)
+            dzAstrLMr(l+1)=-r(nR)*r(nR)/dLh(lm) * dTheta1S(lm)*dzAstrLM(lS)
+            dzCorLMr(l+1) =-r(nR)*r(nR)/dLh(lm) * dTheta1S(lm)*dzCorLM(lS)
+            dzLFLMr(l+1)  = r(nR)*r(nR)/dLh(lm) * dTheta1S(lm)*dzLFLM(lS)
+         end if
          dzdVpLMr(l+1,nR) =(zASL(l+1)-dzdVpLMr(l+1,nR))/dtLast
          dzddVpLMr(l+1,nR)=(zASL(l+1)/dtLast+dzddVpLMr(l+1,nR))/dtLast
       end do

@@ -16,9 +16,9 @@ module rIter_batched_mod
    use blocking, only: st_map
    use horizontal_data, only: O_sin_theta_E2, dLh
 #ifdef WITH_OMP_GPU
-   use truncation, only: lmP_max, n_phi_max, lm_max, lm_maxMag, n_theta_max, nlat_padded
+   use truncation, only: n_phi_max, lm_max, lm_maxMag, n_theta_max, nlat_padded
 #else
-   use truncation, only: lmP_max, n_phi_max, lm_max, lm_maxMag, n_theta_max
+   use truncation, only: n_phi_max, lm_max, lm_maxMag, n_theta_max
 #endif
    use grid_blocking, only: n_phys_space, spat2rad, radlatlon2spat
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel,  &
@@ -143,7 +143,7 @@ contains
       call this%gsa%initialize(nRstart,nRstop)
       if ( l_TO ) call this%TO_arrays%initialize()
       call this%dtB_arrays%initialize()
-      call this%nl_lm%initialize(lmP_max,nRstart,nRstop)
+      call this%nl_lm%initialize(lm_max,nRstart,nRstop)
 
       allocate(dLw(lm_max,nRstart:nRstop), dLz(lm_max,nRstart:nRstop))
       allocate(dLdw(lm_max,nRstart:nRstop), dLddw(lm_max,nRstart:nRstop))
@@ -602,8 +602,8 @@ contains
          !   get_td finally calculates the d*dt terms needed for the
          !   time step performed in s_LMLoop.f . This should be distributed
          !   over the different models that s_LMLoop.f parallelizes over.
-         idx1 = (nR-nRstart)*(lmP_max)+1
-         idx2 = idx1+lmP_max-1
+         idx1 = (nR-nRstart)*(lm_max)+1
+         idx2 = idx1+lm_max-1
 
          !-- Finish computation of r.m.s. forces
          if ( lRmsCalc ) then
@@ -1149,10 +1149,10 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-         if ( l_anel ) call scal_to_SH(sht_lP_gpu, this%gsa%heatTerms, &
+         if ( l_anel ) call scal_to_SH(sht_l_gpu, this%gsa%heatTerms, &
                             &          this%nl_lm%heatTermsLM, l_R(1), .true.)
 #else
-         if ( l_anel ) call scal_to_SH(sht_lP, this%gsa%heatTerms, &
+         if ( l_anel ) call scal_to_SH(sht_l, this%gsa%heatTerms, &
                             &          this%nl_lm%heatTermsLM, l_R(1))
 #endif
       end if
@@ -1170,10 +1170,10 @@ contains
       end if
 
 #ifdef WITH_OMP_GPU
-      if( l_phase_field ) call scal_to_SH(sht_lP_gpu, this%gsa%phiTerms,  &
+      if( l_phase_field ) call scal_to_SH(sht_l_gpu, this%gsa%phiTerms,  &
                                &          this%nl_lm%dphidtLM, l_R(1), .true.)
 #else
-      if( l_phase_field ) call scal_to_SH(sht_lP, this%gsa%phiTerms,  &
+      if( l_phase_field ) call scal_to_SH(sht_l, this%gsa%phiTerms,  &
                                &          this%nl_lm%dphidtLM, l_R(1))
 #endif
 
