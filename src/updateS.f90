@@ -561,17 +561,23 @@ contains
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
-      !$omp target
+      !$omp target teams private(lm1)
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
 #endif
       do n_r_out=rscheme_oc%n_max+1,n_r_max
+#ifdef WITH_OMP_GPU
+         !$omp distribute parallel do
+#endif
          do lm1=llm,ulm
             s(lm1,n_r_out)=zero
          end do
+#ifdef WITH_OMP_GPU
+         !$omp end distribute parallel do
+#endif
       end do
 #ifdef WITH_OMP_GPU
-      !$omp end target
+      !$omp end target teams
 #else
       !$omp end do
       !$omp end parallel
