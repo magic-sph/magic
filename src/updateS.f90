@@ -95,8 +95,10 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll,n_bands
 #ifdef WITH_OMP_GPU
+      integer, pointer :: sizeLMB2(:,:)
       real(cp), pointer :: ptr_dat(:,:)
       integer, pointer  :: ptr_pivot(:)
+      integer :: lm
       logical :: use_gpu, use_pivot
       use_gpu = .false.; use_pivot = .true.
 #endif
@@ -207,13 +209,6 @@ contains
          ptr_dat   => sMat(1)%dat
          ptr_pivot => sMat(1)%pivot
 
-         !-- For real RHS 2D matrices
-         call hipsolverCheck(hipsolverCreate(handle_rl))
-         allocate(devInfo_rl(1))
-         devInfo_rl(1) = 0
-         !$omp target enter data map(alloc: devInfo_rl)
-         !$omp target update to(devInfo_rl)
-
          !-- For prepare_mat for 2D matrices
          call hipsolverCheck(hipsolverCreate(handle_prep))
 #if (DEFAULT_PRECISION==sngl)
@@ -232,6 +227,35 @@ contains
          devInfo_prep(1) = 0
          !$omp target enter data map(alloc: dWork_prep, devInfo_prep)
          !$omp target update to(devInfo_prep, dWork_prep)
+
+         !-- For real RHS 2D matrices
+         ptr_dat   => sMat(nLMBs2(1+rank))%dat
+         ptr_pivot => sMat(nLMBs2(1+rank))%pivot
+         nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+         sizeLMB2(1:,1:)   => lo_sub_map%sizeLMB2
+         call hipsolverCheck(hipsolverCreate(handle_rl))
+         allocate(devInfo_rl(1))
+         devInfo_rl(1) = 0
+         !$omp target enter data map(alloc: devInfo_rl)
+         !$omp target update to(devInfo_rl)
+         lm = sizeLMB2(nLMBs2(1+rank), 1+rank)
+#if (DEFAULT_PRECISION==sngl)
+         !$omp target data use_device_addr(ptr_dat, ptr_pivot, rhs1)
+         call hipsolverCheck(hipsolverSgetrs_bufferSize(handle_rl, HIPSOLVER_OP_N, n_r_max, 2*lm,       &
+         &                   c_loc(ptr_dat(1:n_r_max,1:n_r_max)), n_r_max, c_loc(ptr_pivot(1:n_r_max)), &
+         &                   c_loc(rhs1(1:n_r_max,:,0)), n_r_max, size_work_bytes_rl))
+         !$omp end target data
+#elif (DEFAULT_PRECISION==dble)
+         !$omp target data use_device_addr(ptr_dat, ptr_pivot, rhs1)
+         call hipsolverCheck(hipsolverDgetrs_bufferSize(handle_rl, HIPSOLVER_OP_N, n_r_max, 2*lm,       &
+         &                   c_loc(ptr_dat(1:n_r_max,1:n_r_max)), n_r_max, c_loc(ptr_pivot(1:n_r_max)), &
+         &                   c_loc(rhs1(1:n_r_max,:,0)), n_r_max, size_work_bytes_rl))
+         !$omp end target data
+#endif
+         allocate(dWork_rl(size_work_bytes_rl))
+         dWork_rl(:) = 0.0_cp
+         !$omp target enter data map(alloc: dWork_rl)
+         !$omp target update to(dWork_rl)
       end if
 #endif
 
@@ -282,6 +306,8 @@ contains
          call hipsolverCheck(hipsolverDestroy(handle_rl))
          !$omp target exit data map(delete: devInfo_rl)
          deallocate(devInfo_rl)
+         !$omp target exit data map(delete: dWork_rl)
+         deallocate(dWork_rl)
 
          !-- For prepare_mat for 2D matrices
          call hipsolverCheck(hipsolverDestroy(handle_prep))
@@ -412,27 +438,6 @@ contains
 
          !-- Solve matrices with batched RHS (hipsolver)
          lm=sizeLMB2(nLMB2,nLMB)
-         if( sMat(nLMB2)%gpu_is_used ) then
-            ptr_dat   => sMat(nLMB2)%dat
-            ptr_pivot => sMat(nLMB2)%pivot
-#if (DEFAULT_PRECISION==sngl)
-            !$omp target data use_device_addr(ptr_dat, ptr_pivot, rhs1)
-            call hipsolverCheck(hipsolverSgetrs_bufferSize(handle_rl, HIPSOLVER_OP_N, n_r_max, 2*lm,       &
-            &                   c_loc(ptr_dat(1:n_r_max,1:n_r_max)), n_r_max, c_loc(ptr_pivot(1:n_r_max)), &
-            &                   c_loc(rhs1(1:n_r_max,:,0)), n_r_max, size_work_bytes_rl))
-            !$omp end target data
-#elif (DEFAULT_PRECISION==dble)
-            !$omp target data use_device_addr(ptr_dat, ptr_pivot, rhs1)
-            call hipsolverCheck(hipsolverDgetrs_bufferSize(handle_rl, HIPSOLVER_OP_N, n_r_max, 2*lm,       &
-            &                   c_loc(ptr_dat(1:n_r_max,1:n_r_max)), n_r_max, c_loc(ptr_pivot(1:n_r_max)), &
-            &                   c_loc(rhs1(1:n_r_max,:,0)), n_r_max, size_work_bytes_rl))
-            !$omp end target data
-#endif
-            allocate(dWork_rl(size_work_bytes_rl))
-            dWork_rl(:) = 0.0_cp
-            !$omp target enter data map(alloc: dWork_rl)
-            !$omp target update to(dWork_rl)
-         end if
          if(.not. sMat(nLMB2)%gpu_is_used) then
             !$omp target update from(rhs1)
             call sMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
@@ -440,17 +445,12 @@ contains
          else
             call sMat(nLMB2)%solve(rhs1(:,:,0),2*lm,dWork_rl,devInfo_rl,handle_rl,size_work_bytes_rl)
          end if
-         if( sMat(nLMB2)%gpu_is_used ) then
-            !$omp target exit data map(delete: dWork_rl)
-            deallocate(dWork_rl)
-         end if
 
          !-- Loop to reassemble fields
          !$omp target teams distribute parallel do private(lm1, m1, n_r_out)
          do lm=1,sizeLMB2(nLMB2,nLMB)
             lm1=lm22lm(lm,nLMB2,nLMB)
             m1=lm22m(lm,nLMB2,nLMB)
-
             if ( m1 > 0 ) then
                do n_r_out=1,rscheme_oc%n_max
                   s(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lm-1,0), &
