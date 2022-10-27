@@ -737,9 +737,11 @@ class MagicCoeffR(MagicSetup):
         # wlm
         if field == 'T' or field == 'Xi': #T or Xi contains l = m = 0
             self.wlm[:, 0:self.l_max_r+1] = data[:, 1:self.l_max_r+2]
+            k = self.l_max_r+2
         else:
             self.wlm[:, 1:self.l_max_r+1] = data[:, 1:self.l_max_r+1]
-        k = self.l_max_r+1
+            k = self.l_max_r+1
+
         for m in range(self.minc, self.l_max_r+1, self.minc):
             for l in range(m, self.l_max_r+1):
                 self.wlm[:, self.idx[l, m]] = data[:, k]+1j*data[:, k+1]
