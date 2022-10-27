@@ -412,7 +412,7 @@ contains
          end if
 
          !-- Assemble RHS
-         !$omp target teams distribute private(lm1, l1, m1, nR)
+         !$omp target teams distribute parallel do private(lm1, l1, m1, nR)
          do lm=1,sizeLMB2(nLMB2,nLMB)
 
             lm1=lm22lm(lm,nLMB2,nLMB)
@@ -423,25 +423,18 @@ contains
             rhs1(1,2*lm,0)        =aimag(tops(l1,m1))
             rhs1(n_r_max,2*lm-1,0)= real(bots(l1,m1))
             rhs1(n_r_max,2*lm,0)  =aimag(bots(l1,m1))
-            !$omp parallel do
             do nR=2,n_r_max-1
                rhs1(nR,2*lm-1,0)= real(work_LMloc(lm1,nR))
                rhs1(nR,2*lm,0)  =aimag(work_LMloc(lm1,nR))
             end do
-            !$omp end parallel do
-         end do
-         !$omp end target teams distribute
 
 #ifdef WITH_PRECOND_S
-         !$omp target teams distribute parallel do collapse(2)
-         do lm=1,sizeLMB2(nLMB2,nLMB)
-            do nR=1,n_r_max
-               rhs1(nR,2*lm-1,0)=sMat_fac(nR,nLMB2)*rhs1(nR,2*lm-1,0)
-               rhs1(nR,2*lm,0)  =sMat_fac(nR,nLMB2)*rhs1(nR,2*lm,0)
-            end do
+            rhs1(:,2*lm-1,0)=sMat_fac(:,nLMB2)*rhs1(:,2*lm-1,0)
+            rhs1(:,2*lm,0)  =sMat_fac(:,nLMB2)*rhs1(:,2*lm,0)
+#endif
+
          end do
          !$omp end target teams distribute parallel do
-#endif
 
          !-- Solve matrices with batched RHS (hipsolver)
          lm=sizeLMB2(nLMB2,nLMB)
