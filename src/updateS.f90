@@ -1653,9 +1653,33 @@ contains
       wimp_lin = tscheme%wimp_lin(1)
 
       dLh=real(l*(l+1),kind=cp)
-      dat(:,:) = 0.0_cp
 
       !----- Boundary conditions:
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
+      do nR=1,n_r_max
+         if ( ktops == 1 ) then
+            dat(1,nR)=rscheme_oc%rnorm*rscheme_oc%rMat(1,nR)
+         else
+            dat(1,nR)=rscheme_oc%rnorm*rscheme_oc%drMat(1,nR)
+         end if
+
+         if ( l_full_sphere ) then
+            if ( l == 1 ) then
+               dat(n_r_max,nR)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR)
+            else
+               dat(n_r_max,nR)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,nR)
+            end if
+         else
+            if ( kbots == 1 ) then
+               dat(n_r_max,nR)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR)
+            else
+               dat(n_r_max,nR)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,nR)
+            end if
+         end if
+      end do
+      !$omp end target teams distribute parallel do
+#else
       if ( ktops == 1 ) then
          dat(1,:)=rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
       else
@@ -1675,17 +1699,20 @@ contains
             dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
          end if
       end if
+#endif
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
+#ifdef WITH_OMP_GPU
+         !$omp target
+#endif
          do nR_out=rscheme_oc%n_max+1,n_r_max
             dat(1,nR_out)      =0.0_cp
             dat(n_r_max,nR_out)=0.0_cp
          end do
-      end if
-
 #ifdef WITH_OMP_GPU
-      !$omp target update to(dat)
+         !$omp end target
 #endif
+      end if
 
       !----- Bulk points:
       if ( l_anelastic_liquid ) then
@@ -1749,13 +1776,17 @@ contains
 #endif
       ! now divide each line by the linesum to regularize the matrix
 #ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do
-#endif
+      !$omp target teams distribute parallel do collapse(2)
+      do nR_out=1,n_r_max
+         do nr=1,n_r_max
+         dat(nR,nR_out) = dat(nR,nR_out)*sMat_fac(nR)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+#else
       do nr=1,n_r_max
          dat(nR,:) = dat(nR,:)*sMat_fac(nR)
       end do
-#ifdef WITH_OMP_GPU
-      !$omp end target teams distribute parallel do
 #endif
 #endif
 
