@@ -40,6 +40,12 @@ module updateWP_mod
    use dense_matrices
    use real_matrices
    use band_matrices
+#ifdef WITH_OMP_GPU
+   use iso_c_binding
+   use hipfort_check
+   use hipfort_hipblas
+   use hipfort_hipsolver
+#endif
 
    implicit none
 
@@ -50,7 +56,11 @@ module updateWP_mod
    complex(cp), allocatable :: dwold(:,:)
    real(cp), allocatable :: work(:)
    complex(cp), allocatable :: Dif(:),Pre(:),Buo(:)
+#ifdef WITH_OMP_GPU
+   real(cp), allocatable, target :: rhs1(:,:,:), rhs(:)
+#else
    real(cp), allocatable :: rhs1(:,:,:), rhs(:)
+#endif
    real(cp), allocatable :: rhs0(:,:,:)
    real(cp), allocatable :: wpMat_fac(:,:,:)
    class(type_realmat), allocatable :: wpMat(:), p0Mat, ellMat(:)
@@ -60,6 +70,31 @@ module updateWP_mod
    type(type_tri_par), public :: ellMat_FD, p0Mat_FD
    complex(cp), public, allocatable :: w_ghost(:,:), p0_ghost(:)
    integer :: maxThreads, size_rhs1
+
+   real(cp), allocatable :: dat(:,:)
+
+#ifdef WITH_OMP_GPU
+   !-- For real RHS 1D matrices
+   type(c_ptr) :: handle_1D = c_null_ptr
+   integer, allocatable, target :: devInfo_1D(:)
+   real(cp), allocatable, target :: dWork_1D(:)
+   integer(c_int) :: size_work_bytes_1D
+   !-- For real RHS 2D matrices
+   type(c_ptr) :: handle_rl = c_null_ptr
+   integer, allocatable, target :: devInfo_rl(:)
+   real(cp), allocatable, target :: dWork_rl(:)
+   integer(c_int) :: size_work_bytes_rl
+   !-- For prepare_mat 1D real matrices
+   type(c_ptr) :: handle_1D_prep = c_null_ptr
+   integer, allocatable, target :: devInfo_1D_prep(:)
+   real(cp), allocatable, target :: dWork_1D_prep(:)
+   integer(c_int) :: size_work_bytes_1D_prep
+   !-- For prepare_mat 2D real matrices
+   type(c_ptr) :: handle_prep = c_null_ptr
+   integer, allocatable, target :: devInfo_prep(:)
+   real(cp), allocatable, target :: dWork_prep(:)
+   integer(c_int) :: size_work_bytes_prep
+#endif
 
    public :: initialize_updateWP, finalize_updateWP, updateWP, assemble_pol,       &
    &         finish_exp_pol, get_pol_rhs_imp, finish_exp_pol_Rdist, fill_ghosts_W, &
@@ -81,6 +116,8 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll, n_bands
 #ifdef WITH_OMP_GPU
+      real(cp), pointer :: wpMat_dat(:,:), p0Mat_dat(:,:)
+      integer, pointer  :: wpMat_pivot(:), p0Mat_pivot(:)
       logical :: use_gpu, use_pivot
       use_gpu = .false.; use_pivot = .true.
 #endif
@@ -291,6 +328,111 @@ contains
       allocate( lWPmat(0:l_max) )
       bytes_allocated=bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
+      allocate(dat(n_r_max,n_r_max))
+      dat(:,:) = 0.0_cp
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: dat)
+      !$omp target update to(dat)
+#endif
+
+#ifdef WITH_OMP_GPU
+      if ( ( .not. l_parallel_solve ) .and. ( .not. l_finite_diff) ) then
+
+         p0Mat_dat   => p0Mat%dat
+         p0Mat_pivot => p0Mat%pivot
+         wpMat_dat   => wpMat(1)%dat
+         wpMat_pivot => wpMat(1)%pivot
+
+         !-- For real RHS 1D matrices
+         call hipsolverCheck(hipsolverCreate(handle_1D))
+         allocate(devInfo_1D(1))
+         devInfo_1D(1) = 0
+         !$omp target enter data map(alloc: devInfo_1D)
+         !$omp target update to(devInfo_1D)
+#if (DEFAULT_PRECISION==sngl)
+         !$omp target data use_device_addr(p0Mat_dat, p0Mat_pivot, rhs)
+         call hipsolverCheck(hipsolverSgetrs_bufferSize(handle_1D, HIPSOLVER_OP_N, n_r_max, 1, c_loc(p0Mat_dat), &
+         &                                              n_r_max, c_loc(p0Mat_pivot), c_loc(rhs), n_r_max, size_work_bytes_1D))
+         !$omp end target data
+#elif (DEFAULT_PRECISION==dble)
+         !$omp target data use_device_addr(p0Mat_dat, p0Mat_pivot, rhs)
+         call hipsolverCheck(hipsolverDgetrs_bufferSize(handle_1D, HIPSOLVER_OP_N, n_r_max, 1, c_loc(p0Mat_dat), &
+         &                                              n_r_max, c_loc(p0Mat_pivot), c_loc(rhs), n_r_max, size_work_bytes_1D))
+         !$omp end target data
+#endif
+         allocate(dWork_1D(size_work_bytes_1D))
+         dWork_1D(:) = 0.0_cp
+         !$omp target enter data map(alloc: dWork_1D)
+         !$omp target update to(dWork_1D)
+
+         !-- For real RHS 2D matrices
+         call hipsolverCheck(hipsolverCreate(handle_rl))
+         allocate(devInfo_rl(1))
+         devInfo_rl(1) = 0
+         !$omp target enter data map(alloc: devInfo_rl)
+         !$omp target update to(devInfo_rl)
+
+         !-- For prepare_mat for 1D real matrices
+         call hipsolverCheck(hipsolverCreate(handle_1D_prep))
+         allocate(devInfo_1D_prep(1))
+         devInfo_1D_prep(1) = 0
+         !$omp target enter data map(alloc: devInfo_1D_prep)
+         !$omp target update to(devInfo_1D_prep)
+#if (DEFAULT_PRECISION==sngl)
+         !$omp target data use_device_addr(p0Mat_dat)
+         call hipsolverCheck(hipsolverSgetrf_bufferSize(handle_1D_prep, n_r_max, n_r_max, c_loc(p0Mat_dat(1:n_r_max,1:n_r_max)), &
+              &              n_r_max, size_work_bytes_1D_prep))
+         !$omp end target data
+#elif (DEFAULT_PRECISION==dble)
+         !$omp target data use_device_addr(p0Mat_dat)
+         call hipsolverCheck(hipsolverDgetrf_bufferSize(handle_1D_prep, n_r_max, n_r_max, c_loc(p0Mat_dat(1:n_r_max,1:n_r_max)), &
+              &              n_r_max, size_work_bytes_1D_prep))
+         !$omp end target data
+#endif
+         allocate(dWork_1D_prep(size_work_bytes_1D_prep))
+         dWork_1D_prep(:) = 0.0_cp
+         !$omp target enter data map(alloc: dWork_1D_prep)
+         !$omp target update to(dWork_1D_prep)
+
+         !-- For prepare_mat for 2D real matrices
+         call hipsolverCheck(hipsolverCreate(handle_prep))
+         allocate(devInfo_prep(1))
+         devInfo_prep(1) = 0
+         !$omp target enter data map(alloc: devInfo_prep)
+         !$omp target update to(devInfo_prep)
+         if( l_double_curl ) then
+#if (DEFAULT_PRECISION==sngl)
+            !$omp target data use_device_addr(wpMat_dat)
+            call hipsolverCheck(hipsolverSgetrf_bufferSize(handle_prep, n_r_max, n_r_max, c_loc(wpMat_dat(1:n_r_max,1:n_r_max)), &
+                 &              n_r_max, size_work_bytes_prep))
+            !$omp end target data
+#elif (DEFAULT_PRECISION==dble)
+            !$omp target data use_device_addr(wpMat_dat)
+            call hipsolverCheck(hipsolverDgetrf_bufferSize(handle_prep, n_r_max, n_r_max, c_loc(wpMat_dat(1:n_r_max,1:n_r_max)), &
+                 &              n_r_max, size_work_bytes_prep))
+            !$omp end target data
+#endif
+         else
+#if (DEFAULT_PRECISION==sngl)
+            !$omp target data use_device_addr(wpMat_dat)
+            call hipsolverCheck(hipsolverSgetrf_bufferSize(handle_prep, 2*n_r_max, 2*n_r_max, c_loc(wpMat_dat(1:2*n_r_max,1:2*n_r_max)), &
+                 &              2*n_r_max, size_work_bytes_prep))
+            !$omp end target data
+#elif (DEFAULT_PRECISION==dble)
+            !$omp target data use_device_addr(wpMat_dat)
+            call hipsolverCheck(hipsolverDgetrf_bufferSize(handle_prep, 2*n_r_max, 2*n_r_max, c_loc(wpMat_dat(1:2*n_r_max,1:2*n_r_max)), &
+                 &              2*n_r_max, size_work_bytes_prep))
+            !$omp end target data
+#endif
+         end if
+         allocate(dWork_prep(size_work_bytes_prep))
+         dWork_prep(:) = 0.0_cp
+         !$omp target enter data map(alloc: dWork_prep)
+         !$omp target update to(dWork_prep)
+
+      end if
+#endif
+
    end subroutine initialize_updateWP
 !-----------------------------------------------------------------------------
    subroutine finalize_updateWP(tscheme)
@@ -349,6 +491,41 @@ contains
       if ( tscheme%l_assembly .and. l_double_curl ) deallocate(l_ellMat)
       deallocate( lWPmat )
 
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: dat)
+#endif
+      deallocate(dat)
+
+#ifdef WITH_OMP_GPU
+      if ( ( .not. l_parallel_solve ) .and. ( .not. l_finite_diff) ) then
+         !-- For real RHS 1D matrices
+         call hipsolverCheck(hipsolverDestroy(handle_1D))
+         deallocate(devInfo_1D)
+         deallocate(dWork_1D)
+         !$omp target exit data map(delete: devInfo_1D)
+         !$omp target exit data map(delete: dWork_1D)
+
+         !-- For real RHS 2D matrices
+         call hipsolverCheck(hipsolverDestroy(handle_rl))
+         deallocate(devInfo_rl)
+         !$omp target exit data map(delete: devInfo_rl)
+
+         !-- For prepare_mat for 1D real matrices
+         call hipsolverCheck(hipsolverDestroy(handle_1D_prep))
+         deallocate(devInfo_1D_prep)
+         deallocate(dWork_1D_prep)
+         !$omp target exit data map(delete: devInfo_1D_prep)
+         !$omp target exit data map(delete: dWork_1D_prep)
+
+         !-- For prepare_mat for 2D real matrices
+         call hipsolverCheck(hipsolverDestroy(handle_prep))
+         deallocate(devInfo_prep)
+         deallocate(dWork_prep)
+         !$omp target exit data map(delete: devInfo_prep)
+         !$omp target exit data map(delete: dWork_prep)
+      end if
+#endif
+
    end subroutine finalize_updateWP
 !-----------------------------------------------------------------------------
    subroutine updateWP(s, xi, w, dw, ddw, dwdt, p, dp, dpdt, tscheme, &
@@ -388,10 +565,18 @@ contains
 
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
 #ifdef WITH_OMP_GPU
+      real(cp), pointer :: ptr_dat(:,:)
+      integer, pointer  :: ptr_pivot(:)
       complex(cp), pointer :: ptr_expl(:,:)
       real(cp) :: wimp_lin
+      integer :: nRows
       ptr_expl => dwdt%expl(:,:,tscheme%istage)
       wimp_lin = tscheme%wimp_lin(1)
+      if( l_double_curl ) then
+         nRows = n_r_max
+      else
+         nRows = 2*n_r_max
+      end if
 #endif
 
       if ( .not. l_update_v ) return
@@ -493,10 +678,10 @@ contains
             !-- Matrix solve for l=m=0
             if (.not. p0Mat%gpu_is_used) then
                !$omp target update from(rhs)
-            end if
-            call p0Mat%solve(rhs)
-            if (.not. p0Mat%gpu_is_used) then
+               call p0Mat%solve(rhs)
                !$omp target update to(rhs)
+            else
+               call p0Mat%solve(rhs, handle_1D, devInfo_1D, dWork_1D, size_work_bytes_1D)
             end if
 
             !$omp target teams distribute parallel do
@@ -605,12 +790,37 @@ contains
 
             !-- Solve matrices with batched RHS (hipsolver)
             lm=sizeLMB2(nLMB2,nLMB)
+            if( wpMat(nLMB2)%gpu_is_used ) then
+               ptr_dat   => wpMat(nLMB2)%dat
+               ptr_pivot => wpMat(nLMB2)%pivot
+#if (DEFAULT_PRECISION==sngl)
+               !$omp target data use_device_addr(ptr_dat, ptr_pivot, rhs1)
+               call hipsolverCheck(hipsolverSgetrs_bufferSize(handle_rl, HIPSOLVER_OP_N, nRows, 2*lm, &
+               &                   c_loc(ptr_dat(1:nRows,1:nRows)), nRows, c_loc(ptr_pivot(1:nRows)), &
+               &                   c_loc(rhs1(1:nRows,:,0)), nRows, size_work_bytes_rl))
+               !$omp end target data
+#elif (DEFAULT_PRECISION==dble)
+               !$omp target data use_device_addr(ptr_dat, ptr_pivot, rhs1)
+               call hipsolverCheck(hipsolverDgetrs_bufferSize(handle_rl, HIPSOLVER_OP_N, nRows, 2*lm, &
+               &                   c_loc(ptr_dat(1:nRows,1:nRows)), nRows, c_loc(ptr_pivot(1:nRows)), &
+               &                   c_loc(rhs1(1:nRows,:,0)), nRows, size_work_bytes_rl))
+               !$omp end target data
+#endif
+               allocate(dWork_rl(size_work_bytes_rl))
+               dWork_rl(:) = 0.0_cp
+               !$omp target enter data map(alloc: dWork_rl)
+               !$omp target update to(dWork_rl)
+            end if
             if (.not. wpMat(nLMB2)%gpu_is_used) then
                !$omp target update from(rhs1)
-            end if
-            call wpMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
-            if (.not. wpMat(nLMB2)%gpu_is_used) then
+               call wpMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
                !$omp target update to(rhs1)
+            else
+               call wpMat(nLMB2)%solve(rhs1(:,:,0),2*lm,dWork_rl,devInfo_rl,handle_rl,size_work_bytes_rl)
+            end if
+            if( wpMat(nLMB2)%gpu_is_used ) then
+               !$omp target exit data map(delete: dWork_rl)
+               deallocate(dWork_rl)
             end if
 
             !-- Loop to reassemble fields
@@ -3055,6 +3265,10 @@ contains
       open(newunit=filehandle,file=trim(filename))
       counter= counter+1
 
+#ifdef WITH_OMP_GPU
+      !$omp target update from(wpMat%dat)
+#endif
+
       do i=1,2*n_r_max
          do j=1,2*n_r_max
             write(filehandle,"(2ES20.12,1X)",advance="no") wpMat%dat(i,j)
@@ -3081,7 +3295,22 @@ contains
       end block
 #endif
 
+#ifdef WITH_OMP_GPU
+      if(.not. wpMat%gpu_is_used) then
+         !$omp target update from(wpMat%dat)
+      end if
+#endif
+
+#ifdef WITH_OMP_GPU
+      if(.not. wpMat%gpu_is_used) then
+         call wpMat%prepare(info)
+      else
+         call wpMat%prepare(info, dWork_prep, devInfo_prep, handle_prep, size_work_bytes_prep)
+      end if
+#else
       call wpMat%prepare(info)
+#endif
+
       if ( info /= 0 ) call abortRun('Singular matrix wpMat!')
 
    end subroutine get_wpMat
@@ -3103,11 +3332,10 @@ contains
       integer :: nR, nR_out
       integer :: info
       real(cp) :: dLh
-      real(cp), allocatable :: dat(:,:)
 
       dLh =real(l*(l+1),kind=cp)
 
-      allocate(dat(n_r_max,n_r_max))
+      dat(:,:) = 0.0_cp
 
       !----- Boundary conditions:
       dat(1,:)      =rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
@@ -3126,7 +3354,6 @@ contains
       end if
 
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: dat)
       !$omp target update to(dat)
 #endif
 
@@ -3171,11 +3398,6 @@ contains
       call ellMat%prepare(info)
       if ( info /= 0 ) call abortRun('Singular matrix ellMat!')
 
-#ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: dat)
-#endif
-      deallocate(dat)
-
    end subroutine get_elliptic_mat
 !-----------------------------------------------------------------------------
    subroutine get_wMat(tscheme,l,hdif,wMat,wMat_fac)
@@ -3198,14 +3420,12 @@ contains
       integer :: nR, nR_out
       integer :: info
       real(cp) :: dLh
-      real(cp), allocatable :: dat(:,:)
       real(cp) :: wimp_lin
-
-      allocate(dat(n_r_max,n_r_max))
 
       dLh =real(l*(l+1),kind=cp)
 
       wimp_lin = tscheme%wimp_lin(1)
+      dat(:,:) = 0.0_cp
 
       !----- Boundary conditions:
       !-- Non-penetration condition at both boundaries
@@ -3246,7 +3466,6 @@ contains
       end if
 
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: dat)
       !$omp target update to(dat)
 #endif
 
@@ -3349,14 +3568,18 @@ contains
       !-- Array copy
       call wMat%set_data(dat)
 
+      !-- LU decomposition
+#ifdef WITH_OMP_GPU
+      if(.not. wMat%gpu_is_used) then
+         call wMat%prepare(info)
+      else
+         call wMat%prepare(info, dWork_prep, devInfo_prep, handle_prep, size_work_bytes_prep)
+      end if
+#else
       call wMat%prepare(info)
+#endif
 
       if ( info /= 0 ) call abortRun('Singular matrix wMat!')
-
-#ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: dat)
-#endif
-      deallocate(dat)
 
    end subroutine get_wMat
 !-----------------------------------------------------------------------------
@@ -3583,17 +3806,14 @@ contains
       class(type_realmat), intent(inout) :: pMat ! matrix
 
       !-- Local variables:
-      real(cp), allocatable :: dat(:,:)
       real(cp) :: delr, work(n_r_max)
       integer :: info, nCheb, nR_out, nR, nCheb_in
 
-      allocate(dat(n_r_max,n_r_max))
-#ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: dat)
-#endif
+      dat(:,:) = 0.0_cp
 
       !-- Bulk points
 #ifdef WITH_OMP_GPU
+!      !$omp target update to(dat)
       !$omp target teams distribute parallel do collapse(2)
 #endif
       do nR_out=1,n_r_max
@@ -3712,13 +3932,16 @@ contains
       call pMat%set_data(dat)
 
       !---- LU decomposition:
-      call pMat%prepare(info)
-      if ( info /= 0 ) call abortRun('! Singular matrix p0Mat!')
-
 #ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: dat)
+      if(.not. pMat%gpu_is_used) then
+         call pMat%prepare(info)
+      else
+         call pMat%prepare(info, dWork_1D_prep, devInfo_1D_prep, handle_1D_prep, size_work_bytes_1D_prep)
+      end if
+#else
+      call pMat%prepare(info)
 #endif
-      deallocate(dat)
+      if ( info /= 0 ) call abortRun('! Singular matrix p0Mat!')
 
    end subroutine get_p0Mat
 !-----------------------------------------------------------------------------

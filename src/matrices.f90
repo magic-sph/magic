@@ -1,6 +1,7 @@
 module real_matrices
 
    use precision_mod
+   use iso_c_binding
 
    implicit none
 
@@ -49,29 +50,50 @@ module real_matrices
          class(type_realmat) :: this
       end subroutine finalize_if
 
-      subroutine prepare_if(this, info)
+      subroutine prepare_if(this, info, dWork, devInfo, handle, size_work_bytes)
          import
          class(type_realmat) :: this
          integer, intent(out) :: info
+         real(cp),       optional, intent(inout) :: dWork(:)
+         integer,        optional, intent(inout) :: devInfo(:)
+         type(c_ptr),    optional, intent(inout) :: handle
+         integer(c_int), optional, intent(in)    :: size_work_bytes
       end subroutine prepare_if
 
-      subroutine solve_real_multi_if(this, rhs, nRHS)
+      subroutine solve_real_multi_if(this, rhs, nRHS, dWork, devInfo, handle, size_work_bytes)
          import
          class(type_realmat) :: this
          integer,  intent(in) :: nRHS
          real(cp), intent(inout) :: rhs(:,:)
+         real(cp),       optional, intent(inout) :: dWork(:)
+         integer,        optional, intent(inout) :: devInfo(:)
+         type(c_ptr),    optional, intent(inout) :: handle
+         integer(c_int), optional, intent(inout) :: size_work_bytes
       end subroutine solve_real_multi_if
 
-      subroutine solve_real_single_if(this, rhs)
+      subroutine solve_real_single_if(this, rhs, handle, devInfo, dWork, size_work_bytes)
          import
          class(type_realmat) :: this
          real(cp), intent(inout) :: rhs(:)
+         integer(c_int), optional, intent(in)    :: size_work_bytes
+         type(c_ptr), optional,    intent(inout) :: handle
+         integer, optional,        intent(inout) :: devInfo(:)
+         real(cp), optional,       intent(inout) :: dWork(:)
       end subroutine solve_real_single_if
 
-      subroutine solve_complex_single_if(this, rhs)
+      subroutine solve_complex_single_if(this, rhs, tmpr, tmpi, handle, &
+      &                                  devInfo, dWork_r, dWork_i, size_work_bytes_r, size_work_bytes_i)
          import
          class(type_realmat) :: this
          complex(cp), intent(inout) :: rhs(:)
+         integer(c_int), optional, intent(in) :: size_work_bytes_r
+         integer(c_int), optional, intent(in) :: size_work_bytes_i
+         real(cp), optional,    intent(inout) :: tmpr(:)
+         real(cp), optional,    intent(inout) :: tmpi(:)
+         type(c_ptr), optional, intent(inout) :: handle
+         integer, optional,     intent(inout) :: devInfo(:)
+         real(cp), optional,    intent(inout) :: dWork_r(:)
+         real(cp), optional,    intent(inout) :: dWork_i(:)
       end subroutine solve_complex_single_if
 
       subroutine set_data_if(this, dat)
@@ -113,23 +135,11 @@ module dense_matrices
 #ifdef WITH_OMP_GPU
    use algebra_hipfort, only: gpu_solve_mat, gpu_prepare_mat
    use iso_c_binding
-   use hipfort_check
-   use hipfort_hipblas
-   use hipfort_hipsolver
 #endif
 
    implicit none
 
    type, public, extends(type_realmat) :: type_densemat
-#ifdef WITH_OMP_GPU
-      real(cp), pointer :: tmpr(:), tmpi(:)
-      type(c_ptr) :: handle = c_null_ptr
-      integer,  pointer :: devInfo(:)
-      real(cp), pointer :: dWork_r(:)
-      real(cp), pointer :: dWork_i(:)
-      integer(c_int) :: size_work_bytes_r ! size of workspace to pass to getrs
-      integer(c_int) :: size_work_bytes_i ! size of workspace to pass to getrs
-#endif
    contains
       procedure :: initialize
       procedure :: finalize
@@ -161,10 +171,6 @@ contains
 
       !--
       logical :: loc_use_gpu
-#ifdef WITH_OMP_GPU
-      real(cp), pointer :: ptr_dat(:,:), ptr_tmpr(:), ptr_tmpi(:)
-      integer, pointer  :: ptr_pivot(:)
-#endif
       loc_use_gpu = .false.
       this%gpu_is_used=.false.
 #ifdef WITH_OMP_GPU
@@ -187,7 +193,6 @@ contains
          !$omp target enter data map(to : this%dat)
          gpu_bytes_allocated = gpu_bytes_allocated+nx*ny*SIZEOF_DEF_REAL
       end if
-      ptr_dat => this%dat
 #endif
 
       if ( this%l_pivot ) then
@@ -199,58 +204,8 @@ contains
             !$omp target enter data map(to : this%pivot)
             gpu_bytes_allocated = gpu_bytes_allocated+this%nrow*SIZEOF_INTEGER
          end if
-         ptr_pivot => this%pivot
 #endif
       end if
-
-#ifdef WITH_OMP_GPU
-      if( this%gpu_is_used ) then
-
-         allocate(this%tmpr(this%nrow), this%tmpi(this%nrow))
-         this%tmpi(:) = 0.0_cp
-         this%tmpr(:) = 0.0_cp
-         !$omp target enter data map(alloc : this%tmpi, this%tmpr)
-         !$omp target update to(this%tmpi, this%tmpr)
-         ptr_tmpr => this%tmpr
-         ptr_tmpi => this%tmpi
-
-         !-- Create handle
-         call hipsolverCheck(hipsolverCreate(this%handle))
-
-#if (DEFAULT_PRECISION==sngl)
-      !$omp target data use_device_addr(ptr_dat, ptr_pivot, ptr_tmpr)
-      call hipsolverCheck(hipsolverSgetrs_bufferSize(this%handle, HIPSOLVER_OP_N, this%nrow, 1, c_loc(ptr_dat), this%nrow, &
-                   & c_loc(ptr_pivot), c_loc(ptr_tmpr), this%nrow, this%size_work_bytes_r))
-      !$omp end target data
-      !$omp target data use_device_addr(ptr_dat, ptr_pivot, ptr_tmpi)
-      call hipsolverCheck(hipsolverSgetrs_bufferSize(this%handle, HIPSOLVER_OP_N, this%nrow, 1, c_loc(ptr_dat), this%nrow, &
-                   & c_loc(ptr_pivot), c_loc(ptr_tmpi), this%nrow, this%size_work_bytes_i))
-      !$omp end target data
-      allocate(this%dWork_i(this%size_work_bytes_i), this%dWork_r(this%size_work_bytes_r), this%devInfo(1))
-      this%dWork_i(:) = 0.0_cp
-      this%dWork_r(:) = 0.0_cp
-      this%devInfo(1) = 0
-      !$omp target enter data map(alloc : this%dWork_i, this%dWork_r, this%devInfo)
-      !$omp target update to(this%dWork_i, this%dWork_r, this%devInfo)
-#elif (DEFAULT_PRECISION==dble)
-      !$omp target data use_device_addr(ptr_dat, ptr_pivot, ptr_tmpr)
-      call hipsolverCheck(hipsolverDgetrs_bufferSize(this%handle, HIPSOLVER_OP_N, this%nrow, 1, c_loc(ptr_dat), this%nrow, &
-                   & c_loc(ptr_pivot), c_loc(ptr_tmpr), this%nrow, this%size_work_bytes_r))
-      !$omp end target data
-      !$omp target data use_device_addr(ptr_dat, ptr_pivot, ptr_tmpi)
-      call hipsolverCheck(hipsolverDgetrs_bufferSize(this%handle, HIPSOLVER_OP_N, this%nrow, 1, c_loc(ptr_dat), this%nrow, &
-                   & c_loc(ptr_pivot), c_loc(ptr_tmpi), this%nrow, this%size_work_bytes_i))
-      !$omp end target data
-      allocate(this%dWork_i(this%size_work_bytes_i), this%dWork_r(this%size_work_bytes_r), this%devInfo(1))
-      this%dWork_i(:) = 0.0_cp
-      this%dWork_r(:) = 0.0_cp
-      this%devInfo(1) = 0
-      !$omp target enter data map(alloc : this%dWork_i, this%dWork_r, this%devInfo)
-      !$omp target update to(this%dWork_i, this%dWork_r, this%devInfo)
-#endif
-
-      end if
-#endif
 
    end subroutine initialize
 !------------------------------------------------------------------------------
@@ -276,31 +231,21 @@ contains
          deallocate (this%pivot)
       end if
 
-#ifdef WITH_OMP_GPU
-      if( this%gpu_is_used ) then
-
-         !$omp target exit data map(delete : this%tmpi, this%tmpr)
-         deallocate(this%tmpr, this%tmpi)
-
-         !-- Destroy handle
-         call hipsolverCheck(hipsolverDestroy(this%handle))
-
-         !$omp target exit data map(delete : this%dWork_i, this%dWork_r, this%devInfo)
-         deallocate(this%dWork_i, this%dWork_r, this%devInfo)
-
-      end if
-#endif
-
    end subroutine finalize
 !------------------------------------------------------------------------------
-   subroutine prepare(this, info)
+   subroutine prepare(this, info, dWork, devInfo, handle, size_work_bytes)
 
       class(type_densemat) :: this
       integer, intent(out) :: info
+      real(cp),       optional, intent(inout) :: dWork(:)
+      integer,        optional, intent(inout) :: devInfo(:)
+      type(c_ptr),    optional, intent(inout) :: handle
+      integer(c_int), optional, intent(in)    :: size_work_bytes
 
       if ( this%gpu_is_used ) then
 #ifdef WITH_OMP_GPU
-         call gpu_prepare_mat(this%dat, this%nrow, this%nrow, this%pivot, info)
+         call gpu_prepare_mat(this%dat, this%nrow, this%nrow, this%pivot, info, dWork, &
+         &                    devInfo, handle, size_work_bytes)
 #endif
       else
          call prepare_mat(this%dat, this%nrow, this%nrow, this%pivot, info)
@@ -308,14 +253,19 @@ contains
 
    end subroutine prepare
 !------------------------------------------------------------------------------
-   subroutine solve_real_single(this, rhs)
+   subroutine solve_real_single(this, rhs, handle, devInfo, dWork, size_work_bytes)
 
       class(type_densemat) :: this
-      real(cp), intent(inout) :: rhs(:)
+      real(cp),                 intent(inout) :: rhs(:)
+      integer(c_int), optional, intent(in)    :: size_work_bytes
+      type(c_ptr), optional,    intent(inout) :: handle
+      integer, optional,        intent(inout) :: devInfo(:)
+      real(cp), optional,       intent(inout) :: dWork(:)
 
       if ( this%gpu_is_used ) then
 #ifdef WITH_OMP_GPU
-         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)
+         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, &
+         &                  handle, devInfo, dWork, size_work_bytes)
 #endif
       else
          call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)
@@ -323,18 +273,26 @@ contains
 
    end subroutine solve_real_single
 !------------------------------------------------------------------------------
-   subroutine solve_complex_single(this, rhs)
+   subroutine solve_complex_single(this, rhs, tmpr, tmpi, handle, &
+              &                  devInfo, dWork_r, dWork_i, size_work_bytes_r, size_work_bytes_i)
 
       class(type_densemat) :: this
       complex(cp), intent(inout) :: rhs(:)
+      integer(c_int), optional, intent(in) :: size_work_bytes_r
+      integer(c_int), optional, intent(in) :: size_work_bytes_i
+
+      !-- Output variables
+      real(cp), optional,    intent(inout) :: tmpr(:)
+      real(cp), optional,    intent(inout) :: tmpi(:)
+      type(c_ptr), optional, intent(inout) :: handle
+      integer, optional,     intent(inout) :: devInfo(:)
+      real(cp), optional,    intent(inout) :: dWork_r(:)
+      real(cp), optional,    intent(inout) :: dWork_i(:)
 
       !--
 #ifdef WITH_OMP_GPU
       integer :: n, i
-      real(cp), pointer :: ptr_tmpr(:), ptr_tmpi(:)
       n =this%nrow
-      ptr_tmpr => this%tmpr
-      ptr_tmpi => this%tmpi
 #endif
 
       if ( this%gpu_is_used ) then
@@ -342,16 +300,16 @@ contains
          !-- Extract real and imag parts of input rhs matrix
          !$omp target teams distribute parallel do
          do i=1,n
-            ptr_tmpr(i) = real(rhs(i))
-            ptr_tmpi(i) = aimag(rhs(i))
+            tmpr(i) = real(rhs(i))
+            tmpi(i) = aimag(rhs(i))
          end do
          !$omp end target teams distribute parallel do
-         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, this%tmpr, this%tmpi, this%handle, &
-         &                  this%devInfo, this%dWork_r, this%dWork_i, this%size_work_bytes_r, this%size_work_bytes_i)
+         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, tmpr, tmpi, handle, &
+         &                  devInfo, dWork_r, dWork_i, size_work_bytes_r, size_work_bytes_i)
 
          !$omp target teams distribute parallel do
          do i=1,n
-            rhs(i)=cmplx(ptr_tmpr(i),ptr_tmpi(i),kind=cp)
+            rhs(i)=cmplx(tmpr(i),tmpi(i),kind=cp)
          end do
          !$omp end target teams distribute parallel do
 #endif
@@ -361,15 +319,20 @@ contains
 
    end subroutine solve_complex_single
 !------------------------------------------------------------------------------
-   subroutine solve_real_multi(this, rhs, nRHS)
+   subroutine solve_real_multi(this, rhs, nRHS, dWork, devInfo, handle, size_work_bytes)
 
       class(type_densemat) :: this
       integer,  intent(in) :: nRHS
       real(cp), intent(inout) :: rhs(:,:)
+      real(cp),       optional, intent(inout) :: dWork(:)
+      integer,        optional, intent(inout) :: devInfo(:)
+      type(c_ptr),    optional, intent(inout) :: handle
+      integer(c_int), optional, intent(inout) :: size_work_bytes
 
       if ( this%gpu_is_used ) then
 #ifdef WITH_OMP_GPU
-         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, nRHS)
+         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, nRHS, &
+         &                  dWork, devInfo, handle, size_work_bytes)
 #endif
       else
          call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, nRHS)
@@ -418,6 +381,7 @@ module band_matrices
 #endif
    use real_matrices, only: type_realmat
    use algebra, only: solve_tridiag, prepare_tridiag, prepare_band, solve_band
+   use iso_c_binding
 
    implicit none
 
@@ -507,10 +471,14 @@ contains
 
    end subroutine finalize
 !------------------------------------------------------------------------------
-   subroutine prepare(this, info)
+   subroutine prepare(this, info, dWork, devInfo, handle, size_work_bytes)
 
       class(type_bandmat) :: this
       integer, intent(out) :: info
+      real(cp),       optional, intent(inout) :: dWork(:)
+      integer,        optional, intent(inout) :: devInfo(:)
+      type(c_ptr),    optional, intent(inout) :: handle
+      integer(c_int), optional, intent(in)    :: size_work_bytes
 
       if ( this%nrow == 3 ) then
          call prepare_tridiag(this%dat(3,1:this%ncol-1), this%dat(2,:),  &
@@ -522,10 +490,14 @@ contains
 
    end subroutine prepare
 !------------------------------------------------------------------------------
-   subroutine solve_real_single(this, rhs)
+   subroutine solve_real_single(this, rhs, handle, devInfo, dWork, size_work_bytes)
 
       class(type_bandmat) :: this
       real(cp), intent(inout) :: rhs(:)
+      integer(c_int), optional, intent(in)    :: size_work_bytes
+      type(c_ptr), optional,    intent(inout) :: handle
+      integer, optional,        intent(inout) :: devInfo(:)
+      real(cp), optional,       intent(inout) :: dWork(:)
 
       if ( this%nrow == 3 ) then
          call solve_tridiag(this%dat(3,1:this%ncol-1), this%dat(2,:), &
@@ -537,10 +509,21 @@ contains
 
    end subroutine solve_real_single
 !------------------------------------------------------------------------------
-   subroutine solve_complex_single(this, rhs)
+   subroutine solve_complex_single(this, rhs, tmpr, tmpi, handle, &
+              &                  devInfo, dWork_r, dWork_i, size_work_bytes_r, size_work_bytes_i)
 
       class(type_bandmat) :: this
       complex(cp), intent(inout) :: rhs(:)
+      integer(c_int), optional, intent(in) :: size_work_bytes_r
+      integer(c_int), optional, intent(in) :: size_work_bytes_i
+
+      !-- Output variables
+      real(cp), optional,    intent(inout) :: tmpr(:)
+      real(cp), optional,    intent(inout) :: tmpi(:)
+      type(c_ptr), optional, intent(inout) :: handle
+      integer, optional,     intent(inout) :: devInfo(:)
+      real(cp), optional,    intent(inout) :: dWork_r(:)
+      real(cp), optional,    intent(inout) :: dWork_i(:)
 
       if ( this%nrow == 3 ) then
          call solve_tridiag(this%dat(3,1:this%ncol-1), this%dat(2,:), &
@@ -552,11 +535,15 @@ contains
 
    end subroutine solve_complex_single
 !------------------------------------------------------------------------------
-   subroutine solve_real_multi(this, rhs, nRHS)
+   subroutine solve_real_multi(this, rhs, nRHS, dWork, devInfo, handle, size_work_bytes)
 
       class(type_bandmat) :: this
       integer,  intent(in) :: nRHS
       real(cp), intent(inout) :: rhs(:,:)
+      real(cp),       optional, intent(inout) :: dWork(:)
+      integer,        optional, intent(inout) :: devInfo(:)
+      type(c_ptr),    optional, intent(inout) :: handle
+      integer(c_int), optional, intent(inout) :: size_work_bytes
 
       if ( this%nrow == 3 ) then
          call solve_tridiag(this%dat(3,1:this%ncol-1), this%dat(2,:),   &
@@ -615,6 +602,7 @@ module bordered_matrices
    use mem_alloc
    use real_matrices, only: type_realmat
    use algebra, only: solve_bordered, prepare_bordered
+   use iso_c_binding
 
    implicit none
 
@@ -704,20 +692,28 @@ contains
 
    end subroutine finalize
 !------------------------------------------------------------------------------
-   subroutine prepare(this, info)
+   subroutine prepare(this, info, dWork, devInfo, handle, size_work_bytes)
 
       class(type_bordmat) :: this
       integer, intent(out) :: info
+      real(cp),       optional, intent(inout) :: dWork(:)
+      integer,        optional, intent(inout) :: devInfo(:)
+      type(c_ptr),    optional, intent(inout) :: handle
+      integer(c_int), optional, intent(in)    :: size_work_bytes
 
       call prepare_bordered(this%A1,this%A2,this%A3,this%A4,this%ncol,this%nfull, &
            &                this%kl,this%ku,this%pivA1,this%pivA4,info)
 
    end subroutine prepare
 !------------------------------------------------------------------------------
-   subroutine solve_real_single(this, rhs)
+   subroutine solve_real_single(this, rhs, handle, devInfo, dWork, size_work_bytes)
 
       class(type_bordmat) :: this
       real(cp), intent(inout) :: rhs(:)
+      integer(c_int), optional, intent(in)    :: size_work_bytes
+      type(c_ptr), optional,    intent(inout) :: handle
+      integer, optional,        intent(inout) :: devInfo(:)
+      real(cp), optional,       intent(inout) :: dWork(:)
 
       !-- Local variable :
       integer :: lenRhs
@@ -728,10 +724,21 @@ contains
 
    end subroutine solve_real_single
 !------------------------------------------------------------------------------
-   subroutine solve_complex_single(this, rhs)
+   subroutine solve_complex_single(this, rhs, tmpr, tmpi, handle, &
+              &                  devInfo, dWork_r, dWork_i, size_work_bytes_r, size_work_bytes_i)
 
       class(type_bordmat) :: this
       complex(cp), intent(inout) :: rhs(:)
+      integer(c_int), optional, intent(in) :: size_work_bytes_r
+      integer(c_int), optional, intent(in) :: size_work_bytes_i
+
+      !-- Output variables
+      real(cp), optional,    intent(inout) :: tmpr(:)
+      real(cp), optional,    intent(inout) :: tmpi(:)
+      type(c_ptr), optional, intent(inout) :: handle
+      integer, optional,     intent(inout) :: devInfo(:)
+      real(cp), optional,    intent(inout) :: dWork_r(:)
+      real(cp), optional,    intent(inout) :: dWork_i(:)
 
       !-- Local variable :
       integer :: lenRhs
@@ -742,11 +749,15 @@ contains
 
    end subroutine solve_complex_single
 !------------------------------------------------------------------------------
-   subroutine solve_real_multi(this, rhs, nRHS)
+   subroutine solve_real_multi(this, rhs, nRHS, dWork, devInfo, handle, size_work_bytes)
 
       class(type_bordmat) :: this
       integer,  intent(in) :: nRHS
       real(cp), intent(inout) :: rhs(:,:)
+      real(cp),       optional, intent(inout) :: dWork(:)
+      integer,        optional, intent(inout) :: devInfo(:)
+      type(c_ptr),    optional, intent(inout) :: handle
+      integer(c_int), optional, intent(inout) :: size_work_bytes
 
       call solve_bordered(this%A1,this%A2,this%A3,this%A4,this%ncol,this%nfull, &
            &              this%kl,this%ku,this%pivA1,this%pivA4,rhs,nRHS)

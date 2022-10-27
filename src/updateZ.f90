@@ -44,14 +44,25 @@ module updateZ_mod
    use real_matrices
    use band_matrices
    use parallel_solvers
+#ifdef WITH_OMP_GPU
+   use iso_c_binding
+   use hipfort_check
+   use hipfort_hipblas
+   use hipfort_hipsolver
+#endif
 
    implicit none
 
    private
 
    !-- Input of recycled work arrays:
+#ifdef WITH_OMP_GPU
+   real(cp), allocatable, target :: rhs1(:,:,:) ! RHS for other modes
+   complex(cp), allocatable, target :: rhs(:) ! rhs for l=1, m=0
+#else
    real(cp), allocatable :: rhs1(:,:,:) ! RHS for other modes
    complex(cp), allocatable :: rhs(:) ! rhs for l=1, m=0
+#endif
    complex(cp), allocatable :: Dif(:)
    class(type_realmat), pointer :: zMat(:), z10Mat
 #ifdef WITH_PRECOND_Z
@@ -68,6 +79,29 @@ module updateZ_mod
 
    integer :: maxThreads
 
+   real(cp), allocatable :: dat(:,:)
+
+#ifdef WITH_OMP_GPU
+   !-- For complex RHS 1D matrices
+   type(c_ptr) :: handle_cpx = c_null_ptr
+   integer,  pointer :: devInfo_cpx(:)
+   real(cp), pointer :: tmpr_cpx(:), tmpi_cpx(:)
+   real(cp), pointer :: dWork_r_cpx(:)
+   real(cp), pointer :: dWork_i_cpx(:)
+   integer(c_int) :: size_work_bytes_r_cpx
+   integer(c_int) :: size_work_bytes_i_cpx
+   !-- For real RHS 2D matrices
+   type(c_ptr) :: handle_rl = c_null_ptr
+   integer, allocatable, target :: devInfo_rl(:)
+   real(cp), allocatable, target :: dWork_rl(:)
+   integer(c_int) :: size_work_bytes_rl
+   !-- For prepare_mat 2D real matrices
+   type(c_ptr) :: handle_prep = c_null_ptr
+   integer, allocatable, target :: devInfo_prep(:)
+   real(cp), allocatable, target :: dWork_prep(:)
+   integer(c_int) :: size_work_bytes_prep
+#endif
+
    public :: updateZ, initialize_updateZ, finalize_updateZ, get_tor_rhs_imp,  &
    &         assemble_tor, finish_exp_tor, updateZ_FD, get_tor_rhs_imp_ghost, &
    &         prepareZ_FD, fill_ghosts_Z, assemble_tor_Rloc
@@ -83,6 +117,8 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll, n_bands
 #ifdef WITH_OMP_GPU
+      real(cp), pointer :: zMat_dat(:,:), z10Mat_dat(:,:)
+      integer, pointer  :: zMat_pivot(:), z10Mat_pivot(:)
       logical :: use_gpu, use_pivot
       use_gpu = .false.; use_pivot = .true.
 #endif
@@ -211,6 +247,81 @@ contains
 
       AMstart=0.0_cp
 
+      allocate(dat(n_r_max,n_r_max))
+      dat(:,:) = 0.0_cp
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: dat)
+      !$omp target update to(dat)
+#endif
+
+#ifdef WITH_OMP_GPU
+      if ( (.not. l_parallel_solve) .and. ( .not. l_finite_diff) ) then
+         z10Mat_dat   => z10Mat%dat
+         z10Mat_pivot => z10Mat%pivot
+         zMat_dat     => zMat(1)%dat
+         zMat_pivot   => zMat(1)%pivot
+
+         !-- For complex RHS 1D matrices
+         allocate(tmpr_cpx(n_r_max), tmpi_cpx(n_r_max))
+         tmpi_cpx(:) = 0.0_cp
+         tmpr_cpx(:) = 0.0_cp
+         !$omp target enter data map(alloc: tmpi_cpx, tmpr_cpx)
+         !$omp target update to(tmpi_cpx, tmpr_cpx)
+         call hipsolverCheck(hipsolverCreate(handle_cpx))
+#if (DEFAULT_PRECISION==sngl)
+         !$omp target data use_device_addr(z10Mat_dat, z10Mat_pivot, tmpr_cpx)
+         call hipsolverCheck(hipsolverSgetrs_bufferSize(handle_cpx, HIPSOLVER_OP_N, n_r_max, 1, c_loc(z10Mat_dat), &
+         &                   n_r_max, c_loc(z10Mat_pivot), c_loc(tmpr_cpx), n_r_max, size_work_bytes_r_cpx))
+         !$omp end target data
+         !$omp target data use_device_addr(z10Mat_dat, z10Mat_pivot, tmpi_cpx)
+         call hipsolverCheck(hipsolverSgetrs_bufferSize(handle, HIPSOLVER_OP_N, n_r_max, 1, c_loc(z10Mat_dat), &
+         &                   n_r_max, c_loc(z10Mat_pivot), c_loc(tmpi_cpx), n_r_max, size_work_bytes_i_cpx))
+         !$omp end target data
+#elif (DEFAULT_PRECISION==dble)
+         !$omp target data use_device_addr(z10Mat_dat, z10Mat_pivot, tmpr_cpx)
+         call hipsolverCheck(hipsolverDgetrs_bufferSize(handle_cpx, HIPSOLVER_OP_N, n_r_max, 1, c_loc(z10Mat_dat), &
+         &                   n_r_max, c_loc(z10Mat_pivot), c_loc(tmpr_cpx), n_r_max, size_work_bytes_r_cpx))
+         !$omp end target data
+         !$omp target data use_device_addr(z10Mat_dat, z10Mat_pivot, tmpi_cpx)
+         call hipsolverCheck(hipsolverDgetrs_bufferSize(handle_cpx, HIPSOLVER_OP_N, n_r_max, 1, c_loc(z10Mat_dat), &
+         &                   n_r_max, c_loc(z10Mat_pivot), c_loc(tmpi_cpx), n_r_max, size_work_bytes_i_cpx))
+         !$omp end target data
+#endif
+         allocate(dWork_i_cpx(size_work_bytes_i_cpx), dWork_r_cpx(size_work_bytes_r_cpx), devInfo_cpx(1))
+         dWork_i_cpx(:) = 0.0_cp
+         dWork_r_cpx(:) = 0.0_cp
+         devInfo_cpx(1) = 0
+         !$omp target enter data map(alloc: dWork_i_cpx, dWork_r_cpx, devInfo_cpx)
+         !$omp target update to(dWork_i_cpx, dWork_r_cpx, devInfo_cpx)
+
+         !-- For real RHS 2D matrices
+         call hipsolverCheck(hipsolverCreate(handle_rl))
+         allocate(devInfo_rl(1))
+         devInfo_rl(1) = 0
+         !$omp target enter data map(alloc: devInfo_rl)
+         !$omp target update to(devInfo_rl)
+
+         !-- For prepare_mat 2D real matrices
+         call hipsolverCheck(hipsolverCreate(handle_prep))
+#if (DEFAULT_PRECISION==sngl)
+         !$omp target data use_device_addr(zMat_dat)
+         call hipsolverCheck(hipsolverSgetrf_bufferSize(handle_prep, n_r_max, n_r_max, c_loc(zMat_dat(1:n_r_max,1:n_r_max)), &
+              &              n_r_max, size_work_bytes_prep))
+         !$omp end target data
+#elif (DEFAULT_PRECISION==dble)
+         !$omp target data use_device_addr(zMat_dat)
+         call hipsolverCheck(hipsolverDgetrf_bufferSize(handle_prep, n_r_max, n_r_max, c_loc(zMat_dat(1:n_r_max,1:n_r_max)), &
+              &              n_r_max, size_work_bytes_prep))
+         !$omp end target data
+#endif
+         allocate(dWork_prep(size_work_bytes_prep), devInfo_prep(1))
+         dWork_prep(:) = 0.0_cp
+         devInfo_prep(1) = 0
+         !$omp target enter data map(alloc: dWork_prep, devInfo_prep)
+         !$omp target update to(devInfo_prep, dWork_prep)
+      end if
+#endif
+
    end subroutine initialize_updateZ
 !-------------------------------------------------------------------------------
    subroutine finalize_updateZ
@@ -255,6 +366,32 @@ contains
          call z10Mat_FD%finalize()
       end if
       deallocate(Dif,lZmat)
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: dat)
+#endif
+      deallocate(dat)
+
+#ifdef WITH_OMP_GPU
+      if ( (.not. l_parallel_solve) .and. ( .not. l_finite_diff) ) then
+         !-- For complex RHS 1D matrices
+         call hipsolverCheck(hipsolverDestroy(handle_cpx))
+         !$omp target exit data map(delete: tmpi_cpx, tmpr_cpx)
+         !$omp target exit data map(delete: dWork_i_cpx, dWork_r_cpx, devInfo_cpx)
+         deallocate(dWork_i_cpx, dWork_r_cpx, devInfo_cpx)
+         deallocate(tmpi_cpx, tmpr_cpx)
+
+         !-- For real RHS 2D array matrices
+         call hipsolverCheck(hipsolverDestroy(handle_rl))
+         !$omp target exit data map(delete: devInfo_rl)
+         deallocate(devInfo_rl)
+
+         !-- For prepare_mat 2D real matrices
+         call hipsolverCheck(hipsolverDestroy(handle_prep))
+         !$omp target exit data map(delete: dWork_prep, devInfo_prep)
+         deallocate(dWork_prep, devInfo_prep)
+      end if
+#endif
 
    end subroutine finalize_updateZ
 !-------------------------------------------------------------------------------
@@ -303,9 +440,9 @@ contains
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
 
 #ifdef WITH_OMP_GPU
+      real(cp), pointer :: ptr_dat(:,:)
+      integer, pointer  :: ptr_pivot(:)
       real(cp) :: wimp_lin
-
-      !-- Copie into local variable
       wimp_lin = tscheme%wimp_lin(1)
 #endif
 
@@ -467,20 +604,46 @@ contains
                !-- Small solve for l=1, m=0 in case this is needed
                if (.not. z10Mat%gpu_is_used) then
                   !$omp target update from(rhs)
-               end if
-               call z10Mat%solve(rhs)
-               if (.not. z10Mat%gpu_is_used) then
+                  call z10Mat%solve(rhs)
                   !$omp target update to(rhs)
+               else
+                  call z10Mat%solve(rhs, tmpr_cpx, tmpi_cpx, handle_cpx, devInfo_cpx, dWork_r_cpx, dWork_i_cpx, &
+                  &                 size_work_bytes_r_cpx, size_work_bytes_i_cpx)
                end if
             end if
             !-- Big solve for other modes
             lm=sizeLMB2(nLMB2,nLMB)
+            if( zMat(nLMB2)%gpu_is_used ) then
+               ptr_dat   => zMat(nLMB2)%dat
+               ptr_pivot => zMat(nLMB2)%pivot
+#if (DEFAULT_PRECISION==sngl)
+               !$omp target data use_device_addr(ptr_dat, ptr_pivot, rhs1)
+               call hipsolverCheck(hipsolverSgetrs_bufferSize(handle_rl, HIPSOLVER_OP_N, n_r_max, 2*lm,       &
+               &                   c_loc(ptr_dat(1:n_r_max,1:n_r_max)), n_r_max, c_loc(ptr_pivot(1:n_r_max)), &
+               &                   c_loc(rhs1(1:n_r_max,:,0)), n_r_max, size_work_bytes_rl))
+               !$omp end target data
+#elif (DEFAULT_PRECISION==dble)
+               !$omp target data use_device_addr(ptr_dat, ptr_pivot, rhs1)
+               call hipsolverCheck(hipsolverDgetrs_bufferSize(handle_rl, HIPSOLVER_OP_N, n_r_max, 2*lm,       &
+               &                   c_loc(ptr_dat(1:n_r_max,1:n_r_max)), n_r_max, c_loc(ptr_pivot(1:n_r_max)), &
+               &                   c_loc(rhs1(1:n_r_max,:,0)), n_r_max, size_work_bytes_rl))
+               !$omp end target data
+#endif
+               allocate(dWork_rl(size_work_bytes_rl))
+               dWork_rl(:) = 0.0_cp
+               !$omp target enter data map(alloc: dWork_rl)
+               !$omp target update to(dWork_rl)
+            end if
             if (.not. zMat(nLMB2)%gpu_is_used) then
                !$omp target update from(rhs1)
-            end if
-            call zMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
-            if (.not. zMat(nLMB2)%gpu_is_used) then
+               call zMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
                !$omp target update to(rhs1)
+            else
+               call zMat(nLMB2)%solve(rhs1(:,:,0),2*lm,dWork_rl,devInfo_rl,handle_rl,size_work_bytes_rl)
+            end if
+            if( zMat(nLMB2)%gpu_is_used ) then
+               !$omp target exit data map(delete: dWork_rl)
+               deallocate(dWork_rl)
             end if
 
             !-- Loop to reassemble fields
@@ -2420,15 +2583,13 @@ contains
       !-- local variables:
       integer :: nR,nR_out,info
       real(cp) :: dLh
-      real(cp), allocatable :: dat(:,:)
       real(cp) :: wimp_lin
 
       !-- Copie into local variable
       wimp_lin = tscheme%wimp_lin(1)
 
       dLh=real(l*(l+1),kind=cp)
-
-      allocate(dat(n_r_max,n_r_max))
+      dat(:,:) = 0.0_cp
 
       !-- Boundary conditions:
       !----- CMB condition:
@@ -2487,7 +2648,7 @@ contains
       end do
 
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(to: dat)
+      !$omp target update to(dat)
 #endif
 
       !----- Other points: (same as zMat)
@@ -2546,14 +2707,17 @@ contains
       call zMat%set_data(dat)
 
       !-- LU-decomposition of z10mat:
+#ifdef WITH_OMP_GPU
+      if(.not. zMat%gpu_is_used) then
+         call zMat%prepare(info)
+      else
+         call zMat%prepare(info, dWork_prep, devInfo_prep, handle_prep, size_work_bytes_prep)
+      end if
+#else
       call zMat%prepare(info)
+#endif
 
       if ( info /= 0 ) call abortRun('Error from get_z10Mat: singular matrix!')
-
-#ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: dat)
-#endif
-      deallocate(dat)
 
    end subroutine get_z10Mat
 !-------------------------------------------------------------------------------
@@ -2582,17 +2746,13 @@ contains
       integer :: nR,nR_out
       integer :: info
       real(cp) :: dLh
-      real(cp), allocatable :: dat(:,:)
       character(len=80) :: message
       character(len=14) :: str, str_1
       real(cp) :: wimp_lin
 
-      allocate(dat(n_r_max,n_r_max))
-
-      !-- Copie into local variable
       wimp_lin = tscheme%wimp_lin(1)
-
       dLh=real(l*(l+1),kind=cp)
+      dat(:,:) = 0.0_cp
 
       !----- Boundary conditions, see above:
       if ( ktopv == 1 ) then  ! free slip !
@@ -2625,7 +2785,7 @@ contains
       end if
 
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(to: dat)
+      !$omp target update to(dat)
 #endif
 
       !----- Bulk points:
@@ -2731,7 +2891,15 @@ contains
       call zMat%set_data(dat)
 
       !-- LU decomposition:
+#ifdef WITH_OMP_GPU
+      if(.not. zMat%gpu_is_used) then
+         call zMat%prepare(info)
+      else
+         call zMat%prepare(info, dWork_prep, devInfo_prep, handle_prep, size_work_bytes_prep)
+      end if
+#else
       call zMat%prepare(info)
+#endif
 
       if ( info /= 0 ) then
          write(str, *) l
@@ -2740,11 +2908,6 @@ contains
          &       ', info = '//trim(adjustl(str_1))
          call abortRun(message)
       end if
-
-#ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: dat)
-#endif
-      deallocate(dat)
 
    end subroutine get_zMat
 !------------------------------------------------------------------------------
