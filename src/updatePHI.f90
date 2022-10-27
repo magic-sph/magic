@@ -31,13 +31,23 @@ module updatePhi_mod
    use real_matrices
    use band_matrices
    use parallel_solvers, only: type_tri_par
+#ifdef WITH_OMP_GPU
+   use iso_c_binding
+   use hipfort_check
+   use hipfort_hipblas
+   use hipfort_hipsolver
+#endif
 
    implicit none
 
    private
 
    !-- Local variables
+#ifdef WITH_OMP_GPU
+   real(cp), allocatable, target :: rhs1(:,:,:)
+#else
    real(cp), allocatable :: rhs1(:,:,:)
+#endif
    integer :: maxThreads
    class(type_realmat), pointer :: phiMat(:)
 #ifdef WITH_PRECOND_S
@@ -46,6 +56,21 @@ module updatePhi_mod
    logical, public, allocatable :: lPhimat(:)
    type(type_tri_par), public :: phiMat_FD
    complex(cp), public, allocatable :: phi_ghost(:,:)
+
+   real(cp), allocatable :: dat(:,:)
+
+#ifdef WITH_OMP_GPU
+   !-- For real RHS 2D array matrices
+   type(c_ptr) :: handle_rl = c_null_ptr
+   integer, allocatable, target :: devInfo_rl(:)
+   real(cp), allocatable, target :: dWork_rl(:)
+   integer(c_int) :: size_work_bytes_rl
+   !-- For prepare_mat for 2D real matrices
+   type(c_ptr) :: handle_prep = c_null_ptr
+   integer, allocatable, target :: devInfo_prep(:)
+   real(cp), allocatable, target :: dWork_prep(:)
+   integer(c_int) :: size_work_bytes_prep
+#endif
 
    public :: initialize_updatePhi, finalize_updatePhi, updatePhi, assemble_phase,  &
    &         get_phase_rhs_imp, get_phase_rhs_imp_ghost, updatePhase_FD,           &
@@ -58,6 +83,8 @@ contains
       integer :: ll, n_bands
       integer, pointer :: nLMBs2(:)
 #ifdef WITH_OMP_GPU
+      real(cp), pointer :: ptr_dat(:,:)
+      integer, pointer  :: ptr_pivot(:)
       logical :: use_gpu, use_pivot
       use_gpu = .false.; use_pivot = .true.
 #endif
@@ -144,6 +171,46 @@ contains
       allocate( lPhimat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
+      allocate(dat(n_r_max,n_r_max))
+      dat(:,:) = 0.0_cp
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: dat)
+      !$omp target update to(dat)
+#endif
+
+#ifdef WITH_OMP_GPU
+      if ( ( .not. l_parallel_solve ) .and. ( .not. l_finite_diff) ) then
+         ptr_dat   => phiMat(1)%dat
+         ptr_pivot => phiMat(1)%pivot
+
+         !-- For real RHS 2D matrices
+         call hipsolverCheck(hipsolverCreate(handle_rl))
+         allocate(devInfo_rl(1))
+         devInfo_rl(1) = 0
+         !$omp target enter data map(alloc: devInfo_rl)
+         !$omp target update to(devInfo_rl)
+
+         !-- For prepare_mat for 2D real matrices
+         call hipsolverCheck(hipsolverCreate(handle_prep))
+#if (DEFAULT_PRECISION==sngl)
+         !$omp target data use_device_addr(ptr_dat)
+         call hipsolverCheck(hipsolverSgetrf_bufferSize(handle_prep, n_r_max, n_r_max, c_loc(ptr_dat(1:n_r_max,1:n_r_max)), &
+              &              n_r_max, size_work_bytes_prep))
+         !$omp end target data
+#elif (DEFAULT_PRECISION==dble)
+         !$omp target data use_device_addr(ptr_dat)
+         call hipsolverCheck(hipsolverDgetrf_bufferSize(handle_prep, n_r_max, n_r_max, c_loc(ptr_dat(1:n_r_max,1:n_r_max)), &
+              &              n_r_max, size_work_bytes_prep))
+         !$omp end target data
+#endif
+         allocate(dWork_prep(size_work_bytes_prep), devInfo_prep(1))
+         dWork_prep(:) = 0.0_cp
+         devInfo_prep(1) = 0
+         !$omp target enter data map(alloc: dWork_prep, devInfo_prep)
+         !$omp target update to(devInfo_prep, dWork_prep)
+      end if
+#endif
+
    end subroutine initialize_updatePhi
 !------------------------------------------------------------------------------
    subroutine finalize_updatePhi
@@ -181,6 +248,25 @@ contains
          deallocate(phi_ghost)
       end if
 
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: dat)
+#endif
+      deallocate(dat)
+
+#ifdef WITH_OMP_GPU
+      if ( ( .not. l_parallel_solve ) .and. ( .not. l_finite_diff) ) then
+         !-- For real RHS 2D matrices
+         call hipsolverCheck(hipsolverDestroy(handle_rl))
+         !$omp target exit data map(delete: devInfo_rl)
+         deallocate(devInfo_rl)
+
+         !-- For prepare_mat for 2D real matrices
+         call hipsolverCheck(hipsolverDestroy(handle_prep))
+         !$omp target exit data map(delete: dWork_prep, devInfo_prep)
+         deallocate(dWork_prep, devInfo_prep)
+      end if
+#endif
+
    end subroutine finalize_updatePhi
 !------------------------------------------------------------------------------
    subroutine updatePhi(phi, dphidt, tscheme)
@@ -207,6 +293,10 @@ contains
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
       integer :: threadid,iChunk,nChunks,size_of_last_chunk,lmB0
+#ifdef WITH_OMP_GPU
+      real(cp), pointer :: ptr_dat(:,:)
+      integer, pointer  :: ptr_pivot(:)
+#endif
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
@@ -268,12 +358,37 @@ contains
 
          !-- Solve matrices with batched RHS (hipsolver)
          lm=sizeLMB2(nLMB2,nLMB)
+         if( phiMat(nLMB2)%gpu_is_used ) then
+            ptr_dat   => phiMat(nLMB2)%dat
+            ptr_pivot => phiMat(nLMB2)%pivot
+#if (DEFAULT_PRECISION==sngl)
+            !$omp target data use_device_addr(ptr_dat, ptr_pivot, rhs1)
+            call hipsolverCheck(hipsolverSgetrs_bufferSize(handle_rl, HIPSOLVER_OP_N, n_r_max, 2*lm,       &
+            &                   c_loc(ptr_dat(1:n_r_max,1:n_r_max)), n_r_max, c_loc(ptr_pivot(1:n_r_max)), &
+            &                   c_loc(rhs1(1:n_r_max,:,0)), n_r_max, size_work_bytes_rl))
+            !$omp end target data
+#elif (DEFAULT_PRECISION==dble)
+            !$omp target data use_device_addr(ptr_dat, ptr_pivot, rhs1)
+            call hipsolverCheck(hipsolverDgetrs_bufferSize(handle_rl, HIPSOLVER_OP_N, n_r_max, 2*lm,       &
+            &                   c_loc(ptr_dat(1:n_r_max,1:n_r_max)), n_r_max, c_loc(ptr_pivot(1:n_r_max)), &
+            &                   c_loc(rhs1(1:n_r_max,:,0)), n_r_max, size_work_bytes_rl))
+            !$omp end target data
+#endif
+            allocate(dWork_rl(size_work_bytes_rl))
+            dWork_rl(:) = 0.0_cp
+            !$omp target enter data map(alloc: dWork_rl)
+            !$omp target update to(dWork_rl)
+         end if
          if(.not. phiMat(nLMB2)%gpu_is_used) then
             !$omp target update from(rhs1)
-         end if
-         call phiMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
-         if(.not. phiMat(nLMB2)%gpu_is_used) then
+            call phiMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
             !$omp target update to(rhs1)
+         else
+            call phiMat(nLMB2)%solve(rhs1(:,:,0),2*lm,dWork_rl,devInfo_rl,handle_rl,size_work_bytes_rl)
+         end if
+         if( phiMat(nLMB2)%gpu_is_used ) then
+            !$omp target exit data map(delete: dWork_rl)
+            deallocate(dWork_rl)
          end if
 
          !-- Loop to reassemble fields
@@ -1202,12 +1317,9 @@ contains
       !-- Local variables:
       integer :: info, nR_out, nR
       real(cp) :: dLh
-      real(cp), allocatable :: dat(:,:)
-
-      allocate(dat(n_r_max,n_r_max))
-      dat(:,:) = 0.0_cp
 
       dLh=real(l*(l+1),kind=cp)
+      dat(:,:) = 0.0_cp
 
       !----- Boundary conditions:
       if ( ktopphi == 1 ) then ! Dirichlet
@@ -1239,7 +1351,6 @@ contains
       end if
 
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: dat)
       !$omp target update to(dat)
 #endif
 
@@ -1305,13 +1416,16 @@ contains
       call phiMat%set_data(dat)
 
       !----- LU decomposition:
-      call phiMat%prepare(info)
-      if ( info /= 0 ) call abortRun('Singular matrix phiMat!')
-
 #ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: dat)
+      if(.not. phiMat%gpu_is_used) then
+         call phiMat%prepare(info)
+      else
+         call phiMat%prepare(info, dWork_prep, devInfo_prep, handle_prep, size_work_bytes_prep)
+      end if
+#else
+      call phiMat%prepare(info)
 #endif
-      deallocate(dat)
+      if ( info /= 0 ) call abortRun('Singular matrix phiMat!')
 
    end subroutine get_phiMat
 !-----------------------------------------------------------------------------

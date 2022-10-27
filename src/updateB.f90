@@ -52,6 +52,12 @@ module updateB_mod
    use bordered_matrices
    use real_matrices
    use parallel_solvers, only: type_tri_par
+#ifdef WITH_OMP_GPU
+   use iso_c_binding
+   use hipfort_check
+   use hipfort_hipblas
+   use hipfort_hipsolver
+#endif
 
    implicit none
 
@@ -60,7 +66,11 @@ module updateB_mod
    !-- Local work arrays:
    complex(cp), allocatable :: workA(:,:), workB(:,:)
    complex(cp), allocatable :: work_ic_LMloc(:,:)
+#ifdef WITH_OMP_GPU
+   real(cp), allocatable, target :: rhs1(:,:,:),rhs2(:,:,:)
+#else
    real(cp), allocatable :: rhs1(:,:,:),rhs2(:,:,:)
+#endif
    class(type_realmat), pointer :: bMat(:), jMat(:)
 #ifdef WITH_PRECOND_BJ
    real(cp), allocatable :: bMat_fac(:,:)
@@ -70,8 +80,28 @@ module updateB_mod
    type(type_tri_par), public :: bMat_FD, jMat_FD
    complex(cp), allocatable, public :: b_ghost(:,:), aj_ghost(:,:)
 
+   real(cp), allocatable :: datJmat(:,:)
+   real(cp), allocatable :: datBmat(:,:)
+
 #ifdef WITH_OMP_GPU
-   logical :: omp_update_to_dtStructs, omp_update_from_dtStructs
+   !-- For complex RHS 1D matrices
+   type(c_ptr) :: handle_cpx = c_null_ptr
+   integer,  pointer :: devInfo_cpx(:)
+   real(cp), pointer :: tmpr_cpx(:), tmpi_cpx(:)
+   real(cp), pointer :: dWork_r_cpx(:)
+   real(cp), pointer :: dWork_i_cpx(:)
+   integer(c_int) :: size_work_bytes_r_cpx
+   integer(c_int) :: size_work_bytes_i_cpx
+   !-- For real RHS 2D matrices
+   type(c_ptr) :: handle_rl = c_null_ptr
+   integer, allocatable, target :: devInfo_rl(:)
+   real(cp), allocatable, target :: dWork_rl(:)
+   integer(c_int) :: size_work_bytes_rl
+   !-- For prepare_mat 2D real matrices
+   type(c_ptr) :: handle_prep = c_null_ptr
+   integer, allocatable, target :: devInfo_prep(:)
+   real(cp), allocatable, target :: dWork_prep(:)
+   integer(c_int) :: size_work_bytes_prep
 #endif
 
    public :: initialize_updateB, finalize_updateB, updateB, finish_exp_mag, &
@@ -93,6 +123,8 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: maxThreads, ll, n_bandsJ, n_bandsB
 #ifdef WITH_OMP_GPU
+      real(cp), pointer :: ptr_dat(:,:)
+      integer, pointer  :: ptr_pivot(:)
       logical :: use_gpu, use_pivot
       use_gpu = .false.; use_pivot = .true.
 #endif
@@ -238,6 +270,47 @@ contains
       allocate( lBmat(0:l_maxMag) )
       bytes_allocated = bytes_allocated+(l_maxMag+1)*SIZEOF_LOGICAL
 
+#ifdef WITH_OMP_GPU
+      if ( (.not. l_mag_par_solve) .and. ( .not. l_finite_diff) ) then
+         ptr_dat   => bMat(1)%dat
+         ptr_pivot => bMat(1)%pivot
+
+         !-- For real RHS 2D matrices
+         call hipsolverCheck(hipsolverCreate(handle_rl))
+         allocate(devInfo_rl(1))
+         devInfo_rl(1) = 0
+         !$omp target enter data map(alloc: devInfo_rl)
+         !$omp target update to(devInfo_rl)
+
+         !-- For prepare_mat 2D real matrices
+         call hipsolverCheck(hipsolverCreate(handle_prep))
+#if (DEFAULT_PRECISION==sngl)
+         !$omp target data use_device_addr(ptr_dat)
+         call hipsolverCheck(hipsolverSgetrf_bufferSize(handle_prep, n_r_tot, n_r_tot, c_loc(ptr_dat(1:n_r_tot,1:n_r_tot)), &
+              &              n_r_tot, size_work_bytes_prep))
+         !$omp end target data
+#elif (DEFAULT_PRECISION==dble)
+         !$omp target data use_device_addr(ptr_dat)
+         call hipsolverCheck(hipsolverDgetrf_bufferSize(handle_prep, n_r_tot, n_r_tot, c_loc(ptr_dat(1:n_r_tot,1:n_r_tot)), &
+              &              n_r_tot, size_work_bytes_prep))
+         !$omp end target data
+#endif
+         allocate(dWork_prep(size_work_bytes_prep), devInfo_prep(1))
+         dWork_prep(:) = 0.0_cp
+         devInfo_prep(1) = 0
+         !$omp target enter data map(alloc: dWork_prep, devInfo_prep)
+         !$omp target update to(devInfo_prep, dWork_prep)
+      end if
+#endif
+
+      allocate(datJmat(n_r_tot,n_r_tot), datBmat(n_r_tot,n_r_tot))
+      datJmat = 0.0_cp
+      datBmat = 0.0_cp
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: datJmat, datBmat)
+      !$omp target update to(datJmat, datBmat)
+#endif
+
    end subroutine initialize_updateB
 !-----------------------------------------------------------------------------
    subroutine finalize_updateB()
@@ -279,6 +352,25 @@ contains
 #endif
          deallocate( b_ghost, aj_ghost )
       end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: datJmat, datBmat)
+#endif
+      deallocate(datJmat, datBmat)
+
+#ifdef WITH_OMP_GPU
+      if ( (.not. l_mag_par_solve) .and. ( .not. l_finite_diff) ) then
+         !-- For real RHS 2D array matrices
+         call hipsolverCheck(hipsolverDestroy(handle_rl))
+         !$omp target exit data map(delete: devInfo_rl)
+         deallocate(devInfo_rl)
+
+         !-- For prepare_mat 2D real matrices
+         call hipsolverCheck(hipsolverDestroy(handle_prep))
+         !$omp target exit data map(delete: dWork_prep, devInfo_prep)
+         deallocate(dWork_prep, devInfo_prep)
+      end if
+#endif
 
    end subroutine finalize_updateB
 !-----------------------------------------------------------------------------
@@ -336,6 +428,12 @@ contains
       real(cp), save :: direction
 
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
+#ifdef WITH_OMP_GPU
+      real(cp), pointer :: b_ptr_dat(:,:)
+      integer, pointer  :: b_ptr_pivot(:)
+      real(cp), pointer :: j_ptr_dat(:,:)
+      integer, pointer  :: j_ptr_pivot(:)
+#endif
 
       if ( .not. l_update_b ) return
 
@@ -611,19 +709,44 @@ contains
 
             !-- Solve matrices with batched RHS (hipsolver)
             lm=sizeLMB2(nLMB2,nLMB)
+            if( bMat(nLMB2)%gpu_is_used .and. jMat(nLMB2)%gpu_is_used ) then
+               b_ptr_dat   => bMat(nLMB2)%dat
+               b_ptr_pivot => bMat(nLMB2)%pivot
+#if (DEFAULT_PRECISION==sngl)
+               !$omp target data use_device_addr(b_ptr_dat, b_ptr_pivot, rhs1)
+               call hipsolverCheck(hipsolverSgetrs_bufferSize(handle_rl, HIPSOLVER_OP_N, n_r_top, 2*lm,           &
+               &                   c_loc(b_ptr_dat(1:n_r_tot,1:n_r_tot)), n_r_tot, c_loc(b_ptr_pivot(1:n_r_tot)), &
+               &                   c_loc(rhs1(1:n_r_tot,:,0)), n_r_tot, size_work_bytes_rl))
+               !$omp end target data
+#elif (DEFAULT_PRECISION==dble)
+               !$omp target data use_device_addr(b_ptr_dat, b_ptr_pivot, rhs1)
+               call hipsolverCheck(hipsolverDgetrs_bufferSize(handle_rl, HIPSOLVER_OP_N, n_r_tot, 2*lm,           &
+               &                   c_loc(b_ptr_dat(1:n_r_tot,1:n_r_tot)), n_r_tot, c_loc(b_ptr_pivot(1:n_r_tot)), &
+               &                   c_loc(rhs1(1:n_r_tot,:,0)), n_r_tot, size_work_bytes_rl))
+               !$omp end target data
+#endif
+               allocate(dWork_rl(size_work_bytes_rl))
+               dWork_rl(:) = 0.0_cp
+               !$omp target enter data map(alloc: dWork_rl)
+               !$omp target update to(dWork_rl)
+            end if
             if (.not. bMat(nLMB2)%gpu_is_used) then
                !$omp target update from(rhs1)
-            end if
-            call bMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
-            if (.not. bMat(nLMB2)%gpu_is_used) then
+               call bMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
                !$omp target update to(rhs1)
+            else
+               call bMat(nLMB2)%solve(rhs1(:,:,0),2*lm,dWork_rl,devInfo_rl,handle_rl,size_work_bytes_rl)
             end if
             if (.not. jMat(nLMB2)%gpu_is_used) then
                !$omp target update from(rhs2)
-            end if
-            call jMat(nLMB2)%solve(rhs2(:,:,0),2*lm)
-            if (.not. jMat(nLMB2)%gpu_is_used) then
+               call jMat(nLMB2)%solve(rhs2(:,:,0),2*lm)
                !$omp target update to(rhs2)
+            else
+               call jMat(nLMB2)%solve(rhs2(:,:,0),2*lm,dWork_rl,devInfo_rl,handle_rl,size_work_bytes_rl)
+            end if
+            if( bMat(nLMB2)%gpu_is_used .and. jMat(nLMB2)%gpu_is_used ) then
+               !$omp target exit data map(delete: dWork_rl)
+               deallocate(dWork_rl)
             end if
 
             !----- Update magnetic field in cheb space:
@@ -2611,29 +2734,22 @@ contains
       real(cp) :: l_P_1
       real(cp) :: dLh
       real(cp) :: rRatio
-      real(cp), allocatable :: datJmat(:,:)
-      real(cp), allocatable :: datBmat(:,:)
       real(cp) :: wimp_lin
 
-      allocate(datJmat(n_r_tot,n_r_tot), datBmat(n_r_tot,n_r_tot))
       nRall=n_r_max
       if ( l_cond_ic ) nRall=nRall+n_r_ic_max
       dLh=real(l*(l+1),kind=cp)
-      datJmat = 0.0_cp
-      datBmat = 0.0_cp
       wimp_lin = tscheme%wimp_lin(1)
 
       !-- matrices depend on degree l but not on order m,
       !   we thus have to construct bmat and ajmat for each l:
 
       l_P_1=real(l+1,kind=cp)
+      datBmat(:,:) = 0.0_cp
+      datJmat(:,:) = 0.0_cp
 
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: datJmat, datBmat)
-      !$omp target update to(datJmat, datBmat)
-#endif
-
-#ifdef WITH_OMP_GPU
+!      !$omp target update to(datBmat, datJmat)
       !$omp target teams distribute parallel do collapse(2)
 #endif
       do nR_out=1,n_r_max
@@ -3059,17 +3175,28 @@ contains
       call jMat%set_data(datJmat)
 
       !----- LU decomposition:
+#ifdef WITH_OMP_GPU
+      if(.not. bMat%gpu_is_used) then
+         call bMat%prepare(info)
+      else
+         call bMat%prepare(info, dWork_prep, devInfo_prep, handle_prep, size_work_bytes_prep)
+      end if
+#else
       call bMat%prepare(info)
+#endif
       if ( info /= 0 ) call abortRun('Singular matrix bMat in get_bmat')
 
       !----- LU decomposition:
-      call jMat%prepare(info)
-      if ( info /= 0 ) call abortRun('! Singular matrix jMat in get_bmat!')
-
 #ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: datJmat, datBmat)
+      if(.not. jMat%gpu_is_used) then
+         call jMat%prepare(info)
+      else
+         call jMat%prepare(info, dWork_prep, devInfo_prep, handle_prep, size_work_bytes_prep)
+      end if
+#else
+      call jMat%prepare(info)
 #endif
-      deallocate(datJmat, datBmat)
+      if ( info /= 0 ) call abortRun('! Singular matrix jMat in get_bmat!')
 
    end subroutine get_bMat
 !-----------------------------------------------------------------------------
