@@ -91,7 +91,7 @@ module time_schemes
          import
          class(type_tscheme) :: this
          type(type_tarray), intent(in) :: dfdt
-         complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
+         complex(cp), intent(inout) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
       end subroutine set_imex_rhs_if
 
       subroutine set_imex_rhs_ghost_if(this, rhs, dfdt, start_lm, stop_lm, ng)

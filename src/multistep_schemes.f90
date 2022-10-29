@@ -432,7 +432,7 @@ contains
       type(type_tarray), intent(in) :: dfdt
 
       !-- Output variable
-      complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
+      complex(cp), intent(inout) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
 
       !-- Local variables
       integer :: n_o, n_r, start_lm, stop_lm
