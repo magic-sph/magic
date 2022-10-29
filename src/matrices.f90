@@ -356,8 +356,8 @@ contains
       if ( this%gpu_is_used ) then
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
-         do i=1,row
-            do j=1,col
+         do j=1,col
+            do i=1,row
                ptr_dat(i,j) = dat(i,j)
             end do
          end do
