@@ -48,7 +48,6 @@ module updateZ_mod
    use iso_c_binding
    use hipfort_check
    use hipfort_hipblas
-   use hipfort_hipsolver
 #endif
 
    implicit none
@@ -82,24 +81,9 @@ module updateZ_mod
    real(cp), allocatable :: dat(:,:)
 
 #ifdef WITH_OMP_GPU
-   !-- For complex RHS 1D matrices
-   type(c_ptr) :: handle_cpx = c_null_ptr
-   integer,  pointer :: devInfo_cpx(:)
+   type(c_ptr) :: handle = c_null_ptr
+   integer, allocatable, target :: devInfo(:)
    real(cp), pointer :: tmpr_cpx(:), tmpi_cpx(:)
-   real(cp), pointer :: dWork_r_cpx(:)
-   real(cp), pointer :: dWork_i_cpx(:)
-   integer(c_int) :: size_work_bytes_r_cpx
-   integer(c_int) :: size_work_bytes_i_cpx
-   !-- For real RHS 2D matrices
-   type(c_ptr) :: handle_rl = c_null_ptr
-   integer, allocatable, target :: devInfo_rl(:)
-   real(cp), allocatable, target :: dWork_rl(:)
-   integer(c_int) :: size_work_bytes_rl
-   !-- For prepare_mat 2D real matrices
-   type(c_ptr) :: handle_prep = c_null_ptr
-   integer, allocatable, target :: devInfo_prep(:)
-   real(cp), allocatable, target :: dWork_prep(:)
-   integer(c_int) :: size_work_bytes_prep
 #endif
 
    public :: updateZ, initialize_updateZ, finalize_updateZ, get_tor_rhs_imp,  &
@@ -117,8 +101,6 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll, n_bands
 #ifdef WITH_OMP_GPU
-      real(cp), pointer :: zMat_dat(:,:), z10Mat_dat(:,:)
-      integer, pointer  :: zMat_pivot(:), z10Mat_pivot(:)
       logical :: use_gpu, use_pivot
       use_gpu = .false.; use_pivot = .true.
 #endif
@@ -256,69 +238,16 @@ contains
 
 #ifdef WITH_OMP_GPU
       if ( (.not. l_parallel_solve) .and. ( .not. l_finite_diff) ) then
-         z10Mat_dat   => z10Mat%dat
-         z10Mat_pivot => z10Mat%pivot
-         zMat_dat     => zMat(1)%dat
-         zMat_pivot   => zMat(1)%pivot
-
-         !-- For complex RHS 1D matrices
+         call hipblasCheck(hipblasCreate(handle))
+         allocate(devInfo(1))
+         devInfo(1) = 0
+         !$omp target enter data map(alloc: devInfo)
+         !$omp target update to(devInfo)
          allocate(tmpr_cpx(n_r_max), tmpi_cpx(n_r_max))
          tmpi_cpx(:) = 0.0_cp
          tmpr_cpx(:) = 0.0_cp
          !$omp target enter data map(alloc: tmpi_cpx, tmpr_cpx)
          !$omp target update to(tmpi_cpx, tmpr_cpx)
-         call hipsolverCheck(hipsolverCreate(handle_cpx))
-#if (DEFAULT_PRECISION==sngl)
-         !$omp target data use_device_addr(z10Mat_dat, z10Mat_pivot, tmpr_cpx)
-         call hipsolverCheck(hipsolverSgetrs_bufferSize(handle_cpx, HIPSOLVER_OP_N, n_r_max, 1, c_loc(z10Mat_dat), &
-         &                   n_r_max, c_loc(z10Mat_pivot), c_loc(tmpr_cpx), n_r_max, size_work_bytes_r_cpx))
-         !$omp end target data
-         !$omp target data use_device_addr(z10Mat_dat, z10Mat_pivot, tmpi_cpx)
-         call hipsolverCheck(hipsolverSgetrs_bufferSize(handle, HIPSOLVER_OP_N, n_r_max, 1, c_loc(z10Mat_dat), &
-         &                   n_r_max, c_loc(z10Mat_pivot), c_loc(tmpi_cpx), n_r_max, size_work_bytes_i_cpx))
-         !$omp end target data
-#elif (DEFAULT_PRECISION==dble)
-         !$omp target data use_device_addr(z10Mat_dat, z10Mat_pivot, tmpr_cpx)
-         call hipsolverCheck(hipsolverDgetrs_bufferSize(handle_cpx, HIPSOLVER_OP_N, n_r_max, 1, c_loc(z10Mat_dat), &
-         &                   n_r_max, c_loc(z10Mat_pivot), c_loc(tmpr_cpx), n_r_max, size_work_bytes_r_cpx))
-         !$omp end target data
-         !$omp target data use_device_addr(z10Mat_dat, z10Mat_pivot, tmpi_cpx)
-         call hipsolverCheck(hipsolverDgetrs_bufferSize(handle_cpx, HIPSOLVER_OP_N, n_r_max, 1, c_loc(z10Mat_dat), &
-         &                   n_r_max, c_loc(z10Mat_pivot), c_loc(tmpi_cpx), n_r_max, size_work_bytes_i_cpx))
-         !$omp end target data
-#endif
-         allocate(dWork_i_cpx(size_work_bytes_i_cpx), dWork_r_cpx(size_work_bytes_r_cpx), devInfo_cpx(1))
-         dWork_i_cpx(:) = 0.0_cp
-         dWork_r_cpx(:) = 0.0_cp
-         devInfo_cpx(1) = 0
-         !$omp target enter data map(alloc: dWork_i_cpx, dWork_r_cpx, devInfo_cpx)
-         !$omp target update to(dWork_i_cpx, dWork_r_cpx, devInfo_cpx)
-
-         !-- For real RHS 2D matrices
-         call hipsolverCheck(hipsolverCreate(handle_rl))
-         allocate(devInfo_rl(1))
-         devInfo_rl(1) = 0
-         !$omp target enter data map(alloc: devInfo_rl)
-         !$omp target update to(devInfo_rl)
-
-         !-- For prepare_mat 2D real matrices
-         call hipsolverCheck(hipsolverCreate(handle_prep))
-#if (DEFAULT_PRECISION==sngl)
-         !$omp target data use_device_addr(zMat_dat)
-         call hipsolverCheck(hipsolverSgetrf_bufferSize(handle_prep, n_r_max, n_r_max, c_loc(zMat_dat(1:n_r_max,1:n_r_max)), &
-              &              n_r_max, size_work_bytes_prep))
-         !$omp end target data
-#elif (DEFAULT_PRECISION==dble)
-         !$omp target data use_device_addr(zMat_dat)
-         call hipsolverCheck(hipsolverDgetrf_bufferSize(handle_prep, n_r_max, n_r_max, c_loc(zMat_dat(1:n_r_max,1:n_r_max)), &
-              &              n_r_max, size_work_bytes_prep))
-         !$omp end target data
-#endif
-         allocate(dWork_prep(size_work_bytes_prep), devInfo_prep(1))
-         dWork_prep(:) = 0.0_cp
-         devInfo_prep(1) = 0
-         !$omp target enter data map(alloc: dWork_prep, devInfo_prep)
-         !$omp target update to(devInfo_prep, dWork_prep)
       end if
 #endif
 
@@ -374,22 +303,11 @@ contains
 
 #ifdef WITH_OMP_GPU
       if ( (.not. l_parallel_solve) .and. ( .not. l_finite_diff) ) then
-         !-- For complex RHS 1D matrices
-         call hipsolverCheck(hipsolverDestroy(handle_cpx))
+         call hipblasCheck(hipblasDestroy(handle))
+         !$omp target exit data map(delete: devInfo)
+         deallocate(devInfo)
          !$omp target exit data map(delete: tmpi_cpx, tmpr_cpx)
-         !$omp target exit data map(delete: dWork_i_cpx, dWork_r_cpx, devInfo_cpx)
-         deallocate(dWork_i_cpx, dWork_r_cpx, devInfo_cpx)
          deallocate(tmpi_cpx, tmpr_cpx)
-
-         !-- For real RHS 2D array matrices
-         call hipsolverCheck(hipsolverDestroy(handle_rl))
-         !$omp target exit data map(delete: devInfo_rl)
-         deallocate(devInfo_rl)
-
-         !-- For prepare_mat 2D real matrices
-         call hipsolverCheck(hipsolverDestroy(handle_prep))
-         !$omp target exit data map(delete: dWork_prep, devInfo_prep)
-         deallocate(dWork_prep, devInfo_prep)
       end if
 #endif
 
@@ -417,7 +335,7 @@ contains
       logical,            intent(in) :: lRmsNext   ! Logical for storing update if (l_RMS.and.l_logNext)
 
       !-- Output variables
-      complex(cp), intent(out) :: dz(llm:ulm,n_r_max)   ! Radial derivative of z
+      complex(cp), intent(inout) :: dz(llm:ulm,n_r_max)   ! Radial derivative of z
       real(cp),    intent(out) :: omega_ma              ! Calculated OC rotation
       real(cp),    intent(out) :: omega_ic              ! Calculated IC rotation
 
@@ -440,8 +358,6 @@ contains
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
 
 #ifdef WITH_OMP_GPU
-      real(cp), pointer :: ptr_dat(:,:)
-      integer, pointer  :: ptr_pivot(:)
       real(cp) :: wimp_lin
       wimp_lin = tscheme%wimp_lin(1)
 #endif
@@ -555,7 +471,9 @@ contains
                   end do
 
 #ifdef WITH_PRECOND_Z10
-                  rhs(:) = z10Mat_fac(:)*rhs(:)
+                  do nR=1,n_r_max
+                     rhs(nR) = z10Mat_fac(nR)*rhs(nR)
+                  end do
 #endif
 
                else
@@ -591,8 +509,10 @@ contains
                   end do
 
 #ifdef WITH_PRECOND_Z
-                  rhs1(:,2*lm-1,0)=zMat_fac(:,nLMB2)*rhs1(:,2*lm-1,0)
-                  rhs1(:,2*lm,0)  =zMat_fac(:,nLMB2)*rhs1(:,2*lm,0)
+                  do nR=1,n_r_max
+                  rhs1(nR,2*lm-1,0)=zMat_fac(nR,nLMB2)*rhs1(nR,2*lm-1,0)
+                  rhs1(nR,2*lm,0)  =zMat_fac(nR,nLMB2)*rhs1(nR,2*lm,0)
+                  end do
 #endif
                end if
             end do
@@ -607,43 +527,17 @@ contains
                   call z10Mat%solve(rhs)
                   !$omp target update to(rhs)
                else
-                  call z10Mat%solve(rhs, tmpr_cpx, tmpi_cpx, handle_cpx, devInfo_cpx, dWork_r_cpx, dWork_i_cpx, &
-                  &                 size_work_bytes_r_cpx, size_work_bytes_i_cpx)
+                  call z10Mat%solve(rhs,tmpr_cpx,tmpi_cpx,handle,devInfo)
                end if
             end if
             !-- Big solve for other modes
             lm=sizeLMB2(nLMB2,nLMB)
-            if( zMat(nLMB2)%gpu_is_used ) then
-               ptr_dat   => zMat(nLMB2)%dat
-               ptr_pivot => zMat(nLMB2)%pivot
-#if (DEFAULT_PRECISION==sngl)
-               !$omp target data use_device_addr(ptr_dat, ptr_pivot, rhs1)
-               call hipsolverCheck(hipsolverSgetrs_bufferSize(handle_rl, HIPSOLVER_OP_N, n_r_max, 2*lm,       &
-               &                   c_loc(ptr_dat(1:n_r_max,1:n_r_max)), n_r_max, c_loc(ptr_pivot(1:n_r_max)), &
-               &                   c_loc(rhs1(1:n_r_max,:,0)), n_r_max, size_work_bytes_rl))
-               !$omp end target data
-#elif (DEFAULT_PRECISION==dble)
-               !$omp target data use_device_addr(ptr_dat, ptr_pivot, rhs1)
-               call hipsolverCheck(hipsolverDgetrs_bufferSize(handle_rl, HIPSOLVER_OP_N, n_r_max, 2*lm,       &
-               &                   c_loc(ptr_dat(1:n_r_max,1:n_r_max)), n_r_max, c_loc(ptr_pivot(1:n_r_max)), &
-               &                   c_loc(rhs1(1:n_r_max,:,0)), n_r_max, size_work_bytes_rl))
-               !$omp end target data
-#endif
-               allocate(dWork_rl(size_work_bytes_rl))
-               dWork_rl(:) = 0.0_cp
-               !$omp target enter data map(alloc: dWork_rl)
-               !$omp target update to(dWork_rl)
-            end if
             if (.not. zMat(nLMB2)%gpu_is_used) then
                !$omp target update from(rhs1)
                call zMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
                !$omp target update to(rhs1)
             else
-               call zMat(nLMB2)%solve(rhs1(:,:,0),2*lm,dWork_rl,devInfo_rl,handle_rl,size_work_bytes_rl)
-            end if
-            if( zMat(nLMB2)%gpu_is_used ) then
-               !$omp target exit data map(delete: dWork_rl)
-               deallocate(dWork_rl)
+               call zMat(nLMB2)%solve(rhs1(:,:,0),2*lm,handle,devInfo)
             end if
 
             !-- Loop to reassemble fields
@@ -881,17 +775,23 @@ contains
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
-      !$omp target
+      !$omp target teams
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
 #endif
       do n_r_out=rscheme_oc%n_max+1,n_r_max
+#ifdef WITH_OMP_GPU
+         !$omp distribute parallel do
+#endif
          do lm1=llm,ulm
             z(lm1,n_r_out)=zero
          end do
+#ifdef WITH_OMP_GPU
+         !$omp end distribute parallel do
+#endif
       end do
 #ifdef WITH_OMP_GPU
-      !$omp end target
+      !$omp end target teams
 #else
       !$omp end do
       !$omp end parallel
@@ -2589,8 +2489,62 @@ contains
       wimp_lin = tscheme%wimp_lin(1)
 
       dLh=real(l*(l+1),kind=cp)
-      dat(:,:) = 0.0_cp
 
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
+      do nR=1,n_r_max
+         !-- Boundary conditions:
+         !----- CMB condition:
+         !        Note opposite sign of viscous torques (-dz+(2/r+beta) z )*visc
+         !        for CMB and ICB!
+
+         if ( ktopv == 1 ) then  ! free slip
+            dat(1,nR)=                   rscheme_oc%rnorm *     &
+            &    ( (two*or1(1)+beta(1))*rscheme_oc%rMat(1,nR) - &
+            &                          rscheme_oc%drMat(1,nR) )
+         else if ( ktopv == 2 ) then ! no slip
+            if ( l_SRMA ) then
+               dat(1,nR)= rscheme_oc%rnorm * c_z10_omega_ma* &
+               &               rscheme_oc%rMat(1,nR)
+            else if ( l_rot_ma ) then
+               dat(1,nR)= rscheme_oc%rnorm *               (        &
+               &                c_dt_z10_ma*rscheme_oc%rMat(1,nR) - &
+               &       wimp_lin*visc(1)*(               &
+               &       (two*or1(1)+beta(1))*rscheme_oc%rMat(1,nR) - &
+               &                           rscheme_oc%drMat(1,nR) ) )
+            else
+               dat(1,nR)= rscheme_oc%rnorm*rscheme_oc%rMat(1,nR)
+            end if
+         end if
+
+         !----- ICB condition:
+         if ( l_full_sphere ) then
+            dat(n_r_max,nR)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR)
+         else
+            if ( kbotv == 1 ) then  ! free slip
+               dat(n_r_max,nR)=rscheme_oc%rnorm *                  &
+               &            ( (two*or1(n_r_max)+beta(n_r_max))*   &
+               &                   rscheme_oc%rMat(n_r_max,nR) -   &
+               &                  rscheme_oc%drMat(n_r_max,nR) )
+            else if ( kbotv == 2 ) then ! no slip
+               if ( l_SRIC ) then
+                  dat(n_r_max,nR)= rscheme_oc%rnorm * &
+                  &             c_z10_omega_ic*rscheme_oc%rMat(n_r_max,nR)
+               else if ( l_rot_ic ) then     !  time integration of z10
+                  dat(n_r_max,nR)= rscheme_oc%rnorm *             (          &
+                  &                c_dt_z10_ic*rscheme_oc%rMat(n_r_max,nR) + &
+                  &       wimp_lin*visc(n_r_max)*(               &
+                  &           (two*or1(n_r_max)+beta(n_r_max))*             &
+                  &                            rscheme_oc%rMat(n_r_max,nR) - &
+                  &                           rscheme_oc%drMat(n_r_max,nR) ) )
+               else
+                  dat(n_r_max,nR)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR)
+               end if
+            end if
+         end if
+      end do
+      !$omp end target teams distribute parallel do
+#else
       !-- Boundary conditions:
       !----- CMB condition:
       !        Note opposite sign of viscous torques (-dz+(2/r+beta) z )*visc
@@ -2640,15 +2594,18 @@ contains
             end if
          end if
       end if
+#endif
 
       !-- Fill up with zeros:
+#ifdef WITH_OMP_GPU
+      !$omp target
+#endif
       do nR_out=rscheme_oc%n_max+1,n_r_max
          dat(1,nR_out)      =0.0_cp
          dat(n_r_max,nR_out)=0.0_cp
       end do
-
 #ifdef WITH_OMP_GPU
-      !$omp target update to(dat)
+      !$omp end target
 #endif
 
       !----- Other points: (same as zMat)
@@ -2711,7 +2668,7 @@ contains
       if(.not. zMat%gpu_is_used) then
          call zMat%prepare(info)
       else
-         call zMat%prepare(info, dWork_prep, devInfo_prep, handle_prep, size_work_bytes_prep)
+         call zMat%prepare(info, handle, devInfo)
       end if
 #else
       call zMat%prepare(info)
@@ -2752,9 +2709,34 @@ contains
 
       wimp_lin = tscheme%wimp_lin(1)
       dLh=real(l*(l+1),kind=cp)
-      dat(:,:) = 0.0_cp
 
       !----- Boundary conditions, see above:
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
+      do nR=1,n_r_max
+         if ( ktopv == 1 ) then  ! free slip !
+            dat(1,nR)=rscheme_oc%rnorm *             (      &
+            &                     rscheme_oc%drMat(1,nR) -  &
+            & (two*or1(1)+beta(1))*rscheme_oc%rMat(1,nR) )
+         else                    ! no slip, note exception for l=1,m=0
+            dat(1,nR)=rscheme_oc%rnorm*rscheme_oc%rMat(1,nR)
+         end if
+
+         if ( l_full_sphere ) then
+            dat(n_r_max,nR)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR)
+         else
+            if ( kbotv == 1 ) then  ! free slip !
+               dat(n_r_max,nR)=rscheme_oc%rnorm *            (   &
+               &                  rscheme_oc%drMat(n_r_max,nR) - &
+               &    (two*or1(n_r_max)+beta(n_r_max))*           &
+               &                   rscheme_oc%rMat(n_r_max,nR) )
+            else                    ! no slip, note exception for l=1,m=0
+               dat(n_r_max,nR)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR)
+            end if
+         end if
+      end do
+      !$omp end target teams distribute parallel do
+#else
       if ( ktopv == 1 ) then  ! free slip !
          dat(1,:)=rscheme_oc%rnorm *             (      &
          &                     rscheme_oc%drMat(1,:) -  &
@@ -2775,18 +2757,20 @@ contains
             dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
          end if
       end if
-
+#endif
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
+#ifdef WITH_OMP_GPU
+         !$omp target
+#endif
          do nR_out=rscheme_oc%n_max+1,n_r_max
             dat(1,nR_out)      =0.0_cp
             dat(n_r_max,nR_out)=0.0_cp
          end do
-      end if
-
 #ifdef WITH_OMP_GPU
-      !$omp target update to(dat)
+         !$omp end target
 #endif
+      end if
 
       !----- Bulk points:
 #ifdef WITH_OMP_GPU
@@ -2895,7 +2879,7 @@ contains
       if(.not. zMat%gpu_is_used) then
          call zMat%prepare(info)
       else
-         call zMat%prepare(info, dWork_prep, devInfo_prep, handle_prep, size_work_bytes_prep)
+         call zMat%prepare(info, handle, devInfo)
       end if
 #else
       call zMat%prepare(info)

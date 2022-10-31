@@ -45,7 +45,6 @@ module updateWPS_mod
    use iso_c_binding
    use hipfort_check
    use hipfort_hipblas
-   use hipfort_hipsolver
 #endif
 
    implicit none
@@ -80,26 +79,8 @@ module updateWPS_mod
    real(cp), allocatable :: dat(:,:)
 
 #ifdef WITH_OMP_GPU
-   !-- For real RHS 1D matrices
-   type(c_ptr) :: handle_1D = c_null_ptr
-   integer, allocatable, target :: devInfo_1D(:)
-   real(cp), allocatable, target :: dWork_1D(:)
-   integer(c_int) :: size_work_bytes_1D
-   !-- For real RHS 2D matrices
-   type(c_ptr) :: handle_rl = c_null_ptr
-   integer, allocatable, target :: devInfo_rl(:)
-   real(cp), allocatable, target :: dWork_rl(:)
-   integer(c_int) :: size_work_bytes_rl
-   !-- For prepare_mat 1D real matrices
-   type(c_ptr) :: handle_1D_prep = c_null_ptr
-   integer, allocatable, target :: devInfo_1D_prep(:)
-   real(cp), allocatable, target :: dWork_1D_prep(:)
-   integer(c_int) :: size_work_bytes_1D_prep
-   !-- For prepare_mat 2D real matrices
-   type(c_ptr) :: handle_prep = c_null_ptr
-   integer, allocatable, target :: devInfo_prep(:)
-   real(cp), allocatable, target :: dWork_prep(:)
-   integer(c_int) :: size_work_bytes_prep
+   type(c_ptr) :: handle = c_null_ptr
+   integer, allocatable, target :: devInfo(:)
 #endif
 
    public :: initialize_updateWPS, finalize_updateWPS, updateWPS, finish_exp_smat,&
@@ -186,78 +167,11 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !-- For real RHS 1D matrices
-      call hipsolverCheck(hipsolverCreate(handle_1D))
-      allocate(devInfo_1D(1))
-      devInfo_1D(1) = 0
-      !$omp target enter data map(alloc: devInfo_1D)
-      !$omp target update to(devInfo_1D)
-#if (DEFAULT_PRECISION==sngl)
-      !$omp target data use_device_addr(ps0Mat, ps0Pivot, rhs)
-      call hipsolverCheck(hipsolverSgetrs_bufferSize(handle_1D, HIPSOLVER_OP_N, 2*n_r_max, 1, c_loc(ps0Mat), &
-      &                                              2*n_r_max, c_loc(ps0Pivot), c_loc(rhs), 2*n_r_max, size_work_bytes_1D))
-      !$omp end target data
-#elif (DEFAULT_PRECISION==dble)
-      !$omp target data use_device_addr(ps0Mat, ps0Pivot, rhs)
-      call hipsolverCheck(hipsolverDgetrs_bufferSize(handle_1D, HIPSOLVER_OP_N, 2*n_r_max, 1, c_loc(ps0Mat), &
-      &                                              2*n_r_max, c_loc(ps0Pivot), c_loc(rhs), 2*n_r_max, size_work_bytes_1D))
-      !$omp end target data
-#endif
-      allocate(dWork_1D(size_work_bytes_1D))
-      dWork_1D(:) = 0.0_cp
-      !$omp target enter data map(alloc: dWork_1D)
-      !$omp target update to(dWork_1D)
-
-      !-- For real RHS 2D matrices
-      call hipsolverCheck(hipsolverCreate(handle_rl))
-      allocate(devInfo_rl(1))
-      devInfo_rl(1) = 0
-      !$omp target enter data map(alloc: devInfo_rl)
-      !$omp target update to(devInfo_rl)
-
-      !-- For prepare_mat for 1D real matrices
-      call hipsolverCheck(hipsolverCreate(handle_1D_prep))
-      allocate(devInfo_1D_prep(1))
-      devInfo_1D_prep(1) = 0
-      !$omp target enter data map(alloc: devInfo_1D_prep)
-      !$omp target update to(devInfo_1D_prep)
-#if (DEFAULT_PRECISION==sngl)
-      !$omp target data use_device_addr(ps0Mat)
-      call hipsolverCheck(hipsolverSgetrf_bufferSize(handle_1D_prep, 2*n_r_max, 2*n_r_max, c_loc(ps0Mat(1:2*n_r_max,1:2*n_r_max)), &
-           &              2*n_r_max, size_work_bytes_1D_prep))
-      !$omp end target data
-#elif (DEFAULT_PRECISION==dble)
-      !$omp target data use_device_addr(ps0Mat)
-      call hipsolverCheck(hipsolverDgetrf_bufferSize(handle_1D_prep, 2*n_r_max, 2*n_r_max, c_loc(ps0Mat(1:2*n_r_max,1:2*n_r_max)), &
-           &              2*n_r_max, size_work_bytes_1D_prep))
-      !$omp end target data
-#endif
-      allocate(dWork_1D_prep(size_work_bytes_1D_prep))
-      dWork_1D_prep(:) = 0.0_cp
-      !$omp target enter data map(alloc: dWork_1D_prep)
-      !$omp target update to(dWork_1D_prep)
-
-      !-- For prepare_mat for 2D real matrices
-      call hipsolverCheck(hipsolverCreate(handle_prep))
-      allocate(devInfo_prep(1))
-      devInfo_prep(1) = 0
-      !$omp target enter data map(alloc: devInfo_prep)
-      !$omp target update to(devInfo_prep)
-#if (DEFAULT_PRECISION==sngl)
-      !$omp target data use_device_addr(wpsMat)
-      call hipsolverCheck(hipsolverSgetrf_bufferSize(handle_prep, 3*n_r_max, 3*n_r_max, c_loc(wpsMat(1:3*n_r_max,1:3*n_r_max,1)), &
-           &              3*n_r_max, size_work_bytes_prep))
-      !$omp end target data
-#elif (DEFAULT_PRECISION==dble)
-      !$omp target data use_device_addr(wpsMat)
-      call hipsolverCheck(hipsolverDgetrf_bufferSize(handle_prep, 3*n_r_max, 3*n_r_max, c_loc(wpsMat(1:3*n_r_max,1:3*n_r_max,1)), &
-           &              3*n_r_max, size_work_bytes_prep))
-      !$omp end target data
-#endif
-      allocate(dWork_prep(size_work_bytes_prep))
-      dWork_prep(:) = 0.0_cp
-      !$omp target enter data map(alloc: dWork_prep)
-      !$omp target update to(dWork_prep)
+      call hipblasCheck(hipblasCreate(handle))
+      allocate(devInfo(1))
+      devInfo(1) = 0
+      !$omp target enter data map(alloc: devInfo)
+      !$omp target update to(devInfo)
 #endif
 
    end subroutine initialize_updateWPS
@@ -282,31 +196,9 @@ contains
       deallocate(dat)
 
 #ifdef WITH_OMP_GPU
-      !-- For real RHS 1D matrices
-      call hipsolverCheck(hipsolverDestroy(handle_1D))
-      deallocate(devInfo_1D)
-      deallocate(dWork_1D)
-      !$omp target exit data map(delete: devInfo_1D)
-      !$omp target exit data map(delete: dWork_1D)
-
-      !-- For real RHS 2D matrices
-      call hipsolverCheck(hipsolverDestroy(handle_rl))
-      deallocate(devInfo_rl)
-      !$omp target exit data map(delete: devInfo_rl)
-
-      !-- For prepare_mat for 1D real matrices
-      call hipsolverCheck(hipsolverDestroy(handle_1D_prep))
-      deallocate(devInfo_1D_prep)
-      deallocate(dWork_1D_prep)
-      !$omp target exit data map(delete: devInfo_1D_prep)
-      !$omp target exit data map(delete: dWork_1D_prep)
-
-      !-- For prepare_mat for 2D real matrices
-      call hipsolverCheck(hipsolverDestroy(handle_prep))
-      deallocate(devInfo_prep)
-      deallocate(dWork_prep)
-      !$omp target exit data map(delete: devInfo_prep)
-      !$omp target exit data map(delete: dWork_prep)
+      call hipblasCheck(hipblasDestroy(handle))
+      !$omp target exit data map(delete: devInfo)
+      deallocate(devInfo)
 #endif
 
    end subroutine finalize_updateWPS
@@ -406,7 +298,7 @@ contains
             end do
             !$omp end target teams distribute parallel do
 
-            call gpu_solve_mat(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs,handle_1D,devInfo_1D,dWork_1D,size_work_bytes_1D)
+            call gpu_solve_mat(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs,handle,devInfo)
 
             !-- Rescale solution
             !$omp target teams distribute parallel do
@@ -465,27 +357,8 @@ contains
             !$omp end target teams distribute parallel do
 
             lm=sizeLMB2(nLMB2,nLMB)
-#if (DEFAULT_PRECISION==sngl)
-            !$omp target data use_device_addr(wpsMat, wpsPivot, rhs1)
-            call hipsolverCheck(hipsolverSgetrs_bufferSize(handle_rl, HIPSOLVER_OP_N, 3*n_r_max, 2*lm,                       &
-            &                   c_loc(wpsMat(1:3*n_r_max,1:3*n_r_max,nLMB2)), 3*n_r_max, c_loc(wpsPivot(1:3*n_r_max,nLMB2)), &
-            &                   c_loc(rhs1(1:3*n_r_max,:,0)), 3*n_r_max, size_work_bytes_rl))
-            !$omp end target data
-#elif (DEFAULT_PRECISION==dble)
-            !$omp target data use_device_addr(wpsMat, wpsPivot, rhs1)
-            call hipsolverCheck(hipsolverDgetrs_bufferSize(handle_rl, HIPSOLVER_OP_N, 3*n_r_max, 2*lm,                       &
-            &                   c_loc(wpsMat(1:3*n_r_max,1:3*n_r_max,nLMB2)), 3*n_r_max, c_loc(wpsPivot(1:3*n_r_max,nLMB2)), &
-            &                   c_loc(rhs1(1:3*n_r_max,:,0)), 3*n_r_max, size_work_bytes_rl))
-            !$omp end target data
-#endif
-            allocate(dWork_rl(size_work_bytes_rl))
-            dWork_rl(:) = 0.0_cp
-            !$omp target enter data map(alloc: dWork_rl)
-            !$omp target update to(dWork_rl)
             call gpu_solve_mat(wpsMat(:,:,nLMB2),3*n_r_max,3*n_r_max, &
-                 &             wpsPivot(:,nLMB2),rhs1(:,:,0),2*lm,dWork_rl,devInfo_rl,handle_rl,size_work_bytes_rl)
-            !$omp target exit data map(delete: dWork_rl)
-            deallocate(dWork_rl)
+                 &             wpsPivot(:,nLMB2),rhs1(:,:,0),2*lm,handle,devInfo)
 
             !-- Loop to reassemble fields
             !$omp target teams distribute parallel do private(lm1, m1, n_r_out)
@@ -1771,7 +1644,7 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      call gpu_prepare_mat(wpsMat,3*n_r_max,3*n_r_max,wpsPivot,info,dWork_prep,devInfo_prep,handle_prep,size_work_bytes_prep)
+      call gpu_prepare_mat(wpsMat,3*n_r_max,3*n_r_max,wpsPivot,info,handle,devInfo)
 #else
       call prepare_mat(wpsMat,3*n_r_max,3*n_r_max,wpsPivot,info)
 #endif
@@ -2104,8 +1977,7 @@ contains
 
       !---- LU decomposition:
 #ifdef WITH_OMP_GPU
-      call gpu_prepare_mat(psMat,2*n_r_max,2*n_r_max,psPivot,info, &
-      &                    dWork_1D_prep,devInfo_1D_prep,handle_1D_prep,size_work_bytes_1D_prep)
+      call gpu_prepare_mat(psMat,2*n_r_max,2*n_r_max,psPivot,info,handle,devInfo)
 #else
       call prepare_mat(psMat,2*n_r_max,2*n_r_max,psPivot,info)
 #endif

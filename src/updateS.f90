@@ -39,7 +39,6 @@ module updateS_mod
    use iso_c_binding
    use hipfort_check
    use hipfort_hipblas
-   use hipfort_hipsolver
 #endif
 
    implicit none
@@ -69,12 +68,6 @@ module updateS_mod
 #ifdef WITH_OMP_GPU
    type(c_ptr) :: handle = c_null_ptr
    integer, allocatable, target :: devInfo(:)
-   !-- For real RHS 2D matrices
-   real(cp), allocatable, target :: dWork_rl(:)
-   integer(c_int) :: size_work_bytes_rl
-   !-- For prepare_mat for 2D matrices
-   real(cp), allocatable, target :: dWork_prep(:)
-   integer(c_int) :: size_work_bytes_prep
 #endif
 
    public :: initialize_updateS, updateS, finalize_updateS, assemble_entropy,  &
@@ -93,10 +86,6 @@ contains
       integer, pointer :: nLMBs2(:)
       integer :: ll,n_bands
 #ifdef WITH_OMP_GPU
-      integer, pointer :: sizeLMB2(:,:)
-      real(cp), pointer :: ptr_dat(:,:)
-      integer, pointer  :: ptr_pivot(:)
-      integer :: lm
       logical :: use_gpu, use_pivot
       use_gpu = .false.; use_pivot = .true.
 #endif
@@ -204,49 +193,11 @@ contains
 
 #ifdef WITH_OMP_GPU
       if ( ( .not. l_parallel_solve) .and. ( .not. l_finite_diff) ) then
-         ptr_dat   => sMat(1)%dat
-         ptr_pivot => sMat(1)%pivot
-
-         call hipsolverCheck(hipsolverCreate(handle))
+         call hipblasCheck(hipblasCreate(handle))
          allocate(devInfo(1))
          devInfo(1) = 0
          !$omp target enter data map(alloc: devInfo)
          !$omp target update to(devInfo)
-
-         !-- For prepare_mat for 2D matrices
-#if (DEFAULT_PRECISION==sngl)
-         !$omp target data use_device_addr(ptr_dat)
-         call hipsolverCheck(hipsolverSgetrf_bufferSize(handle, n_r_max, n_r_max, c_loc(ptr_dat(1:n_r_max,1:n_r_max)), &
-              &              n_r_max, size_work_bytes_prep))
-         !$omp end target data
-#elif (DEFAULT_PRECISION==dble)
-         !$omp target data use_device_addr(ptr_dat)
-         call hipsolverCheck(hipsolverDgetrf_bufferSize(handle, n_r_max, n_r_max, c_loc(ptr_dat(1:n_r_max,1:n_r_max)), &
-              &              n_r_max, size_work_bytes_prep))
-         !$omp end target data
-#endif
-         !$omp target enter data map(alloc: dWork_prep(size_work_bytes_prep))
-
-         !-- For real RHS 2D matrices
-         ptr_dat   => sMat(nLMBs2(1+rank))%dat
-         ptr_pivot => sMat(nLMBs2(1+rank))%pivot
-         nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
-         sizeLMB2(1:,1:)   => lo_sub_map%sizeLMB2
-         lm = sizeLMB2(nLMBs2(1+rank), 1+rank)
-#if (DEFAULT_PRECISION==sngl)
-         !$omp target data use_device_addr(ptr_dat, ptr_pivot, rhs1)
-         call hipsolverCheck(hipsolverSgetrs_bufferSize(handle, HIPSOLVER_OP_N, n_r_max, 2*lm,          &
-         &                   c_loc(ptr_dat(1:n_r_max,1:n_r_max)), n_r_max, c_loc(ptr_pivot(1:n_r_max)), &
-         &                   c_loc(rhs1(1:n_r_max,:,0)), n_r_max, size_work_bytes_rl))
-         !$omp end target data
-#elif (DEFAULT_PRECISION==dble)
-         !$omp target data use_device_addr(ptr_dat, ptr_pivot, rhs1)
-         call hipsolverCheck(hipsolverDgetrs_bufferSize(handle, HIPSOLVER_OP_N, n_r_max, 2*lm,          &
-         &                   c_loc(ptr_dat(1:n_r_max,1:n_r_max)), n_r_max, c_loc(ptr_pivot(1:n_r_max)), &
-         &                   c_loc(rhs1(1:n_r_max,:,0)), n_r_max, size_work_bytes_rl))
-         !$omp end target data
-#endif
-         !$omp target enter data map(alloc: dWork_rl(size_work_bytes_rl))
       end if
 #endif
 
@@ -293,15 +244,9 @@ contains
 
 #ifdef WITH_OMP_GPU
       if ( ( .not. l_parallel_solve ) .and. ( .not. l_finite_diff) ) then
-         call hipsolverCheck(hipsolverDestroy(handle))
+         call hipblasCheck(hipblasDestroy(handle))
          !$omp target exit data map(delete: devInfo)
          deallocate(devInfo)
-
-         !-- For real RHS 2D matrices
-         !$omp target exit data map(delete: dWork_rl)
-
-         !-- For prepare_mat for 2D matrices
-         !$omp target exit data map(delete: dWork_prep)
       end if
 #endif
 
@@ -332,7 +277,6 @@ contains
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
-
       integer :: threadid,iChunk,nChunks,size_of_last_chunk,lmB0
 
       if ( .not. l_update_s ) return
@@ -430,7 +374,7 @@ contains
             !$omp target update to(rhs1)
          else
             call up2_counter%start_count()
-            call sMat(nLMB2)%solve(rhs1(:,:,0),2*lm,dWork_rl,devInfo,handle,size_work_bytes_rl)
+            call sMat(nLMB2)%solve(rhs1(:,:,0),2*lm,handle,devInfo)
             call up2_counter%stop_count(l_increment=.false.)
          end if
 
@@ -570,6 +514,7 @@ contains
       !$omp end do
       !$omp end parallel
 #endif
+
       up2_counter%n_counts=up2_counter%n_counts+1
 
       call up3_counter%start_count()
@@ -1845,7 +1790,7 @@ contains
       if(.not. sMat%gpu_is_used) then
          call sMat%prepare(info)
       else
-         call sMat%prepare(info, dWork_prep, devInfo, handle, size_work_bytes_prep)
+         call sMat%prepare(info, handle, devInfo)
       end if
 #else
       call sMat%prepare(info)
