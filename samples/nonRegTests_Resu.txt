@@ -1,7 +1,18 @@
-24/01/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1 MPI x 1 OMP - l_batched_shts=.true. - GPU
+31/10/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1 MPI x 1 OMP - l_batched_shts=.true. - GPU
 
+dynamo_benchmark [NOK: dt too small]
 finite_differences [NOK: Mismatched elements: 78 / 297 (26.3%) Max absolute difference: 1.00000007e-05 Max relative difference: 1.6403208e-06]
 onset [NOK: Mismatched elements: 200 / 459 (43.6%) Max absolute difference: 0.02015402 Max relative difference: 1.25332431e+10]
 testOutputs [NOK: Mismatched elements: 40 / 1342 (2.98%) Max absolute difference: 223.3016877 Max relative difference: 2.]
 testRMSOutputs [NOK: Mismatched elements: 8 / 324 (2.47%) Max absolute difference: 1.00000007e-05 Max relative difference: 3.56191898e-08]
 time_schemes [NOK: (shapes (846,), (603,) mismatch)]
+
+31/10/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1 MPI x 2 OMP - l_batched_shts=.true. - GPU
+dynamo_benchmark [NOK: dt too small]
+time_schemes [NOK: (shapes (846,), (603,) mismatch)]
+finite_differences [NOK: Mismatched elements: 78 / 297 (26.3%) Max absolute difference: 1.00000007e-05 Max relative difference: 1.6403208e-06]
+doubleDiffusion [NOK: (shapes (12, 9), (7, 9) mismatch)]
+phase_field [NOK: (shapes (17, 9), (12, 9) mismatch)]
+onset [NOK: Mismatched elements: 200 / 459 (43.6%) Max absolute difference: 0.02015402 Max relative difference: 1.25332431e+10]
+testOutputs [NOK: Mismatched elements: 40 / 1342 (2.98%) Max absolute difference: 223.3016877 Max relative difference: 2.]
+testRMSOutputs[NOK: (shapes (324,), (270,) mismatch)]
