@@ -19,7 +19,6 @@
  alpha       =0.5D0,
  runHours    =00,
  runMinutes  =29,
- l_adv_curl  =.true.,
  l_correct_AMz=.true.,
  radial_scheme='FD',
 /

@@ -9,13 +9,12 @@ n_cheb_ic_max=15,
 &control
  mode        =1,
  tag         ="test_cheb",
- n_time_steps=50,
- courfac     =2.5D0,
- alffac      =1.0D0,
- dtmax       =1.0D-4,
+ n_time_steps=25,
+ dtmax       =3.0D-4,
  alpha       =0.6D0,
  runHours    =12,
  runMinutes  =00,
+ time_scheme ='BPR353',
 /
 &phys_param
  ra          =4.8d4,
@@ -33,7 +32,7 @@ n_cheb_ic_max=15,
 /
 &start_field
  l_start_file=.true.,
- start_file  ="rst_end.start",
+ start_file  ="checkpoint_end.start",
  init_b1     =0,
  amp_b1      =5,
  init_s1     =0,
@@ -42,7 +41,7 @@ n_cheb_ic_max=15,
  amp_xi1     =0,
 /
 &output_control
- n_log_step  =10,
+ n_log_step  =5,
  n_graphs    =1,
  n_rsts      =1,
  n_stores    =0,
