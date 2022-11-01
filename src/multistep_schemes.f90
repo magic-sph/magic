@@ -457,7 +457,6 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-#ifndef  NEW_VERSION
       !$omp target data map(to: wimp_ptr, wexp_ptr, wimp_lin_ptr)
       !$omp target teams
       !$omp distribute parallel do collapse(2)
@@ -496,28 +495,6 @@ contains
       end do
       !$omp end target teams
       !$omp end target data
-#else
-      !$omp target data map(to: wimp_ptr, wexp_ptr, wimp_lin_ptr)
-
-      !$omp target teams distribute parallel do collapse(2)
-      do n_r=nr_start,nr_stop
-         do lm=start_lm,stop_lm
-            rhs(lm,n_r)=wimp_ptr(1)*old_ptr(lm,n_r,1)
-            do n_o=2,nold
-               rhs(lm,n_r)=rhs(lm,n_r)+wimp_ptr(n_o)*old_ptr(lm,n_r,n_o)
-            end do
-            do n_o=1,nimp
-               rhs(lm,n_r)=rhs(lm,n_r)+wimp_lin_ptr(n_o+1)*impl_ptr(lm,n_r,n_o)
-            end do
-            do n_o=1,nexp
-               rhs(lm,n_r)=rhs(lm,n_r)+wexp_ptr(n_o)*expl_ptr(lm,n_r,n_o)
-            end do
-         end do
-      end do
-      !$omp end target teams distribute parallel do
-
-      !$omp end target data
-#endif
 #else
       !$omp parallel default(shared) private(start_lm, stop_lm)
       start_lm=dfdt%llm; stop_lm=dfdt%ulm
@@ -593,24 +570,45 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target data map(to: wimp_ptr, wexp_ptr, wimp_lin_ptr)
-
-      !$omp target teams distribute parallel do collapse(2)
+      !$omp target teams
+      !$omp distribute parallel do collapse(2)
       do n_r=nr_start,nr_stop
          do lm=start_lm,stop_lm
             rhs(lm,n_r)=wimp_ptr(1)*old_ptr(lm,n_r,1)
-            do n_o=2,nold
+         end do
+      end do
+      !$omp end distribute parallel do
+
+      do n_o=2,nold
+         !$omp distribute parallel do collapse(2)
+         do n_r=nr_start,nr_stop
+            do lm=start_lm,stop_lm
                rhs(lm,n_r)=rhs(lm,n_r)+wimp_ptr(n_o)*old_ptr(lm,n_r,n_o)
             end do
-            do n_o=1,nimp
+         end do
+         !$omp end distribute parallel do
+      end do
+
+      do n_o=1,nimp
+         !$omp distribute parallel do collapse(2)
+         do n_r=nr_start,nr_stop
+            do lm=start_lm,stop_lm
                rhs(lm,n_r)=rhs(lm,n_r)+wimp_lin_ptr(n_o+1)*impl_ptr(lm,n_r,n_o)
             end do
-            do n_o=1,nexp
+         end do
+         !$omp end distribute parallel do
+      end do
+
+      do n_o=1,nexp
+         !$omp distribute parallel do collapse(2)
+         do n_r=nr_start,nr_stop
+            do lm=start_lm,stop_lm
                rhs(lm,n_r)=rhs(lm,n_r)+wexp_ptr(n_o)*expl_ptr(lm,n_r,n_o)
             end do
          end do
+         !$omp end distribute parallel do
       end do
-      !$omp end target teams distribute parallel do
-
+      !$omp end target teams
       !$omp end target data
 #else
       do n_r=dfdt%nRstart,dfdt%nRstop
@@ -704,21 +702,37 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do collapse(2)
-      do n_r=nr_start,nr_stop
-         do lm=lm_start,lm_stop
-            do n_o=nexp,2,-1
+      !$omp target teams
+      do n_o=nexp,2,-1
+         !$omp distribute parallel do collapse(2)
+         do n_r=nr_start,nr_stop
+            do lm=lm_start,lm_stop
                expl_ptr(lm,n_r,n_o)=expl_ptr(lm,n_r,n_o-1)
             end do
-            do n_o=nold,2,-1
+         end do
+         !$omp end distribute parallel do
+      end do
+
+      do n_o=nold,2,-1
+         !$omp distribute parallel do collapse(2)
+         do n_r=nr_start,nr_stop
+            do lm=lm_start,lm_stop
                old_ptr(lm,n_r,n_o)=old_ptr(lm,n_r,n_o-1)
             end do
-            do n_o=nimp,2,-1
+         end do
+         !$omp end distribute parallel do
+      end do
+
+      do n_o=nimp,2,-1
+         !$omp distribute parallel do collapse(2)
+         do n_r=nr_start,nr_stop
+            do lm=lm_start,lm_stop
                impl_ptr(lm,n_r,n_o)=impl_ptr(lm,n_r,n_o-1)
             end do
          end do
+         !$omp end distribute parallel do
       end do
-      !$omp end target teams distribute parallel do
+      !$omp end target teams
 #else
       !$omp parallel default(shared) private(lm_start,lm_stop)
       lm_start=dfdt%llm; lm_stop=dfdt%ulm
