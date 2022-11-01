@@ -1150,8 +1150,7 @@ contains
 
       integer, parameter :: fitOrder=5
       real(cp), allocatable :: kcoeff(:,:), hcoeff(:,:)
-      integer :: i, l, n_kcoeff_file, n_hcoeff_file
-      character(len=72) :: kCoeff_file, hCoeff_file, lStr
+      integer :: i, l
 
       allocate(kcoeff(fitOrder+1,l_max_grav-1)) ! Column major in Fortran
       allocate(hcoeff(fitOrder+1,l_max_grav-1))
