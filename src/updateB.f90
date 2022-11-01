@@ -362,14 +362,14 @@ contains
       complex(cp),       intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
       !-- Output variables:
-      complex(cp), intent(out) :: db(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(out) :: ddb(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(out) :: dj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(out) :: ddj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(out) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp), intent(out) :: ddb_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp), intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp), intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(inout) :: db(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(inout) :: ddb(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(inout) :: dj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(inout) :: ddj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(inout) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(inout) :: ddb_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(inout) :: dj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(inout) :: ddj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
       !-- Local variables:
       real(cp) :: yl0_norm,prefac    !External magnetic field of general l
@@ -425,10 +425,10 @@ contains
 
 #ifdef WITH_OMP_GPU
       if ( l_b_nl_icb ) then
-         !$omp target data map(to: aj_nl_icb)
+         !$omp target enter data map(to: aj_nl_icb)
       end if
       if ( l_b_nl_cmb ) then
-         !$omp target data map(to: aj_nl_cmb, b_nl_cmb)
+         !$omp target enter data map(to: aj_nl_cmb, b_nl_cmb)
       end if
 #endif
 
@@ -1170,10 +1170,10 @@ contains
 
 #ifdef WITH_OMP_GPU
       if ( l_b_nl_icb ) then
-         !$omp end target data
+         !$omp target exit data map(delete: aj_nl_icb)
       end if
       if ( l_b_nl_cmb ) then
-         !$omp end target data
+         !$omp target exit data map(delete: b_nl_cmb, aj_nl_cmb)
       end if
 #endif
 
