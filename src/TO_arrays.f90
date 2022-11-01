@@ -25,13 +25,13 @@ contains
 
       class(TO_arrays_t) :: this
 
-      allocate( this%dzRstrLM(l_max+2),this%dzAstrLM(l_max+2) )
-      allocate( this%dzCorLM(l_max+2),this%dzLFLM(l_max+2) )
+      allocate( this%dzRstrLM(l_max+1),this%dzAstrLM(l_max+1) )
+      allocate( this%dzCorLM(l_max+1),this%dzLFLM(l_max+1) )
       this%dzRstrLM(:)=0.0_cp
       this%dzAstrLM(:)=0.0_cp
       this%dzCorLM(:) =0.0_cp
       this%dzLFLM(:)  =0.0_cp
-      bytes_allocated = bytes_allocated+4*(l_max+2)*SIZEOF_DEF_REAL
+      bytes_allocated = bytes_allocated+4*(l_max+1)*SIZEOF_DEF_REAL
 
    end subroutine initialize
 !----------------------------------------------------------------------------

@@ -10,15 +10,9 @@ module LMmapping
    private
  
    type, public :: mappings
-      integer :: l_max,m_max,lm_max,lmP_max,m_min
+      integer :: l_max, m_max, lm_max ,m_min
       integer, allocatable :: lm2(:,:),lm2l(:),lm2m(:)
-      integer, allocatable :: lm2lmS(:),lm2lmA(:)     
-                                                     
-      integer, allocatable :: lmP2(:,:),lmP2l(:),lmP2m(:)
-      integer, allocatable :: lmP2lmPS(:),lmP2lmPA(:) 
-                                                     
-      integer, allocatable :: lm2lmP(:),lmP2lm(:)     
- 
+      integer, allocatable :: lm2lmS(:), lm2lmA(:)
    end type mappings
  
    type, public :: subblocks_mappings
@@ -35,10 +29,10 @@ module LMmapping
 
 contains
 
-   subroutine allocate_mappings(self,l_max,m_min,m_max,lm_max,lmP_max)
+   subroutine allocate_mappings(self,l_max,m_min,m_max,lm_max)
 
       type(mappings) :: self
-      integer, intent(in) :: l_max, m_min, lm_max, lmP_max, m_max
+      integer, intent(in) :: l_max, m_min, lm_max, m_max
 
       self%l_max = l_max
       if ( .not. l_axi ) then
@@ -49,19 +43,11 @@ contains
          self%m_min = 0
       end if
       self%lm_max = lm_max
-      self%lmP_max = lmP_max
 
       allocate( self%lm2(0:l_max,0:l_max),self%lm2l(lm_max),self%lm2m(lm_max) )
       allocate( self%lm2lmS(lm_max),self%lm2lmA(lm_max) )
       bytes_allocated = bytes_allocated + &
       &                 ((l_max+1)*(l_max+1)+4*lm_max)*SIZEOF_INTEGER
-
-      allocate( self%lmP2(0:l_max+1,0:l_max+1),self%lmP2l(lmP_max) )
-      allocate( self%lmP2m(lmP_max) )
-      allocate( self%lmP2lmPS(lmP_max),self%lmP2lmPA(lmP_max) )
-      allocate( self%lm2lmP(lm_max),self%lmP2lm(lmP_max) )
-      bytes_allocated = bytes_allocated + &
-      &                 ((l_max+2)*(l_max+2)+5*lmP_max+lm_max)*SIZEOF_INTEGER
 
    end subroutine allocate_mappings
 !-------------------------------------------------------------------------------
@@ -69,10 +55,7 @@ contains
 
       type(mappings) :: self
 
-      deallocate( self%lm2, self%lm2l, self%lm2m )
-      deallocate( self%lm2lmS, self%lm2lmA, self%lmP2, self%lmP2l )
-      deallocate( self%lmP2m, self%lmP2lmPS, self%lmP2lmPA, self%lm2lmP )
-      deallocate( self%lmP2lm )
+      deallocate( self%lm2, self%lm2l, self%lm2m, self%lm2lmS, self%lm2lmA )
 
    end subroutine deallocate_mappings
 !-------------------------------------------------------------------------------

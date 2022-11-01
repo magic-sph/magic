@@ -38,10 +38,9 @@ module output_mod
    use kinetic_energy, only: get_e_kin, get_u_square
    use magnetic_energy, only: get_e_mag
    use fields_average_mod, only: fields_average
-   use spectra, only: spectrum, spectrum_temp, get_amplitude
+   use spectra, only: spectrum, get_amplitude
    use outTO_mod, only: outTO
-   use output_data, only: tag, l_max_cmb, n_coeff_r, l_max_r, n_coeff_r_max,&
-       &                  n_r_array, n_r_step,  n_log_file, log_file
+   use output_data, only: tag, l_max_cmb, n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three, zero
    use outMisc_mod, only: outHeat, outHelicity, outHemi, outPhase, get_onset,&
        &                  outGrav
@@ -351,13 +350,10 @@ contains
          end if
 
          if ( l_spec_avg ) then
-            call spectrum(-1,time,.true.,nLogs,l_stop_time,timePassedLog,        &
-                 &        timeNormLog,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,db_LMloc, &
-                 &        aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
-            if ( l_heat ) then
-               call spectrum_temp(-1,time,.true.,nLogs,l_stop_time,   &
-                    &             timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
-            end if
+            call spectrum(-1,time,.true.,nLogs,l_stop_time,timePassedLog,          &
+                 &        timeNormLog,s_LMloc,ds_LMloc,xi_LMloc,dxi_LMloc,w_LMloc, &
+                 &        dw_LMloc,z_LMloc,b_LMloc,db_LMloc,aj_LMloc,b_ic_LMloc,   &
+                 &        db_ic_LMloc,aj_ic_LMloc)
          end if
 
          if ( l_average ) then
@@ -466,13 +462,10 @@ contains
 
       if ( l_spectrum ) then
          n_spec=n_spec+1
-         call spectrum(n_spec,time,.false.,nLogs,l_stop_time,timePassedLog, &
-              &        timeNormLog,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,db_LMloc, &
-              &        aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
-         if ( l_heat ) then
-            call spectrum_temp(n_spec,time,.false.,nLogs,l_stop_time,     &
-                 &             timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
-         end if
+         call spectrum(n_spec,time,.false.,nLogs,l_stop_time,timePassedLog,     &
+              &        timeNormLog,s_LMloc,ds_LMloc,xi_LMloc,dxi_LMloc,w_LMloc, &
+              &        dw_LMloc,z_LMloc,b_LMloc,db_LMloc,aj_LMloc,b_ic_LMloc,   &
+              &        db_ic_LMloc,aj_ic_LMloc)
          if ( rank == 0 ) then
             write(output_unit,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
             &    " ! Storing spectra:",                            &

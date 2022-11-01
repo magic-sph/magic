@@ -4,12 +4,12 @@ module horizontal_data
    !  and latitude plus help arrays depending on degree and order
    !
 
-   use truncation, only: l_max, lmP_max, n_theta_max, n_phi_max, nlat_padded, &
+   use truncation, only: l_max, n_theta_max, n_phi_max, nlat_padded, &
        &                 lm_max, n_m_max, minc, m_min, m_max, l_axi
    use radial_functions, only: r_cmb
    use physical_parameters, only: ek
    use num_param, only: difeta, difnu, difkap, ldif, ldifexp, difchem
-   use blocking, only: lmP2l, lmP2lm, lm2l, lm2m, lo_map
+   use blocking, only: lm2l, lm2m
    use logic, only: l_non_rot
    use plms_theta, only: plm_theta
    use fft

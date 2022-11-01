@@ -39,12 +39,9 @@ module updateS_mod
    !-- Local variables
    real(cp), allocatable :: rhs1(:,:,:)
    complex(cp), allocatable, public :: s_ghost(:,:)
-   class(type_realmat), pointer :: sMat(:), s0Mat
+   class(type_realmat), pointer :: sMat(:)
 #ifdef WITH_PRECOND_S
    real(cp), allocatable :: sMat_fac(:,:)
-#endif
-#ifdef WITH_PRECOND_S0
-   real(cp), allocatable :: s0Mat_fac(:)
 #endif
    logical, public, allocatable :: lSmat(:)
 
@@ -75,7 +72,6 @@ contains
 
          if ( l_finite_diff ) then
             allocate( type_bandmat :: sMat(nLMBs2(1+rank)) )
-            allocate( type_bandmat :: s0Mat )
 
             if ( ktops == 1 .and. kbots == 1 .and. rscheme_oc%order == 2 &
              &   .and. rscheme_oc%order_boundary <= 2 ) then ! Fixed entropy at both boundaries
@@ -84,16 +80,12 @@ contains
                n_bands = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
             end if
 
-            !print*, 'S', n_bands
-            call s0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
             do ll=1,nLMBs2(1+rank)
                call sMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
             end do
          else
             allocate( type_densemat :: sMat(nLMBs2(1+rank)) )
-            allocate( type_densemat :: s0Mat )
 
-            call s0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
             do ll=1,nLMBs2(1+rank)
                call sMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
             end do
@@ -102,10 +94,6 @@ contains
 #ifdef WITH_PRECOND_S
          allocate(sMat_fac(n_r_max,nLMBs2(1+rank)))
          bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
-#endif
-#ifdef WITH_PRECOND_S0
-         allocate(s0Mat_fac(n_r_max))
-         bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
 #endif
 
 #ifdef WITHOMP
@@ -152,14 +140,10 @@ contains
          do ll=1,nLMBs2(1+rank)
             call sMat(ll)%finalize()
          end do
-         call s0Mat%finalize()
          deallocate(rhs1)
 
 #ifdef WITH_PRECOND_S
          deallocate( sMat_fac )
-#endif
-#ifdef WITH_PRECOND_S0
-         deallocate( s0Mat_fac )
 #endif
       else
          deallocate( s_ghost, fd_fac_top, fd_fac_bot )
@@ -184,12 +168,11 @@ contains
       complex(cp),       intent(out) :: ds(llm:ulm,n_r_max) ! Radial derivative of entropy
 
       !-- Local variables:
-      integer :: l1,m1              ! degree and order
-      integer :: lm1,lmB,lm         ! position of (l,m) in array
+      integer :: l1,m1          ! degree and order
+      integer :: lm1,lm         ! position of (l,m) in array
       integer :: nLMB2,nLMB
-      integer :: nR                 ! counts radial grid points
-      integer :: n_r_out             ! counts cheb modes
-      real(cp) ::  rhs(n_r_max) ! real RHS for l=m=0
+      integer :: nR             ! counts radial grid points
+      integer :: n_r_out        ! counts cheb modes
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -236,7 +219,7 @@ contains
          ! l value
          !$omp task default(shared) &
          !$omp firstprivate(nLMB2) &
-         !$omp private(lm,lm1,l1,m1,lmB,threadid) &
+         !$omp private(lm,lm1,l1,m1,threadid) &
          !$omp private(nChunks,size_of_last_chunk,iChunk)
          nChunks = (sizeLMB2(nLMB2,nLMB)+chunksize-1)/chunksize
          size_of_last_chunk = chunksize + (sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
@@ -244,30 +227,19 @@ contains
          ! This task treats one l given by l1
          l1=lm22l(1,nLMB2,nLMB)
 
-         if ( l1 == 0 ) then
-            if ( .not. lSmat(l1) ) then
-#ifdef WITH_PRECOND_S0
-               call get_s0Mat(tscheme,s0Mat,s0Mat_fac)
-#else
-               call get_s0Mat(tscheme,s0Mat)
-#endif
-               lSmat(l1)=.true.
-            end if
-         else
-            if ( .not. lSmat(l1) ) then
+         if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
-               call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2),sMat_fac(:,nLMB2))
+            call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2),sMat_fac(:,nLMB2))
 #else
-               call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2))
+            call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2))
 #endif
-               lSmat(l1)=.true.
-            end if
-          end if
+            lSmat(l1)=.true.
+         end if
 
          do iChunk=1,nChunks
             !$omp task default(shared) &
             !$omp firstprivate(iChunk) &
-            !$omp private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
+            !$omp private(lmB0,lm,lm1,m1,nR,n_r_out) &
             !$omp private(threadid)
 #ifdef WITHOMP
             threadid = omp_get_thread_num()
@@ -275,74 +247,43 @@ contains
             threadid = 0
 #endif
             lmB0=(iChunk-1)*chunksize
-            lmB=lmB0
 
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-               !do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
-               !l1 =lm22l(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
 
-               if ( l1 == 0 ) then
-                  rhs(1)      =real(tops(0,0))
-                  rhs(n_r_max)=real(bots(0,0))
-                  do nR=2,n_r_max-1
-                     rhs(nR)=real(work_LMloc(lm1,nR))
-                  end do
+               rhs1(1,2*lm-1,threadid)      = real(tops(l1,m1))
+               rhs1(1,2*lm,threadid)        =aimag(tops(l1,m1))
+               rhs1(n_r_max,2*lm-1,threadid)= real(bots(l1,m1))
+               rhs1(n_r_max,2*lm,threadid)  =aimag(bots(l1,m1))
 
-#ifdef WITH_PRECOND_S0
-                  rhs(:) = s0Mat_fac(:)*rhs(:)
-#endif
-
-                  call s0Mat%solve(rhs)
-
-               else ! l1  /=  0
-
-                  lmB=lmB+1
-
-                  rhs1(1,2*lmB-1,threadid)      = real(tops(l1,m1))
-                  rhs1(1,2*lmB,threadid)        =aimag(tops(l1,m1))
-                  rhs1(n_r_max,2*lmB-1,threadid)= real(bots(l1,m1))
-                  rhs1(n_r_max,2*lmB,threadid)  =aimag(bots(l1,m1))
-
-                  do nR=2,n_r_max-1
-                     rhs1(nR,2*lmB-1,threadid)= real(work_LMloc(lm1,nR))
-                     rhs1(nR,2*lmB,threadid)  =aimag(work_LMloc(lm1,nR))
-                  end do
+               do nR=2,n_r_max-1
+                  rhs1(nR,2*lm-1,threadid)= real(work_LMloc(lm1,nR))
+                  rhs1(nR,2*lm,threadid)  =aimag(work_LMloc(lm1,nR))
+               end do
 
 #ifdef WITH_PRECOND_S
-                  rhs1(:,2*lmB-1,threadid)=sMat_fac(:,nLMB2)*rhs1(:,2*lmB-1,threadid)
-                  rhs1(:,2*lmB,threadid)  =sMat_fac(:,nLMB2)*rhs1(:,2*lmB,threadid)
+               rhs1(:,2*lm-1,threadid)=sMat_fac(:,nLMB2)*rhs1(:,2*lm-1,threadid)
+               rhs1(:,2*lm,threadid)  =sMat_fac(:,nLMB2)*rhs1(:,2*lm,threadid)
 #endif
-               end if
             end do
 
-            if ( lmB  >  lmB0 ) then
-               call sMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*lmB,threadid), &
-                    &                 2*(lmB-lmB0))
-            end if
+            call sMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*(lm-1),threadid), &
+                 &                 2*(lm-1-lmB0))
 
-            lmB=lmB0
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
-               if ( l1 == 0 ) then
+               if ( m1 > 0 ) then
                   do n_r_out=1,rscheme_oc%n_max
-                     s(lm1,n_r_out)=rhs(n_r_out)
+                     s(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lm-1,threadid), &
+                     &                     rhs1(n_r_out,2*lm,threadid),kind=cp)
                   end do
                else
-                  lmB=lmB+1
-                  if ( m1 > 0 ) then
-                     do n_r_out=1,rscheme_oc%n_max
-                        s(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
-                        &                     rhs1(n_r_out,2*lmB,threadid),kind=cp)
-                     end do
-                  else
-                     do n_r_out=1,rscheme_oc%n_max
-                        s(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
-                        &                     0.0_cp,kind=cp)
-                     end do
-                  end if
+                  do n_r_out=1,rscheme_oc%n_max
+                     s(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lm-1,threadid), &
+                     &                     0.0_cp,kind=cp)
+                  end do
                end if
             end do
             !$omp end task
@@ -1051,106 +992,6 @@ contains
 
    end subroutine assemble_entropy
 !-------------------------------------------------------------------------------
-#ifdef WITH_PRECOND_S0
-   subroutine get_s0Mat(tscheme,sMat,sMat_fac)
-#else
-   subroutine get_s0Mat(tscheme,sMat)
-#endif
-      !
-      !  Purpose of this subroutine is to contruct the time step matrix
-      !  sMat0
-      !
-
-      !-- Input variables
-      class(type_tscheme), intent(in) :: tscheme        ! time step
-
-      !-- Output variables
-      class(type_realmat), intent(inout) :: sMat
-#ifdef WITH_PRECOND_S0
-      real(cp), intent(out) :: sMat_fac(n_r_max)
-#endif
-
-      !-- Local variables:
-      real(cp) :: dat(n_r_max,n_r_max)
-      integer :: info,nR_out,nR
-
-      !----- Boundary conditions:
-      if ( ktops == 1 ) then
-         !--------- Constant entropy at CMB:
-         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
-      else
-         !--------- Constant flux at CMB:
-         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
-      end if
-
-      if ( l_full_sphere ) then
-         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-      else
-         if ( kbots == 1 ) then
-            !--------- Constant entropy at ICB:
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-         else
-            !--------- Constant flux at ICB:
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-         end if
-      end if
-
-      if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
-         do nR_out=rscheme_oc%n_max+1,n_r_max
-            dat(1,nR_out)      =0.0_cp
-            dat(n_r_max,nR_out)=0.0_cp
-         end do
-      end if
-
-      !-- Fill bulk points:
-      if ( l_anelastic_liquid ) then
-         do nR_out=1,n_r_max
-            do nR=2,n_r_max-1
-               dat(nR,nR_out)= rscheme_oc%rnorm * (                      &
-               &      rscheme_oc%rMat(nR,nR_out) - tscheme%wimp_lin(1)*  &
-               &       opr*kappa(nR)*(    rscheme_oc%d2rMat(nR,nR_out) + &
-               & (beta(nR)+two*or1(nR)+dLkappa(nR))*                     &
-               &                           rscheme_oc%drMat(nR,nR_out) ) )
-            end do
-         end do
-      else
-         do nR_out=1,n_r_max
-            do nR=2,n_r_max-1
-               dat(nR,nR_out)= rscheme_oc%rnorm * (                     &
-               &      rscheme_oc%rMat(nR,nR_out) - tscheme%wimp_lin(1)* &
-               &      opr*kappa(nR)*(    rscheme_oc%d2rMat(nR,nR_out) + &
-               & (beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR))*        &
-               &                          rscheme_oc%drMat(nR,nR_out) ) )
-            end do
-         end do
-      end if
-
-      !----- Factors for highest and lowest cheb mode:
-      do nR=1,n_r_max
-         dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
-         dat(nR,n_r_max)=rscheme_oc%boundary_fac*dat(nR,n_r_max)
-      end do
-
-#ifdef WITH_PRECOND_S0
-      ! compute the linesum of each line
-      do nR=1,n_r_max
-         sMat_fac(nR)=one/maxval(abs(dat(nR,:)))
-      end do
-      ! now divide each line by the linesum to regularize the matrix
-      do nr=1,n_r_max
-         dat(nR,:) = dat(nR,:)*sMat_fac(nR)
-      end do
-#endif
-
-      !-- Array copy
-      call sMat%set_data(dat)
-
-      !---- LU decomposition:
-      call sMat%prepare(info)
-      if ( info /= 0 ) call abortRun('! Singular matrix sMat0!')
-
-   end subroutine get_s0Mat
-!-----------------------------------------------------------------------------
 #ifdef WITH_PRECOND_S
    subroutine get_sMat(tscheme,l,hdif,sMat,sMat_fac)
 #else
