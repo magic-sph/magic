@@ -1193,7 +1193,7 @@ contains
       ! Local variables
 
       complex(cp), allocatable :: p_global(:)
-      integer  :: l, m, lm, lmg
+      integer  :: l, m, lm
       character(len=72) :: string, lStr
       real(cp) :: work(n_r_max) ! Dummy arrays
       real(cp) :: tmp_gravClm, tmp_gravSlm, tmp_deformClm, tmp_deformSlm
@@ -1259,9 +1259,8 @@ contains
             write(n_gravCoeff_file(l),'(1P,ES16.8E3)',advance='no') time
             write(n_deform_file(l),'(1P,ES16.8E3)',advance='no')    time
 
-            do m=0,l+1
+            do m=m_min,min(l+1,m_max),minc
                lm = lm2(l+1,m)
-               print *,"l,m,lm = ",l+1,m,lm
                write(n_gravCoeff_file(l),'(1P,ES17.8E3,ES17.8E3)',advance='no') real(gravCoeffs(lm)), aimag(gravCoeffs(lm))
                write(n_deform_file(l),'(1P,ES17.8E3,ES17.8E3)',advance='no')    real(deformCoeffs(lm)), aimag(deformCoeffs(lm))
             end do
