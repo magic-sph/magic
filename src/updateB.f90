@@ -390,6 +390,10 @@ contains
       real(cp), save :: direction
 
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
+#ifdef WITH_OMP_GPU
+      integer :: n_max_rSchemeOc
+      n_max_rSchemeOc = rscheme_oc%n_max
+#endif
 
       if ( .not. l_update_b ) return
 
@@ -417,6 +421,15 @@ contains
 
 #ifndef WITH_OMP_GPU
       !$omp parallel default(shared)
+#endif
+
+#ifdef WITH_OMP_GPU
+      if ( l_b_nl_icb ) then
+         !$omp target data map(to: aj_nl_icb)
+      end if
+      if ( l_b_nl_cmb ) then
+         !$omp target data map(to: aj_nl_cmb, b_nl_cmb)
+      end if
 #endif
 
       if ( lRmsNext .and. tscheme%istage == 1 ) then ! Store old b,aj
@@ -688,7 +701,7 @@ contains
                m1=lm22m(lm,nLMB2,nLMB)
 
                if ( m1 > 0 ) then
-                  do n_r_out=1,rscheme_oc%n_max  ! outer core
+                  do n_r_out=1,n_max_rSchemeOc  ! outer core
                      b(lm1,n_r_out) =cmplx(rhs1(n_r_out,2*lm-1,0), &
                      &                     rhs1(n_r_out,2*lm,0),cp)
                      aj(lm1,n_r_out)=cmplx(rhs2(n_r_out,2*lm-1,0), &
@@ -703,7 +716,7 @@ contains
                      end do
                   end if
                else
-                  do n_r_out=1,rscheme_oc%n_max   ! outer core
+                  do n_r_out=1,n_max_rSchemeOc   ! outer core
                      b(lm1,n_r_out) = cmplx(rhs1(n_r_out,2*lm-1,0), &
                      &                      0.0_cp,kind=cp)
                      aj(lm1,n_r_out)= cmplx(rhs2(n_r_out,2*lm-1,0), &
@@ -725,7 +738,7 @@ contains
 
             lm1 = lo_map%lm2(0,0)
             !$omp target teams distribute parallel do
-            do n_r_out=1,rscheme_oc%n_max  ! outer core
+            do n_r_out=1,n_max_rSchemeOc  ! outer core
                b(lm1,n_r_out) =zero
                aj(lm1,n_r_out)=zero
             end do
@@ -1067,12 +1080,11 @@ contains
       !   for inner core modes > 2*n_cheb_ic_max = 0
 #ifdef WITH_OMP_GPU
       !$omp target teams
+      do n_r_out=n_max_rSchemeOc+1,n_r_max
+         !$omp distribute parallel do
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
-#endif
       do n_r_out=rscheme_oc%n_max+1,n_r_max
-#ifdef WITH_OMP_GPU
-         !$omp distribute parallel do
 #endif
          do lm1=llmMag,ulmMag
             b(lm1,n_r_out) =zero
@@ -1155,6 +1167,15 @@ contains
                  &                  l_in_cheb_space=.true.)
          end if
       end if
+
+#ifdef WITH_OMP_GPU
+      if ( l_b_nl_icb ) then
+         !$omp end target data
+      end if
+      if ( l_b_nl_cmb ) then
+         !$omp end target data
+      end if
+#endif
 
    end subroutine updateB
 !-----------------------------------------------------------------------------

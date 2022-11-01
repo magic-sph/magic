@@ -437,6 +437,7 @@ contains
       complex(cp), pointer :: ptr_expl(:,:)
       real(cp) :: wimp_lin
       integer :: nRows
+      integer :: n_max_rSchemeOc
       ptr_expl => dwdt%expl(:,:,tscheme%istage)
       wimp_lin = tscheme%wimp_lin(1)
       if( l_double_curl ) then
@@ -444,6 +445,7 @@ contains
       else
          nRows = 2*n_r_max
       end if
+      n_max_rSchemeOc = rscheme_oc%n_max
 #endif
 
       if ( .not. l_update_v ) return
@@ -552,7 +554,7 @@ contains
             end if
 
             !$omp target teams distribute parallel do
-            do n_r_out=1,rscheme_oc%n_max
+            do n_r_out=1,n_max_rSchemeOc
                p(lm1,n_r_out)=rhs(n_r_out)
                w(lm1,n_r_out)=zero
             end do
@@ -678,26 +680,26 @@ contains
 
                if ( l_double_curl ) then
                   if ( m1 > 0 ) then
-                     do n_r_out=1,rscheme_oc%n_max
+                     do n_r_out=1,n_max_rSchemeOc
                         w(lm1,n_r_out)  =cmplx(rhs1(n_r_out,2*lm-1,0), &
                         &                      rhs1(n_r_out,2*lm,0),cp)
                      end do
                   else
-                     do n_r_out=1,rscheme_oc%n_max
+                     do n_r_out=1,n_max_rSchemeOc
                         w(lm1,n_r_out)  = cmplx(rhs1(n_r_out,2*lm-1,0),&
                         &                       0.0_cp,kind=cp)
                      end do
                   end if
                else
                   if ( m1 > 0 ) then
-                     do n_r_out=1,rscheme_oc%n_max
+                     do n_r_out=1,n_max_rSchemeOc
                         w(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lm-1,0), &
                         &                    rhs1(n_r_out,2*lm,0),cp)
                         p(lm1,n_r_out)=cmplx(rhs1(n_r_max+n_r_out,2*lm-1,0), &
                         &                    rhs1(n_r_max+n_r_out,2*lm,0),cp)
                      end do
                   else
-                     do n_r_out=1,rscheme_oc%n_max
+                     do n_r_out=1,n_max_rSchemeOc
                         w(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lm-1,0), &
                         &                     0.0_cp,kind=cp)
                         p(lm1,n_r_out)= cmplx(rhs1(n_r_max+n_r_out,2*lm-1,0), &
@@ -948,12 +950,11 @@ contains
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
       !$omp target teams
+      do n_r_out=n_max_rSchemeOc+1,n_r_max
+         !$omp distribute parallel do
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
-#endif
       do n_r_out=rscheme_oc%n_max+1,n_r_max
-#ifdef WITH_OMP_GPU
-         !$omp distribute parallel do
 #endif
          do lm1=llm,ulm
             w(lm1,n_r_out)=zero

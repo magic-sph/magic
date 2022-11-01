@@ -279,6 +279,11 @@ contains
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
       integer :: threadid,iChunk,nChunks,size_of_last_chunk,lmB0
 
+#ifdef WITH_OMP_GPU
+      integer :: n_max_rSchemeOc
+      n_max_rSchemeOc = rscheme_oc%n_max
+#endif
+
       if ( .not. l_update_s ) return
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
@@ -384,12 +389,12 @@ contains
             lm1=lm22lm(lm,nLMB2,nLMB)
             m1=lm22m(lm,nLMB2,nLMB)
             if ( m1 > 0 ) then
-               do n_r_out=1,rscheme_oc%n_max
+               do n_r_out=1,n_max_rSchemeOc
                   s(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lm-1,0), &
                   &                     rhs1(n_r_out,2*lm,0),kind=cp)
                end do
             else
-               do n_r_out=1,rscheme_oc%n_max
+               do n_r_out=1,n_max_rSchemeOc
                   s(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lm-1,0), &
                   &                     0.0_cp,kind=cp)
                end do
@@ -494,12 +499,11 @@ contains
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
       !$omp target teams private(lm1)
+      do n_r_out=n_max_rSchemeOc+1,n_r_max
+         !$omp distribute parallel do
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
-#endif
       do n_r_out=rscheme_oc%n_max+1,n_r_max
-#ifdef WITH_OMP_GPU
-         !$omp distribute parallel do
 #endif
          do lm1=llm,ulm
             s(lm1,n_r_out)=zero

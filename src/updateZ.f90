@@ -359,7 +359,11 @@ contains
 
 #ifdef WITH_OMP_GPU
       real(cp) :: wimp_lin
+      integer :: n_max_rSchemeOc
+      integer :: l1m0_rotRates
+      l1m0_rotRates = lo_map%lm2(1,0)
       wimp_lin = tscheme%wimp_lin(1)
+      n_max_rSchemeOc = rscheme_oc%n_max
 #endif
 
       if ( l_precession ) then
@@ -547,17 +551,17 @@ contains
                m1 =lm22m(lm,nLMB2,nLMB)
 
                if ( l_z10mat .and. lm1 == l1m0 ) then
-                  do n_r_out=1,rscheme_oc%n_max
+                  do n_r_out=1,n_max_rSchemeOc
                      z(lm1,n_r_out)=real(rhs(n_r_out))
                   end do
                else
                   if ( m1 > 0 ) then
-                     do n_r_out=1,rscheme_oc%n_max
+                     do n_r_out=1,n_max_rSchemeOc
                         z(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lm-1,0), &
                         &                    rhs1(n_r_out,2*lm,0),kind=cp)
                      end do
                   else
-                     do n_r_out=1,rscheme_oc%n_max
+                     do n_r_out=1,n_max_rSchemeOc
                         z(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lm-1,0), &
                         &                    0.0_cp,kind=cp)
                      end do
@@ -570,7 +574,7 @@ contains
 
             lm1 = lm2(0,0)
             !$omp target teams distribute parallel do
-            do n_r_out=1,rscheme_oc%n_max
+            do n_r_out=1,n_max_rSchemeOc
                z(lm1,n_r_out)=zero
             end do
             !$omp end target teams distribute parallel do
@@ -776,12 +780,11 @@ contains
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
       !$omp target teams
+      do n_r_out=n_max_rSchemeOc+1,n_r_max
+         !$omp distribute parallel do
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
-#endif
       do n_r_out=rscheme_oc%n_max+1,n_r_max
-#ifdef WITH_OMP_GPU
-         !$omp distribute parallel do
 #endif
          do lm1=llm,ulm
             z(lm1,n_r_out)=zero
@@ -805,7 +808,10 @@ contains
       call tscheme%rotate_imex_scalar(lorentz_torque_ic_dt)
 
 #ifdef WITH_OMP_GPU
-      !$omp target update from(z) !-- Mandatory for update_rot_rates
+      if ( llm <= l1m0_rotRates .and. ulm >= l1m0_rotRates )then
+         !-- update_rot_rates will be executed
+         !$omp target update from(z)
+      end if
 #endif
 
       !-- Calculation of the implicit part
