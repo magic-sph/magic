@@ -39,6 +39,7 @@ module preCalculations
    use useful, only: logWrite, abortRun
    use special, only: l_curr, fac_loop, loopRadRatio, amp_curr, Le
    use time_schemes, only: type_tscheme
+   use outMisc_mod, only: setGravCoeff
 
    implicit none
 
@@ -763,6 +764,7 @@ contains
 
       end if
 
+      if ( l_grav ) call setGravCoeff()
 
    end subroutine preCalc
 !-------------------------------------------------------------------------------

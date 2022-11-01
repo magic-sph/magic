@@ -437,6 +437,8 @@ contains
                                    &        timeNormLog,l_stop_time,nLogs,  &
                                    &        s_LMloc,ds_LMloc,phi_LMloc)
 
+         if ( l_grav_out ) call outGrav(s_LMloc,p_LMloc(:,n_r_cmb),time)
+
          if ( l_par ) then
             call outGeos(timeScaled,Geos,GeosA,GeosZ,GeosM,GeosNAP,EC)
             dpV=0.0_cp ! To be handled later
@@ -461,8 +463,6 @@ contains
             dmB=0.0_cp
          end if
       end if
-
-      if ( l_grav_out ) call outGrav(s_LMloc,p_LMloc(:,n_r_cmb),time)
 
       if ( l_spectrum ) then
          n_spec=n_spec+1

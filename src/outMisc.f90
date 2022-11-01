@@ -59,7 +59,7 @@ module outMisc_mod
 
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
    &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
-   &         get_onset, outGrav
+   &         get_onset, setGravCoeff, outGrav
 
 contains
 
@@ -173,9 +173,8 @@ contains
                open(newunit=n_press_file(l),file=press_file,status='new')
             end do
          end if
-
-         call setGravCoeff()
       end if
+
    end subroutine initialize_outMisc_mod
 !----------------------------------------------------------------------------------
    subroutine finalize_outMisc_mod()
@@ -1154,31 +1153,36 @@ contains
       integer :: i, l, n_kcoeff_file, n_hcoeff_file
       character(len=72) :: kCoeff_file, hCoeff_file, lStr
 
-      allocate(kcoeff( fitOrder+1,1 ))
-      allocate(hcoeff( fitOrder+1,1 ))
+      allocate(kcoeff(fitOrder+1,l_max_grav-1)) ! Column major in Fortran
+      allocate(hcoeff(fitOrder+1,l_max_grav-1))
       allocate(kGrav(l_max_grav-1,n_r_max))
       allocate(hGrav(l_max_grav-1,n_r_max))
 
       kGrav(:,:) = 0.0_cp
       hGrav(:,:) = 0.0_cp
 
+
+      kcoeff = reshape([1.7033904_cp,     -5.9843184_cp,   1.0558444e1_cp,  -9.3612576_cp,   4.1010656_cp,  -7.1267229e-1_cp, &
+                 &      1.0691345_cp,     -4.7578810_cp,   8.6915485_cp,    -7.8928595_cp,   3.5253456_cp,  -6.2191826e-1_cp, &
+                 &      8.1270200e-1_cp,  -4.1280332_cp,   7.6926436_cp,    -7.0890479_cp,   3.2049389_cp,  -5.7092548e-1_cp, &
+                 &      6.7483622e-1_cp,  -3.6817108_cp,   6.9475365_cp,    -6.4644508_cp,   2.9462365_cp,  -5.2832547e-1_cp, &
+                 &      5.7947703e-1_cp,  -3.2965898_cp,   6.2729546_cp,    -5.8755584_cp,   2.6928093_cp,  -4.8512726e-1_cp],&
+                 &      shape(kcoeff))
+
+      hcoeff = reshape([3.5494556_cp,  -7.8571955_cp,   1.3862858e1_cp,  -1.2290994e1_cp,   5.3845508_cp,  -9.3571285e-1_cp, &
+                  &     2.7307211_cp,  -6.2791501_cp,   1.1470550e1_cp,  -1.0416488e1_cp,   4.6525232_cp,  -8.2076734e-1_cp, &
+                  &     2.2787719_cp,  -5.1895963_cp,   9.6709260_cp,    -8.9121401_cp,     4.0291679_cp,  -7.1775518e-1_cp, &
+                  &     2.0258254_cp,  -4.4546800_cp,   8.4064099_cp,    -7.8220676_cp,     3.5650613_cp,  -6.3930630e-1_cp, &
+                  &     1.8851893_cp,  -3.9642913_cp,   7.5462501_cp,    -7.0699683_cp,     3.2409892_cp,  -5.8399811e-1_cp],&
+                  shape(hcoeff))
+
       do l=1,l_max_grav-1
-         write(lStr,*) l+1
-         kCoeff_file='surface_density_k_'//trim(adjustl(lStr))//'_poly.dat'
-         hCoeff_file='surface_density_h_'//trim(adjustl(lStr))//'_poly.dat'
-
-         open(newunit=n_kcoeff_file,file=kcoeff_file,status='old')
-         open(newunit=n_hcoeff_file,file=hcoeff_file,status='old')
-         read(n_kcoeff_file,*) kcoeff
-         read(n_hcoeff_file,*) hcoeff
-         close(n_kcoeff_file)
-         close(n_hcoeff_file)
-
          do i=1,fitOrder+1
-            kGrav(l,:) = kGrav(l,:) + kcoeff(i,1)*r(:)**(i-1)
-            hGrav(l,:) = hGrav(l,:) + hcoeff(i,1)*r(:)**(i-1)
+            kGrav(l,:) = kGrav(l,:) + kcoeff(i,l)*r(:)**(i-1)
+            hGrav(l,:) = hGrav(l,:) + hcoeff(i,l)*r(:)**(i-1)
          end do
       end do
+
    end subroutine setGravCoeff
 
    subroutine outGrav(s,p,time)
@@ -1195,7 +1199,7 @@ contains
       real(cp) :: work(n_r_max) ! Dummy arrays
       real(cp) :: tmp_gravClm, tmp_gravSlm, tmp_deformClm, tmp_deformSlm
       complex(cp) :: grav_cmplx(llm:ulm), deform_cmplx(llm:ulm)
-      complex(cp) :: gravCoeffs(lm_max), deformCoeffs(lm_max)
+      complex(cp), allocatable :: gravCoeffs(:), deformCoeffs(:)
 
       ! call dble2str(time,string)
 
@@ -1228,8 +1232,12 @@ contains
 
       if ( rank == 0 ) then
          allocate( p_global(lm_max) )
+         allocate( gravCoeffs(lm_max) )
+         allocate( deformCoeffs(lm_max) )
       else
          allocate( p_global(1) )
+         allocate( gravCoeffs(1) )
+         allocate( deformCoeffs(1) )
       end if
 
       call gather_from_lo_to_rank0(p, p_global)
@@ -1253,7 +1261,8 @@ contains
             write(n_deform_file(l),'(1P,ES16.8E3)',advance='no')    time
 
             do m=0,l+1
-               lm = lm2(l,m)
+               lm = lm2(l+1,m)
+               print *,"l,m,lm = ",l+1,m,lm
                write(n_gravCoeff_file(l),'(1P,ES17.8E3,ES17.8E3)',advance='no') real(gravCoeffs(lm)), aimag(gravCoeffs(lm))
                write(n_deform_file(l),'(1P,ES17.8E3,ES17.8E3)',advance='no')    real(deformCoeffs(lm)), aimag(deformCoeffs(lm))
             end do
