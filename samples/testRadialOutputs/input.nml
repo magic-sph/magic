@@ -16,6 +16,8 @@ n_cheb_ic_max=14,
  runHours    =10,
  runMinutes  =10,
  time_scheme ='BPR353',
+l_correct_AMz=.true.,
+l_correct_AMe=.true.,
 /
 &phys_param
  ra          =3.38D4,

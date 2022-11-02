@@ -12,6 +12,8 @@ def cleanDir(dir):
         os.remove('%s/pscond.dat' % dir)
     if os.path.exists('%s/scond.dat' % dir):
         os.remove('%s/scond.dat' % dir)
+    if os.path.exists('%s/xicond.dat' % dir):
+        os.remove('%s/xicond.dat' % dir)
     if os.path.exists('%s/run_magic.sh' % dir):
         os.remove('%s/run_magic.sh' % dir)
     if os.path.exists('%s/run_magic_mpi.sh' % dir):
