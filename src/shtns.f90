@@ -1,4 +1,3 @@
-!#define QUICK_TEST
 module sht
    !
    ! This module contains is a wrapper of the SHTns routines used in MagIC
@@ -14,10 +13,6 @@ module sht
    use horizontal_data, only: dLh
    use radial_data, only: nRstart, nRstop
    use parallel_mod
-#ifdef WITH_OMP_GPU
-   use hipfort_check, only: hipCheck
-   use hipfort, only: hipDeviceSynchronize
-#endif
 
    implicit none
 
@@ -34,7 +29,7 @@ module sht
    &         sphtor_to_spat, toraxi_to_spat, finalize_sht, torpol_to_spat_single
 
 #ifdef WITH_OMP_GPU
-   type(c_ptr), public :: sht_l, sht_l_single, sht_l_gpu
+   type(c_ptr), public :: sht_l, sht_l_single, sht_l_gpu, sht_l_single_gpu
 #else
    type(c_ptr), public :: sht_l, sht_l_single
 #endif
@@ -82,15 +77,6 @@ contains
       norm = SHT_ORTHONORMAL + SHT_NO_CS_PHASE
 #ifdef SHT_PADDING
 #ifdef WITH_OMP_GPU
-#ifdef QUICK_TEST
-      if ( .not. l_batched_sh ) then
-         layout     = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
-         layout_gpu = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING + SHT_ALLOW_GPU
-      else
-         layout     = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS
-         layout_gpu = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS + SHT_ALLOW_GPU
-      end if
-#else
       if ( .not. l_batched_sh ) then
          layout     = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
          layout_gpu = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING + SHT_ALLOW_GPU
@@ -98,7 +84,6 @@ contains
          layout     = SHT_GAUSS + SHT_THETA_CONTIGUOUS
          layout_gpu = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_GPU
       end if
-#endif
 #else
       if ( .not. l_batched_sh ) then
          !layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
@@ -110,13 +95,8 @@ contains
 #endif
 #else
 #ifdef WITH_OMP_GPU
-#ifdef QUICK_TEST
-      layout     = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS
-      layout_gpu = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS + SHT_ALLOW_GPU
-#else
       layout     = SHT_GAUSS + SHT_THETA_CONTIGUOUS
       layout_gpu = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_GPU
-#endif
 #else
       !layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS
       layout = SHT_GAUSS + SHT_THETA_CONTIGUOUS
@@ -163,8 +143,16 @@ contains
          sht_l_single = shtns_create(l_max, m_max/minc, minc, norm)
          call shtns_set_grid(sht_l_single, layout, eps_polar, n_theta_max, n_phi_max)
          call shtns_robert_form(sht_l_single, 1) ! Use Robert's form
+#ifdef WITH_OMP_GPU
+         sht_l_single_gpu = shtns_create(l_max, m_max/minc, minc, norm)
+         call shtns_set_grid(sht_l_single_gpu, layout_gpu, eps_polar, n_theta_max, n_phi_max)
+         call shtns_robert_form(sht_l_single_gpu, 1) ! Use Robert's form
+#endif
       else
          sht_l_single = sht_l
+#ifdef WITH_OMP_GPU
+         sht_l_single_gpu = sht_l_gpu
+#endif
       end if
 
       !-- Set a l=1, m=0 mode to determine whether scrambling is there or not
@@ -192,6 +180,10 @@ contains
 #ifdef WITH_OMP_GPU
       call shtns_unset_grid(sht_l_gpu)
       call shtns_destroy(sht_l_gpu)
+      if ( l_batched_sh ) then
+         call shtns_unset_grid(sht_l_single_gpu)
+         call shtns_destroy(sht_l_single_gpu)
+      end if
 #endif
 
    end subroutine finalize_sht
@@ -222,7 +214,6 @@ contains
       if(loc_use_gpu) then
          !$omp target data use_device_addr(Slm, fieldc)
          call cu_SH_to_spat(sh, Slm, fieldc, lcut)
-!         call hipCheck(hipDeviceSynchronize())
          !$omp end target data
       else
          call SH_to_spat_l(sh, Slm, fieldc, lcut)
@@ -260,7 +251,6 @@ contains
       if(loc_use_gpu) then
          !$omp target data use_device_addr(Slm, gradtc, gradpc)
          call cu_SHsph_to_spat(sht_l_gpu, Slm, gradtc, gradpc, lcut)
-!         call hipCheck(hipDeviceSynchronize())
          !$omp end target data
       else
          call SHsph_to_spat_l(sht_l, Slm, gradtc, gradpc, lcut)
@@ -297,7 +287,6 @@ contains
       if(loc_use_gpu) then
          !$omp target data use_device_addr(Wlm, dWlm, Zlm, vrc, vtc, vpc)
          call cu_SHqst_to_spat(sht_l_gpu, Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
-!         call hipCheck(hipDeviceSynchronize())
          !$omp end target data
       else
          call SHqst_to_spat_l(sht_l, Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
@@ -365,7 +354,6 @@ contains
       if(loc_use_gpu) then
          !$omp target data use_device_addr(dWlm, Zlm, vtc, vpc)
          call cu_SHsphtor_to_spat(sh, dWlm, Zlm, vtc, vpc, lcut)
-!         call hipCheck(hipDeviceSynchronize())
          !$omp end target data
       else
          call SHsphtor_to_spat_l(sh, dWlm, Zlm, vtc, vpc, lcut)
@@ -489,7 +477,6 @@ contains
       if(loc_use_gpu) then
          !$omp target data use_device_addr(f, fLM)
          call cu_spat_to_SH(sh, f, fLM, lcut)
-!         call hipCheck(hipDeviceSynchronize())
          !$omp end target data
       else
          call spat_to_SH_l(sh, f, fLM, lcut)
@@ -528,7 +515,6 @@ contains
       if(loc_use_gpu) then
          !$omp target data use_device_addr(f, g, h, qLM, sLM, tLM)
          call cu_spat_to_SHqst(sht_l_gpu, f, g, h, qLM, sLM, tLM, lcut)
-!         call hipCheck(hipDeviceSynchronize())
          !$omp end target data
       else
          call spat_to_SHqst_l(sht_l, f, g, h, qLM, sLM, tLM, lcut)
@@ -566,7 +552,6 @@ contains
       if(loc_use_gpu) then
          !$omp target data use_device_addr(f, g, fLM, gLM)
          call cu_spat_to_SHsphtor(sh, f, g, fLM, gLM, lcut)
-!         call hipCheck(hipDeviceSynchronize())
          !$omp end target data
       else
          call spat_to_SHsphtor_l(sh, f, g, fLM, gLM, lcut)
