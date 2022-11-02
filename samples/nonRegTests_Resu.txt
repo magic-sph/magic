@@ -21,4 +21,5 @@ testRMSOutputs[NOK: (shapes (324,), (270,) mismatch)]
 time_schemes [NOK: (shapes (846,), (774,) mismatch)]
 
 02/11/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 2 MPI x 2 OMP - l_batched_shts=.true. - CPU
-Work in progress
+time_schemes [NOK: (shapes (846,), (684,) mismatch)]
+
