@@ -1255,6 +1255,10 @@ contains
       integer :: lmStart_00, l1, m1, l1m0, l1m1
       integer, pointer :: lm2l(:),lm2m(:), lm2(:,:)
       real(cp), allocatable :: ddzASL_loc(:,:)
+      integer :: loc_istage, loc_nstage
+
+      loc_istage = tscheme%istage
+      loc_nstage = tscheme%nstages
 
       allocate(z10(n_r_max), z11(n_r_max))
       allocate(ddzASL_loc(l_max+1,n_r_max))
@@ -1473,10 +1477,7 @@ contains
          end if
 
 #ifdef WITH_OMP_GPU
-            !-- TODO: Make testRMSOutputs (for restart) fails :
-            !-- ACC: libcrayacc/acc_dopevector.c:31 CRAY_ACC_ERROR - Invalid dope vector
-            !$omp target update from(work_LMloc, z, dz, dzdt) !-- TODO: Remove after solving this problem
-!            !$omp target teams distribute parallel do private(Dif,l1,m1,dL)
+         !$omp target teams distribute parallel do collapse(2) private(Dif,l1,m1,dL)
 #else
          !$omp do private(n_r,lm,l1,m1,dL,Dif)
 #endif
@@ -1496,14 +1497,13 @@ contains
                   dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
                   &                        sin(oek*time),-cos(oek*time),kind=cp)
                end if
-               if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
+               if ( lRmsNext .and. loc_istage==loc_nstage ) then
                   DifTor2hInt(l1,n_r)=DifTor2hInt(l1,n_r)+r(n_r)**4/dL*cc2real(Dif,m1)
                end if
             end do
          end do
 #ifdef WITH_OMP_GPU
-!            !$omp end target teams distribute parallel do
-         !$omp target update to(dzdt) !-- TODO: Remove after solving this problem
+         !$omp end target teams distribute parallel do
 #else
          !$omp end do
 #endif
