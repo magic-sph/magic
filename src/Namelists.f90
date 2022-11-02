@@ -1351,7 +1351,7 @@ contains
       ldifexp       =-1
 
       !-- In case one wants to treat the advection term as u \curl{u}
-      l_adv_curl=.false.
+      l_adv_curl=.true.
 
       !----- Namelist phys_param:
       ra          =0.0_cp

@@ -17,7 +17,6 @@ n_cheb_ic_max=17,
  alpha       =0.6D0,
  runHours    =12,
  runMinutes  =00,
- l_adv_curl  =.true.,
 /
 &phys_param
  ra          =2.0D5,

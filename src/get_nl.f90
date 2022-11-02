@@ -776,6 +776,14 @@ contains
 
          end if  ! Navier-Stokes nonlinear advection term ?
 
+         !-- Coriolis force in physical space
+         !this%Advr(:,nPhi)=this%Advr(:,nPhi) + two*CorFac*r(nR)*this%vpc(:,nPhi)
+         !this%Advt(:,nPhi)=this%Advt(:,nPhi) + two*CorFac*cosTheta(:)* &
+         !&                 this%vpc(:,nPhi)*or2(nR)
+         !this%Advp(:,nPhi)=this%Advp(:,nPhi) - two*CorFac*sinTheta(:)*or1(nR)*    &
+         !&                 (or1(nR)*cosTheta(:)*O_sin_theta(:)*this%vtc(:,nPhi) + &
+         !&                                 or2(nR)*sinTheta(:)*this%vrc(:,nPhi) )
+
          if ( l_heat_nl .and. nBc == 0 ) then
             !------ Get V S, the divergence of it is entropy advection:
             this%VSr(:,nPhi)=this%vrc(:,nPhi)*this%sc(:,nPhi)
