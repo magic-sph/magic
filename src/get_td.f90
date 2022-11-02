@@ -503,7 +503,7 @@ contains
 
          if ( l_phase_field ) then
 #ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel
+            !$omp target teams distribute parallel do
 #else
             !$omp parallel do default(shared)
 #endif
