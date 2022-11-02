@@ -2475,9 +2475,9 @@ contains
                djdt%impl(lm,n_r,istage)= opm*lambda(n_r)*hdif_B(l1)*           &
                &                    dL*or2(n_r)*( ddj(lm,n_r)+dLlambda(n_r)*   &
                &                    dj(lm,n_r)-dL*or2(n_r)*aj(lm,n_r) )
-               if ( lRmsNext .and. tscheme%istage == tscheme%nstages ) then
-                  dtP=dL*or2(n_r)/tscheme%dt(1) * (  b(lm,n_r)-workA(lm,n_r) )
-                  dtT=dL*or2(n_r)/tscheme%dt(1) * ( aj(lm,n_r)-workB(lm,n_r) )
+               if ( lRmsNext .and. loc_istage == loc_nstage ) then
+                  dtP=dL*or2(n_r)/loc_dt * (  b(lm,n_r)-workA(lm,n_r) )
+                  dtT=dL*or2(n_r)/loc_dt * ( aj(lm,n_r)-workB(lm,n_r) )
                   dtBPolLMr(lm,n_r)  =r(n_r)**2/dL * dtP
                   dtBPol2hInt(lm,n_r)=r(n_r)**2 * cc2real(dtP, m1)
                   dtBTor2hInt(lm,n_r)=r(n_r)**4/dL * cc2real(dtT, m1)
