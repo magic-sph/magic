@@ -1406,7 +1406,9 @@ contains
       !-- Local variables:
       integer :: info, nR_out, nR
       real(cp) :: dLh
+      real(cp) :: wimp_lin
 
+      wimp_lin = tscheme%wimp_lin(1)
       dLh=real(l*(l+1),kind=cp)
 
       !----- Boundary conditions:
@@ -1479,7 +1481,7 @@ contains
          do nR=2,n_r_max-1
             dat(nR,nR_out)= rscheme_oc%rnorm * (                           &
             &                                 rscheme_oc%rMat(nR,nR_out) - &
-            & tscheme%wimp_lin(1)*osc*hdif*(rscheme_oc%d2rMat(nR,nR_out) + &
+            & wimp_lin*osc*hdif*(rscheme_oc%d2rMat(nR,nR_out) +            &
             &   ( beta(nR)+two*or1(nR) )*    rscheme_oc%drMat(nR,nR_out) - &
             &        dLh*or2(nR)*             rscheme_oc%rMat(nR,nR_out) ) )
          end do
