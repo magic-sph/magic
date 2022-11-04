@@ -263,7 +263,7 @@ contains
             botval= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
             if ( abs(s_LMloc(lm00,n_r_cmb)-topval) <= 10.0_cp*epsilon(one) .and. &
             &    abs(s_LMloc(lm00,n_r_icb)-botval) <= 10.0_cp*epsilon(one) ) then
-               s_LMloc(lm00,:)=s_LMloc(lm00,:)-topval
+               s_LMloc(lm00,:)=s_LMloc(lm00,:)-cmplx(topval,0.0_cp,cp)
             end if
          end if
 
@@ -274,7 +274,7 @@ contains
             botval= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
             if ( abs(xi_LMloc(lm00,n_r_cmb)-topval) <= 10.0_cp*epsilon(one) .and. &
             &    abs(xi_LMloc(lm00,n_r_icb)-botval) <= 10.0_cp*epsilon(one) ) then
-               xi_LMloc(lm00,:)=xi_LMloc(lm00,:)-topval
+               xi_LMloc(lm00,:)=xi_LMloc(lm00,:)-cmplx(topval,0.0_cp,cp)
             end if
          end if
 

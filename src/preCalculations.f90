@@ -462,8 +462,7 @@ contains
                      call abortRun('Stop run in preCalc')
                   end if
                   bots(0,0)=epsc*pr*facIH/(four*pi*r_icb**2 * botconduc )
-                  call logWrite( &
-                       '! CMB heat flux set to balance volume sources!')
+                  call logWrite('! CMB heat flux set to balance volume sources!')
 
                else if ( tops(0,0) /= 0.0_cp .and. bots(0,0) == 0.0_cp ) then
 
@@ -477,11 +476,11 @@ contains
                   end if
                   help=real(tops(0,0))
                   if ( abs(real(tops(0,0))) == sq4pi ) &
-                       call logWrite('! You intend to use the CMB flux as buoy. scale??')
+                  &    call logWrite('! You intend to use the CMB flux as buoy. scale??')
                   tops(0,0)=-facIH*epsc*pr/(four*pi*r_cmb**2) + &
-                            radratio**2*botconduc*bots(0,0)
-                  if ( real(tops(0,0)) /= help ) call logWrite( &
-                       '!!!! WARNING: CMB heat flux corrected !!!!')
+                  &          radratio**2*botconduc*bots(0,0)
+                  if ( real(tops(0,0)) /= help ) &
+                     call logWrite('!!!! WARNING: CMB heat flux corrected !!!!')
 
                else if ( tops(0,0) /= 0.0_cp .and. bots(0,0) /= 0.0_cp ) then
 
@@ -493,9 +492,9 @@ contains
                      write(output_unit,*) '! epsc0>0.                        '
                      call abortRun('Stop run in preCalc')
                   end if
-                  help=four*pi*opr*facIH *            &
-                       (r_icb**2*real(bots(0,0))*botconduc - &
-                        r_cmb**2*real(tops(0,0))*topconduc)
+                  help=four*pi*opr*facIH *                   &
+                  &    (r_icb**2*real(bots(0,0))*botconduc - &
+                  &     r_cmb**2*real(tops(0,0))*topconduc)
                   if ( help /= epsc ) then
                      write(output_unit,*) '! NOTE: when flux BC through the '
                      write(output_unit,*) '! ICB and CMB are used the sources '
@@ -506,21 +505,20 @@ contains
                end if
 
             else if ( epsc0 == 0.0_cp .and. ( tops(0,0) /= 0.0_cp .or. &
-                                            bots(0,0) /= 0.0_cp ) ) then
+            &                               bots(0,0) /= 0.0_cp ) ) then
                !--- Correct epsc0 to balance the difference between
                !    flux through the inner and outer boundary:
-               epsc=four*pi/pr/facIH *          &
-                    (r_icb**2*real(bots(0,0))*botconduc - &
-                     r_cmb**2*real(tops(0,0))*topconduc)
-               call logWrite( &
-                    '! Sources introduced to balance surface heat flux!')
+               epsc=four*pi/pr/facIH *                    &
+               &    (r_icb**2*real(bots(0,0))*botconduc - &
+               &     r_cmb**2*real(tops(0,0))*topconduc)
+               call logWrite('! Sources introduced to balance surface heat flux!')
                write(message,'(''!      epsc0='',ES16.6)') epsc/sq4pi
                call logWrite(message)
             else if ( epsc0 /= 0.0_cp .and. tops(0,0) /= 0.0_cp .and. &
-                                          bots(0,0) /= 0.0_cp ) then
-               help=four*pi/pr/facIH *          &
-                    (r_icb**2*real(bots(0,0))*botconduc - &
-                     r_cmb**2*real(tops(0,0))*topconduc)
+            &                             bots(0,0) /= 0.0_cp ) then
+               help=four*pi/pr/facIH *                    &
+               &    (r_icb**2*real(bots(0,0))*botconduc - &
+               &     r_cmb**2*real(tops(0,0))*topconduc)
                if ( help /= epsc ) then
                   write(output_unit,*) '! NOTE: when flux BC through the '
                   write(output_unit,*) '! ICB and/or CMB is used the sources '
@@ -541,34 +539,40 @@ contains
          end if
          if ( ktops == 1 ) then
             write(message,'(''! Const. entropy at outer boundary S ='',ES16.6)') &
-                  real(tops(0,0))/sq4pi
+            &     real(tops(0,0))/sq4pi
             call logWrite(message)
          else if ( ktops == 2 ) then
             help=surf_cmb*topconduc*real(tops(0,0))/sq4pi
-            write(message,'(''! Const. total outer boundary entropy flux    ='',ES16.6)') help
+            write(message,'(''! Const. total outer boundary entropy flux    ='',ES16.6)') &
+            &     help
             call logWrite(message)
          else if ( ktops == 3 ) then
             write(message,'(''! Const. temp. at outer boundary S ='',ES16.6)') &
-                  real(tops(0,0))/sq4pi
+            &     real(tops(0,0))/sq4pi
             call logWrite(message)
          else if ( ktops == 4 ) then
             help=surf_cmb*topconduc*real(tops(0,0))/sq4pi
-            write(message,'(''! Const. total outer boundary temp. flux    ='',ES16.6)') help
+            write(message,'(''! Const. total outer boundary temp. flux    ='',ES16.6)') &
+            &     help
             call logWrite(message)
          end if
          if ( kbots == 1 ) then
-            write(message,'(''! Const. entropy at inner boundary S ='',ES16.6)') real(bots(0,0))/sq4pi
+            write(message,'(''! Const. entropy at inner boundary S ='',ES16.6)') &
+            &     real(bots(0,0))/sq4pi
             call logWrite(message)
          else if ( kbots == 2 ) then
             help=surf_cmb*radratio**2*botconduc*real(bots(0,0))/sq4pi
-            write(message, '(''! Const. total inner boundary entropy flux    ='',ES16.6)') help
+            write(message, '(''! Const. total inner boundary entropy flux    ='',ES16.6)')&
+            &     help
             call logWrite(message)
          else if ( kbots == 3 ) then
-            write(message,'(''! Const. temp. at inner boundary S ='',ES16.6)') real(bots(0,0))/sq4pi
+            write(message,'(''! Const. temp. at inner boundary S ='',ES16.6)') &
+            &     real(bots(0,0))/sq4pi
             call logWrite(message)
          else if ( kbots == 4 ) then
             help=surf_cmb*radratio**2*botconduc*real(bots(0,0))/sq4pi
-            write(message, '(''! Const. total inner boundary temp. flux    ='',ES16.6)') help
+            write(message, '(''! Const. total inner boundary temp. flux    ='',ES16.6)') &
+            &     help
             call logWrite(message)
          end if
          help=facIH*pr*epsc/sq4pi
@@ -647,8 +651,7 @@ contains
                      call abortRun('Stop run in preCalc')
                   end if
                   botxi(0,0)=epscxi*sc*facIH/(four*pi*r_icb**2*botconduc)
-                  call logWrite( &
-                       '! CMB heat flux set to balance volume sources!')
+                  call logWrite('! CMB heat flux set to balance volume sources!')
 
                else if ( topxi(0,0) /= 0.0_cp .and. botxi(0,0) == 0.0_cp ) then
 
@@ -661,11 +664,11 @@ contains
                      call abortRun('Stop run in preCalc')
                   end if
                   if ( abs(real(topxi(0,0))) == sq4pi ) &
-                       call logWrite('! You intend to use the CMB flux as buoy. scale??')
+                  &    call logWrite('! You intend to use the CMB flux as buoy. scale??')
                   topxi(0,0)=-facIH*epscxi*sc/(four*pi*r_cmb**2) + &
-                       radratio**2*botxi(0,0)*botconduc
-                  if ( topxi(0,0) /= help ) call logWrite( &
-                       '!!!! WARNING: CMB composition flux corrected !!!!')
+                  &          radratio**2*botxi(0,0)*botconduc
+                  if ( topxi(0,0) /= help ) &
+                     call logWrite('!!!! WARNING: CMB composition flux corrected !!!!')
 
                else if ( topxi(0,0) /= 0.0_cp .and. botxi(0,0) /= 0.0_cp ) then
 
@@ -677,9 +680,9 @@ contains
                      write(output_unit,*) '! epscxi0>0.                      '
                      call abortRun('Stop run in preCalc')
                   end if
-                  help=four*pi/sc/facIH *            &
-                       (r_icb**2*real(botxi(0,0))*botconduc - &
-                        r_cmb**2*real(topxi(0,0))*topconduc)
+                  help=four*pi/sc/facIH *                     &
+                  &    (r_icb**2*real(botxi(0,0))*botconduc - &
+                  &     r_cmb**2*real(topxi(0,0))*topconduc)
                   if ( help /= epscxi ) then
                      write(output_unit,*) '! NOTE: when flux BC through the '
                      write(output_unit,*) '! ICB and CMB are used the sources '
@@ -694,17 +697,16 @@ contains
                !--- Correct epscxi0 to balance the difference between
                !    flux through the inner and outer boundary:
                epscxi=four*pi/sc/facIH *                     &
-                      (r_icb**2*real(botxi(0,0))*botconduc - &
-                       r_cmb**2*real(topxi(0,0))*topconduc)
-               call logWrite( &
-                    '! Sources introduced to balance surface Fickian flux!')
+               &      (r_icb**2*real(botxi(0,0))*botconduc - &
+               &       r_cmb**2*real(topxi(0,0))*topconduc)
+               call logWrite('! Sources introduced to balance surface Fickian flux!')
                write(message,'(''!      epscxi0='',ES16.6)') epscxi/sq4pi
                call logWrite(message)
             else if ( epscxi0 /= 0.0_cp .and. topxi(0,0) /= 0.0_cp .and. &
-                                          botxi(0,0) /= 0.0_cp ) then
+            &                             botxi(0,0) /= 0.0_cp ) then
                help=four*pi/sc/facIH *                     &
-                    (r_icb**2*real(botxi(0,0))*botconduc - &
-                     r_cmb**2*real(topxi(0,0))*topconduc)
+               &    (r_icb**2*real(botxi(0,0))*botconduc - &
+               &     r_cmb**2*real(topxi(0,0))*topconduc)
                if ( help /= epscxi ) then
                   write(output_unit,*) '! NOTE: when flux BC through the '
                   write(output_unit,*) '! ICB and/or CMB is used the sources '
@@ -717,7 +719,7 @@ contains
 
          if ( ktopxi == 1 ) then
             write(message,'(''! Constant comp. at CMB T ='',ES16.6)') &
-                  real(topxi(0,0))/sq4pi
+            &     real(topxi(0,0))/sq4pi
             call logWrite(message)
          else if ( ktopxi == 2 ) then
             help=surf_cmb*topconduc*real(topxi(0,0))/sq4pi
@@ -725,7 +727,8 @@ contains
             call logWrite(message)
          end if
          if ( kbotxi == 1 ) then
-            write(message,'(''! Constant comp. at ICB T ='',ES16.6)') real(botxi(0,0))/sq4pi
+            write(message,'(''! Constant comp. at ICB T ='',ES16.6)') &
+            &     real(botxi(0,0))/sq4pi
             call logWrite(message)
          else if ( kbotxi == 2 ) then
             help=surf_cmb*radratio**2*botconduc*real(botxi(0,0))/sq4pi
@@ -902,8 +905,7 @@ contains
 
       !-- Check times should be constructed:
       if ( t_start < time ) t_start=time
-      if ( .not. l_t .and. ( dt > 0.0_cp .or. &
-      &  ( n_tot > 0 .and. t_stop > t_start ) ) ) then
+      if ( .not. l_t .and. ( dt > 0.0_cp .or. ( n_tot > 0 .and. t_stop > t_start ) ) ) then
 
          if ( n_tot > 0 .and. dt > 0.0_cp ) then
             n_t  =n_tot
@@ -1041,7 +1043,7 @@ contains
          end if
          write(n_out,'(''  minc         ='',i6, '' = longitude symmetry wave no'')') minc
          write(n_out,'(''  nalias       ='',i6, &
-              &   '' = spher. harm. deal. factor '')') nalias
+         &        '' = spher. harm. deal. factor '')') nalias
 
       end if
 
