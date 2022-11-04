@@ -1,4 +1,9 @@
 module preCalculations
+   !
+   ! This module is used to handle some pre-calculations of constants (moment of inertia,
+   ! mass, volumes), determine the timesteps for I/O and fix boundary values for
+   ! temperature/entropy and chemical composition
+   !
 
    use iso_fortran_env, only: output_unit
    use constants
@@ -417,13 +422,13 @@ contains
 
          if ( ktops == 1 .and. kbots == 1 ) then ! Fixed entropy
 
-            tops(0,0)=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
-            bots(0,0)= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
+            tops(0,0)=0.0_cp
+            bots(0,0)=sq4pi
 
          else if ( ktops == 3 .and. kbots == 3 ) then ! Fixed temperature contrast
 
-            tops(0,0)=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
-            bots(0,0)= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
+            tops(0,0)=0.0_cp
+            bots(0,0)=sq4pi
 
          else if ( (ktops==2 .and. kbots==2) .or. (ktops == 4 .and. kbots==4) ) then
 
@@ -611,8 +616,8 @@ contains
 
          if ( ktopxi == 1 .and. kbotxi == 1 ) then ! Fixed chemical comp
 
-            topxi(0,0)=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
-            botxi(0,0)= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
+            topxi(0,0)=0.0_cp
+            botxi(0,0)=sq4pi
 
          else if ( (ktopxi==2 .and. kbotxi==2) ) then
 
