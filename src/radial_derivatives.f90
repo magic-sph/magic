@@ -632,6 +632,21 @@ contains
                end do
             end do
             !$omp end target
+            !-- TODO: New version below make the kernel is not skipped but give wrong results
+!             !$omp target teams private(n_r, n_f, od)
+!             do od=0,r_scheme%order
+!                !$omp distribute parallel do collapse(2)
+!                do n_r=1,n_r_max
+!                   do n_f=n_f_start,n_f_stop
+!                      if((1+r_scheme%order/2 <= n_r) .and. (n_r <= n_r_max-r_scheme%order/2)) then
+!                         df(n_f,n_r)=df(n_f,n_r)+r_scheme%dr(n_r,od)*f(n_f,n_r-r_scheme%order/2+od)
+!                      endif
+!                   end do
+!                end do
+!                !$omp end distribute parallel do
+!             end do
+!             !$omp end target teams
+
 
             !-- Boundary points for 1st derivative
             !$omp target
