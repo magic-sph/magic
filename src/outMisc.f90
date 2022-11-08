@@ -1210,18 +1210,18 @@ contains
             continue
          else
 
-            work = real(s(lm,:)) * ( 1.0_cp + kGrav(l-1,:) ) * r(:)**(l+1)
+            work = real(s(lm,:)) * ( 1.0_cp + kGrav(l-1,:) ) * r(:)**(l+2)
             tmp_gravClm = rInt_R(work,r,rscheme_oc)
 
-            work = aimag(s(lm,:)) * ( 1.0_cp + kGrav(l-1,:) ) * r(:)**(l+1)
+            work = aimag(s(lm,:)) * ( 1.0_cp + kGrav(l-1,:) ) * r(:)**(l+2)
             tmp_gravSlm = rInt_R(work,r,rscheme_oc)
 
             grav_cmplx(lm) = cmplx(tmp_gravClm,tmp_gravSlm)
 
-            work = real(s(lm,:)) * ( 1.0_cp + hGrav(l-1,:) ) * r(:)**(l+1)
+            work = real(s(lm,:)) * hGrav(l-1,:) * r(:)**(l+2)
             tmp_deformClm = rInt_R(work,r,rscheme_oc)
 
-            work = aimag(s(lm,:)) * ( 1.0_cp + hGrav(l-1,:) ) * r(:)**(l+1)
+            work = aimag(s(lm,:)) * hGrav(l-1,:) * r(:)**(l+2)
             tmp_deformSlm = rInt_R(work,r,rscheme_oc)
 
             deform_cmplx(lm) = cmplx(tmp_deformClm,tmp_deformSlm)
