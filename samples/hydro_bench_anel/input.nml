@@ -9,13 +9,15 @@ n_cheb_ic_max=15,
 &control
  mode        =1,
  tag         ="test",
- n_time_steps=500,
+ n_time_steps=300,
  courfac     =2.5D0,
  alffac      =1.0D0,
  dtmax       =1.0D-4,
  alpha       =0.6D0,
  runHours    =48,
  runMinutes  =00,
+l_correct_AMz=.true.,
+l_correct_AMe=.true.,
 /
 &phys_param
  ra          =1.48638035D5,
