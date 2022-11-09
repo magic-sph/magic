@@ -48,7 +48,8 @@ subroutine cylmean_otc(a,v,n_s_max,n_r_max,n_theta_max,r,s,theta)
          z=zmin+dz*n_z                           
          rc=sqrt(s(n_s)*s(n_s)+z*z)   ! radius from center
          if (rc >= r_cmb) rc=r_cmb-eps
-         thet=0.5_cp*pi-atan(z/s(n_s))  ! polar angle of point (rax,z)
+         !thet=0.5_cp*pi-atan(z/s(n_s))  ! polar angle of point (rax,z)
+         thet=acos(z/rc)
          ac(n_z,n_s)=0.0_cp
          !
          !  **** Interpolate values from (theta,r)-grid onto equidistant
@@ -204,7 +205,8 @@ subroutine cylmean_itc(a,vn,vs,n_s_max,n_r_max,n_theta_max,r,s,theta)
          rc=sqrt(s(n_s)*s(n_s)+z*z)   ! radius from center
          if (rc >= r_cmb) rc=r_cmb-eps
          if (rc <= r_icb) rc=r_icb+eps
-         thet=0.5_cp*pi-atan(z/s(n_s))  ! polar angle of point (rax,z)
+         !thet=0.5_cp*pi-atan(z/s(n_s))  ! polar angle of point (rax,z)
+         thet=acos(z/rc)
          ac(n_z,n_s,1)=0.0_cp
          ac(n_z,n_s,2)=0.0_cp
          !
@@ -384,7 +386,14 @@ subroutine cylmean(a,v,n_s_max,n_r_max,n_theta_max,r,s,theta)
          rc=sqrt(s(n_s)*s(n_s)+z*z)   ! radius from center
          if (rc >= r_cmb) rc=r_cmb-eps
          if (rc <= r_icb) rc=r_icb+eps
-         thet=0.5_cp*pi-atan(z/s(n_s))  ! polar angle of point (rax,z)
+
+         if ( s(n_s)==0.0_cp .and. z >= 0 ) then
+            thet=0.0_cp
+         else if ( s(n_s)==0.0_cp .and. z <= 0 ) then
+            thet=pi
+         else
+            thet=acos(z/rc)
+         end if
          ac(n_z,n_s)=0.0_cp
          !
          !  **** Interpolate values from (theta,r)-grid onto equidistant
