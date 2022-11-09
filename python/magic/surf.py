@@ -900,8 +900,13 @@ class Surf:
             rr3D = np.zeros_like(th3D)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = self.gr.colatitude[i]
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
+            if self.gr.radratio != 0:
+                for i in range(self.gr.nr):
+                    rr3D[:, :, i] = self.gr.radius[i]
+            else:
+                for i in range(self.gr.nr-1):
+                    rr3D[:, :, i] = self.gr.radius[i]
+                rr3D[:, :, -1] = 1e-9 # dummy small value in case of full sphere
             dphi = 2.*np.pi/self.gr.nphi
 
             wp = (np.roll(self.gr.vtheta,-1,axis=2)-np.roll(self.gr.vtheta,1,axis=2))/\
