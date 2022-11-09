@@ -461,7 +461,6 @@ contains
          !$omp end task
       end do     ! loop over lm blocks
 
-      call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
       !$omp taskwait
 
