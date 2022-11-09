@@ -79,10 +79,9 @@ module updateB_mod
    type(type_tri_par), public :: bMat_FD, jMat_FD
    complex(cp), allocatable, public :: b_ghost(:,:), aj_ghost(:,:)
 
+#ifdef WITH_OMP_GPU
    real(cp), allocatable :: datJmat(:,:)
    real(cp), allocatable :: datBmat(:,:)
-
-#ifdef WITH_OMP_GPU
    type(c_ptr) :: handle = c_null_ptr
    integer, allocatable, target :: devInfo(:)
 #endif
@@ -259,12 +258,9 @@ contains
          !$omp target enter data map(alloc: devInfo)
          !$omp target update to(devInfo)
       end if
-#endif
-
       allocate(datJmat(n_r_tot,n_r_tot), datBmat(n_r_tot,n_r_tot))
       datJmat = 0.0_cp
       datBmat = 0.0_cp
-#ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: datJmat, datBmat)
       !$omp target update to(datJmat, datBmat)
 #endif
@@ -313,10 +309,7 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: datJmat, datBmat)
-#endif
       deallocate(datJmat, datBmat)
-
-#ifdef WITH_OMP_GPU
       if ( (.not. l_mag_par_solve) .and. ( .not. l_finite_diff) ) then
          call hipblasCheck(hipblasDestroy(handle))
          !$omp target exit data map(delete: devInfo)
@@ -2688,6 +2681,10 @@ contains
       real(cp) :: l_P_1
       real(cp) :: dLh
       real(cp) :: rRatio
+#ifndef WITH_OMP_GPU
+      real(cp) :: datJmat(n_r_tot,n_r_tot)
+      real(cp) :: datBmat(n_r_tot,n_r_tot)
+#endif
       real(cp) :: wimp_lin
 
       nRall=n_r_max

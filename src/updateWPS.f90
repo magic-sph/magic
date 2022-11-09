@@ -74,8 +74,6 @@ module updateWPS_mod
 
    integer :: maxThreads
 
-   real(cp), allocatable :: dat(:,:)
-
 #ifdef WITH_OMP_GPU
    type(c_ptr) :: handle = c_null_ptr
    integer, allocatable, target :: devInfo(:)
@@ -152,13 +150,6 @@ contains
 
       Cor00_fac=four/sqrt(three)
 
-      allocate(dat(n_r_max,n_r_max))
-      dat(:,:) = 0.0_cp
-#ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: dat)
-      !$omp target update to(dat)
-#endif
-
 #ifdef WITH_OMP_GPU
       call hipblasCheck(hipblasCreate(handle))
       allocate(devInfo(1))
@@ -181,11 +172,6 @@ contains
       !$omp target exit data map(delete: workB, workC)
 #endif
       deallocate( workB, workC, rhs1, rhs)
-
-#ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: dat)
-#endif
-      deallocate(dat)
 
 #ifdef WITH_OMP_GPU
       call hipblasCheck(hipblasDestroy(handle))

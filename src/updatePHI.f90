@@ -56,9 +56,8 @@ module updatePhi_mod
    type(type_tri_par), public :: phiMat_FD
    complex(cp), public, allocatable :: phi_ghost(:,:)
 
-   real(cp), allocatable :: dat(:,:)
-
 #ifdef WITH_OMP_GPU
+   real(cp), allocatable :: dat(:,:)
    type(c_ptr) :: handle = c_null_ptr
    integer, allocatable, target :: devInfo(:)
 #endif
@@ -160,14 +159,11 @@ contains
       allocate( lPhimat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
+#ifdef WITH_OMP_GPU
       allocate(dat(n_r_max,n_r_max))
       dat(:,:) = 0.0_cp
-#ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: dat)
       !$omp target update to(dat)
-#endif
-
-#ifdef WITH_OMP_GPU
       if ( ( .not. l_parallel_solve ) .and. ( .not. l_finite_diff) ) then
          call hipblasCheck(hipblasCreate(handle))
          allocate(devInfo(1))
@@ -216,10 +212,7 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: dat)
-#endif
       deallocate(dat)
-
-#ifdef WITH_OMP_GPU
       if ( ( .not. l_parallel_solve ) .and. ( .not. l_finite_diff) ) then
          call hipblasCheck(hipblasDestroy(handle))
          !$omp target exit data map(delete: devInfo)
@@ -1254,6 +1247,9 @@ contains
       !-- Local variables:
       integer :: info, nR_out, nR
       real(cp) :: dLh
+#ifndef WITH_OMP_GPU
+      real(cp) :: dat(n_r_max,n_r_max)
+#endif
 
       dLh=real(l*(l+1),kind=cp)
 
