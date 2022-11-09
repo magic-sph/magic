@@ -143,7 +143,11 @@ contains
       !-- Local variable
       integer :: lm
 
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
+#else
       !$omp parallel do private(lm)
+#endif
       do lm=1,lm_max
          this%AdvrLM(lm)=zero
          this%AdvtLM(lm)=zero
@@ -166,10 +170,10 @@ contains
             this%VXipLM(lm)=zero
          end if
       end do
-      !$omp end parallel do
-
 #ifdef WITH_OMP_GPU
-      !$omp target update to(this)
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
 #endif
 
    end subroutine set_zero
