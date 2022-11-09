@@ -783,10 +783,12 @@ contains
       end if
 
    end subroutine outPhase
-#ifdef WITH_OMP_GPU
-   !-- TODO: Need to duplicate this routine since CRAY CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
-   !-- support OpenMP construct Assumed size arrays
 !----------------------------------------------------------------------------------
+#ifdef WITH_OMP_GPU
+   !-- TODO: Need to duplicate these routines since CRAY CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
+   !-- assumed size arrays in OpenMP target regions
+   !-- When CCE will have this support, *_batch routines and CPU versions (with "*") can be removed
+   !-- and just add (*) in following 3 routines
    subroutine get_hemi(vr,vt,vp,nR,field)
       !
       !   This subroutine is used to compute kinetic or magnetic energy
