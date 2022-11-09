@@ -730,8 +730,10 @@ contains
 
    end subroutine get_perpPar
 #else
-   !-- TODO: Need to duplicate these routines since CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
-   !-- support OpenMP construct Assumed size arrays (for vr, vt, vp, ...)
+   !-- TODO: Need to duplicate these routines since CRAY CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
+   !-- assumed size arrays in OpenMP target regions
+   !-- When CCE will have this support, *_batch routines and CPU versions above (with "*") can be removed
+   !-- and just add (*) in following 3 routines
 
    subroutine get_fluxes(vr,vt,vp,dvrdr,dvtdr,dvpdr,dvrdt,dvrdp,sr,pr,br,bt, &
               &          bp,cbt,cbp,nR)
