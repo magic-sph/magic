@@ -51,11 +51,17 @@ from sphinx.roles import XRefRole
 from sphinx.locale import _
 from sphinx.domains import Domain, ObjType, Index
 from sphinx.directives import ObjectDescription
+from sphinx.util import logging
 from sphinx.util.nodes import make_refnode
 from sphinx.util.docfields import Field, GroupedField, TypedField, DocFieldTransformer, _is_single_paragraph
 
+from typing import (Any, Callable, Dict, Generator, Iterator, List, Tuple, Type, TypeVar, Union, Optional)
+
 import six
 
+# Set up logging
+
+logger = logging.getLogger(__name__)
 
 # FIXME: surlignage en jaune de la recherche inactive si "/" dans target
 
@@ -106,8 +112,13 @@ def add_shape(node, shape, modname=None, nodefmt=nodes.Text):
 
 re_name_shape = re.compile(r'(\w+)(\(.+\))?')
 
+# The regular expression to get the different arg fields from :param:
+# Make double precision an acceptable type
+# re_fieldname_match = re.compile(
+#     r'(?P<type>\b(?:double precision|\w+)\b(?P<kind>\s*\(.*\))?)?\s*(?P<name>\b\w+\b)\s*(?P<shape>\(.*\))?\s*(?P<sattrs>\[.+\])?').match
+# Accept all types in two words
 re_fieldname_match = re.compile(
-    r'(?P<type>\b\w+\b(?P<kind>\s*\(.*\))?)?\s*(?P<name>\b\w+\b)\s*(?P<shape>\(.*\))?\s*(?P<sattrs>\[.+\])?').match
+    r'(?P<type>\b\w+ ?(?:\w+)?\b(?P<kind>\s*\(.*\))?)?\s*(?P<name>\b\w+\b)\s*(?P<shape>\(.*\))?\s*(?P<sattrs>\[.+\])?').match
 
 
 class FortranField(Field):
@@ -697,12 +708,9 @@ class FortranObject(ObjectDescription):
             self.state.document.note_explicit_target(signode)
             objects = self.env.domaindata['f']['objects']
             if fullname in objects:
-                self.env.warn(
-                    self.env.docname,
-                    'duplicate object description of %s, ' % fullname +
-                    'other instance in ' +
-                    self.env.doc2path(objects[fullname][0]),
-                    self.lineno)
+                logger.warning(f'duplicate object description of {fullname}, other instance in '+
+                               self.env.doc2path(objects[fullname][0]),
+                               location=(self.env.docname, self.lineno))
             objects[fullname] = (self.env.docname, self.objtype)
         indextext = self.get_index_text(modname, fullname)
         if indextext:
@@ -1256,6 +1264,19 @@ class FortranDomain(Domain):
             matches.append((newname, objects[newname]))
         return matches
 
+    def merge_domaindata(self, docnames: List[str], otherdata: Dict) -> None:
+        ourNames = self.data['modules']
+        for name, docname in otherdata['modules'].items():
+            if docname in docnames:
+                if name not in outNames:
+                    outNames[name] = docname
+
+        ourNames = self.data['objects']
+        for name, docname in otherdata['objects'].items():
+            if docname in docnames:
+                if name not in outNames:
+                    outNames[name] = docname
+
     def resolve_xref(self, env, fromdocname, builder,
                      type, target, node, contnode):
         modname = node.get('f:module', node.get('modname'))
@@ -1264,12 +1285,12 @@ class FortranDomain(Domain):
         matches = self.find_obj(env, modname, target, type, searchorder)
         if not matches:
             return None
-        #elif len(matches) > 1:
-            #self.env.warn(fromdocname,
-            #              'more than one target found for cross-reference '
-            #              '%r: %s' % (target,
-            #                          ', '.join(match[0] for match in matches)),
-            #        node.line)
+        elif len(matches) > 1:
+            logger.warning(
+                'more than one target found for cross-reference '
+                '%r: %s' % (target,
+                            ', '.join(match[0] for match in matches)),
+                location=(fromdocname, node.line))
         name, obj = matches[0]
 
         if obj[1] == 'module':
@@ -1299,3 +1320,4 @@ class FortranDomain(Domain):
 
 def setup(app):
     app.add_domain(FortranDomain)
+    return {'parallel_read_safe': True, 'parallel_write_safe': True}
