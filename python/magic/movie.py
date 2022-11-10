@@ -170,6 +170,7 @@ class Movie:
             print('!!! input parameter ifield (=0 by default)    !!!')
         self.movtype = int(movtype[ifield])
         n_surface = int(n_surface)
+        print(n_surface)
 
         # Run parameters
         runid = infile.fort_read('|S64')
@@ -184,6 +185,11 @@ class Movie:
         self.n_phi_tot = int(n_phi_tot)
 
         # Grid
+        if self.movtype in [100, 101, 102]:
+            self.cylRad = infile.fort_read(precision)
+            self.n_s_max = len(self.cylRad)
+        else:
+            self.n_s_max = 0
         self.radius = infile.fort_read(precision)
         self.radius_ic = np.zeros((self.n_r_ic_max+2), precision)
         self.radius_ic[:-1] = self.radius[self.n_r_max-1:]
@@ -253,6 +259,11 @@ class Movie:
                                   self.n_r_max), precision)
             self.data_ic = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
                                     self.n_r_ic_max+2), precision)
+        elif n_surface == -2:
+            self.surftype = 'theta_constant'
+            shape = (self.n_s_max, self.n_phi_tot)
+            self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
+                                  self.n_s_max), precision)
         elif n_surface == 3:
             self.surftype = 'phi_constant'
             if self.movtype in [1, 2, 3, 14]:  # read inner core
@@ -311,6 +322,9 @@ class Movie:
                         self.data_ic[ll, k, ...] = datic
                     else:
                         self.data[ll, k, ...] = dat.T
+                elif n_surface == -2:
+                    dat = dat.reshape(shape)
+                    self.data[ll, k, ...] = dat.T
                 elif n_surface == 3:
                     if self.movtype in [1, 2, 3, 14]:
                         len1 = (self.n_r_max*self.n_theta_max*2)
@@ -582,7 +596,10 @@ class Movie:
                 phi = np.linspace(0., 2.*np.pi, self.n_phi_tot*self.minc+1)
             else:
                 phi = np.linspace(0., 2.*np.pi/self.minc, self.n_phi_tot)
-            rr, pphi = np.meshgrid(self.radius, phi)
+            if self.movtype in [100, 101, 102]:
+                rr, pphi = np.meshgrid(self.cylRad, phi)
+            else:
+                rr, pphi = np.meshgrid(self.radius, phi)
             xx = rr * np.cos(pphi)
             yy = rr * np.sin(pphi)
             xxout = rr.max() * np.cos(pphi)
