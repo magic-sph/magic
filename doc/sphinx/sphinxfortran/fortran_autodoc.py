@@ -226,7 +226,7 @@ class F90toRst(object):
                 # Module variables
                 for varname in sorted(block['sortvars']):
                     bvar = block['vars'][varname]
-                    if varname not in self.routines:
+                    if varname not in self.routines and varname not in self.types:
                         self.variables[varname] = bvar
                         # self.variables.pop(varname)
                         bvar['name'] = varname
@@ -344,7 +344,7 @@ class F90toRst(object):
                     for line in modsrc:
                         if line.strip().startswith('!'):
                             continue
-                        if 'vardescsearch' in block.keys():
+                        if 'vardescsearch' in block:
                             m = block['vardescsearch'](line)
                             if m:
                                 block['vars'][m.group('varname').lower()]['desc'] = m.group(
@@ -465,7 +465,7 @@ class F90toRst(object):
         """Join unended lines that does not finish with a comment"""
         for iline, line in enumerate(src):
             m = self._re_unended_match(line)
-            if m:
+            if m and iline < len(src) - 1:
                 thisline = m.group(1)
                 m = self._re_unstarted_match(src[iline + 1])
                 nextline = m.group(1) if m else src[iline + 1]
@@ -1012,8 +1012,7 @@ class F90toRst(object):
                 newattrs.append('default=' + default_value)
             if 'private' in newattrs and 'public' in newattrs:
                 newattrs.remove('private')
-            block['attrspec'] = newattrs
-            vattr.append('/'.join(block['attrspec']))
+            vattr.append('/'.join(newattrs))
         if not vattr:
             return ''
         vattr = ','.join(vattr)
@@ -1025,6 +1024,13 @@ class F90toRst(object):
         vtype = block['typespec']
         if vtype == 'type':
             vtype = block['typename']
+        elif vtype == 'character' and 'charselector' in block:
+            if 'len' in block['charselector']:
+                vtype += '(len=%s)' % block['charselector']['len']
+            elif '*' in block['charselector'] and block['charselector']['*'] != '(*)':
+                vtype += '(len=%s)' % block['charselector']['*']
+            else:
+                vtype += '(len=*)'
         return vtype
 
     def format_argfield(self, blockvar, role=None, block=None):
@@ -1040,10 +1046,10 @@ class F90toRst(object):
 
         vdim = self.format_argdim(blockvar)
         if ':' in vdim:
-            vdim = vdim.replace(':', '*')
+            vdim = vdim.replace(':', '\*')
         vattr = self.format_argattr(blockvar)
         vdesc = blockvar['desc'] if 'desc' in blockvar else ''
-        optional = 'attrspec' in blockvar and 'optional' in blockvar['attrspec']
+        optional = 'attrspec' in blockvar and 'optional' in blockvar['attrspec'] and 'depend' not in blockvar
         if not role:
             if block and vname in [block['name'], block.get('result')]:
                 role = 'r'
@@ -1206,7 +1212,6 @@ class F90toRst(object):
         if blocktype in ['function', 'subroutine']:
             if 'callfrom' in block and block['callfrom']:
                 callfrom = []
-
                 for fromname in block['callfrom']:
                     if fromname in self.routines:
                         cf = self.format_funcref(fromname, module)
@@ -1244,7 +1249,7 @@ class F90toRst(object):
 
         # Types
         decs = []
-        tlist = sorted(self.get_blocklist('types', module))
+        tlist = self.get_blocklist('types', module)
         if tlist:
             decs.append(':Types: ' +
                         ', '.join([':f:type:`%s`' %
