@@ -3,7 +3,7 @@ module movie_data
    use parallel_mod
    use precision_mod
    use truncation, only: n_r_max, n_theta_max, n_phi_max, minc, n_r_ic_max, n_r_tot
-   use logic, only: l_store_frame, l_save_out, l_movie, l_movie_oc, &
+   use logic, only: l_store_frame, l_save_out, l_movie, l_movie_oc, l_geosMovie, &
        &            l_movie_ic, l_HTmovie, l_dtBmovie, l_store_frame, l_save_out
    use radial_data, only: nRstart,nRstop, n_r_icb, n_r_cmb, radial_balance
    use radial_functions, only: r_cmb, r_icb, r, r_ic
@@ -68,6 +68,7 @@ contains
          l_movie_ic=.false.
          l_HTmovie =.false.
          l_dtBmovie=.false.
+         l_geosMovie=.false.
          l_store_frame=.false.
       else
          call get_movie_type()
@@ -410,7 +411,9 @@ contains
       l_movie_ic   =.false.
       l_HTmovie    =.false.
       l_dtBmovie   =.false.
+      l_geosMovie  =.false.
       l_store_frame=.false.
+      n_field_type(:)=0
 
       do i=1,n_movies_max
 
@@ -765,6 +768,14 @@ contains
                file_name='AV_'
                n_fields=1
                n_field_type(1)=11
+            else if ( index(string,'GEOS') /= 0 ) then
+               n_type=131
+               typeStr=' geos phi-component of velocity '
+               file_name='geosVPHI_'
+               n_fields=1
+               lStore=.false.
+               l_geosMovie=.true.
+               n_field_type(1)=101
             else
                n_type=13
                typeStr=' phi comp. of velocity field '
@@ -791,11 +802,21 @@ contains
             n_field_type(1)=10
          else if ( index(string,'VOR') /= 0 ) then
             if ( index(string,'Z') /= 0 ) then
-               n_type=20
-               typeStr=' z-component of vorticity '
-               file_name='VorZ_'
-               n_fields=1
-               n_field_type(1)=16
+               if ( index(string,'GEOS') /= 0 ) then
+                  n_type=132
+                  typeStr=' geos z-component of vorticity '
+                  file_name='geosVorZ_'
+                  n_fields=1
+                  lStore=.false.
+                  l_geosMovie=.true.
+                  n_field_type(1)=102
+               else
+                  n_type=20
+                  typeStr=' z-component of vorticity '
+                  file_name='VorZ_'
+                  n_fields=1
+                  n_field_type(1)=16
+               end if
             else if ( index(string,'P') /= 0 ) then
                n_type=20
                typeStr=' phi-component of vorticity '
@@ -824,6 +845,14 @@ contains
                file_name='AVS_'
                n_fields=1
                n_field_type(1)=94
+            else if ( index(string,'GEOS') /= 0 ) then
+               n_type=130
+               typeStr=' geos s-component of velocity '
+               file_name='geosVS_'
+               n_fields=1
+               lStore=.false.
+               l_geosMovie=.true.
+               n_field_type(1)=100
             end if
          else if ( index(string,'REYS') /= 0 ) then
             if ( index(string,'AX') /= 0 ) then
@@ -987,6 +1016,12 @@ contains
             n_const=1   !
             n_field_size=n_phi_max*n_theta_max
             n_field_size_ic=n_field_size
+            const=r_cmb
+         else if ( n_type == 130 .or. n_type == 131 .or. n_type == 132 ) then
+            n_surface=-2 ! constant theta
+            n_const=1   !
+            n_field_size=n_phi_max*n_r_max
+            n_field_size_ic=0
             const=r_cmb
          else if (   index(string,'AX') /= 0 .or.                     &
          &    file_name(1:2) == 'AV' .or. file_name(1:2) == 'AB' .or. &
@@ -1153,11 +1188,12 @@ contains
          n_movies=n_movies+1
          lStoreMov(n_movies)=lStore
          lICField(n_movies)=lIC
-         if ( .not. lStore .and. n_field_type(1) /= 13 .and.          &
-         &    n_field_type(1) /= 14 .and. n_field_type(1) /= 30 .and. &
-         &    n_field_type(1) /= 42 .and. n_field_type(1) /= 50 .and. &
-         &    n_field_type(1) /= 51 .and. n_field_type(1) /= 52 .and. &
-         &    n_field_type(1) /= 54 ) l_dtBmovie= .true.
+         if ( .not. lStore .and. n_field_type(1) /= 13 .and.           &
+         &    n_field_type(1) /= 14 .and. n_field_type(1) /= 30 .and.  &
+         &    n_field_type(1) /= 42 .and. n_field_type(1) /= 50 .and.  &
+         &    n_field_type(1) /= 51 .and. n_field_type(1) /= 52 .and.  &
+         &    n_field_type(1) /= 54 .and. n_field_type(1) /= 100 .and. &
+         &    n_field_type(1) /= 101 .and. n_field_type(1) /= 102 ) l_dtBmovie=.true.
 
          !------ Translate horizontal movies:
          if ( n_type == 4 ) then
@@ -1268,6 +1304,8 @@ contains
 
             if ( n_surface == -1 ) then
                write(n_log_file,*) '!    at the surface !'
+            else if ( n_surface == -2 ) then
+               write(n_log_file,*) '!    geos movie     !'
             else if ( n_surface == 0 ) then
                write(n_log_file,*) '!    in 3d !'
             else if ( n_surface == 1 .and. n_const == 1 ) then

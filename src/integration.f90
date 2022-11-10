@@ -216,7 +216,15 @@ contains
             z=zmin+dz*n_z
             rc=sqrt(s(n_s)*s(n_s)+z*z)   ! radius from center
             if (rc >= r_cmb) rc=r_cmb-eps
-            thet=0.5_cp*pi-atan(z/s(n_s))  ! polar angle of point (rax,z)
+            if ( s(n_s)==0.0_cp ) then
+               thet=0.0_cp
+            else
+               if (z > rc ) then
+                  thet=0.0_cp
+               else
+                  thet=acos(z/rc)
+               end if
+            end if
             ac(n_z,n_s)=0.0_cp
             !
             !  **** Interpolate values from (theta,r)-grid onto equidistant
@@ -237,13 +245,17 @@ contains
             n_r0=n_r2+2
 
             !-- Find indices of angular grid levels that bracket thet
-            n_th1=n_theta_max
-            tbracket: do n_th=n_theta_max,1,-1
-               if( theta(n_th) <= thet) then
-                  n_th1=n_th
-                  exit tbracket
-               end if
-            end do tbracket
+            if ( thet < theta(1) ) then
+               n_th1=1
+            else
+               n_th1=n_theta_max
+               tbracket: do n_th=n_theta_max,1,-1
+                  if( theta(n_th) <= thet) then
+                     n_th1=n_th
+                     exit tbracket
+                  end if
+               end do tbracket
+            end if
             if ( n_th1 == n_theta_max ) n_th1=n_theta_max-2
             if ( n_th1 == n_theta_max-1 ) n_th1=n_theta_max-2
             if ( n_th1 == 1 ) n_th1=2
@@ -388,8 +400,15 @@ contains
             rc=sqrt(s(n_s)*s(n_s)+z*z)   ! radius from center
             if (rc >= r_cmb) rc=r_cmb-eps
             if (rc <= r_icb) rc=r_icb+eps
-            !thet=0.5_cp*pi-atan(z/s(n_s))  ! polar angle of point (rax,z)
-            thet=acos(z/rc)
+            if ( s(n_s)==0.0_cp ) then
+               thet=0.0_cp
+            else
+               if (z > rc ) then
+                  thet=0.0_cp
+               else
+                  thet=acos(z/rc)
+               end if
+            end if
             ac(n_z,n_s,1)=0.0_cp
             ac(n_z,n_s,2)=0.0_cp
             !
@@ -411,13 +430,17 @@ contains
             n_r0=n_r2+2
 
             !-- Find indices of angular grid levels that bracket thet
-            n_th1=n_theta_max
-            tbracket: do n_th=n_theta_max,1,-1
-               if( theta(n_th) <= thet) then
-                  n_th1=n_th
-                  exit tbracket
-               end if
-            end do tbracket
+            if ( thet < theta(1) ) then
+               n_th1=1
+            else
+               n_th1=n_theta_max
+               tbracket: do n_th=n_theta_max,1,-1
+                  if( theta(n_th) <= thet) then
+                     n_th1=n_th
+                     exit tbracket
+                  end if
+               end do tbracket
+            end if
             if ( n_th1 == n_theta_max ) n_th1=n_theta_max-2
             if ( n_th1 == n_theta_max-1 ) n_th1=n_theta_max-2
             if ( n_th1 == 1 ) n_th1=2
@@ -482,12 +505,12 @@ contains
          end do
 
          !call interp_theta(a(:,1),ac(nz,n_s,1:2),r_cmb,s(n_s),theta)
-         if ( n_s == n_s_max ) then
-            if ( abs(r_cmb*sin(theta(1))-s(n_s)) <= eps ) then
-               ac(nz,n_s,1)=a(1,1)
-               ac(nz,n_s,2)=a(n_theta_max,1)
-            end if
-         end if
+         !if ( n_s == n_s_max ) then
+         !   if ( abs(r_cmb*sin(theta(1))-s(n_s)) <= eps ) then
+         !      ac(nz,n_s,1)=a(1,1)
+         !      ac(nz,n_s,2)=a(n_theta_max,1)
+         !   end if
+         !end if
 
          !-- Simpson integration
          tot1=ac(0,n_s,1)+ac(nz,n_s,1)
