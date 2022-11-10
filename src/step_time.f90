@@ -31,7 +31,7 @@ module step_time_mod
        &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix,  &
        &            l_packed_transp, l_rot_ic, l_rot_ma, l_cond_ma,    &
        &            l_parallel_solve, l_mag_par_solve, l_phase_field,  &
-       &            l_onset
+       &            l_onset, l_geosMovie
    use init_fields, only: omega_ic1, omega_ma1
    use radialLoop, only: radialLoopG
    use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage, &
@@ -410,7 +410,7 @@ contains
          lHemiCalc    =l_hemi       .and. l_log
          lPowerCalc   =l_power      .and. l_log
          lPerpParCalc =l_perpPar    .and. l_log
-         lGeosCalc    =l_par        .and. l_log
+         lGeosCalc    =(l_par .and. l_log) .or. ( l_frame .and. l_geosMovie )
          lFluxProfCalc=l_FluxProfs  .and. l_log
          lViscBcCalc  =l_ViscBcCalc .and. l_log
          lOnsetCalc   =l_onset      .and. (l_log .or. l_logNext)

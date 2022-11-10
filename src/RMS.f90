@@ -1357,7 +1357,7 @@ contains
          do nR=nRstartMag,nRstopMag
             call hInt2dPolLM(work_Rloc(:,nR),1,lm_max,dtBPol2hInt(:,nR),st_map)
             do lm=1,lm_maxMag
-               l=st_map%lm2m(lm)
+               l=st_map%lm2l(lm)
                if ( l == 0 ) cycle
                m=st_map%lm2m(lm)
                dtBP(nR)=dtBP(nR)+dtBPol2hInt(lm,nR)
@@ -1377,7 +1377,7 @@ contains
             call hInt2dPolLM(work_LMloc(llm:ulm,nR),llm,ulm, &
                  &           dtBPol2hInt(llm:ulm,nR),lo_map)
             do lm=llm,ulm
-               l=lo_map%lm2m(lm)
+               l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
                if ( l == 0 ) cycle
                dtBP(nR)=dtBP(nR)+dtBPol2hInt(lm,nR)

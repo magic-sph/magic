@@ -16,7 +16,6 @@
  alpha       =0.5D0,
  runHours    =00,
  runMinutes  =30,
- l_adv_curl  =.true.,
 /
 &phys_param
  ra          =5.6D4,
