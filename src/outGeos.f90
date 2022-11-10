@@ -517,11 +517,12 @@ contains
       n_fields=n_movie_fields(n_movie)
       n_out   =n_movie_file(n_movie)
 
-      if ( n_type == 130 ) then
+      if ( n_type == 130 ) then ! Us
          call transp_R2Phi(us_Rloc, us_Ploc)
-      else if (n_type == 131 ) then
+      else if (n_type == 131 ) then ! Uphi
          call transp_R2Phi(up_Rloc, up_Ploc)
-         !call transp_R2Phi(wz_Rloc, wz_Ploc)
+      else if (n_type == 132 ) then ! Vort z
+         call transp_R2Phi(wz_Rloc, wz_Ploc)
       end if
 
       !-- Z averaging
@@ -530,6 +531,8 @@ contains
             call cylmean(us_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
          else if ( n_type == 131 ) then
             call cylmean(up_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
+         else if ( n_type == 132 ) then
+            call cylmean(wz_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
          end if
          dat(:,n_p)=dat(:,n_p)+datITC_N(:)
       end do

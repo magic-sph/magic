@@ -802,11 +802,21 @@ contains
             n_field_type(1)=10
          else if ( index(string,'VOR') /= 0 ) then
             if ( index(string,'Z') /= 0 ) then
-               n_type=20
-               typeStr=' z-component of vorticity '
-               file_name='VorZ_'
-               n_fields=1
-               n_field_type(1)=16
+               if ( index(string,'GEOS') /= 0 ) then
+                  n_type=132
+                  typeStr=' geos z-component of vorticity '
+                  file_name='geosVorZ_'
+                  n_fields=1
+                  lStore=.false.
+                  l_geosMovie=.true.
+                  n_field_type(1)=102
+               else
+                  n_type=20
+                  typeStr=' z-component of vorticity '
+                  file_name='VorZ_'
+                  n_fields=1
+                  n_field_type(1)=16
+               end if
             else if ( index(string,'P') /= 0 ) then
                n_type=20
                typeStr=' phi-component of vorticity '
@@ -1007,7 +1017,7 @@ contains
             n_field_size=n_phi_max*n_theta_max
             n_field_size_ic=n_field_size
             const=r_cmb
-         else if ( n_type == 130 .or. n_type == 131 ) then
+         else if ( n_type == 130 .or. n_type == 131 .or. n_type == 132 ) then
             n_surface=-2 ! constant theta
             n_const=1   !
             n_field_size=n_phi_max*n_r_max
@@ -1183,7 +1193,7 @@ contains
          &    n_field_type(1) /= 42 .and. n_field_type(1) /= 50 .and.  &
          &    n_field_type(1) /= 51 .and. n_field_type(1) /= 52 .and.  &
          &    n_field_type(1) /= 54 .and. n_field_type(1) /= 100 .and. &
-         &    n_field_type(1) /= 101 ) l_dtBmovie=.true.
+         &    n_field_type(1) /= 101 .and. n_field_type(1) /= 102 ) l_dtBmovie=.true.
 
          !------ Translate horizontal movies:
          if ( n_type == 4 ) then

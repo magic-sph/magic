@@ -198,7 +198,7 @@ contains
       do n_movie=1,n_movies
          n_type=n_movie_type(n_movie)
          if ( (.not. lStoreMov(n_movie)) .and. n_type /= 99 .and. &
-         &     n_type /= 130 .and. n_type /= 131 ) then
+         &     n_type /= 130 .and. n_type /= 131 .and. n_type /= 132 ) then
             l_dtB_frame=.true.
          end if
       end do
@@ -273,7 +273,7 @@ contains
             write(n_out) (dumm(n),n=1,11)
 
             !------ Write grid:
-            if ( n_type==130 .or. n_type==131 ) &
+            if ( n_type==130 .or. n_type==131 .or. n_type==132 ) &
             &   write(n_out) (real(cyl(n_r)/r_cmb,kind=outp), n_r=1,n_s_max)
             write(n_out) (real(r_mov_tot(n_r)/r_cmb,kind=outp), n_r=1,n_r_mov_tot)
             write(n_out) (real(theta_ord(n_theta),kind=outp), n_theta=1,n_theta_max)
@@ -298,7 +298,7 @@ contains
          if ( .not. lStoreMov(n_movie) ) then
             if ( n_type == 99 ) then
                call abortRun('! Use TO output for Lorentz force!')
-            else if ( n_type==130 .or. n_type==131 ) then
+            else if ( n_type==130 .or. n_type==131 .or. n_type==132 ) then
                call write_geos_frame(n_movie)
             else
                if ( rank == 0 ) then
