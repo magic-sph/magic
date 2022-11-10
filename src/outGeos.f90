@@ -90,7 +90,8 @@ contains
          bytes_allocated=bytes_allocated+n_s_max*SIZEOF_DEF_REAL
 
          ! Minimum and maximum cylindrical radii
-         smin = r_CMB*sin(theta_ord(1))
+         !smin = r_CMB*sin(theta_ord(1))
+         smin = 0.0_cp
          smax = r_CMB
 
          !-- Grid spacing
@@ -198,7 +199,7 @@ contains
       real(cp), intent(out) :: Geos, GeosA, GeosZ, GeosM, GeosNAP, Ekin
 
       !-- Local variables
-      real(cp) :: phiNorm
+      real(cp) :: phiNorm, den
       real(cp) :: tmp(n_theta_max,n_r_max)
       real(cp) :: us_axi(n_theta_max,n_r_max),us_axi_dist(n_theta_max,n_r_max)
       real(cp) :: up_axi(n_theta_max,n_r_max),up_axi_dist(n_theta_max,n_r_max)
@@ -381,10 +382,10 @@ contains
          end do
          call cylmean_otc(tmp,uzSN_OTC,n_s_max,n_s_otc,r,cyl,theta_ord,zDens)
 
-         do n_s=1,n_s_max
-            if ( uzNN_OTC(n_s) > 0.0_cp .and. wzNN_OTC(n_s) > 0.0_cp ) then
-               CHel_dist(n_s)=CHel_dist(n_s)+uzSN_OTC(n_s)/sqrt(uzNN_OTC(n_s))/ &
-               &              sqrt(wzNN_OTC(n_s))
+         do n_s=1,n_s_otc
+            den=uzNN_OTC(n_s)*wzNN_OTC(n_s)
+            if ( den > 0.0_cp ) then
+               CHel_dist(n_s)=CHel_dist(n_s)+uzSN_OTC(n_s)/sqrt(den)
             else
                CHel_dist(n_s)=CHel_dist(n_s)+one
             end if
