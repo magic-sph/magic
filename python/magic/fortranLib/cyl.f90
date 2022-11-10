@@ -48,8 +48,15 @@ subroutine cylmean_otc(a,v,n_s_max,n_r_max,n_theta_max,r,s,theta)
          z=zmin+dz*n_z                           
          rc=sqrt(s(n_s)*s(n_s)+z*z)   ! radius from center
          if (rc >= r_cmb) rc=r_cmb-eps
-         !thet=0.5_cp*pi-atan(z/s(n_s))  ! polar angle of point (rax,z)
-         thet=acos(z/rc)
+         if ( s(n_s)==0.0_cp ) then
+            thet=0.0_cp
+         else
+            if (z > rc ) then
+               thet=0.0_cp
+            else
+               thet=acos(z/rc)
+            end if
+         end if
          ac(n_z,n_s)=0.0_cp
          !
          !  **** Interpolate values from (theta,r)-grid onto equidistant
@@ -70,13 +77,17 @@ subroutine cylmean_otc(a,v,n_s_max,n_r_max,n_theta_max,r,s,theta)
          n_r0=n_r2+2
 
          !-- Find indices of angular grid levels that bracket thet
-         n_th1=n_theta_max
-         tbracket: do n_th=n_theta_max,1,-1
-            if( theta(n_th) <= thet) then
-               n_th1=n_th
-               exit tbracket
-            end if
-         end do tbracket
+         if ( thet < theta(1) ) then
+            n_th1=1
+         else
+            n_th1=n_theta_max
+            tbracket: do n_th=n_theta_max,1,-1
+               if( theta(n_th) <= thet) then
+                  n_th1=n_th
+                  exit tbracket
+               end if
+            end do tbracket
+         end if
          if ( n_th1 == n_theta_max ) n_th1=n_theta_max-2
          if ( n_th1 == n_theta_max-1 ) n_th1=n_theta_max-2
          if ( n_th1 == 1 ) n_th1=2
@@ -205,8 +216,15 @@ subroutine cylmean_itc(a,vn,vs,n_s_max,n_r_max,n_theta_max,r,s,theta)
          rc=sqrt(s(n_s)*s(n_s)+z*z)   ! radius from center
          if (rc >= r_cmb) rc=r_cmb-eps
          if (rc <= r_icb) rc=r_icb+eps
-         !thet=0.5_cp*pi-atan(z/s(n_s))  ! polar angle of point (rax,z)
-         thet=acos(z/rc)
+         if ( s(n_s)==0.0_cp ) then
+            thet=0.0_cp
+         else
+            if (z > rc ) then
+               thet = 0.0_cp
+            else
+               thet=acos(z/rc)
+            end if
+         end if
          ac(n_z,n_s,1)=0.0_cp
          ac(n_z,n_s,2)=0.0_cp
          !
@@ -228,13 +246,17 @@ subroutine cylmean_itc(a,vn,vs,n_s_max,n_r_max,n_theta_max,r,s,theta)
          n_r0=n_r2+2
 
          !-- Find indices of angular grid levels that bracket thet
-         n_th1=n_theta_max
-         tbracket: do n_th=n_theta_max,1,-1
-            if( theta(n_th) <= thet) then
-               n_th1=n_th
-               exit tbracket
-            end if
-         end do tbracket
+         if ( thet < theta(1) ) then
+            n_th1=1
+         else
+            n_th1=n_theta_max
+            tbracket: do n_th=n_theta_max,1,-1
+               if( theta(n_th) <= thet) then
+                  n_th1=n_th
+                  exit tbracket
+               end if
+            end do tbracket
+         end if
          if ( n_th1 == n_theta_max ) n_th1=n_theta_max-2
          if ( n_th1 == n_theta_max-1 ) n_th1=n_theta_max-2
          if ( n_th1 == 1 ) n_th1=2
@@ -414,13 +436,17 @@ subroutine cylmean(a,v,n_s_max,n_r_max,n_theta_max,r,s,theta)
          n_r0=n_r2+2
 
          !-- Find indices of angular grid levels that bracket thet
-         n_th1=n_theta_max
-         tbracket: do n_th=n_theta_max,1,-1
-            if( theta(n_th) <= thet) then
-               n_th1=n_th
-               exit tbracket
-            end if
-         end do tbracket
+         if ( thet < theta(1) ) then
+            n_th1=1
+         else
+            n_th1=n_theta_max
+            tbracket: do n_th=n_theta_max,1,-1
+               if( theta(n_th) <= thet) then
+                  n_th1=n_th
+                  exit tbracket
+               end if
+            end do tbracket
+         end if
          if ( n_th1 == n_theta_max ) n_th1=n_theta_max-2
          if ( n_th1 == n_theta_max-1 ) n_th1=n_theta_max-2
          if ( n_th1 == 1 ) n_th1=2

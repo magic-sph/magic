@@ -170,7 +170,6 @@ class Movie:
             print('!!! input parameter ifield (=0 by default)    !!!')
         self.movtype = int(movtype[ifield])
         n_surface = int(n_surface)
-        print(n_surface)
 
         # Run parameters
         runid = infile.fort_read('|S64')
