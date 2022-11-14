@@ -63,6 +63,11 @@ contains
 
       integer :: n
 
+      movieDipColat      =0.0_cp
+      movieDipLon        =0.0_cp
+      movieDipStrength   =0.0_cp
+      movieDipStrengthGeo=0.0_cp
+
       if ( .not. l_movie ) then
          l_movie_oc=.false.
          l_movie_ic=.false.
