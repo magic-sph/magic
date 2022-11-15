@@ -307,7 +307,8 @@ contains
 
          !-- Transform back to LM space
          call phy2lm_counter%start_count()
-         call this%transform_to_lm_space(nRstart, nRstop, lRmsCalc)
+         call this%transform_to_lm_space(nRstart, nRstop, lRmsCalc, dVSrLM, dVXirLM, &
+              &                          dphidt)
          call phy2lm_counter%stop_count(l_increment=.false.)
 
 #ifdef WITH_OMP_GPU
@@ -643,8 +644,8 @@ contains
       end do
 
       call td_counter%start_count()
-      call this%nl_lm%get_td(lPressNext, dVSrLM, dVXirLM, dVxVhLM, dVxBhLM, &
-           &                 dwdt, dzdt, dpdt, dsdt, dxidt, dphidt, dbdt, djdt)
+      call this%nl_lm%get_td(lPressNext, dVxVhLM, dVxBhLM, dwdt, dzdt, dpdt, dsdt, &
+           &                 dxidt, dbdt, djdt)
       call td_counter%stop_count(l_increment=.false.)
 
       phy2lm_counter%n_counts=phy2lm_counter%n_counts+1
@@ -967,7 +968,7 @@ contains
 
    end subroutine transform_to_grid_space
 !-------------------------------------------------------------------------------
-   subroutine transform_to_lm_space(this, nRl, nRu, lRmsCalc)
+   subroutine transform_to_lm_space(this, nRl, nRu, lRmsCalc, dVSrLM, dVXirLM, dphidt)
       !
       ! This subroutine actually handles the spherical harmonic transforms from
       ! (\theta,\phi) space to (\ell,m) space.
@@ -979,6 +980,11 @@ contains
       integer, intent(in) :: nRl
       integer, intent(in) :: nRu
       logical, intent(in) :: lRmsCalc
+
+      !-- Output variables
+      complex(cp), intent(out) :: dVSrLM(lm_max,nRl:nRu)
+      complex(cp), intent(out) :: dVXirLM(lm_max,nRl:nRu)
+      complex(cp), intent(out) :: dphidt(lm_max,nRl:nRu)
 
       !-- Local variables
       integer :: nPhi, nR
@@ -1139,13 +1145,11 @@ contains
 
       if ( l_heat ) then
 #ifdef WITH_OMP_GPU
-         call spat_to_qst(this%gsa%VSr, this%gsa%VSt, this%gsa%VSp, &
-              &           this%nl_lm%VSrLM, this%nl_lm%VStLM,       &
-              &           this%nl_lm%VSpLM, l_R(1), .true.)
+         call spat_to_qst(this%gsa%VSr, this%gsa%VSt, this%gsa%VSp, dVSrLM, &
+              &           this%nl_lm%VStLM, this%nl_lm%VSpLM, l_R(1), .true.)
 #else
-         call spat_to_qst(this%gsa%VSr, this%gsa%VSt, this%gsa%VSp, &
-              &           this%nl_lm%VSrLM, this%nl_lm%VStLM,       &
-              &           this%nl_lm%VSpLM, l_R(1))
+         call spat_to_qst(this%gsa%VSr, this%gsa%VSt, this%gsa%VSp, dVSrLM, &
+              &           this%nl_lm%VStLM, this%nl_lm%VSpLM, l_R(1))
 #endif
 
 #ifdef WITH_OMP_GPU
@@ -1159,23 +1163,21 @@ contains
 
       if ( l_chemical_conv ) then
 #ifdef WITH_OMP_GPU
-         call spat_to_qst(this%gsa%VXir, this%gsa%VXit, this%gsa%VXip, &
-              &           this%nl_lm%VXirLM, this%nl_lm%VXitLM,        &
-              &           this%nl_lm%VXipLM, l_R(1), .true.)
+         call spat_to_qst(this%gsa%VXir, this%gsa%VXit, this%gsa%VXip, dVXirLM, &
+              &           this%nl_lm%VXitLM, this%nl_lm%VXipLM, l_R(1), .true.)
 #else
-         call spat_to_qst(this%gsa%VXir, this%gsa%VXit, this%gsa%VXip, &
-              &           this%nl_lm%VXirLM, this%nl_lm%VXitLM,        &
-              &           this%nl_lm%VXipLM, l_R(1))
+         call spat_to_qst(this%gsa%VXir, this%gsa%VXit, this%gsa%VXip, dVXirLM, &
+              &           this%nl_lm%VXitLM, this%nl_lm%VXipLM, l_R(1))
 #endif
       end if
 
+      if ( l_phase_field ) then
 #ifdef WITH_OMP_GPU
-      if( l_phase_field ) call scal_to_SH(sht_l_gpu, this%gsa%phiTerms,  &
-                               &          this%nl_lm%dphidtLM, l_R(1), .true.)
+         call scal_to_SH(sht_l_gpu, this%gsa%phiTerms, dphidt, l_R(1), .true.)
 #else
-      if( l_phase_field ) call scal_to_SH(sht_l, this%gsa%phiTerms,  &
-                               &          this%nl_lm%dphidtLM, l_R(1))
+         call scal_to_SH(sht_l, this%gsa%phiTerms, dphidt, l_R(1))
 #endif
+      end if
 
       if ( l_mag_nl ) then
          !if ( nR>n_r_LCR ) then

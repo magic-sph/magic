@@ -15,8 +15,7 @@ module nonlinear_lm_mod
    use truncation, only: lm_max, l_max, lm_maxMag
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag,          &
-       &             l_chemical_conv, l_single_matrix, l_double_curl,       &
-       &             l_phase_field
+       &             l_chemical_conv, l_single_matrix, l_double_curl
    use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1
    use physical_parameters, only: CorFac, epsc,  n_r_LCR, epscXi
    use blocking, only: lm2l, lm2m, lm2lmA, lm2lmS
@@ -33,9 +32,9 @@ module nonlinear_lm_mod
       !----- Nonlinear terms in lm-space:
       complex(cp), allocatable :: AdvrLM(:), AdvtLM(:), AdvpLM(:)
       complex(cp), allocatable :: VxBrLM(:), VxBtLM(:), VxBpLM(:)
-      complex(cp), allocatable :: VSrLM(:),  VStLM(:),  VSpLM(:)
-      complex(cp), allocatable :: VXirLM(:),  VXitLM(:), VXipLM(:)
-      complex(cp), allocatable :: heatTermsLM(:), dphidtLM(:)
+      complex(cp), allocatable :: VStLM(:),  VSpLM(:)
+      complex(cp), allocatable :: VXitLM(:),  VXipLM(:)
+      complex(cp), allocatable :: heatTermsLM(:)
    contains
       procedure :: initialize
       procedure :: finalize
@@ -80,33 +79,23 @@ contains
       end if
 
       if ( l_heat ) then
-         allocate(this%VSrLM(lmP_max),this%VStLM(lmP_max),this%VSpLM(lmP_max))
-         bytes_allocated = bytes_allocated + 3*lmP_max*SIZEOF_DEF_COMPLEX
+         allocate(this%VStLM(lmP_max),this%VSpLM(lmP_max))
+         bytes_allocated = bytes_allocated + 2*lmP_max*SIZEOF_DEF_COMPLEX
 #ifdef WITH_OMP_GPU
-         gpu_bytes_allocated = gpu_bytes_allocated + 3*lmP_max*SIZEOF_DEF_COMPLEX
+         gpu_bytes_allocated = gpu_bytes_allocated + 2*lmP_max*SIZEOF_DEF_COMPLEX
 #endif
       else
-         allocate( this%VSrLM(1), this%VStLM(1),this%VSpLM(1) )
+         allocate(this%VStLM(1),this%VSpLM(1))
       end if
 
       if ( l_chemical_conv ) then
-         allocate(this%VXirLM(lmP_max),this%VXitLM(lmP_max),this%VXipLM(lmP_max))
-         bytes_allocated = bytes_allocated + 3*lmP_max*SIZEOF_DEF_COMPLEX
+         allocate(this%VXitLM(lmP_max),this%VXipLM(lmP_max))
+         bytes_allocated = bytes_allocated + 2*lmP_max*SIZEOF_DEF_COMPLEX
 #ifdef WITH_OMP_GPU
-         gpu_bytes_allocated = gpu_bytes_allocated + 3*lmP_max*SIZEOF_DEF_COMPLEX
+         gpu_bytes_allocated = gpu_bytes_allocated + 2*lmP_max*SIZEOF_DEF_COMPLEX
 #endif
       else
-         allocate(this%VXirLM(1),this%VXitLM(1),this%VXipLM(1))
-      end if
-
-      if ( l_phase_field ) then
-         allocate(this%dphidtLM(lmP_max))
-         bytes_allocated = bytes_allocated + lmP_max*SIZEOF_DEF_COMPLEX
-#ifdef WITH_OMP_GPU
-         gpu_bytes_allocated = gpu_bytes_allocated + lmP_max*SIZEOF_DEF_COMPLEX
-#endif
-      else
-         allocate(this%dphidtLM(1))
+         allocate(this%VXitLM(1),this%VXipLM(1))
       end if
 
 #ifdef WITH_OMP_GPU
@@ -128,8 +117,8 @@ contains
 
       deallocate( this%AdvrLM, this%AdvtLM, this%AdvpLM )
       deallocate( this%VxBrLM, this%VxBtLM, this%VxBpLM )
-      deallocate( this%heatTermsLM, this%VXirLM, this%VXitLM, this%VXipLM )
-      deallocate( this%VSrLM, this%VStLM, this%VSpLM, this%dphidtLM )
+      deallocate( this%heatTermsLM, this%VXitLM, this%VXipLM )
+      deallocate( this%VStLM, this%VSpLM )
 
    end subroutine finalize
 !----------------------------------------------------------------------------
@@ -158,14 +147,11 @@ contains
             this%VxBpLM(lm)=zero
          end if
          if ( l_heat ) then
-            this%VSrLM(lm)=zero
             this%VStLM(lm)=zero
             this%VSpLM(lm)=zero
          end if
          if ( l_anel ) this%heatTermsLM(lm)=zero
-         if ( l_phase_field ) this%dphidtLM(lm)=zero
          if ( l_chemical_conv ) then
-            this%VXirLM(lm)=zero
             this%VXitLM(lm)=zero
             this%VXipLM(lm)=zero
          end if
@@ -178,12 +164,12 @@ contains
 
    end subroutine set_zero
 !----------------------------------------------------------------------------
-   subroutine get_td(this,nR,nBc,lPressNext,dVSrLM,dVXirLM,dVxVhLM,dVxBhLM, &
-              &      dwdt,dzdt,dpdt,dsdt,dxidt,dphidt,dbdt,djdt)
+   subroutine get_td(this,nR,nBc,lPressNext,dVxVhLM,dVxBhLM, &
+              &      dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt)
       !
       !  Purpose of this to calculate time derivatives
       !  ``dwdt``,``dzdt``,``dpdt``,``dsdt``,``dxidt``,``dbdt``,``djdt``
-      !  and auxiliary arrays ``dVSrLM``, ``dVXirLM`` and ``dVxBhLM``, ``dVxVhLM``
+      !  and auxiliary arrays ``dVxBhLM``, ``dVxVhLM``
       !  from non-linear terms in spectral form
       !
 
@@ -197,12 +183,10 @@ contains
       !-- Output of variables:
       complex(cp), intent(out) :: dwdt(:),dzdt(:)
       complex(cp), intent(out) :: dpdt(:),dsdt(:)
-      complex(cp), intent(out) :: dxidt(:),dphidt(:)
+      complex(cp), intent(out) :: dxidt(:)
       complex(cp), intent(out) :: dbdt(:),djdt(:)
       complex(cp), intent(out) :: dVxBhLM(:)
       complex(cp), intent(out) :: dVxVhLM(:)
-      complex(cp), intent(out) :: dVSrLM(:)
-      complex(cp), intent(out) :: dVXirLM(:)
 
       !-- Local variables:
       integer :: l,m,lm,lmS,lmA
@@ -440,7 +424,6 @@ contains
                l   =lm2l(lm)
                if ( l == 0 ) then
                   dsdt_loc =epsc*epscProf(nR)!+opr/epsS*divKtemp0(nR)
-                  dVSrLM(1)=this%VSrLM(1)
                   if ( l_anel ) then
                      if ( l_anelastic_liquid ) then
                         dsdt_loc=dsdt_loc+temp0(nR)*this%heatTermsLM(1)
@@ -450,7 +433,6 @@ contains
                   end if
                   dsdt(1)=dsdt_loc
                else
-                  dVSrLM(lm)=this%VSrLM(lm)
                   dsdt_loc  =dLh(lm)*this%VStLM(lm)
                   if ( l_anel ) then
                      if ( l_anelastic_liquid ) then
@@ -479,28 +461,10 @@ contains
             do lm=1,lm_max
                l   =lm2l(lm)
                if ( l == 0 ) then
-                  dVXirLM(1)=this%VXirLM(1)
                   dxidt(1)  =epscXi
                else
-                  dVXirLM(lm)=this%VXirLM(lm)
                   dxidt(lm)  =dLh(lm)*this%VXitLM(lm)
                end if
-            end do
-#ifdef WITH_OMP_GPU
-            !$omp end target teams distribute parallel do
-#else
-            !$omp end parallel do
-#endif
-         end if
-
-         if ( l_phase_field ) then
-#ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do
-#else
-            !$omp parallel do default(shared)
-#endif
-            do lm=1,lm_max
-               dphidt(lm)=this%dphidtLM(lm)
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
@@ -546,6 +510,7 @@ contains
          end if
 
       else   ! boundary !
+
          if ( l_mag_nl .or. l_mag_kin ) then
 #ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do private(l)
@@ -556,10 +521,8 @@ contains
                l   =lm2l(lm)
                if ( l == 0 ) then
                   dVxBhLM(1)=zero
-                  dVSrLM(1) =zero
                else
                   dVxBhLM(lm)=-dLh(lm)*this%VxBtLM(lm)*r(nR)*r(nR)
-                  dVSrLM(lm) =zero
                end if
             end do
 #ifdef WITH_OMP_GPU
@@ -568,20 +531,21 @@ contains
             !$omp end parallel do
 #endif
          else
+            if ( l_mag ) then
 #ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do
+               !$omp target teams distribute parallel do
 #else
-            !$omp parallel do
+               !$omp parallel do
 #endif
-            do lm=1,lm_max
-               if ( l_mag ) dVxBhLM(lm)=zero
-               dVSrLM(lm) =zero
-            end do
+               do lm=1,lm_max
+                  dVxBhLM(lm)=zero
+               end do
 #ifdef WITH_OMP_GPU
-            !$omp end target teams distribute parallel do
+               !$omp end target teams distribute parallel do
 #else
-            !$omp end parallel do
+               !$omp end parallel do
 #endif
+            end if
          end if
          if ( l_double_curl ) then
 #ifdef WITH_OMP_GPU
@@ -596,21 +560,7 @@ contains
             !$omp end target teams distribute parallel do
 #endif
          end if
-         if ( l_chemical_conv ) then
-#ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do
-#else
-            !$omp parallel do
-#endif
-            do lm=1,lm_max
-               dVXirLM(lm)=zero
-            end do
-#ifdef WITH_OMP_GPU
-            !$omp end target teams distribute parallel do
-#else
-            !$omp end parallel do
-#endif
-         end if
+
       end if  ! boundary ? lvelo ?
 
    end subroutine get_td
@@ -637,8 +587,7 @@ module nonlinear_lm_2d_mod
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag,          &
        &             l_chemical_conv, l_single_matrix, l_double_curl,       &
-       &             l_adv_curl, l_phase_field, l_parallel_solve,           &
-       &             l_temperature_diff
+       &             l_adv_curl, l_parallel_solve, l_temperature_diff
    use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1
    use physical_parameters, only: CorFac, epsc,  n_r_LCR, epscXi
    use blocking, only: lm2l, lm2m, lm2lmA, lm2lmS
@@ -655,9 +604,9 @@ module nonlinear_lm_2d_mod
       !----- Nonlinear terms in lm-space:
       complex(cp), allocatable :: AdvrLM(:,:), AdvtLM(:,:), AdvpLM(:,:)
       complex(cp), allocatable :: VxBrLM(:,:), VxBtLM(:,:), VxBpLM(:,:)
-      complex(cp), allocatable :: VSrLM(:,:),  VStLM(:,:),  VSpLM(:,:)
-      complex(cp), allocatable :: VXirLM(:,:),  VXitLM(:,:), VXipLM(:,:)
-      complex(cp), allocatable :: heatTermsLM(:,:), dphidtLM(:,:)
+      complex(cp), allocatable :: VStLM(:,:),  VSpLM(:,:)
+      complex(cp), allocatable :: VXitLM(:,:), VXipLM(:,:)
+      complex(cp), allocatable :: heatTermsLM(:,:)
    contains
       procedure :: initialize
       procedure :: finalize
@@ -714,41 +663,29 @@ contains
       end if
 
       if ( l_heat ) then
-         allocate( this%VSrLM(lmP_max,nRstart:nRstop) )
          allocate( this%VStLM(lmP_max,nRstart:nRstop) )
          allocate( this%VSpLM(lmP_max,nRstart:nRstop) )
-         bytes_allocated = bytes_allocated + 3*lmP_max*(nRstop-nRstart+1) * &
+         bytes_allocated = bytes_allocated + 2*lmP_max*(nRstop-nRstart+1) * &
          &                 SIZEOF_DEF_COMPLEX
 #ifdef WITH_OMP_GPU
-         gpu_bytes_allocated = gpu_bytes_allocated + 3*lmP_max*(nRstop-nRstart+1)* &
+         gpu_bytes_allocated = gpu_bytes_allocated + 2*lmP_max*(nRstop-nRstart+1)* &
          &                     SIZEOF_DEF_COMPLEX
 #endif
       else
-         allocate( this%VSrLM(1,1), this%VStLM(1,1),this%VSpLM(1,1) )
+         allocate(this%VStLM(1,1),this%VSpLM(1,1))
       end if
 
       if ( l_chemical_conv ) then
-         allocate( this%VXirLM(lmP_max,nRstart:nRstop) )
          allocate( this%VXitLM(lmP_max,nRstart:nRstop) )
          allocate( this%VXipLM(lmP_max,nRstart:nRstop) )
-         bytes_allocated = bytes_allocated + 3*lmP_max*(nRstop-nRstart+1) * &
+         bytes_allocated = bytes_allocated + 2*lmP_max*(nRstop-nRstart+1) * &
          &                 SIZEOF_DEF_COMPLEX
 #ifdef WITH_OMP_GPU
-         gpu_bytes_allocated = gpu_bytes_allocated + 3*lmP_max*(nRstop-nRstart+1)* &
+         gpu_bytes_allocated = gpu_bytes_allocated + 2*lmP_max*(nRstop-nRstart+1)* &
          &                     SIZEOF_DEF_COMPLEX
 #endif
       else
-         allocate(this%VXirLM(1,1),this%VXitLM(1,1),this%VXipLM(1,1))
-      end if
-
-      if ( l_phase_field ) then
-         allocate(this%dphidtLM(lmP_max,nRstart:nRstop))
-         bytes_allocated = bytes_allocated + lmP_max*SIZEOF_DEF_COMPLEX
-#ifdef WITH_OMP_GPU
-         gpu_bytes_allocated = gpu_bytes_allocated + lmP_max*SIZEOF_DEF_COMPLEX
-#endif
-      else
-         allocate(this%dphidtLM(1,1))
+         allocate(this%VXitLM(1,1),this%VXipLM(1,1))
       end if
 
 #ifdef WITH_OMP_GPU
@@ -770,8 +707,8 @@ contains
 
       deallocate( this%AdvrLM, this%AdvtLM, this%AdvpLM )
       deallocate( this%VxBrLM, this%VxBtLM, this%VxBpLM )
-      deallocate( this%heatTermsLM, this%VXirLM, this%VXitLM, this%VXipLM )
-      deallocate( this%VSrLM, this%VStLM, this%VSpLM, this%dphidtLM )
+      deallocate( this%heatTermsLM, this%VXitLM, this%VXipLM )
+      deallocate( this%VStLM, this%VSpLM )
 
    end subroutine finalize
 !----------------------------------------------------------------------------
@@ -801,14 +738,11 @@ contains
                this%VxBpLM(lm,nR)=zero
             end if
             if ( l_heat ) then
-               this%VSrLM(lm,nR)=zero
                this%VStLM(lm,nR)=zero
                this%VSpLM(lm,nR)=zero
             end if
             if ( l_anel ) this%heatTermsLM(lm,nR)=zero
-            if ( l_phase_field ) this%dphidtLM(lm,nR)=zero
             if ( l_chemical_conv ) then
-               this%VXirLM(lm,nR)=zero
                this%VXitLM(lm,nR)=zero
                this%VXipLM(lm,nR)=zero
             end if
@@ -822,12 +756,12 @@ contains
 
    end subroutine set_zero
 !----------------------------------------------------------------------------
-   subroutine get_td(this,lPressNext,dVSrLM,dVXirLM,dVxVhLM,dVxBhLM, &
-              &      dwdt,dzdt,dpdt,dsdt,dxidt,dphidt,dbdt,djdt)
+   subroutine get_td(this,lPressNext,dVxVhLM,dVxBhLM,dwdt,dzdt,dpdt,dsdt, &
+              &      dxidt,dbdt,djdt)
       !
       !  Purpose of this to calculate time derivatives
       !  ``dwdt``,``dzdt``,``dpdt``,``dsdt``,``dxidt``,``dbdt``,``djdt``
-      !  and auxiliary arrays ``dVSrLM``, ``dVXirLM`` and ``dVxBhLM``, ``dVxVhLM``
+      !  and auxiliary arrays ``dVxBhLM``, ``dVxVhLM``
       !  from non-linear terms in spectral form
       !
 
@@ -842,13 +776,10 @@ contains
       complex(cp), intent(out) :: dpdt(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dsdt(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dxidt(lm_max,nRstart:nRstop)
-      complex(cp), intent(out) :: dphidt(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dbdt(lm_maxMag,nRstartMag:nRstopMag)
       complex(cp), intent(out) :: djdt(lm_maxMag,nRstartMag:nRstopMag)
       complex(cp), intent(out) :: dVxBhLM(lm_maxMag,nRstartMag:nRstopMag)
       complex(cp), intent(out) :: dVxVhLM(lm_max,nRstart:nRstop)
-      complex(cp), intent(out) :: dVSrLM(lm_max,nRstart:nRstop)
-      complex(cp), intent(out) :: dVXirLM(lm_max,nRstart:nRstop)
 
       !-- Local variables:
       integer :: l,m,lm,lmS,lmA,nR
@@ -1062,7 +993,6 @@ contains
                l   =lm2l(lm)
                if ( l == 0 ) then
                   dsdt_loc =epsc*epscProf(nR)!+opr/epsS*divKtemp0(nR)
-                  dVSrLM(1,nR)=this%VSrLM(1,nR)
                   if ( l_anel ) then
                      if ( l_anelastic_liquid ) then
                         dsdt_loc=dsdt_loc+temp0(nR)*this%heatTermsLM(1,nR)
@@ -1072,7 +1002,6 @@ contains
                   end if
                   dsdt(1,nR)=dsdt_loc
                else
-                  dVSrLM(lm,nR)=this%VSrLM(lm,nR)
                   dsdt_loc     =dLh(lm)*this%VStLM(lm,nR)
                   if ( l_anel ) then
                      if ( l_anelastic_liquid ) then
@@ -1104,30 +1033,10 @@ contains
             do lm=1,lm_max
                l   =lm2l(lm)
                if ( l == 0 ) then
-                  dVXirLM(1,nR)=this%VXirLM(1,nR)
                   dxidt(1,nR)  =epscXi
                else
-                  dVXirLM(lm,nR)=this%VXirLM(lm,nR)
                   dxidt(lm,nR)  =dLh(lm)*this%VXitLM(lm,nR)
                end if
-            end do
-         end do
-#ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
-#else
-         !$omp end parallel do
-#endif
-      end if
-
-      if ( l_phase_field ) then
-#ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do collapse(2)
-#else
-         !$omp parallel do default(shared) private(lm)
-#endif
-         do nR=nRstart,nRstop
-            do lm=1,lm_max
-               dphidt(lm,nR)=this%dphidtLM(lm,nR)
             end do
          end do
 #ifdef WITH_OMP_GPU
@@ -1194,10 +1103,8 @@ contains
                      l   =lm2l(lm)
                      if ( l == 0 ) then
                         dVxBhLM(1,nR)=zero
-                        dVSrLM(1,nR) =zero
                      else
                         dVxBhLM(lm,nR)=-dLh(lm)*this%VxBtLM(lm,nR)*r(nR)*r(nR)
-                        dVSrLM(lm,nR) =zero
                      end if
                   end do
 #ifdef WITH_OMP_GPU
@@ -1206,20 +1113,21 @@ contains
                   !$omp end parallel do
 #endif
                else
+                  if ( l_mag ) then
 #ifdef WITH_OMP_GPU
-                  !$omp target teams distribute parallel do
+                     !$omp target teams distribute parallel do
 #else
-                  !$omp parallel do
+                     !$omp parallel do
 #endif
-                  do lm=1,lm_max
-                     if ( l_mag ) dVxBhLM(lm,nR)=zero
-                     dVSrLM(lm,nR) =zero
-                  end do
+                     do lm=1,lm_max
+                        dVxBhLM(lm,nR)=zero
+                     end do
 #ifdef WITH_OMP_GPU
-                  !$omp end target teams distribute parallel do
+                     !$omp end target teams distribute parallel do
 #else
-                  !$omp end parallel do
+                     !$omp end parallel do
 #endif
+                  end if
                end if
                if ( l_double_curl ) then
 #ifdef WITH_OMP_GPU
@@ -1232,36 +1140,6 @@ contains
                   end do
 #ifdef WITH_OMP_GPU
                   !$omp end target teams distribute parallel do
-#endif
-               end if
-               if ( l_chemical_conv ) then
-#ifdef WITH_OMP_GPU
-                  !$omp target teams distribute parallel do
-#else
-                  !$omp parallel do
-#endif
-                  do lm=1,lm_max
-                     dVXirLM(lm,nR)=zero
-                  end do
-#ifdef WITH_OMP_GPU
-                  !$omp end target teams distribute parallel do
-#else
-                  !$omp end parallel do
-#endif
-               end if
-               if ( l_heat ) then
-#ifdef WITH_OMP_GPU
-                  !$omp target teams distribute parallel do
-#else
-                  !$omp parallel do
-#endif
-                  do lm=1,lm_max
-                     dVSrLM(lm,nR)=zero
-                  end do
-#ifdef WITH_OMP_GPU
-                  !$omp end target teams distribute parallel do
-#else
-                  !$omp end parallel do
 #endif
                end if
             end if  ! boundary ? lvelo ?

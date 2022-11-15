@@ -212,13 +212,9 @@ contains
       !------ Set nonlinear terms that are possibly needed at the boundaries.
       !       They may be overwritten by get_td later.
       if ( rank == 0 ) then
-         if ( l_heat ) dVSrLM(:,n_r_cmb) =zero
-         if ( l_chemical_conv ) dVXirLM(:,n_r_cmb)=zero
          if ( l_mag ) dVxBhLM(:,n_r_cmb)=zero
          if ( l_double_curl ) dVxVhLM(:,n_r_cmb)=zero
       else if (rank == n_procs-1) then
-         if ( l_heat ) dVSrLM(:,n_r_icb) =zero
-         if ( l_chemical_conv ) dVXirLM(:,n_r_icb)=zero
          if ( l_mag ) dVxBhLM(:,n_r_icb)=zero
          if ( l_double_curl ) dVxVhLM(:,n_r_icb)=zero
       end if
@@ -300,7 +296,8 @@ contains
             end if
 
             call phy2lm_counter%start_count()
-            call this%transform_to_lm_space(nR, lRmsCalc)
+            call this%transform_to_lm_space(nR, lRmsCalc, dVSrLM(:,nR), dVXirLM(:,nR), &
+                 &                         dphidt(:,nR))
             call phy2lm_counter%stop_count(l_increment=.false.)
          else if ( l_mag ) then
             this%nl_lm%VxBtLM(:)=zero
@@ -487,10 +484,9 @@ contains
          !   time step performed in s_LMLoop.f . This should be distributed
          !   over the different models that s_LMLoop.f parallelizes over.
          call td_counter%start_count()
-         call this%nl_lm%get_td(nR, nBc, lPressNext, dVSrLM(:,nR), dVXirLM(:,nR),  &
-              &                 dVxVhLM(:,nR), dVxBhLM(:,nR), dwdt(:,nR),          &
-              &                 dzdt(:,nR), dpdt(:,nR), dsdt(:,nR), dxidt(:,nR),   &
-              &                 dphidt(:,nR), dbdt(:,nR), djdt(:,nR))
+         call this%nl_lm%get_td(nR, nBc, lPressNext, dVxVhLM(:,nR), dVxBhLM(:,nR), &
+              &                 dwdt(:,nR), dzdt(:,nR), dpdt(:,nR), dsdt(:,nR),    &
+              &                 dxidt(:,nR), dbdt(:,nR), djdt(:,nR))
          call td_counter%stop_count(l_increment=.false.)
 
          !-- Finish computation of r.m.s. forces
@@ -525,6 +521,16 @@ contains
          end if
 
       end do
+
+      !------ Set nonlinear terms that are possibly needed at the boundaries.
+      !       They may be overwritten by get_td later.
+      if ( rank == 0 ) then
+         if ( l_heat ) dVSrLM(:,n_r_cmb) =zero
+         if ( l_chemical_conv ) dVXirLM(:,n_r_cmb)=zero
+      else if (rank == n_procs-1) then
+         if ( l_heat ) dVSrLM(:,n_r_icb) =zero
+         if ( l_chemical_conv ) dVXirLM(:,n_r_icb)=zero
+      end if
 
       phy2lm_counter%n_counts=phy2lm_counter%n_counts+1
       lm2phy_counter%n_counts=lm2phy_counter%n_counts+1
@@ -886,7 +892,7 @@ contains
 
    end subroutine transform_to_grid_space
 !-------------------------------------------------------------------------------
-   subroutine transform_to_lm_space(this, nR, lRmsCalc)
+   subroutine transform_to_lm_space(this, nR, lRmsCalc, dVSrLM, dVXirLM, dphidt)
       !
       ! This subroutine actually handles the spherical harmonic transforms from
       ! (\theta,\phi) space to (\ell,m) space.
@@ -897,6 +903,11 @@ contains
       !-- Input variables
       integer, intent(in) :: nR
       logical, intent(in) :: lRmsCalc
+
+      !-- Output variables
+      complex(cp), intent(out) :: dVSrLM(lm_max)
+      complex(cp), intent(out) :: dVXirLM(lm_max)
+      complex(cp), intent(out) :: dphidt(lm_max)
 
       !-- Local variables
       integer :: nPhi
@@ -1054,13 +1065,11 @@ contains
 
       if ( l_heat ) then
 #ifdef WITH_OMP_GPU
-         call spat_to_qst(this%gsa%VSr, this%gsa%VSt, this%gsa%VSp, &
-              &           this%nl_lm%VSrLM, this%nl_lm%VStLM,       &
-              &           this%nl_lm%VSpLM, l_R(nR), .true.)
+         call spat_to_qst(this%gsa%VSr, this%gsa%VSt, this%gsa%VSp, dVSrLM, &
+              &           this%nl_lm%VStLM, this%nl_lm%VSpLM, l_R(nR), .true.)
 #else
          call spat_to_qst(this%gsa%VSr, this%gsa%VSt, this%gsa%VSp, &
-              &           this%nl_lm%VSrLM, this%nl_lm%VStLM,       &
-              &           this%nl_lm%VSpLM, l_R(nR))
+              &           dVSrLM, this%nl_lm%VStLM, this%nl_lm%VSpLM, l_R(nR))
 #endif
          if ( l_anel ) then
 #ifdef WITH_OMP_GPU
@@ -1074,22 +1083,19 @@ contains
 
       if ( l_chemical_conv ) then
 #ifdef WITH_OMP_GPU
-         call spat_to_qst(this%gsa%VXir, this%gsa%VXit, this%gsa%VXip, &
-              &           this%nl_lm%VXirLM, this%nl_lm%VXitLM,        &
-              &           this%nl_lm%VXipLM, l_R(nR), .true.)
+         call spat_to_qst(this%gsa%VXir, this%gsa%VXit, this%gsa%VXip, dVXirLM, &
+              &           this%nl_lm%VXitLM, this%nl_lm%VXipLM, l_R(nR), .true.)
 #else
-         call spat_to_qst(this%gsa%VXir, this%gsa%VXit, this%gsa%VXip, &
-              &           this%nl_lm%VXirLM, this%nl_lm%VXitLM,        &
-              &           this%nl_lm%VXipLM, l_R(nR))
+         call spat_to_qst(this%gsa%VXir, this%gsa%VXit, this%gsa%VXip, dVXirLM, &
+              &           this%nl_lm%VXitLM, this%nl_lm%VXipLM, l_R(nR))
 #endif
       end if
 
       if( l_phase_field ) then
 #ifdef WITH_OMP_GPU
-         call scal_to_SH(sht_l_gpu, this%gsa%phiTerms, this%nl_lm%dphidtLM, &
-              &          l_R(nR), .true.)
+         call scal_to_SH(sht_l_gpu, this%gsa%phiTerms, dphidt, l_R(nR), .true.)
 #else
-         call scal_to_SH(sht_l, this%gsa%phiTerms, this%nl_lm%dphidtLM, l_R(nR))
+         call scal_to_SH(sht_l, this%gsa%phiTerms, dphidt, l_R(nR))
 #endif
       end if
 
