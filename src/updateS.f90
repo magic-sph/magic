@@ -11,7 +11,7 @@ module updateS_mod
    use truncation, only: n_r_max, lm_max, l_max
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: orho1, or1, or2, beta, dentropy0, rscheme_oc,  &
-       &                       kappa, dLkappa, dLtemp0, temp0, r
+       &                       kappa, dLkappa, dLtemp0, temp0, r, l_R
    use physical_parameters, only: opr, kbots, ktops, stef
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: tops, bots
@@ -534,7 +534,7 @@ contains
 
       !-- Local variables
       real(cp) :: dL
-      integer :: n_r, lm, start_lm, stop_lm, l1
+      integer :: n_r, lm, start_lm, stop_lm, l
       integer, pointer :: lm2l(:)
 
       lm2l(1:lm_max) => lo_map%lm2l
@@ -547,11 +547,12 @@ contains
       !$omp barrier
 
       if ( l_anelastic_liquid ) then
-         !$omp do private(n_r,l1,lm,dL)
+         !$omp do private(n_r,l,lm,dL)
          do n_r=1,n_r_max
             do lm=llm,ulm
-               l1 = lm2l(lm)
-               dL = real(l1*(l1+1),cp)
+               l = lm2l(lm)
+               if ( l > l_R(n_r) ) cycle
+               dL = real(l*(l+1),cp)
                ds_exp_last(lm,n_r)=orho1(n_r)*     ds_exp_last(lm,n_r) - &
                &        or2(n_r)*orho1(n_r)*        work_LMloc(lm,n_r) + &
                &       or2(n_r)*orho1(n_r)*dLtemp0(n_r)*dVSrLM(lm,n_r) - &
@@ -561,11 +562,12 @@ contains
          end do
          !$omp end do
       else
-         !$omp do private(n_r,l1,dL,lm)
+         !$omp do private(n_r,l,dL,lm)
          do n_r=1,n_r_max
             do lm=llm,ulm
-               l1 = lm2l(lm)
-               dL = real(l1*(l1+1),cp)
+               l = lm2l(lm)
+               if ( l > l_R(n_r) ) cycle
+               dL = real(l*(l+1),cp)
                ds_exp_last(lm,n_r)=orho1(n_r)*(      ds_exp_last(lm,n_r)- &
                &                             or2(n_r)*work_LMloc(lm,n_r)- &
                &                    dL*or2(n_r)*dentropy0(n_r)*w(lm,n_r))
@@ -607,6 +609,7 @@ contains
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
+               if ( l > l_R(n_r) ) cycle
                dL = real(l*(l+1),cp)
                ds_exp_last(lm,n_r)=orho1(n_r)*     ds_exp_last(lm,n_r) - &
                &         or2(n_r)*orho1(n_r)*        work_Rloc(lm,n_r) + &
@@ -619,6 +622,7 @@ contains
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
+               if ( l > l_R(n_r) ) cycle
                dL = real(l*(l+1),cp)
                ds_exp_last(lm,n_r)=orho1(n_r)*(      ds_exp_last(lm,n_r)- &
                &                              or2(n_r)*work_Rloc(lm,n_r)- &
