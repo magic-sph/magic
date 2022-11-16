@@ -411,10 +411,16 @@ subroutine cylmean(a,v,n_s_max,n_r_max,n_theta_max,r,s,theta)
 
          if ( s(n_s)==0.0_cp .and. z >= 0 ) then
             thet=0.0_cp
-         else if ( s(n_s)==0.0_cp .and. z <= 0 ) then
+         else if ( s(n_s)==0.0_cp .and. z < 0 ) then
             thet=pi
          else
-            thet=acos(z/rc)
+            if ( z > rc .and. z >= 0 ) then
+               thet=0.0_cp
+            else if ( abs(z) > rc .and. z < 0 ) then
+               thet=pi
+            else
+               thet=acos(z/rc)
+            end if
          end if
          ac(n_z,n_s)=0.0_cp
          !
