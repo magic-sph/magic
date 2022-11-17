@@ -12,11 +12,11 @@ module nonlinear_lm_mod
 #else
    use mem_alloc, only: bytes_allocated
 #endif
-   use truncation, only: lm_max, l_max, lm_maxMag
+   use truncation, only: lm_max, lm_maxMag
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag,          &
        &             l_chemical_conv, l_single_matrix, l_double_curl
-   use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1
+   use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1, l_R
    use physical_parameters, only: CorFac, epsc,  n_r_LCR, epscXi
    use blocking, only: lm2l, lm2m, lm2lmA, lm2lmS
    use horizontal_data, only: dLh, dPhi, dTheta2A, dTheta3A, dTheta4A, dTheta2S, &
@@ -248,7 +248,7 @@ contains
                   if ( l_double_curl ) then ! Pressure is not needed
 
                      if ( l_corr ) then
-                        if ( l < l_max ) then
+                        if ( l < l_R(nR) ) then
                            CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
                            &                    dPhi(lm)*(                          &
                            &         -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
@@ -261,7 +261,7 @@ contains
                            &          or1(nR)* (                                    &
                            &             dTheta4A(lm)* z_Rloc(lmA,nR)               &
                            &            -dTheta4S(lm)* z_Rloc(lmS,nR) ) )
-                        else
+                        else if ( l == l_R(nR) ) then
                            CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
                            &                    dPhi(lm)*(                          &
                            &         -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
@@ -270,6 +270,8 @@ contains
                            &             dTheta3S(lm)*( dz_Rloc(lmS,nR)-            &
                            &                            beta(nR)*z_Rloc(lmS,nR) ) - &
                            &          or1(nR)* dTheta4S(lm)* z_Rloc(lmS,nR) )
+                        else
+                           CorPol_loc=zero
                         end if
                      else
                         CorPol_loc=zero
@@ -286,15 +288,17 @@ contains
                   else ! We don't use the double curl
 
                      if ( l_corr .and. nBc /= 2 ) then
-                        if ( l < l_max ) then
+                        if ( l < l_R(nR) ) then
                            CorPol_loc =two*CorFac*or1(nR) * (  &
                            &        dPhi(lm)*dw_Rloc(lm,nR) +  & ! phi-deriv of dw/dr
                            &    dTheta2A(lm)*z_Rloc(lmA,nR) -  & ! sin(theta) dtheta z
                            &    dTheta2S(lm)*z_Rloc(lmS,nR) )
-                        else
+                        else if ( l == l_R(nR) ) then
                            CorPol_loc =two*CorFac*or1(nR) * (  &
                            &        dPhi(lm)*dw_Rloc(lm,nR) -  & ! phi-deriv of dw/dr
                            &    dTheta2S(lm)*z_Rloc(lmS,nR) )
+                        else
+                           CorPol_loc=zero
                         end if
                      else
                         CorPol_loc=zero
@@ -311,18 +315,20 @@ contains
                   dwdt(lm)=AdvPol_loc+CorPol_loc
 
                   if ( l_corr ) then
-                     if ( l < l_max ) then
+                     if ( l < l_R(nR) ) then
                         CorTor_loc=          two*CorFac*or2(nR) * (  &
                         &                 dPhi(lm)*z_Rloc(lm,nR)   + &
                         &            dTheta3A(lm)*dw_Rloc(lmA,nR)  + &
                         &    or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR)  + &
                         &            dTheta3S(lm)*dw_Rloc(lmS,nR)  - &
                         &    or1(nR)*dTheta4S(lm)* w_Rloc(lmS,nR)  )
-                     else if ( l == l_max ) then
+                     else if ( l == l_R(nR) ) then
                         CorTor_loc=          two*CorFac*or2(nR) * (  &
                         &                 dPhi(lm)*z_Rloc(lm,nR)   + &
                         &            dTheta3S(lm)*dw_Rloc(lmS,nR)  - &
                         &    or1(nR)*dTheta4S(lm)* w_Rloc(lmS,nR)  )
+                     else
+                        CorTor_loc=zero
                      end if
                   else
                      CorTor_loc=zero
@@ -361,7 +367,7 @@ contains
 
                   !------ Recycle CorPol and AdvPol:
                   if ( l_corr ) then
-                     if ( l < l_max ) then
+                     if ( l < l_R(nR) ) then
                         CorPol_loc=           two*CorFac*or2(nR) *  &
                         &           ( -dPhi(lm)  * ( dw_Rloc(lm,nR) &
                         &            +or1(nR)*dLh(lm)*w_Rloc(lm,nR) &
@@ -369,13 +375,15 @@ contains
                         &              +dTheta3A(lm)*z_Rloc(lmA,nR) &
                         &              +dTheta3S(lm)*z_Rloc(lmS,nR) &
                         &           )
-                     else
+                     else if ( l == l_R(nR) ) then
                         CorPol_loc=           two*CorFac*or2(nR) *  &
                         &           ( -dPhi(lm)  * ( dw_Rloc(lm,nR) &
                         &            +or1(nR)*dLh(lm)*w_Rloc(lm,nR) &
                         &                                         ) &
                         &              +dTheta3S(lm)*z_Rloc(lmS,nR) &
                         &           )
+                     else
+                        CorPol_loc=zero
                      end if
                   else
                      CorPol_loc=zero
@@ -583,12 +591,12 @@ module nonlinear_lm_2d_mod
 #endif
    use radial_data, only: nRstart, nRstop, n_r_cmb, n_r_icb, nRstartMag, &
        &                  nRstopMag
-   use truncation, only: lm_max, l_max, lm_maxMag
+   use truncation, only: lm_max, lm_maxMag
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag,          &
        &             l_chemical_conv, l_single_matrix, l_double_curl,       &
        &             l_adv_curl, l_parallel_solve, l_temperature_diff
-   use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1
+   use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1, l_R
    use physical_parameters, only: CorFac, epsc,  n_r_LCR, epscXi
    use blocking, only: lm2l, lm2m, lm2lmA, lm2lmS
    use horizontal_data, only: dLh, dPhi, dTheta2A, dTheta3A, dTheta4A, dTheta2S, &
@@ -834,7 +842,7 @@ contains
                   if ( l_double_curl ) then ! Pressure is not needed
 
                      if ( l_corr ) then
-                        if ( l < l_max ) then
+                        if ( l < l_R(nR) ) then
                            CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
                            &                    dPhi(lm)*(                          &
                            &         -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
@@ -847,7 +855,7 @@ contains
                            &          or1(nR)* (                                    &
                            &             dTheta4A(lm)* z_Rloc(lmA,nR)               &
                            &            -dTheta4S(lm)* z_Rloc(lmS,nR) ) )
-                        else
+                        else if ( l == l_R(nR) ) then
                            CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
                            &                    dPhi(lm)*(                          &
                            &         -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
@@ -856,6 +864,8 @@ contains
                            &             dTheta3S(lm)*( dz_Rloc(lmS,nR)-            &
                            &                            beta(nR)*z_Rloc(lmS,nR) ) - &
                            &          or1(nR)* dTheta4S(lm)* z_Rloc(lmS,nR) )
+                        else
+                           CorPol_loc=zero
                         end if
                      else
                         CorPol_loc=zero
@@ -872,15 +882,17 @@ contains
                   else ! We don't use the double curl
 
                      if ( l_corr ) then
-                        if ( l < l_max ) then
+                        if ( l < l_R(nR) ) then
                            CorPol_loc =two*CorFac*or1(nR) * (  &
                            &        dPhi(lm)*dw_Rloc(lm,nR) +  & ! phi-deriv of dw/dr
                            &    dTheta2A(lm)*z_Rloc(lmA,nR) -  & ! sin(theta) dtheta z
                            &    dTheta2S(lm)*z_Rloc(lmS,nR) )
-                        else
+                        else if ( l == l_R(nR) ) then
                            CorPol_loc =two*CorFac*or1(nR) * (  &
                            &        dPhi(lm)*dw_Rloc(lm,nR) -  & ! phi-deriv of dw/dr
                            &    dTheta2S(lm)*z_Rloc(lmS,nR) )
+                        else
+                           CorPol_loc=zero
                         end if
                      else
                         CorPol_loc=zero
@@ -897,18 +909,20 @@ contains
                   dwdt(lm,nR)=AdvPol_loc+CorPol_loc
 
                   if ( l_corr ) then
-                     if ( l < l_max ) then
+                     if ( l < l_R(nR) ) then
                         CorTor_loc=          two*CorFac*or2(nR) * (  &
                         &                 dPhi(lm)*z_Rloc(lm,nR)   + &
                         &            dTheta3A(lm)*dw_Rloc(lmA,nR)  + &
                         &    or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR)  + &
                         &            dTheta3S(lm)*dw_Rloc(lmS,nR)  - &
                         &    or1(nR)*dTheta4S(lm)* w_Rloc(lmS,nR)  )
-                     else if ( l == l_max ) then
+                     else if ( l == l_R(nR) ) then
                         CorTor_loc=          two*CorFac*or2(nR) * (  &
                         &                 dPhi(lm)*z_Rloc(lm,nR)   + &
                         &            dTheta3S(lm)*dw_Rloc(lmS,nR)  - &
                         &    or1(nR)*dTheta4S(lm)* w_Rloc(lmS,nR)  )
+                     else
+                        CorTor_loc=zero
                      end if
                   else
                      CorTor_loc=zero
@@ -924,7 +938,7 @@ contains
                   if ( (.not. l_double_curl) .or. lPressNext ) then
                      !------ Recycle CorPol and AdvPol:
                      if ( l_corr ) then
-                        if ( l < l_max ) then
+                        if ( l < l_R(nR) ) then
                            CorPol_loc=           two*CorFac*or2(nR) *  &
                            &           ( -dPhi(lm)  * ( dw_Rloc(lm,nR) &
                            &            +or1(nR)*dLh(lm)*w_Rloc(lm,nR) &
@@ -932,13 +946,15 @@ contains
                            &              +dTheta3A(lm)*z_Rloc(lmA,nR) &
                            &              +dTheta3S(lm)*z_Rloc(lmS,nR) &
                            &           )
-                        else
+                        else if ( l == l_R(nR) ) then
                            CorPol_loc=           two*CorFac*or2(nR) *  &
                            &           ( -dPhi(lm)  * ( dw_Rloc(lm,nR) &
                            &            +or1(nR)*dLh(lm)*w_Rloc(lm,nR) &
                            &                                         ) &
                            &              +dTheta3S(lm)*z_Rloc(lmS,nR) &
                            &           )
+                        else
+                           CorPol_loc=zero
                         end if
                      else
                         CorPol_loc=zero

@@ -14,7 +14,7 @@ module updateWP_mod
    use truncation, only: lm_max, n_r_max, l_max, m_min
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or1, or2, rho0, rgrav, visc, dLvisc, r, &
-       &                       alpha0, temp0, beta, dbeta, ogrun,      &
+       &                       alpha0, temp0, beta, dbeta, ogrun, l_R, &
        &                       rscheme_oc, ddLvisc, ddbeta, orho1
    use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,   &
        &                          ViscHeatFac, ThExpNb, ktopp
@@ -1509,7 +1509,7 @@ contains
       complex(cp), intent(inout) :: dw_exp_last(llm:ulm,n_r_max)
 #endif
       !-- Local variables
-      integer :: n_r, start_lm, stop_lm, lm
+      integer :: n_r, l, lm, start_lm, stop_lm
 
 #ifdef WITH_OMP_GPU
       start_lm=llm; stop_lm=ulm
@@ -1523,10 +1523,12 @@ contains
       call get_dr( dVxVhLM,work_LMloc,ulm-llm+1,start_lm-llm+1,    &
            &       stop_lm-llm+1,n_r_max,rscheme_oc, nocopy=.true. )
       !$omp barrier
-      !$omp do
+      !$omp do private(lm,l)
 #endif
       do n_r=1,n_r_max
          do lm=llm,ulm
+            l=lo_map%lm2l(lm)
+            if ( l == 0 .or. l > l_R(n_r) ) cycle
             dw_exp_last(lm,n_r)= dw_exp_last(lm,n_r)+or2(n_r)*work_LMloc(lm,n_r)
          end do
       end do
@@ -1574,7 +1576,7 @@ contains
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
             l = st_map%lm2l(lm)
-            if ( l /= 0 ) then
+            if ( l > 0 .and. l <= l_R(n_r) ) then
                dw_exp_last(lm,n_r)=dw_exp_last(lm,n_r)+or2(n_r)*work_Rloc(lm,n_r)
             end if
          end do
@@ -1590,7 +1592,7 @@ contains
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
-               if ( l /= 0 ) then
+               if ( l > 0 .and. l <= l_R(n_r) ) then
                   dLh = real(l*(l+1),cp)
                   dw_exp_last(lm,n_r)=dw_exp_last(lm,n_r)+dLh*or2(n_r)*BuoFac* &
                   &                   rgrav(n_r)*s_Rloc(lm,n_r)
@@ -1609,7 +1611,7 @@ contains
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
-               if ( l /= 0 ) then
+               if ( l > 0 .and. l <= l_R(n_r) ) then
                   dLh = real(l*(l+1),cp)
                   dw_exp_last(lm,n_r)=dw_exp_last(lm,n_r)+dLh*or2(n_r)*ChemFac* &
                   &                   rgrav(n_r)*xi_Rloc(lm,n_r)

@@ -20,11 +20,11 @@ module updateB_mod
 #ifdef WITH_OMP_GPU
    use radial_functions, only: chebt_ic,or2,r_cmb,chebt_ic_even, d2cheb_ic,    &
        &                       cheb_norm_ic,dr_fac_ic,lambda,dLlambda,o_r_ic,r,&
-       &                       or1, cheb_ic, dcheb_ic, rscheme_oc, dr_top_ic
+       &                       or1, cheb_ic, dcheb_ic, rscheme_oc, dr_top_ic, l_R
 #else
    use radial_functions, only: chebt_ic,or2,r_cmb,chebt_ic_even, d2cheb_ic,    &
        &                       cheb_norm_ic,dr_fac_ic,lambda,dLlambda,o_r_ic,r,&
-       &                       or1, cheb_ic, dcheb_ic, rscheme_oc, dr_top_ic
+       &                       or1, cheb_ic, dcheb_ic, rscheme_oc, dr_top_ic, l_R
 #endif
    use radial_data, only: n_r_cmb, n_r_icb, nRstartMag, nRstopMag
    use physical_parameters, only: n_r_LCR, opm, O_sr, kbotb, imagcon, tmagcon, &
@@ -1592,7 +1592,7 @@ contains
       complex(cp), intent(inout) :: dj_exp_last(llmMag:ulmMag,n_r_maxMag)
 #endif
       !-- Local variables
-      integer :: n_r, lm, start_lm, stop_lm, lmStart_00
+      integer :: n_r, l, lm, start_lm, stop_lm, lmStart_00
 
       lmStart_00 =max(2,llmMag)
 
@@ -1610,10 +1610,12 @@ contains
            &       stop_lm-llmMag+1,n_r_max,rscheme_oc,nocopy=.true. )
       !$omp barrier
 
-      !$omp do private(n_r,lm)
+      !$omp do private(n_r,l,lm)
 #endif
       do n_r=1,n_r_max
          do lm=lmStart_00,ulmMag
+            l=lo_map%lm2l(lm)
+            if ( l > l_R(n_r) ) cycle
             dj_exp_last(lm,n_r)=dj_exp_last(lm,n_r)+or2(n_r)*work_LMloc(lm,n_r)
          end do
       end do
@@ -1640,7 +1642,7 @@ contains
 
       !-- Local variables
       complex(cp), allocatable :: work_Rloc(:,:)
-      integer :: n_r, lm, start_lm, stop_lm
+      integer :: n_r, lm, start_lm, stop_lm, l
 
       allocate(work_Rloc(lm_max,nRstartMag:nRstopMag))
       work_Rloc = zero
@@ -1656,13 +1658,15 @@ contains
       start_lm=1; stop_lm=lm_maxMag
       !$omp target teams distribute parallel do collapse(2)
 #else
-      !$omp parallel default(shared) private(n_r, lm, start_lm, stop_lm)
+      !$omp parallel default(shared) private(n_r, lm, l, start_lm, stop_lm)
       start_lm=1; stop_lm=lm_maxMag
       call get_openmp_blocks(start_lm, stop_lm)
       !$omp barrier
 #endif
       do n_r=nRstartMag,nRstopMag
          do lm=start_lm,stop_lm
+            l=st_map%lm2l(lm)
+            if ( l > l_R(n_r) ) cycle
             dj_exp_last(lm,n_r)=dj_exp_last(lm,n_r)+or2(n_r)*work_Rloc(lm,n_r)
          end do
       end do

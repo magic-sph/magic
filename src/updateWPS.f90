@@ -18,13 +18,13 @@ module updateWPS_mod
    use radial_functions, only: or1, or2, rho0, rgrav, r, visc, dLvisc,    &
        &                       rscheme_oc, beta, dbeta, dLkappa, dLtemp0, &
        &                       ddLtemp0, alpha0, dLalpha0, ddLalpha0,     &
-       &                       ogrun, kappa, orho1, dentropy0, temp0
+       &                       ogrun, kappa, orho1, dentropy0, temp0, l_R
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
        &                          ViscHeatFac, ThExpNb, BuoFac,        &
        &                          CorFac, ktopp
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: tops, bots
-   use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm
+   use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V, hdif_S
    use logic, only: l_update_v, l_temperature_diff, l_RMS, l_full_sphere
    use RMS, only: DifPol2hInt, DifPolLMr
@@ -574,7 +574,7 @@ contains
       complex(cp), intent(inout) :: ds_exp_last(llm:ulm,n_r_max)
 #endif
       !-- Local variables
-      integer :: n_r, start_lm, stop_lm, lm
+      integer :: n_r, start_lm, stop_lm, lm, l
 
 #ifdef WITH_OMP_GPU
       start_lm=llm; stop_lm=ulm
@@ -588,10 +588,12 @@ contains
       call get_dr( dVSrLM, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
            &       stop_lm-llm+1, n_r_max, rscheme_oc, nocopy=.true. )
       !$omp barrier
-      !$omp do
+      !$omp do private(lm,l)
 #endif
       do n_r=1,n_r_max
          do lm=llm,ulm
+            l=lo_map%lm2l(lm)
+            if ( l > l_R(n_r) ) cycle
             ds_exp_last(lm,n_r)=orho1(n_r)*(ds_exp_last(lm,n_r)-   &
             &                      or2(n_r)*work_LMloc(lm,n_r))
          end do
@@ -614,7 +616,7 @@ contains
 
       !-- Local variables
       complex(cp), allocatable :: work_Rloc(:,:)
-      integer :: n_r, lm, start_lm, stop_lm
+      integer :: n_r, lm, start_lm, stop_lm, l
 
       allocate(work_Rloc(lm_max,nRstart:nRstop))
       work_Rloc = zero
@@ -630,13 +632,15 @@ contains
       start_lm=1; stop_lm=lm_max
       !$omp target teams distribute parallel do collapse(2)
 #else
-      !$omp parallel default(shared) private(n_r, lm, start_lm, stop_lm)
+      !$omp parallel default(shared) private(n_r, lm, start_lm, stop_lm, l)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm, stop_lm)
       !$omp barrier
 #endif
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
+            l=st_map%lm2l(lm)
+            if ( l > l_R(n_r) ) cycle
             ds_exp_last(lm,n_r)=orho1(n_r)*(ds_exp_last(lm,n_r) - &
             &                        or2(n_r)*work_Rloc(lm,n_r))
          end do
