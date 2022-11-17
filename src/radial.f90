@@ -5,7 +5,7 @@ module radial_functions
    !
 
    use iso_fortran_env, only: output_unit
-   use truncation, only: n_r_max, n_cheb_max, n_r_ic_max, fd_ratio, &
+   use truncation, only: n_r_max, n_cheb_max, n_r_ic_max, fd_ratio, rcut_l, &
        &                 fd_stretch, fd_order, fd_order_bound, l_max
    use algebra, only: prepare_mat, solve_mat
    use constants, only: sq4pi, one, two, three, four, half, pi
@@ -251,7 +251,6 @@ contains
       integer :: fileHandle
       real(cp) :: ratio1, ratio2, diff, coeff
 
-
       !-- Radial grid point:
       !   radratio is aspect ratio
       !   radratio = (inner core r) / (CMB r) = r_icb/r_cmb
@@ -298,6 +297,10 @@ contains
       if ( l_var_l ) then ! Nat's form from Marti et al. (2014)
          !l_R(:) = int(one+(l_max-one)*sqrt(r(nRstart:nRstop)/r_cmb))
          l_R(:) = int(one+(l_max-one)*sqrt(r(:)/r_cmb))
+         l_R(:) = int(one+l_max*sqrt(r(:)/r_cmb/rcut_l))
+         do n_r=1,n_r_max
+            if ( l_R(n_r) > l_max ) l_R(n_r)=l_max
+         end do
          call logWrite('! Spherical harmonic degree varies with radius')
          call logWrite('! It increases between l_min and l_max following:')
          write(message,'(''!   l_min ='',i5, '' at r ='', f7.4)') minval(l_R(:)), &
