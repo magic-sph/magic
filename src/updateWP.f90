@@ -1528,8 +1528,9 @@ contains
       do n_r=1,n_r_max
          do lm=llm,ulm
             l=lo_map%lm2l(lm)
-            if ( l == 0 .or. l > l_R(n_r) ) cycle
-            dw_exp_last(lm,n_r)= dw_exp_last(lm,n_r)+or2(n_r)*work_LMloc(lm,n_r)
+            if ( l == 0 .or. l <= l_R(n_r) ) then
+               dw_exp_last(lm,n_r)= dw_exp_last(lm,n_r)+or2(n_r)*work_LMloc(lm,n_r)
+            end if
          end do
       end do
 #ifdef WITH_OMP_GPU

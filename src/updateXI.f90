@@ -769,9 +769,10 @@ contains
       do n_r=1,n_r_max
          do lm=llm,ulm
             l = lo_map%lm2l(lm)
-            if ( l > l_R(n_r) ) cycle
-            dxi_exp_last(lm,n_r)=orho1(n_r)*( dxi_exp_last(lm,n_r)-   &
-            &                         or2(n_r)*work_LMloc(lm,n_r) )
+            if ( l <= l_R(n_r) ) then
+               dxi_exp_last(lm,n_r)=orho1(n_r)*( dxi_exp_last(lm,n_r)-   &
+               &                         or2(n_r)*work_LMloc(lm,n_r) )
+            end if
          end do
       end do
 #ifdef WITH_OMP_GPU
@@ -789,9 +790,10 @@ contains
          do n_r=1,n_r_max
             do lm=llm,ulm
                l = lo_map%lm2l(lm)
-               if ( l > l_R(n_r) ) cycle
-               dLh = real(l*(l+1),cp)
-               dxi_exp_last(lm,n_r)=-dLh*or2(n_r)*orho1(n_r)*w(lm,n_r)*dxicond(n_r)
+               if ( l <= l_R(n_r) ) then
+                  dLh = real(l*(l+1),cp)
+                  dxi_exp_last(lm,n_r)=-dLh*or2(n_r)*orho1(n_r)*w(lm,n_r)*dxicond(n_r)
+               end if
             end do
          end do
 #ifdef WITH_OMP_GPU
@@ -848,9 +850,10 @@ contains
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
             l=st_map%lm2l(lm)
-            if ( l > l_R(n_r) ) cycle
-            dxi_exp_last(lm,n_r)=orho1(n_r)*( dxi_exp_last(lm,n_r)-   &
-            &                           or2(n_r)*work_Rloc(lm,n_r) )
+            if ( l <= l_R(n_r) ) then
+               dxi_exp_last(lm,n_r)=orho1(n_r)*( dxi_exp_last(lm,n_r)-   &
+               &                           or2(n_r)*work_Rloc(lm,n_r) )
+            end if
          end do
       end do
 #ifdef WITH_OMP_GPU
@@ -866,9 +869,10 @@ contains
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
-               if ( l > l_R(n_r) ) cycle
-               dLh = real(l*(l+1),cp)
-               dxi_exp_last(lm,n_r)=-dLh*or2(n_r)*orho1(n_r)*w(lm,n_r)*dxicond(n_r)
+               if ( l <= l_R(n_r) ) then
+                  dLh = real(l*(l+1),cp)
+                  dxi_exp_last(lm,n_r)=-dLh*or2(n_r)*orho1(n_r)*w(lm,n_r)*dxicond(n_r)
+               end if
             end do
          end do
 #ifdef WITH_OMP_GPU

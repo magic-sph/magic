@@ -1615,8 +1615,9 @@ contains
       do n_r=1,n_r_max
          do lm=lmStart_00,ulmMag
             l=lo_map%lm2l(lm)
-            if ( l > l_R(n_r) ) cycle
-            dj_exp_last(lm,n_r)=dj_exp_last(lm,n_r)+or2(n_r)*work_LMloc(lm,n_r)
+            if ( l <= l_R(n_r) ) then
+               dj_exp_last(lm,n_r)=dj_exp_last(lm,n_r)+or2(n_r)*work_LMloc(lm,n_r)
+            end if
          end do
       end do
 #ifdef WITH_OMP_GPU
@@ -1666,8 +1667,9 @@ contains
       do n_r=nRstartMag,nRstopMag
          do lm=start_lm,stop_lm
             l=st_map%lm2l(lm)
-            if ( l > l_R(n_r) ) cycle
-            dj_exp_last(lm,n_r)=dj_exp_last(lm,n_r)+or2(n_r)*work_Rloc(lm,n_r)
+            if ( l <= l_R(n_r) ) then
+               dj_exp_last(lm,n_r)=dj_exp_last(lm,n_r)+or2(n_r)*work_Rloc(lm,n_r)
+            end if
          end do
       end do
 #ifdef WITH_OMP_GPU

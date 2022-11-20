@@ -201,7 +201,12 @@ contains
          topxicond=-osq4pi*ds0(1)
          botxicond=-osq4pi*ds0(n_r_max)
          deltaxicond=osq4pi*(s0(n_r_max)-s0(1))
-         if ( l_onset ) dxicond(:)=ds0(:) * osq4pi
+         if ( l_onset ) then
+            dxicond(:)=ds0(:) * osq4pi
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dxicond) nowait
+#endif
+      end if
       else
          topxicond  =0.0_cp
          botxicond  =0.0_cp
