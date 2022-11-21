@@ -1,4 +1,4 @@
-Commit
+Commit fc515a7afa4d13991eb0b66656629362b7f6c0e8
 
 20/11/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1 MPI x 1 OMP - l_batched_shts=.true. - GPU
 ==> dynamo_benchmark [NOK: dt too small]
@@ -45,8 +45,9 @@ Commit
 
 21/11/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 4 MPI x 1 OMP - l_batched_shts=.true. - GPU
 All fail :
-==> Wrong numerical results : varProps
-==> Abort : dynamo_benchmark
+==> Wrong numerical results : varProps, boussBenchSat, doubleDiffusion,
+==> Abort : dynamo_benchmark, time_schemes,
+==> NaN : finite_differences,
 
 ************************************************************************************************************************************
 
@@ -73,3 +74,6 @@ All fail except onset
 
 20/11/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 4 MPI x 1 OMP - l_batched_shts=.true. - CPU
 ==> time_schemes [NOK: (shapes (846,), (774,) mismatch)]
+==> dynamo_benchmark_condICrotIC [NOK: (shapes (1102, 9), (1001, 9) mismatch)]
+==> testCoeffOutputs [Exec OK, error in Python script : first two lines OK]
+==> testTOGeosOutputs [NOK: Mismatched elements: 2 / 122 (1.64%) Max absolute difference: 1.00000008e-09 Max relative difference: 1.25290511e-09]
