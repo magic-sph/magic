@@ -10,6 +10,8 @@ export FC=ftn && export CRAY_ACC_DEBUG=1
 
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/rocm-5.0.2/hip/lib/:/opt/rocm-4.5.0/lib/
 
+export HIP_LAUNCH_BLOCKING=1
+
 if [ -e "build" ];then rm -rf "build" ; fi
 
 mkdir -p build

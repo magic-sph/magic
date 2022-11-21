@@ -44,6 +44,8 @@ export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
 export CRAY_ACC_DEBUG=1
 
+export HIP_LAUNCH_BLOCKING=1
+
 echo "Total tasks: $TOTAL_NTASKS"
 
 srun -l ./magic.exe input.nml

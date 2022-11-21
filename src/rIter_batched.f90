@@ -105,10 +105,6 @@ module rIter_batched_mod
        &          CFt2LM, CFp2LM
 #endif
    use probe_mod
-#ifdef WITH_OMP_GPU
-   use hipfort_check, only: hipCheck
-   use hipfort, only: hipDeviceSynchronize
-#endif
 
    implicit none
 
@@ -703,7 +699,6 @@ contains
                if ( nRstart == n_r_cmb .and. ktops==1) then
 #ifdef WITH_OMP_GPU
                   !-- nlat_padded,nRl:nRu,n_phi_max
-                  call hipCheck(hipDeviceSynchronize())
                   !$omp target teams distribute parallel do
                   do nPhi=1,n_phi_max
                      do nLat=1,nlat_padded
@@ -718,7 +713,6 @@ contains
 #endif
                else if ( nRstop == n_r_icb .and. kbots==1) then
 #ifdef WITH_OMP_GPU
-                  call hipCheck(hipDeviceSynchronize())
                   !$omp target teams distribute parallel do
                   do nPhi=1,n_phi_max
                      do nLat=1,nlat_padded
@@ -805,7 +799,6 @@ contains
                     &                this%gsa%dvrdpc, l_R(1), .true.)
                call sphtor_to_spat(sht_l_gpu, dmdw,  dmz, this%gsa%dvtdpc, &
                     &              this%gsa%dvpdpc, l_R(1), .true.)
-               call hipCheck(hipDeviceSynchronize())
                !$omp target teams distribute parallel do collapse(3)
                do nPhi=1,n_phi_max
                   do nR=nRstart,nRstop
@@ -848,7 +841,6 @@ contains
                  &                 l_R(1), .true.)
             call sphtor_to_spat(sht_l_gpu, dmdw, dmz, this%gsa%dvtdpc, &
                  &              this%gsa%dvpdpc, l_R(1), .true.)
-            call hipCheck(hipDeviceSynchronize())
             !$omp target teams distribute parallel do collapse(3)
             do nPhi=1,n_phi_max
                do nR=nRstart,nRstop
@@ -883,13 +875,11 @@ contains
 
 #ifdef WITH_OMP_GPU
          if ( nRstart == n_r_cmb .and. ktopv==2 ) then
-            call hipCheck(hipDeviceSynchronize())
             call v_rigid_boundary_batch(n_r_cmb, omega_ma, .true., this%gsa%vrc,   &
                  &                      this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
                  &                      this%gsa%dvrdtc, this%gsa%dvrdpc,          &
                  &                      this%gsa%dvtdpc,this%gsa%dvpdpc)
          else if ( nRstop == n_r_icb .and. kbotv==2 ) then
-            call hipCheck(hipDeviceSynchronize())
             call v_rigid_boundary_batch(n_r_icb, omega_ic, .true., this%gsa%vrc, &
                  &                      this%gsa%vtc, this%gsa%vpc,              &
                  &                      this%gsa%cvrc, this%gsa%dvrdtc,          &
@@ -961,10 +951,6 @@ contains
               &              this%gsa%cbrc, this%gsa%cbtc, this%gsa%cbpc, l_R(1))
 #endif
       end if
-
-#ifdef WITH_OMP_GPU
-      call hipCheck(hipDeviceSynchronize())
-#endif
 
    end subroutine transform_to_grid_space
 !-------------------------------------------------------------------------------
@@ -1197,10 +1183,6 @@ contains
       end if
 
       if ( lRmsCalc ) call transform_to_lm_RMS(1, this%gsa%LFr) ! 1 for l_R(1)
-
-#ifdef WITH_OMP_GPU
-      call hipCheck(hipDeviceSynchronize())
-#endif
 
    end subroutine transform_to_lm_space
 !-------------------------------------------------------------------------------
