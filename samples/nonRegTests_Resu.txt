@@ -1,25 +1,75 @@
-Commit 2f7083c24b24d898d740e45f4af3a45de530b82f
+Commit
 
-02/11/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1 MPI x 1 OMP - l_batched_shts=.true. - GPU
+20/11/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1 MPI x 1 OMP - l_batched_shts=.true. - GPU
+==> dynamo_benchmark [NOK: dt too small]
+==> onset [NOK: Mismatched elements: 200 / 459 (43.6%) Max absolute difference: 0.02015402 Max relative difference: 1.25332434e+10]
+==> finite_differences [NOK: Mismatched elements: 62 / 297 (20.9%) Max absolute difference: 1.00000007e-05 Max relative difference: 1.23825603e-06]
+==> testOutputs [NOK: Mismatched elements: 40 / 1342 (2.98%) Max absolute difference: 219.0694977 Max relative difference: 1.]
+==> time_schemes [NOK: (shapes (846,), (603,) mismatch)]
+==> testCoeffOutputs [Exec OK, error in Python script : first two lines OK]
+==> testRMSOutputs [NOK: Mismatched elements: 10 / 324 (3.09%) Max absolute difference: 126.55343 Max relative difference: 0.11966455]
+==> testTOGeosOutputs [NOK: Mismatched elements: 2 / 122 (1.64%) Max absolute difference: 1.00000008e-09 Max relative difference: 1.25290511e-09]
 
-dynamo_benchmark [NOK: dt too small]
-onset [NOK: Mismatched elements: 200 / 459 (43.6%) Max absolute difference: 0.02015402 Max relative difference: 1.25332431e+10]
-testRMSOutputs[NOK: Mismatched elements: 18 / 324 (5.56%) Max absolute difference: 20.01379 Max relative difference: 0.01844908]
-testOutputs [NOK: Mismatched elements: 40 / 1342 (2.98%) Max absolute difference: 223.3016877 Max relative difference: 2.]
-time_schemes [NOK: (shapes (846,), (603,) mismatch)]
 
-02/11/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1 MPI x 2 OMP - l_batched_shts=.true. - GPU
-dynamo_benchmark [NOK: dt too small]
-time_schemes [NOK: (shapes (846,), (603,) mismatch)]
-doubleDiffusion [NOK: (shapes (12, 9), (7, 9) mismatch)]
-phase_field [NOK: (shapes (17, 9), (12, 9) mismatch)]
-onset [NOK: Mismatched elements: 200 / 459 (43.6%) Max absolute difference: 0.02015402 Max relative difference: 1.25332431e+10]
-testOutputs [NOK: Mismatched elements: 40 / 1342 (2.98%) Max absolute difference: 223.3016877 Max relative difference: 2.]
-testRMSOutputs[NOK: (shapes (324,), (270,) mismatch)]
+21/11/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1 MPI x 2 OMP - l_batched_shts=.true. - GPU
+==> dynamo_benchmark [NOK: dt too small]
+==> time_schemes [NOK: (shapes (846,), (603,) mismatch)]
+==> finite_differences [NOK: Mismatched elements: 62 / 297 (20.9%) Max absolute difference: 1.00000007e-05 Max relative difference: 1.23825603e-06]
+==> doubleDiffusion [NOK: (shapes (12, 9), (7, 9) mismatch)]
+==> phase_field [NOK: (shapes (17, 9), (12, 9) mismatch)]
+==> onset [NOK: Mismatched elements: 200 / 459 (43.6%) Max absolute difference: 0.02015402 Max relative difference: 1.25332434e+10]
+==> testOutputs [NOK: Mismatched elements: 40 / 1342 (2.98%) Max absolute difference: 218.5320367 Max relative difference: 1.]
+==> testCoeffOutputs [Exec OK, error in Python script]
+==> testRMSOutputs [NOK: (shapes (324,), (270,) mismatch)]
+==> testTOGeosOutputs [NOK: Mismatched elements: 2 / 122 (1.64%) Max absolute difference: 1.00000008e-09 Max relative difference: 1.25290511e-09]
 
-02/11/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 4 MPI x 1 OMP - l_batched_shts=.true. - CPU
-time_schemes [NOK: (shapes (846,), (774,) mismatch)]
 
-02/11/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 2 MPI x 2 OMP - l_batched_shts=.true. - CPU
-time_schemes [NOK: (shapes (846,), (684,) mismatch)]
+21/11/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1 MPI x 4 OMP - l_batched_shts=.true. - GPU
+==> dynamo_benchmark [NOK: dt too small]
+==> time_schemes [NOK]
+==> finite_differences [NOK : Degug]
+==> doubleDiffusion [NOK: (shapes (12, 9), (7, 9) mismatch)]
+==> phase_field [NOK: (shapes (17, 9), (12, 9) mismatch)]
+==> couetteAxi [NOK : Debug]
+==> full_sphere [NOK : Debug]
+==> onset [NOK: Mismatched elements: 200 / 459 (43.6%) Max absolute difference: 0.02015402 Max relative difference: 1.25332434e+10]
+==> testTruncations [NOK: (shapes (468,), (180,) mismatch)]
+==> testMapping [NOK: (shapes (459,), (0,) mismatch)]
+==> testOutputs [NOK: (shapes (1342,), (0,) mismatch)]
+==> hydro_bench_anel [NOK: e_kin.test not found]
+==> dynamo_benchmark_condICrotIC [NOK: (shapes (1102, 9), (0,) mismatch)]
+==> testCoeffOutputs [Exec OK, error in Python script]
+==> testRMSOutputs [NOK: (shapes (324,), (270,) mismatch)]
+==> testGraphMovieOutputs [NOK: x and y +inf location mismatch]
+==> testTOGeosOutputs [NOK: Mismatched elements: 2 / 122 (1.64%) Max absolute difference: 1.00000008e-09 Max relative difference: 1.25290511e-09]
 
+21/11/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 4 MPI x 1 OMP - l_batched_shts=.true. - GPU
+All fail :
+==> Wrong numerical results : varProps
+==> Abort : dynamo_benchmark
+
+************************************************************************************************************************************
+
+21/11/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1 MPI x 1 OMP - l_batched_shts=.true. - CPU
+==> time_schemes [NOK: (shapes (846,), (774,) mismatch)]
+==> finite_differences [NOK: Mismatched elements: 62 / 297 (20.9%) Max absolute difference: 1.00000007e-05 Max relative difference: 1.23825603e-06]
+==> dynamo_benchmark_condICrotIC [NOK: (shapes (1102, 9), (1001, 9) mismatch)]
+==> testCoeffOutputs [Exec OK, error in Python script : first two lines OK]
+
+20/11/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1 MPI x 2 OMP - l_batched_shts=.true. - CPU
+==> dynamo_benchmark[NOK: Mismatched elements: 8991 / 9009 (99.8%) Max absolute difference: 163.45718 Max relative difference: 2.98695534]
+==> time_schemes [NOK: (shapes (846,), (774,) mismatch)]
+==> finite_differences [NOK: Mismatched elements: 250 / 297 (84.2%) Max absolute difference: 2.190925 Max relative difference: 0.03986921]
+==> boussBenchSat [NOK: Mismatched elements: 43 / 54 (79.6%) Max absolute difference: 0.00048387 Max relative difference: 4.36887632e-06]
+==> testRestart [NOK: Mismatched elements: 459 / 459 (100%) Max absolute difference: 83.612458 Max relative difference: 1.3257519]
+==> testOutputs [NOK: Mismatched elements: 900 / 1342 (67.1%) Max absolute difference: 65392.507 Max relative difference: 49153.55713791]
+==> dynamo_benchmark_condICrotIC [NOK: (shapes (1102, 9), (1001, 9) mismatch)]
+==> testCoeffOutputs [Exec OK, error in Python script : first two lines OK]
+==> testRMSOutputs [NOK: Mismatched elements: 291 / 324 (89.8%) Max absolute difference: 12.4083 Max relative difference: 0.01147938]
+==> testTOGeosOutputs [NOK: Mismatched elements: 92 / 122 (75.4%) Max absolute difference: 0.0126 Max relative difference: 1.]
+
+20/11/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 1 MPI x 4 OMP - l_batched_shts=.true. - CPU
+All fail except onset
+
+20/11/2022 - CINES01 - CCE 14.0.2 - ROCm 4.5 - 4 MPI x 1 OMP - l_batched_shts=.true. - CPU
+==> time_schemes [NOK: (shapes (846,), (774,) mismatch)]
