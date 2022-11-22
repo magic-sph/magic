@@ -291,9 +291,9 @@ contains
       nLMB=1+rank
 
       !-- Now assemble the right hand side and store it in work_LMloc
-      call up1_counter%start_count()
+!      call up1_counter%start_count()
       call tscheme%set_imex_rhs(work_LMloc, dsdt)
-      call up1_counter%stop_count()
+!      call up1_counter%stop_count()
 
 #ifndef WITH_OMP_GPU
       !$omp parallel default(shared)
@@ -327,6 +327,7 @@ contains
       do nLMB2=1,nLMBs2(nLMB)
 
          ! This task treats one l given by l1
+         call up1_counter%start_count()
          l1=lm22l(1,nLMB2,nLMB)
          if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
@@ -336,6 +337,7 @@ contains
 #endif
             lSmat(l1)=.true.
          end if
+         call up1_counter%stop_count(l_increment=.false.)
 
          !-- Assemble RHS
          !$omp target teams distribute parallel do private(lm1, l1, m1, nR)
@@ -512,6 +514,7 @@ contains
       !$omp end parallel
 #endif
 
+      up1_counter%n_counts=up1_counter%n_counts+1
       up2_counter%n_counts=up2_counter%n_counts+1
 
       call up3_counter%start_count()
