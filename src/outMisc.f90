@@ -1223,7 +1223,7 @@ contains
 
       !$omp target enter data map(alloc: vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
       !$omp target update to(vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
-      !$omp target teams distribute parallel do collapse(2)
+      !$omp target !teams distribute parallel do collapse(2) !-- TODO: parallelisation makes testOutputs fails (may be du to reduction)
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
             nelem=radlatlon2spat(nTheta,nPhi,nR)
@@ -1237,7 +1237,7 @@ contains
             dvrdtas(nTheta)=dvrdtas(nTheta)+dvrdt(nelem)
          end do
       end do
-      !$omp end target teams distribute parallel do
+      !$omp end target !teams distribute parallel do
 
       !$omp target teams distribute parallel do
       do nTheta=1,n_theta_max
