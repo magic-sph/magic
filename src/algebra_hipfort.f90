@@ -8,6 +8,10 @@ module algebra_hipfort
    use hipfort_check
    use hipfort_hipblas
    use omp_lib
+#ifdef WITH_OMP_GPU
+   use hipfort_check, only: hipCheck
+   use hipfort, only: hipDeviceSynchronize
+#endif
 
    implicit none
 
@@ -62,6 +66,8 @@ contains
       !$omp end target data
 #endif
 
+      call hipCheck(hipDeviceSynchronize())
+
    end subroutine gpu_solve_mat_complex_rhs
 !-----------------------------------------------------------------------------
    subroutine gpu_solve_mat_real_rhs_multi(a,len_a,n,pivot,rhs,nRHSs,handle,devInfo)
@@ -94,6 +100,8 @@ contains
       !$omp end target data
 #endif
 
+      call hipCheck(hipDeviceSynchronize())
+
    end subroutine gpu_solve_mat_real_rhs_multi
 !-----------------------------------------------------------------------------
    subroutine gpu_solve_mat_real_rhs(a,len_a,n,pivot,rhs,handle,devInfo)
@@ -124,6 +132,8 @@ contains
       &                               c_loc(rhs), n, c_loc(devInfo)))
       !$omp end target data
 #endif
+
+      call hipCheck(hipDeviceSynchronize())
 
    end subroutine gpu_solve_mat_real_rhs
 !-----------------------------------------------------------------------------
@@ -163,6 +173,8 @@ contains
 #ifdef WITH_LIBFLAME
       !$omp end critical
 #endif
+
+      call hipCheck(hipDeviceSynchronize())
 
    end subroutine gpu_prepare_mat
 !-----------------------------------------------------------------------------
