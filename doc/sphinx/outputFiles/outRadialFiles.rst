@@ -275,25 +275,29 @@ This file contains several time and horizontally averaged profiles that can be f
    +===============+=================================================================+
    | 1             | radial level                                                    |
    +---------------+-----------------------------------------------------------------+
-   | 2             | entropy: :math:`\langle s \rangle_s`                            |
+   | 2             | entropy or temperature: :math:`\langle s \rangle_s`             |
    +---------------+-----------------------------------------------------------------+
-   | 3             | horizontal velocity:                                            |
+   | 3             | chemical composition: :math:`\langle \xi \rangle_s`             |
+   +---------------+-----------------------------------------------------------------+
+   | 4             | horizontal velocity:                                            |
    |               |    .. math:: u_h=\left\langle\sqrt{u_\theta^2+u_\phi^2}         |
    |               |              \right\rangle_s                                    |
    +---------------+-----------------------------------------------------------------+
-   | 4             | radial derivative of the horizontal velocity:                   |
+   | 5             | radial derivative of the horizontal velocity:                   |
    |               |    .. math:: \partial u_h/\partial r                            |
    +---------------+-----------------------------------------------------------------+
-   | 5             | thermal dissipation rate:                                       |
+   | 6             | thermal dissipation rate:                                       |
    |               |    .. math:: \epsilon_T=\langle (\nabla T)^2 \rangle_s          |
    +---------------+-----------------------------------------------------------------+
-   | 6             | Standard deviation of entropy                                   |
+   | 7             | Standard deviation of entropy                                   |
    +---------------+-----------------------------------------------------------------+
-   | 7             | Standard deviation of horizontal velocity :math:`u_h`           |
+   | 8             | Standard deviation of chemical composition                      |
    +---------------+-----------------------------------------------------------------+
-   | 8             | Standard deviation of the radial derivative of :math:`u_h`      |
+   | 9             | Standard deviation of horizontal velocity :math:`u_h`           |
    +---------------+-----------------------------------------------------------------+
-   | 9             | Standard deviation of the thermal dissipation rate              |
+   | 10            | Standard deviation of the radial derivative of :math:`u_h`      |
+   +---------------+-----------------------------------------------------------------+
+   | 11            | Standard deviation of the thermal dissipation rate              |
    +---------------+-----------------------------------------------------------------+
 
 This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
