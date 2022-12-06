@@ -231,7 +231,9 @@ contains
                fcR(:)=-real(ds(lm00,:))*kappa(:)*rho0(:)*temp0(:)*r(:)*r(:)*sq4pi
             end if
          end if
+      end if
 
+      if ( l_fluxProfs ) then
          call gather_from_Rloc(fkinASr, fkinR_global, 0)
          call gather_from_Rloc(fconvASr, fconvR_global, 0)
          call gather_from_Rloc(fviscASr, fviscR_global, 0)
