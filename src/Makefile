@@ -438,8 +438,7 @@ communications.o      : blocking.o parallel.o truncation.o\
 			radial_data.o mem_alloc.o mpi_transpose.o
 outPar.o              : truncation.o blocking.o phys_param.o\
                         logic.o radial.o output_data.o radial_data.o\
-                        horizontal.o fields.o \
-                        num_param.o integration.o constants.o mem_alloc.o
+                        horizontal.o num_param.o integration.o constants.o mem_alloc.o
 spectra.o             : truncation.o blocking.o num_param.o mean_sd.o\
                         horizontal.o phys_param.o radial.o logic.o\
                         output_data.o useful.o integration.o mem_alloc.o

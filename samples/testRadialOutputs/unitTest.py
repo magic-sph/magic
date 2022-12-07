@@ -66,7 +66,7 @@ class RadialOutputTest(unittest.TestCase):
         cmd = '%s %s/input.nml' % (self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
-        cmd = "awk '{print $1, $2, $3, $4, $5}' bLayersR.start > bLayersRcut.start"
+        cmd = "awk '{print $1, $2, $3, $4, $5, $6}' bLayersR.start > bLayersRcut.start"
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
         cmd = "awk '{print $1, $2, $3, $4, $5, $6, $7}' parR.start > parRcut.start"

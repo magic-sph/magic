@@ -6,6 +6,11 @@ module mean_sd
 
    use mem_alloc
    use precision_mod
+   use parallel_mod, only: rank
+   use constants, only: osq4pi
+   use useful, only: cc2real
+   use blocking, only: lo_map
+   use communications, only: reduce_radial
 
    implicit none
 
@@ -14,9 +19,13 @@ module mean_sd
    type, public :: mean_sd_type
       real(cp), allocatable :: mean(:)
       real(cp), allocatable :: SD(:)
+      integer :: nstart
+      integer :: nstop
    contains
       procedure :: initialize => initialize_1D
-      procedure :: compute => compute_1D
+      procedure :: compute_1D_real
+      procedure :: compute_1D_complex
+      generic :: compute => compute_1D_real, compute_1D_complex
       procedure :: finalize_SD => finalize_SD_1D
       procedure :: finalize => finalize_1D
    end type mean_sd_type
@@ -50,6 +59,9 @@ contains
       integer, intent(in) :: n_start
       integer, intent(in) :: n_stop
 
+      this%nstart = n_start
+      this%nstop = n_stop
+
       allocate( this%mean(n_start:n_stop), this%SD(n_start:n_stop) )
       bytes_allocated=bytes_allocated+2*(n_stop-n_start+1)*SIZEOF_DEF_REAL
 
@@ -58,7 +70,7 @@ contains
 
    end subroutine initialize_1D
 !------------------------------------------------------------------------------
-   subroutine compute_1D(this, input_data, n_ave, dt, totalTime)
+   subroutine compute_1D_real(this, input_data, n_ave, dt, totalTime)
 
       class(mean_sd_type)  :: this
       real(cp), intent(in) :: input_data(:)
@@ -67,11 +79,7 @@ contains
       integer,  intent(in) :: n_ave
 
       !-- Local variable:
-      integer :: n_input
-      real(cp), allocatable :: delta(:)
-
-      n_input = size(input_data)
-      allocate( delta(n_input) )
+      real(cp) :: delta(this%nstart:this%nstop)
 
       if ( n_ave == 1) then
          this%mean(:)=input_data(:)
@@ -82,9 +90,57 @@ contains
          this%SD(:)  =this%SD(:)+dt*delta(:)*(input_data(:)-this%mean(:))
       end if
 
-      deallocate( delta )
+   end subroutine compute_1D_real
+!------------------------------------------------------------------------------
+   subroutine compute_1D_complex(this, scal_lm, llm, ulm, n_r_max, n_ave, dt, totalTime)
+      !
+      ! This computes the mean and the spatial-variance of a scalar quantity
+      !
 
-   end subroutine compute_1D
+      !-- Input variables
+      class(mean_sd_type)  :: this
+      integer,     intent(in) :: llm
+      integer,     intent(in) :: ulm
+      integer,     intent(in) :: n_r_max
+      complex(cp), intent(in) :: scal_lm(llm:ulm,n_r_max)
+      real(cp),    intent(in) :: dt
+      real(cp),    intent(in) :: totalTime
+      integer,     intent(in) :: n_ave
+
+      !-- Local variables
+      real(cp) :: scal_square(n_r_max), scal_square_glob(n_r_max)
+      real(cp) :: scal(n_r_max), SD(n_r_max)
+      integer :: lm, m, n_r, lm00
+
+      !-- Compute the square of the scalar quantity
+      scal_square(:)=0.0_cp
+      do n_r=1,n_r_max
+         do lm=llm,ulm
+            m=lo_map%lm2m(lm)
+            scal_square(n_r)=scal_square(n_r)+cc2real(scal_lm(lm,n_r), m)
+         end do
+      end do
+
+      !-- Gather data on rank==0
+      call reduce_radial(scal_square, scal_square_glob, 0)
+
+      lm00 = lo_map%lm2(0,0) ! Spherically-symmetric mode
+      if ( llm <= lm00 .and. ulm >= lm00 ) then
+         scal_square_glob(:)=scal_square_glob(:)*osq4pi*osq4pi
+         scal(:)=real(scal_lm(lm00,:))*osq4pi
+         SD(:)  =scal_square_glob(:)-scal(:)*scal(:)
+
+         if ( n_ave == 1) then
+            this%mean(:)=scal(:)
+            this%SD(:)  =SD(:)
+         else
+            !-- Time-average of mean and STD
+            this%mean(:)=this%mean(:) + (scal(:)-this%mean(:))*dt/totalTime
+            this%SD(:)  =this%SD(:) + (SD(:)-this%SD(:))*dt/totalTime
+         end if
+      end if
+
+   end subroutine compute_1D_complex
 !------------------------------------------------------------------------------
    subroutine finalize_SD_1D(this,totalTime)
       !
@@ -177,7 +233,7 @@ contains
 
       class(mean_sd_2D_type) :: this
       real(cp), intent(in)   :: input_data(this%n_start_row:this%n_stop_row, &
-      &                                    this%n_start_col:this%n_stop_col)
+                                &          this%n_start_col:this%n_stop_col)
       real(cp), intent(in)   :: dt
       real(cp), intent(in)   :: totalTime
       integer,  intent(in)   :: n_ave
