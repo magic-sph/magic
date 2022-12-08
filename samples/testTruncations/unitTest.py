@@ -98,9 +98,9 @@ class TestTruncations(unittest.TestCase):
                 os.remove(f)
 
         # Restore initial values in the namelist
-        cmd = "sed -i 's/tag.*/tag         ="+'"test96"'+",/g' input.nml"
+        cmd = "sed -i 's/tag.*/tag         ="+'"test288"'+",/g' input.nml"
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
-        cmd = "sed -i 's/n_phi_tot.*/n_phi_tot   =96,/g' input.nml"
+        cmd = "sed -i 's/n_phi_tot.*/n_phi_tot   =288,/g' input.nml"
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
         cmd = "sed -i 's/minc.*/minc        =1,/g' input.nml"
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))

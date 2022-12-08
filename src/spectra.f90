@@ -17,7 +17,7 @@ module spectra
    use num_param, only: eScale, tScale
    use blocking, only: lo_map, llm, ulm, llmMag, ulmMag
    use logic, only: l_mag, l_anel, l_cond_ic, l_heat, l_save_out, l_chemical_conv, &
-       &            l_energy_modes, l_2D_spectra
+       &            l_energy_modes, l_2D_spectra, l_full_sphere
    use output_data, only: tag, m_max_modes
    use useful, only: cc2real, cc22real, logWrite, round_off
    use integration, only: rInt_R, rIntIC
@@ -772,7 +772,11 @@ contains
          !-- Radial Integrals:
          surf_ICB=four*pi*r_icb*r_icb
          fac      =one/vol_oc
-         facICB   =one/surf_ICB
+         if ( l_full_sphere ) then
+            facICB=0.0_cp
+         else
+            facICB=one/surf_ICB
+         end if
          do l=0,l_max
             T_l(l)=fac*rInt_R(T_r_l_global(:,l),r,rscheme_oc)
             T_ICB_l(l)=facICB*T_ICB_l_global(l)

@@ -351,7 +351,7 @@ class MagicCheckpoint:
         par = np.array([1, 1, 1], np.int32)
         par.tofile(file)
         if hasattr(self, 'dt'):
-            dt = np.array([self.dt], np.float64)
+            dt = np.array([self.dt[0]], np.float64)
         else:
             dt = np.array([1.0e-6], np.float64)
         dt.tofile(file)

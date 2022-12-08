@@ -2,6 +2,7 @@ module out_movie
 
    use precision_mod
    use parallel_mod, only: rank
+   use geos, only: cyl, n_s_max, write_geos_frame
    use communications, only: gt_OC, gather_all_from_lo_to_rank0
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, l_max,    &
        &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,  &
@@ -181,15 +182,9 @@ contains
       complex(cp), intent(in) :: dj_ic(lm_maxMag,n_r_ic_maxMag)
 
       !-- Local variables:
-      integer :: n_fields
-      integer :: n_fields_ic
-      integer :: n_fields_oc
-      integer :: n_movie
-      integer :: n_surface
-      integer :: n_type
-      integer :: n_out
-      integer :: n_field,n,n_start,n_stop
-      integer :: n_r,n_theta,n_phi
+      integer :: n_fields, n_fields_ic, n_fields_oc
+      integer :: n_movie, n_surface, n_type, n_out
+      integer :: n_field, n, n_start, n_stop, n_r, n_theta, n_phi
       integer :: n_r_mov_tot
       logical :: l_dtB_frame
       character(len=64) :: version
@@ -198,12 +193,13 @@ contains
       real(outp) :: dumm(n_theta_max)
       complex(cp), allocatable :: b(:,:), aj(:,:), db(:,:), dj(:,:)
 
-      l_dtB_frame = .false.
+      l_dtB_frame =.false.
 
       do n_movie=1,n_movies
          n_type=n_movie_type(n_movie)
-         if ( (.not. lStoreMov(n_movie)) .and. (n_type /= 99) ) then
-            l_dtB_frame = .true.
+         if ( (.not. lStoreMov(n_movie)) .and. n_type /= 99 .and. &
+         &     n_type /= 130 .and. n_type /= 131 .and. n_type /= 132 ) then
+            l_dtB_frame=.true.
          end if
       end do
 
@@ -221,70 +217,71 @@ contains
          call gather_all_from_lo_to_rank0(gt_OC,dj_LMloc,dj)
       end if
 
-      if ( rank == 0 ) then
+      do n_movie=1,n_movies
 
-         do n_movie=1,n_movies
+         n_type     =n_movie_type(n_movie)
+         n_surface  =n_movie_surface(n_movie)
+         n_fields_oc=n_movie_fields(n_movie)
+         n_fields_ic=n_movie_fields_ic(n_movie)
+         n_fields   =max(n_fields_ic,n_fields_oc)
+         n_out      =n_movie_file(n_movie)
+         const      =movie_const(n_movie)
+         if ( n_surface == 1 ) const=const/r_cmb
 
-            n_type     =n_movie_type(n_movie)
-            n_surface  =n_movie_surface(n_movie)
-            n_fields_oc=n_movie_fields(n_movie)
-            n_fields_ic=n_movie_fields_ic(n_movie)
-            n_fields   =max(n_fields_ic,n_fields_oc)
-            n_out      =n_movie_file(n_movie)
-            const      =movie_const(n_movie)
-            if ( n_surface == 1 ) const=const/r_cmb
+         !------ Open movie file:
+         if ( l_save_out .and. rank == 0 ) then
+            open(newunit=n_out, file=movie_file(n_movie), status='unknown', &
+            &    form='unformatted', position='append')
+         end if
 
-            !------ Open movie file:
-            if ( l_save_out ) then
-               open(newunit=n_out, file=movie_file(n_movie), status='unknown', &
-               &    form='unformatted', position='append')
+         !------ Write header if this is the first frame:
+
+         if ( n_frame == 1 .and. rank == 0 ) then
+
+            !------ Start with info about movie type:
+            version='JW_Movie_Version_2'
+            write(n_out) version
+            write(n_out) real(n_type,kind=outp), real(n_surface,kind=outp), &
+            &            real(const,kind=outp), real(n_fields,kind=outp)
+            write(n_out) (real(n_movie_field_type(n,n_movie),kind=outp),n=1,n_fields)
+
+            !------ Combine OC and IC radial grid points:
+            n_r_mov_tot=n_r_max
+            do n_r=1,n_r_max
+               r_mov_tot(n_r)=r(n_r)
+            end do
+            if ( n_r_ic_max > 0 ) then
+               n_r_mov_tot=n_r_mov_tot+n_r_ic_max-2
+               do n_r=1,n_r_ic_max-2
+                  r_mov_tot(n_r_max+n_r)=r_ic(n_r+1)
+               end do
             end if
 
-            !------ Write header if this is the first frame:
+            !------ Now other info about grid and parameters:
+            write(n_out) runid          ! run identifyer (as set in namelist contrl)
+            dumm( 1)=real(n_r_mov_tot,kind=outp)
+            dumm( 2)=real(n_r_max,kind=outp)
+            dumm( 3)=real(n_theta_max,kind=outp) ! no. of theta points
+            dumm( 4)=real(n_phi_max,kind=outp)   ! no. of phi points
+            dumm( 5)=real(minc,kind=outp)        ! imposed symmetry
+            dumm( 6)=real(ra,kind=outp)          ! control parameters
+            dumm( 7)=real(ek,kind=outp)          ! (for information only)
+            dumm( 8)=real(pr,kind=outp)          !      -"-
+            dumm( 9)=real(prmag,kind=outp)       !      -"-
+            dumm(10)=real(radratio,kind=outp)    ! ratio of inner / outer core
+            dumm(11)=real(tScale,kind=outp)      ! timescale
+            write(n_out) (dumm(n),n=1,11)
 
-            if ( n_frame == 1 ) then
+            !------ Write grid:
+            if ( n_type==130 .or. n_type==131 .or. n_type==132 ) &
+            &   write(n_out) (real(cyl(n_r)/r_cmb,kind=outp), n_r=1,n_s_max)
+            write(n_out) (real(r_mov_tot(n_r)/r_cmb,kind=outp), n_r=1,n_r_mov_tot)
+            write(n_out) (real(theta_ord(n_theta),kind=outp), n_theta=1,n_theta_max)
+            write(n_out) (real(phi(n_phi),kind=outp), n_phi=1,n_phi_max)
 
-               !------ Start with info about movie type:
-               version='JW_Movie_Version_2'
-               write(n_out) version
-               write(n_out) real(n_type,kind=outp), real(n_surface,kind=outp), &
-               &            real(const,kind=outp), real(n_fields,kind=outp)
-               write(n_out) (real(n_movie_field_type(n,n_movie),kind=outp),n=1,n_fields)
+         end if  ! Write header ?
 
-               !------ Combine OC and IC radial grid points:
-               n_r_mov_tot=n_r_max
-               do n_r=1,n_r_max
-                  r_mov_tot(n_r)=r(n_r)
-               end do
-               if ( n_r_ic_max > 0 ) then
-                  n_r_mov_tot=n_r_mov_tot+n_r_ic_max-2
-                  do n_r=1,n_r_ic_max-2
-                     r_mov_tot(n_r_max+n_r)=r_ic(n_r+1)
-                  end do
-               end if
-
-               !------ Now other info about grid and parameters:
-               write(n_out) runid          ! run identifyer (as set in namelist contrl)
-               dumm( 1)=real(n_r_mov_tot,kind=outp)
-               dumm( 2)=real(n_r_max,kind=outp)
-               dumm( 3)=real(n_theta_max,kind=outp) ! no. of theta points
-               dumm( 4)=real(n_phi_max,kind=outp)   ! no. of phi points
-               dumm( 5)=real(minc,kind=outp)        ! imposed symmetry
-               dumm( 6)=real(ra,kind=outp)          ! control parameters
-               dumm( 7)=real(ek,kind=outp)          ! (for information only)
-               dumm( 8)=real(pr,kind=outp)          !      -"-
-               dumm( 9)=real(prmag,kind=outp)       !      -"-
-               dumm(10)=real(radratio,kind=outp)    ! ratio of inner / outer core
-               dumm(11)=real(tScale,kind=outp)      ! timescale
-               write(n_out) (dumm(n),n=1,11)
-
-               !------ Write grid:
-               write(n_out) (real(r_mov_tot(n_r)/r_cmb,kind=outp), n_r=1,n_r_mov_tot)
-               write(n_out) (real(theta_ord(n_theta),kind=outp), n_theta=1,n_theta_max)
-               write(n_out) (real(phi(n_phi),kind=outp), n_phi=1,n_phi_max)
-
-            end if  ! Write header ?
-
+         if ( rank == 0 ) then
             !------ Write frame number, time and IC and MA rotation rates::
             dumm(1)=real(n_frame,kind=outp)
             dumm(2)=real(time,kind=outp)
@@ -295,15 +292,21 @@ contains
             dumm(7)=real(movieDipStrength,kind=outp)
             dumm(8)=real(movieDipStrengthGeo,kind=outp)
             write(n_out) (dumm(n),n=1,8)
+         end if
 
-            !------ Write frames:
-            if ( .not. lStoreMov(n_movie) ) then
-               if ( n_type == 99 ) then
-                  call abortRun('! Use TO output for Lorentz force!')
-               else
+         !------ Write frames:
+         if ( .not. lStoreMov(n_movie) ) then
+            if ( n_type == 99 ) then
+               call abortRun('! Use TO output for Lorentz force!')
+            else if ( n_type==130 .or. n_type==131 .or. n_type==132 ) then
+               call write_geos_frame(n_movie)
+            else
+               if ( rank == 0 ) then
                   call write_dtB_frame(n_movie,b,db,aj,dj,b_ic,db_ic,aj_ic,dj_ic)
                end if
-            else
+            end if
+         else
+            if ( rank == 0 ) then
                do n_field=1,n_fields
                   n_start=n_movie_field_start(n_field,n_movie)
                   if ( n_fields_oc > 0 ) then
@@ -315,12 +318,11 @@ contains
                   write(n_out) (real(frames(n),kind=outp),n=n_start,n_stop)
                end do
             end if
+         end if
 
-            if ( l_save_out ) close(n_out)
+         if ( l_save_out .and. rank==0 ) close(n_out)
 
-         end do  ! Loop over movies
-
-      end if ! rank 0
+      end do  ! Loop over movies
 
       if ( l_dtB_frame ) deallocate( b, aj, db, dj )
 
