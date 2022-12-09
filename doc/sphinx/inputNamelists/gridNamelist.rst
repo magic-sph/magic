@@ -55,7 +55,7 @@ Outer Core
 
   ..
 
-In the above equation the parameter :math:`\alpha_r` is set to control the radius above which the truncation reaches :math:`\ell_{{\hbox{max}}`. In the case of full spheres with :math:`r_o=1`, one directly has :math:`\ell(r)=\ell_{{\hbox{max}}` for :math:`r>\alpha_r`.
+In the above equation the parameter :math:`\alpha_r` is set to control the radius above which the truncation reaches :math:`\ell_{\hbox{max}}`. In the case of full spheres with :math:`r_o=1`, one directly has :math:`\ell(r)=\ell_{\hbox{max}}` for :math:`r>\alpha_r`.
 
 This parameter can be directly controlled by the following entry in the input namelist:
 
