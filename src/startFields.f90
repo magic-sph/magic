@@ -10,8 +10,8 @@ module start_fields
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use communications, only: lo2r_one
    use radial_functions, only: rscheme_oc, r, or1, alpha0, dLtemp0,      &
-       &                       dLalpha0, beta, orho1, temp0, rho0,       &
-       &                       otemp1, ogrun, dentropy0, dxicond
+       &                       dLalpha0, beta, orho1, temp0, rho0, r_cmb,&
+       &                       otemp1, ogrun, dentropy0, dxicond, r_icb
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
        &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
        &                          ViscHeatFac, impXi
@@ -32,8 +32,7 @@ module start_fields
    use fields ! The entire module is required
    use fieldsLast ! The entire module is required
    use timing, only: timer_type
-   use constants, only: zero, c_lorentz_ma, c_lorentz_ic, osq4pi, &
-       &            one, two
+   use constants, only: zero, c_lorentz_ma, c_lorentz_ic, osq4pi, one, two, sq4pi
    use useful, only: cc2real, logWrite
    use radial_der, only: get_dr, exch_ghosts, bulk_to_ghost
    use readCheckPoints, only: readStartFields_old, readStartFields
@@ -83,17 +82,12 @@ contains
       class(type_tscheme), intent(inout) :: tscheme
 
       !-- Local variables:
-      integer :: l, m, n_r
+      integer :: l, m, n_r, filehandle, lm00
       character(len=76) :: message
-
-      real(cp) :: sEA,sES,sAA
-      real(cp) :: xiEA,xiES,xiAA
-
+      real(cp) :: sEA,sES,sAA,xiEA,xiES,xiAA,topval,botval
       real(cp) :: s0(n_r_max),p0(n_r_max),ds0(n_r_max),dp0(n_r_max)
-
       logical :: lMat
       type(timer_type) :: t_reader
-      integer :: filehandle
 
       call t_reader%initialize()
 
@@ -260,6 +254,29 @@ contains
          end if
 
          if ( .not. l_heat ) s_LMloc(:,:)=zero
+
+         lm00 = lo_map%lm2(0,0)
+         !-- In case temperature/entropy was imposed on both boundaries, simply
+         !-- translate it to (0,1) instead of legacy contrast
+         if ( l_heat .and. llm <= lm00 .and. ulm >= lm00 ) then
+            topval=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
+            botval= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
+            if ( abs(s_LMloc(lm00,n_r_cmb)-topval) <= 10.0_cp*epsilon(one) .and. &
+            &    abs(s_LMloc(lm00,n_r_icb)-botval) <= 10.0_cp*epsilon(one) ) then
+               s_LMloc(lm00,:)=s_LMloc(lm00,:)-cmplx(topval,0.0_cp,cp)
+            end if
+         end if
+
+         !-- In case chemical composition was imposed on both boundaries, simply
+         !-- translate it to (0,1) instead of legacy contrast
+         if ( l_chemical_conv .and. llm <= lm00 .and. ulm >= lm00 ) then
+            topval=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
+            botval= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
+            if ( abs(xi_LMloc(lm00,n_r_cmb)-topval) <= 10.0_cp*epsilon(one) .and. &
+            &    abs(xi_LMloc(lm00,n_r_icb)-botval) <= 10.0_cp*epsilon(one) ) then
+               xi_LMloc(lm00,:)=xi_LMloc(lm00,:)-cmplx(topval,0.0_cp,cp)
+            end if
+         end if
 
       else ! If there's no restart file
 
