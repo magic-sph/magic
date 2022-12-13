@@ -839,6 +839,16 @@ contains
       call get_openmp_blocks(start_lm,stop_lm)
       !$omp barrier
 
+      !-- In case phase field is used it needs to be substracted from work_LMloc
+      !-- since time advance handles \partial/\partial t (T-St*Phi)
+      if ( l_phase_field ) then
+         do n_r=nRstart,nRstop
+            do lm=start_lm,stop_lm
+               work_Rloc(lm,n_r)=work_Rloc(lm,n_r)+stef*phi(lm,n_r)
+            end do
+         end do
+      end if
+
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
             m = st_map%lm2m(lm)
@@ -904,6 +914,19 @@ contains
       call tscheme%assemble_imex(work_LMloc, dsdt)
 
       !$omp parallel default(shared)
+
+      !-- In case phase field is used it needs to be substracted from work_LMloc
+      !-- since time advance handles \partial/\partial t (T-St*Phi)
+      if ( l_phase_field ) then
+         !$omp do private(n_r,lm)
+         do n_r=1,n_r_max
+            do lm=llm,ulm
+               work_LMloc(lm,n_r)=work_LMloc(lm,n_r)+stef*phi(lm,n_r)
+            end do
+         end do
+         !$omp end do
+      end if
+
       !$omp do private(n_r,lm,m1)
       do n_r=2,n_r_max
          do lm=llm,ulm
