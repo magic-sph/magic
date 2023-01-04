@@ -620,11 +620,11 @@ contains
             m = st_map%lm2m(lm)
 
             if ( l_full_sphere ) then
-               if ( l == 1 ) then
-                  s_ghost(lm,nR)=bots(l,m)
+               if ( l == 0 ) then
+                  s_ghost(lm,nR)=s_ghost(lm,nR)+fd_fac_bot(l)*bots(l,m)
                else
                   ! TBD
-                  s_ghost(lm,nR)=s_ghost(lm,nR)+fd_fac_bot(l)*bots(l,m)
+                  s_ghost(lm,nR)=bots(l,m)
                end if
             else
                if ( kbots == 1 ) then ! Fixed temperature
@@ -710,10 +710,10 @@ contains
             do lm=lm_start,lm_stop
                l = st_map%lm2l(lm)
                m = st_map%lm2m(lm)
-               if (l == 1 ) then
-                  sg(lm,nRstop+1)=two*sg(lm,nRstop)-sg(lm,nRstop-1)
-               else
+               if (l == 0 ) then
                   sg(lm,nRstop+1)=sg(lm,nRstop-1)+two*dr*bots(l,m)
+               else
+                  sg(lm,nRstop+1)=two*sg(lm,nRstop)-sg(lm,nRstop-1)
                end if
             end do
 #ifdef WITH_OMP_GPU
@@ -1490,11 +1490,11 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
-               if ( l1 == 1 ) then
-                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
+               if ( l1 == 0 ) then
+                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
                        &                   bots(l1,m1), s(lm,:))
                else
-                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
+                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
                        &                   bots(l1,m1), s(lm,:))
                end if
             end do
@@ -1512,11 +1512,11 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
-               if ( l1 == 1 ) then
-                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
+               if ( l1 == 0 ) then
+                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), one, 0.0_cp, &
                        &                   bots(l1,m1), s(lm,:))
                else
-                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), one, 0.0_cp, &
+                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
                        &                   bots(l1,m1), s(lm,:))
                end if
             end do
@@ -1657,10 +1657,10 @@ contains
          end if
 
          if ( l_full_sphere ) then
-            if ( l == 1 ) then
-               dat(n_r_max,nR)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR)
-            else
+            if ( l == 0 ) then
                dat(n_r_max,nR)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,nR)
+            else
+               dat(n_r_max,nR)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR)
             end if
          else
             if ( kbots == 1 ) then
@@ -1679,10 +1679,10 @@ contains
       end if
 
       if ( l_full_sphere ) then
-         if ( l == 1 ) then
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-         else
+         if ( l == 0 ) then
             dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         else
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
          end if
       else
          if ( kbots == 1 ) then
@@ -1936,13 +1936,14 @@ contains
          end if
 
          if ( l_full_sphere ) then
-            if ( l == 1 ) then
+            if ( l == 0 ) then
+               !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+               sMat%low(l,n_r_max)=sMat%up(l,n_r_max)+sMat%low(l,n_r_max)
+               fd_fac_bot(l)=two*(r(n_r_max-1)-r(n_r_max))*sMat%up(l,n_r_max)
+            else
                sMat%diag(l,n_r_max)=one
                sMat%up(l,n_r_max)  =0.0_cp
                sMat%low(l,n_r_max) =0.0_cp
-            else
-               sMat%low(l,n_r_max)=sMat%up(l,n_r_max)+sMat%low(l,n_r_max)
-               fd_fac_bot(l)=two*(r(n_r_max-1)-r(n_r_max))*sMat%up(l,n_r_max)
             end if
          else
             if ( kbots == 1 ) then

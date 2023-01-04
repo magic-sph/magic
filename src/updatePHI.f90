@@ -543,7 +543,7 @@ contains
             l = st_map%lm2l(lm)
 
             if ( l_full_sphere ) then
-               if ( l == 1 ) then
+               if ( l > 0 ) then
                   phi_ghost(lm,nR)=0.0_cp
                end if
             else
@@ -618,14 +618,10 @@ contains
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
             if ( l_full_sphere ) then
-               if ( l == 1 ) then
-                  phig(lm,nRstop+1)=two*phig(lm,nRstop)-phig(lm,nRstop-1)
+               if ( l == 0 ) then
+                  phig(lm,nRstop+1)=phig(lm,nRstop-1)
                else
-                  if ( l == 0 ) then
-                     phig(lm,nRstop+1)=phig(lm,nRstop-1)+two*dr*phi_bot
-                  else
-                     phig(lm,nRstop+1)=phig(lm,nRstop-1)
-                  end if
+                  phig(lm,nRstop+1)=two*phig(lm,nRstop)-phig(lm,nRstop-1)
                end if
             else ! Not a full sphere
                if ( kbotphi == 1 ) then
@@ -968,18 +964,13 @@ contains
 #endif
             do lm=llm,ulm
                l = lm2l(lm)
-               if ( l == 1 ) then
+               if ( l == 0 ) then
+                  call rscheme_oc%robin_bc(0.0_cp, one, cmplx(phi_top,0.0_cp,cp), &
+                       &                   one, 0.0_cp, cmplx(phi_bot,0.0_cp,cp), &
+                       &                   phi(lm,:))
+               else
                   call rscheme_oc%robin_bc(0.0_cp, one, zero, 0.0_cp, one, &
                        &                   zero, phi(lm,:))
-               else
-                  if ( l == 0 ) then
-                     call rscheme_oc%robin_bc(0.0_cp, one, cmplx(phi_top,0.0_cp,cp), &
-                          &                   one, 0.0_cp, cmplx(phi_bot,0.0_cp,cp), &
-                          &                   phi(lm,:))
-                  else
-                     call rscheme_oc%robin_bc(0.0_cp, one, zero, one, 0.0_cp, &
-                          &                   zero, phi(lm,:))
-                  end if
                end if
             end do
 #ifdef WITH_OMP_GPU
@@ -995,11 +986,11 @@ contains
 #endif
             do lm=llm,ulm
                l = lm2l(lm)
-               if ( l == 1 ) then
-                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, 0.0_cp, one, &
+               if ( l == 0 ) then
+                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, one, 0.0_cp, &
                        &                   zero, phi(lm,:))
                else
-                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, one, 0.0_cp, &
+                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, 0.0_cp, one, &
                        &                   zero, phi(lm,:))
                end if
             end do
@@ -1266,10 +1257,10 @@ contains
 
          if ( l_full_sphere ) then
             !dat(n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,nR_out)
-            if ( l == 1 ) then
-               dat(n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR_out)
-            else
+            if ( l == 0 ) then
                dat(n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,nR_out)
+            else
+               dat(n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR_out)
             end if
          else
             if ( kbotphi == 1 ) then ! Dirichlet
@@ -1440,12 +1431,12 @@ contains
 
          if ( l_full_sphere ) then
             !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-            if ( l == 1 ) then
+            if ( l == 0 ) then
+               phiMat%low(l,n_r_max)=phiMat%up(l,n_r_max)+phiMat%low(l,n_r_max)
+            else
                phiMat%diag(l,n_r_max)=one
                phiMat%up(l,n_r_max)  =0.0_cp
                phiMat%low(l,n_r_max) =0.0_cp
-            else
-               phiMat%low(l,n_r_max)=phiMat%up(l,n_r_max)+phiMat%low(l,n_r_max)
                !fd_fac_bot(l)=two*(r(n_r_max-1)-r(n_r_max))*phiMat%up(l,n_r_max)
             end if
          else
