@@ -1311,12 +1311,31 @@ contains
 
 #ifdef WITH_OMP_GPU
       start_lm=1; stop_lm=lm_max
-      !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp parallel default(shared) private(start_lm, stop_lm, l, m)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
       !$omp barrier
+#endif
+
+      !-- In case phase field is used it needs to be substracted from work_LMloc
+      !-- since time advance handles \partial/\partial t (T-St*Phi)
+      if ( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
+#endif
+         do n_r=nRstart,nRstop
+            do lm=start_lm,stop_lm
+               work_Rloc(lm,n_r)=work_Rloc(lm,n_r)+stef*phi(lm,n_r)
+            end do
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
+      end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)
 #endif
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
@@ -1414,10 +1433,33 @@ contains
 
       call tscheme%assemble_imex(work_LMloc, dsdt)
 
+#ifndef WITH_OMP_GPU
+      !$omp parallel default(shared)
+#endif
+
+      !-- In case phase field is used it needs to be substracted from work_LMloc
+      !-- since time advance handles \partial/\partial t (T-St*Phi)
+      if ( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
+#else
+         !$omp do private(n_r,lm)
+#endif
+         do n_r=1,n_r_max
+            do lm=llm,ulm
+               work_LMloc(lm,n_r)=work_LMloc(lm,n_r)+stef*phi(lm,n_r)
+            end do
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
+         !$omp end do
+#endif
+      end if
+
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
 #else
-      !$omp parallel default(shared)
       !$omp do private(n_r,lm,m1)
 #endif
       do n_r=2,n_r_max

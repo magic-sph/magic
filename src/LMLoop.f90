@@ -872,10 +872,10 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target update to(s_Rloc, ds_Rloc, dsdt, s_ghost)
          if(l_phase_field) then
-            !$omp target update to(phi_ghost)
+            !$omp target update to(phi_Rloc)
          end if
 #endif
-         call assemble_entropy_Rloc(s_Rloc, ds_Rloc, dsdt, phi_ghost, tscheme)
+         call assemble_entropy_Rloc(s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
 #ifdef WITH_OMP_GPU
          !$omp target update from(s_Rloc, ds_Rloc, dsdt)
          !$omp target update from(s_ghost)
@@ -887,7 +887,7 @@ contains
            &                 lRmsNext)
 
       call assemble_tor_Rloc(time, z_Rloc, dz_Rloc, dzdt, domega_ic_dt, domega_ma_dt, &
-           &                 lorentz_torque_ic_dt, lorentz_torque_ma_dt, omega_ic, &
+           &                 lorentz_torque_ic_dt, lorentz_torque_ma_dt, omega_ic,    &
            &                 omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
 
       if ( l_mag ) then
