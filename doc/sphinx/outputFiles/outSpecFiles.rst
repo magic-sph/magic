@@ -11,19 +11,27 @@ Spectra
 This file contains the kinetic energy spectra. This file is written by the
 subroutine :f:subr:`spectrum <spectra/spectrum()>`.
 
-   +---------------+-----------------------------------------------------------+
-   | No. of column | Contents                                                  |
-   +===============+===========================================================+
-   | 1             | degree / order                                            |
-   +---------------+-----------------------------------------------------------+
-   | 2             | Poloidal kinetic energy versus degree                     |
-   +---------------+-----------------------------------------------------------+
-   | 3             | Poloidal kinetic energy versus order                      |
-   +---------------+-----------------------------------------------------------+
-   | 4             | Toroidal kinetic energy versus degree                     |
-   +---------------+-----------------------------------------------------------+
-   | 5             | Toroidal kinetic energy versus order                      |
-   +---------------+-----------------------------------------------------------+
+   +---------------+--------------------------------------------------------------+
+   | No. of column | Contents                                                     |
+   +===============+==============================================================+
+   | 1             | degree / order                                               |
+   +---------------+--------------------------------------------------------------+
+   | 2             | Poloidal kinetic energy versus degree                        |
+   +---------------+--------------------------------------------------------------+
+   | 3             | Poloidal kinetic energy versus order                         |
+   +---------------+--------------------------------------------------------------+
+   | 4             | Toroidal kinetic energy versus degree                        |
+   +---------------+--------------------------------------------------------------+
+   | 5             | Toroidal kinetic energy versus order                         |
+   +---------------+--------------------------------------------------------------+
+   | 6             | Poloidal kinetic energy  at :math:`r=r_o-0.01` versus degree |
+   +---------------+--------------------------------------------------------------+
+   | 7             | Poloidal kinetic energy  at :math:`r=r_o-0.01` versus order  |
+   +---------------+--------------------------------------------------------------+
+   | 8             | Axisymmetric poloidal kinetic energy versus degree           |
+   +---------------+--------------------------------------------------------------+
+   | 9             | Axisymmetric toroidal kinetic energy versus degree           |
+   +---------------+--------------------------------------------------------------+
 
 This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with the following options:
 
@@ -92,6 +100,10 @@ subroutine :f:subr:`spectrum <spectra/spectrum()>`.
    | 4             | Toroidal contribution per degree in the outer core        |
    +---------------+-----------------------------------------------------------+
    | 5             | Toroidal contribution per order in the outer core         |
+   +---------------+-----------------------------------------------------------+
+   | 6             | Axisymmetric poloidal contribution versus degree          |
+   +---------------+-----------------------------------------------------------+
+   | 7             | Axisymmetric toroidal contribution versus degree          |
    +---------------+-----------------------------------------------------------+
 
 This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with the following options:
@@ -265,27 +277,35 @@ This file contains the time-average kinetic energy spectra as well as squared qu
 to allow a possible further reconstruction of the standard deviation.
 This file is written by the subroutine :f:subr:`spectrum <spectra/spectrum()>`.
 
-   +---------------+------------------------------------------------------------+
-   | No. of column | Contents                                                   |
-   +===============+============================================================+
-   | 1             | degree / order                                             |
-   +---------------+------------------------------------------------------------+
-   | 2             | Time-averaged poloidal kinetic energy versus degree        |
-   +---------------+------------------------------------------------------------+
-   | 3             | Time-averaged poloidal kinetic energy versus order         |
-   +---------------+------------------------------------------------------------+
-   | 4             | Time-averaged toroidal kinetic energy versus degree        |
-   +---------------+------------------------------------------------------------+
-   | 5             | Time-averaged toroidal kinetic energy versus order         |
-   +---------------+------------------------------------------------------------+
-   | 6             | Standard deviation of poloidal kinetic energy versus degree|
-   +---------------+------------------------------------------------------------+
-   | 7             | Standard deviation of poloidal kinetic energy versus order |
-   +---------------+------------------------------------------------------------+
-   | 8             | Standard deviation of toroidal kinetic energy versus degree|
-   +---------------+------------------------------------------------------------+
-   | 9             | Standard deviation of toroidal kinetic energy versus order |
-   +---------------+------------------------------------------------------------+
+   +---------------+---------------------------------------------------------------------+
+   | No. of column | Contents                                                            |
+   +===============+=====================================================================+
+   | 1             | degree / order                                                      |
+   +---------------+---------------------------------------------------------------------+
+   | 2             | Time-averaged poloidal kinetic energy versus degree                 |
+   +---------------+---------------------------------------------------------------------+
+   | 3             | Time-averaged poloidal kinetic energy versus order                  |
+   +---------------+---------------------------------------------------------------------+
+   | 4             | Time-averaged toroidal kinetic energy versus degree                 |
+   +---------------+---------------------------------------------------------------------+
+   | 5             | Time-averaged toroidal kinetic energy versus order                  |
+   +---------------+---------------------------------------------------------------------+
+   | 6             | Time-averaged axisymmetric poloidal kinetic energy versus degree    |
+   +---------------+---------------------------------------------------------------------+
+   | 7             | Time-averaged axisymmetric toroidal kinetic energy versus degree    |
+   +---------------+---------------------------------------------------------------------+
+   | 8             | Standard deviation of poloidal kinetic energy versus degree         |
+   +---------------+---------------------------------------------------------------------+
+   | 9             | Standard deviation of poloidal kinetic energy versus order          |
+   +---------------+---------------------------------------------------------------------+
+   | 10            | Standard deviation of toroidal kinetic energy versus degree         |
+   +---------------+---------------------------------------------------------------------+
+   | 11            | Standard deviation of toroidal kinetic energy versus order          |
+   +---------------+---------------------------------------------------------------------+
+   | 12            | Standard deviation of axisym. poloidal kinetic energy versus degree |
+   +---------------+---------------------------------------------------------------------+
+   | 13            | Standard deviation of axisym. toroidal kinetic energy versus degree |
+   +---------------+---------------------------------------------------------------------+
 
 This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with the following options:
 
