@@ -645,7 +645,6 @@ class SpecLookUpTable:
             self.ekin_polm = data[:, 2]
             self.ekin_torl = data[:, 3]
             self.ekin_torm = data[:, 4]
-            print(data.shape)
             if data.shape[1] == 7:
                 self.ekin_nearsurf_poll = data[:, 5]
                 self.ekin_nearsurf_polm = data[:, 6]
