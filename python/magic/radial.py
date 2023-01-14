@@ -528,14 +528,6 @@ class MagicRadial(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlim(x_axis[-1], x_axis[0])
             fig.tight_layout()
-
-            fig1 = plt.figure()
-            ax1 = fig1.add_subplot(111)
-            ax1.plot(x_axis, self.pressure, label='p')
-            ax1.set_xlabel('Radius')
-            ax1.set_ylabel('Pressure')
-            ax1.set_xlim(x_axis[-1], x_axis[0])
-            fig1.tight_layout()
         elif self.name == 'perpParR':
             fig = plt.figure()
             ax = fig.add_subplot(111)
