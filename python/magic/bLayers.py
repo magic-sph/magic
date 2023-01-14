@@ -266,28 +266,28 @@ class BLayers(MagicSetup):
             self.tags = tagsFix
         self.uh = par.uh
         self.duh = par.duhdr
-        self.rad = par.radius
-        self.ro = self.rad[0]
-        self.ri = self.rad[-1]
+        self.radius = par.radius
+        self.ro = self.radius[0]
+        self.ri = self.radius[-1]
 
         vol_oc = 4./3.* np.pi * (self.ro**3-self.ri**3)
         self.rey_fluct = np.sqrt(2.*e2fluct/vol_oc)
 
-        self.reh = 4.*np.pi*intcheb(self.rad**2*self.uh, len(self.rad)-1,
+        self.reh = 4.*np.pi*intcheb(self.radius**2*self.uh, len(self.radius)-1,
                         self.ri, self.ro)/(4./3.*np.pi*(self.ro**3-self.ri**3))
 
         # Thermal dissipation boundary layer
         if hasattr(par, 'dissS'):
             self.dissS = par.dissS
-            self.epsT = -4.*np.pi*intcheb(self.rad**2*self.dissS, len(self.rad)-1,
+            self.epsT = -4.*np.pi*intcheb(self.radius**2*self.dissS, len(self.radius)-1,
                                          self.ro, self.ri)
-            self.epsTR = 4.*np.pi*self.rad**2*self.dissS
+            self.epsTR = 4.*np.pi*self.radius**2*self.dissS
             ind = getMaxima(-abs(self.epsTR-self.epsT))
 
             try:
-                self.dissTopS = self.ro-self.rad[ind[0]]
-                self.dissBotS = self.rad[ind[-1]]-self.ri
-                self.dissEpsTbl, self.dissEpsTbulk = integBulkBc(self.rad, self.epsTR,
+                self.dissTopS = self.ro-self.radius[ind[0]]
+                self.dissBotS = self.radius[ind[-1]]-self.ri
+                self.dissEpsTbl, self.dissEpsTbulk = integBulkBc(self.radius, self.epsTR,
                              self.ri, self.ro, self.dissBotS, self.dissTopS)
             except IndexError:
                 self.dissTopS = self.ro
@@ -298,51 +298,51 @@ class BLayers(MagicSetup):
             print('thDiss bl, bulk',  self.dissEpsTbl/self.epsT,
                   self.dissEpsTbulk/self.epsT)
         # First way of defining the thermal boundary layers: with var(S)
-        #rThLayer = getMaxima(self.rad, self.varS)
+        #rThLayer = getMaxima(self.radius, self.varS)
         ind = argrelextrema(self.varS, np.greater)[0]
         if len(ind) != 0:
-            self.bcTopVarS = self.ro-self.rad[ind[0]]
-            self.bcBotVarS = self.rad[ind[-1]]-self.ri
+            self.bcTopVarS = self.ro-self.radius[ind[0]]
+            self.bcBotVarS = self.radius[ind[-1]]-self.ri
         else:
             self.bcTopVarS = 1.
             self.bcBotVarS = 1.
         if hasattr(self, 'epsT'):
-            self.varSEpsTbl, self.varSEpsTbulk = integBulkBc(self.rad, self.epsTR,
+            self.varSEpsTbl, self.varSEpsTbulk = integBulkBc(self.radius, self.epsTR,
                          self.ri, self.ro, self.bcBotVarS, self.bcTopVarS)
             print('var(S) bl, bulk', self.varSEpsTbl/self.epsT, self.varSEpsTbulk/self.epsT)
 
         # Second way of defining the thermal boundary layers: intersection of the slopes
         if self.radial_scheme == 'CHEB' and self.l_newmap == False:
-            d1 = matder(len(self.rad)-1, self.ro, self.ri)
-        self.ttm = 3.*intcheb(self.ss*self.rad**2, len(self.rad)-1, self.ri, self.ro) \
+            d1 = matder(len(self.radius)-1, self.ro, self.ri)
+        self.ttm = 3.*intcheb(self.ss*self.radius**2, len(self.radius)-1, self.ri, self.ro) \
                    /(self.ro**3-self.ri**3)
         if self.radial_scheme == 'CHEB' and self.l_newmap == False:
             dsdr = np.dot(d1, self.ss)
         else:
             dsdr = np.zeros_like(self.ss)
-            dsdr[:-1] = np.diff(self.ss) / np.diff(self.rad)
-            dsdr[-1] = (self.ss[-1]-self.ss[-2]) / (self.rad[-1]-self.rad[-2])
+            dsdr[:-1] = np.diff(self.ss) / np.diff(self.radius)
+            dsdr[-1] = (self.ss[-1]-self.ss[-2]) / (self.radius[-1]-self.radius[-2])
         self.beta = dsdr[len(dsdr)//2]
         print('beta={:.2f}'.format(self.beta))
-        self.slopeTop = dsdr[2]*(self.rad-self.ro)+self.ss[0]
-        self.slopeBot = dsdr[-1]*(self.rad-self.ri)+self.ss[-1]
+        self.slopeTop = dsdr[2]*(self.radius-self.ro)+self.ss[0]
+        self.slopeBot = dsdr[-1]*(self.radius-self.ri)+self.ss[-1]
 
         self.dtdrm = dsdr[len(self.ss)//2]
         tmid = self.ss[len(self.ss)//2]
-        self.slopeMid = self.dtdrm*(self.rad-self.rad[len(self.rad)//2])+tmid
+        self.slopeMid = self.dtdrm*(self.radius-self.radius[len(self.radius)//2])+tmid
 
         self.bcTopSlope = (tmid-self.ss[0])/(self.dtdrm-dsdr[2])
         self.bcBotSlope = -(tmid-self.ss[-1])/(self.dtdrm-dsdr[-1])
 
         # 2nd round with a more accurate slope
-        bSlope = dsdr[self.rad <= self.ri+self.bcBotSlope/4.].mean()
-        tSlope = dsdr[self.rad >= self.ro-self.bcTopSlope/4.].mean()
-        self.slopeBot = bSlope*(self.rad-self.ri)+self.ss[-1]
-        self.slopeTop = tSlope*(self.rad-self.ro)+self.ss[0]
+        bSlope = dsdr[self.radius <= self.ri+self.bcBotSlope/4.].mean()
+        tSlope = dsdr[self.radius >= self.ro-self.bcTopSlope/4.].mean()
+        self.slopeBot = bSlope*(self.radius-self.ri)+self.ss[-1]
+        self.slopeTop = tSlope*(self.radius-self.ro)+self.ss[0]
         #self.bcTopSlope = -(self.ttm-self.ss[0])/tSlope
-        self.bcTopSlope = -(tmid-self.dtdrm*self.rad[len(self.rad)//2] - self.ss[0] \
+        self.bcTopSlope = -(tmid-self.dtdrm*self.radius[len(self.radius)//2] - self.ss[0] \
                           + tSlope*self.ro)/(self.dtdrm-tSlope)
-        self.bcBotSlope = -(tmid-self.dtdrm*self.rad[len(self.rad)//2] - self.ss[-1] \
+        self.bcBotSlope = -(tmid-self.dtdrm*self.radius[len(self.radius)//2] - self.ss[-1] \
                           + bSlope*self.ri)/(self.dtdrm-bSlope)
         self.dto = tSlope*(self.bcTopSlope-self.ro)+self.ss[0]
         self.dti = bSlope*(self.bcBotSlope-self.ri)+self.ss[-1]
@@ -353,7 +353,7 @@ class BLayers(MagicSetup):
         self.bcBotSlope = self.bcBotSlope - self.ri
 
         if hasattr(self, 'epsT'):
-            self.slopeEpsTbl, self.slopeEpsTbulk = integBulkBc(self.rad, self.epsTR,
+            self.slopeEpsTbl, self.slopeEpsTbulk = integBulkBc(self.radius, self.epsTR,
                          self.ri, self.ro, self.bcBotSlope, self.bcTopSlope)
 
             print('slopes bl, bulk', self.slopeEpsTbl/self.epsT,
@@ -362,19 +362,19 @@ class BLayers(MagicSetup):
         self.vi = a.viscDissR_av
         self.buo = a.buoPowerR_av
 
-        self.epsV = -intcheb(self.vi, len(self.rad)-1, self.ro, self.ri)
+        self.epsV = -intcheb(self.vi, len(self.radius)-1, self.ro, self.ri)
         ind = getMaxima(-abs(self.vi-self.epsV))
         if len(ind) > 2:
             for i in ind:
                 if self.vi[i-1]-self.epsV > 0 and self.vi[i+1]-self.epsV < 0:
-                    self.dissTopV = self.ro-self.rad[i]
+                    self.dissTopV = self.ro-self.radius[i]
                 elif self.vi[i-1]-self.epsV < 0 and self.vi[i+1]-self.epsV > 0:
-                    self.dissBotV = self.rad[i]-self.ri
+                    self.dissBotV = self.radius[i]-self.ri
         else:
-            self.dissTopV = self.ro-self.rad[ind[0]]
-            self.dissBotV = self.rad[ind[-1]]-self.ri
+            self.dissTopV = self.ro-self.radius[ind[0]]
+            self.dissBotV = self.radius[ind[-1]]-self.ri
         try:
-            self.dissEpsVbl, self.dissEpsVbulk = integBulkBc(self.rad, self.vi,
+            self.dissEpsVbl, self.dissEpsVbulk = integBulkBc(self.radius, self.vi,
                              self.ri, self.ro, self.dissBotV, self.dissTopV)
         except AttributeError:
             self.dissTopV = 0.
@@ -386,7 +386,7 @@ class BLayers(MagicSetup):
               self.dissEpsVbulk/self.epsV)
 
         # First way of defining the viscous boundary layers: with duhdr
-        #rViscousLayer = getMaxima(self.rad, self.duh)
+        #rViscousLayer = getMaxima(self.radius, self.duh)
         if self.kbotv == 1 and self.ktopv == 1:
             ind = argrelextrema(self.duh, np.greater)[0]
             if len(ind) == 0:
@@ -394,13 +394,13 @@ class BLayers(MagicSetup):
                 self.bcBotduh = 1.
             else:
                 if ind[0] < 4:
-                    self.bcTopduh = self.ro-self.rad[ind[1]]
+                    self.bcTopduh = self.ro-self.radius[ind[1]]
                 else:
-                    self.bcTopduh = self.ro-self.rad[ind[0]]
-                if len(self.rad)-ind[-1] < 4:
-                    self.bcBotduh = self.rad[ind[-2]]-self.ri
+                    self.bcTopduh = self.ro-self.radius[ind[0]]
+                if len(self.radius)-ind[-1] < 4:
+                    self.bcBotduh = self.radius[ind[-2]]-self.ri
                 else:
-                    self.bcBotduh = self.rad[ind[-1]]-self.ri
+                    self.bcBotduh = self.radius[ind[-1]]-self.ri
             self.slopeTopU = 0.
             self.slopeBotU = 0.
             self.uhTopSlope = 0.
@@ -418,85 +418,85 @@ class BLayers(MagicSetup):
                 self.bcBotduh = 1.
             else:
                 if ind[0] < 4:
-                    self.bcTopduh = self.ro-self.rad[ind[1]]
+                    self.bcTopduh = self.ro-self.radius[ind[1]]
                 else:
-                    self.bcTopduh = self.ro-self.rad[ind[0]]
-                if len(self.rad)-ind[-1] < 4:
-                    self.bcBotduh = self.rad[ind[-2]]-self.ri
+                    self.bcTopduh = self.ro-self.radius[ind[0]]
+                if len(self.radius)-ind[-1] < 4:
+                    self.bcBotduh = self.radius[ind[-2]]-self.ri
                 else:
-                    self.bcBotduh = self.rad[ind[-1]]-self.ri
+                    self.bcBotduh = self.radius[ind[-1]]-self.ri
 
-            self.uhTop = self.uh[self.rad==self.ro-self.bcTopduh][0]
-            self.uhBot = self.uh[self.rad==self.ri+self.bcBotduh][0]
+            self.uhTop = self.uh[self.radius==self.ro-self.bcTopduh][0]
+            self.uhBot = self.uh[self.radius==self.ri+self.bcBotduh][0]
 
             self.bcBotduh, self.bcTopduh, self.uhBot, self.uhTop =      \
-                        getAccuratePeaks(self.rad, self.uh, self.uhTop, \
+                        getAccuratePeaks(self.radius, self.uh, self.uhTop, \
                                          self.uhBot, self.ri, self.ro)
 
             if self.radial_scheme == 'CHEB' and self.l_newmap == False:
                 duhdr = np.dot(d1, self.uh)
             else:
                 duhdr = np.zeros_like(self.uh)
-                duhdr[:-1] = np.diff(self.uh)/np.diff(self.rad)
-                duhdr[-1] = (self.uh[-1]-self.uh[-2])/(self.rad[-1]-self.rad[-2])
+                duhdr[:-1] = np.diff(self.uh)/np.diff(self.radius)
+                duhdr[-1] = (self.uh[-1]-self.uh[-2])/(self.radius[-1]-self.radius[-2])
 
             #1st round
-            mask = (self.rad>=self.ro-self.bcTopduh/4)*(self.rad<self.ro)
+            mask = (self.radius>=self.ro-self.bcTopduh/4)*(self.radius<self.ro)
             slopeT = duhdr[mask].mean()
-            mask = (self.rad<=self.ri+self.bcBotduh/4)*(self.rad>self.ri)
+            mask = (self.radius<=self.ri+self.bcBotduh/4)*(self.radius>self.ri)
             slopeB = duhdr[mask].mean()
-            self.slopeTopU = slopeT*(self.rad-self.ro)+self.uh[0]
-            self.slopeBotU = slopeB*(self.rad-self.ri)+self.uh[-1]
+            self.slopeTopU = slopeT*(self.radius-self.ro)+self.uh[0]
+            self.slopeBotU = slopeB*(self.radius-self.ri)+self.uh[-1]
             self.uhTopSlope = -self.uhTop/slopeT
             self.uhBotSlope = self.uhBot/slopeB
 
             #2nd round
-            mask = (self.rad>=self.ro-self.uhTopSlope/4)*(self.rad<self.ro)
+            mask = (self.radius>=self.ro-self.uhTopSlope/4)*(self.radius<self.ro)
             slopeT = duhdr[mask].mean()
-            mask = (self.rad<=self.ri+self.uhBotSlope/4)*(self.rad>self.ri)
+            mask = (self.radius<=self.ri+self.uhBotSlope/4)*(self.radius>self.ri)
             slopeB = duhdr[mask].mean()
             self.uhTopSlope = -self.uhTop/slopeT
             self.uhBotSlope = self.uhBot/slopeB
 
-            self.slopeEpsUbl, self.slopeEpsUbulk = integBulkBc(self.rad, self.vi,
+            self.slopeEpsUbl, self.slopeEpsUbulk = integBulkBc(self.radius, self.vi,
                          self.ri, self.ro, self.uhBotSlope, self.uhTopSlope)
 
-        self.uhEpsVbl, self.uhEpsVbulk = integBulkBc(self.rad, self.vi,
+        self.uhEpsVbl, self.uhEpsVbulk = integBulkBc(self.radius, self.vi,
                          self.ri, self.ro, self.bcBotduh, self.bcTopduh)
         print('uh bl, bulk', self.uhEpsVbl/self.epsV, self.uhEpsVbulk/self.epsV)
 
         # Convective Rol in the thermal boundary Layer
         ekinNas = a.ekin_polR_av+a.ekin_torR_av-a.ekin_pol_axiR_av-a.ekin_tor_axiR_av
-        ReR = np.sqrt(2.*abs(ekinNas)/self.rad**2/(4.*np.pi))
+        ReR = np.sqrt(2.*abs(ekinNas)/self.radius**2/(4.*np.pi))
 
         self.dl = a.dlVcR_av
         RolC = ReR*self.ek / self.dl
 
-        y = RolC[self.rad >= self.ro-self.bcTopSlope]
-        x = self.rad[self.rad >= self.ro-self.bcTopSlope]
+        y = RolC[self.radius >= self.ro-self.bcTopSlope]
+        x = self.radius[self.radius >= self.ro-self.bcTopSlope]
         try:
             self.rolTop = simps(3.*y*x**2, x)/(self.ro**3-(self.ro-self.bcTopSlope)**3)
         except IndexError:
             self.rolTop = 0.
 
-        self.rolbl, self.rolbulk = integBulkBc(self.rad, 4.*np.pi*RolC*self.rad**2,
+        self.rolbl, self.rolbulk = integBulkBc(self.radius, 4.*np.pi*RolC*self.radius**2,
                                      self.ri, self.ro, self.bcBotSlope, self.bcTopSlope,
                                      normed=True)
 
-        self.rebl, self.rebulk = integBulkBc(self.rad, 4.*np.pi*ReR*self.rad**2,
+        self.rebl, self.rebulk = integBulkBc(self.radius, 4.*np.pi*ReR*self.radius**2,
                                      self.ri, self.ro, self.bcBotSlope, self.bcTopSlope,
                                      normed=True)
 
-        self.lengthbl, self.lengthbulk = integBulkBc(self.rad, self.dl*4.*np.pi*self.rad**2,
+        self.lengthbl, self.lengthbulk = integBulkBc(self.radius, self.dl*4.*np.pi*self.radius**2,
                                      self.ri, self.ro, self.bcBotSlope, self.bcTopSlope,
                                      normed=True)
 
-        self.rehbl, self.rehbulk = integBulkBc(self.rad, self.uh*4.*np.pi*self.rad**2,
+        self.rehbl, self.rehbulk = integBulkBc(self.radius, self.uh*4.*np.pi*self.radius**2,
                                      self.ri, self.ro, self.bcBotduh, self.bcTopduh,
                                      normed=True)
 
-        y = RolC[self.rad <= self.ri+self.bcBotSlope]
-        x = self.rad[self.rad <= self.ri+self.bcBotSlope]
+        y = RolC[self.radius <= self.ri+self.bcBotSlope]
+        x = self.radius[self.radius <= self.ri+self.bcBotSlope]
         self.rolBot = simps(3.*y*x**2, x)/((self.ri+self.bcBotSlope)**3-self.ri**3)
         print('reynols bc, reynolds bulk', self.rebl, self.rebulk)
         print('reh bc, reh bulk', self.rehbl, self.rehbulk)
@@ -505,10 +505,10 @@ class BLayers(MagicSetup):
 
         self.dl[0] = 0.
         self.dl[-1] = 0.
-        self.lBot, self.lTop = integBotTop(self.rad, 4.*np.pi*self.rad**2*self.dl,
+        self.lBot, self.lTop = integBotTop(self.radius, 4.*np.pi*self.radius**2*self.dl,
                          self.ri, self.ro, self.bcBotSlope, self.bcTopSlope, normed=True)
 
-        uhbm, utbm = integBotTop(self.rad, 4.*np.pi*self.uh,
+        uhbm, utbm = integBotTop(self.radius, 4.*np.pi*self.uh,
                          self.ri, self.ro, self.bcBotSlope, self.bcTopSlope, normed=True)
 
         # Convective Rol in the thermal boundary Layer
@@ -527,21 +527,21 @@ class BLayers(MagicSetup):
             RePerp = np.sqrt(2.*abs(perpPar.Eperp))
             RePar = np.sqrt(2.*abs(perpPar.Epar))
 
-            self.reperpbl, self.reperpbulk = integBulkBc(self.rad,
-                                             4.*np.pi*RePerp*self.rad**2,
+            self.reperpbl, self.reperpbulk = integBulkBc(self.radius,
+                                             4.*np.pi*RePerp*self.radius**2,
                                              self.ri, self.ro, self.bcBotSlope,
                                              self.bcTopSlope, normed=True)
-            self.reparbl, self.reparbulk = integBulkBc(self.rad,
-                                           4.*np.pi*RePar*self.rad**2,
+            self.reparbl, self.reparbulk = integBulkBc(self.radius,
+                                           4.*np.pi*RePar*self.radius**2,
                                            self.ri, self.ro, self.bcBotSlope,
                                            self.bcTopSlope, normed=True)
-            self.reperpnasbl, self.reperpnasbulk = integBulkBc(self.rad,
-                                                   4.*np.pi*RePerpNas*self.rad**2,
+            self.reperpnasbl, self.reperpnasbulk = integBulkBc(self.radius,
+                                                   4.*np.pi*RePerpNas*self.radius**2,
                                                    self.ri, self.ro,
                                                    self.bcBotSlope,
                                                    self.bcTopSlope, normed=True)
-            self.reparnasbl, self.reparnasbulk = integBulkBc(self.rad,
-                                                 4.*np.pi*ReParNas*self.rad**2,
+            self.reparnasbl, self.reparnasbulk = integBulkBc(self.radius,
+                                                 4.*np.pi*ReParNas*self.radius**2,
                                                  self.ri, self.ro,
                                                  self.bcBotSlope, self.bcTopSlope,
                                                  normed=True)
@@ -568,39 +568,39 @@ class BLayers(MagicSetup):
         #plt.rcdefaults()
         fig = plt.figure()
         ax = fig.add_subplot(211)
-        ax.plot(self.rad, self.ss)
+        ax.plot(self.radius, self.ss)
         ax.axhline(self.ttm, color='gray', linestyle='-')
-        ax.plot(self.rad, self.slopeTop, 'k--')
-        ax.plot(self.rad, self.slopeBot, 'k--')
-        ax.plot(self.rad, self.slopeMid, 'k--')
+        ax.plot(self.radius, self.slopeTop, 'k--')
+        ax.plot(self.radius, self.slopeBot, 'k--')
+        ax.plot(self.radius, self.slopeMid, 'k--')
         ax.axvline(self.ri+self.bcBotSlope, color='r')
         ax.axvline(self.ro-self.bcTopSlope, color='r')
         ax.set_ylim(self.ss[0], self.ss[-1])
         ax.set_ylabel('Entropy')
         ax1 = ax.twinx()
-        ax1.plot(self.rad, self.varS/self.varS.max(), 'g-')
+        ax1.plot(self.radius, self.varS/self.varS.max(), 'g-')
         ax1.axvline(self.ro-self.bcTopVarS, color='k', linestyle=':')
         ax1.axvline(self.ri+self.bcBotVarS, color='k', linestyle=':')
         ax1.set_ylim(0, 1)
         ax1.set_ylabel('var(s)')
         ax.set_xlabel('Radius')
-        ax.set_xlim(self.rad[-1], self.rad[0])
+        ax.set_xlim(self.radius[-1], self.radius[0])
 
         ax = fig.add_subplot(212)
         if self.kbotv == 1 and self.ktopv == 1:
-            ax.plot(self.rad, self.duh/self.duh.max())
+            ax.plot(self.radius, self.duh/self.duh.max())
             if labTex:
                 ax.set_ylabel(r'$\partial u_h/\partial r$')
             else:
                 ax.set_ylabel('duh/dr')
         else:
             ax.set_ylim(0., 1.1*self.uh.max())
-            ax.plot(self.rad, self.uh)
-            ax.plot(self.rad, self.slopeTopU, 'k--')
-            ax.plot(self.rad, self.slopeBotU, 'k--')
-            mask = (np.abs(self.rad-self.ri-self.bcBotduh)==np.abs(self.rad-self.ri-self.bcBotduh).min())
+            ax.plot(self.radius, self.uh)
+            ax.plot(self.radius, self.slopeTopU, 'k--')
+            ax.plot(self.radius, self.slopeBotU, 'k--')
+            mask = (np.abs(self.radius-self.ri-self.bcBotduh)==np.abs(self.radius-self.ri-self.bcBotduh).min())
             ax.axhline(self.uh[mask], color='k', linestyle='--', xmin=0., xmax=self.bcBotduh)
-            mask = (np.abs(self.rad-self.ro+self.bcTopduh)==np.abs(self.rad-self.ro+self.bcTopduh).min())
+            mask = (np.abs(self.radius-self.ro+self.bcTopduh)==np.abs(self.radius-self.ro+self.bcTopduh).min())
             ax.axhline(self.uh[mask], color='k', linestyle='--', xmin=1.-self.bcTopduh, xmax=1.)
             if labTex:
                 ax.set_ylabel(r'$u_h$')
@@ -608,30 +608,30 @@ class BLayers(MagicSetup):
                 ax.set_ylabel('uh')
         ax.axvline(self.ro-self.bcTopduh, color='k', linestyle='--')
         ax.axvline(self.ri+self.bcBotduh, color='k', linestyle='--')
-        ax.plot(self.rad, self.vi/self.vi.max())
-        ax.set_xlim(self.rad[-1], self.rad[0])
+        ax.plot(self.radius, self.vi/self.vi.max())
+        ax.set_xlim(self.radius[-1], self.radius[0])
         ax.set_xlabel('Radius')
 
         fig = plt.figure()
         ax = fig.add_subplot(211)
-        ax.semilogy(self.rad, self.vi)
+        ax.semilogy(self.radius, self.vi)
         ax.axhline(self.epsV, color='k', linestyle='--')
         ax.axvline(self.ro-self.dissTopV, color='k', linestyle='--')
         ax.axvline(self.ri+self.dissBotV, color='k', linestyle='--')
         ax.axvline(self.ro-self.uhTopSlope, color='g', linestyle='-', lw=1.5)
         ax.axvline(self.ri+self.uhBotSlope, color='g', linestyle='-', lw=1.5)
-        ax.set_xlim(self.rad[-1], self.rad[0])
+        ax.set_xlim(self.radius[-1], self.radius[0])
         ax.set_xlabel('Radius')
         ax.set_ylabel('Viscous dissipation')
         if hasattr(self, 'dissS'):
             ax = fig.add_subplot(212)
-            ax.semilogy(self.rad, self.epsTR)
+            ax.semilogy(self.radius, self.epsTR)
             ax.axhline(self.epsT, color='k', linestyle=':')
             ax.axvline(self.ro-self.dissTopS, color='k', linestyle='--')
             ax.axvline(self.ri+self.dissBotS, color='k', linestyle='--')
             ax.axvline(self.ro-self.bcTopSlope, color='g', linestyle='-', lw=1.5)
             ax.axvline(self.ri+self.bcBotSlope, color='g', linestyle='-', lw=1.5)
-            ax.set_xlim(self.rad[-1], self.rad[0])
+            ax.set_xlim(self.radius[-1], self.radius[0])
             ax.set_xlabel('Radius')
             ax.set_ylabel('Thermal Dissipation')
 
