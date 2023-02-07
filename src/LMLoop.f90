@@ -240,8 +240,10 @@ contains
                z10(:)=real(z_LMloc(lo_map%lm2(1,0),:))
             end if
 #ifdef WITH_MPI
-            call MPI_Bcast(z10,n_r_max,MPI_DEF_REAL,rank_with_l1m0, &
-                 &         MPI_COMM_WORLD,ierr)
+            if ( rank_with_l1m0 >= 0 ) then ! This is -1 if m_min > 0
+               call MPI_Bcast(z10,n_r_max,MPI_DEF_REAL,rank_with_l1m0, &
+                    &         MPI_COMM_WORLD,ierr)
+            end if
 #endif
             call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
                  &          p_LMloc, dp_LMloc, dpdt, s_LMloc, ds_LMloc, &
@@ -583,7 +585,7 @@ contains
 
       if ( l_phase_field )  call assemble_phase_Rloc(phi_Rloc, dphidt, tscheme)
       if ( l_chemical_conv )  call assemble_comp_Rloc(xi_Rloc, dxidt, tscheme)
-      if ( l_heat )  call assemble_entropy_Rloc(s_Rloc, ds_Rloc, dsdt, phi_ghost, tscheme)
+      if ( l_heat )  call assemble_entropy_Rloc(s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
 
       call assemble_pol_Rloc(block_sze, nblocks, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, &
            &                 dp_Rloc, dwdt, dpdt%expl(:,:,1), tscheme, lPressNext,  &

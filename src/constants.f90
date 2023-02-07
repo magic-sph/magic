@@ -39,6 +39,6 @@ module constants
    real(cp), parameter :: cos36=cos(36.0_cp*pi/180.0_cp) ! :math:`\cos{36\pi/180}`
    real(cp), parameter :: cos72=cos(72.0_cp*pi/180.0_cp) ! :math:`\cos{72\pi/180}`
 
-   character(len=4), parameter :: codeVersion='6.1'
+   character(len=4), parameter :: codeVersion='6.2'
 
 end module constants

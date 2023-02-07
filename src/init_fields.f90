@@ -8,9 +8,9 @@ module init_fields
    use parallel_mod
    use mpi_ptop_mod, only: type_mpiptop
    use mpi_transp_mod, only: type_mpitransp
-   use truncation, only: n_r_max, n_r_maxMag,n_r_ic_max,lmP_max, m_min, &
-       &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max,     &
-       &                 minc,n_cheb_ic_max,lm_max, nlat_padded
+   use truncation, only: n_r_max, n_r_maxMag, n_r_ic_max, m_min, l_max, &
+       &                 n_phi_max, n_theta_max, n_r_tot, m_max,        &
+       &                 minc, n_cheb_ic_max, lm_max, nlat_padded
    use mem_alloc, only: bytes_allocated
    use blocking, only: lo_map, st_map, llm, ulm, llmMag, ulmMag
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, &
@@ -154,14 +154,14 @@ contains
 
       !-- Local variables
       complex(cp) :: z_Rloc(lm_max,nRstart:nRstop)
-      integer :: lm,l,m,st_lmP,l1m0
+      integer :: lm,l,m,l1m0
       integer :: nR,nTheta,nPhi
       real(cp) :: ra1,ra2,c_r,c_i
       real(cp) :: amp_r,rExp
       real(cp) :: rDep(n_r_max)
       class(type_mpitransp), pointer :: r2lo_initv, lo2r_initv
       real(cp) :: ss,ome(nlat_padded,n_phi_max)
-      complex(cp) :: omeLM(lmP_max)
+      complex(cp) :: omeLM(lm_max)
 
       allocate( type_mpiptop :: r2lo_initv )
       allocate( type_mpiptop :: lo2r_initv )
@@ -198,16 +198,16 @@ contains
             do lm=2,lm_max
                l   =st_map%lm2l(lm)
                m   =st_map%lm2m(lm)
-               st_lmP=st_map%lm2lmP(lm)
-               if ( l > m ) then
+               if ( l < l_max .and. l > m ) then
                   z_Rloc(lm,nR)=z_Rloc(lm,nR) + r(nR)**2/dLh(lm) * ( &
-                  &    dTheta1S(lm)*omeLM(st_map%lmP2lmPS(st_lmP))   &
-                  &   -dTheta1A(lm)*omeLM(st_map%lmP2lmPA(st_lmP)) )
-               else if ( l == m ) then
-                  if ( dLh(lm) /= 0.0_cp ) then
-                     z_Rloc(lm,nR)=z_Rloc(lm,nR) - r(nR)**2/dLh(lm) *  &
-                     &    dTheta1A(lm)*omeLM(st_map%lmP2lmPA(st_lmP))
-                  end if
+                  &          dTheta1S(lm)*omeLM(st_map%lm2lmS(lm))   &
+                  &         -dTheta1A(lm)*omeLM(st_map%lm2lmA(lm)) )
+               else if ( l < l_max .and. l == m ) then
+                  z_Rloc(lm,nR)=z_Rloc(lm,nR) - r(nR)**2/dLh(lm) *  &
+                  &          dTheta1A(lm)*omeLM(st_map%lm2lmA(lm))
+               else if ( l == l_max .and. m < l ) then
+                  z_Rloc(lm,nR)=z_Rloc(lm,nR) + r(nR)**2/dLh(lm) *  &
+                  &          dTheta1S(lm)*omeLM(st_map%lm2lmS(lm))
                end if
             end do
 
@@ -246,17 +246,16 @@ contains
             do lm=2,lm_max
                l   =st_map%lm2l(lm)
                m   =st_map%lm2m(lm)
-               st_lmP=st_map%lm2lmP(st_map%lm2(l,m))
-               if ( l > m ) then
-                  z_Rloc(lm,nR)=z_Rloc(lm,nR) + &
-                  &    r(nR)**2/dLh(lm) * ( &
-                  &    dTheta1S(lm)*omeLM(st_map%lmP2lmPS(st_lmP)) &
-                  &    - dTheta1A(lm)*omeLM(st_map%lmP2lmPA(st_lmP)) )
-               else if ( l == m ) then
-                  if ( dLh(lm) /= 0.0_cp ) then
-                      z_Rloc(lm,nR)=z_Rloc(lm,nR) - r(nR)**2/dLh(lm) * &
-                      &    dTheta1A(lm)*omeLM(st_map%lmP2lmPA(st_lmP))
-                  end if
+               if ( l < l_max .and. l > m ) then
+                  z_Rloc(lm,nR)=z_Rloc(lm,nR) + r(nR)**2/dLh(lm) * ( &
+                  &            dTheta1S(lm)*omeLM(st_map%lm2lmS(lm)) &
+                  &          - dTheta1A(lm)*omeLM(st_map%lm2lmA(lm)) )
+               else if ( l < l_max .and. l == m ) then
+                   z_Rloc(lm,nR)=z_Rloc(lm,nR) - r(nR)**2/dLh(lm) * &
+                   &           dTheta1A(lm)*omeLM(st_map%lm2lmA(lm))
+               else if ( l == l_max  .and. m < l) then
+                  z_Rloc(lm,nR)=z_Rloc(lm,nR) + r(nR)**2/dLh(lm) *   &
+                  &            dTheta1S(lm)*omeLM(st_map%lm2lmS(lm))
                end if
             end do
 
@@ -433,7 +432,7 @@ contains
       real(cp) :: xS(n_impS_max),yS(n_impS_max)
       real(cp) :: zS(n_impS_max),sFac(n_impS_max)
       real(cp) :: sCMB(nlat_padded,n_phi_max)
-      complex(cp) :: sLM(lmP_max)
+      complex(cp) :: sLM(lm_max)
       integer :: info,i,j,filehandle
       logical :: rank_has_l0m0
 
@@ -629,9 +628,9 @@ contains
          end do
          call scal_to_SH(sCMB, sLM, l_max)
 
-      !--- sFac describes the linear dependence of the (l=0,m=0) mode
-      !    on the amplitude peakS, SQRT(4*pi) is a normalisation factor
-      !    according to the spherical harmonic function form chosen here.
+         !--- sFac describes the linear dependence of the (l=0,m=0) mode
+         !    on the amplitude peakS, SQRT(4*pi) is a normalisation factor
+         !    according to the spherical harmonic function form chosen here.
          sFac(nS)=real(sLM(st_map%lm2(0,0)))*osq4pi
 
       end do ! Loop over peak
@@ -698,11 +697,10 @@ contains
       !    in comparison to the (l=0,m=0) contribution when impS<0:
       !    Note that the (l=0,m=0) has to be determined by other means
       !    for example by setting: s_top= 0 0 -1 0
-      do m=0,l_max,minc
-         do l=m,l_max
-            lm=st_map%lmP2(l,m)
-            if ( l <= l_max .and. l > 0 ) tops(l,m)=tops(l,m)+sLM(lm)
-         end do
+      do lm=1,lm_max
+         l = st_map%lm2l(l)
+         m = st_map%lm2m(m)
+         if ( l <= l_max .and. l > 0 ) tops(l,m)=tops(l,m)+sLM(lm)
       end do
 
    end subroutine initS
@@ -750,7 +748,7 @@ contains
       real(cp) :: xXi(n_impXi_max),yXi(n_impXi_max)
       real(cp) :: zXi(n_impXi_max),xiFac(n_impXi_max)
       real(cp) :: xiCMB(nlat_padded,n_phi_max)
-      complex(cp) :: xiLM(lmP_max)
+      complex(cp) :: xiLM(lm_max)
       integer :: info,i,j,fileHandle
 
       lm00=lo_map%lm2(0,0)
@@ -917,9 +915,9 @@ contains
          end do
          call scal_to_SH(xiCMB, xiLM, l_max)
 
-      !--- xiFac describes the linear dependence of the (l=0,m=0) mode
-      !    on the amplitude peakXi, sqrt(4*pi) is a normalisation factor
-      !    according to the spherical harmonic function form chosen here.
+         !--- xiFac describes the linear dependence of the (l=0,m=0) mode
+         !    on the amplitude peakXi, sqrt(4*pi) is a normalisation factor
+         !    according to the spherical harmonic function form chosen here.
          xiFac(nXi)=real(xiLM(st_map%lm2(0,0)))*osq4pi
 
       end do ! Loop over peak
@@ -985,11 +983,10 @@ contains
       !    in comparison to the (l=0,m=0) contribution when impS<0:
       !    Note that the (l=0,m=0) has to be determined by other means
       !    for example by setting: s_top= 0 0 -1 0
-      do m=0,l_max,minc
-         do l=m,l_max
-            lm=st_map%lmP2(l,m)
-            if ( l <= l_max .and. l > 0 ) topxi(l,m)=topxi(l,m)+xiLM(lm)
-         end do
+      do lm=1,lm_max
+         l = st_map%lm2l(l)
+         m = st_map%lm2m(m)
+         if ( l <= l_max .and. l > 0 ) topxi(l,m)=topxi(l,m)+xiLM(lm)
       end do
 
    end subroutine initXi

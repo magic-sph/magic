@@ -21,8 +21,8 @@ module dtB_mod
    use horizontal_data, only: dPhi, dLh, hdif_B, O_sin_theta_E2, &
        &                      dTheta1S, dTheta1A, O_sin_theta, cosn_theta_E2
    use logic, only: l_cond_ic, l_DTrMagSpec, l_dtBmovie
-   use blocking, only: lo_map, st_map, lm2l, lm2m, lmP2lmPS, lmP2lmPA, &
-                       lm2lmP, llmMag, ulmMag, llm, ulm
+   use blocking, only: lo_map, st_map, lm2l, lm2m, llmMag, ulmMag, llm, ulm, &
+       &               lm2lmS, lm2lmA
    use radial_spectra ! rBrSpec, rBpSpec
    use sht, only: scal_to_SH, spat_to_sphertor
    use constants, only: two
@@ -303,18 +303,17 @@ contains
       complex(cp), intent(in) :: BrVZLM(*),BtVZLM(*)
 
       !-- Local variables:
-      integer :: l,m,lm,lmP,lmPS,lmPA
+      integer :: l,m,lm,lmS,lmA
       real(cp) :: fac
 
-      !$omp parallel default(shared) private(lm,l,m,lmP,lmPS,lmPA,fac)
+      !$omp parallel default(shared) private(lm,lmS,lmA,l,m,fac)
 
       PstrLM_Rloc(1,nR)=0.0_cp
       PadvLM_Rloc(1,nR)=0.0_cp
       !$omp do
       do lm=2,lm_max
-         lmP =lm2lmP(lm)
-         PstrLM_Rloc(lm,nR)=or2(nR) * BtVrLM(lmP)
-         PadvLM_Rloc(lm,nR)=or2(nR) * BrVtLM(lmP)
+         PstrLM_Rloc(lm,nR)=or2(nR) * BtVrLM(lm)
+         PadvLM_Rloc(lm,nR)=or2(nR) * BrVtLM(lm)
       end do
       !$omp end do
 
@@ -326,24 +325,24 @@ contains
       do lm=2,lm_max
          l   =lm2l(lm)
          m   =lm2m(lm)
-         lmP =lm2lmP(lm)
-         lmPS=lmP2lmPS(lmP)
-         lmPA=lmP2lmPA(lmP)
+         lmS =lm2lmS(lm)
+         lmA =lm2lmA(lm)
          fac=or2(nR)/dLh(lm)
-         TstrRLM_Rloc(lm,nR)=or1(nR) * BrVpLM(lmP)
-         if ( l > m ) then
-            TstrLM_Rloc(lm,nR)=        -or2(nR)*BtVpLM(lmP)     - &
-            &          fac*dPhi(lm)*dPhi(lm)*BpVtBtVpSn2LM(lmP) + &
-            &                             or3(nR)* BpVrLM(lmP)  + &
-            &                                             fac * ( &
-            &             dTheta1S(lm) * BpVtBtVpCotLM(lmPS)  - &
-            &             dTheta1A(lm) * BpVtBtVpCotLM(lmPA) )
-         else if ( l == m ) then
-            TstrLM_Rloc(lm,nR)=        -or2(nR)*BtVpLM(lmP)     - &
-            &          fac*dPhi(lm)*dPhi(lm)*BpVtBtVpSn2LM(lmP) + &
-            &                             or3(nR)* BpVrLM(lmP)  + &
-            &                                             fac * ( &
-            &              - dTheta1A(lm) * BpVtBtVpCotLM(lmPA) )
+         TstrRLM_Rloc(lm,nR)=or1(nR) * BrVpLM(lm)
+         if ( l < l_max ) then
+            TstrLM_Rloc(lm,nR)=        -or2(nR)*BtVpLM(lm)     - &
+            &          fac*dPhi(lm)*dPhi(lm)*BpVtBtVpSn2LM(lm) + &
+            &                             or3(nR)* BpVrLM(lm)  + &
+            &                                            fac * ( &
+            &               dTheta1S(lm) * BpVtBtVpCotLM(lmS)  - &
+            &               dTheta1A(lm) * BpVtBtVpCotLM(lmA) )
+         else
+            TstrLM_Rloc(lm,nR)=        -or2(nR)*BtVpLM(lm)     - &
+            &          fac*dPhi(lm)*dPhi(lm)*BpVtBtVpSn2LM(lm) + &
+            &                             or3(nR)* BpVrLM(lm)  + &
+            &                                            fac *   &
+            &               dTheta1S(lm) * BpVtBtVpCotLM(lmS)
+            !TstrLM_Rloc(lm,nR)=0.0_cp
          end if
       end do
       !$omp end do
@@ -354,24 +353,24 @@ contains
       do lm=2,lm_max
          l   =lm2l(lm)
          m   =lm2m(lm)
-         lmP =lm2lmP(lm)
-         lmPS=lmP2lmPS(lmP)
-         lmPA=lmP2lmPA(lmP)
+         lmS =lm2lmS(lm)
+         lmA =lm2lmA(lm)
          fac=or2(nR)/dLh(lm)
-         TadvRLM_Rloc(lm,nR)=or2(nR) * BpVrLM(lmP)
-         if ( l > m ) then
-            TadvLM_Rloc(lm,nR)=       -or2(nR)*BpVtLM(lmP)     - &
-            &         fac*dPhi(lm)*dPhi(lm)*BpVtBtVpSn2LM(lmP) + &
-            &                            or3(nR) * BrVpLM(lmP) + &
-            &                                            fac * ( &
-            &            dTheta1S(lm) * BpVtBtVpCotLM(lmPS)   -  &
-            &            dTheta1A(lm) * BpVtBtVpCotLM(lmPA) )
-         else if ( l == m ) then
-            TadvLM_Rloc(lm,nR)=       -or2(nR)*BpVtLM(lmP)     - &
-            &         fac*dPhi(lm)*dPhi(lm)*BpVtBtVpSn2LM(lmP) + &
-            &                            or3(nR) * BrVpLM(lmP) + &
-            &                                            fac * ( &
-            &            - dTheta1A(lm) *  BpVtBtVpCotLM(lmPA) ) 
+         TadvRLM_Rloc(lm,nR)=or2(nR) * BpVrLM(lm)
+         if ( l < l_max ) then
+            TadvLM_Rloc(lm,nR)=       -or2(nR)*BpVtLM(lm)     - &
+            &         fac*dPhi(lm)*dPhi(lm)*BpVtBtVpSn2LM(lm) + &
+            &                            or3(nR) * BrVpLM(lm) + &
+            &                                           fac * ( &
+            &            dTheta1S(lm) * BpVtBtVpCotLM(lmS)   -  &
+            &            dTheta1A(lm) * BpVtBtVpCotLM(lmA) )
+         else
+            TadvLM_Rloc(lm,nR)=       -or2(nR)*BpVtLM(lm)     - &
+            &         fac*dPhi(lm)*dPhi(lm)*BpVtBtVpSn2LM(lm) + &
+            &                            or3(nR) * BrVpLM(lm) + &
+            &                                           fac *   &
+            &            dTheta1S(lm) * BpVtBtVpCotLM(lmS)
+            !TadvLM_Rloc(lm,nR)=0.0_cp
          end if
       end do
       !$omp end do
@@ -384,22 +383,22 @@ contains
       do lm=2,lm_max
          l  =lm2l(lm)
          m  =lm2m(lm)
-         lmP=lm2lmP(lm)
-         lmPS=lmP2lmPS(lmP)
-         lmPA=lmP2lmPA(lmP)
+         lmS=lm2lmS(lm)
+         lmA=lm2lmA(lm)
          fac=or2(nR)/dLh(lm)
-         if ( l > m ) then
-            TomeLM_Rloc(lm,nR)=    -or2(nR)*BtVZLM(lmP)       - &
-            &                                 fac*or1(nR)*(     &
-            &                       dTheta1S(lm)*BrVZLM(lmPS) - &
-            &                       dTheta1A(lm)*BrVZLM(lmPA) )
-            TomeRLM_Rloc(lm,nR)=                      fac * ( &
-            &                     dTheta1S(lm)*BrVZLM(lmPS) - &
-            &                     dTheta1A(lm)*BrVZLM(lmPA) )
-         else if ( l == m ) then
-            TomeLM_Rloc(lm,nR)=    -or2(nR)*BtVZLM(lmp)       + &
-            &         fac*or1(nR)*dTheta1A(lm)*BrVZLM(lmPA)
-            TomeRLM_Rloc(lm,nR)=-fac*dTheta1A(lm)*BrVZLM(lmPA)
+         if ( l < l_max ) then
+            TomeLM_Rloc(lm,nR) = -or2(nR)*BtVZLM(lm)       - &
+            &                              fac*or1(nR)*(     &
+            &                     dTheta1S(lm)*BrVZLM(lmS) - &
+            &                     dTheta1A(lm)*BrVZLM(lmA) )
+            TomeRLM_Rloc(lm,nR)=                    fac * ( &
+            &                    dTheta1S(lm)*BrVZLM(lmS) - &
+            &                    dTheta1A(lm)*BrVZLM(lmA) )
+         else
+            TomeLM_Rloc(lm,nR) = -or2(nR)*BtVZLM(lm)       - &
+            &                              fac*or1(nR)*      &
+            &                     dTheta1S(lm)*BrVZLM(lmS)
+            TomeRLM_Rloc(lm,nR)=fac * dTheta1S(lm)*BrVZLM(lmS)
          end if
       end do
       !$omp end do

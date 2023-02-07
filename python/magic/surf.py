@@ -631,7 +631,7 @@ class Surf:
         """
         if pol:
             if ic:
-                rr2D = np.zeros((self.gr.ntheta, self.gr.nr+self.gr.n_r_ic_max-1),
+                rr2D = np.zeros((self.gr.ntheta, self.gr.nr+len(self.gr.radius_ic)-1),
                                 dtype=self.precision)
                 th2D = np.zeros_like(rr2D)
                 data = np.zeros_like(rr2D)
@@ -642,7 +642,7 @@ class Surf:
                     th2D[i, :] = self.gr.colatitude[i]+np.pi/2.
                 for i in range(self.gr.nr):
                     rr2D[:, i] = self.gr.radius[i]
-                for i in range(self.gr.n_r_ic_max-1):
+                for i in range(len(self.gr.radius_ic)-1):
                     rr2D[:, i+self.gr.nr] = self.gr.radius_ic[i+1]
                 s2D = rr2D * np.abs(np.cos(th2D))
                 data[0, :] = -0.5*s2D[0, :]*brm[0, :]*self.gr.colatitude[0]
@@ -900,8 +900,13 @@ class Surf:
             rr3D = np.zeros_like(th3D)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = self.gr.colatitude[i]
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
+            if self.gr.radratio != 0:
+                for i in range(self.gr.nr):
+                    rr3D[:, :, i] = self.gr.radius[i]
+            else:
+                for i in range(self.gr.nr-1):
+                    rr3D[:, :, i] = self.gr.radius[i]
+                rr3D[:, :, -1] = 1e-9 # dummy small value in case of full sphere
             dphi = 2.*np.pi/self.gr.nphi
 
             wp = (np.roll(self.gr.vtheta,-1,axis=2)-np.roll(self.gr.vtheta,1,axis=2))/\

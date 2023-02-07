@@ -200,15 +200,13 @@ class MagicRadial(MagicSetup):
         if self.name == 'eKinR':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(x_axis, self.ekin_pol, ls='-', c='#30a2da',
-                    label='ekin pol')
-            ax.plot(x_axis, self.ekin_tor, ls='-', c='#fc4f30',
-                    label='ekin tor')
-            ax.plot(x_axis, self.ekin_pol_axi, ls='--', c='#30a2da',
+            ax.plot(x_axis, self.ekin_pol, ls='-', c='C0', label='ekin pol')
+            ax.plot(x_axis, self.ekin_tor, ls='-', c='C1', label='ekin tor')
+            ax.plot(x_axis, self.ekin_pol_axi, ls='--', c='C0',
                     label='ekin pol axi')
-            ax.plot(x_axis, self.ekin_tor_axi, ls='--', c='#fc4f30',
+            ax.plot(x_axis, self.ekin_tor_axi, ls='--', c='C1',
                     label='ekin tor axi')
-            ax.plot(x_axis, self.ekin_pol+self.ekin_tor, ls='-', c='#31363B',
+            ax.plot(x_axis, self.ekin_pol+self.ekin_tor, ls='-', c='0.25',
                     label='ekin tot')
             ax.set_xlabel('Radius')
             ax.set_ylabel('Kinetic energy')
@@ -218,15 +216,13 @@ class MagicRadial(MagicSetup):
         elif self.name == 'eMagR':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(x_axis, self.emag_pol, ls='-', c='#30a2da',
-                    label='emag pol')
-            ax.plot(x_axis, self.emag_tor, ls='-', c='#fc4f30',
-                    label='emag tor')
-            ax.plot(x_axis, self.emag_pol_axi, ls='--', c='#30a2da',
+            ax.plot(x_axis, self.emag_pol, ls='-', c='C0', label='emag pol')
+            ax.plot(x_axis, self.emag_tor, ls='-', c='C1', label='emag tor')
+            ax.plot(x_axis, self.emag_pol_axi, ls='--', c='C0',
                     label='emag pol axi')
-            ax.plot(x_axis, self.emag_tor_axi, ls='--', c='#fc4f30',
+            ax.plot(x_axis, self.emag_tor_axi, ls='--', c='C1',
                     label='emag tor axi')
-            ax.plot(x_axis, self.emag_pol+self.emag_tor, ls='-', c='#31363B',
+            ax.plot(x_axis, self.emag_pol+self.emag_tor, ls='-', c='0.25',
                     label='emag tot')
 
             ax.legend(loc='best', frameon=False)
@@ -360,13 +356,25 @@ class MagicRadial(MagicSetup):
             fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(x_axis, self.entropy, label='Entropy')
-            ax.twinx()
-            ax.plot(x_axis, self.entropy_SD/self.entropy_SD.max(),
-                    label='Standard dev. of Entropy')
+            ax1 = ax.twinx()
+            ax1.plot(x_axis, self.entropy_SD, color='C1',
+                     label='Standard dev. of Entropy')
             ax.set_xlabel('Radius')
             ax.set_xlim(x_axis.min(), x_axis.max())
             ax.legend(loc='best', frameon=False)
             fig.tight_layout()
+
+            if abs(self.xi).max() > 0.:
+                fig = plt.figure()
+                ax = fig.add_subplot(111)
+                ax.plot(x_axis, self.xi, label='Composition')
+                ax1 = ax.twinx()
+                ax1.plot(x_axis, self.xi_SD, color='C1',
+                         label='Standard dev. of Composition')
+                ax.set_xlabel('Radius')
+                ax.set_xlim(x_axis.min(), x_axis.max())
+                ax.legend(loc='best', frameon=False)
+                fig.tight_layout()
 
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -491,35 +499,34 @@ class MagicRadial(MagicSetup):
         elif self.name == 'heatR':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(x_axis, self.entropy, label='s', color='C0')
+            if self.DissNb == 0.:
+                label = 'T'
+            else:
+                label = 's'
+            ax.plot(x_axis, self.entropy, label=label, color='C0')
             if hasattr(self, 'entropy_SD'):
                 ax.fill_between(x_axis, self.entropy-self.entropy_SD,
                                 self.entropy+self.entropy_SD,
                                 color='C0', alpha=0.3)
-            if self.DissNb > 0:
-                ax.plot(x_axis, self.temperature, label='T', color='C1')
-                if hasattr(self, 'temperature_SD'):
-                    ax.fill_between(x_axis, self.temperature-self.temperature_SD,
-                                    self.temperature+self.temperature_SD,
-                                    color='C1', alpha=0.3)
-            if self.xi.max() > 1e-10:
+            #if self.DissNb > 0:
+            #    ax.plot(x_axis, self.temperature, label='T', color='C1')
+            #    if hasattr(self, 'temperature_SD'):
+            #        ax.fill_between(x_axis, self.temperature-self.temperature_SD,
+            #                        self.temperature+self.temperature_SD,
+            #                       color='C1', alpha=0.3)
+            if abs(self.xi).max() > 1e-10:
                 ax.plot(x_axis, self.xi, label='xi', color='C2')
                 if hasattr(self, 'xi_SD'):
                     ax.fill_between(x_axis, self.xi-self.xi_SD,
                                     self.xi+self.xi_SD,
                                     color='C2', alpha=0.3)
             ax.set_xlabel('Radius')
-            ax.set_ylabel('Temperature, Entropy, Composition')
+            if self.DissNb == 0:
+                ax.set_ylabel('Temperature, Composition')
+            else:
+                ax.set_ylabel('Entropy, Composition')
             ax.legend(loc='best', frameon=False)
             ax.set_xlim(x_axis[-1], x_axis[0])
-            fig.tight_layout()
-
-            fig1 = plt.figure()
-            ax1 = fig1.add_subplot(111)
-            ax1.plot(x_axis, self.pressure, label='p')
-            ax1.set_xlabel('Radius')
-            ax1.set_ylabel('Pressure')
-            ax1.set_xlim(x_axis[-1], x_axis[0])
             fig.tight_layout()
         elif self.name == 'perpParR':
             fig = plt.figure()
@@ -710,13 +717,23 @@ class RadLookUpTable:
                 self.duhdr = data[:, 4]
                 self.dissS = data[:, 5]
             elif data.shape[1] == 9:
-                self.uh =data[:, 2]
-                self.duhdr =data[:, 3]
-                self.dissS =data[:, 4]
-                self.entropy_SD =data[:, 5]
-                self.uh_SD =data[:, 6]
-                self.duhdr_SD =data[:, 7]
-                self.dissS_SD =data[:, 8]
+                self.uh = data[:, 2]
+                self.duhdr = data[:, 3]
+                self.dissS = data[:, 4]
+                self.entropy_SD = data[:, 5]
+                self.uh_SD = data[:, 6]
+                self.duhdr_SD = data[:, 7]
+                self.dissS_SD = data[:, 8]
+            elif data.shape[1] == 11:
+                self.xi = data[:, 2]
+                self.uh = data[:, 3]
+                self.duhdr = data[:, 4]
+                self.dissS = data[:, 5]
+                self.entropy_SD = data[:, 6]
+                self.xi_SD = data[:, 7]
+                self.uh_SD = data[:, 8]
+                self.duhdr_SD = data[:, 8]
+                self.dissS_SD = data[:, 9]
         elif self.name == 'fluxesR':
             self.radius = data[:, 0]
             self.fcond = data[:, 1]

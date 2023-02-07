@@ -4,8 +4,7 @@ module sht
    use precision_mod, only: cp
    use blocking, only: st_map
    use constants, only: ci, one, zero
-   use truncation, only: m_max, l_max, n_theta_max, n_phi_max, &
-       &                 minc, lm_max, lmP_max
+   use truncation, only: m_max, l_max, n_theta_max, n_phi_max, minc, lm_max
    use horizontal_data, only: dLh, O_sin_theta_E2, O_sin_theta
    use parallel_mod
    use shtransforms
@@ -23,8 +22,12 @@ module sht
 
 contains
 
-   subroutine initialize_sht()
+   subroutine initialize_sht(l_scrambled_theta)
 
+      !-- Output variable
+      logical, intent(out) :: l_scrambled_theta
+
+      l_scrambled_theta=.true.
       call initialize_transforms()
 
    end subroutine initialize_sht
@@ -339,7 +342,7 @@ contains
       integer,  intent(in) :: lcut
       complex(cp), intent(out) :: fLM(:)
 
-      call native_spat_to_sph(f, fLM, lcut+1)
+      call native_spat_to_sph(f, fLM, lcut)
 
    end subroutine scal_to_SH
 !------------------------------------------------------------------------------
@@ -356,8 +359,8 @@ contains
       complex(cp), intent(out) :: sLM(:)
       complex(cp), intent(out) :: tLM(:)
 
-      call native_spat_to_sph(f, qLM, lcut+1)
-      call native_spat_to_sph_tor(g, h, sLM, tLM, lcut+1)
+      call native_spat_to_sph(f, qLM, lcut)
+      call native_spat_to_sph_tor(g, h, sLM, tLM, lcut)
 
    end subroutine spat_to_qst
 !------------------------------------------------------------------------------
@@ -372,7 +375,7 @@ contains
       complex(cp), intent(out) :: fLM(:)
       complex(cp), intent(out) :: gLM(:)
 
-      call native_spat_to_sph_tor(f, g, fLM, gLM, lcut+1)
+      call native_spat_to_sph_tor(f, g, fLM, gLM, lcut)
 
    end subroutine spat_to_sphertor
 !------------------------------------------------------------------------------

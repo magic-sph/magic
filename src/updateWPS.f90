@@ -1,4 +1,3 @@
-#include "perflib_preproc.cpp"
 module updateWPS_mod
    !
    ! This module handles the time advance of the poloidal potential w,
@@ -15,24 +14,23 @@ module updateWPS_mod
    use radial_functions, only: or1, or2, rho0, rgrav, r, visc, dLvisc,    &
        &                       rscheme_oc, beta, dbeta, dLkappa, dLtemp0, &
        &                       ddLtemp0, alpha0, dLalpha0, ddLalpha0,     &
-       &                       ogrun, kappa, orho1, dentropy0, temp0
+       &                       ogrun, kappa, orho1, dentropy0, temp0, l_R
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
        &                          ViscHeatFac, ThExpNb, BuoFac,        &
        &                          CorFac, ktopp
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: tops, bots
-   use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm
+   use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V, hdif_S
    use logic, only: l_update_v, l_temperature_diff, l_RMS, l_full_sphere
    use RMS, only: DifPol2hInt, DifPolLMr
-   use RMS_helpers, only:  hInt2Pol
    use algebra, only: prepare_mat, solve_mat
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize, rank, n_procs, get_openmp_blocks
    use radial_der, only: get_dddr, get_ddr, get_dr, get_dr_Rloc
    use constants, only: zero, one, two, three, four, third, half, pi, osq4pi
    use fields, only: work_LMloc
-   use useful, only: abortRun
+   use useful, only: abortRun, cc2real
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray
 
@@ -42,7 +40,6 @@ module updateWPS_mod
 
    !-- Input of recycled work arrays:
    complex(cp), allocatable :: workB(:,:), workC(:,:)
-   complex(cp), allocatable :: Dif(:),Pre(:),Buo(:)
    real(cp), allocatable :: rhs1(:,:,:)
    real(cp), allocatable :: ps0Mat(:,:), ps0Mat_fac(:,:)
    integer, allocatable :: ps0Pivot(:)
@@ -83,11 +80,6 @@ contains
       allocate( workC(llm:ulm,n_r_max) )
       bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 
-      allocate( Dif(llm:ulm) )
-      allocate( Pre(llm:ulm) )
-      allocate( Buo(llm:ulm) )
-      bytes_allocated = bytes_allocated+3*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
-
 #ifdef WITHOMP
       maxThreads=omp_get_max_threads()
 #else
@@ -107,7 +99,6 @@ contains
       deallocate( ps0Mat, ps0Mat_fac, ps0Pivot )
       deallocate( wpsMat, wpsMat_fac, wpsPivot, lWPSmat )
       deallocate( workB, workC, rhs1)
-      deallocate( Dif, Pre, Buo )
 
    end subroutine finalize_updateWPS
 !-----------------------------------------------------------------------------
@@ -136,10 +127,10 @@ contains
 
       !-- Local variables:
       integer :: l1,m1          ! degree and order
-      integer :: lm1,lm,lmB     ! position of (l,m) in array
+      integer :: lm1,lm         ! position of (l,m) in array
       integer :: nLMB2, nLMB
       integer :: nR             ! counts radial grid points
-      integer :: n_r_out         ! counts cheb modes
+      integer :: n_r_out        ! counts cheb modes
       real(cp) :: rhs(2*n_r_max)  ! real RHS for l=m=0
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
@@ -171,14 +162,13 @@ contains
       !$omp single
       call solve_counter%start_count()
       !$omp end single
-      !PERFON('upWP_ssol')
       !$omp single
       ! each of the nLMBs2(nLMB) subblocks have one l value
       do nLMB2=1,nLMBs2(nLMB)
 
          !$omp task default(shared) &
          !$omp firstprivate(nLMB2) &
-         !$omp private(lm,lm1,l1,m1,lmB,iChunk,nChunks,size_of_last_chunk,threadid)
+         !$omp private(lm,lm1,l1,m1,iChunk,nChunks,size_of_last_chunk,threadid)
 
          ! determine the number of chunks of m
          ! total number for l1 is sizeLMB2(nLMB2,nLMB)
@@ -187,148 +177,129 @@ contains
          size_of_last_chunk = chunksize + (sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
 
          l1=lm22l(1,nLMB2,nLMB)
-         if ( l1 == 0 ) then
+         if ( l1 == 0 ) then ! Spherically-symmetric, l=0 mode
+            lm1 = lm2(0,0)
+
             if ( .not. lWPSmat(l1) ) then
                call get_ps0Mat(tscheme,ps0Mat,ps0Pivot,ps0Mat_fac)
                lWPSmat(l1)=.true.
             end if
-         else
+
+            do nR=1,n_r_max
+               rhs(nR)        =real(ds(lm1,nR))
+               rhs(nR+n_r_max)=real(dwdt%expl(lm1,nR,tscheme%istage))+&
+               &               Cor00_fac*CorFac*or1(nR)*z10(nR)
+            end do
+            rhs(1)        =real(tops(0,0))
+            rhs(n_r_max)  =real(bots(0,0))
+            rhs(n_r_max+1)=0.0_cp
+
+            do nR=1,2*n_r_max
+               rhs(nR)=rhs(nR)*ps0Mat_fac(nR,1)
+            end do
+
+            call solve_mat(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
+
+            do nR=1,2*n_r_max
+               rhs(nR)=rhs(nR)*ps0Mat_fac(nR,2)
+            end do
+
+            do n_r_out=1,rscheme_oc%n_max
+               s(lm1,n_r_out)=rhs(n_r_out)
+               p(lm1,n_r_out)=rhs(n_r_out+n_r_max)
+               w(lm1,n_r_out)=zero
+            end do
+
+         else ! l1 /= 0
+
             if ( .not. lWPSmat(l1) ) then
                call get_wpsMat(tscheme, l1, hdif_V(l1), hdif_S(l1), wpsMat(:,:,nLMB2), &
                     &          wpsPivot(:,nLMB2), wpsMat_fac(:,:,nLMB2))
                lWPSmat(l1)=.true.
             end if
-         end if
 
-         do iChunk=1,nChunks
-            !$omp task default(shared) &
-            !$omp firstprivate(iChunk) &
-            !$omp private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
-            !$omp private(threadid)
+            do iChunk=1,nChunks
+               !$omp task default(shared) &
+               !$omp firstprivate(iChunk) &
+               !$omp private(lmB0,lm,lm1,m1,nR,n_r_out) &
+               !$omp private(threadid)
 
-            !PERFON('upWP_set')
 #ifdef WITHOMP
-            threadid = omp_get_thread_num()
+               threadid = omp_get_thread_num()
 #else
-            threadid = 0
+               threadid = 0
 #endif
-            lmB0=(iChunk-1)*chunksize
-            lmB=lmB0
-            do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-               lm1=lm22lm(lm,nLMB2,nLMB)
-               m1 =lm22m(lm,nLMB2,nLMB)
+               lmB0=(iChunk-1)*chunksize
+               do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+                  lm1=lm22lm(lm,nLMB2,nLMB)
+                  m1 =lm22m(lm,nLMB2,nLMB)
 
-               if ( l1 == 0 ) then
-
-                  do nR=1,n_r_max
-                     rhs(nR)        =real(ds(lm1,nR))
-                     rhs(nR+n_r_max)=real(dwdt%expl(lm1,nR,tscheme%istage))+&
-                     &               Cor00_fac*CorFac*or1(nR)*z10(nR)
-                  end do
-                  rhs(1)        =real(tops(0,0))
-                  rhs(n_r_max)  =real(bots(0,0))
-                  rhs(n_r_max+1)=0.0_cp
-
-                  do nR=1,2*n_r_max
-                     rhs(nR)=rhs(nR)*ps0Mat_fac(nR,1)
-                  end do
-
-                  call solve_mat(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
-
-                  do nR=1,2*n_r_max
-                     rhs(nR)=rhs(nR)*ps0Mat_fac(nR,2)
-                  end do
-
-               else ! l1 /= 0
-                  lmB=lmB+1
-                  rhs1(1,2*lmB-1,threadid)          =0.0_cp
-                  rhs1(1,2*lmB,threadid)            =0.0_cp
-                  rhs1(n_r_max,2*lmB-1,threadid)    =0.0_cp
-                  rhs1(n_r_max,2*lmB,threadid)      =0.0_cp
-                  rhs1(n_r_max+1,2*lmB-1,threadid)  =0.0_cp
-                  rhs1(n_r_max+1,2*lmB,threadid)    =0.0_cp
-                  rhs1(2*n_r_max,2*lmB-1,threadid)  =0.0_cp
-                  rhs1(2*n_r_max,2*lmB,threadid)    =0.0_cp
-                  rhs1(2*n_r_max+1,2*lmB-1,threadid)= real(tops(l1,m1))
-                  rhs1(2*n_r_max+1,2*lmB,threadid)  =aimag(tops(l1,m1))
-                  rhs1(3*n_r_max,2*lmB-1,threadid)  = real(bots(l1,m1))
-                  rhs1(3*n_r_max,2*lmB,threadid)    =aimag(bots(l1,m1))
+                  rhs1(1,2*lm-1,threadid)          =0.0_cp
+                  rhs1(1,2*lm,threadid)            =0.0_cp
+                  rhs1(n_r_max,2*lm-1,threadid)    =0.0_cp
+                  rhs1(n_r_max,2*lm,threadid)      =0.0_cp
+                  rhs1(n_r_max+1,2*lm-1,threadid)  =0.0_cp
+                  rhs1(n_r_max+1,2*lm,threadid)    =0.0_cp
+                  rhs1(2*n_r_max,2*lm-1,threadid)  =0.0_cp
+                  rhs1(2*n_r_max,2*lm,threadid)    =0.0_cp
+                  rhs1(2*n_r_max+1,2*lm-1,threadid)= real(tops(l1,m1))
+                  rhs1(2*n_r_max+1,2*lm,threadid)  =aimag(tops(l1,m1))
+                  rhs1(3*n_r_max,2*lm-1,threadid)  = real(bots(l1,m1))
+                  rhs1(3*n_r_max,2*lm,threadid)    =aimag(bots(l1,m1))
                   do nR=2,n_r_max-1
                      !-- dp and ds used as work arrays here
-                     rhs1(nR,2*lmB-1,threadid)          = real(work_LMloc(lm1,nR))
-                     rhs1(nR,2*lmB,threadid)            =aimag(work_LMloc(lm1,nR))
-                     rhs1(nR+n_r_max,2*lmB-1,threadid)  = real(dp(lm1,nR))
-                     rhs1(nR+n_r_max,2*lmB,threadid)    =aimag(dp(lm1,nR))
-                     rhs1(nR+2*n_r_max,2*lmB-1,threadid)= real(ds(lm1,nR))
-                     rhs1(nR+2*n_r_max,2*lmB,threadid)  =aimag(ds(lm1,nR))
+                     rhs1(nR,2*lm-1,threadid)          = real(work_LMloc(lm1,nR))
+                     rhs1(nR,2*lm,threadid)            =aimag(work_LMloc(lm1,nR))
+                     rhs1(nR+n_r_max,2*lm-1,threadid)  = real(dp(lm1,nR))
+                     rhs1(nR+n_r_max,2*lm,threadid)    =aimag(dp(lm1,nR))
+                     rhs1(nR+2*n_r_max,2*lm-1,threadid)= real(ds(lm1,nR))
+                     rhs1(nR+2*n_r_max,2*lm,threadid)  =aimag(ds(lm1,nR))
                   end do
-               end if
-            end do
-            !PERFOFF
 
-            !PERFON('upWP_sol')
-            if ( lmB > lmB0 ) then
-
-               ! use the mat_fac(:,1) to scale the rhs
-               do lm=lmB0+1,lmB
                   rhs1(:,2*lm-1,threadid)=rhs1(:,2*lm-1,threadid)*wpsMat_fac(:,1,nLMB2)
                   rhs1(:,2*lm,threadid)  =rhs1(:,2*lm,threadid)*wpsMat_fac(:,1,nLMB2)
                end do
+
                call solve_mat(wpsMat(:,:,nLMB2),3*n_r_max,3*n_r_max,                &
-                    &         wpsPivot(:,nLMB2),rhs1(:,2*(lmB0+1)-1:2*lmB,threadid),&
-                    &         2*(lmB-lmB0))
-               ! rescale the solution with mat_fac(:,2)
-               do lm=lmB0+1,lmB
+                    &         wpsPivot(:,nLMB2),rhs1(:,2*(lmB0+1)-1:2*(lm-1),threadid),&
+                    &         2*(lm-1-lmB0))
+
+               do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+                  lm1=lm22lm(lm,nLMB2,nLMB)
+                  m1 =lm22m(lm,nLMB2,nLMB)
+
                   rhs1(:,2*lm-1,threadid)=rhs1(:,2*lm-1,threadid)*wpsMat_fac(:,2,nLMB2)
                   rhs1(:,2*lm,threadid)  =rhs1(:,2*lm,threadid)*wpsMat_fac(:,2,nLMB2)
-               end do
-            end if
-            !PERFOFF
 
-            !PERFON('upWP_aft')
-            lmB=lmB0
-            do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-               lm1=lm22lm(lm,nLMB2,nLMB)
-               m1 =lm22m(lm,nLMB2,nLMB)
-               if ( l1 == 0 ) then
-                  do n_r_out=1,rscheme_oc%n_max
-                     s(lm1,n_r_out)=rhs(n_r_out)
-                     p(lm1,n_r_out)=rhs(n_r_out+n_r_max)
-                     w(lm1,n_r_out)=zero
-                  end do
-               else
-                  lmB=lmB+1
                   if ( m1 > 0 ) then
                      do n_r_out=1,rscheme_oc%n_max
-                        w(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
-                        &                    rhs1(n_r_out,2*lmB,threadid),cp)
-                        p(lm1,n_r_out)=cmplx(rhs1(n_r_max+n_r_out,2*lmB-1,threadid),&
-                        &                    rhs1(n_r_max+n_r_out,2*lmB,threadid),cp)
-                        s(lm1,n_r_out)=cmplx(rhs1(2*n_r_max+n_r_out,2*lmB-1,  &
+                        w(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lm-1,threadid), &
+                        &                    rhs1(n_r_out,2*lm,threadid),cp)
+                        p(lm1,n_r_out)=cmplx(rhs1(n_r_max+n_r_out,2*lm-1,threadid),&
+                        &                    rhs1(n_r_max+n_r_out,2*lm,threadid),cp)
+                        s(lm1,n_r_out)=cmplx(rhs1(2*n_r_max+n_r_out,2*lm-1,  &
                         &                    threadid),rhs1(2*n_r_max+n_r_out,&
-                        &                    2*lmB,threadid),cp)
+                        &                    2*lm,threadid),cp)
                      end do
                   else
                      do n_r_out=1,rscheme_oc%n_max
-                        w(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
-                                       &      0.0_cp,kind=cp)
-                        p(lm1,n_r_out)= cmplx(rhs1(n_r_max+n_r_out,2*lmB-1,threadid), &
-                                       &      0.0_cp,kind=cp)
-                        s(lm1,n_r_out)= cmplx(rhs1(2*n_r_max+n_r_out,2*lmB-1,threadid), &
-                                       &      0.0_cp,kind=cp)
+                        w(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lm-1,threadid), &
+                        &                     0.0_cp,kind=cp)
+                        p(lm1,n_r_out)= cmplx(rhs1(n_r_max+n_r_out,2*lm-1,threadid), &
+                        &                     0.0_cp,kind=cp)
+                        s(lm1,n_r_out)= cmplx(rhs1(2*n_r_max+n_r_out,2*lm-1,threadid), &
+                        &                     0.0_cp,kind=cp)
                      end do
                   end if
-               end if
+               end do
+               !$omp end task
             end do
-            !PERFOFF
-            !$omp end task
-         end do
+         end if
          !$omp taskwait
          !$omp end task
       end do   ! end of loop over l1 subblocks
       !$omp end single
       !$omp taskwait
-      !PERFOFF
       !$omp single
       call solve_counter%stop_count()
       !$omp end single
@@ -372,7 +343,7 @@ contains
       complex(cp), intent(inout) :: ds_exp_last(llm:ulm,n_r_max)
 
       !-- Local variables
-      integer :: n_r, start_lm, stop_lm
+      integer :: n_r, start_lm, stop_lm, lm, l
 
       !$omp parallel default(shared) private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
@@ -381,10 +352,14 @@ contains
            &       stop_lm-llm+1, n_r_max, rscheme_oc, nocopy=.true. )
       !$omp barrier
 
-      !$omp do
+      !$omp do private(lm,l)
       do n_r=1,n_r_max
-         ds_exp_last(:,n_r)=orho1(n_r)*(ds_exp_last(:,n_r)-   &
-         &                      or2(n_r)*work_LMloc(:,n_r))
+         do lm=llm,ulm
+            l=lo_map%lm2l(lm)
+            if ( l > l_R(n_r) ) cycle
+            ds_exp_last(lm,n_r)=orho1(n_r)*(ds_exp_last(lm,n_r)-   &
+            &                      or2(n_r)*work_LMloc(lm,n_r))
+         end do
       end do
       !$omp end do
 
@@ -401,18 +376,20 @@ contains
 
       !-- Local variables
       complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
-      integer :: n_r, lm, start_lm, stop_lm
+      integer :: n_r, lm, l, start_lm, stop_lm
 
       call get_dr_Rloc(dVSrLM, work_Rloc, lm_max, nRstart, nRstop, n_r_max, &
            &           rscheme_oc)
 
-      !$omp parallel default(shared) private(n_r, lm, start_lm, stop_lm)
+      !$omp parallel default(shared) private(n_r, lm, start_lm, stop_lm, l)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm, stop_lm)
       !$omp barrier
 
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
+            l=st_map%lm2l(lm)
+            if ( l > l_R(n_r) ) cycle
             ds_exp_last(lm,n_r)=orho1(n_r)*(ds_exp_last(lm,n_r) - &
             &                        or2(n_r)*work_Rloc(lm,n_r))
          end do
@@ -442,6 +419,7 @@ contains
       complex(cp),       intent(out) :: ddw(llm:ulm,n_r_max)
 
       !-- Local variables:
+      complex(cp) :: Dif, Buo
       integer :: n_r, lm, l1, m1, start_lm,stop_lm, lmStart_00
       integer :: n_r_top, n_r_bot
       real(cp) :: dL, fac_bot, fac_top
@@ -499,11 +477,11 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
-               if ( l1 == 1 ) then
-                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
+               if ( l1 == 0 ) then
+                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
                        &                   bots(l1,m1), s(lm,:))
                else
-                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
+                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
                        &                   bots(l1,m1), s(lm,:))
                end if
             end do
@@ -513,11 +491,11 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
-               if ( l1 == 1 ) then
-                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
+               if ( l1 == 0 ) then
+                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), one, 0.0_cp, &
                        &                   bots(l1,m1), s(lm,:))
                else
-                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), one, 0.0_cp, &
+                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
                        &                   bots(l1,m1), s(lm,:))
                end if
             end do
@@ -667,19 +645,20 @@ contains
             n_r_bot=n_r_icb-1
          end if
 
-         !$omp do private(n_r,lm,l1,Dif,Pre,Buo,dL)
+         !$omp do private(n_r,lm,l1,m1,Dif,Buo,dL)
          do n_r=n_r_top,n_r_bot
             do lm=llm,ulm
                l1=lm2l(lm)
+               m1=lm2m(lm)
                dL = real(l1*(l1+1),cp)
 
-               Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
-               &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
-               &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*   &
-               &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))*&
-               &                                                    w(lm,n_r) )
-               Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
-               dwdt%impl(lm,n_r,1)=Buo(lm)+Dif(lm)
+               Dif = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
+               &    +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
+               &    -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*   &
+               &       beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))*&
+               &                                                w(lm,n_r) )
+               Buo = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
+               dwdt%impl(lm,n_r,1)=Buo+Dif
                dpdt%impl(lm,n_r,1)=       hdif_V(l1)* visc(n_r)*dL*or2(n_r) &
                &                                   * ( -work_LMloc(lm,n_r)  &
                &                     + (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r)  &
@@ -694,12 +673,12 @@ contains
                &                 - dL*or2(n_r) * s(lm,n_r) ) -dL*or2(n_r)   &
                &              *orho1(n_r)*dentropy0(n_r)*        w(lm,n_r)
 
-            end do
+               if ( lRmsNext .and. l1 > 0 ) then
+                  DifPol2hInt(l1,n_r)=DifPol2hInt(l1,n_r)+r(n_r)**2*cc2real(Dif,m1)
+                  DifPolLMr(lm,n_r)  =r(n_r)**2/dL * Dif
+               end if
 
-            if ( lRmsNext ) then
-               call hInt2Pol(Dif,llm,ulm,n_r,llm,ulm,DifPolLMr(llm:ulm,n_r), &
-                    &        DifPol2hInt(:,n_r),lo_map)
-            end if
+            end do
          end do
          !$omp end do
       end if
@@ -732,9 +711,10 @@ contains
       complex(cp),       intent(out) :: ddw(llm:ulm,n_r_max)
 
       !-- Local variables
+      complex(cp) :: Pre, Buo, Dif
       logical :: l_in_cheb
       real(cp) :: dL
-      integer :: n_r_top, n_r_bot, l1
+      integer :: n_r_top, n_r_bot, l1, m1
       integer :: n_r, lm, start_lm, stop_lm
       integer, pointer :: lm2l(:),lm2m(:)
 
@@ -798,20 +778,21 @@ contains
 
          !-- Calculate explicit time step part:
          if ( l_temperature_diff ) then
-            !$omp do private(n_r,lm,l1,Dif,Pre,Buo,dL)
+            !$omp do private(n_r,lm,l1,m1,Dif,Pre,Buo,dL)
             do n_r=n_r_top,n_r_bot
                do lm=llm,ulm
                   l1=lm2l(lm)
+                  m1=lm2m(lm)
                   dL = real(l1*(l1+1),cp)
 
-                  Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
-                  &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
-                  &        -( dL*or2(n_r)+four*third* (dbeta(n_r)+dLvisc(n_r)*   &
-                  &          beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))* &
-                  &                                                    w(lm,n_r) )
-                  Pre(lm) = -dp(lm,n_r)+beta(n_r)*p(lm,n_r)
-                  Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
-                  dwdt%impl(lm,n_r,istage)=Pre(lm)+Buo(lm)+Dif(lm)
+                  Dif = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
+                  &    +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
+                  &    -( dL*or2(n_r)+four*third* (dbeta(n_r)+dLvisc(n_r)*   &
+                  &      beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))* &
+                  &                                                w(lm,n_r) )
+                  Pre = -dp(lm,n_r)+beta(n_r)*p(lm,n_r)
+                  Buo = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
+                  dwdt%impl(lm,n_r,istage)=Pre+Buo+Dif
                   dpdt%impl(lm,n_r,istage)=               dL*or2(n_r)*p(lm,n_r)  &
                   &           + hdif_V(l1)*visc(n_r)*dL*or2(n_r)                 &
                   &                                     * ( -work_LMloc(lm,n_r)  &
@@ -837,30 +818,32 @@ contains
                   &               beta(n_r))+ddLtemp0(n_r)+ddLalpha0(n_r)-       &
                   &               dbeta(n_r)-dL*or2(n_r) )*           p(lm,n_r)))&
                   &          - dL*or2(n_r)*orho1(n_r)*dentropy0(n_r)* w(lm,n_r)
+
+                  if ( lRmsNext .and. l1 > 0 ) then
+                     DifPol2hInt(l1,n_r)=DifPol2hInt(l1,n_r)+r(n_r)**2*cc2real(Dif,m1)
+                     DifPolLMr(lm,n_r)  =r(n_r)**2/dL * Dif
+                  end if
                end do
-               if ( lRmsNext ) then
-                  call hInt2Pol(Dif,llm,ulm,n_r,llm,ulm,DifPolLMr(llm:ulm,n_r), &
-                       &        DifPol2hInt(:,n_r),lo_map)
-               end if
             end do
             !$omp end do
 
          else ! entropy diffusion
 
-            !$omp do private(n_r,lm,l1,Dif,Pre,Buo,dL)
+            !$omp do private(n_r,lm,l1,m1,Dif,Pre,Buo,dL)
             do n_r=n_r_top,n_r_bot
                do lm=llm,ulm
                   l1=lm2l(lm)
+                  m1=lm2m(lm)
                   dL = real(l1*(l1+1),cp)
 
-                  Dif(lm) = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
-                  &        +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
-                  &        -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*   &
-                  &           beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))*&
-                  &                                                    w(lm,n_r) )
-                  Pre(lm) = -dp(lm,n_r)+beta(n_r)*p(lm,n_r)
-                  Buo(lm) = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
-                  dwdt%impl(lm,n_r,istage)=Pre(lm)+Buo(lm)+Dif(lm)
+                  Dif = hdif_V(l1)*dL*or2(n_r)*visc(n_r) *  (    ddw(lm,n_r) &
+                  &    +(two*dLvisc(n_r)-third*beta(n_r))*        dw(lm,n_r) &
+                  &    -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*   &
+                  &       beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))*&
+                  &                                                w(lm,n_r) )
+                  Pre = -dp(lm,n_r)+beta(n_r)*p(lm,n_r)
+                  Buo = BuoFac*rho0(n_r)*rgrav(n_r)*s(lm,n_r)
+                  dwdt%impl(lm,n_r,istage)=Pre+Buo+Dif
                   dpdt%impl(lm,n_r,istage)=               dL*or2(n_r)*p(lm,n_r)&
                   &                        + hdif_V(l1)* visc(n_r)*dL*or2(n_r) &
                   &                                   * ( -work_LMloc(lm,n_r)  &
@@ -876,18 +859,17 @@ contains
                   &                 - dL*or2(n_r) * s(lm,n_r) ) -dL*or2(n_r)   &
                   &              *orho1(n_r)*dentropy0(n_r)*        w(lm,n_r)
 
-               end do
+                  if ( lRmsNext .and. l1 > 0 ) then
+                     DifPol2hInt(l1,n_r)=DifPol2hInt(l1,n_r)+r(n_r)**2*cc2real(Dif,m1)
+                     DifPolLMr(lm,n_r)  =r(n_r)**2/dL * Dif
+                  end if
 
-               if ( lRmsNext ) then
-                  call hInt2Pol(Dif,llm,ulm,n_r,llm,ulm,DifPolLMr(llm:ulm,n_r), &
-                       &        DifPol2hInt(:,n_r),lo_map)
-               end if
+               end do
             end do
             !$omp end do
          end if
 
       end if
-
       !$omp end parallel
 
    end subroutine get_single_rhs_imp

@@ -61,7 +61,7 @@ contains
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
       &     n_r_ic_max,n_cheb_ic_max,minc,nalias,l_axi,       &
       &     fd_order,fd_order_bound,fd_ratio,fd_stretch,      &
-      &     l_var_l,m_min,m_max,l_max
+      &     l_var_l,rcut_l,m_min,m_max,l_max
 
       namelist/control/                                     &
       &    mode,tag,n_time_steps,n_cour_step,               &
@@ -568,6 +568,15 @@ contains
          l_phase_field = .true.
       end if
 
+      if ( l_phase_field ) then
+         if ( ktopphi /= 1 ) then
+            phi_top=0.0_cp ! Neumann
+         else
+            phi_top=sq4pi ! Dirichlet
+         end if
+         phi_bot=0.0_cp
+      end if
+
       if ( l_centrifuge .and. .not.  &
       &    (l_anel .and. .not. l_isothermal .and. (index(interior_model, "NONE")/=0)) )  then
          call abortRun("This case is not implemented.")
@@ -867,6 +876,7 @@ contains
       write(n_out,'(''  fd_order        ='',i5,'','')') fd_order
       write(n_out,'(''  fd_order_bound  ='',i5,'','')') fd_order_bound
       write(n_out,'(''  l_var_l         ='',l3,'','')') l_var_l
+      write(n_out,'(''  rcut_l          ='',ES14.6,'','')') rcut_l
       write(n_out,*) "/"
 
       write(n_out,*) "&control"
@@ -1025,13 +1035,8 @@ contains
          end do
       end if
 
+      !-- Phase field related diagnostics
       if ( l_phase_field ) then
-         if ( ktopphi /= 1 ) then
-            phi_top=0.0_cp ! Neumann
-         else
-            phi_top=sq4pi ! Dirichlet
-         end if
-         phi_bot=0.0_cp
          write(n_out,'(''  ktopphi         ='',i3,'','')') ktopphi
          write(n_out,'(''  kbotphi         ='',i3,'','')') kbotphi
          write(n_out,'(''  phi_top         ='',ES14.6,'','')') phi_top/sq4pi
@@ -1285,6 +1290,7 @@ contains
       nalias        =20
       l_axi         =.false.
       l_var_l       =.false. ! l is a function of radius
+      rcut_l        =0.1_cp
 
       !-- Finite differences
       fd_order      =2
@@ -1339,7 +1345,7 @@ contains
       ldifexp       =-1
 
       !-- In case one wants to treat the advection term as u \curl{u}
-      l_adv_curl=.false.
+      l_adv_curl=.true.
 
       !----- Namelist phys_param:
       ra          =0.0_cp

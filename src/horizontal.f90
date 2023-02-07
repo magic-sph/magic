@@ -4,13 +4,13 @@ module horizontal_data
    !  and latitude plus help arrays depending on degree and order
    !
 
-   use truncation, only: l_max, lmP_max, n_theta_max, n_phi_max, nlat_padded, &
+   use truncation, only: l_max, n_theta_max, n_phi_max, nlat_padded, &
        &                 lm_max, n_m_max, minc, m_min, m_max, l_axi
    use radial_functions, only: r_cmb
    use physical_parameters, only: ek
    use num_param, only: difeta, difnu, difkap, ldif, ldifexp, difchem
-   use blocking, only: lmP2l, lmP2lm, lm2l, lm2m, lo_map
-   use logic, only: l_non_rot
+   use blocking, only: lm2l, lm2m
+   use logic, only: l_non_rot, l_scramble_theta
    use plms_theta, only: plm_theta
    use fft
    use constants, only: pi, zero, one, two, half
@@ -142,30 +142,53 @@ contains
          ! Usefull to estimate the flow velocity at the equator
          call plm_theta(half*pi,l_max,0,0,minc,Pl0Eq,dPl0Eq,l_max+1,norm)
 
-         O_sin_theta(2*n_theta-1)   =one/sin(colat)
-         O_sin_theta(2*n_theta  )   =one/sin(colat)
-         O_sin_theta_E2(2*n_theta-1)=one/(sin(colat)*sin(colat))
-         O_sin_theta_E2(2*n_theta  )=one/(sin(colat)*sin(colat))
-         sinTheta(2*n_theta-1)      =sin(colat)
-         sinTheta(2*n_theta  )      =sin(colat)
-         sinTheta_E2(2*n_theta-1)   =sin(colat)**2
-         sinTheta_E2(2*n_theta  )   =sin(colat)**2
-         cosTheta(2*n_theta-1)      =cos(colat)
-         cosTheta(2*n_theta  )      =-cos(colat)
-         cosn_theta_E2(2*n_theta-1) =cos(colat)/sin(colat)/sin(colat)
-         cosn_theta_E2(2*n_theta)   =-cos(colat)/sin(colat)/sin(colat)
+         if ( l_scramble_theta ) then
+            O_sin_theta(2*n_theta-1)   =one/sin(colat)
+            O_sin_theta(2*n_theta  )   =one/sin(colat)
+            O_sin_theta_E2(2*n_theta-1)=one/(sin(colat)*sin(colat))
+            O_sin_theta_E2(2*n_theta  )=one/(sin(colat)*sin(colat))
+            sinTheta(2*n_theta-1)      =sin(colat)
+            sinTheta(2*n_theta  )      =sin(colat)
+            sinTheta_E2(2*n_theta-1)   =sin(colat)**2
+            sinTheta_E2(2*n_theta  )   =sin(colat)**2
+            cosTheta(2*n_theta-1)      =cos(colat)
+            cosTheta(2*n_theta  )      =-cos(colat)
+            cosn_theta_E2(2*n_theta-1) =cos(colat)/sin(colat)/sin(colat)
+            cosn_theta_E2(2*n_theta)   =-cos(colat)/sin(colat)/sin(colat)
+         else
+            O_sin_theta(n_theta)                 =one/sin(colat)
+            O_sin_theta(n_theta_max-n_theta+1)   =one/sin(colat)
+            O_sin_theta_E2(n_theta)              =one/(sin(colat)*sin(colat))
+            O_sin_theta_E2(n_theta_max-n_theta+1)=one/(sin(colat)*sin(colat))
+            sinTheta(n_theta)                    =sin(colat)
+            sinTheta(n_theta_max-n_theta+1)      =sin(colat)
+            sinTheta_E2(n_theta)                 =sin(colat)**2
+            sinTheta_E2(n_theta_max-n_theta+1)   =sin(colat)**2
+            cosTheta(n_theta)                    =cos(colat)
+            cosTheta(n_theta_max-n_theta+1)      =-cos(colat)
+            cosn_theta_E2(n_theta)               =cos(colat)/sin(colat)/sin(colat)
+            cosn_theta_E2(n_theta_max-n_theta+1) =-cos(colat)/sin(colat)/sin(colat)
+         end if
       end do
 
       !-- Resort thetas in the alternating north/south order they
       !   are used for the calculations:
-      do n_theta=1,n_theta_max/2
-         n_theta_ord2cal(n_theta)              =2*n_theta-1
-         n_theta_ord2cal(n_theta_max-n_theta+1)=2*n_theta
-         n_theta_cal2ord(2*n_theta-1)=n_theta
-         n_theta_cal2ord(2*n_theta)  =n_theta_max-n_theta+1
-         gauss(2*n_theta-1)          =tmp_gauss(n_theta)
-         gauss(2*n_theta)            =tmp_gauss(n_theta_max-n_theta+1)
-      end do
+      if ( l_scramble_theta ) then
+         do n_theta=1,n_theta_max/2
+            n_theta_ord2cal(n_theta)              =2*n_theta-1
+            n_theta_ord2cal(n_theta_max-n_theta+1)=2*n_theta
+            n_theta_cal2ord(2*n_theta-1)=n_theta
+            n_theta_cal2ord(2*n_theta)  =n_theta_max-n_theta+1
+            gauss(2*n_theta-1)          =tmp_gauss(n_theta)
+            gauss(2*n_theta)            =tmp_gauss(n_theta_max-n_theta+1)
+         end do
+      else
+         do n_theta=1,n_theta_max
+            n_theta_ord2cal(n_theta)=n_theta
+            n_theta_cal2ord(n_theta)=n_theta
+            gauss(n_theta)          =tmp_gauss(n_theta)
+         end do
+      end if
 
       !----- Same for longitude output grid:
       fac=two*pi/real(n_phi_max*minc,cp)

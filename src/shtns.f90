@@ -9,7 +9,7 @@ module sht
    use blocking, only: st_map
    use constants, only: ci, one, zero
    use truncation, only: m_max, l_max, n_theta_max, n_phi_max, &
-       &                 minc, lm_max, lmP_max, nlat_padded
+       &                 minc, lm_max, nlat_padded
    use horizontal_data, only: dLh, O_sin_theta_E2, O_sin_theta
    use parallel_mod
 
@@ -26,15 +26,21 @@ module sht
    &         spat_to_qst, sphtor_to_spat, toraxi_to_spat, finalize_sht,         &
    &         axi_to_spat
 
-   type(c_ptr) :: sht_l, sht_lP
+   type(c_ptr) :: sht_l
 
 contains
 
-   subroutine initialize_sht()
+   subroutine initialize_sht(l_scrambled_theta)
 
+      !-- Output variable
+      logical, intent(out) :: l_scrambled_theta
+
+      !-- Local variables
       integer :: norm, layout
       real(cp) :: eps_polar
       type(shtns_info), pointer :: sht_info
+      complex(cp) :: tmp(l_max+1)
+      real(cp), allocatable :: tmpr(:)
 
       if ( rank == 0 ) then
          write(output_unit,*) ''
@@ -65,15 +71,25 @@ contains
 #else
       nlat_padded = n_theta_max
 #endif
+      call shtns_robert_form(sht_l, 1) ! Use Robert's form
 
       if ( rank == 0 ) then
          call shtns_verbose(0)
          write(output_unit,*) ''
       end if
 
-      sht_lP = shtns_create(l_max+1, m_max/minc, minc, norm)
-      call shtns_set_grid(sht_lP, layout, eps_polar, n_theta_max, n_phi_max)
+      !-- Set a l=1, m=0 mode to determine whether scrambling is there or not
+      allocate( tmpr(nlat_padded) )
+      tmp(:)=zero
+      tmp(2)=(1.0_cp, 0.0_cp)
+      call axi_to_spat(tmp, tmpr)
+      if ( abs(tmpr(2)+tmpr(1)) <= 10.0_cp * epsilon(1.0_cp) ) then
+         l_scrambled_theta=.true.
+      else
+         l_scrambled_theta=.false.
+      end if
 
+      deallocate( tmpr )
 
    end subroutine initialize_sht
 !------------------------------------------------------------------------------
@@ -81,8 +97,6 @@ contains
 
       call shtns_unset_grid(sht_l)
       call shtns_destroy(sht_l)
-      call shtns_unset_grid(sht_lP)
-      call shtns_destroy(sht_lP)
 
    end subroutine finalize_sht
 !------------------------------------------------------------------------------
@@ -394,7 +408,7 @@ contains
       !-- Output variable
       complex(cp), intent(out) :: fLM(:)
 
-      call spat_to_SH_l(sht_lP, f, fLM, lcut+1)
+      call spat_to_SH_l(sht_l, f, fLM, lcut)
 
    end subroutine scal_to_SH
 !------------------------------------------------------------------------------
@@ -411,7 +425,7 @@ contains
       complex(cp), intent(out) :: sLM(:)
       complex(cp), intent(out) :: tLM(:)
 
-      call spat_to_SHqst_l(sht_lP, f, g, h, qLM, sLM, tLM, lcut+1)
+      call spat_to_SHqst_l(sht_l, f, g, h, qLM, sLM, tLM, lcut)
 
    end subroutine spat_to_qst
 !------------------------------------------------------------------------------
@@ -426,7 +440,7 @@ contains
       complex(cp), intent(out) :: fLM(:)
       complex(cp), intent(out) :: gLM(:)
 
-      call spat_to_SHsphtor_l(sht_lP, f, g, fLM, gLM, lcut+1)
+      call spat_to_SHsphtor_l(sht_l, f, g, fLM, gLM, lcut)
 
    end subroutine spat_to_sphertor
 !------------------------------------------------------------------------------
@@ -474,11 +488,7 @@ contains
       complex(cp) :: tmpLM(size(fLM))
 
       tmp(:)=cmplx(f(:),0.0_cp,kind=cp)
-      if ( size(fLM) == l_max+2 ) then
-         call spat_to_SH_ml(sht_lP, 0, tmp, tmpLM, l_max+1)
-      else if ( size(fLM) == l_max+1 ) then
-         call spat_to_SH_ml(sht_l, 0, tmp, tmpLM, l_max)
-      end if
+      call spat_to_SH_ml(sht_l, 0, tmp, tmpLM, l_max)
       fLM(:)=real(tmpLM(:))
 
    end subroutine spat_to_SH_axi

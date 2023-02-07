@@ -71,8 +71,16 @@ class MagicSpectrum(MagicSetup):
         elif field in ('dtVrms'):
             self.name = 'dtVrms_spec'
             self.ave = True
-        elif field in ('T','temperature','S','entropy'):
-            self.name = 'T_spec_'
+        elif field in ('T', 'temperature', 'S', 'entropy', 'temp'):
+            if self.ave:
+                self.name = 'T_spec_ave'
+            else:
+                self.name = 'T_spec_'
+        elif field in ('Xi', 'xi', 'Comp', 'comp', 'composition'):
+            if self.ave:
+                self.name = 'Xi_spec_ave'
+            else:
+                self.name = 'Xi_spec_'
         elif field == 'combined':
             self.__init__(datadir=datadir, field='e_kin', iplot=False, ispec=ispec,
                           ave=ave, normalize=normalize, tag=tag, tags=tags,
@@ -524,26 +532,87 @@ class MagicSpectrum(MagicSetup):
             ax.legend(loc='lower right', frameon=False, ncol=2)
             fig.tight_layout()
 
-        elif self.name == 'T_spec_':
+        elif self.name == 'T_spec_' or self.name == 'T_spec_ave':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.loglog(self.index[1:], self.T_l[1:])
-            ax.loglog(self.index[1:], self.T_icb_l[1:])
-            if labTex:
-                ax.set_xlabel('$\ell$')
+            ax.loglog(self.index+1, self.T_l[0:], label='T')
+            if self.ave:
+                ax.fill_between(self.index+1, self.T_l-self.T_l_SD,
+                                self.T_l+self.T_l_SD, alpha=0.2)
+            if self.kbots != 1:
+                ax.loglog(self.index+1, self.T_icb_l, label='T(ri)')
+                if self.ave:
+                    ax.fill_between(self.index+1, self.T_icb_l-self.T_icb_l_SD,
+                                    self.T_icb_l+self.T_icb_l_SD, alpha=0.2)
             else:
-                ax.set_xlabel('l')
-            ax.set_xlim(1, self.index[-1])
+                ax.loglog(self.index+1, self.dT_icb_l, label='dT/dr(ri)')
+                if self.ave:
+                    ax.fill_between(self.index+1, self.dT_icb_l-self.dT_icb_l_SD,
+                                    self.dT_icb_l+self.dT_icb_l_SD, alpha=0.2)
+            if labTex:
+                ax.set_xlabel('$\ell+1$')
+            else:
+                ax.set_xlabel('l+1')
+            ax.set_ylabel('Temperature')
+            ax.set_xlim(1, self.index[-1]+1)
+            ax.legend(loc='best', frameon=False)
             fig.tight_layout()
 
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.loglog(self.index[::self.minc]+1,
-                      self.T_m[::self.minc],color='g')
+            ax.loglog(self.index[::self.minc]+1, self.T_m[::self.minc])
+            if self.ave:
+                ax.fill_between(self.index[::self.minc]+1,
+                                self.T_m[::self.minc]-self.T_m_SD[::self.minc],
+                                self.T_m[::self.minc]+self.T_m_SD[::self.minc],
+                                alpha=0.2)
             if labTex:
                 ax.set_xlabel('Order $m+1$')
             else:
                 ax.set_xlabel('m+1')
+            ax.set_ylabel('Temperature')
+            ax.set_xlim(1, self.index[-1]+1)
+            fig.tight_layout()
+
+        elif self.name == 'Xi_spec_' or self.name == 'Xi_spec_ave':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index+1, self.Xi_l[0:], label='Xi')
+            if self.ave:
+                ax.fill_between(self.index+1, self.Xi_l-self.Xi_l_SD,
+                                self.Xi_l+self.Xi_l_SD, alpha=0.2)
+            if self.kbots != 1:
+                ax.loglog(self.index+1, self.Xi_icb_l, label='Xi(ri)')
+                if self.ave:
+                    ax.fill_between(self.index+1, self.Xi_icb_l-self.Xi_icb_l_SD,
+                                    self.Xi_icb_l+self.Xi_icb_l_SD, alpha=0.2)
+            else:
+                ax.loglog(self.index+1, self.dXi_icb_l, label='dXi/dr(ri)')
+                if self.ave:
+                    ax.fill_between(self.index+1, self.dXi_icb_l-self.dXi_icb_l_SD,
+                                    self.dXi_icb_l+self.dXi_icb_l_SD, alpha=0.2)
+            if labTex:
+                ax.set_xlabel('$\ell+1$')
+            else:
+                ax.set_xlabel('l+1')
+            ax.set_ylabel('Chemical composition')
+            ax.set_xlim(1, self.index[-1]+1)
+            ax.legend(loc='best', frameon=False)
+            fig.tight_layout()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index[::self.minc]+1, self.Xi_m[::self.minc])
+            if self.ave:
+                ax.fill_between(self.index[::self.minc]+1,
+                                self.Xi_m[::self.minc]-self.Xi_m_SD[::self.minc],
+                                self.Xi_m[::self.minc]+self.Xi_m_SD[::self.minc],
+                                alpha=0.2)
+            if labTex:
+                ax.set_xlabel('Order $m+1$')
+            else:
+                ax.set_xlabel('m+1')
+            ax.set_ylabel('Chemical composition')
             ax.set_xlim(1, self.index[-1]+1)
             fig.tight_layout()
 
@@ -579,30 +648,56 @@ class SpecLookUpTable:
             if data.shape[1] == 7:
                 self.ekin_nearsurf_poll = data[:, 5]
                 self.ekin_nearsurf_polm = data[:, 6]
+            elif data.shape[1] == 9:
+                self.ekin_nearsurf_poll = data[:, 5]
+                self.ekin_nearsurf_polm = data[:, 6]
+                self.emer_l = data[:, 7]
+                self.ezon_l = data[:, 8]
 
         elif self.name == 'kin_spec_ave':
             self.ekin_poll = data[:, 1]
             self.ekin_polm = data[:, 2]
             self.ekin_torl = data[:, 3]
             self.ekin_torm = data[:, 4]
-            self.ekin_poll_SD = data[:, 5]
-            self.ekin_polm_SD = data[:, 6]
-            self.ekin_torl_SD = data[:, 7]
-            self.ekin_torm_SD = data[:, 8]
+            if data.shape[1] == 9:
+                self.ekin_poll_SD = data[:, 5]
+                self.ekin_polm_SD = data[:, 6]
+                self.ekin_torl_SD = data[:, 7]
+                self.ekin_torm_SD = data[:, 8]
+            else:
+                self.emer_l = data[:, 5]
+                self.ezon_l = data[:, 6]
+                self.ekin_poll_SD = data[:, 7]
+                self.ekin_polm_SD = data[:, 8]
+                self.ekin_torl_SD = data[:, 9]
+                self.ekin_torm_SD = data[:, 10]
+                self.ezon_l_SD = data[:, 11]
+        elif self.name == 'u2_spec_':
+            self.ekin_poll = data[:, 1]
+            self.ekin_polm = data[:, 2]
+            self.ekin_torl = data[:, 3]
+            self.ekin_torm = data[:, 4]
+            if data.shape[1] == 7:
+                self.emer_l = data[:, 5]
+                self.ezon_l = data[:, 6]
         elif self.name == 'u2_spec_ave':
             self.ekin_poll = data[:, 1]
             self.ekin_polm = data[:, 2]
             self.ekin_torl = data[:, 3]
             self.ekin_torm = data[:, 4]
-        elif self.name == 'u2_spec_ave' or self.name == 'u2_spec_':
-            self.ekin_poll = data[:, 1]
-            self.ekin_polm = data[:, 2]
-            self.ekin_torl = data[:, 3]
-            self.ekin_torm = data[:, 4]
-            self.ekin_poll_SD = data[:, 5]
-            self.ekin_polm_SD = data[:, 6]
-            self.ekin_torl_SD = data[:, 7]
-            self.ekin_torm_SD = data[:, 8]
+            if data.shape[1] == 9:
+                self.ekin_poll_SD = data[:, 5]
+                self.ekin_polm_SD = data[:, 6]
+                self.ekin_torl_SD = data[:, 7]
+                self.ekin_torm_SD = data[:, 8]
+            else:
+                self.emer_l = data[:, 5]
+                self.ezon_l = data[:, 6]
+                self.ekin_poll_SD = data[:, 7]
+                self.ekin_polm_SD = data[:, 8]
+                self.ekin_torl_SD = data[:, 9]
+                self.ekin_torm_SD = data[:, 10]
+                self.ezon_l_SD = data[:, 11]
         elif self.name == 'mag_spec_':
             self.emag_poll = data[:, 1]
             self.emag_polm = data[:, 2]
@@ -686,7 +781,7 @@ class SpecLookUpTable:
                 self.cia_SD = data[:, 28]
                 self.ChemRms = np.zeros_like(self.cia)
                 self.ChemRms_SD = np.zeros_like(self.cia)
-            else:
+            elif data.shape[1] == 31:
                 self.ChemRms = data[:,7]
                 self.PreRms = data[:, 8]
                 self.geos = data[:, 9] # geostrophic balance
@@ -711,15 +806,77 @@ class SpecLookUpTable:
                 self.corLor_SD = data[:, 28]
                 self.preLor_SD = data[:, 29]
                 self.cia_SD = data[:, 30]
+            elif data.shape[1] == 35:
+                self.ChemRms = data[:,7]
+                self.PreRms = data[:, 8]
+                self.MagTensRms = data[:, 9]
+                self.MagPreRms = data[:, 10]
+                self.geos = data[:, 11] # geostrophic balance
+                self.mageos = data[:,12] # magnetostrophic balance
+                self.arc = data[:, 13] # Pressure/Coriolis/Buoyancy
+                self.arcMag = data[:, 14] # Pressure/Coriolis/Lorentz/Buoyancy
+                self.corLor = data[:, 15] # Coriolis/Lorentz
+                self.preLor = data[:, 16] # Pressure/Lorentz
+                self.cia = data[:, 17] # Coriolis/Inertia/Archimedean
+                self.InerRms_SD = data[:, 18]
+                self.CorRms_SD = data[:, 19]
+                self.LFRms_SD = data[:, 20]
+                self.AdvRms_SD = data[:, 21]
+                self.DifRms_SD = data[:, 22]
+                self.BuoRms_SD = data[:, 23]
+                self.ChemRms_SD = data[:, 24]
+                self.PreRms_SD = data[:, 25]
+                self.MagTensRms_SD = data[:, 26]
+                self.MagPreRms_SD = data[:, 27]
+                self.geos_SD = data[:, 28]
+                self.mageos_SD = data[:, 29]
+                self.arc_SD = data[:, 30]
+                self.arcMag_SD = data[:, 31]
+                self.corLor_SD = data[:, 32]
+                self.preLor_SD = data[:, 33]
+                self.cia_SD = data[:, 34]
 
             self.index = self.index-1
         elif self.name == 'T_spec_':
-            self.T_l = data[:,1]
-            self.T_m = data[:,2]
-            self.T_icb_l = data[:,3]
-            self.T_icb_m = data[:,4]
-            self.dT_icb_l = data[:,5]
-            self.dT_icb_m = data[:,6]
+            self.T_l = data[:, 1]
+            self.T_m = data[:, 2]
+            self.T_icb_l = data[:, 3]
+            self.T_icb_m = data[:, 4]
+            self.dT_icb_l = data[:, 5]
+            self.dT_icb_m = data[:, 6]
+        elif self.name == 'T_spec_ave':
+            self.T_l = data[:, 1]
+            self.T_m = data[:, 2]
+            self.T_icb_l = data[:, 3]
+            self.T_icb_m = data[:, 4]
+            self.dT_icb_l = data[:, 5]
+            self.dT_icb_m = data[:, 6]
+            self.T_l_SD = data[:, 7]
+            self.T_m_SD = data[:, 8]
+            self.T_icb_l_SD = data[:, 9]
+            self.T_icb_m_SD = data[:, 10]
+            self.dT_icb_l_SD = data[:, 11]
+            self.dT_icb_m_SD = data[:, 12]
+        elif self.name == 'Xi_spec_':
+            self.Xi_l = data[:, 1]
+            self.Xi_m = data[:, 2]
+            self.Xi_icb_l = data[:, 3]
+            self.Xi_icb_m = data[:, 4]
+            self.dXi_icb_l = data[:, 5]
+            self.dXi_icb_m = data[:, 6]
+        elif self.name == 'Xi_spec_ave':
+            self.Xi_l = data[:, 1]
+            self.Xi_m = data[:, 2]
+            self.Xi_icb_l = data[:, 3]
+            self.Xi_icb_m = data[:, 4]
+            self.dXi_icb_l = data[:, 5]
+            self.dXi_icb_m = data[:, 6]
+            self.Xi_l_SD = data[:, 7]
+            self.Xi_m_SD = data[:, 8]
+            self.Xi_icb_l_SD = data[:, 9]
+            self.Xi_icb_m_SD = data[:, 10]
+            self.dXi_icb_l_SD = data[:, 11]
+            self.dXi_icb_m_SD = data[:, 12]
 
     def __add__(self, new):
         """
@@ -891,13 +1048,14 @@ class MagicSpectrum2D(MagicSetup):
             return
 
         f = npfile(filename, endian='B')
+        print('Reading {}'.format(filename))
 
         if self.name == '2D_dtVrms_spec':
             l_one = f.fort_read('i4')
             if len(l_one) == 1:
                 self.version = l_one[0]
                 self.n_r_max, self.l_max = f.fort_read('i4')
-                self.rad = f.fort_read(precision, shape=(self.n_r_max))
+                self.radius = f.fort_read(precision, shape=(self.n_r_max))
                 self.Cor_r_l = f.fort_read(precision,
                                            shape=(self.n_r_max, self.l_max+1))
                 self.Adv_r_l = f.fort_read(precision,
@@ -914,6 +1072,11 @@ class MagicSpectrum2D(MagicSetup):
                                            shape=(self.n_r_max, self.l_max+1))
                 self.Iner_r_l = f.fort_read(precision,
                                             shape=(self.n_r_max, self.l_max+1))
+                if self.version > 1:
+                    self.MagTens_r_l = f.fort_read(precision,
+                                                   shape=(self.n_r_max, self.l_max+1))
+                    self.MagPre_r_l = f.fort_read(precision,
+                                                  shape=(self.n_r_max, self.l_max+1))
                 self.Geo_r_l = f.fort_read(precision,
                                            shape=(self.n_r_max, self.l_max+1))
                 self.Mag_r_l = f.fort_read(precision,
@@ -930,7 +1093,7 @@ class MagicSpectrum2D(MagicSetup):
                                            shape=(self.n_r_max, self.l_max+1))
             else:
                 self.n_r_max, self.l_max = l_one
-                self.rad = f.fort_read(precision, shape=(self.n_r_max))
+                self.radius = f.fort_read(precision, shape=(self.n_r_max))
                 self.Cor_r_l = f.fort_read(precision,
                                            shape=(self.n_r_max, self.l_max+1))
                 self.Adv_r_l = f.fort_read(precision,
@@ -963,6 +1126,16 @@ class MagicSpectrum2D(MagicSetup):
 
         else:
             if self.version == 'snap':
+                try:
+                    file_version = f.fort_read('i4')[0]
+                    if file_version > 20:
+                        file_version = 0
+                        # Close and reopen to rewind
+                        f.close()
+                        f = npfile(filename, endian='B')
+                except TypeError:
+                    file_version = 0
+                    pass
                 if precision == np.float64:
                     out = f.fort_read('f8,3i4')[0]
                 else:
@@ -970,13 +1143,25 @@ class MagicSpectrum2D(MagicSetup):
                 self.time = out[0]
                 self.n_r_max, self.l_max, self.minc = out[1]
             elif self.version == 'ave':
+                try:
+                    file_version = f.fort_read('i4')[0]
+                    if file_version > 20:
+                        file_version = 0
+                        # Close and reopen to rewind
+                        f.close()
+                        f = npfile(filename, endian='B')
+                except TypeError:
+                    file_version = 0
                 self.n_r_max, self.l_max, self.minc = f.fort_read('3i4')[0]
                 self.time = -1.
-            self.rad = f.fort_read(precision, shape=(self.n_r_max))
+            self.radius = f.fort_read(precision, shape=(self.n_r_max))
             self.e_pol_l = f.fort_read(precision, shape=(self.l_max, self.n_r_max))
             self.e_pol_m = f.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
             self.e_tor_l = f.fort_read(precision, shape=(self.l_max, self.n_r_max))
             self.e_tor_m = f.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
+            if file_version > 0:
+                self.e_pol_axi_l = f.fort_read(precision, shape=(self.l_max, self.n_r_max))
+                self.e_tor_axi_l = f.fort_read(precision, shape=(self.l_max, self.n_r_max))
 
         self.ell = np.arange(self.l_max+1)
         f.close()
@@ -1000,7 +1185,7 @@ class MagicSpectrum2D(MagicSetup):
             levs = np.linspace(vmin, vmax, levels)
             fig0 = plt.figure()
             ax0 = fig0.add_subplot(111)
-            im = ax0.contourf(self.rad, self.ell[1:],
+            im = ax0.contourf(self.radius, self.ell[1:],
                               np.log10(self.Geo_r_l[:, 1:].T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
@@ -1016,7 +1201,7 @@ class MagicSpectrum2D(MagicSetup):
 
             fig1 = plt.figure()
             ax1 = fig1.add_subplot(111, sharex=ax0, sharey=ax0)
-            im = ax1.contourf(self.rad, self.ell[1:],
+            im = ax1.contourf(self.radius, self.ell[1:],
                               np.log10((self.Buo_r_l[:, 1:]+self.Chem_r_l[:, 1:]).T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
@@ -1033,7 +1218,7 @@ class MagicSpectrum2D(MagicSetup):
             if abs(self.LF_r_l).max() > 0:
                 fig2 = plt.figure()
                 ax2 = fig2.add_subplot(111,sharex=ax0, sharey=ax0)
-                im = ax2.contourf(self.rad, self.ell[1:],
+                im = ax2.contourf(self.radius, self.ell[1:],
                                   np.log10(self.LF_r_l[:, 1:].T),
                                   levs, cmap=plt.get_cmap(cm), extend='both')
                 if labTex:
@@ -1049,7 +1234,7 @@ class MagicSpectrum2D(MagicSetup):
 
             fig3 = plt.figure()
             ax3 = fig3.add_subplot(111, sharex=ax0, sharey=ax0)
-            im = ax3.contourf(self.rad, self.ell[1:],
+            im = ax3.contourf(self.radius, self.ell[1:],
                               np.log10(self.Iner_r_l[:, 1:].T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
@@ -1065,7 +1250,7 @@ class MagicSpectrum2D(MagicSetup):
 
             fig4 = plt.figure()
             ax4 = fig4.add_subplot(111, sharex=ax0, sharey=ax0)
-            im = ax4.contourf(self.rad, self.ell[1:],
+            im = ax4.contourf(self.radius, self.ell[1:],
                               np.log10(self.Dif_r_l[:, 1:].T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
@@ -1084,7 +1269,7 @@ class MagicSpectrum2D(MagicSetup):
             vmax = np.log10(cut*self.e_pol_l).max()
             vmin = vmax-7
             levs = np.linspace(vmin, vmax, levels)
-            im = ax0.contourf(self.rad, self.ell[1:], np.log10(self.e_pol_l),
+            im = ax0.contourf(self.radius, self.ell[1:], np.log10(self.e_pol_l),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             fig0.colorbar(im)
             if labTex:
@@ -1101,7 +1286,7 @@ class MagicSpectrum2D(MagicSetup):
             vmax = np.log10(self.e_tor_l).max()
             vmin = vmax-14
             levs = np.linspace(vmin, vmax, levels)
-            im = ax1.contourf(self.rad, self.ell[1:], np.log10(self.e_tor_l),
+            im = ax1.contourf(self.radius, self.ell[1:], np.log10(self.e_tor_l),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             fig1.colorbar(im)
             if labTex:
@@ -1119,7 +1304,7 @@ class MagicSpectrum2D(MagicSetup):
             vmax = np.log10(self.e_pol_m).max()
             vmin = vmax-14
             levs = np.linspace(vmin, vmax, levels)
-            im = ax2.contourf(self.rad, self.ell[::self.minc]+1,
+            im = ax2.contourf(self.radius, self.ell[::self.minc]+1,
                               np.log10(self.e_pol_m[::self.minc,:]),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             fig2.colorbar(im)
@@ -1137,7 +1322,7 @@ class MagicSpectrum2D(MagicSetup):
             vmax = np.log10(self.e_tor_m).max()
             vmin = vmax-14
             levs = np.linspace(vmin, vmax, levels)
-            im = ax3.contourf(self.rad, self.ell[::self.minc]+1,
+            im = ax3.contourf(self.radius, self.ell[::self.minc]+1,
                               np.log10(self.e_tor_m[::self.minc,:]),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             fig3.colorbar(im)

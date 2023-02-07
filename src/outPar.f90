@@ -8,14 +8,14 @@ module outPar_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use communications, only: gather_from_Rloc
+   use blocking, only: llm, ulm, lo_map
    use truncation, only: n_r_max, n_r_maxMag, l_max, lm_max, l_maxMag, &
        &                 n_theta_max, n_phi_max
    use logic, only: l_viscBcCalc, l_anel, l_fluxProfs, l_mag_nl, &
        &            l_perpPar, l_save_out, l_temperature_diff,   &
-       &            l_anelastic_liquid, l_mag
+       &            l_anelastic_liquid, l_mag, l_heat, l_chemical_conv
    use horizontal_data, only: gauss, gauss, O_sin_theta_E2, cosTheta, &
        &                      sinTheta_E2
-   use fields, only: s_Rloc, ds_Rloc, p_Rloc, dp_Rloc
    use physical_parameters, only: ek, prmag, OhmLossFac, ViscHeatFac, &
        &                          opr, kbots, ktops, ThExpNb, ekScaled
    use num_param, only: eScale
@@ -38,7 +38,7 @@ module outPar_mod
    
    type(mean_sd_type) :: fcond, fconv, fkin, fvisc, fres,  fpoyn
    type(mean_sd_type) :: Eperp, Epar, Eperpaxi, Eparaxi
-   type(mean_sd_type) :: uh, duh, gradT2, entropy
+   type(mean_sd_type) :: uh, duh, gradT2, entropy, comp
    type(mean_sd_type) :: dlV, dlVc, Rm, Rol, uRol, dlPolpeak
    real(cp), allocatable :: fconvASr(:), fkinASr(:), fviscASr(:), gradT2ASr(:)
    real(cp), allocatable :: fpoynASr(:), fresASr(:), uhASr(:), duhASr(:)
@@ -70,6 +70,7 @@ contains
 
       if ( l_viscBcCalc ) then
          call entropy%initialize(1,n_r_max)
+         call comp%initialize(1,n_r_max)
          call uh%initialize(1,n_r_max)
          call duh%initialize(1,n_r_max)
          call gradT2%initialize(1,n_r_max)
@@ -138,6 +139,7 @@ contains
       if ( l_viscBcCalc ) then
          deallocate( uhASr, duhASr, gradT2ASr )
          call entropy%finalize()
+         call comp%finalize()
          call uh%finalize()
          call duh%finalize()
          call gradT2%finalize()
@@ -164,35 +166,41 @@ contains
 
    end subroutine finalize_outPar_mod
 !-----------------------------------------------------------------------
-   subroutine outPar(timePassed, timeNorm, l_stop_time, ekinR, RolRu2,  &
-              &      dlVR, dlVRc, dlPolPeakR, RmR )
+   subroutine outPar(s, ds, xi, p, dp, timePassed, timeNorm, l_stop_time, ekinR, &
+              &      RolRu2, dlVR, dlVRc, dlPolPeakR, RmR )
+      !
+      ! This routine handles the computation and the writing of parR.TAG
+      ! and bLayersR.TAG files
+      !
 
       !--- Input of variables
-      real(cp), intent(in) :: timePassed,timeNorm
-      logical,  intent(in) :: l_stop_time
-      real(cp), intent(in) :: RolRu2(n_r_max),dlPolPeakR(n_r_max)
-      real(cp), intent(in) :: dlVR(n_r_max),dlVRc(n_r_max)
-      real(cp), intent(in) :: ekinR(n_r_max)     ! kinetic energy w radius
+      complex(cp), intent(in) :: s(llm:ulm,n_r_max) ! Entropy or temperature
+      complex(cp), intent(in) :: ds(llm:ulm,n_r_max) ! Radial der. of entropy or temperature
+      complex(cp), intent(in) :: xi(llm:ulm,n_r_max) ! Chemical composition
+      complex(cp), intent(in) :: p(llm:ulm,n_r_max) ! Pressure
+      complex(cp), intent(in) :: dp(llm:ulm,n_r_max) ! Radial derivative of pressure
+      real(cp),    intent(in) :: timePassed,timeNorm
+      logical,     intent(in) :: l_stop_time ! Is it the end of the run
+      real(cp),    intent(in) :: RolRu2(n_r_max),dlPolPeakR(n_r_max)
+      real(cp),    intent(in) :: dlVR(n_r_max),dlVRc(n_r_max)
+      real(cp),    intent(in) :: ekinR(n_r_max)     ! kinetic energy w radius
 
       !--- Output of variables
-      real(cp), intent(out):: RmR(n_r_max)
+      real(cp), intent(out):: RmR(n_r_max) ! Radial profile of magnetic Reynolds number
 
       !-- Local variables
-      integer :: nR,fileHandle
+      integer :: nR,fileHandle,lm00
       real(cp) :: ReR(n_r_max), RoR(n_r_max), RolR(n_r_max)
       character(len=76) :: filename
-      real(cp) :: sR(nRstart:nRstop),fcR(nRstart:nRstop)
-      real(cp) :: duhR_global(n_r_max), uhR_global(n_r_max)
-      real(cp) :: gradT2R_global(n_r_max), sR_global(n_r_max)
-      real(cp) :: fkinR_global(n_r_max), fcR_global(n_r_max)
+      real(cp) :: fcR(n_r_max), duhR_global(n_r_max), uhR_global(n_r_max)
+      real(cp) :: gradT2R_global(n_r_max), fkinR_global(n_r_max)
       real(cp) :: fconvR_global(n_r_max), fviscR_global(n_r_max)
       real(cp) :: fresR_global(n_r_maxMag), fpoynR_global(n_r_maxMag)
 
       n_calls = n_calls+1
 
+      lm00 = lo_map%lm2(0,0)
       if ( l_viscBcCalc ) then
-         sR(:) = real(s_Rloc(1,:))
-
          duhASr(:)=half*duhASr(:) ! Normalisation for the theta integration
          uhASr(:) =half* uhASr(:) ! Normalisation for the theta integration
          gradT2ASr(:)=half*gradT2ASr(:) ! Normalisation for the theta integration
@@ -200,53 +208,47 @@ contains
          call gather_from_RLoc(duhASR, duhR_global, 0)
          call gather_from_RLoc(uhASR, uhR_global, 0)
          call gather_from_RLoc(gradT2ASR, gradT2R_global, 0)
-         call gather_from_RLoc(sR, sR_global, 0)
       end if
 
-      if ( l_fluxProfs ) then
+      if ( l_fluxProfs .and. ( llm <= lm00 .and. ulm >= lm00) ) then
          if ( l_anelastic_liquid ) then
             if ( l_temperature_diff ) then
-               do nR=nRstart,nRstop
-                  fcR(nR)=-real(ds_Rloc(1,nR))*kappa(nR)*rho0(nR)* &
-                  &        r(nR)*r(nR)*sq4pi
-               end do
+               fcR(:)=-real(ds(lm00,:))*kappa(:)*rho0(:)*r(:)*r(:)*sq4pi
             else
-               do nR=nRstart,nRstop
-                  fcR(nR)=-kappa(nR)*r(nR)*r(nR)*                 &
-                  &       sq4pi*( rho0(nR)*(real(ds_Rloc(1,nR))-  &
-                  &       dLtemp0(nR)*real(s_Rloc(1,nR)))-ThExpNb*&
-                  &       ViscHeatFac*alpha0(nR)*temp0(nR)*(      &
-                  &       real(dp_Rloc(1,nR))+(dLalpha0(nR)-      &
-                  &       beta(nR))*real(p_Rloc(1,nR))) )
-               end do
+               fcR(:)=-kappa(:)*r(:)*r(:)*sq4pi*( rho0(:)*(real(ds(lm00,:))-     &
+               &       dLtemp0(:)*real(s(lm00,:)))-ThExpNb*ViscHeatFac*alpha0(:)*&
+               &       temp0(:)*( real(dp(lm00,:))+(dLalpha0(:)-                 &
+               &                                    beta(:))*real(p(lm00,:))) )
             end if
          else
             if  ( l_temperature_diff ) then
-               do nR=nRstart,nRstop
-                  fcR(nR)=-sq4pi*r(nR)*r(nR)*kappa(nR)*rho0(nR)*temp0(nR)*&
-                  &        (dLtemp0(nR)*real(s_Rloc(1,nR)) +              &
-                  &                     real(ds_Rloc(1,nR))+              &
-                  &        ViscHeatFac*ThExpNb*alpha0(nR)*                &
-                  &        orho1(nR)*((dLalpha0(nR)+dLtemp0(nR)-beta(nR))*&
-                  &                     real(p_Rloc(1,nR))+               &
-                  &                     real(dp_Rloc(1,nR))))
-               end do
+               fcR(:)=-sq4pi*r(:)*r(:)*kappa(:)*rho0(:)*temp0(:)*(            &
+               &       dLtemp0(:)*real(s(lm00,:)) + real(ds(lm00,:))+         &
+               &       ViscHeatFac*ThExpNb*alpha0(:)*orho1(:)*(               &
+               &       (dLalpha0(:)+dLtemp0(:)-beta(:))*real(p(lm00,:))+      &
+               &       real(dp(lm00,:))))
             else
-               do nR=nRstart,nRstop
-                  fcR(nR)=-real(ds_Rloc(1,nR))*kappa(nR)*rho0(nR)* &
-                  &        temp0(nR)*r(nR)*r(nR)*sq4pi
-               end do
+               fcR(:)=-real(ds(lm00,:))*kappa(:)*rho0(:)*temp0(:)*r(:)*r(:)*sq4pi
             end if
          end if
+      end if
 
+      if ( l_fluxProfs ) then
          call gather_from_Rloc(fkinASr, fkinR_global, 0)
          call gather_from_Rloc(fconvASr, fconvR_global, 0)
          call gather_from_Rloc(fviscASr, fviscR_global, 0)
-         call gather_from_Rloc(fcR, fcR_global, 0)
          if ( l_mag_nl ) then
             call gather_from_Rloc(fpoynASr, fpoynR_global, 0)
             call gather_from_Rloc(fresASr, fresR_global, 0)
          end if
+      end if
+
+      !-- Compute mean and spatial STD of temperature and chemical composition
+      if ( l_viscBcCalc ) then
+         if ( l_heat ) call entropy%compute(s, llm, ulm, n_r_max, n_calls, &
+                            &               timePassed, timeNorm)
+         if ( l_chemical_conv ) call comp%compute(xi, llm, ulm, n_r_max, n_calls, &
+                                     &            timePassed, timeNorm)
       end if
 
       if ( rank == 0 ) then
@@ -279,14 +281,13 @@ contains
          call dlPolPeak%compute(dlPolPeakR, n_calls, timePassed, timeNorm)
 
          if ( l_viscBcCalc ) then
-            call entropy%compute(osq4pi*sR_global, n_calls, timePassed, timeNorm)
             call uh%compute(uhR_global, n_calls, timePassed, timeNorm)
             call duh%compute(duhR_global, n_calls, timePassed, timeNorm)
             call gradT2%compute(gradT2R_global, n_calls, timePassed, timeNorm)
          end if
 
          if ( l_fluxProfs ) then
-            call fcond%compute(opr*fcR_global, n_calls, timePassed, timeNorm)
+            call fcond%compute(opr*fcR, n_calls, timePassed, timeNorm)
             call fconv%compute(fconvR_global, n_calls, timePassed, timeNorm)
             call fkin%compute(ViscHeatFac*fkinR_global, n_calls, timePassed, &
                  &            timeNorm)
@@ -310,7 +311,9 @@ contains
             call dlPolPeak%finalize_SD(timeNorm)
 
             if ( l_viscBcCalc ) then
-               call entropy%finalize_SD(timeNorm)
+               !-- Due to small round-off errors values can be negative-epsilon at boundaries
+               entropy%SD(:)=sqrt(abs(entropy%SD(:)))
+               comp%SD(:)=sqrt(abs(comp%SD(:)))
                call uh%finalize_SD(timeNorm)
                call duh%finalize_SD(timeNorm)
                call gradT2%finalize_SD(timeNorm)
@@ -351,12 +354,14 @@ contains
                filename='bLayersR.'//tag
                open(newunit=fileHandle, file=filename, status='unknown')
                do nR=1,n_r_max
-                  write(fileHandle,'(ES20.10,4ES15.7,4ES13.4)')                 &
+                  write(fileHandle,'(ES20.10,5ES15.7,5ES13.4)')                 &
                   &     r(nR),round_off(entropy%mean(nR),maxval(entropy%mean)), &
+                  &     round_off(comp%mean(nR),maxval(comp%mean)),             &
                   &     round_off(uh%mean(nR),maxval(uh%mean)),                 &
                   &     round_off(duh%mean(nR),maxval(duh%mean)),               &
                   &     round_off(gradT2%mean(nR),maxval(gradT2%mean)),         &
                   &     round_off(entropy%SD(nR),maxval(entropy%SD)),           &
+                  &     round_off(comp%SD(nR),maxval(comp%SD)),                 &
                   &     round_off(uh%SD(nR),maxval(uh%SD)),                     &
                   &     round_off(duh%SD(nR),maxval(duh%SD)),                   &
                   &     round_off(gradT2%SD(nR),maxval(gradT2%SD))
