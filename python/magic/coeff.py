@@ -650,7 +650,7 @@ class MagicCoeffR(MagicSetup):
     >>> plot(cr.time, cr.epolLM[:, cr.idx[10, 10]])
     """
 
-    def __init__(self, tag, ratio_cmb_surface=1, scale_b=1, iplot=True,
+    def __init__(self, tag, datadir='.', ratio_cmb_surface=1, scale_b=1, iplot=True,
                  field='B', r=1, precision=np.float64, lCut=None, quiet=False):
         """
         :param tag: if you specify a pattern, it tries to read the corresponding files
@@ -671,9 +671,13 @@ class MagicCoeffR(MagicSetup):
         :type lCut: int
         :param quiet: verbose when toggled to True (default is True)
         :type quiet: bool
+        :param datadir: working directory
+        :type datadir: str
         """
 
-        logFiles = scanDir('log.*')
+        pattern = os.path.join(datadir, 'log.*')
+        logFiles = scanDir(pattern)
+
         if len(logFiles) != 0:
             MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
         else:
@@ -683,7 +687,8 @@ class MagicCoeffR(MagicSetup):
         self.rcmb = 1./(1.-self.radratio)
         ricb = self.radratio/(1.-self.radratio)
 
-        files = scanDir('{}_coeff_r{}.{}'.format(field,r,tag))
+        pattern = os.path.join(datadir,  '{}_coeff_r{}.{}'.format(field,r,tag))
+        files = scanDir(pattern)
 
         # Read the B_coeff files (by stacking the different tags)
         data = []
