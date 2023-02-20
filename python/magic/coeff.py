@@ -1075,24 +1075,39 @@ class MagicCoeffR(MagicSetup):
         """
         Fourier transform of the poloidal energy
         """
-        w2 = np.fft.fft(self.e_pol_l, axis=0)
-        w2 = abs(w2[1:self.nstep//2+1,1:])
+        wlm_hat = np.fft.fft(self.wlm, axis=0)
+        ek = np.zeros((self.nstep//2, self.l_max_r+1), np.float64)
+        for l in range(1, self.l_max_r+1):
+            ek[:, l] = 0.
+            for m in range(0, l+1, self.minc):
+                lm = self.idx[l, m]
+
+                if m == 0:
+                    epol = 0.5 * abs(wlm_hat[:, lm])**2
+                else:
+                    epol = abs(wlm_hat[:, lm])**2
+
+                ek[:, l] += epol[1:self.nstep//2+1]
+        ek = ek[:, 1:] # remove l=0
         dw = 2.*np.pi/(self.time[-1]-self.time[0])
         omega = dw*np.arange(self.nstep)
         omega = omega[1:self.nstep//2+1]
         ls = np.arange(self.l_max_r+1)
         ls = ls[1:]
 
-        dat = np.log10(w2)
-        vmax = dat.max()-1
+        dat = np.log10(ek)
+        vmax = dat.max()-0.5
         vmin = dat.min()+2
         levs = np.linspace(vmin, vmax, 65)
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        im = ax.contourf(ls, omega, np.log10(w2), levs, cmap=plt.get_cmap('jet'),
+        im = ax.contourf(ls, omega, np.log10(ek), levs, cmap=plt.get_cmap('terrain'),
                          extend='both')
 
+        ax.set_yscale('log')
         cbar = fig.colorbar(im)
 
         ax.set_xlabel(r'Spherical harmonic degree')
         ax.set_ylabel(r'Frequency')
+
+        fig.tight_layout()
