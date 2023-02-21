@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from magic import npfile, scanDir, MagicSetup, hammer2cart, symmetrize, progressbar
+from scipy.interpolate import interp1d
 import os, re
 import numpy as np
 import matplotlib.pyplot as plt
@@ -651,7 +652,7 @@ class MagicCoeffR(MagicSetup):
     """
 
     def __init__(self, tag, datadir='.', ratio_cmb_surface=1, scale_b=1, iplot=True,
-                 field='B', r=1, precision=np.float64, lCut=None, quiet=False):
+                 field='B', r=1, precision=np.float64, lCut=None, quiet=False, step=1):
         """
         :param tag: if you specify a pattern, it tries to read the corresponding files
         :type tag: str
@@ -673,6 +674,8 @@ class MagicCoeffR(MagicSetup):
         :type quiet: bool
         :param datadir: working directory
         :type datadir: str
+        :param step: step>1 allows to down sample the data
+        :type step: int
         """
 
         pattern = os.path.join(datadir, 'log.*')
@@ -752,6 +755,9 @@ class MagicCoeffR(MagicSetup):
                 self.wlm[:, self.idx[l, m]] = data[:, k]+1j*data[:, k+1]
                 k += 2
 
+        if step > 1:
+            self.wlm = self.wlm[::step, :]
+
         if field == 'V' or field == 'B':
             # dwlm
             self.dwlm[:, 1:self.l_max_r+1] = data[:, k:k+self.l_max_r]
@@ -768,6 +774,10 @@ class MagicCoeffR(MagicSetup):
                     self.zlm[:, self.idx[l, m]] = data[:, k]+1j*data[:, k+1]
                     k += 2
 
+            if step > 1:
+                self.dwlm = self.dwlm[::step, :]
+                self.zlm = self.dwlm[::step, :]
+
         # ddw in case B is stored
         if field == 'B':
             self.ddwlm = np.zeros((self.nstep, self.lm_max_r), np.complex128)
@@ -778,10 +788,17 @@ class MagicCoeffR(MagicSetup):
                     self.ddwlm[:, self.idx[l, m]] = data[:, k]+1j*data[:, k+1]
                     k += 2
 
+            if step > 1:
+                self.ddwlm = self.ddwlm[::step, :]
+
         # Truncate!
         if lCut is not None:
             if lCut < self.l_max_r:
                 self.truncate(lCut, field=field)
+
+        if step > 1:
+            self.time = self.time[::step]
+            self.nstep = len(self.time)
 
         if field == 'V' or field == 'B':
             self.e_pol_axi_l = np.zeros((self.nstep, self.l_max_r+1), precision)
@@ -1073,9 +1090,19 @@ class MagicCoeffR(MagicSetup):
 
     def fft(self):
         """
-        Fourier transform of the poloidal energy
+        Fourier transform of the poloidal potential
         """
-        wlm_hat = np.fft.fft(self.wlm, axis=0)
+
+        dt = np.diff(self.time)
+        # If the data is not regularly sampled, use splines to resample them
+        if dt.min() != dt.max():
+            time = np.linspace(self.time[0], self.time[-1], self.nstep)
+            it = interp1d(self.time, self.wlm, axis=0)
+            wlm = it(time)
+        else:
+            wlm = self.wlm
+
+        wlm_hat = np.fft.fft(wlm, axis=0)
         ek = np.zeros((self.nstep//2, self.l_max_r+1), np.float64)
         for l in range(1, self.l_max_r+1):
             ek[:, l] = 0.
@@ -1089,19 +1116,22 @@ class MagicCoeffR(MagicSetup):
 
                 ek[:, l] += epol[1:self.nstep//2+1]
         ek = ek[:, 1:] # remove l=0
+        self.ek_omega = ek
         dw = 2.*np.pi/(self.time[-1]-self.time[0])
         omega = dw*np.arange(self.nstep)
-        omega = omega[1:self.nstep//2+1]
+        self.omega = omega[1:self.nstep//2+1]
         ls = np.arange(self.l_max_r+1)
         ls = ls[1:]
 
         dat = np.log10(ek)
         vmax = dat.max()-0.5
-        vmin = dat.min()+2
-        levs = np.linspace(vmin, vmax, 65)
+        #vmin = vmax - 7
+        vmin = max(vmax-10, dat.min()+2)
+        levs = np.linspace(vmin, vmax, 129)
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        im = ax.contourf(ls, omega, np.log10(ek), levs, cmap=plt.get_cmap('terrain'),
+        im = ax.contourf(ls, self.omega, np.log10(ek), levs,
+                         cmap=plt.get_cmap('turbo'),
                          extend='both')
 
         ax.set_yscale('log')
