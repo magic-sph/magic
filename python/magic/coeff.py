@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from magic import npfile, scanDir, MagicSetup, hammer2cart, symmetrize, progressbar
 from scipy.interpolate import interp1d
+from scipy.signal import cwt, morlet2
 import os, re
 import numpy as np
 import matplotlib.pyplot as plt
@@ -1100,6 +1101,7 @@ class MagicCoeffR(MagicSetup):
             it = interp1d(self.time, self.wlm, axis=0)
             wlm = it(time)
         else:
+            time = selt.time
             wlm = self.wlm
 
         wlm_hat = np.fft.fft(wlm, axis=0)
@@ -1117,7 +1119,7 @@ class MagicCoeffR(MagicSetup):
                 ek[:, l] += epol[1:self.nstep//2+1]
         ek = ek[:, 1:] # remove l=0
         self.ek_omega = ek
-        dw = 2.*np.pi/(self.time[-1]-self.time[0])
+        dw = 2.*np.pi/(time[-1]-time[0])
         omega = dw*np.arange(self.nstep)
         self.omega = omega[1:self.nstep//2+1]
         ls = np.arange(self.l_max_r+1)
