@@ -323,11 +323,12 @@ include_directories(/usr/include)  #For Ubuntu-like systems
 
 # Detect SHTNS
 if(USE_SHTNS MATCHES yes)
+   set(ROCM_PATH $ENV{ROCM_PATH})
    if(USE_GPU)
-      find_library(SHTNS shtns_hip_omp HINTS $ENV{HOME}/local/lib)
+      find_library(SHTNS shtns_cuda HINTS $ENV{HOME}/local/lib)
    else()
       if(USE_OMP)
-         find_library(SHTNS shtns_hip_omp HINTS $ENV{HOME}/local/lib) #Need for batched version
+         find_library(SHTNS shtns_cuda HINTS $ENV{HOME}/local/lib) #Need for batched version
       else()
          find_library(SHTNS shtns HINTS $ENV{HOME}/local/lib)
       endif(USE_OMP)
@@ -369,8 +370,9 @@ endif()
 
 if(USE_GPU MATCHES yes)
    add_definitions(-DWITH_OMP_GPU)
+   message(STATUS $ENV{ROCM_PATH})
    #Detect Hipfort (lib name is hipfort-amdgcn)
-   find_library(HIPFORT hipfort-amdgcn HINTS $ENV{HOME}/hipfort/install/lib) #Only for AMD GPU
+   find_library(HIPFORT hipfort-amdgcn $ENV{HIPFORT_PATH}/lib)
    if(NOT HIPFORT MATCHES HIPFORT-NOTFOUND)
       #Test if HIPFORT installation
       file(WRITE "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testHipfort.f90"
@@ -385,13 +387,13 @@ if(USE_GPU MATCHES yes)
       ")
       try_compile(HIPFORT_WORK ${CMAKE_BINARY_DIR}
          ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testHipfort.f90
-         CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=$ENV{HOME}/hipfort/install/include/hipfort/amdgcn"
+         CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=$ENV{HIPFORT_PATH}/include/hipfort/amdgcn"
          COMPILE_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
-         LINK_LIBRARIES "-lhipfft -lrocfft -L$ENV{HOME}/hipfort/install/lib -lhipfort-amdgcn"
+         LINK_LIBRARIES "-L${ROCM_PATH}/hipfft/lib/ -lhipfft -L${ROCM_PATH}/rocfft/lib/ -lrocfft -L$ENV{HIPFORT_PATH}/lib -lhipfort-amdgcn"
          OUTPUT_VARIABLE OUTPUT)
       if(HIPFORT_WORK)
          add_definitions(-DWITH_HIPFORT)
-         include_directories($ENV{HOME}/hipfort/install/include/hipfort/amdgcn)
+         include_directories("$ENV{HIPFORT_PATH}/include/hipfort/amdgcn")
          message(STATUS "HIPFORT: ${HIPFORT}")
       else()
          message(STATUS ${OUTPUT})
