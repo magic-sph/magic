@@ -1,3 +1,4 @@
+!#define EXPLICITE_SYNCHRO
 module sht
    !
    ! This module contains is a wrapper of the SHTns routines used in MagIC
@@ -13,6 +14,12 @@ module sht
    use horizontal_data, only: dLh
    use radial_data, only: nRstart, nRstop
    use parallel_mod
+#ifdef WITH_OMP_GPU
+#ifdef EXPLICITE_SYNCHRO
+   use hipfort_check, only: hipCheck
+   use hipfort, only: hipDeviceSynchronize
+#endif
+#endif
 
    implicit none
 
@@ -107,10 +114,12 @@ contains
 
       sht_l = shtns_create(l_max, m_max/minc, minc, norm)
       if ( l_batched_sh ) call shtns_set_batch(sht_l, howmany, dist)
+      call shtns_robert_form(sht_l, 1) ! Use Robert's form
       call shtns_set_grid(sht_l, layout, eps_polar, n_theta_max, n_phi_max)
 #ifdef WITH_OMP_GPU
       sht_l_gpu = shtns_create(l_max, m_max/minc, minc, norm)
       if ( l_batched_sh ) call shtns_set_batch(sht_l_gpu, howmany, dist)
+      call shtns_robert_form(sht_l_gpu, 1) ! Use Robert's form
       call shtns_set_grid(sht_l_gpu, layout_gpu, eps_polar, n_theta_max, n_phi_max)
 #endif
 
@@ -127,11 +136,6 @@ contains
       end if
 #else
       nlat_padded = n_theta_max
-#endif
-
-      call shtns_robert_form(sht_l, 1) ! Use Robert's form
-#ifdef WITH_OMP_GPU
-      call shtns_robert_form(sht_l_gpu, 1) ! Use Robert's form
 #endif
 
       if ( rank == 0 ) then
@@ -222,6 +226,13 @@ contains
       call SH_to_spat_l(sh, Slm, fieldc, lcut)
 #endif
 
+#ifdef WITH_OMP_GPU
+#ifdef EXPLICITE_SYNCHRO
+      call hipCheck(hipDeviceSynchronize())
+#endif
+#endif
+
+
    end subroutine scal_to_spat
 !------------------------------------------------------------------------------
    subroutine scal_to_grad_spat(Slm, gradtc, gradpc, lcut, use_gpu)
@@ -259,6 +270,12 @@ contains
       call SHsph_to_spat_l(sht_l, Slm, gradtc, gradpc, lcut)
 #endif
 
+#ifdef WITH_OMP_GPU
+#ifdef EXPLICITE_SYNCHRO
+      call hipCheck(hipDeviceSynchronize())
+#endif
+#endif
+
    end subroutine scal_to_grad_spat
 !------------------------------------------------------------------------------
    subroutine torpol_to_spat(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut, use_gpu)
@@ -293,6 +310,12 @@ contains
       end if
 #else
       call SHqst_to_spat_l(sht_l, Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+#endif
+
+#ifdef WITH_OMP_GPU
+#ifdef EXPLICITE_SYNCHRO
+      call hipCheck(hipDeviceSynchronize())
+#endif
 #endif
 
    end subroutine torpol_to_spat
@@ -360,6 +383,12 @@ contains
       end if
 #else
       call SHsphtor_to_spat_l(sh, dWlm, Zlm, vtc, vpc, lcut)
+#endif
+
+#ifdef WITH_OMP_GPU
+#ifdef EXPLICITE_SYNCHRO
+      call hipCheck(hipDeviceSynchronize())
+#endif
 #endif
 
    end subroutine sphtor_to_spat
@@ -485,6 +514,12 @@ contains
       call spat_to_SH_l(sh, f, fLM, lcut)
 #endif
 
+#ifdef WITH_OMP_GPU
+#ifdef EXPLICITE_SYNCHRO
+      call hipCheck(hipDeviceSynchronize())
+#endif
+#endif
+
    end subroutine scal_to_SH
 !------------------------------------------------------------------------------
    subroutine spat_to_qst(f, g, h, qLM, sLM, tLM, lcut, use_gpu)
@@ -523,6 +558,12 @@ contains
       call spat_to_SHqst_l(sht_l, f, g, h, qLM, sLM, tLM, lcut)
 #endif
 
+#ifdef WITH_OMP_GPU
+#ifdef EXPLICITE_SYNCHRO
+      call hipCheck(hipDeviceSynchronize())
+#endif
+#endif
+
    end subroutine spat_to_qst
 !------------------------------------------------------------------------------
    subroutine spat_to_sphertor(sh, f, g, fLM, gLM, lcut, use_gpu)
@@ -558,6 +599,12 @@ contains
       end if
 #else
       call spat_to_SHsphtor_l(sh, f, g, fLM, gLM, lcut)
+#endif
+
+#ifdef WITH_OMP_GPU
+#ifdef EXPLICITE_SYNCHRO
+      call hipCheck(hipDeviceSynchronize())
+#endif
 #endif
 
    end subroutine spat_to_sphertor
