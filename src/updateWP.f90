@@ -698,6 +698,7 @@ contains
       if ( nRstop == n_r_icb ) then
          do lm=lm_start,lm_stop
             if ( l_full_sphere ) then
+               l=st_map%lm2l(lm)
                if ( l == 1 ) then
                   wg(lm,nRstop+1)=wg(lm,nRstop-1) ! dw=0
                else
