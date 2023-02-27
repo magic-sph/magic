@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 from magic import npfile, scanDir, MagicSetup, hammer2cart, symmetrize, progressbar
 from scipy.interpolate import interp1d
-from scipy.signal import cwt, morlet2
+from scipy import signal
+from scipy.version import version
 import os, re
 import numpy as np
 import matplotlib.pyplot as plt
@@ -1132,14 +1133,84 @@ class MagicCoeffR(MagicSetup):
         levs = np.linspace(vmin, vmax, 129)
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        im = ax.contourf(ls, self.omega, np.log10(ek), levs,
-                         cmap=plt.get_cmap('turbo'),
+        im = ax.contourf(ls, self.omega, dat, levs, cmap=plt.get_cmap('turbo'),
                          extend='both')
 
         ax.set_yscale('log')
         cbar = fig.colorbar(im)
 
-        ax.set_xlabel(r'Spherical harmonic degree')
-        ax.set_ylabel(r'Frequency')
+        ax.set_xlabel('Spherical harmonic degree')
+        ax.set_ylabel('Frequency')
+
+        fig.tight_layout()
+
+    def cwt(self, ell, w0=20, nfreq=256, fmin_fac=8):
+        """
+        Build a time-frequency spectrum at a given degree :math:`\ell` using
+        a continuous wavelet transform with morlet wavelets.
+
+        :param w0: a parameter to normalize the width of the wavelet
+        :type w0: float
+        :param fmin_fac: a factor to adjust the minimum frequency considered
+                         in the time-frequency domain. Minimum frequency is
+                         given by fmin=1/(time[-1]-time[0]), such that
+                         the minimum frequency retained is fmin_fac*fmin
+        :type fmin_fac: float
+        :param ell: spherical harmonic degree at which ones want to build
+                    the time frequency diagram
+        :type ell: int
+        :param nfreq: number of frequency bins
+        :type nfreq: int
+        """
+        assert version > '1.4.0'
+
+        dt = np.diff(self.time)
+        # If the data is not regularly sampled, use splines to resample them
+        if dt.min() != dt.max():
+            time = np.linspace(self.time[0], self.time[-1], self.nstep)
+            it = interp1d(self.time, self.wlm, axis=0)
+            wlm = it(time)
+        else:
+            time = self.time
+            wlm = self.wlm
+
+        dt = time[1]-time[0]
+        fcut = 1./dt # Maximum sampling
+        fmin = 1./(time[-1]-time[0]) # Minimum frequency
+
+        #self.omega = 2.*np.pi*np.linspace(fmin*fmin_fac, fcut/2, 100)
+        self.omega = np.logspace(np.log10(fmin*fmin_fac), np.log10(fcut/2), nfreq)
+        self.omega *= 2.*np.pi
+        # Define the widths of the wavelets (related to their frequency)
+        widths = w0*fcut/self.omega
+
+        #widths = np.arange(1, len(self.time)//8)
+        self.ek_time_omega = np.zeros((len(widths), self.nstep), np.float64)
+        for m in range(0, ell+1, self.minc):
+            print(m)
+            lm = self.idx[ell, m]
+            out = signal.cwt(wlm[:, lm], signal.morlet2, widths, w=w0)
+
+            if m == 0:
+                tmp = 0.5*abs(out)**2
+            else:
+                tmp = abs(out)**2
+
+            self.ek_time_omega += tmp
+
+        dat = np.log10(self.ek_time_omega)
+        vmax = dat.max()#-0.5
+        vmin = max(vmax-10, dat.min()+2)
+        levs = np.linspace(vmin, vmax, 129)
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        im = ax.contourf(time, self.omega, dat, levs, cmap=plt.get_cmap('turbo'),
+                         extend='both')
+
+        ax.set_yscale('log')
+        cbar = fig.colorbar(im)
+
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Frequency')
 
         fig.tight_layout()
