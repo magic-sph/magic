@@ -65,11 +65,7 @@ module rIter_batched_mod
 #else
    use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary
 #endif
-#ifdef WITH_OMP_GPU
    use power, only: get_visc_heat_batch
-#else
-   use power, only: get_visc_heat
-#endif
 #ifdef WITH_OMP_GPU
    use outMisc_mod, only: get_ekin_solid_liquid_batch, get_helicity_batch, get_hemi_batch
 #else
@@ -312,6 +308,14 @@ contains
 #endif
       end if
 
+      !-- Viscous heating:
+      if ( lPowerCalc ) then
+         call get_visc_heat_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,          &
+              &                   this%gsa%cvrc,this%gsa%dvrdrc,this%gsa%dvrdtc,   &
+              &                   this%gsa%dvrdpc,this%gsa%dvtdrc,this%gsa%dvtdpc, &
+              &                   this%gsa%dvpdrc,this%gsa%dvpdpc)
+      end if
+
       do nR=nRstart,nRstop
          nBc = 0
          if ( nR == n_r_cmb ) then
@@ -451,21 +455,6 @@ contains
 #else
             call get_hemi(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,nR,'V')
             if ( l_mag ) call get_hemi(this%gsa%brc,this%gsa%btc,this%gsa%bpc,nR,'B')
-#endif
-         end if
-
-         !-- Viscous heating:
-         if ( lPowerCalc ) then
-#ifdef WITH_OMP_GPU
-            call get_visc_heat_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,          &
-                 &                   this%gsa%cvrc,this%gsa%dvrdrc,this%gsa%dvrdtc,   &
-                 &                   this%gsa%dvrdpc,this%gsa%dvtdrc,this%gsa%dvtdpc, &
-                 &                   this%gsa%dvpdrc,this%gsa%dvpdpc,nR)
-#else
-            call get_visc_heat(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,          &
-                 &             this%gsa%cvrc,this%gsa%dvrdrc,this%gsa%dvrdtc,   &
-                 &             this%gsa%dvrdpc,this%gsa%dvtdrc,this%gsa%dvtdpc, &
-                 &             this%gsa%dvpdrc,this%gsa%dvpdpc,nR)
 #endif
          end if
 
