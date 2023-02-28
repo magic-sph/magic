@@ -218,7 +218,7 @@ contains
             &                       aimag(ddw(lm11))*cos(phi(nPhi)) )
          end do
       end do
-      !$omp end parallel
+      !$omp end parallel do
 
    end subroutine v_center_sphere
 !-------------------------------------------------------------------------
