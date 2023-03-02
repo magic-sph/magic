@@ -7,7 +7,6 @@ module outPar_mod
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use grid_blocking, only: radlatlon2spat
    use communications, only: gather_from_Rloc
    use blocking, only: llm, ulm, lo_map
    use truncation, only: n_r_max, n_r_maxMag, l_max, lm_max, l_maxMag, &
@@ -48,15 +47,9 @@ module outPar_mod
    integer :: n_perpPar_file, n_calls
    character(len=72) :: perpPar_file
 
-#ifdef WITH_OMP_GPU
    public initialize_outPar_mod, finalize_outPar_mod, outPar, outPerpPar, &
    &      get_fluxes, get_nlBlayers, get_perpPar,                         &
    &      get_fluxes_batch, get_nlBlayers_batch, get_perpPar_batch
-#else
-   public initialize_outPar_mod, finalize_outPar_mod, outPar, outPerpPar, &
-   &      get_fluxes, get_nlBlayers, get_perpPar, get_nlBlayers_batch,    &
-   &      get_fluxes_batch
-#endif
 
 contains
 
@@ -478,7 +471,6 @@ contains
 
    end subroutine outPerpPar
 !----------------------------------------------------------------------------
-#ifndef WITH_OMP_GPU
    subroutine get_fluxes(vr,vt,vp,dvrdr,dvtdr,dvpdr,dvrdt,dvrdp,sr,pr,br,bt, &
               &          bp,cbt,cbp,nR)
       !
@@ -910,105 +902,13 @@ contains
 
       !-- Input of variables
       integer,  intent(in) :: nR
-      real(cp), intent(in) :: vr(*),vt(*),vp(*)
-
-      !-- Local variables:
-      real(cp) :: vras(n_theta_max),vtas(n_theta_max),vpas(n_theta_max),phiNorm
-      real(cp) :: Eperp,Epar,Eperpaxi,Eparaxi
-      real(cp) :: EperpAS,EparAS,EperpaxiAS,EparaxiAS
-      integer :: nTheta,nPhi,nelem
-
-      phiNorm=one/real(n_phi_max,cp)
-      EperpAS   =0.0_cp
-      EparAS    =0.0_cp
-      EperpaxiAS=0.0_cp
-      EparaxiAS =0.0_cp
-      vras(:)   =0.0_cp
-      vtas(:)   =0.0_cp
-      vpas(:)   =0.0_cp
-
-      do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            nelem = radlatlon2spat(nTheta,nPhi,nR)
-            vras(nTheta)=vras(nTheta)+vr(nelem)
-            vtas(nTheta)=vtas(nTheta)+vt(nelem)
-            vpas(nTheta)=vpas(nTheta)+vp(nelem)
-         end do
-      end do
-      vras(:)=vras(:)*phiNorm
-      vtas(:)=vtas(:)*phiNorm
-      vpas(:)=vpas(:)*phiNorm
-
-      !$omp parallel do default(shared)                 &
-      !$omp& private(nTheta,nPhi,nelem)                 &
-      !$omp& private(Eperp, Epar, Eperpaxi, Eparaxi)    &
-      !$omp& reduction(+:EparAS,EperpAS,EparaxiAS,EperpaxiAS)
-      do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            nelem = radlatlon2spat(nTheta,nPhi,nR)
-
-            Eperp=half*or2(nR)*orho2(nR)*(                             &
-            &       or2(nR)*sinTheta_E2(nTheta)* vr(nelem)*vr(nelem) + &
-            &       (O_sin_theta_E2(nTheta)-one)*vt(nelem)*vt(nelem) + &
-            &       two*or1(nR)*cosTheta(nTheta)*vr(nelem)*vt(nelem) + &
-            &       O_sin_theta_E2(nTheta)*      vp(nelem)*vp(nelem) )
-
-            Epar =half*or2(nR)*orho2(nR)*(or2(nR)*(one-sinTheta_E2(nTheta))* &
-            &                                          vr(nelem)*vr(nelem) + &
-            &                                          vt(nelem)*vt(nelem) - &
-            &             two*or1(nR)*cosTheta(nTheta)*vr(nelem)*vt(nelem) )
-
-            Eperpaxi=half*or2(nR)*orho2(nR)*(     or2(nR)*sinTheta_E2(nTheta)* &
-            &                                      vras(nTheta)*vras(nTheta) + &
-            &         (O_sin_theta_E2(nTheta)-one)*vtas(nTheta)*vtas(nTheta) + &
-            &         two*or1(nR)*cosTheta(nTheta)*vras(nTheta)*vtas(nTheta) + &
-            &         O_sin_theta_E2(nTheta)*      vpas(nTheta)*vpas(nTheta) )
-
-            Eparaxi =half*or2(nR)*orho2(nR)*(or2(nR)*(one-sinTheta_E2(nTheta))*&
-            &                                      vras(nTheta)*vras(nTheta) + &
-            &                                      vtas(nTheta)*vtas(nTheta) - &
-            &         two*or1(nR)*cosTheta(nTheta)*vras(nTheta)*vtas(nTheta) )
-
-            EperpAS   =   EperpAS+phiNorm*gauss(nTheta)*Eperp
-            EparAS    =    EparAS+phiNorm*gauss(nTheta)*Epar
-            EperpaxiAS=EperpaxiAS+phiNorm*gauss(nTheta)*Eperpaxi
-            EparaxiAS = EparaxiAS+phiNorm*gauss(nTheta)*Eparaxi
-         end do
-      end do
-      !$omp end parallel do
-
-      EperpASr(nR)   =EperpAS
-      EparASr(nR)    =EparAS
-      EperpaxiASr(nR)=EperpaxiAS
-      EparaxiASr(nR) =EparaxiAS
-
-   end subroutine get_perpPar
-#else
-   !-- TODO: Need to duplicate these routines since CRAY CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
-   !-- assumed size arrays in OpenMP target regions
-   !-- When CCE will have this support, *_batch routines and CPU versions above (with "*") can be removed
-   !-- and just add (*) in following 3 routines
-
-   subroutine get_perpPar(vr,vt,vp,nR)
-      !
-      !   This subroutine calculates the energies parallel and perpendicular
-      !   to the rotation axis
-      !
-      !     * :math:`E_\perp = 0.5 (v_s^2+v_\phi^2)` with
-      !       :math:`v_s= v_r\sin\theta+v_\theta\cos\theta`
-      !     * :math:`E_\parallel  = 0.5v_z^2` with
-      !       :math:`v_z= v_r\cos\theta-v_\theta*\sin\theta`
-      !
-
-      !-- Input of variables
-      integer,  intent(in) :: nR
       real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
 
       !-- Local variables:
       real(cp) :: vras(n_theta_max),vtas(n_theta_max),vpas(n_theta_max),phiNorm
       real(cp) :: Eperp,Epar,Eperpaxi,Eparaxi
       real(cp) :: EperpAS,EparAS,EperpaxiAS,EparaxiAS
-      integer :: nTheta,nPhi,nelem
+      integer :: nTheta,nPhi
 
       phiNorm=one/real(n_phi_max,cp)
       EperpAS   =0.0_cp
@@ -1022,58 +922,47 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(to: vras, vtas, vpas)
       !$omp target teams distribute parallel do collapse(2) reduction(+:vras, vtas, vpas)
+#else
+      !$omp parallel do default(shared) &
+      !$omp private(nTheta)             &
+      !$omp reduction(+:vpas,vras,vtas)
 #endif
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nelem = radlatlon2spat(nTheta,nPhi,nR)
-            vras(nTheta)=vras(nTheta)+vr(nelem)
-            vtas(nTheta)=vtas(nTheta)+vt(nelem)
-            vpas(nTheta)=vpas(nTheta)+vp(nelem)
+            vras(nTheta)=vras(nTheta)+vr(nTheta,nPhi)*phiNorm
+            vtas(nTheta)=vtas(nTheta)+vt(nTheta,nPhi)*phiNorm
+            vpas(nTheta)=vpas(nTheta)+vp(nTheta,nPhi)*phiNorm
          end do
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
-#endif
-
-#ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do
-      do nTheta=1,n_theta_max
-         vras(nTheta)=vras(nTheta)*phiNorm
-         vtas(nTheta)=vtas(nTheta)*phiNorm
-         vpas(nTheta)=vpas(nTheta)*phiNorm
-      end do
-      !$omp end target teams distribute parallel do
 #else
-      vras(:)=vras(:)*phiNorm
-      vtas(:)=vtas(:)*phiNorm
-      vpas(:)=vpas(:)*phiNorm
+      !$omp end parallel do
 #endif
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)   &
       !$omp& map(tofrom: EparAS,EperpAS,EparaxiAS,EperpaxiAS) &
-      !$omp& private(Eperp, Epar, Eperpaxi, Eparaxi, nelem)   &
+      !$omp& private(Eperp, Epar, Eperpaxi, Eparaxi)          &
       !$omp& reduction(+:EparAS,EperpAS,EparaxiAS,EperpaxiAS)
 #else
       !$omp parallel do default(shared)                 &
-      !$omp& private(nTheta,nPhi,nelem)                 &
+      !$omp& private(nTheta,nPhi)                       &
       !$omp& private(Eperp, Epar, Eperpaxi, Eparaxi)    &
       !$omp& reduction(+:EparAS,EperpAS,EparaxiAS,EperpaxiAS)
 #endif
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nelem = radlatlon2spat(nTheta,nPhi,nR)
+            Eperp=half*or2(nR)*orho2(nR)*(                                         &
+            &       or2(nR)*sinTheta_E2(nTheta)* vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            &       (O_sin_theta_E2(nTheta)-one)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
+            &       two*or1(nR)*cosTheta(nTheta)*vr(nTheta,nPhi)*vt(nTheta,nPhi) + &
+            &       O_sin_theta_E2(nTheta)*      vp(nTheta,nPhi)*vp(nTheta,nPhi) )
 
-            Eperp=half*or2(nR)*orho2(nR)*(                             &
-            &       or2(nR)*sinTheta_E2(nTheta)* vr(nelem)*vr(nelem) + &
-            &       (O_sin_theta_E2(nTheta)-one)*vt(nelem)*vt(nelem) + &
-            &       two*or1(nR)*cosTheta(nTheta)*vr(nelem)*vt(nelem) + &
-            &       O_sin_theta_E2(nTheta)*      vp(nelem)*vp(nelem) )
-
-            Epar =half*or2(nR)*orho2(nR)*(or2(nR)*(one-sinTheta_E2(nTheta))* &
-            &                                          vr(nelem)*vr(nelem) + &
-            &                                          vt(nelem)*vt(nelem) - &
-            &             two*or1(nR)*cosTheta(nTheta)*vr(nelem)*vt(nelem) )
+            Epar =half*or2(nR)*orho2(nR)*(or2(nR)*(one-sinTheta_E2(nTheta))*       &
+            &                                    vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            &                                    vt(nTheta,nPhi)*vt(nTheta,nPhi) - &
+            &       two*or1(nR)*cosTheta(nTheta)*vr(nTheta,nPhi)*vt(nTheta,nPhi) )
 
             Eperpaxi=half*or2(nR)*orho2(nR)*(     or2(nR)*sinTheta_E2(nTheta)* &
             &                                      vras(nTheta)*vras(nTheta) + &
@@ -1105,11 +994,11 @@ contains
       EparaxiASr(nR) =EparaxiAS
 
    end subroutine get_perpPar
-
-   subroutine get_perpPar_batch(vr,vt,vp,nR)
+!----------------------------------------------------------------------------
+   subroutine get_perpPar_batch(vr,vt,vp)
       !
       !   This subroutine calculates the energies parallel and perpendicular
-      !   to the rotation axis
+      !   to the rotation axis (batched version)
       !
       !     * :math:`E_\perp = 0.5 (v_s^2+v_\phi^2)` with
       !       :math:`v_s= v_r\sin\theta+v_\theta\cos\theta`
@@ -1118,95 +1007,93 @@ contains
       !
 
       !-- Input of variables
-      integer,  intent(in) :: nR
-      real(cp), intent(in) :: vr(:,:,:),vt(:,:,:),vp(:,:,:)
+      real(cp), intent(in) :: vr(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: vt(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: vp(nlat_padded,nRstart:nRstop,n_phi_max)
 
       !-- Local variables:
-      real(cp) :: vras(n_theta_max),vtas(n_theta_max),vpas(n_theta_max),phiNorm
-      real(cp) :: Eperp,Epar,Eperpaxi,Eparaxi
-      real(cp) :: EperpAS,EparAS,EperpaxiAS,EparaxiAS
-      integer :: nTheta,nPhi,nelem
+      real(cp) :: vras(n_theta_max,nRstart:nRstop)
+      real(cp) :: vtas(n_theta_max,nRstart:nRstop)
+      real(cp) :: vpas(n_theta_max,nRstart:nRstop)
+      real(cp) :: Eperp,Epar,Eperpaxi,Eparaxi, phiNorm
+      integer :: nTheta,nPhi,nR
 
       phiNorm=one/real(n_phi_max,cp)
-      EperpAS   =0.0_cp
-      EparAS    =0.0_cp
-      EperpaxiAS=0.0_cp
-      EparaxiAS =0.0_cp
-      vras(:)   =0.0_cp
-      vtas(:)   =0.0_cp
-      vpas(:)   =0.0_cp
+      EperpASr(:)   =0.0_cp
+      EparASr(:)    =0.0_cp
+      EperpaxiASr(:)=0.0_cp
+      EparaxiASr(:) =0.0_cp
+      vras(:,:)     =0.0_cp
+      vtas(:,:)     =0.0_cp
+      vpas(:,:)     =0.0_cp
 
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(to: vras, vtas, vpas)
       !$omp target teams distribute parallel do collapse(2) reduction(+:vras, vtas, vpas)
+#else
+      !$omp parallel do default(shared) private(nR) &
+      !$omp reduction(+:vras,vtas,vpas)
 #endif
       do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            nelem = radlatlon2spat(nTheta,nPhi,nR)
-            vras(nTheta)=vras(nTheta)+vr(nelem)
-            vtas(nTheta)=vtas(nTheta)+vt(nelem)
-            vpas(nTheta)=vpas(nTheta)+vp(nelem)
+         do nR=nRstart,nRstop
+            do nTheta=1,n_theta_max
+               vras(nTheta,nR)=vras(nTheta,nR)+vr(nTheta,nR,nPhi)*phiNorm
+               vtas(nTheta,nR)=vtas(nTheta,nR)+vt(nTheta,nR,nPhi)*phiNorm
+               vpas(nTheta,nR)=vpas(nTheta,nR)+vp(nTheta,nR,nPhi)*phiNorm
+            end do
          end do
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
-#endif
-
-#ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do
-      do nTheta=1,n_theta_max
-         vras(nTheta)=vras(nTheta)*phiNorm
-         vtas(nTheta)=vtas(nTheta)*phiNorm
-         vpas(nTheta)=vpas(nTheta)*phiNorm
-      end do
-      !$omp end target teams distribute parallel do
 #else
-      vras(:)=vras(:)*phiNorm
-      vtas(:)=vtas(:)*phiNorm
-      vpas(:)=vpas(:)*phiNorm
+      !$omp end parallel do
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do collapse(2)   &
-      !$omp& map(tofrom: EparAS,EperpAS,EparaxiAS,EperpaxiAS) &
-      !$omp& private(Eperp, Epar, Eperpaxi, Eparaxi, nelem)   &
-      !$omp& reduction(+:EparAS,EperpAS,EparaxiAS,EperpaxiAS)
+      !$omp target teams distribute parallel do collapse(2)       &
+      !$omp& map(tofrom: EparASr,EperpASr,EparaxiASr,EperpaxiASr) &
+      !$omp& private(Eperp, Epar, Eperpaxi, Eparaxi)              &
+      !$omp& reduction(+:EparASr,EperpASr,EparaxiASr,EperpaxiASr)
 #else
       !$omp parallel do default(shared)                 &
-      !$omp& private(nTheta,nPhi,nelem)                 &
+      !$omp& private(nTheta,nPhi,nR)                    &
       !$omp& private(Eperp, Epar, Eperpaxi, Eparaxi)    &
-      !$omp& reduction(+:EparAS,EperpAS,EparaxiAS,EperpaxiAS)
+      !$omp& reduction(+:EparASr,EperpASr,EparaxiASr,EperpaxiASr)
 #endif
       do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            nelem = radlatlon2spat(nTheta,nPhi,nR)
+         do nR=nRstart,nRstop
+            do nTheta=1,n_theta_max
+               Eperp=half*or2(nR)*orho2(nR)*(                             &
+               &       or2(nR)*sinTheta_E2(nTheta)*                       &
+               &                  vr(nTheta,nR,nPhi)*vr(nTheta,nR,nPhi) + &
+               &       (O_sin_theta_E2(nTheta)-one)*                      &
+               &                  vt(nTheta,nR,nPhi)*vt(nTheta,nR,nPhi) + &
+               &       two*or1(nR)*cosTheta(nTheta)*                      &
+               &                  vr(nTheta,nR,nPhi)*vt(nTheta,nR,nPhi) + &
+               &       O_sin_theta_E2(nTheta)*                            &
+               &                  vp(nTheta,nR,nPhi)*vp(nTheta,nR,nPhi) )
 
-            Eperp=half*or2(nR)*orho2(nR)*(                             &
-            &       or2(nR)*sinTheta_E2(nTheta)* vr(nelem)*vr(nelem) + &
-            &       (O_sin_theta_E2(nTheta)-one)*vt(nelem)*vt(nelem) + &
-            &       two*or1(nR)*cosTheta(nTheta)*vr(nelem)*vt(nelem) + &
-            &       O_sin_theta_E2(nTheta)*      vp(nelem)*vp(nelem) )
+               Epar =half*or2(nR)*orho2(nR)*(or2(nR)*(one-sinTheta_E2(nTheta))* &
+               &                        vr(nTheta,nR,nPhi)*vr(nTheta,nR,nPhi) + &
+               &                        vt(nTheta,nR,nPhi)*vt(nTheta,nR,nPhi) - &
+               &     two*or1(nR)*cosTheta(nTheta)*vr(nTheta,nR,nPhi)*vt(nTheta,nR,nPhi) )
 
-            Epar =half*or2(nR)*orho2(nR)*(or2(nR)*(one-sinTheta_E2(nTheta))* &
-            &                                          vr(nelem)*vr(nelem) + &
-            &                                          vt(nelem)*vt(nelem) - &
-            &             two*or1(nR)*cosTheta(nTheta)*vr(nelem)*vt(nelem) )
+               Eperpaxi=half*or2(nR)*orho2(nR)*(     or2(nR)*sinTheta_E2(nTheta)* &
+               &                                vras(nTheta,nR)*vras(nTheta,nR) + &
+               &   (O_sin_theta_E2(nTheta)-one)*vtas(nTheta,nR)*vtas(nTheta,nR) + &
+               &   two*or1(nR)*cosTheta(nTheta)*vras(nTheta,nR)*vtas(nTheta,nR) + &
+               &    O_sin_theta_E2(nTheta)*     vpas(nTheta,nR)*vpas(nTheta,nR) )
 
-            Eperpaxi=half*or2(nR)*orho2(nR)*(     or2(nR)*sinTheta_E2(nTheta)* &
-            &                                      vras(nTheta)*vras(nTheta) + &
-            &         (O_sin_theta_E2(nTheta)-one)*vtas(nTheta)*vtas(nTheta) + &
-            &         two*or1(nR)*cosTheta(nTheta)*vras(nTheta)*vtas(nTheta) + &
-            &         O_sin_theta_E2(nTheta)*      vpas(nTheta)*vpas(nTheta) )
+               Eparaxi =half*or2(nR)*orho2(nR)*(or2(nR)*(one-sinTheta_E2(nTheta))*&
+               &                                vras(nTheta,nR)*vras(nTheta,nR) + &
+               &                                vtas(nTheta,nR)*vtas(nTheta,nR) - &
+               &   two*or1(nR)*cosTheta(nTheta)*vras(nTheta,nR)*vtas(nTheta,nR) )
 
-            Eparaxi =half*or2(nR)*orho2(nR)*(or2(nR)*(one-sinTheta_E2(nTheta))*&
-            &                                      vras(nTheta)*vras(nTheta) + &
-            &                                      vtas(nTheta)*vtas(nTheta) - &
-            &         two*or1(nR)*cosTheta(nTheta)*vras(nTheta)*vtas(nTheta) )
-
-            EperpAS   =   EperpAS+phiNorm*gauss(nTheta)*Eperp
-            EparAS    =    EparAS+phiNorm*gauss(nTheta)*Epar
-            EperpaxiAS=EperpaxiAS+phiNorm*gauss(nTheta)*Eperpaxi
-            EparaxiAS = EparaxiAS+phiNorm*gauss(nTheta)*Eparaxi
+               EperpASr(nR)   =   EperpASr(nR)+phiNorm*gauss(nTheta)*Eperp
+               EparASr(nR)    =    EparASr(nR)+phiNorm*gauss(nTheta)*Epar
+               EperpaxiASr(nR)=EperpaxiASr(nR)+phiNorm*gauss(nTheta)*Eperpaxi
+               EparaxiASr(nR) = EparaxiASr(nR)+phiNorm*gauss(nTheta)*Eparaxi
+            end do
          end do
       end do
 #ifdef WITH_OMP_GPU
@@ -1216,12 +1103,6 @@ contains
       !$omp end parallel do
 #endif
 
-      EperpASr(nR)   =EperpAS
-      EparASr(nR)    =EparAS
-      EperpaxiASr(nR)=EperpaxiAS
-      EparaxiASr(nR) =EparaxiAS
-
    end subroutine get_perpPar_batch
-#endif
 !----------------------------------------------------------------------------
 end module outPar_mod

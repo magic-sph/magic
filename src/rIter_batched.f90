@@ -67,11 +67,7 @@ module rIter_batched_mod
 #endif
    use power, only: get_visc_heat_batch
    use outMisc_mod, only: get_ekin_solid_liquid_batch, get_helicity_batch, get_hemi_batch
-#ifdef WITH_OMP_GPU
    use outPar_mod, only: get_fluxes_batch, get_nlBlayers_batch, get_perpPar_batch
-#else
-   use outPar_mod, only: get_fluxes_batch, get_nlBlayers_batch, get_perpPar
-#endif
 #ifdef WITH_OMP_GPU
    use geos, only: calcGeos_batch
 #else
@@ -347,6 +343,9 @@ contains
               &                this%gsa%cbtc,this%gsa%cbpc)
       end if
 
+      !-- Kinetic energy parallel and perpendicular to rotation axis
+      if ( lPerpParCalc ) call get_perpPar_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc)
+
       do nR=nRstart,nRstop
          nBc = 0
          if ( nR == n_r_cmb ) then
@@ -463,19 +462,6 @@ contains
          if ( l_probe_out ) then
             call probe_out(time, nR, this%gsa%vpc, this%gsa%brc, this%gsa%btc) !-- Keep on CPU
          end if
-
-
-#ifdef WITH_OMP_GPU
-         !-- Kinetic energy parallel and perpendicular to rotation axis
-         if ( lPerpParCalc ) then
-            call get_perpPar_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,nR)
-         end if
-#else
-         !-- Kinetic energy parallel and perpendicular to rotation axis
-         if ( lPerpParCalc ) then
-            call get_perpPar(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,nR)
-         end if
-#endif
 
          !-- Geostrophic/non-geostrophic flow components
 #ifdef WITH_OMP_GPU
