@@ -70,7 +70,7 @@ module rIter_batched_mod
 #ifdef WITH_OMP_GPU
    use outPar_mod, only: get_fluxes_batch, get_nlBlayers_batch, get_perpPar_batch
 #else
-   use outPar_mod, only: get_fluxes, get_nlBlayers_batch, get_perpPar
+   use outPar_mod, only: get_fluxes_batch, get_nlBlayers_batch, get_perpPar
 #endif
 #ifdef WITH_OMP_GPU
    use geos, only: calcGeos_batch
@@ -338,6 +338,15 @@ contains
               &                   this%gsa%dsdpc)
       end if
 
+      !-- Radial flux profiles
+      if ( lFluxProfCalc ) then
+         call get_fluxes_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,            &
+              &                this%gsa%dvrdrc,this%gsa%dvtdrc,this%gsa%dvpdrc,   &
+              &                this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%sc,       &
+              &                this%gsa%pc,this%gsa%brc,this%gsa%btc,this%gsa%bpc,&
+              &                this%gsa%cbtc,this%gsa%cbpc)
+      end if
+
       do nR=nRstart,nRstop
          nBc = 0
          if ( nR == n_r_cmb ) then
@@ -454,26 +463,6 @@ contains
          if ( l_probe_out ) then
             call probe_out(time, nR, this%gsa%vpc, this%gsa%brc, this%gsa%btc) !-- Keep on CPU
          end if
-
-#ifdef WITH_OMP_GPU
-         !-- Radial flux profiles
-         if ( lFluxProfCalc ) then
-            call get_fluxes_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,            &
-                 &                this%gsa%dvrdrc,this%gsa%dvtdrc,this%gsa%dvpdrc,   &
-                 &                this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%sc,       &
-                 &                this%gsa%pc,this%gsa%brc,this%gsa%btc,this%gsa%bpc,&
-                 &                this%gsa%cbtc,this%gsa%cbpc,nR)
-         end if
-#else
-         !-- Radial flux profiles
-         if ( lFluxProfCalc ) then
-            call get_fluxes(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,            &
-                 &          this%gsa%dvrdrc,this%gsa%dvtdrc,this%gsa%dvpdrc,   &
-                 &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%sc,       &
-                 &          this%gsa%pc,this%gsa%brc,this%gsa%btc,this%gsa%bpc,&
-                 &          this%gsa%cbtc,this%gsa%cbpc,nR)
-         end if
-#endif
 
 
 #ifdef WITH_OMP_GPU
