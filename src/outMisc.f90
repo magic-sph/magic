@@ -8,7 +8,6 @@ module outMisc_mod
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use grid_blocking, only: radlatlon2spat
    use communications, only: gather_from_Rloc, gather_from_lo_to_rank0
    use truncation, only: l_max, n_r_max, nlat_padded, n_theta_max, n_r_maxMag, &
        &                 n_phi_max, lm_max, m_min, m_max, minc
@@ -54,16 +53,10 @@ module outMisc_mod
    real(cp), allocatable :: HelEAASr(:)
    complex(cp), allocatable :: coeff_old(:)
 
-#ifdef WITH_OMP_GPU
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
    &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
    &         get_ekin_solid_liquid_batch, get_helicity_batch, get_hemi_batch,    &
    &         get_onset
-#else
-   public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
-   &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
-   &         get_onset, get_ekin_solid_liquid_batch, get_hemi_batch
-#endif
 
 contains
 
@@ -1080,11 +1073,6 @@ contains
 
    end subroutine get_hemi_batch
 !----------------------------------------------------------------------------------
-#ifdef WITH_OMP_GPU
-   !-- TODO: Need to duplicate these routines since CRAY CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
-   !-- assumed size arrays in OpenMP target regions
-   !-- When CCE will have this support, *_batch routines and CPU versions (with "*") can be removed
-   !-- and just add (*) in following 3 routines
    subroutine get_helicity(vr,vt,vp,cvr,dvrdt,dvrdp,dvtdr,dvpdr,nR)
       !
       ! This subroutine calculates axisymmetric and non-axisymmetric contributions to
@@ -1098,7 +1086,7 @@ contains
       real(cp), intent(in) :: dvtdr(:,:),dvpdr(:,:)
 
       !-- Local variables:
-      integer :: nTheta,nTh,nPhi,nelem
+      integer :: nTheta,nTh,nPhi
       real(cp) :: Helna,Hel,phiNorm
       real(cp) :: HelAS(2), Hel2AS(2), HelnaAS(2), Helna2AS(2), HelEAAS
       real(cp) :: vrna,vtna,vpna,cvrna,dvrdtna,dvrdpna,dvtdrna,dvpdrna
@@ -1129,22 +1117,31 @@ contains
       !$omp target enter data map(alloc: vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
       !$omp target update to(vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
       !$omp target teams distribute parallel do collapse(2)
+#else
+      !$omp parallel do default(shared) private(nTheta) &
+      !$omp reduction(+:vras,cvras,vtas,vpas,dvrdpas,dvpdras,dvtdras,dvrdtas)
+#endif
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nelem=radlatlon2spat(nTheta,nPhi,nR)
-            vras(nTheta)   =vras(nTheta)   +   vr(nelem)
-            cvras(nTheta)  =cvras(nTheta)  +  cvr(nelem)
-            vtas(nTheta)   =vtas(nTheta)   +   vt(nelem)
-            vpas(nTheta)   =vpas(nTheta)   +   vp(nelem)
-            dvrdpas(nTheta)=dvrdpas(nTheta)+dvrdp(nelem)
-            dvpdras(nTheta)=dvpdras(nTheta)+dvpdr(nelem)
-            dvtdras(nTheta)=dvtdras(nTheta)+dvtdr(nelem)
-            dvrdtas(nTheta)=dvrdtas(nTheta)+dvrdt(nelem)
+            vras(nTheta)   =vras(nTheta)   +   vr(nTheta,nPhi)
+            cvras(nTheta)  =cvras(nTheta)  +  cvr(nTheta,nPhi)
+            vtas(nTheta)   =vtas(nTheta)   +   vt(nTheta,nPhi)
+            vpas(nTheta)   =vpas(nTheta)   +   vp(nTheta,nPhi)
+            dvrdpas(nTheta)=dvrdpas(nTheta)+dvrdp(nTheta,nPhi)
+            dvpdras(nTheta)=dvpdras(nTheta)+dvpdr(nTheta,nPhi)
+            dvtdras(nTheta)=dvtdras(nTheta)+dvtdr(nTheta,nPhi)
+            dvrdtas(nTheta)=dvrdtas(nTheta)+dvrdt(nTheta,nPhi)
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
 
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#endif
       do nTheta=1,n_theta_max
          vras(nTheta)   =vras(nTheta)   *phiNorm
          cvras(nTheta)  =cvras(nTheta)  *phiNorm
@@ -1155,29 +1152,8 @@ contains
          dvtdras(nTheta)=dvtdras(nTheta)*phiNorm
          dvrdtas(nTheta)=dvrdtas(nTheta)*phiNorm
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
-#else
-      do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            nelem=radlatlon2spat(nTheta,nPhi,nR)
-            vras(nTheta)   =vras(nTheta)   +   vr(nelem)
-            cvras(nTheta)  =cvras(nTheta)  +  cvr(nelem)
-            vtas(nTheta)   =vtas(nTheta)   +   vt(nelem)
-            vpas(nTheta)   =vpas(nTheta)   +   vp(nelem)
-            dvrdpas(nTheta)=dvrdpas(nTheta)+dvrdp(nelem)
-            dvpdras(nTheta)=dvpdras(nTheta)+dvpdr(nelem)
-            dvtdras(nTheta)=dvtdras(nTheta)+dvtdr(nelem)
-            dvrdtas(nTheta)=dvrdtas(nTheta)+dvrdt(nelem)
-         end do
-      end do
-      vras(:)   =vras(:)   *phiNorm
-      cvras(:)  =cvras(:)  *phiNorm
-      vtas(:)   =vtas(:)   *phiNorm
-      vpas(:)   =vpas(:)   *phiNorm
-      dvrdpas(:)=dvrdpas(:)*phiNorm
-      dvpdras(:)=dvpdras(:)*phiNorm
-      dvtdras(:)=dvtdras(:)*phiNorm
-      dvrdtas(:)=dvrdtas(:)*phiNorm
 #endif
 
       !--- Helicity:
@@ -1185,36 +1161,36 @@ contains
       !$omp target teams distribute parallel do collapse(2)     &
       !$omp& map(tofrom: HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS) &
       !$omp& private(Hel, Helna, nTh)                           &
-      !$omp& private(vrna, cvrna, vtna, vpna, nelem)            &
+      !$omp& private(vrna, cvrna, vtna, vpna)                   &
       !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)        &
       !$omp& reduction(+:HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS)
 #else
       !$omp parallel do default(shared)                     &
       !$omp& private(nTheta, nTh, nPhi, Hel, Helna)         &
-      !$omp& private(vrna, cvrna, vtna, vpna, nelem)        &
+      !$omp& private(vrna, cvrna, vtna, vpna)               &
       !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)    &
       !$omp& reduction(+:HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS)
 #endif
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nelem=radlatlon2spat(nTheta,nPhi,nR)
             nTh=n_theta_cal2ord(nTheta)
-            vrna   =   vr(nelem)-vras(nTheta)
-            cvrna  =  cvr(nelem)-cvras(nTheta)
-            vtna   =   vt(nelem)-vtas(nTheta)
-            vpna   =   vp(nelem)-vpas(nTheta)
-            dvrdpna=dvrdp(nelem)-dvrdpas(nTheta)
-            dvpdrna=dvpdr(nelem)-beta(nR)*vp(nelem)-dvpdras(nTheta)+ &
+            vrna   =   vr(nTheta,nPhi)-vras(nTheta)
+            cvrna  =  cvr(nTheta,nPhi)-cvras(nTheta)
+            vtna   =   vt(nTheta,nPhi)-vtas(nTheta)
+            vpna   =   vp(nTheta,nPhi)-vpas(nTheta)
+            dvrdpna=dvrdp(nTheta,nPhi)-dvrdpas(nTheta)
+            dvpdrna=dvpdr(nTheta,nPhi)-beta(nR)*vp(nTheta,nPhi)-dvpdras(nTheta)+ &
             &       beta(nR)*vpas(nTheta)
-            dvtdrna=dvtdr(nelem)-beta(nR)*vt(nelem)-dvtdras(nTheta)+ &
+            dvtdrna=dvtdr(nTheta,nPhi)-beta(nR)*vt(nTheta,nPhi)-dvtdras(nTheta)+ &
             &       beta(nR)*vtas(nTheta)
-            dvrdtna=dvrdt(nelem)-dvrdtas(nTheta)
-            Hel    =        or4(nR)*orho2(nR)*vr(nelem)*cvr(nelem) +      &
-            &             or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* (     &
-            &             vt(nelem) *  ( or2(nR)*dvrdp(nelem) -           &
-            &                   dvpdr(nelem) + beta(nR)*vp(nelem) ) +     &
-            &              vp(nelem) * (dvtdr(nelem)-beta(nR)*vt(nelem) - &
-            &                             or2(nR)*dvrdt(nelem) ) )
+            dvrdtna=dvrdt(nTheta,nPhi)-dvrdtas(nTheta)
+            Hel    =        or4(nR)*orho2(nR)*vr(nTheta,nPhi)*cvr(nTheta,nPhi) +  &
+            &             or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* (             &
+            &             vt(nTheta,nPhi) *  ( or2(nR)*dvrdp(nTheta,nPhi) -       &
+            &                   dvpdr(nTheta,nPhi) + beta(nR)*vp(nTheta,nPhi) ) + &
+            &              vp(nTheta,nPhi) * ( dvtdr(nTheta,nPhi) -               &
+            &                                          beta(nR)*vt(nTheta,nPhi) - &
+            &                                        or2(nR)*dvrdt(nTheta,nPhi) ) )
             Helna  =                    or4(nR)*orho2(nR)*vrna*cvrna + &
             &              or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* ( &
             &                       vtna*( or2(nR)*dvrdpna-dvpdrna ) + &
@@ -1250,255 +1226,144 @@ contains
 
    end subroutine get_helicity
 !----------------------------------------------------------------------------------
-   subroutine get_helicity_batch(vr,vt,vp,cvr,dvrdt,dvrdp,dvtdr,dvpdr,nR)
+   subroutine get_helicity_batch(vr,vt,vp,cvr,dvrdt,dvrdp,dvtdr,dvpdr)
       !
       ! This subroutine calculates axisymmetric and non-axisymmetric contributions to
-      ! kinetic helicity and squared helicity.
+      ! kinetic helicity and squared helicity (batched version).
       !
 
       !-- Input of variables
-      integer,  intent(in) :: nR
-      real(cp), intent(in) :: vr(:,:,:),vt(:,:,:),vp(:,:,:)
-      real(cp), intent(in) :: cvr(:,:,:),dvrdt(:,:,:),dvrdp(:,:,:)
-      real(cp), intent(in) :: dvtdr(:,:,:),dvpdr(:,:,:)
+      real(cp), intent(in) :: vr(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: vt(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: vp(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: cvr(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: dvrdt(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: dvrdp(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: dvtdr(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: dvpdr(nlat_padded,nRstart:nRstop,n_phi_max)
 
       !-- Local variables:
-      integer :: nTheta,nTh,nPhi,nelem
+      integer :: nTheta,nTh,nPhi,nR
       real(cp) :: Helna,Hel,phiNorm
-      real(cp) :: HelAS(2), Hel2AS(2), HelnaAS(2), Helna2AS(2), HelEAAS
       real(cp) :: vrna,vtna,vpna,cvrna,dvrdtna,dvrdpna,dvtdrna,dvpdrna
-      real(cp) :: vras(n_theta_max),vtas(n_theta_max),vpas(n_theta_max)
-      real(cp) :: cvras(n_theta_max),dvrdtas(n_theta_max),dvrdpas(n_theta_max)
-      real(cp) :: dvtdras(n_theta_max),dvpdras(n_theta_max)
+      real(cp) :: vras(n_theta_max,nRstart:nRstop),vtas(n_theta_max,nRstart:nRstop)
+      real(cp) :: vpas(n_theta_max,nRstart:nRstop),cvras(n_theta_max,nRstart:nRstop)
+      real(cp) :: dvrdtas(n_theta_max,nRstart:nRstop),dvrdpas(n_theta_max,nRstart:nRstop)
+      real(cp) :: dvtdras(n_theta_max,nRstart:nRstop),dvpdras(n_theta_max,nRstart:nRstop)
 
       !-- Remark: 2pi not used the normalization below
       !-- this is why we have a 2pi factor after radial integration
       !-- in the subroutine outHelicity()
       phiNorm=one/real(n_phi_max,cp)
-      HelAS(:)   =0.0_cp
-      Hel2AS(:)  =0.0_cp
-      HelnaAS(:) =0.0_cp
-      Helna2AS(:)=0.0_cp
-      HelEAAS    =0.0_cp
+      HelASr(:,:)   =0.0_cp
+      Hel2ASr(:,:)  =0.0_cp
+      HelnaASr(:,:) =0.0_cp
+      Helna2ASr(:,:)=0.0_cp
+      HelEAASr(:)   =0.0_cp
 
-      vras(:)   =0.0_cp
-      cvras(:)  =0.0_cp
-      vtas(:)   =0.0_cp
-      vpas(:)   =0.0_cp
-      dvrdpas(:)=0.0_cp
-      dvpdras(:)=0.0_cp
-      dvtdras(:)=0.0_cp
-      dvrdtas(:)=0.0_cp
+      vras(:,:)   =0.0_cp
+      cvras(:,:)  =0.0_cp
+      vtas(:,:)   =0.0_cp
+      vpas(:,:)   =0.0_cp
+      dvrdpas(:,:)=0.0_cp
+      dvpdras(:,:)=0.0_cp
+      dvtdras(:,:)=0.0_cp
+      dvrdtas(:,:)=0.0_cp
 
+#ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
       !$omp target update to(vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
-      !$omp target !teams distribute parallel do collapse(2) !-- TODO: parallelisation makes testOutputs fails (may be du to reduction)
+      !$omp target teams distribute parallel do collapse(2) &
+      !$omp reduction(+:vras,cvras,vtas,vpas,dvrdpas,dvpdras,dvtdras,dvrdtas)
+#else
+      !$omp parallel do default(shared) &
+      !$omp private(nR,nTheta)          &
+      !$omp reduction(+:vras,cvras,vtas,vpas,dvrdpas,dvpdras,dvtdras,dvrdtas)
+#endif
       do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            nelem=radlatlon2spat(nTheta,nPhi,nR)
-            vras(nTheta)   =vras(nTheta)   +   vr(nelem)
-            cvras(nTheta)  =cvras(nTheta)  +  cvr(nelem)
-            vtas(nTheta)   =vtas(nTheta)   +   vt(nelem)
-            vpas(nTheta)   =vpas(nTheta)   +   vp(nelem)
-            dvrdpas(nTheta)=dvrdpas(nTheta)+dvrdp(nelem)
-            dvpdras(nTheta)=dvpdras(nTheta)+dvpdr(nelem)
-            dvtdras(nTheta)=dvtdras(nTheta)+dvtdr(nelem)
-            dvrdtas(nTheta)=dvrdtas(nTheta)+dvrdt(nelem)
+         do nR=nRstart,nRstop
+            do nTheta=1,n_theta_max
+               vras(nTheta,nR)   =vras(nTheta,nR)   +   vr(nTheta,nR,nPhi)*phiNorm
+               cvras(nTheta,nR)  =cvras(nTheta,nR)  +  cvr(nTheta,nR,nPhi)*phiNorm
+               vtas(nTheta,nR)   =vtas(nTheta,nR)   +   vt(nTheta,nR,nPhi)*phiNorm
+               vpas(nTheta,nR)   =vpas(nTheta,nR)   +   vp(nTheta,nR,nPhi)*phiNorm
+               dvrdpas(nTheta,nR)=dvrdpas(nTheta,nR)+dvrdp(nTheta,nR,nPhi)*phiNorm
+               dvpdras(nTheta,nR)=dvpdras(nTheta,nR)+dvpdr(nTheta,nR,nPhi)*phiNorm
+               dvtdras(nTheta,nR)=dvtdras(nTheta,nR)+dvtdr(nTheta,nR,nPhi)*phiNorm
+               dvrdtas(nTheta,nR)=dvrdtas(nTheta,nR)+dvrdt(nTheta,nR,nPhi)*phiNorm
+            end do
          end do
       end do
-      !$omp end target !teams distribute parallel do
-
-      !$omp target teams distribute parallel do
-      do nTheta=1,n_theta_max
-         vras(nTheta)   =vras(nTheta)   *phiNorm
-         cvras(nTheta)  =cvras(nTheta)  *phiNorm
-         vtas(nTheta)   =vtas(nTheta)   *phiNorm
-         vpas(nTheta)   =vpas(nTheta)   *phiNorm
-         dvrdpas(nTheta)=dvrdpas(nTheta)*phiNorm
-         dvpdras(nTheta)=dvpdras(nTheta)*phiNorm
-         dvtdras(nTheta)=dvtdras(nTheta)*phiNorm
-         dvrdtas(nTheta)=dvrdtas(nTheta)*phiNorm
-      end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
 
       !--- Helicity:
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)     &
       !$omp& map(tofrom: HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS) &
       !$omp& private(Hel, Helna, nTh)                           &
-      !$omp& private(vrna, cvrna, vtna, vpna, nelem)            &
+      !$omp& private(vrna, cvrna, vtna, vpna)                   &
       !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)        &
-      !$omp& reduction(+:HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS)
+      !$omp& reduction(+:HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
+#else
+      !$omp parallel do default(shared)                                 &
+      !$omp private(nR,nTheta,nTh,vrna,cvrna,vtna,vpna,dvrdpna,dvpdrna) &
+      !$omp private(dvtdrna,dvrdtna,Hel,Helna)                          &
+      !$omp reduction(+:HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
+#endif
       do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            nelem=radlatlon2spat(nTheta,nPhi,nR)
-            nTh=n_theta_cal2ord(nTheta)
-            vrna   =   vr(nelem)-vras(nTheta)
-            cvrna  =  cvr(nelem)-cvras(nTheta)
-            vtna   =   vt(nelem)-vtas(nTheta)
-            vpna   =   vp(nelem)-vpas(nTheta)
-            dvrdpna=dvrdp(nelem)-dvrdpas(nTheta)
-            dvpdrna=dvpdr(nelem)-beta(nR)*vp(nelem)-dvpdras(nTheta)+ &
-            &       beta(nR)*vpas(nTheta)
-            dvtdrna=dvtdr(nelem)-beta(nR)*vt(nelem)-dvtdras(nTheta)+ &
-            &       beta(nR)*vtas(nTheta)
-            dvrdtna=dvrdt(nelem)-dvrdtas(nTheta)
-            Hel    =        or4(nR)*orho2(nR)*vr(nelem)*cvr(nelem) +      &
-            &             or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* (     &
-            &             vt(nelem) *  ( or2(nR)*dvrdp(nelem) -           &
-            &                   dvpdr(nelem) + beta(nR)*vp(nelem) ) +     &
-            &              vp(nelem) * (dvtdr(nelem)-beta(nR)*vt(nelem) - &
-            &                             or2(nR)*dvrdt(nelem) ) )
-            Helna  =                    or4(nR)*orho2(nR)*vrna*cvrna + &
-            &              or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* ( &
-            &                       vtna*( or2(nR)*dvrdpna-dvpdrna ) + &
-            &                       vpna*( dvtdrna-or2(nR)*dvrdtna ) )
+         do nR=nRstart,nRstop
+            do nTheta=1,n_theta_max
+               nTh=n_theta_cal2ord(nTheta)
+               vrna   =   vr(nTheta,nR,nPhi)-vras(nTheta,nR)
+               cvrna  =  cvr(nTheta,nR,nPhi)-cvras(nTheta,nR)
+               vtna   =   vt(nTheta,nR,nPhi)-vtas(nTheta,nR)
+               vpna   =   vp(nTheta,nR,nPhi)-vpas(nTheta,nR)
+               dvrdpna=dvrdp(nTheta,nR,nPhi)-dvrdpas(nTheta,nR)
+               dvpdrna=dvpdr(nTheta,nR,nPhi)-beta(nR)*vp(nTheta,nR,nPhi)-&
+               &       dvpdras(nTheta,nR)+beta(nR)*vpas(nTheta,nR)
+               dvtdrna=dvtdr(nTheta,nR,nPhi)-beta(nR)*vt(nTheta,nR,nPhi)-&
+               &       dvtdras(nTheta,nR)+beta(nR)*vtas(nTheta,nR)
+               dvrdtna=dvrdt(nTheta,nR,nPhi)-dvrdtas(nTheta,nR)
+               Hel    =or4(nR)*orho2(nR)*vr(nTheta,nR,nPhi)*cvr(nTheta,nR,nPhi) +      &
+               &             or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* (               &
+               &             vt(nTheta,nR,nPhi) *  ( or2(nR)*dvrdp(nTheta,nR,nPhi) -   &
+               &                 dvpdr(nTheta,nR,nPhi)+beta(nR)*vp(nTheta,nR,nPhi) ) + &
+               &              vp(nTheta,nR,nPhi) * (dvtdr(nTheta,nR,nPhi)-             &
+               &                                    beta(nR)*vt(nTheta,nR,nPhi) -      &
+               &                                  or2(nR)*dvrdt(nTheta,nR,nPhi) ) )
+               Helna  =                    or4(nR)*orho2(nR)*vrna*cvrna + &
+               &              or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* ( &
+               &                       vtna*( or2(nR)*dvrdpna-dvpdrna ) + &
+               &                       vpna*( dvtdrna-or2(nR)*dvrdtna ) )
 
-            if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
-               HelAS(1)   =HelAS(1) +phiNorm*gauss(nTheta)*Hel
-               Hel2AS(1)  =Hel2AS(1)+phiNorm*gauss(nTheta)*Hel*Hel
-               HelnaAS(1) =HelnaAS(1) +phiNorm*gauss(nTheta)*Helna
-               Helna2AS(1)=Helna2AS(1)+phiNorm*gauss(nTheta)*Helna*Helna
-               HelEAAS    =HelEAAS +phiNorm*gauss(nTheta)*Hel
-            else
-               HelAS(2)   =HelAS(2) +phiNorm*gauss(nTheta)*Hel
-               Hel2AS(2)  =Hel2AS(2)+phiNorm*gauss(nTheta)*Hel*Hel
-               HelnaAS(2) =HelnaAS(2) +phiNorm*gauss(nTheta)*Helna
-               Helna2AS(2)=Helna2AS(2)+phiNorm*gauss(nTheta)*Helna*Helna
-               HelEAAS    =HelEAAS -phiNorm*gauss(nTheta)*Hel
-            end if
+               if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
+                  HelASr(nR,1)   =HelASr(nR,1)   +phiNorm*gauss(nTheta)*Hel
+                  Hel2ASr(nR,1)  =Hel2ASr(nR,1)  +phiNorm*gauss(nTheta)*Hel*Hel
+                  HelnaASr(nR,1) =HelnaASr(nR,1) +phiNorm*gauss(nTheta)*Helna
+                  Helna2ASr(nR,1)=Helna2ASr(nR,1)+phiNorm*gauss(nTheta)*Helna*Helna
+                  HelEAASr(nR)   =HelEAASr(nR)   +phiNorm*gauss(nTheta)*Hel
+               else
+                  HelASr(nR,2)   =HelASr(nR,2)   +phiNorm*gauss(nTheta)*Hel
+                  Hel2ASr(nR,2)  =Hel2ASr(nR,2)  +phiNorm*gauss(nTheta)*Hel*Hel
+                  HelnaASr(nR,2) =HelnaASr(nR,2) +phiNorm*gauss(nTheta)*Helna
+                  Helna2ASr(nR,2)=Helna2ASr(nR,2)+phiNorm*gauss(nTheta)*Helna*Helna
+                  HelEAASr(nR)   =HelEAASr(nR)   -phiNorm*gauss(nTheta)*Hel
+               end if
+            end do
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
       !$omp target exit data map(delete: vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
-
-      HelASr(nR,:)   =HelAS(:)
-      Hel2ASr(nR,:)  =Hel2AS(:)
-      HelnaASr(nR,:) =HelnaAS(:)
-      Helna2ASr(nR,:)=Helna2AS(:)
-      HelEAASr(nR)   =HelEAAS
+#else
+      !$omp end parallel do
+#endif
 
    end subroutine get_helicity_batch
-!----------------------------------------------------------------------------------
-#else
-!----------------------------------------------------------------------------------
-   subroutine get_helicity(vr,vt,vp,cvr,dvrdt,dvrdp,dvtdr,dvpdr,nR)
-      !
-      ! This subroutine calculates axisymmetric and non-axisymmetric contributions to
-      ! kinetic helicity and squared helicity.
-      !
-
-      !-- Input of variables
-      integer,  intent(in) :: nR
-      real(cp), intent(in) :: vr(*),vt(*),vp(*)
-      real(cp), intent(in) :: cvr(*),dvrdt(*),dvrdp(*)
-      real(cp), intent(in) :: dvtdr(*),dvpdr(*)
-
-      !-- Local variables:
-      integer :: nTheta,nTh,nPhi,nelem
-      real(cp) :: Helna,Hel,phiNorm
-      real(cp) :: HelAS(2), Hel2AS(2), HelnaAS(2), Helna2AS(2), HelEAAS
-      real(cp) :: vrna,vtna,vpna,cvrna,dvrdtna,dvrdpna,dvtdrna,dvpdrna
-      real(cp) :: vras(n_theta_max),vtas(n_theta_max),vpas(n_theta_max)
-      real(cp) :: cvras(n_theta_max),dvrdtas(n_theta_max),dvrdpas(n_theta_max)
-      real(cp) :: dvtdras(n_theta_max),dvpdras(n_theta_max)
-
-      !-- Remark: 2pi not used the normalization below
-      !-- this is why we have a 2pi factor after radial integration
-      !-- in the subroutine outHelicity()
-      phiNorm=one/real(n_phi_max,cp)
-      HelAS(:)   =0.0_cp
-      Hel2AS(:)  =0.0_cp
-      HelnaAS(:) =0.0_cp
-      Helna2AS(:)=0.0_cp
-      HelEAAS    =0.0_cp
-
-      vras(:)   =0.0_cp
-      cvras(:)  =0.0_cp
-      vtas(:)   =0.0_cp
-      vpas(:)   =0.0_cp
-      dvrdpas(:)=0.0_cp
-      dvpdras(:)=0.0_cp
-      dvtdras(:)=0.0_cp
-      dvrdtas(:)=0.0_cp
-      do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            nelem=radlatlon2spat(nTheta,nPhi,nR)
-            vras(nTheta)   =vras(nTheta)   +   vr(nelem)
-            cvras(nTheta)  =cvras(nTheta)  +  cvr(nelem)
-            vtas(nTheta)   =vtas(nTheta)   +   vt(nelem)
-            vpas(nTheta)   =vpas(nTheta)   +   vp(nelem)
-            dvrdpas(nTheta)=dvrdpas(nTheta)+dvrdp(nelem)
-            dvpdras(nTheta)=dvpdras(nTheta)+dvpdr(nelem)
-            dvtdras(nTheta)=dvtdras(nTheta)+dvtdr(nelem)
-            dvrdtas(nTheta)=dvrdtas(nTheta)+dvrdt(nelem)
-         end do
-      end do
-      vras(:)   =vras(:)   *phiNorm
-      cvras(:)  =cvras(:)  *phiNorm
-      vtas(:)   =vtas(:)   *phiNorm
-      vpas(:)   =vpas(:)   *phiNorm
-      dvrdpas(:)=dvrdpas(:)*phiNorm
-      dvpdras(:)=dvpdras(:)*phiNorm
-      dvtdras(:)=dvtdras(:)*phiNorm
-      dvrdtas(:)=dvrdtas(:)*phiNorm
-
-      !--- Helicity:
-      !--- Helicity:
-      !$omp parallel do default(shared)                     &
-      !$omp& private(nTheta, nTh, nPhi, Hel, Helna)         &
-      !$omp& private(vrna, cvrna, vtna, vpna, nelem)        &
-      !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)    &
-      !$omp& reduction(+:HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS)
-      do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            nelem=radlatlon2spat(nTheta,nPhi,nR)
-            nTh=n_theta_cal2ord(nTheta)
-            vrna   =   vr(nelem)-vras(nTheta)
-            cvrna  =  cvr(nelem)-cvras(nTheta)
-            vtna   =   vt(nelem)-vtas(nTheta)
-            vpna   =   vp(nelem)-vpas(nTheta)
-            dvrdpna=dvrdp(nelem)-dvrdpas(nTheta)
-            dvpdrna=dvpdr(nelem)-beta(nR)*vp(nelem)-dvpdras(nTheta)+ &
-            &       beta(nR)*vpas(nTheta)
-            dvtdrna=dvtdr(nelem)-beta(nR)*vt(nelem)-dvtdras(nTheta)+ &
-            &       beta(nR)*vtas(nTheta)
-            dvrdtna=dvrdt(nelem)-dvrdtas(nTheta)
-            Hel    =        or4(nR)*orho2(nR)*vr(nelem)*cvr(nelem) +      &
-            &             or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* (     &
-            &             vt(nelem) *  ( or2(nR)*dvrdp(nelem) -           &
-            &                   dvpdr(nelem) + beta(nR)*vp(nelem) ) +     &
-            &              vp(nelem) * (dvtdr(nelem)-beta(nR)*vt(nelem) - &
-            &                             or2(nR)*dvrdt(nelem) ) )
-            Helna  =                    or4(nR)*orho2(nR)*vrna*cvrna + &
-            &              or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* ( &
-            &                       vtna*( or2(nR)*dvrdpna-dvpdrna ) + &
-            &                       vpna*( dvtdrna-or2(nR)*dvrdtna ) )
-
-            if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
-               HelAS(1)   =HelAS(1) +phiNorm*gauss(nTheta)*Hel
-               Hel2AS(1)  =Hel2AS(1)+phiNorm*gauss(nTheta)*Hel*Hel
-               HelnaAS(1) =HelnaAS(1) +phiNorm*gauss(nTheta)*Helna
-               Helna2AS(1)=Helna2AS(1)+phiNorm*gauss(nTheta)*Helna*Helna
-               HelEAAS    =HelEAAS +phiNorm*gauss(nTheta)*Hel
-            else
-               HelAS(2)   =HelAS(2) +phiNorm*gauss(nTheta)*Hel
-               Hel2AS(2)  =Hel2AS(2)+phiNorm*gauss(nTheta)*Hel*Hel
-               HelnaAS(2) =HelnaAS(2) +phiNorm*gauss(nTheta)*Helna
-               Helna2AS(2)=Helna2AS(2)+phiNorm*gauss(nTheta)*Helna*Helna
-               HelEAAS    =HelEAAS -phiNorm*gauss(nTheta)*Hel
-            end if
-         end do
-      end do
-      !$omp end parallel do
-
-      HelASr(nR,:)   =HelAS(:)
-      Hel2ASr(nR,:)  =Hel2AS(:)
-      HelnaASr(nR,:) =HelnaAS(:)
-      Helna2ASr(nR,:)=Helna2AS(:)
-      HelEAASr(nR)   =HelEAAS
-
-   end subroutine get_helicity
-#endif
 !----------------------------------------------------------------------------------
    subroutine get_onset(time, w, dt, l_log, nLogs)
       !

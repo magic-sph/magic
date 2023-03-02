@@ -66,11 +66,7 @@ module rIter_batched_mod
    use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary
 #endif
    use power, only: get_visc_heat_batch
-#ifdef WITH_OMP_GPU
    use outMisc_mod, only: get_ekin_solid_liquid_batch, get_helicity_batch, get_hemi_batch
-#else
-   use outMisc_mod, only: get_ekin_solid_liquid_batch, get_hemi_batch, get_helicity
-#endif
 #ifdef WITH_OMP_GPU
    use outPar_mod, only: get_fluxes_batch, get_nlBlayers_batch, get_perpPar_batch
 #else
@@ -328,6 +324,13 @@ contains
          if ( l_mag ) call get_hemi_batch(this%gsa%brc,this%gsa%btc,this%gsa%bpc,'B')
       end if
 
+      !--------- Helicity output:
+      if ( lHelCalc ) then
+         call get_helicity_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
+              &                  this%gsa%cvrc,this%gsa%dvrdtc,this%gsa%dvrdpc,  &
+              &                  this%gsa%dvtdrc,this%gsa%dvpdrc)
+      end if
+
       do nR=nRstart,nRstop
          nBc = 0
          if ( nR == n_r_cmb ) then
@@ -443,19 +446,6 @@ contains
 
          if ( l_probe_out ) then
             call probe_out(time, nR, this%gsa%vpc, this%gsa%brc, this%gsa%btc) !-- Keep on CPU
-         end if
-
-         !--------- Helicity output:
-         if ( lHelCalc ) then
-#ifdef WITH_OMP_GPU
-            call get_helicity_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
-                 &                  this%gsa%cvrc,this%gsa%dvrdtc,this%gsa%dvrdpc,  &
-                 &                  this%gsa%dvtdrc,this%gsa%dvpdrc,nR)
-#else
-            call get_helicity(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
-                 &            this%gsa%cvrc,this%gsa%dvrdtc,this%gsa%dvrdpc,  &
-                 &            this%gsa%dvtdrc,this%gsa%dvpdrc,nR)
-#endif
          end if
 
 #ifdef WITH_OMP_GPU
