@@ -328,7 +328,7 @@ if(USE_SHTNS MATCHES yes)
       find_library(SHTNS shtns_cuda HINTS $ENV{HOME}/local/lib)
    else()
       if(USE_OMP)
-         find_library(SHTNS shtns_cuda HINTS $ENV{HOME}/local/lib) #Need for batched version
+         find_library(SHTNS shtns_omp HINTS $ENV{HOME}/local/lib) #Need for batched version
       else()
          find_library(SHTNS shtns HINTS $ENV{HOME}/local/lib)
       endif(USE_OMP)
