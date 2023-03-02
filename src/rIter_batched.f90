@@ -69,7 +69,7 @@ module rIter_batched_mod
 #ifdef WITH_OMP_GPU
    use outMisc_mod, only: get_ekin_solid_liquid_batch, get_helicity_batch, get_hemi_batch
 #else
-   use outMisc_mod, only: get_ekin_solid_liquid, get_hemi, get_helicity
+   use outMisc_mod, only: get_ekin_solid_liquid_batch, get_hemi, get_helicity
 #endif
 #ifdef WITH_OMP_GPU
    use outPar_mod, only: get_fluxes_batch, get_nlBlayers_batch, get_perpPar_batch
@@ -316,6 +316,12 @@ contains
               &                   this%gsa%dvpdrc,this%gsa%dvpdpc)
       end if
 
+      !-- Kinetic energy in the solid and liquid phases
+      if ( l_phase_field ) then
+         call get_ekin_solid_liquid_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
+              &                           this%gsa%phic)
+      end if
+
       do nR=nRstart,nRstop
          nBc = 0
          if ( nR == n_r_cmb ) then
@@ -492,16 +498,6 @@ contains
          end if
 #endif
 
-         !-- Kinetic energy in the solid and liquid phases
-         if ( l_phase_field ) then
-#ifdef WITH_OMP_GPU
-            call get_ekin_solid_liquid_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
-                 &                           this%gsa%phic,nR)
-#else
-            call get_ekin_solid_liquid(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
-                 &                     this%gsa%phic,nR)
-#endif
-         end if
 
 #ifdef WITH_OMP_GPU
          !-- Kinetic energy parallel and perpendicular to rotation axis

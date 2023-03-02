@@ -62,7 +62,7 @@ module outMisc_mod
 #else
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
    &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
-   &         get_onset
+   &         get_onset, get_ekin_solid_liquid_batch
 #endif
 
 contains
@@ -814,6 +814,123 @@ contains
 
    end subroutine outPhase
 !----------------------------------------------------------------------------------
+   subroutine get_ekin_solid_liquid(vr,vt,vp,phi,nR)
+      !
+      ! This subroutine computes the kinetic energy content in the solid
+      ! and in the liquid phase when phase field is employed.
+      !
+
+      !-- Input variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:),phi(:,:)
+
+      !-- Output variables:
+
+      !-- Local variables:
+      real(cp) :: phiNorm, ekin
+      real(cp) :: ekinS ! Kinetic energy in the solid phase
+      real(cp) :: ekinL ! Kinetic energy in the liquid phase
+      real(cp) :: volS  ! volume of the solid
+      integer :: nTheta,nPhi
+
+      phiNorm=two*pi/real(n_phi_max,cp)
+      ekinL=0.0_cp
+      ekinS=0.0_cp
+      volS =0.0_cp
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2) &
+      !$omp& private(ekin)  &
+      !$omp& map(tofrom: ekinS,ekinL,volS) reduction(+:ekinS,ekinL,volS)
+#else
+      !$omp parallel do default(shared)   &
+      !$omp& private(nTheta,nPhi,ekin)    &
+      !$omp& reduction(+:ekinS,ekinL,volS)
+#endif
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            ekin = half*orho1(nR)*(                                             &
+            &                 or2(nR)*        vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            &          O_sin_theta_E2(nTheta)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
+            &          O_sin_theta_E2(nTheta)*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
+
+            if ( phi(nTheta,nPhi) >= half ) then
+               ekinS=ekinS+phiNorm*gauss(nTheta)*ekin
+               volS =volS +phiNorm*gauss(nTheta)*r(nR)*r(nR)
+            else
+               ekinL=ekinL+phiNorm*gauss(nTheta)*ekin
+            end if
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+      ekinSr(nR)=ekinS
+      ekinLr(nR)=ekinL
+      volSr(nR) =volS
+
+   end subroutine get_ekin_solid_liquid
+!----------------------------------------------------------------------------------
+   subroutine get_ekin_solid_liquid_batch(vr,vt,vp,phi)
+      !
+      ! This subroutine computes the kinetic energy content in the solid
+      ! and in the liquid phase when phase field is employed (batched version)
+      !
+
+      !-- Input variables
+      real(cp), intent(in) :: vr(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: vt(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: vp(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: phi(nlat_padded,nRstart:nRstop,n_phi_max)
+
+      !-- Output variables:
+
+      !-- Local variables:
+      real(cp) :: phiNorm, ekin
+      integer :: nR,nTheta,nPhi
+
+      phiNorm=two*pi/real(n_phi_max,cp)
+      ekinLr(:)=0.0_cp
+      ekinSr(:)=0.0_cp
+      volSr(:) =0.0_cp
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2) &
+      !$omp& private(ekin)  &
+      !$omp& map(tofrom: ekinSr,ekinLr,volSr) reduction(+:ekinSr,ekinLr,volSr)
+#else
+      !$omp parallel do default(shared) &
+      !$omp private(nR,nTheta,ekin) &
+      !$omp reduction(+:ekinSr,volSr,ekinLr)
+#endif
+      do nPhi=1,n_phi_max
+         do nR=nRstart,nRstop
+            do nTheta=1,n_theta_max
+               ekin = half*orho1(nR)*(                                               &
+               &             or2(nR)*        vr(nTheta,nR,nPhi)*vr(nTheta,nR,nPhi) + &
+               &      O_sin_theta_E2(nTheta)*vt(nTheta,nR,nPhi)*vt(nTheta,nR,nPhi) + &
+               &      O_sin_theta_E2(nTheta)*vp(nTheta,nR,nPhi)*vp(nTheta,nR,nPhi) )
+
+               if ( phi(nTheta,nR,nPhi) >= half ) then
+                  ekinSr(nR)=ekinSr(nR)+phiNorm*gauss(nTheta)*ekin
+                  volSr(nR) =volSr(nR) +phiNorm*gauss(nTheta)*r(nR)*r(nR)
+               else
+                  ekinLr(nR)=ekinLr(nR)+phiNorm*gauss(nTheta)*ekin
+               end if
+            end do
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+   end subroutine get_ekin_solid_liquid_batch
+!-----------------------------------------------------------------------------------
 #ifdef WITH_OMP_GPU
    !-- TODO: Need to duplicate these routines since CRAY CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
    !-- assumed size arrays in OpenMP target regions
@@ -1056,69 +1173,6 @@ contains
 
    end subroutine get_helicity
 !----------------------------------------------------------------------------------
-   subroutine get_ekin_solid_liquid(vr,vt,vp,phi,nR)
-      !
-      ! This subroutine computes the kinetic energy content in the solid
-      ! and in the liquid phase when phase field is employed.
-      !
-
-      !-- Input variables
-      integer,  intent(in) :: nR
-      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:),phi(:,:)
-
-      !-- Output variables:
-
-      !-- Local variables:
-      real(cp) :: phiNorm, ekin
-      real(cp) :: ekinS ! Kinetic energy in the solid phase
-      real(cp) :: ekinL ! Kinetic energy in the liquid phase
-      real(cp) :: volS  ! volume of the solid
-      integer :: nTheta,nPhi,nelem
-
-      phiNorm=two*pi/real(n_phi_max,cp)
-      ekinL=0.0_cp
-      ekinS=0.0_cp
-      volS =0.0_cp
-
-#ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do collapse(2) &
-      !$omp& private(nelem,ekin)  &
-      !$omp& map(tofrom: ekinS,ekinL,volS) reduction(+:ekinS,ekinL,volS)
-#else
-      !$omp parallel do default(shared)       &
-      !$omp& private(nTheta,nelem,nPhi,ekin)  &
-      !$omp& reduction(+:ekinS,ekinL,volS)
-#endif
-      do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            nelem = radlatlon2spat(nTheta,nPhi,nR)
-
-            ekin = half*orho1(nR)*(                                 &
-            &                 or2(nR)*        vr(nelem)*vr(nelem) + &
-            &          O_sin_theta_E2(nTheta)*vt(nelem)*vt(nelem) + &
-            &          O_sin_theta_E2(nTheta)*vp(nelem)*vp(nelem) )
-
-            if ( phi(nelem) >= half ) then
-               ekinS=ekinS+phiNorm*gauss(nTheta)*ekin
-               volS =volS +phiNorm*gauss(nTheta)*r(nR)*r(nR)
-            else
-               ekinL=ekinL+phiNorm*gauss(nTheta)*ekin
-            end if
-         end do
-      end do
-#ifdef WITH_OMP_GPU
-      !$omp end target teams distribute parallel do
-#else
-      !$omp end parallel do
-#endif
-
-      ekinSr(nR)=ekinS
-      ekinLr(nR)=ekinL
-      volSr(nR) =volS
-
-   end subroutine get_ekin_solid_liquid
-
-!----------------------------------------------------------------------------------
    subroutine get_hemi_batch(vr,vt,vp,nR,field)
       !
       !   This subroutine is used to compute kinetic or magnetic energy
@@ -1310,57 +1364,6 @@ contains
 
    end subroutine get_helicity_batch
 !----------------------------------------------------------------------------------
-   subroutine get_ekin_solid_liquid_batch(vr,vt,vp,phi,nR)
-      !
-      ! This subroutine computes the kinetic energy content in the solid
-      ! and in the liquid phase when phase field is employed.
-      !
-
-      !-- Input variables
-      integer,  intent(in) :: nR
-      real(cp), intent(in) :: vr(:,:,:),vt(:,:,:),vp(:,:,:),phi(:,:,:)
-
-      !-- Output variables:
-
-      !-- Local variables:
-      real(cp) :: phiNorm, ekin
-      real(cp) :: ekinS ! Kinetic energy in the solid phase
-      real(cp) :: ekinL ! Kinetic energy in the liquid phase
-      real(cp) :: volS  ! volume of the solid
-      integer :: nTheta,nPhi,nelem
-
-      phiNorm=two*pi/real(n_phi_max,cp)
-      ekinL=0.0_cp
-      ekinS=0.0_cp
-      volS =0.0_cp
-
-      !$omp target teams distribute parallel do collapse(2) &
-      !$omp& private(nelem,ekin)  &
-      !$omp& map(tofrom: ekinS,ekinL,volS) reduction(+:ekinS,ekinL,volS)
-      do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            nelem = radlatlon2spat(nTheta,nPhi,nR)
-
-            ekin = half*orho1(nR)*(                                 &
-            &                 or2(nR)*        vr(nelem)*vr(nelem) + &
-            &          O_sin_theta_E2(nTheta)*vt(nelem)*vt(nelem) + &
-            &          O_sin_theta_E2(nTheta)*vp(nelem)*vp(nelem) )
-
-            if ( phi(nelem) >= half ) then
-               ekinS=ekinS+phiNorm*gauss(nTheta)*ekin
-               volS =volS +phiNorm*gauss(nTheta)*r(nR)*r(nR)
-            else
-               ekinL=ekinL+phiNorm*gauss(nTheta)*ekin
-            end if
-         end do
-      end do
-      !$omp end target teams distribute parallel do
-
-      ekinSr(nR)=ekinS
-      ekinLr(nR)=ekinL
-      volSr(nR) =volS
-
-   end subroutine get_ekin_solid_liquid_batch
 #else
 !----------------------------------------------------------------------------------
    subroutine get_hemi(vr,vt,vp,nR,field)
@@ -1540,58 +1543,6 @@ contains
       HelEAASr(nR)   =HelEAAS
 
    end subroutine get_helicity
-!----------------------------------------------------------------------------------
-   subroutine get_ekin_solid_liquid(vr,vt,vp,phi,nR)
-      !
-      ! This subroutine computes the kinetic energy content in the solid
-      ! and in the liquid phase when phase field is employed.
-      !
-
-      !-- Input variables
-      integer,  intent(in) :: nR
-      real(cp), intent(in) :: vr(*),vt(*),vp(*),phi(*)
-
-      !-- Output variables:
-
-      !-- Local variables:
-      real(cp) :: phiNorm, ekin
-      real(cp) :: ekinS ! Kinetic energy in the solid phase
-      real(cp) :: ekinL ! Kinetic energy in the liquid phase
-      real(cp) :: volS  ! volume of the solid
-      integer :: nTheta,nPhi,nelem
-
-      phiNorm=two*pi/real(n_phi_max,cp)
-      ekinL=0.0_cp
-      ekinS=0.0_cp
-      volS =0.0_cp
-
-      !$omp parallel do default(shared)       &
-      !$omp& private(nTheta,nelem,nPhi,ekin)  &
-      !$omp& reduction(+:ekinS,ekinL,volS)
-      do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            nelem = radlatlon2spat(nTheta,nPhi,nR)
-
-            ekin = half*orho1(nR)*(                                 &
-            &                 or2(nR)*        vr(nelem)*vr(nelem) + &
-            &          O_sin_theta_E2(nTheta)*vt(nelem)*vt(nelem) + &
-            &          O_sin_theta_E2(nTheta)*vp(nelem)*vp(nelem) )
-
-            if ( phi(nelem) >= half ) then
-               ekinS=ekinS+phiNorm*gauss(nTheta)*ekin
-               volS =volS +phiNorm*gauss(nTheta)*r(nR)*r(nR)
-            else
-               ekinL=ekinL+phiNorm*gauss(nTheta)*ekin
-            end if
-         end do
-      end do
-      !$omp end parallel do
-
-      ekinSr(nR)=ekinS
-      ekinLr(nR)=ekinL
-      volSr(nR) =volS
-
-   end subroutine get_ekin_solid_liquid
 #endif
 !----------------------------------------------------------------------------------
    subroutine get_onset(time, w, dt, l_log, nLogs)
