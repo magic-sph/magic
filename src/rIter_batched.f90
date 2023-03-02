@@ -70,7 +70,7 @@ module rIter_batched_mod
 #ifdef WITH_OMP_GPU
    use outPar_mod, only: get_fluxes_batch, get_nlBlayers_batch, get_perpPar_batch
 #else
-   use outPar_mod, only: get_fluxes, get_nlBlayers, get_perpPar
+   use outPar_mod, only: get_fluxes, get_nlBlayers_batch, get_perpPar
 #endif
 #ifdef WITH_OMP_GPU
    use geos, only: calcGeos_batch
@@ -331,6 +331,13 @@ contains
               &                  this%gsa%dvtdrc,this%gsa%dvpdrc)
       end if
 
+      !-- horizontal velocity :
+      if ( lViscBcCalc ) then
+         call get_nlBlayers_batch(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,    &
+              &                   this%gsa%dvpdrc,this%gsa%drSc,this%gsa%dsdtc, &
+              &                   this%gsa%dsdpc)
+      end if
+
       do nR=nRstart,nRstop
          nBc = 0
          if ( nR == n_r_cmb ) then
@@ -449,13 +456,6 @@ contains
          end if
 
 #ifdef WITH_OMP_GPU
-         !-- horizontal velocity :
-         if ( lViscBcCalc ) then
-            call get_nlBlayers_batch(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,    &
-                 &                   this%gsa%dvpdrc,this%gsa%drSc,this%gsa%dsdtc, &
-                 &                   this%gsa%dsdpc,nR)
-         end if
-
          !-- Radial flux profiles
          if ( lFluxProfCalc ) then
             call get_fluxes_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,            &
@@ -465,13 +465,6 @@ contains
                  &                this%gsa%cbtc,this%gsa%cbpc,nR)
          end if
 #else
-         !-- horizontal velocity :
-         if ( lViscBcCalc ) then
-            call get_nlBLayers(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,    &
-                 &             this%gsa%dvpdrc,this%gsa%drSc,this%gsa%dsdtc, &
-                 &             this%gsa%dsdpc,nR)
-         end if
-
          !-- Radial flux profiles
          if ( lFluxProfCalc ) then
             call get_fluxes(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,            &

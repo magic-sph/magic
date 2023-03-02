@@ -11,7 +11,7 @@ module outPar_mod
    use communications, only: gather_from_Rloc
    use blocking, only: llm, ulm, lo_map
    use truncation, only: n_r_max, n_r_maxMag, l_max, lm_max, l_maxMag, &
-       &                 n_theta_max, n_phi_max
+       &                 n_theta_max, n_phi_max, nlat_padded
    use logic, only: l_viscBcCalc, l_anel, l_fluxProfs, l_mag_nl, &
        &            l_perpPar, l_save_out, l_temperature_diff,   &
        &            l_anelastic_liquid, l_mag, l_heat, l_chemical_conv
@@ -54,7 +54,7 @@ module outPar_mod
    &      get_fluxes_batch, get_nlBlayers_batch, get_perpPar_batch
 #else
    public initialize_outPar_mod, finalize_outPar_mod, outPar, outPerpPar, &
-   &      get_fluxes, get_nlBlayers, get_perpPar
+   &      get_fluxes, get_nlBlayers, get_perpPar, get_nlBlayers_batch
 #endif
 
 contains
@@ -604,13 +604,13 @@ contains
 
       !-- Input of variables
       integer,  intent(in) :: nR
-      real(cp), intent(in) :: vt(*),vp(*)
-      real(cp), intent(in) :: dvtdr(*),dvpdr(*)
-      real(cp), intent(in) :: dsdr(*),dsdt(*),dsdp(*)
+      real(cp), intent(in) :: vt(:,:),vp(:,:)
+      real(cp), intent(in) :: dvtdr(:,:),dvpdr(:,:)
+      real(cp), intent(in) :: dsdr(:,:),dsdt(:,:),dsdp(:,:)
 
       !-- Local variables:
       real(cp):: uhAS,duhAS,gradsAS,uh,duh,phiNorm,grads
-      integer :: nTheta,nPhi,nelem
+      integer :: nTheta,nPhi
 
       phiNorm=one/real(n_phi_max,cp)
       uhAS   =0.0_cp
@@ -618,20 +618,31 @@ contains
       gradsAS=0.0_cp
 
       !--- Horizontal velocity uh and duh/dr + (grad T)**2
-      !$omp parallel do default(shared)                   &
-      !$omp& private(nTheta, nPhi, uh, duh, grads, nelem) &
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2) &
+      !$omp& map(tofrom: uhAS,duhAS,gradsAS)                &
+      !$omp& private(uh, duh, grads)                        &
       !$omp& reduction(+:uhAS,duhAS,gradsAS)
+#else
+      !$omp parallel do default(shared)            &
+      !$omp& private(nTheta, nPhi, uh, duh, grads) &
+      !$omp& reduction(+:uhAS,duhAS,gradsAS)
+#endif
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nelem = radlatlon2spat(nTheta,nPhi,nR)
             uh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(     &
-            &             vt(nelem)*vt(nelem)+vp(nelem)*vp(nelem)  )
-            duh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(                     &
-            &   dvtdr(nelem)*vt(nelem)-(or1(nR)+beta(nR))*vt(nelem)*vt(nelem)+ &
-            &   dvpdr(nelem)*vp(nelem)-(or1(nR)+beta(nR))*vp(nelem)*vp(nelem) )
+            &             vt(nTheta,nPhi)*vt(nTheta,nPhi) +   &
+            &             vp(nTheta,nPhi)*vp(nTheta,nPhi)  )
+            duh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(            &
+            &                 dvtdr(nTheta,nPhi)*vt(nTheta,nPhi)-(    &
+            &      or1(nR)+beta(nR))*vt(nTheta,nPhi)*vt(nTheta,nPhi)+ &
+            &                     dvpdr(nTheta,nPhi)*vp(nTheta,nPhi)-(&
+            &            or1(nR)+beta(nR))*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
 
-            grads = dsdr(nelem)*dsdr(nelem)+or2(nR)*O_sin_theta_E2(nTheta)*(  &
-            &       dsdt(nelem)*dsdt(nelem)+dsdp(nelem)*dsdp(nelem) )
+            grads = dsdr(nTheta,nPhi)*dsdr(nTheta,nPhi)+or2(nR)*      &
+            &       O_sin_theta_E2(nTheta)*(                          &
+            &            dsdt(nTheta,nPhi)*dsdt(nTheta,nPhi) +        &
+            &            dsdp(nTheta,nPhi)*dsdp(nTheta,nPhi) )
 
             uhAS=uhAS+phiNorm*gauss(nTheta)*sqrt(uh)
             if (uh /= 0.0_cp) then
@@ -640,13 +651,91 @@ contains
             gradsAS=gradsAS+phiNorm*gauss(nTheta)*grads
          end do
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
       !$omp end parallel do
+#endif
 
       uhASr(nR)    =uhAS
       duhASr(nR)   =duhAS
       gradT2ASr(nR)=gradsAS
 
    end subroutine get_nlBLayers
+!----------------------------------------------------------------------------
+   subroutine get_nlBLayers_batch(vt,vp,dvtdr,dvpdr,dsdr,dsdt,dsdp)
+      !
+      !   This subroutine calculates the axisymmetric contributions of:
+      !
+      !     * the horizontal velocity :math:`u_h = \sqrt{u_\theta^2+u_\phi^2}`
+      !     * its radial derivative :math:`|\partial u_h/\partial r|`
+      !     * The thermal dissipation rate :math:`(\nabla T)^2`
+      !
+      !   This subroutine is used when one wants to evaluate viscous and thermal
+      !   dissipation layers (batched version).
+      !
+
+      !-- Input of variables
+      real(cp), intent(in) :: vt(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: vp(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: dvtdr(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: dvpdr(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: dsdr(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: dsdt(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: dsdp(nlat_padded,nRstart:nRstop,n_phi_max)
+
+      !-- Local variables:
+      real(cp):: uh,duh,phiNorm,grads
+      integer :: nTheta,nPhi,nR
+
+      phiNorm=one/real(n_phi_max,cp)
+      uhASr(:)    =0.0_cp
+      duhASr(:)   =0.0_cp
+      gradT2ASr(:)=0.0_cp
+
+      !--- Horizontal velocity uh and duh/dr + (grad T)**2
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2) &
+      !$omp& map(tofrom: uhASr,duhASr,gradT2ASr)            &
+      !$omp& private(uh, duh, grads)                        &
+      !$omp& reduction(+:uhASr,duhASr,gradT2ASr)
+#else
+      !$omp parallel do default(shared)            &
+      !$omp& private(nTheta, nPhi, uh, duh, grads) &
+      !$omp& reduction(+:uhASr,duhASr,gradT2ASr)
+#endif
+      do nPhi=1,n_phi_max
+         do nR=nRstart,nRstop
+            do nTheta=1,n_theta_max
+               uh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(         &
+               &             vt(nTheta,nR,nPhi)*vt(nTheta,nR,nPhi) + &
+               &             vp(nTheta,nR,nPhi)*vp(nTheta,nR,nPhi)  )
+               duh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(                     &
+               &   dvtdr(nTheta,nR,nPhi)*vt(nTheta,nR,nPhi)-                      &
+               &        (or1(nR)+beta(nR))*vt(nTheta,nR,nPhi)*vt(nTheta,nR,nPhi)+ &
+               &   dvpdr(nTheta,nR,nPhi)*vp(nTheta,nR,nPhi)-                      &
+               &        (or1(nR)+beta(nR))*vp(nTheta,nR,nPhi)*vp(nTheta,nR,nPhi) )
+
+               grads=dsdr(nTheta,nR,nPhi)*dsdr(nTheta,nR,nPhi) + &
+               &      or2(nR)*O_sin_theta_E2(nTheta)*(            &
+               &      dsdt(nTheta,nR,nPhi)*dsdt(nTheta,nR,nPhi) + &
+               &      dsdp(nTheta,nR,nPhi)*dsdp(nTheta,nR,nPhi) )
+
+               uhASr(nR)=uhASr(nR)+phiNorm*gauss(nTheta)*sqrt(uh)
+               if (uh /= 0.0_cp) then
+                  duhASr(nR)=duhASr(nR)+phiNorm*gauss(nTheta)*abs(duh)/sqrt(uh)
+               end if
+               gradT2ASr(nR)=gradT2ASr(nR)+phiNorm*gauss(nTheta)*grads
+            end do
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+   end subroutine get_nlBLayers_batch
 !----------------------------------------------------------------------------
    subroutine get_perpPar(vr,vt,vp,nR)
       !
@@ -872,75 +961,6 @@ contains
       end if
 
    end subroutine get_fluxes
-!----------------------------------------------------------------------------
-   subroutine get_nlBLayers(vt,vp,dvtdr,dvpdr,dsdr,dsdt,dsdp,nR)
-      !
-      !   This subroutine calculates the axisymmetric contributions of:
-      !
-      !     * the horizontal velocity :math:`u_h = \sqrt{u_\theta^2+u_\phi^2}`
-      !     * its radial derivative :math:`|\partial u_h/\partial r|`
-      !     * The thermal dissipation rate :math:`(\nabla T)^2`
-      !
-      !   This subroutine is used when one wants to evaluate viscous and thermal
-      !   dissipation layers
-      !
-
-      !-- Input of variables
-      integer,  intent(in) :: nR
-      real(cp), intent(in) :: vt(:,:),vp(:,:)
-      real(cp), intent(in) :: dvtdr(:,:),dvpdr(:,:)
-      real(cp), intent(in) :: dsdr(:,:),dsdt(:,:),dsdp(:,:)
-
-      !-- Local variables:
-      real(cp):: uhAS,duhAS,gradsAS,uh,duh,phiNorm,grads
-      integer :: nTheta,nPhi,nelem
-
-      phiNorm=one/real(n_phi_max,cp)
-      uhAS   =0.0_cp
-      duhAS  =0.0_cp
-      gradsAS=0.0_cp
-
-      !--- Horizontal velocity uh and duh/dr + (grad T)**2
-#ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do collapse(2) &
-      !$omp& map(tofrom: uhAS,duhAS,gradsAS)                &
-      !$omp& private(uh, duh, grads, nelem)                 &
-      !$omp& reduction(+:uhAS,duhAS,gradsAS)
-#else
-      !$omp parallel do default(shared)                   &
-      !$omp& private(nTheta, nPhi, uh, duh, grads, nelem) &
-      !$omp& reduction(+:uhAS,duhAS,gradsAS)
-#endif
-      do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            nelem = radlatlon2spat(nTheta,nPhi,nR)
-            uh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(     &
-            &             vt(nelem)*vt(nelem)+vp(nelem)*vp(nelem)  )
-            duh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(                     &
-            &   dvtdr(nelem)*vt(nelem)-(or1(nR)+beta(nR))*vt(nelem)*vt(nelem)+ &
-            &   dvpdr(nelem)*vp(nelem)-(or1(nR)+beta(nR))*vp(nelem)*vp(nelem) )
-
-            grads = dsdr(nelem)*dsdr(nelem)+or2(nR)*O_sin_theta_E2(nTheta)*(  &
-            &       dsdt(nelem)*dsdt(nelem)+dsdp(nelem)*dsdp(nelem) )
-
-            uhAS=uhAS+phiNorm*gauss(nTheta)*sqrt(uh)
-            if (uh /= 0.0_cp) then
-               duhAS=duhAS+phiNorm*gauss(nTheta)*abs(duh)/sqrt(uh)
-            end if
-            gradsAS=gradsAS+phiNorm*gauss(nTheta)*grads
-         end do
-      end do
-#ifdef WITH_OMP_GPU
-      !$omp end target teams distribute parallel do
-#else
-      !$omp end parallel do
-#endif
-
-      uhASr(nR)    =uhAS
-      duhASr(nR)   =duhAS
-      gradT2ASr(nR)=gradsAS
-
-   end subroutine get_nlBLayers
 !----------------------------------------------------------------------------
    subroutine get_perpPar(vr,vt,vp,nR)
       !
@@ -1191,75 +1211,6 @@ contains
       end if
 
    end subroutine get_fluxes_batch
-!----------------------------------------------------------------------------
-   subroutine get_nlBLayers_batch(vt,vp,dvtdr,dvpdr,dsdr,dsdt,dsdp,nR)
-      !
-      !   This subroutine calculates the axisymmetric contributions of:
-      !
-      !     * the horizontal velocity :math:`u_h = \sqrt{u_\theta^2+u_\phi^2}`
-      !     * its radial derivative :math:`|\partial u_h/\partial r|`
-      !     * The thermal dissipation rate :math:`(\nabla T)^2`
-      !
-      !   This subroutine is used when one wants to evaluate viscous and thermal
-      !   dissipation layers
-      !
-
-      !-- Input of variables
-      integer,  intent(in) :: nR
-      real(cp), intent(in) :: vt(:,:,:),vp(:,:,:)
-      real(cp), intent(in) :: dvtdr(:,:,:),dvpdr(:,:,:)
-      real(cp), intent(in) :: dsdr(:,:,:),dsdt(:,:,:),dsdp(:,:,:)
-
-      !-- Local variables:
-      real(cp):: uhAS,duhAS,gradsAS,uh,duh,phiNorm,grads
-      integer :: nTheta,nPhi,nelem
-
-      phiNorm=one/real(n_phi_max,cp)
-      uhAS   =0.0_cp
-      duhAS  =0.0_cp
-      gradsAS=0.0_cp
-
-      !--- Horizontal velocity uh and duh/dr + (grad T)**2
-#ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do collapse(2) &
-      !$omp& map(tofrom: uhAS,duhAS,gradsAS)                &
-      !$omp& private(uh, duh, grads, nelem)                 &
-      !$omp& reduction(+:uhAS,duhAS,gradsAS)
-#else
-      !$omp parallel do default(shared)                   &
-      !$omp& private(nTheta, nPhi, uh, duh, grads, nelem) &
-      !$omp& reduction(+:uhAS,duhAS,gradsAS)
-#endif
-      do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            nelem = radlatlon2spat(nTheta,nPhi,nR)
-            uh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(     &
-            &             vt(nelem)*vt(nelem)+vp(nelem)*vp(nelem)  )
-            duh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(                     &
-            &   dvtdr(nelem)*vt(nelem)-(or1(nR)+beta(nR))*vt(nelem)*vt(nelem)+ &
-            &   dvpdr(nelem)*vp(nelem)-(or1(nR)+beta(nR))*vp(nelem)*vp(nelem) )
-
-            grads = dsdr(nelem)*dsdr(nelem)+or2(nR)*O_sin_theta_E2(nTheta)*(  &
-            &       dsdt(nelem)*dsdt(nelem)+dsdp(nelem)*dsdp(nelem) )
-
-            uhAS=uhAS+phiNorm*gauss(nTheta)*sqrt(uh)
-            if (uh /= 0.0_cp) then
-               duhAS=duhAS+phiNorm*gauss(nTheta)*abs(duh)/sqrt(uh)
-            end if
-            gradsAS=gradsAS+phiNorm*gauss(nTheta)*grads
-         end do
-      end do
-#ifdef WITH_OMP_GPU
-      !$omp end target teams distribute parallel do
-#else
-      !$omp end parallel do
-#endif
-
-      uhASr(nR)    =uhAS
-      duhASr(nR)   =duhAS
-      gradT2ASr(nR)=gradsAS
-
-   end subroutine get_nlBLayers_batch
 !----------------------------------------------------------------------------
    subroutine get_perpPar_batch(vr,vt,vp,nR)
       !
