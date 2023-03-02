@@ -62,7 +62,7 @@ module outMisc_mod
 #else
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
    &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
-   &         get_onset, get_ekin_solid_liquid_batch
+   &         get_onset, get_ekin_solid_liquid_batch, get_hemi_batch
 #endif
 
 contains
@@ -930,12 +930,7 @@ contains
 #endif
 
    end subroutine get_ekin_solid_liquid_batch
-!-----------------------------------------------------------------------------------
-#ifdef WITH_OMP_GPU
-   !-- TODO: Need to duplicate these routines since CRAY CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
-   !-- assumed size arrays in OpenMP target regions
-   !-- When CCE will have this support, *_batch routines and CPU versions (with "*") can be removed
-   !-- and just add (*) in following 3 routines
+!----------------------------------------------------------------------------------
    subroutine get_hemi(vr,vt,vp,nR,field)
       !
       !   This subroutine is used to compute kinetic or magnetic energy
@@ -951,7 +946,7 @@ contains
       real(cp) :: enAS(2) ! energy in North/South hemi at radius nR
       real(cp) :: vrabsAS(2)! abs(vr or Br) in North/South hemi at radius nR
       real(cp) :: en, vrabs, phiNorm, fac
-      integer :: nTheta, nTh, nPhi, nelem
+      integer :: nTheta, nTh, nPhi
 
       enAS(:)   =0.0_cp
       vrabsAS(:)=0.0_cp
@@ -962,26 +957,24 @@ contains
          fac = one
       end if
 
-      !--- Helicity:
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2) &
       !$omp& map(tofrom:enAS,vrabsAS)                       &
-      !$omp& private(nTh,vrabs,en,nelem)                    &
+      !$omp& private(nTh,vrabs,en)                          &
       !$omp& reduction(+:enAS,vrabsAS)
 #else
-      !$omp parallel do default(shared)           &
-      !$omp& private(nTheta,nTh,vrabs,en,nelem)   &
+      !$omp parallel do default(shared)    &
+      !$omp& private(nTheta,nTh,vrabs,en)  &
       !$omp& reduction(+:enAS,vrabsAS)
 #endif
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
             nTh=n_theta_cal2ord(nTheta)
-            nelem=radlatlon2spat(nTheta,nPhi,nR)
 
-            vrabs=fac*abs(vr(nelem))
-            en   =half*fac*(        or2(nR)*vr(nelem)*vr(nelem) + &
-            &        O_sin_theta_E2(nTheta)*vt(nelem)*vt(nelem) + &
-            &        O_sin_theta_E2(nTheta)*vp(nelem)*vp(nelem) )
+            vrabs=fac*abs(vr(nTheta,nPhi))
+            en   =half*fac*(        or2(nR)*vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            &        O_sin_theta_E2(nTheta)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
+            &        O_sin_theta_E2(nTheta)*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
 
             if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
                enAS(1)   =enAS(1) +phiNorm*gauss(nTheta)*en
@@ -1007,7 +1000,91 @@ contains
       end if
 
    end subroutine get_hemi
+!-----------------------------------------------------------------------------------
+   subroutine get_hemi_batch(vr,vt,vp,field)
+      !
+      !   This subroutine is used to compute kinetic or magnetic energy
+      !   in Northern or Southern hemipshere (batched version).
+      !
+
+      !-- Input of variables
+      real(cp),         intent(in) :: vr(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp),         intent(in) :: vt(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp),         intent(in) :: vp(nlat_padded,nRstart:nRstop,n_phi_max)
+      character(len=1), intent(in) :: field
+
+      !-- Local variables:
+      real(cp) :: en, vrabs, phiNorm, fac
+      integer :: nR, nTheta, nTh, nPhi
+
+      phiNorm=two*pi/real(n_phi_max,cp)
+      if ( field == 'V' ) then
+         hemi_ekin_r(:,:) =0.0_cp
+         hemi_vrabs_r(:,:)=0.0_cp
+      else if ( field == 'B' ) then
+         hemi_emag_r(:,:) =0.0_cp
+         hemi_brabs_r(:,:)=0.0_cp
+      end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)                 &
+      !$omp& map(tofrom:hemi_ekin_r,hemi_vrabs_r,hemi_emag_r,hemi_brabs_r)  &
+      !$omp& private(nTh,vrabs,en,fac)                                      &
+      !$omp& reduction(+:hemi_ekin_r,hemi_vrabs_r,hemi_emag_r,hemi_brabs_r)
+#else
+      !$omp parallel do default(shared)         &
+      !$omp private(nR,nTheta,nTh,vrabs,en,fac) &
+      !$omp reduction(+:hemi_ekin_r,hemi_vrabs_r,hemi_emag_r,hemi_brabs_r)
+#endif
+      do nPhi=1,n_phi_max
+         do nR=nRstart,nRstop
+            do nTheta=1,n_theta_max
+               nTh=n_theta_cal2ord(nTheta)
+
+               if ( field == 'V' ) then
+                  fac = orho1(nR)
+               else if ( field == 'B' ) then
+                  fac = one
+               end if
+
+               vrabs=fac*abs(vr(nTheta,nR,nPhi))
+               en   =half*fac*(        or2(nR)*vr(nTheta,nR,nPhi)*vr(nTheta,nR,nPhi) + &
+               &        O_sin_theta_E2(nTheta)*vt(nTheta,nR,nPhi)*vt(nTheta,nR,nPhi) + &
+               &        O_sin_theta_E2(nTheta)*vp(nTheta,nR,nPhi)*vp(nTheta,nR,nPhi) )
+
+               if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
+                  if ( field == 'V' ) then
+                     hemi_ekin_r(nR,1) =hemi_ekin_r(nR,1) +phiNorm*gauss(nTheta)*en
+                     hemi_vrabs_r(nR,1)=hemi_vrabs_r(nR,1)+phiNorm*gauss(nTheta)*vrabs
+                  else if (field == 'B' ) then
+                     hemi_emag_r(nR,1) =hemi_emag_r(nR,1) +phiNorm*gauss(nTheta)*en
+                     hemi_brabs_r(nR,1)=hemi_brabs_r(nR,1)+phiNorm*gauss(nTheta)*vrabs
+                  end if
+               else ! Southern Hemisphere
+                  if ( field == 'V' ) then
+                     hemi_ekin_r(nR,2) =hemi_ekin_r(nR,2) +phiNorm*gauss(nTheta)*en
+                     hemi_vrabs_r(nR,2)=hemi_vrabs_r(nR,2)+phiNorm*gauss(nTheta)*vrabs
+                  else if (field == 'B' ) then
+                     hemi_emag_r(nR,2) =hemi_emag_r(nR,2) +phiNorm*gauss(nTheta)*en
+                     hemi_brabs_r(nR,2)=hemi_brabs_r(nR,2)+phiNorm*gauss(nTheta)*vrabs
+                  end if
+               end if
+            end do
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+   end subroutine get_hemi_batch
 !----------------------------------------------------------------------------------
+#ifdef WITH_OMP_GPU
+   !-- TODO: Need to duplicate these routines since CRAY CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
+   !-- assumed size arrays in OpenMP target regions
+   !-- When CCE will have this support, *_batch routines and CPU versions (with "*") can be removed
+   !-- and just add (*) in following 3 routines
    subroutine get_helicity(vr,vt,vp,cvr,dvrdt,dvrdp,dvtdr,dvpdr,nR)
       !
       ! This subroutine calculates axisymmetric and non-axisymmetric contributions to
@@ -1173,68 +1250,6 @@ contains
 
    end subroutine get_helicity
 !----------------------------------------------------------------------------------
-   subroutine get_hemi_batch(vr,vt,vp,nR,field)
-      !
-      !   This subroutine is used to compute kinetic or magnetic energy
-      !   in Northern or Southern hemipshere.
-      !
-
-      !-- Input of variables
-      integer,          intent(in) :: nR ! radial level
-      real(cp),         intent(in) :: vr(:,:,:),vt(:,:,:),vp(:,:,:)
-      character(len=1), intent(in) :: field
-
-      !-- Local variables:
-      real(cp) :: enAS(2) ! energy in North/South hemi at radius nR
-      real(cp) :: vrabsAS(2)! abs(vr or Br) in North/South hemi at radius nR
-      real(cp) :: en, vrabs, phiNorm, fac
-      integer :: nTheta, nTh, nPhi, nelem
-
-      enAS(:)   =0.0_cp
-      vrabsAS(:)=0.0_cp
-      phiNorm=two*pi/real(n_phi_max,cp)
-      if ( field == 'V' ) then
-         fac = orho1(nR)
-      else if ( field == 'B' ) then
-         fac = one
-      end if
-
-      !--- Helicity:
-      !$omp target teams distribute parallel do collapse(2) &
-      !$omp& map(tofrom:enAS,vrabsAS)                       &
-      !$omp& private(nTh,vrabs,en,nelem)                    &
-      !$omp& reduction(+:enAS,vrabsAS)
-      do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            nTh=n_theta_cal2ord(nTheta)
-            nelem=radlatlon2spat(nTheta,nPhi,nR)
-
-            vrabs=fac*abs(vr(nelem))
-            en   =half*fac*(        or2(nR)*vr(nelem)*vr(nelem) + &
-            &        O_sin_theta_E2(nTheta)*vt(nelem)*vt(nelem) + &
-            &        O_sin_theta_E2(nTheta)*vp(nelem)*vp(nelem) )
-
-            if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
-               enAS(1)   =enAS(1) +phiNorm*gauss(nTheta)*en
-               vrabsAS(1)=vrabsAS(1) +phiNorm*gauss(nTheta)*vrabs
-            else
-               enAS(2)   =enAS(2) +phiNorm*gauss(nTheta)*en
-               vrabsAS(2)=vrabsAS(2) +phiNorm*gauss(nTheta)*vrabs
-            end if
-         end do
-      end do
-      !$omp end target teams distribute parallel do
-
-      if ( field == 'V' ) then
-         hemi_ekin_r(nR,:) =enAS(:)
-         hemi_vrabs_r(nR,:)=vrabsAS(:)
-      else if ( field == 'B' ) then
-         hemi_emag_r(nR,:) =enAS(:)
-         hemi_brabs_r(nR,:)=vrabsAS(:)
-      end if
-
-   end subroutine get_hemi_batch
-!----------------------------------------------------------------------------------
    subroutine get_helicity_batch(vr,vt,vp,cvr,dvrdt,dvrdp,dvtdr,dvpdr,nR)
       !
       ! This subroutine calculates axisymmetric and non-axisymmetric contributions to
@@ -1365,66 +1380,6 @@ contains
    end subroutine get_helicity_batch
 !----------------------------------------------------------------------------------
 #else
-!----------------------------------------------------------------------------------
-   subroutine get_hemi(vr,vt,vp,nR,field)
-      !
-      !   This subroutine is used to compute kinetic or magnetic energy
-      !   in Northern or Southern hemipshere.
-      !
-
-      !-- Input of variables
-      integer,          intent(in) :: nR ! radial level
-      real(cp),         intent(in) :: vr(*),vt(*),vp(*)
-      character(len=1), intent(in) :: field
-
-      !-- Local variables:
-      real(cp) :: enAS(2) ! energy in North/South hemi at radius nR
-      real(cp) :: vrabsAS(2)! abs(vr or Br) in North/South hemi at radius nR
-      real(cp) :: en, vrabs, phiNorm, fac
-      integer :: nTheta, nTh, nPhi, nelem
-
-      enAS(:)   =0.0_cp
-      vrabsAS(:)=0.0_cp
-      phiNorm=two*pi/real(n_phi_max,cp)
-      if ( field == 'V' ) then
-         fac = orho1(nR)
-      else if ( field == 'B' ) then
-         fac = one
-      end if
-      !--- Helicity:
-      !$omp parallel do default(shared)           &
-      !$omp& private(nTheta,nTh,vrabs,en,nelem)   &
-      !$omp& reduction(+:enAS,vrabsAS)
-      do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            nTh=n_theta_cal2ord(nTheta)
-            nelem=radlatlon2spat(nTheta,nPhi,nR)
-
-            vrabs=fac*abs(vr(nelem))
-            en   =half*fac*(        or2(nR)*vr(nelem)*vr(nelem) + &
-            &        O_sin_theta_E2(nTheta)*vt(nelem)*vt(nelem) + &
-            &        O_sin_theta_E2(nTheta)*vp(nelem)*vp(nelem) )
-
-            if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
-               enAS(1)   =enAS(1) +phiNorm*gauss(nTheta)*en
-               vrabsAS(1)=vrabsAS(1) +phiNorm*gauss(nTheta)*vrabs
-            else
-               enAS(2)   =enAS(2) +phiNorm*gauss(nTheta)*en
-               vrabsAS(2)=vrabsAS(2) +phiNorm*gauss(nTheta)*vrabs
-            end if
-         end do
-      end do
-      !$omp end parallel do
-
-      if ( field == 'V' ) then
-         hemi_ekin_r(nR,:) =enAS(:)
-         hemi_vrabs_r(nR,:)=vrabsAS(:)
-      else if ( field == 'B' ) then
-         hemi_emag_r(nR,:) =enAS(:)
-         hemi_brabs_r(nR,:)=vrabsAS(:)
-      end if
-
-   end subroutine get_hemi
 !----------------------------------------------------------------------------------
    subroutine get_helicity(vr,vt,vp,cvr,dvrdt,dvrdp,dvtdr,dvpdr,nR)
       !

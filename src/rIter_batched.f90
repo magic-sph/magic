@@ -69,7 +69,7 @@ module rIter_batched_mod
 #ifdef WITH_OMP_GPU
    use outMisc_mod, only: get_ekin_solid_liquid_batch, get_helicity_batch, get_hemi_batch
 #else
-   use outMisc_mod, only: get_ekin_solid_liquid_batch, get_hemi, get_helicity
+   use outMisc_mod, only: get_ekin_solid_liquid_batch, get_hemi_batch, get_helicity
 #endif
 #ifdef WITH_OMP_GPU
    use outPar_mod, only: get_fluxes_batch, get_nlBlayers_batch, get_perpPar_batch
@@ -322,6 +322,12 @@ contains
               &                           this%gsa%phic)
       end if
 
+      !-- North/South hemisphere differences
+      if ( lHemiCalc ) then
+         call get_hemi_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,'V')
+         if ( l_mag ) call get_hemi_batch(this%gsa%brc,this%gsa%btc,this%gsa%bpc,'B')
+      end if
+
       do nR=nRstart,nRstop
          nBc = 0
          if ( nR == n_r_cmb ) then
@@ -449,18 +455,6 @@ contains
             call get_helicity(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
                  &            this%gsa%cvrc,this%gsa%dvrdtc,this%gsa%dvrdpc,  &
                  &            this%gsa%dvtdrc,this%gsa%dvpdrc,nR)
-#endif
-         end if
-
-
-         !-- North/South hemisphere differences
-         if ( lHemiCalc ) then
-#ifdef WITH_OMP_GPU
-            call get_hemi_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,nR,'V')
-            if ( l_mag ) call get_hemi_batch(this%gsa%brc,this%gsa%btc,this%gsa%bpc,nR,'B')
-#else
-            call get_hemi(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,nR,'V')
-            if ( l_mag ) call get_hemi(this%gsa%brc,this%gsa%btc,this%gsa%bpc,nR,'B')
 #endif
          end if
 
