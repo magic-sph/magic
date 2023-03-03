@@ -1102,7 +1102,7 @@ class MagicCoeffR(MagicSetup):
             it = interp1d(self.time, self.wlm, axis=0)
             wlm = it(time)
         else:
-            time = selt.time
+            time = self.time
             wlm = self.wlm
 
         wlm_hat = np.fft.fft(wlm, axis=0)
