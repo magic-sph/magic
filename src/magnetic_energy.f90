@@ -415,7 +415,7 @@ contains
             e_tA(n_r_max)   =0.0_cp
             e_t_asA(n_r_max)=0.0_cp
          endif
-         if ( l_stop_time ) then
+         if ( l_stop_time .and. n_e_sets > 1 ) then
             fac=half*LFfac*eScale
             filename='eMagR.'//tag
             open(newunit=fileHandle, file=filename, status='unknown')
