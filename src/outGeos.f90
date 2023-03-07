@@ -10,7 +10,6 @@ module geos
    use precision_mod
    use parallel_mod
    use blocking, only: lo_map, llm, ulm
-   use grid_blocking, only: radlatlon2spat
    use constants, only: half, two, pi, one, four, third, zero
    use mem_alloc, only: bytes_allocated
    use radial_data, only: radial_balance, nRstart, nRstop
@@ -43,13 +42,8 @@ module geos
    integer :: n_s_otc ! Index for last point outside TC
    character(len=72) :: geos_file ! file name
 
-#ifdef WITH_OMP_GPU
    public :: initialize_geos, finalize_geos, calcGeos, calcGeos_batch, outGeos, &
    &         outOmega, write_geos_frame
-#else
-   public :: initialize_geos, finalize_geos, calcGeos, outGeos, outOmega, &
-   &         write_geos_frame
-#endif
 
 contains
 
@@ -151,9 +145,6 @@ contains
 
    end subroutine finalize_geos
 !------------------------------------------------------------------------------------
-#ifdef WITH_OMP_GPU
-   !-- TODO: Need to duplicate this routine since CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
-   !-- support OpenMP construct Assumed size arrays (for vr, vt, vp, ...)
    subroutine calcGeos(vr,vt,vp,cvr,dvrdp,dvpdr,nR)
       !
       ! This routine computes the term needed for geos.TAG outputs in physical
@@ -166,36 +157,43 @@ contains
       real(cp), intent(in) :: cvr(:,:), dvrdp(:,:), dvpdr(:,:)
 
       !-- Local variables
-      integer :: nPhi, nTheta, nTheta1, nelem
+      integer :: nPhi, nTheta, nTheta1
 
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#else
+      !$omp parallel do default(shared) private(nTheta,nPhi,nTheta1)
+#endif
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nelem=radlatlon2spat(nTheta,nPhi,nR)
             nTheta1=n_theta_cal2ord(nTheta)
             !- us=ur*sin(theta)+ut*cos(theta)
-            us_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*sinTheta(nTheta)*vr(nelem) &
+            us_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*sinTheta(nTheta)*vr(nTheta,nPhi) &
             &                        +or1(nR)*orho1(nR)*cosTheta(nTheta)*         &
-            &                         O_sin_theta(nTheta)*vt(nelem)
+            &                         O_sin_theta(nTheta)*vt(nTheta,nPhi)
 
             !- uz=ur*cos(theta)-ut*sin(theta)
-            uz_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*cosTheta(nTheta)*vr(nelem) &
-            &                        -or1(nR)*orho1(nR)*vt(nelem)
+            uz_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*cosTheta(nTheta)*vr(nTheta,nPhi) &
+            &                        -or1(nR)*orho1(nR)*vt(nTheta,nPhi)
 
             !- uphi
-            up_Rloc(nTheta1,nPhi,nR)=or1(nR)*O_sin_theta(nTheta)*orho1(nR)*vp(nelem)
+            up_Rloc(nTheta1,nPhi,nR)=or1(nR)*O_sin_theta(nTheta)*orho1(nR)*vp(nTheta,nPhi)
 
             !-- z-vorticity
             wz_Rloc(nTheta1,nPhi,nR)=or1(nR)*orho1(nR)*(           &
-            &                cosTheta(nTheta)*or1(nR)*cvr(nelem) - &
-            &                  or2(nR)*dvrdp(nelem)+dvpdr(nelem) - &
-            &                       beta(nR)*vp(nelem)   )
+            &                cosTheta(nTheta)*or1(nR)*cvr(nTheta,nPhi) - &
+            &                  or2(nR)*dvrdp(nTheta,nPhi)+dvpdr(nTheta,nPhi) - &
+            &                       beta(nR)*vp(nTheta,nPhi)   )
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
 
    end subroutine calcGeos
-
+!------------------------------------------------------------------------------------
    subroutine calcGeos_batch(vr,vt,vp,cvr,dvrdp,dvpdr,nR)
       !
       ! This routine computes the term needed for geos.TAG outputs in physical
@@ -208,78 +206,42 @@ contains
       real(cp), intent(in) :: cvr(:,:,:), dvrdp(:,:,:), dvpdr(:,:,:)
 
       !-- Local variables
-      integer :: nPhi, nTheta, nTheta1, nelem
+      integer :: nPhi, nTheta, nTheta1
 
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#else
+      !$omp parallel do default(shared) private(nTheta,nPhi,nTheta1)
+#endif
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            nelem=radlatlon2spat(nTheta,nPhi,nR)
             nTheta1=n_theta_cal2ord(nTheta)
             !- us=ur*sin(theta)+ut*cos(theta)
-            us_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*sinTheta(nTheta)*vr(nelem) &
+            us_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*sinTheta(nTheta)*vr(nTheta,nR,nPhi) &
             &                        +or1(nR)*orho1(nR)*cosTheta(nTheta)*         &
-            &                         O_sin_theta(nTheta)*vt(nelem)
+            &                         O_sin_theta(nTheta)*vt(nTheta,nR,nPhi)
 
             !- uz=ur*cos(theta)-ut*sin(theta)
-            uz_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*cosTheta(nTheta)*vr(nelem) &
-            &                        -or1(nR)*orho1(nR)*vt(nelem)
+            uz_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*cosTheta(nTheta)*vr(nTheta,nR,nPhi) &
+            &                        -or1(nR)*orho1(nR)*vt(nTheta,nR,nPhi)
 
             !- uphi
-            up_Rloc(nTheta1,nPhi,nR)=or1(nR)*O_sin_theta(nTheta)*orho1(nR)*vp(nelem)
+            up_Rloc(nTheta1,nPhi,nR)=or1(nR)*O_sin_theta(nTheta)*orho1(nR)*vp(nTheta,nR,nPhi)
 
             !-- z-vorticity
             wz_Rloc(nTheta1,nPhi,nR)=or1(nR)*orho1(nR)*(           &
-            &                cosTheta(nTheta)*or1(nR)*cvr(nelem) - &
-            &                  or2(nR)*dvrdp(nelem)+dvpdr(nelem) - &
-            &                       beta(nR)*vp(nelem)   )
+            &                cosTheta(nTheta)*or1(nR)*cvr(nTheta,nR,nPhi) - &
+            &                  or2(nR)*dvrdp(nTheta,nR,nPhi)+dvpdr(nTheta,nR,nPhi) - &
+            &                       beta(nR)*vp(nTheta,nR,nPhi)   )
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
 
    end subroutine calcGeos_batch
-#else
-   subroutine calcGeos(vr,vt,vp,cvr,dvrdp,dvpdr,nR)
-      !
-      ! This routine computes the term needed for geos.TAG outputs in physical
-      ! space.
-      !
-
-      !-- Input variables
-      integer,  intent(in) :: nR ! Radial grid point
-      real(cp), intent(in) :: vr(*), vt(*), vp(*)
-      real(cp), intent(in) :: cvr(*), dvrdp(*), dvpdr(*)
-
-      !-- Local variables
-      integer :: nPhi, nTheta, nTheta1, nelem
-
-      !$omp parallel do default(shared) private(nTheta,nPhi,nTheta1,nelem)
-      do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            nelem=radlatlon2spat(nTheta,nPhi,nR)
-            nTheta1=n_theta_cal2ord(nTheta)
-            !- us=ur*sin(theta)+ut*cos(theta)
-            us_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*sinTheta(nTheta)*vr(nelem) &
-            &                        +or1(nR)*orho1(nR)*cosTheta(nTheta)*         &
-            &                         O_sin_theta(nTheta)*vt(nelem)
-
-            !- uz=ur*cos(theta)-ut*sin(theta)
-            uz_Rloc(nTheta1,nPhi,nR)=or2(nR)*orho1(nR)*cosTheta(nTheta)*vr(nelem) &
-            &                        -or1(nR)*orho1(nR)*vt(nelem)
-
-            !- uphi
-            up_Rloc(nTheta1,nPhi,nR)=or1(nR)*O_sin_theta(nTheta)*orho1(nR)*vp(nelem)
-
-            !-- z-vorticity
-            wz_Rloc(nTheta1,nPhi,nR)=or1(nR)*orho1(nR)*(           &
-            &                cosTheta(nTheta)*or1(nR)*cvr(nelem) - &
-            &                  or2(nR)*dvrdp(nelem)+dvpdr(nelem) - &
-            &                       beta(nR)*vp(nelem)   )
-         end do
-      end do
-      !$omp end parallel do
-
-   end subroutine calcGeos
-#endif
 !------------------------------------------------------------------------------------
    subroutine outGeos(time,Geos,GeosA,GeosZ,GeosM,GeosNAP,Ekin)
       !
