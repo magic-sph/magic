@@ -15,11 +15,7 @@ module rIter_batched_mod
    use parallel_mod
    use blocking, only: st_map
    use horizontal_data, only: O_sin_theta_E2, dLh
-#ifdef WITH_OMP_GPU
    use truncation, only: n_phi_max, lm_max, lm_maxMag, n_theta_max, nlat_padded
-#else
-   use truncation, only: n_phi_max, lm_max, lm_maxMag, n_theta_max
-#endif
    use grid_blocking, only: n_phys_space, spat2rad, radlatlon2spat
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel,  &
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
@@ -40,39 +36,19 @@ module rIter_batched_mod
    use dtB_arrays_mod, only: dtB_arrays_t
    use torsional_oscillations, only: prep_TO_axi, getTO, getTOnext, getTOfinish
 #ifdef WITH_MPI
-#ifdef WITH_OMP_GPU
    use graphOut_mod, only: graphOut_mpi_batch, graphOut_mpi_header
-#else
-   use graphOut_mod, only: graphOut_mpi, graphOut_mpi_header
-#endif
 #else
    use graphOut_mod, only: graphOut, graphOut_header
 #endif
-#ifdef WITH_OMP_GPU
    use dtB_mod, only: get_dtBLM_batch, get_dH_dtBLM
-#else
-   use dtB_mod, only: get_dtBLM, get_dH_dtBLM
-#endif
    use out_movie, only: store_movie_frame
-#ifdef WITH_OMP_GPU
    use outRot, only: get_lorentz_torque_batch
-#else
-   use outRot, only: get_lorentz_torque
-#endif
    use courant_mod, only: courant_batch
-#ifdef WITH_OMP_GPU
    use nonlinear_bcs, only: get_br_v_bcs_batch, v_rigid_boundary_batch
-#else
-   use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary
-#endif
    use power, only: get_visc_heat_batch
    use outMisc_mod, only: get_ekin_solid_liquid_batch, get_helicity_batch, get_hemi_batch
    use outPar_mod, only: get_fluxes_batch, get_nlBlayers_batch, get_perpPar_batch
-#ifdef WITH_OMP_GPU
    use geos, only: calcGeos_batch
-#else
-   use geos, only: calcGeos
-#endif
    use sht
    use fields, only: s_Rloc, ds_Rloc, z_Rloc, dz_Rloc, p_Rloc,    &
        &             b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc,dj_Rloc,  &
@@ -81,18 +57,16 @@ module rIter_batched_mod
    use time_schemes, only: type_tscheme
    use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv
    use rIteration, only: rIter_t
-#ifdef WITH_OMP_GPU
    use RMS, only: get_nl_RMS_batch, transform_to_lm_RMS, compute_lm_forces,       &
        &          transform_to_grid_RMS_batch, dtVrLM, dtVtLM, dtVpLM, dpkindrLM, &
        &          Advt2LM, Advp2LM, PFt2LM, PFp2LM, LFrLM, LFt2LM, LFp2LM,  &
        &          CFt2LM, CFp2LM
-#else
-   use RMS, only: get_nl_RMS, transform_to_lm_RMS, compute_lm_forces,       &
-       &          transform_to_grid_RMS, dtVrLM, dtVtLM, dtVpLM, dpkindrLM, &
-       &          Advt2LM, Advp2LM, PFt2LM, PFp2LM, LFrLM, LFt2LM, LFp2LM,  &
-       &          CFt2LM, CFp2LM
-#endif
    use probe_mod
+
+#ifdef WITH_OMP_GPU
+   use hipfort_check, only: hipCheck
+   use hipfort, only: hipDeviceSynchronize
+#endif
 
    implicit none
 
@@ -264,19 +238,11 @@ contains
 
          !-- Get nl loop for r.m.s. computation
          if ( l_RMS ) then
-#ifdef WITH_OMP_GPU
             call get_nl_RMS_batch(1,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%dvrdrc, &
                  &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%dvtdrc,          &
                  &          this%gsa%dvtdpc,this%gsa%dvpdrc,this%gsa%dvpdpc,          &
                  &          this%gsa%cvrc,this%gsa%Advt,this%gsa%Advp,this%gsa%LFt,   &
                  &          this%gsa%LFp,tscheme,lRmsCalc)
-#else
-            call get_nl_RMS(1,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%dvrdrc, &
-                 &          this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%dvtdrc,          &
-                 &          this%gsa%dvtdpc,this%gsa%dvpdrc,this%gsa%dvpdpc,          &
-                 &          this%gsa%cvrc,this%gsa%Advt,this%gsa%Advp,this%gsa%LFt,   &
-                 &          this%gsa%LFp,tscheme,lRmsCalc)
-#endif
          end if
 
          !--------- Calculate courant condition parameters:
@@ -376,7 +342,6 @@ contains
          !     and br_vp_lm_cmb in lm-space, respectively the contribution
          !     to these products from the points theta(nThetaStart)-theta(nThetaStop)
          !     These products are used in get_b_nl_bcs.
-#ifdef WITH_OMP_GPU
          if ( nR == n_r_cmb .and. l_b_nl_cmb ) then
             br_vt_lm_cmb(:)=zero
             br_vp_lm_cmb(:)=zero
@@ -388,21 +353,7 @@ contains
             call get_br_v_bcs_batch(nR, this%gsa%brc, this%gsa%vtc, this%gsa%vpc, omega_ic,  &
                  &                  br_vt_lm_icb, br_vp_lm_icb)
          end if
-#else
-         if ( nR == n_r_cmb .and. l_b_nl_cmb ) then
-            br_vt_lm_cmb(:)=zero
-            br_vp_lm_cmb(:)=zero
-            call get_br_v_bcs(nR, this%gsa%brc, this%gsa%vtc, this%gsa%vpc,omega_ma,  &
-                 &            br_vt_lm_cmb, br_vp_lm_cmb)
-         else if ( nR == n_r_icb .and. l_b_nl_icb ) then
-            br_vt_lm_icb(:)=zero
-            br_vp_lm_icb(:)=zero
-            call get_br_v_bcs(nR, this%gsa%brc, this%gsa%vtc, this%gsa%vpc, omega_ic,  &
-                 &            br_vt_lm_icb, br_vp_lm_icb)
-         end if
-#endif
 
-#ifdef WITH_OMP_GPU
          !--------- Calculate Lorentz torque on inner core:
          !          each call adds the contribution of the theta-block to
          !          lorentz_torque_ic
@@ -418,39 +369,15 @@ contains
             call get_lorentz_torque_batch(lorentz_torque_ma, this%gsa%brc, &
                  &                  this%gsa%bpc, nR)
          end if
-#else
-         !--------- Calculate Lorentz torque on inner core:
-         !          each call adds the contribution of the theta-block to
-         !          lorentz_torque_ic
-         if ( nR == n_r_icb .and. l_mag_LF .and. l_rot_ic .and. l_cond_ic  ) then
-            call get_lorentz_torque(lorentz_torque_ic, this%gsa%brc,  &
-                 &                  this%gsa%bpc, nR)
-         end if
-
-         !--------- Calculate Lorentz torque on mantle:
-         !          note: this calculates a torque of a wrong sign.
-         !          sign is reversed at the end of the theta blocking.
-         if ( nR == n_r_cmb .and. l_mag_LF .and. l_rot_ma .and. l_cond_ma ) then
-            call get_lorentz_torque(lorentz_torque_ma, this%gsa%brc, &
-                 &                  this%gsa%bpc, nR)
-         end if
-#endif
 
          !--------- Since the fields are given at gridpoints here, this is a good
          !          point for graphical output:
          if ( l_graph ) then
 #ifdef WITH_MPI
-#ifdef WITH_OMP_GPU
             call graphOut_mpi_batch(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
                  &                  this%gsa%brc,this%gsa%btc,this%gsa%bpc,    &
                  &                  this%gsa%sc,this%gsa%pc,this%gsa%xic,      &
                  &                  this%gsa%phic)
-#else
-            call graphOut_mpi(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
-                 &            this%gsa%brc,this%gsa%btc,this%gsa%bpc,    &
-                 &            this%gsa%sc,this%gsa%pc,this%gsa%xic,      &
-                 &            this%gsa%phic)
-#endif
 #else
             call graphOut(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,     &
                  &        this%gsa%brc,this%gsa%btc,this%gsa%bpc,        &
@@ -464,17 +391,10 @@ contains
          end if
 
          !-- Geostrophic/non-geostrophic flow components
-#ifdef WITH_OMP_GPU
          if ( lGeosCalc ) then
             call calcGeos_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc, &
                  &        this%gsa%dvrdpc,this%gsa%dvpdrc,nR)
          end if
-#else
-         if ( lGeosCalc ) then
-            call calcGeos(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc, &
-                 &        this%gsa%dvrdpc,this%gsa%dvpdrc,nR)
-         end if
-#endif
 
          !--------- Movie output:
          if ( l_frame .and. l_movie_oc .and. l_store_frame ) then
@@ -492,6 +412,7 @@ contains
          if ( l_dtB ) then
 #ifdef WITH_OMP_GPU
             !$omp target update to(this%dtB_arrays)
+#endif
             call get_dtBLM_batch(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,       &
                  &               this%gsa%brc,this%gsa%btc,this%gsa%bpc,          &
                  &               this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,   &
@@ -501,17 +422,8 @@ contains
                  &               this%dtB_arrays%BpVtBtVpCotLM,                   &
                  &               this%dtB_arrays%BpVtBtVpSn2LM,                   &
                  &               this%dtB_arrays%BtVZsn2LM)
+#ifdef WITH_OMP_GPU
             !$omp target update from(this%dtB_arrays)
-#else
-            call get_dtBLM(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,       &
-                 &         this%gsa%brc,this%gsa%btc,this%gsa%bpc,          &
-                 &         this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,   &
-                 &         this%dtB_arrays%BrVtLM,this%dtB_arrays%BrVpLM,   &
-                 &         this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,   &
-                 &         this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,   &
-                 &         this%dtB_arrays%BpVtBtVpCotLM,                   &
-                 &         this%dtB_arrays%BpVtBtVpSn2LM,                   &
-                 &         this%dtB_arrays%BtVZsn2LM)
 #endif
          end if
 
@@ -635,6 +547,7 @@ contains
 #endif
                if ( nRstart == n_r_cmb .and. ktops==1) then
 #ifdef WITH_OMP_GPU
+                  call hipCheck(hipDeviceSynchronize())
                   !-- nlat_padded,nRl:nRu,n_phi_max
                   !$omp target teams distribute parallel do
                   do nPhi=1,n_phi_max
@@ -650,6 +563,7 @@ contains
 #endif
                else if ( nRstop == n_r_icb .and. kbots==1) then
 #ifdef WITH_OMP_GPU
+                  call hipCheck(hipDeviceSynchronize())
                   !$omp target teams distribute parallel do
                   do nPhi=1,n_phi_max
                      do nLat=1,nlat_padded
@@ -666,11 +580,7 @@ contains
             end if
          end if
 
-#ifdef WITH_OMP_GPU
          if ( lRmsCalc ) call transform_to_grid_RMS_batch(1, p_Rloc) ! 1 for l_R(nR)
-#else
-         if ( lRmsCalc ) call transform_to_grid_RMS(1, p_Rloc) ! 1 for l_R(nR)
-#endif
 
          !-- Pressure
 #ifdef WITH_OMP_GPU
@@ -736,6 +646,7 @@ contains
                     &                this%gsa%dvrdpc, l_R(1), .true.)
                call sphtor_to_spat(sht_l_gpu, dmdw,  dmz, this%gsa%dvtdpc, &
                     &              this%gsa%dvpdpc, l_R(1), .true.)
+               call hipCheck(hipDeviceSynchronize())
                !$omp target teams distribute parallel do collapse(3)
                do nPhi=1,n_phi_max
                   do nR=nRstart,nRstop
@@ -778,6 +689,7 @@ contains
                  &                 l_R(1), .true.)
             call sphtor_to_spat(sht_l_gpu, dmdw, dmz, this%gsa%dvtdpc, &
                  &              this%gsa%dvpdpc, l_R(1), .true.)
+            call hipCheck(hipDeviceSynchronize())
             !$omp target teams distribute parallel do collapse(3)
             do nPhi=1,n_phi_max
                do nR=nRstart,nRstop
@@ -811,6 +723,8 @@ contains
          end if
 
 #ifdef WITH_OMP_GPU
+         call hipCheck(hipDeviceSynchronize())
+#endif
          if ( nRstart == n_r_cmb .and. ktopv==2 ) then
             call v_rigid_boundary_batch(n_r_cmb, omega_ma, .true., this%gsa%vrc,   &
                  &                      this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
@@ -823,20 +737,6 @@ contains
                  &                      this%gsa%dvrdpc, this%gsa%dvtdpc,        &
                  &                      this%gsa%dvpdpc)
          end if
-#else
-         if ( nRstart == n_r_cmb .and. ktopv==2 ) then
-            call v_rigid_boundary(n_r_cmb, omega_ma, .true., this%gsa%vrc,   &
-                 &                this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
-                 &                this%gsa%dvrdtc, this%gsa%dvrdpc,          &
-                 &                this%gsa%dvtdpc,this%gsa%dvpdpc)
-         else if ( nRstop == n_r_icb .and. kbotv==2 ) then
-            call v_rigid_boundary(n_r_icb, omega_ic, .true., this%gsa%vrc, &
-                 &                this%gsa%vtc, this%gsa%vpc,              &
-                 &                this%gsa%cvrc, this%gsa%dvrdtc,          &
-                 &                this%gsa%dvrdpc, this%gsa%dvtdpc,        &
-                 &                this%gsa%dvpdpc)
-         end if
-#endif
 
          !else if ( nBc == 1 ) then ! Stress free
          !    ! TODO don't compute vrc as it is set to 0 afterward
@@ -888,6 +788,10 @@ contains
               &              this%gsa%cbrc, this%gsa%cbtc, this%gsa%cbpc, l_R(1))
 #endif
       end if
+
+#ifdef WITH_OMP_GPU
+      call hipCheck(hipDeviceSynchronize())
+#endif
 
    end subroutine transform_to_grid_space
 !-------------------------------------------------------------------------------
@@ -1120,6 +1024,10 @@ contains
       end if
 
       if ( lRmsCalc ) call transform_to_lm_RMS(1, this%gsa%LFr) ! 1 for l_R(1)
+
+#ifdef WITH_OMP_GPU
+      call hipCheck(hipDeviceSynchronize())
+#endif
 
    end subroutine transform_to_lm_space
 !-------------------------------------------------------------------------------

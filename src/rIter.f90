@@ -35,11 +35,7 @@ module rIter_mod
    use dtB_arrays_mod, only: dtB_arrays_t
    use torsional_oscillations, only: prep_TO_axi, getTO, getTOnext, getTOfinish
 #ifdef WITH_MPI
-#ifdef WITH_OMP_GPU
-   use graphOut_mod, only: graphOut_mpi_noBatch, graphOut_mpi_header
-#else
    use graphOut_mod, only: graphOut_mpi, graphOut_mpi_header
-#endif
 #else
    use graphOut_mod, only: graphOut, graphOut_header
 #endif
@@ -65,6 +61,11 @@ module rIter_mod
        &          Advt2LM, Advp2LM, PFt2LM, PFp2LM, LFrLM, LFt2LM, LFp2LM,  &
        &          CFt2LM, CFp2LM
    use probe_mod
+
+#ifdef WITH_OMP_GPU
+   use hipfort_check, only: hipCheck
+   use hipfort, only: hipDeviceSynchronize
+#endif
 
    implicit none
 
@@ -350,17 +351,10 @@ contains
          !          point for graphical output:
          if ( l_graph ) then
 #ifdef WITH_MPI
-#ifdef WITH_OMP_GPU
-            call graphOut_mpi_noBatch(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
-                 &            this%gsa%brc,this%gsa%btc,this%gsa%bpc,    &
-                 &            this%gsa%sc,this%gsa%pc,this%gsa%xic,      &
-                 &            this%gsa%phic)
-#else
             call graphOut_mpi(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
                  &            this%gsa%brc,this%gsa%btc,this%gsa%bpc,    &
                  &            this%gsa%sc,this%gsa%pc,this%gsa%xic,      &
                  &            this%gsa%phic)
-#endif
 #else
             call graphOut(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,     &
                  &        this%gsa%brc,this%gsa%btc,this%gsa%bpc,        &
@@ -585,6 +579,7 @@ contains
 #endif
                if ( nR == n_r_cmb .and. ktops==1) then
 #ifdef WITH_OMP_GPU
+                  call hipCheck(hipDeviceSynchronize())
                   !$omp target teams distribute parallel do collapse(2)
                   do nPhi=1,n_phi_max
                      do nLat=1,nlat_padded
@@ -600,6 +595,7 @@ contains
                end if
                if ( nR == n_r_icb .and. kbots==1) then
 #ifdef WITH_OMP_GPU
+                  call hipCheck(hipDeviceSynchronize())
                   !$omp target teams distribute parallel do collapse(2)
                   do nPhi=1,n_phi_max
                      do nLat=1,nlat_padded
@@ -695,6 +691,7 @@ contains
                        &                 this%gsa%dvrdpc, l_R(nR), .true.)
                   call sphtor_to_spat(sht_l_gpu, dmdw,  dmz, this%gsa%dvtdpc, &
                        &              this%gsa%dvpdpc, l_R(nR), .true.)
+                  call hipCheck(hipDeviceSynchronize())
                   !$omp target teams distribute parallel do collapse(2)
                   do nPhi=1,n_phi_max
                      do nLat=1,nlat_padded
@@ -733,6 +730,7 @@ contains
                     &                 l_R(nR), .true.)
                call sphtor_to_spat(sht_l_gpu, dmdw, dmz, this%gsa%dvtdpc, &
                     &              this%gsa%dvpdpc, l_R(nR), .true.)
+               call hipCheck(hipDeviceSynchronize())
                !$omp target teams distribute parallel do collapse(2)
                   do nPhi=1,n_phi_max
                      do nLat=1,nlat_padded
@@ -766,6 +764,7 @@ contains
 #ifdef WITH_OMP_GPU
             call torpol_to_spat(dLw, dw_Rloc(:,nR),  z_Rloc(:,nR), &
                  &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR), .true.)
+            call hipCheck(hipDeviceSynchronize())
             !$omp target teams distribute parallel do collapse(2)
             do nPhi=1,n_phi_max
                do nLat=1,nlat_padded
@@ -780,6 +779,7 @@ contains
 #endif
             if ( lDeriv ) then
 #ifdef WITH_OMP_GPU
+               call hipCheck(hipDeviceSynchronize())
                !$omp target teams distribute parallel do collapse(2)
                do nPhi=1,n_phi_max
                   do nLat=1,nlat_padded
@@ -794,6 +794,7 @@ contains
                call scal_to_spat(sht_l_gpu, dLz, this%gsa%cvrc, l_R(nR), .true.)
                call sphtor_to_spat(sht_l_gpu, dmdw, dmz, this%gsa%dvtdpc, &
                     &              this%gsa%dvpdpc, l_R(nR), .true.)
+               call hipCheck(hipDeviceSynchronize())
                !$omp target teams distribute parallel do collapse(2)
                do nPhi=1,n_phi_max
                   do nLat=1,nlat_padded
@@ -820,6 +821,9 @@ contains
 #endif
             end if
          else if ( nBc == 2 ) then
+#ifdef WITH_OMP_GPU
+            call hipCheck(hipDeviceSynchronize())
+#endif
             if ( nR == n_r_cmb ) then
                call v_rigid_boundary(nR, omega_ma, lDeriv, this%gsa%vrc,        &
                     &                this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
@@ -847,6 +851,9 @@ contains
       end if
 
       if ( l_mag .or. l_mag_LF ) then
+#ifdef WITH_OMP_GPU
+         call hipCheck(hipDeviceSynchronize())
+#endif
          call legPrep_qst(nR, b_Rloc(:,nR), ddb_Rloc(:,nR), aj_Rloc(:,nR), &
              &           dLw, dLddw, dLz)
 #ifdef WITH_OMP_GPU
@@ -869,6 +876,10 @@ contains
 #endif
          end if
       end if
+
+#ifdef WITH_OMP_GPU
+      call hipCheck(hipDeviceSynchronize())
+#endif
 
    end subroutine transform_to_grid_space
 !-------------------------------------------------------------------------------
@@ -1102,6 +1113,10 @@ contains
       end if
 
       if ( lRmsCalc ) call transform_to_lm_RMS(nR, this%gsa%LFr)
+
+#ifdef WITH_OMP_GPU
+      call hipCheck(hipDeviceSynchronize())
+#endif
 
    end subroutine transform_to_lm_space
 !-------------------------------------------------------------------------------
