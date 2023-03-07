@@ -5,7 +5,11 @@ module power
 
    use parallel_mod
    use precision_mod
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: bytes_allocated
+#endif   
    use communications, only: gather_from_Rloc, reduce_radial, send_lm_pair_to_master
    use truncation, only: n_r_ic_maxMag, n_r_max, n_r_ic_max, nlat_padded, &
        &                 n_r_maxMag, n_phi_max, n_theta_max
@@ -56,7 +60,11 @@ contains
       allocate( viscASr(nRstart:nRstop) )
       viscASr(:)=0.0_cp
       bytes_allocated=bytes_allocated+(nRstop-nRstart+1)*SIZEOF_DEF_REAL
-
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: viscASr)
+      !$omp target update to(viscASr)
+      gpu_bytes_allocated=gpu_bytes_allocated+(nRstop-nRstart+1)*SIZEOF_DEF_REAL
+#endif
       n_calls = 0
       powerDiff=0.0_cp
       eDiffInt =0.0_cp
@@ -78,6 +86,11 @@ contains
       if ( rank == 0 .and. (.not. l_save_out) ) then
          close(n_power_file)
       end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: viscASr)          
+#endif
+      deallocate(viscASr)        
 
    end subroutine finalize_output_power
 !----------------------------------------------------------------------------
@@ -402,10 +415,10 @@ contains
       phiNorm=two*pi/real(n_phi_max,cp)
       viscAS=0.0_cp
 
-#ifdef WITH_OMP_GPU
+#ifdef WITH_OMP_GPU      
       !$omp target teams distribute parallel do collapse(2) &
-      !$omp& map(tofrom: viscAS)                            &
-      !$omp& private(csn2, vischeat)                        &
+      !$omp& map(tofrom:viscAS)                             &        
+      !$omp& private(csn2, vischeat)                        &      
       !$omp& reduction(+:viscAS)
 #else
       !$omp parallel do default(shared)         &
@@ -478,8 +491,8 @@ contains
       viscASr(:)=0.0_cp
 
 #ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do collapse(3) &
-      !$omp& map(tofrom: viscASr)                           &
+      !$omp target update to(viscASr)
+      !$omp target teams distribute parallel do collapse(2) &      
       !$omp& private(csn2, vischeat)                        &
       !$omp& reduction(+:viscASr)
 #else
@@ -520,6 +533,7 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+      !$omp target update from(viscASr)
 #else
       !$omp end parallel do
 #endif
