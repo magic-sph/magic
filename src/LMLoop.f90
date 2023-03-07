@@ -1016,15 +1016,19 @@ contains
 #ifdef WITH_MPI
       array_of_requests(:)=MPI_REQUEST_NULL
 #endif
+#ifndef WITH_OMP_GPU
       !$omp parallel default(shared) private(tag, req, start_lm, stop_lm, nlm_block, lms_block)
+#endif
       tag = 0
       req=1
       do lms_block=1,lm_max,block_sze
          nlm_block = lm_max-lms_block+1
          if ( nlm_block > block_sze ) nlm_block=block_sze
          start_lm=lms_block; stop_lm=lms_block+nlm_block-1
+#ifndef WITH_OMP_GPU
          call get_openmp_blocks(start_lm,stop_lm)
          !$omp barrier
+#endif
 
          call phiMat_FD%solver_up(phi_ghost, start_lm, stop_lm, nRstart, nRstop, tag, &
               &                   array_of_requests, req, lms_block, nlm_block)
@@ -1035,15 +1039,19 @@ contains
          nlm_block = lm_max-lms_block+1
          if ( nlm_block > block_sze ) nlm_block=block_sze
          start_lm=lms_block; stop_lm=lms_block+nlm_block-1
+#ifndef WITH_OMP_GPU
          call get_openmp_blocks(start_lm,stop_lm)
          !$omp barrier
+#endif
 
          call phiMat_FD%solver_dn(phi_ghost, start_lm, stop_lm, nRstart, nRstop, tag, &
            &                      array_of_requests, req, lms_block, nlm_block)
          tag = tag+1
       end do
 
+#ifndef WITH_OMP_GPU
       !$omp master
+#endif
       do lms_block=1,lm_max,block_sze
          nlm_block = lm_max-lms_block+1
          if ( nlm_block > block_sze ) nlm_block=block_sze
@@ -1058,10 +1066,12 @@ contains
       if ( ierr /= MPI_SUCCESS ) call abortRun('MPI_Waitall failed in LMLoop')
       call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
+#ifndef WITH_OMP_GPU
       !$omp end master
       !$omp barrier
 
       !$omp end parallel
+#endif
 
    end subroutine parallel_solve_phase
 !--------------------------------------------------------------------------------
@@ -1080,7 +1090,9 @@ contains
       array_of_requests(:)=MPI_REQUEST_NULL
 #endif
 
+#ifndef WITH_OMP_GPU
       !$omp parallel default(shared) private(tag, req, start_lm, stop_lm, nlm_block, lms_block)
+#endif
       tag = 0
       req=1
 
@@ -1088,8 +1100,10 @@ contains
          nlm_block = lm_max-lms_block+1
          if ( nlm_block > block_sze ) nlm_block=block_sze
          start_lm=lms_block; stop_lm=lms_block+nlm_block-1
+#ifndef WITH_OMP_GPU
          call get_openmp_blocks(start_lm,stop_lm)
          !$omp barrier
+#endif
 
          if ( l_heat ) then
             call sMat_FD%solver_up(s_ghost, start_lm, stop_lm, nRstart, nRstop, tag, &
@@ -1126,8 +1140,10 @@ contains
          nlm_block = lm_max-lms_block+1
          if ( nlm_block > block_sze ) nlm_block=block_sze
          start_lm=lms_block; stop_lm=lms_block+nlm_block-1
+#ifndef WITH_OMP_GPU
          call get_openmp_blocks(start_lm,stop_lm)
          !$omp barrier
+#endif
 
          if ( l_heat ) then
             call sMat_FD%solver_dn(s_ghost, start_lm, stop_lm, nRstart, nRstop, tag, &
@@ -1160,7 +1176,9 @@ contains
          end if
       end do
 
+#ifndef WITH_OMP_GPU
       !$omp master
+#endif
       do lms_block=1,lm_max,block_sze
          nlm_block = lm_max-lms_block+1
          if ( nlm_block > block_sze ) nlm_block=block_sze
@@ -1202,10 +1220,12 @@ contains
       if ( ierr /= MPI_SUCCESS ) call abortRun('MPI_Waitall failed in LMLoop')
       call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
+#ifndef WITH_OMP_GPU
       !$omp end master
       !$omp barrier
 
       !$omp end parallel
+#endif
 
    end subroutine parallel_solve
 !--------------------------------------------------------------------------------
