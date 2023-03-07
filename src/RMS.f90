@@ -78,9 +78,9 @@ module RMS
    real(cp), allocatable :: CLF2hInt(:,:), PLF2hInt(:,:), Iner2hInt(:,:)
 
    !-- Arrays on the physical grid
-   real(cp), allocatable :: Advt2(:), Advp2(:), dpdtc(:), dpdpc(:)
-   real(cp), allocatable :: CFt2(:), CFp2(:), LFt2(:), LFp2(:)
-   real(cp), allocatable :: dpkindrc(:), dtVr(:), dtVt(:), dtVp(:)
+   real(cp), allocatable :: Advt2(:,:,:), Advp2(:,:,:), dpdtc(:,:,:), dpdpc(:,:,:)
+   real(cp), allocatable :: CFt2(:,:,:), CFp2(:,:,:), LFt2(:,:,:), LFp2(:,:,:)
+   real(cp), allocatable :: dpkindrc(:,:,:), dtVr(:,:,:), dtVt(:,:,:), dtVp(:,:,:)
    real(cp), allocatable :: vr_old(:,:,:), vt_old(:,:,:), vp_old(:,:,:)
 
    complex(cp), public, allocatable :: dtVrLM(:), dtVtLM(:), dtVpLM(:)
@@ -103,14 +103,8 @@ module RMS
    integer :: n_dtvrms_file, n_dtbrms_file
    character(len=72) :: dtvrms_file, dtbrms_file
 
-#ifdef WITH_OMP_GPU
-   public :: dtVrms, dtBrms, initialize_RMS, zeroRms, finalize_RMS, get_nl_RMS, get_nl_RMS_batch, &
-   &         transform_to_lm_RMS, compute_lm_forces, transform_to_grid_RMS, &
-   &         transform_to_grid_RMS_batch
-#else
-   public :: dtVrms, dtBrms, initialize_RMS, zeroRms, finalize_RMS, get_nl_RMS, &
-   &         transform_to_lm_RMS, compute_lm_forces, transform_to_grid_RMS
-#endif
+   public :: dtVrms, dtBrms, initialize_RMS, zeroRms, finalize_RMS, get_nl_RMS, get_nl_RMS_batch,       &
+   &         transform_to_lm_RMS, compute_lm_forces, transform_to_grid_RMS, transform_to_grid_RMS_batch
 
 contains
 
@@ -163,14 +157,14 @@ contains
       end if
 
       !-- RMS Calculations
-      allocate( Advt2(n_phys_space), Advp2(n_phys_space) )
-      allocate( dtVr(n_phys_space), dtVt(n_phys_space) )
-      allocate( dtVp(n_phys_space) )
-      allocate( LFt2(n_phys_space), LFp2(n_phys_space) )
-      allocate( CFt2(n_phys_space), CFp2(n_phys_space) )
-      allocate( dpdtc(n_phys_space), dpdpc(n_phys_space) )
-      Advt2(:)=0.0_cp ; Advp2(:)=0.0_cp ; LFt2(:)=0.0_cp ; LFp2(:)=0.0_cp
-      CFt2(:)=0.0_cp ; CFp2(:)=0.0_cp ; dpdtc(:)=0.0_cp ; dpdpc(:)=0.0_cp
+      allocate( Advt2(nlat_padded,n_phi_max,nRstart:nRstop), Advp2(nlat_padded,n_phi_max,nRstart:nRstop) )
+      allocate( dtVr(nlat_padded,n_phi_max,nRstart:nRstop), dtVt(nlat_padded,n_phi_max,nRstart:nRstop) )
+      allocate( dtVp(nlat_padded,n_phi_max,nRstart:nRstop) )
+      allocate( LFt2(nlat_padded,n_phi_max,nRstart:nRstop), LFp2(nlat_padded,n_phi_max,nRstart:nRstop) )
+      allocate( CFt2(nlat_padded,n_phi_max,nRstart:nRstop), CFp2(nlat_padded,n_phi_max,nRstart:nRstop) )
+      allocate( dpdtc(nlat_padded,n_phi_max,nRstart:nRstop), dpdpc(nlat_padded,n_phi_max,nRstart:nRstop) )
+      Advt2(:,:,:)=0.0_cp ; Advp2(:,:,:)=0.0_cp ; LFt2(:,:,:)=0.0_cp ; LFp2(:,:,:)=0.0_cp
+      CFt2(:,:,:)=0.0_cp ; CFp2(:,:,:)=0.0_cp ; dpdtc(:,:,:)=0.0_cp ; dpdpc(:,:,:)=0.0_cp
       bytes_allocated=bytes_allocated + 11*n_phys_space*SIZEOF_DEF_REAL
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: Advt2, Advp2, dtVr, dtVt, dtVp, LFt2, &
@@ -194,8 +188,8 @@ contains
       vp_old(:,:,:) =0.0_cp
 
       if ( l_adv_curl ) then
-         allocate ( dpkindrc(n_phys_space) )
-         dpkindrc(:)=0.0_cp
+         allocate ( dpkindrc(nlat_padded,n_phi_max,nRstart:nRstop) )
+         dpkindrc(:,:,:)=0.0_cp
          bytes_allocated=bytes_allocated + n_phys_space*SIZEOF_DEF_REAL
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: dpkindrc)
@@ -535,7 +529,6 @@ contains
 
    end subroutine init_rNB
 !----------------------------------------------------------------------------
-#ifdef WITH_OMP_GPU
    subroutine get_nl_RMS(nR0,vr,vt,vp,dvrdr,dvrdt,dvrdp,dvtdr,dvtdp,dvpdr,dvpdp, &
               &          cvr,Advt,Advp,LFt,LFp,tscheme,lRmsCalc)
       !
@@ -555,14 +548,18 @@ contains
 
       !-- Local variables
       real(cp) ::  O_dt
-      integer :: nPhi, nT, nelem,nR
+      integer :: nPhi, nPhStart, nPhStop
+      integer :: nR
+      integer :: n_theta
       integer :: istage
       real(cp) :: dt
       istage = tscheme%istage
       dt = tscheme%dt(1)
 
-      nR=nR0
+      nPhStart=1; nPhStop=n_phi_max
 
+#ifdef WITH_OMP_GPU
+      nR=nR0
       if ( lRmsCalc ) then
          !$omp target update to(dpdtc, dpdpc, CFt2, CFp2)
          if ( l_conv_nl ) then
@@ -575,80 +572,84 @@ contains
             !$omp target update to(dpkindrc)
          end if
       end if
-      if ( tscheme%istage == 1 ) then
+      if ( istage == 1 ) then
          !$omp target update to(vr_old, vt_old, vp_old, dtVr, dtVt, dtVp)
       end if
-
       !$omp target teams distribute parallel do
-      do nelem=1,n_phys_space
-         nT = spat2lat(nelem)
-         if ( l_batched_shts ) nR = spat2rad(nelem)
-         nPhi = spat2lon(nelem)
+#else
+      !$omp parallel default(shared) private(n_theta, nPhi, nR)
+      nR=nR0
+      !$omp do
+#endif
 
-         if ( lRmsCalc ) then
-            dpdtc(nelem)=dpdtc(nelem)*or1(nR)
-            dpdpc(nelem)=dpdpc(nelem)*or1(nR)
-            CFt2(nelem)=-two*CorFac*cosTheta(nT)*vp(nelem)*or1(nR)
-            CFp2(nelem)= two*CorFac*sinTheta(nT)* (or1(nR)*cosTheta(nT)*&
-            &            O_sin_theta(nT)*vt(nelem)+or2(nR)*sinTheta(nT)*vr(nelem) )
-            if ( l_conv_nl ) then
-               Advt2(nelem)=r(nR)*Advt(nelem)
-               Advp2(nelem)=r(nR)*Advp(nelem)
-            end if
-            if ( l_mag_LF .and. nR > n_r_LCR ) then
-               LFt2(nelem)=r(nR)*LFt(nelem)
-               LFp2(nelem)=r(nR)*LFp(nelem)
-            end if
+      do nPhi=nPhStart,nPhStop
+         do n_theta=1,nlat_padded
 
-            if ( l_adv_curl ) then
-               dpdtc(nelem)=dpdtc(nelem)-or3(nR)*( or2(nR)*    &
-               &             vr(nelem)*dvrdt(nelem) -          &
-               &             vt(nelem)*(dvrdr(nelem)+          &
-               &             dvpdp(nelem)+cosn_theta_E2(nT) *  &
-               &             vt(nelem))+ vp(nelem)*(           &
-               &             cvr(nelem)+dvtdp(nelem)-          &
-               &             cosn_theta_E2(nT)*vp(nelem)) )
-               dpdpc(nelem)=dpdpc(nelem)- or3(nR)*( or2(nR)*  &
-               &             vr(nelem)*dvrdp(nelem) +         &
-               &             vt(nelem)*dvtdp(nelem) +         &
-               &             vp(nelem)*dvpdp(nelem) )
+            if ( lRmsCalc ) then
+               dpdtc(n_theta,nPhi,nR)=dpdtc(n_theta,nPhi,nR)*or1(nR)
+               dpdpc(n_theta,nPhi,nR)=dpdpc(n_theta,nPhi,nR)*or1(nR)
+               CFt2(n_theta,nPhi,nR)=-two*CorFac*cosTheta(n_theta)*vp(n_theta, nPhi)*or1(nR)
+               CFp2(n_theta,nPhi,nR)= two*CorFac*sinTheta(n_theta)*(or1(nR)*cosTheta(n_theta)*&
+               &            O_sin_theta(n_theta)*vt(n_theta, nPhi)+or2(nR)*sinTheta(n_theta)*vr(n_theta, nPhi) )
                if ( l_conv_nl ) then
-                  Advt2(nelem)=Advt2(nelem)-or3(nR)*( or2(nR)*   &
-                  &             vr(nelem)*dvrdt(nelem) -         &
-                  &             vt(nelem)*(dvrdr(nelem)+         &
-                  &             dvpdp(nelem)+cosn_theta_E2(nT) * &
-                  &             vt(nelem))+vp(nelem)*(           &
-                  &             cvr(nelem)+dvtdp(nelem)-         &
-                  &             cosn_theta_E2(nT)*vp(nelem)) )
-                  Advp2(nelem)=Advp2(nelem)-or3(nR)*( or2(nR)* &
-                  &             vr(nelem)*dvrdp(nelem) +       &
-                  &             vt(nelem)*dvtdp(nelem) +       &
-                  &             vp(nelem)*dvpdp(nelem) )
+                  Advt2(n_theta,nPhi,nR)=r(nR)*Advt(n_theta, nPhi)
+                  Advp2(n_theta,nPhi,nR)=r(nR)*Advp(n_theta, nPhi)
+               end if
+               if ( l_mag_LF .and. nR > n_r_LCR ) then
+                  LFt2(n_theta,nPhi,nR)=r(nR)*LFt(n_theta, nPhi)
+                  LFp2(n_theta,nPhi,nR)=r(nR)*LFp(n_theta, nPhi)
                end if
 
-               !- dpkin/dr = 1/2 d (u^2) / dr = ur*dur/dr+ut*dut/dr+up*dup/dr
-               dpkindrc(nelem)=or4(nR)*vr(nelem)*(dvrdr(nelem)-             &
-               &                two*or1(nR)*vr(nelem))+or2(nR)*             &
-               &                O_sin_theta_E2(nT)*(         vt(nelem)*(    &
-               &                      dvtdr(nelem)-or1(nR)*vt(nelem) ) +    &
-               &                vp(nelem)*(dvpdr(nelem)-or1(nR)*vp(nelem) ) )
+               if ( l_adv_curl ) then
+                  dpdtc(n_theta,nPhi,nR)=dpdtc(n_theta,nPhi,nR)-or3(nR)*( or2(nR)*&
+                  &             vr(n_theta, nPhi)*dvrdt(n_theta, nPhi) -       &
+                  &             vt(n_theta, nPhi)*(dvrdr(n_theta, nPhi)+       &
+                  &             dvpdp(n_theta, nPhi)+cosn_theta_E2(n_theta) *  &
+                  &             vt(n_theta, nPhi))+ vp(n_theta, nPhi)*(        &
+                  &             cvr(n_theta, nPhi)+dvtdp(n_theta, nPhi)-       &
+                  &             cosn_theta_E2(n_theta)*vp(n_theta, nPhi)) )
+                  dpdpc(n_theta,nPhi,nR)=dpdpc(n_theta,nPhi,nR)- or3(nR)*( or2(nR)*&
+                  &             vr(n_theta, nPhi)*dvrdp(n_theta, nPhi) +       &
+                  &             vt(n_theta, nPhi)*dvtdp(n_theta, nPhi) +       &
+                  &             vp(n_theta, nPhi)*dvpdp(n_theta, nPhi) )
+                  if ( l_conv_nl ) then
+                     Advt2(n_theta,nPhi,nR)=Advt2(n_theta,nPhi,nR)-or3(nR)*( or2(nR)* &
+                     &             vr(n_theta, nPhi)*dvrdt(n_theta, nPhi) -      &
+                     &             vt(n_theta, nPhi)*(dvrdr(n_theta, nPhi)+      &
+                     &             dvpdp(n_theta, nPhi)+cosn_theta_E2(n_theta) * &
+                     &             vt(n_theta, nPhi))+vp(n_theta, nPhi)*(        &
+                     &             cvr(n_theta, nPhi)+dvtdp(n_theta, nPhi)-      &
+                     &             cosn_theta_E2(n_theta)*vp(n_theta, nPhi)) )
+                     Advp2(n_theta,nPhi,nR)=Advp2(n_theta,nPhi,nR)-or3(nR)*( or2(nR)*&
+                     &             vr(n_theta, nPhi)*dvrdp(n_theta, nPhi) +      &
+                     &             vt(n_theta, nPhi)*dvtdp(n_theta, nPhi) +      &
+                     &             vp(n_theta, nPhi)*dvpdp(n_theta, nPhi) )
+                  end if
+
+                  !- dpkin/dr = 1/2 d (u^2) / dr = ur*dur/dr+ut*dut/dr+up*dup/dr
+                  dpkindrc(n_theta,nPhi,nR)=or4(nR)*vr(n_theta, nPhi)*(dvrdr(n_theta, nPhi)-&
+                  &                two*or1(nR)*vr(n_theta, nPhi))+or2(nR)*                  &
+                  &                O_sin_theta_E2(n_theta)*(vt(n_theta, nPhi)*(             &
+                  &                      dvtdr(n_theta, nPhi)-or1(nR)*vt(n_theta, nPhi) ) + &
+                  &                vp(n_theta, nPhi)*(dvpdr(n_theta, nPhi)-or1(nR)*vp(n_theta, nPhi) ) )
+               end if
             end if
-         end if
 
-         if ( istage == 1 ) then
-            O_dt = 1.0_cp/dt
-            dtVr(nelem)=O_dt*or2(nR)*(vr(nelem)-vr_old(nT,nPhi,nR))
-            dtVt(nelem)=O_dt*or1(nR)*(vt(nelem)-vt_old(nT,nPhi,nR))
-            dtVp(nelem)=O_dt*or1(nR)*(vp(nelem)-vp_old(nT,nPhi,nR))
+            if ( istage == 1 ) then
+               O_dt = 1.0_cp/dt
+               dtVr(n_theta,nPhi,nR)=O_dt*or2(nR)*(vr(n_theta, nPhi)-vr_old(n_theta,nPhi,nR))
+               dtVt(n_theta,nPhi,nR)=O_dt*or1(nR)*(vt(n_theta, nPhi)-vt_old(n_theta,nPhi,nR))
+               dtVp(n_theta,nPhi,nR)=O_dt*or1(nR)*(vp(n_theta, nPhi)-vp_old(n_theta,nPhi,nR))
 
-            vr_old(nT,nPhi,nR)=vr(nelem)
-            vt_old(nT,nPhi,nR)=vt(nelem)
-            vp_old(nT,nPhi,nR)=vp(nelem)
-         end if
+               vr_old(n_theta,nPhi,nR)=vr(n_theta, nPhi)
+               vt_old(n_theta,nPhi,nR)=vt(n_theta, nPhi)
+               vp_old(n_theta,nPhi,nR)=vp(n_theta, nPhi)
+            end if
 
+         end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
-
       if ( lRmsCalc ) then
          !$omp target update from(dpdtc, dpdpc, CFt2, CFp2)
          if ( l_conv_nl ) then
@@ -661,12 +662,16 @@ contains
             !$omp target update from(dpkindrc)
          end if
       end if
-      if ( tscheme%istage == 1 ) then
+      if ( istage == 1 ) then
          !$omp target update from(vr_old, vt_old, vp_old, dtVr, dtVt, dtVp)
       end if
+#else
+      !$omp end do
+      !$omp end parallel
+#endif
 
    end subroutine get_nl_RMS
-
+!----------------------------------------------------------------------------
    subroutine get_nl_RMS_batch(nR0,vr,vt,vp,dvrdr,dvrdt,dvrdp,dvtdr,dvtdp,dvpdr,dvpdp, &
               &          cvr,Advt,Advp,LFt,LFp,tscheme,lRmsCalc)
       !
@@ -686,14 +691,18 @@ contains
 
       !-- Local variables
       real(cp) ::  O_dt
-      integer :: nPhi, nT, nelem,nR
+      integer :: nPhi, nPhStart, nPhStop
+      integer :: nR
+      integer :: n_theta
       integer :: istage
       real(cp) :: dt
       istage = tscheme%istage
       dt = tscheme%dt(1)
 
       nR=nR0
+      nPhStart=1; nPhStop=n_phi_max
 
+#ifdef WITH_OMP_GPU
       if ( lRmsCalc ) then
          !$omp target update to(dpdtc, dpdpc, CFt2, CFp2)
          if ( l_conv_nl ) then
@@ -706,80 +715,84 @@ contains
             !$omp target update to(dpkindrc)
          end if
       end if
-      if ( tscheme%istage == 1 ) then
+      if ( istage == 1 ) then
          !$omp target update to(vr_old, vt_old, vp_old, dtVr, dtVt, dtVp)
       end if
+      !$omp target teams distribute parallel do !collapse(3)
+#else
+      !$omp parallel default(shared) private(n_theta, nPhi, nR)
+      !$omp do
+#endif
+      do nPhi=nPhStart,nPhStop
+         do nR=nRstart,nRstop
+            do n_theta=1,nlat_padded
 
-      !$omp target teams distribute parallel do
-      do nelem=1,n_phys_space
-         nT = spat2lat(nelem)
-         if ( l_batched_shts ) nR = spat2rad(nelem)
-         nPhi = spat2lon(nelem)
+               if ( lRmsCalc ) then
+                  dpdtc(n_theta,nPhi,nR)=dpdtc(n_theta,nPhi,nR)*or1(nR)
+                  dpdpc(n_theta,nPhi,nR)=dpdpc(n_theta,nPhi,nR)*or1(nR)
+                  CFt2(n_theta,nPhi,nR)=-two*CorFac*cosTheta(n_theta)*vp(n_theta, nR, nPhi)*or1(nR)
+                  CFp2(n_theta,nPhi,nR)= two*CorFac*sinTheta(n_theta)*(or1(nR)*cosTheta(n_theta)*&
+                  &            O_sin_theta(n_theta)*vt(n_theta, nR, nPhi)+or2(nR)*sinTheta(n_theta)*vr(n_theta, nR, nPhi) )
+                  if ( l_conv_nl ) then
+                     Advt2(n_theta,nPhi,nR)=r(nR)*Advt(n_theta, nR, nPhi)
+                     Advp2(n_theta,nPhi,nR)=r(nR)*Advp(n_theta, nR, nPhi)
+                  end if
+                  if ( l_mag_LF .and. nR > n_r_LCR ) then
+                     LFt2(n_theta,nPhi,nR)=r(nR)*LFt(n_theta, nR, nPhi)
+                     LFp2(n_theta,nPhi,nR)=r(nR)*LFp(n_theta, nR, nPhi)
+                  end if
 
-         if ( lRmsCalc ) then
-            dpdtc(nelem)=dpdtc(nelem)*or1(nR)
-            dpdpc(nelem)=dpdpc(nelem)*or1(nR)
-            CFt2(nelem)=-two*CorFac*cosTheta(nT)*vp(nelem)*or1(nR)
-            CFp2(nelem)= two*CorFac*sinTheta(nT)* (or1(nR)*cosTheta(nT)*&
-            &            O_sin_theta(nT)*vt(nelem)+or2(nR)*sinTheta(nT)*vr(nelem) )
-            if ( l_conv_nl ) then
-               Advt2(nelem)=r(nR)*Advt(nelem)
-               Advp2(nelem)=r(nR)*Advp(nelem)
-            end if
-            if ( l_mag_LF .and. nR > n_r_LCR ) then
-               LFt2(nelem)=r(nR)*LFt(nelem)
-               LFp2(nelem)=r(nR)*LFp(nelem)
-            end if
+                  if ( l_adv_curl ) then
+                     dpdtc(n_theta,nPhi,nR)=dpdtc(n_theta,nPhi,nR)-or3(nR)*( or2(nR)* &
+                     &             vr(n_theta, nR, nPhi)*dvrdt(n_theta, nR, nPhi) -   &
+                     &             vt(n_theta, nR, nPhi)*(dvrdr(n_theta, nR, nPhi)+   &
+                     &             dvpdp(n_theta, nR, nPhi)+cosn_theta_E2(n_theta) *  &
+                     &             vt(n_theta, nR, nPhi))+ vp(n_theta, nR, nPhi)*(    &
+                     &             cvr(n_theta, nR, nPhi)+dvtdp(n_theta, nR, nPhi)-   &
+                     &             cosn_theta_E2(n_theta)*vp(n_theta, nR, nPhi)) )
+                     dpdpc(n_theta,nPhi,nR)=dpdpc(n_theta,nPhi,nR)- or3(nR)*( or2(nR)*&
+                     &             vr(n_theta, nR, nPhi)*dvrdp(n_theta, nR, nPhi) +   &
+                     &             vt(n_theta, nR, nPhi)*dvtdp(n_theta, nR, nPhi) +   &
+                     &             vp(n_theta, nR, nPhi)*dvpdp(n_theta, nR, nPhi) )
+                     if ( l_conv_nl ) then
+                        Advt2(n_theta,nPhi,nR)=Advt2(n_theta,nPhi,nR)-or3(nR)*( or2(nR)*&
+                        &             vr(n_theta, nR, nPhi)*dvrdt(n_theta, nR, nPhi) -  &
+                        &             vt(n_theta, nR, nPhi)*(dvrdr(n_theta, nR, nPhi)+  &
+                        &             dvpdp(n_theta, nR, nPhi)+cosn_theta_E2(n_theta) * &
+                        &             vt(n_theta, nR, nPhi))+vp(n_theta, nR, nPhi)*(    &
+                        &             cvr(n_theta, nR, nPhi)+dvtdp(n_theta, nR, nPhi)-  &
+                        &             cosn_theta_E2(n_theta)*vp(n_theta, nR, nPhi)) )
+                        Advp2(n_theta,nPhi,nR)=Advp2(n_theta,nPhi,nR)-or3(nR)*( or2(nR)*&
+                        &             vr(n_theta, nR, nPhi)*dvrdp(n_theta, nR, nPhi) +  &
+                        &             vt(n_theta, nR, nPhi)*dvtdp(n_theta, nR, nPhi) +  &
+                        &             vp(n_theta, nR, nPhi)*dvpdp(n_theta, nR, nPhi) )
+                     end if
 
-            if ( l_adv_curl ) then
-               dpdtc(nelem)=dpdtc(nelem)-or3(nR)*( or2(nR)*    &
-               &             vr(nelem)*dvrdt(nelem) -          &
-               &             vt(nelem)*(dvrdr(nelem)+          &
-               &             dvpdp(nelem)+cosn_theta_E2(nT) *  &
-               &             vt(nelem))+ vp(nelem)*(           &
-               &             cvr(nelem)+dvtdp(nelem)-          &
-               &             cosn_theta_E2(nT)*vp(nelem)) )
-               dpdpc(nelem)=dpdpc(nelem)- or3(nR)*( or2(nR)*  &
-               &             vr(nelem)*dvrdp(nelem) +         &
-               &             vt(nelem)*dvtdp(nelem) +         &
-               &             vp(nelem)*dvpdp(nelem) )
-               if ( l_conv_nl ) then
-                  Advt2(nelem)=Advt2(nelem)-or3(nR)*( or2(nR)*   &
-                  &             vr(nelem)*dvrdt(nelem) -         &
-                  &             vt(nelem)*(dvrdr(nelem)+         &
-                  &             dvpdp(nelem)+cosn_theta_E2(nT) * &
-                  &             vt(nelem))+vp(nelem)*(           &
-                  &             cvr(nelem)+dvtdp(nelem)-         &
-                  &             cosn_theta_E2(nT)*vp(nelem)) )
-                  Advp2(nelem)=Advp2(nelem)-or3(nR)*( or2(nR)* &
-                  &             vr(nelem)*dvrdp(nelem) +       &
-                  &             vt(nelem)*dvtdp(nelem) +       &
-                  &             vp(nelem)*dvpdp(nelem) )
+                     !- dpkin/dr = 1/2 d (u^2) / dr = ur*dur/dr+ut*dut/dr+up*dup/dr
+                     dpkindrc(n_theta,nPhi,nR)=or4(nR)*vr(n_theta, nR, nPhi)*(dvrdr(n_theta, nR, nPhi)-   &
+                     &                two*or1(nR)*vr(n_theta, nR, nPhi))+or2(nR)*                         &
+                     &                O_sin_theta_E2(n_theta)*(vt(n_theta, nR, nPhi)*(                    &
+                     &                      dvtdr(n_theta, nR, nPhi)-or1(nR)*vt(n_theta, nR, nPhi) ) +    &
+                     &                vp(n_theta, nR, nPhi)*(dvpdr(n_theta, nR, nPhi)-or1(nR)*vp(n_theta, nR, nPhi) ) )
+                  end if
                end if
 
-               !- dpkin/dr = 1/2 d (u^2) / dr = ur*dur/dr+ut*dut/dr+up*dup/dr
-               dpkindrc(nelem)=or4(nR)*vr(nelem)*(dvrdr(nelem)-             &
-               &                two*or1(nR)*vr(nelem))+or2(nR)*             &
-               &                O_sin_theta_E2(nT)*(         vt(nelem)*(    &
-               &                      dvtdr(nelem)-or1(nR)*vt(nelem) ) +    &
-               &                vp(nelem)*(dvpdr(nelem)-or1(nR)*vp(nelem) ) )
-            end if
-         end if
+               if ( istage == 1 ) then
+                  O_dt = 1.0_cp/dt
+                  dtVr(n_theta,nPhi,nR)=O_dt*or2(nR)*(vr(n_theta, nR, nPhi)-vr_old(n_theta,nPhi,nR))
+                  dtVt(n_theta,nPhi,nR)=O_dt*or1(nR)*(vt(n_theta, nR, nPhi)-vt_old(n_theta,nPhi,nR))
+                  dtVp(n_theta,nPhi,nR)=O_dt*or1(nR)*(vp(n_theta, nR, nPhi)-vp_old(n_theta,nPhi,nR))
 
-         if ( istage == 1 ) then
-            O_dt = 1.0_cp/dt
-            dtVr(nelem)=O_dt*or2(nR)*(vr(nelem)-vr_old(nT,nPhi,nR))
-            dtVt(nelem)=O_dt*or1(nR)*(vt(nelem)-vt_old(nT,nPhi,nR))
-            dtVp(nelem)=O_dt*or1(nR)*(vp(nelem)-vp_old(nT,nPhi,nR))
+                  vr_old(n_theta,nPhi,nR)=vr(n_theta, nR, nPhi)
+                  vt_old(n_theta,nPhi,nR)=vt(n_theta, nR, nPhi)
+                  vp_old(n_theta,nPhi,nR)=vp(n_theta, nR, nPhi)
+               end if
 
-            vr_old(nT,nPhi,nR)=vr(nelem)
-            vt_old(nT,nPhi,nR)=vt(nelem)
-            vp_old(nT,nPhi,nR)=vp(nelem)
-         end if
-
+            end do
+         end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
-
       if ( lRmsCalc ) then
          !$omp target update from(dpdtc, dpdpc, CFt2, CFp2)
          if ( l_conv_nl ) then
@@ -792,111 +805,16 @@ contains
             !$omp target update from(dpkindrc)
          end if
       end if
-      if ( tscheme%istage == 1 ) then
+      if ( istage == 1 ) then
          !$omp target update from(vr_old, vt_old, vp_old, dtVr, dtVt, dtVp)
       end if
-
-   end subroutine get_nl_RMS_batch
-
 #else
-   subroutine get_nl_RMS(nR0,vr,vt,vp,dvrdr,dvrdt,dvrdp,dvtdr,dvtdp,dvpdr,dvpdp, &
-              &          cvr,Advt,Advp,LFt,LFp,tscheme,lRmsCalc)
-      !
-      ! This subroutine computes the r.m.s. force balance terms which need to
-      ! be computed on the grid
-      !
-
-      !-- Input variables
-      real(cp),            intent(in) :: vr(*), vt(*), vp(*), cvr(*)
-      real(cp),            intent(in) :: dvrdr(*), dvrdt(*), dvrdp(*)
-      real(cp),            intent(in) :: dvtdp(*), dvpdp(*)
-      real(cp),            intent(in) :: dvtdr(*), dvpdr(*)
-      real(cp),            intent(in) :: Advt(*),Advp(*),LFt(*),LFp(*)
-      class(type_tscheme), intent(in) :: tscheme ! time scheme
-      integer,             intent(in) :: nR0      ! radial level
-      logical,             intent(in) :: lRmsCalc
-
-      !-- Local variables
-      real(cp) ::  O_dt
-      integer :: nPhi, nT, nelem,nR
-
-      !$omp parallel default(shared) private(nT,nPhi,nR)
-      nR=nR0
-      !$omp do
-      do nelem=1,n_phys_space
-         nT = spat2lat(nelem)
-         if ( l_batched_shts ) nR = spat2rad(nelem)
-         nPhi = spat2lon(nelem)
-
-         if ( lRmsCalc ) then
-            dpdtc(nelem)=dpdtc(nelem)*or1(nR)
-            dpdpc(nelem)=dpdpc(nelem)*or1(nR)
-            CFt2(nelem)=-two*CorFac*cosTheta(nT)*vp(nelem)*or1(nR)
-            CFp2(nelem)= two*CorFac*sinTheta(nT)* (or1(nR)*cosTheta(nT)*&
-            &            O_sin_theta(nT)*vt(nelem)+or2(nR)*sinTheta(nT)*vr(nelem) )
-            if ( l_conv_nl ) then
-               Advt2(nelem)=r(nR)*Advt(nelem)
-               Advp2(nelem)=r(nR)*Advp(nelem)
-            end if
-            if ( l_mag_LF .and. nR > n_r_LCR ) then
-               LFt2(nelem)=r(nR)*LFt(nelem)
-               LFp2(nelem)=r(nR)*LFp(nelem)
-            end if
-
-            if ( l_adv_curl ) then
-               dpdtc(nelem)=dpdtc(nelem)-or3(nR)*( or2(nR)*    &
-               &             vr(nelem)*dvrdt(nelem) -          &
-               &             vt(nelem)*(dvrdr(nelem)+          &
-               &             dvpdp(nelem)+cosn_theta_E2(nT) *  &
-               &             vt(nelem))+ vp(nelem)*(           &
-               &             cvr(nelem)+dvtdp(nelem)-          &
-               &             cosn_theta_E2(nT)*vp(nelem)) )
-               dpdpc(nelem)=dpdpc(nelem)- or3(nR)*( or2(nR)*  &
-               &             vr(nelem)*dvrdp(nelem) +         &
-               &             vt(nelem)*dvtdp(nelem) +         &
-               &             vp(nelem)*dvpdp(nelem) )
-               if ( l_conv_nl ) then
-                  Advt2(nelem)=Advt2(nelem)-or3(nR)*( or2(nR)*   &
-                  &             vr(nelem)*dvrdt(nelem) -         &
-                  &             vt(nelem)*(dvrdr(nelem)+         &
-                  &             dvpdp(nelem)+cosn_theta_E2(nT) * &
-                  &             vt(nelem))+vp(nelem)*(           &
-                  &             cvr(nelem)+dvtdp(nelem)-         &
-                  &             cosn_theta_E2(nT)*vp(nelem)) )
-                  Advp2(nelem)=Advp2(nelem)-or3(nR)*( or2(nR)* &
-                  &             vr(nelem)*dvrdp(nelem) +       &
-                  &             vt(nelem)*dvtdp(nelem) +       &
-                  &             vp(nelem)*dvpdp(nelem) )
-               end if
-
-               !- dpkin/dr = 1/2 d (u^2) / dr = ur*dur/dr+ut*dut/dr+up*dup/dr
-               dpkindrc(nelem)=or4(nR)*vr(nelem)*(dvrdr(nelem)-             &
-               &                two*or1(nR)*vr(nelem))+or2(nR)*             &
-               &                O_sin_theta_E2(nT)*(         vt(nelem)*(    &
-               &                      dvtdr(nelem)-or1(nR)*vt(nelem) ) +    &
-               &                vp(nelem)*(dvpdr(nelem)-or1(nR)*vp(nelem) ) )
-            end if
-         end if
-
-         if ( tscheme%istage == 1 ) then
-            O_dt = 1.0_cp/tscheme%dt(1)
-            dtVr(nelem)=O_dt*or2(nR)*(vr(nelem)-vr_old(nT,nPhi,nR))
-            dtVt(nelem)=O_dt*or1(nR)*(vt(nelem)-vt_old(nT,nPhi,nR))
-            dtVp(nelem)=O_dt*or1(nR)*(vp(nelem)-vp_old(nT,nPhi,nR))
-
-            vr_old(nT,nPhi,nR)=vr(nelem)
-            vt_old(nT,nPhi,nR)=vt(nelem)
-            vp_old(nT,nPhi,nR)=vp(nelem)
-         end if
-
-      end do
       !$omp end do
       !$omp end parallel
-
-   end subroutine get_nl_RMS
 #endif
+
+   end subroutine get_nl_RMS_batch
 !----------------------------------------------------------------------------
-#ifdef WITH_OMP_GPU
    subroutine transform_to_grid_RMS(nR, p_Rloc)
       !
       ! This subroutine is used to transform the arrays used in r.m.s. force
@@ -907,12 +825,16 @@ contains
       integer,     intent(in) :: nR ! radial level
       complex(cp), intent(inout) :: p_Rloc(:) ! pressure in LM space
 
+#ifdef WITH_OMP_GPU
       !$omp target update to(dpdtc, dpdpc)
       call scal_to_grad_spat(p_Rloc, dpdtc, dpdpc, l_R(nR), .true.)
       !$omp target update from(dpdtc, dpdpc)
+#else
+      call scal_to_grad_spat(p_Rloc, dpdtc, dpdpc, l_R(nR))
+#endif
 
    end subroutine transform_to_grid_RMS
-
+!----------------------------------------------------------------------------
    subroutine transform_to_grid_RMS_batch(nR, p_Rloc)
       !
       ! This subroutine is used to transform the arrays used in r.m.s. force
@@ -923,26 +845,15 @@ contains
       integer,     intent(in) :: nR ! radial level
       complex(cp), intent(inout) :: p_Rloc(:,:) ! pressure in LM space
 
+#ifdef WITH_OMP_GPU
       !$omp target update to(dpdtc, dpdpc)
       call scal_to_grad_spat(p_Rloc, dpdtc, dpdpc, l_R(nR), .true.)
       !$omp target update from(dpdtc, dpdpc)
+#else
+      call scal_to_grad_spat(p_Rloc, dpdtc, dpdpc, l_R(nR))
+#endif
 
    end subroutine transform_to_grid_RMS_batch
-#else
-   subroutine transform_to_grid_RMS(nR, p_Rloc)
-      !
-      ! This subroutine is used to transform the arrays used in r.m.s. force
-      ! calculations from the spectral space to the physical grid.
-      !
-
-      !-- Input variables
-      integer,     intent(in) :: nR ! radial level
-      complex(cp), intent(inout) :: p_Rloc(*) ! pressure in LM space
-
-      call scal_to_grad_spat(p_Rloc, dpdtc, dpdpc, l_R(nR))
-
-   end subroutine transform_to_grid_RMS
-#endif
 !----------------------------------------------------------------------------
    subroutine transform_to_lm_RMS(nR, LFr)
       !
