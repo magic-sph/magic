@@ -1578,19 +1578,12 @@ contains
       ! by taking the missing radial derivative (LM-distributed version).
       !
 
-#ifdef WITH_OMP_GPU
-      !-- Input variables
-      complex(cp), intent(inout) :: dVxBhLM(:,:)
-
-      !-- Output variables
-      complex(cp), intent(inout) :: dj_exp_last(:,:)
-#else
       !-- Input variables
       complex(cp), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
 
       !-- Output variables
       complex(cp), intent(inout) :: dj_exp_last(llmMag:ulmMag,n_r_maxMag)
-#endif
+
       !-- Local variables
       integer :: n_r, l, lm, start_lm, stop_lm, lmStart_00
 

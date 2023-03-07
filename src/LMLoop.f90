@@ -608,18 +608,72 @@ contains
       type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
       type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
+#ifdef WITH_OMP_GPU
+      !-- Local arrays for expl member of dsdt, dxidt, dwdt, ...
+      complex(cp), allocatable :: expl_dsdt(:,:)
+      complex(cp), allocatable :: expl_dxidt(:,:)
+      complex(cp), allocatable :: expl_dwdt(:,:)
+      complex(cp), allocatable :: expl_djdt(:,:)
+      allocate(expl_dsdt(llm:ulm,1:n_r_max))
+      allocate(expl_dxidt(llm:ulm,1:n_r_max))
+      allocate(expl_dwdt(llm:ulm,1:n_r_max))
+      allocate(expl_djdt(llm:ulm,1:n_r_max))
+      expl_dsdt(:,:) = 0.0_cp
+      expl_dxidt(:,:) = 0.0_cp
+      expl_dwdt(:,:) = 0.0_cp
+      expl_djdt(:,:) = 0.0_cp
+      !$omp target enter data map(alloc: expl_dsdt, expl_dxidt, expl_dwdt, expl_djdt)
+      !$omp target update to(expl_dsdt, expl_dxidt, expl_dwdt, expl_djdt)
+#endif
+
       if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+         expl_dxidt(:,:) = dxidt%expl(:,:,tscheme%istage)
+         !$omp target update to(expl_dxidt)
+         call finish_exp_comp(w, dVXir_LMloc, expl_dxidt)
+         !$omp target update from(expl_dxidt)
+         dxidt%expl(:,:,tscheme%istage) = expl_dxidt(:,:)
+         !$omp target update to(dxidt)
+#else
          call finish_exp_comp(w, dVXir_LMloc, dxidt%expl(:,:,tscheme%istage))
+#endif
       end if
 
       if ( l_single_matrix ) then
+#ifdef WITH_OMP_GPU
+         expl_dsdt(:,:) = dsdt%expl(:,:,tscheme%istage)
+         !$omp target update to(expl_dsdt)
+         call finish_exp_smat(dVSr_LMloc, expl_dsdt)
+         !$omp target update from(expl_dsdt)
+         dsdt%expl(:,:,tscheme%istage) = expl_dsdt(:,:)
+         !$omp target update to(dsdt)
+#else
          call finish_exp_smat(dVSr_LMloc, dsdt%expl(:,:,tscheme%istage))
+#endif
       else
          if ( l_heat ) then
+#ifdef WITH_OMP_GPU
+            expl_dsdt(:,:) = dsdt%expl(:,:,tscheme%istage)
+            !$omp target update to(expl_dsdt)
+            call finish_exp_entropy(w, dVSr_LMloc, expl_dsdt)
+            !$omp target update from(expl_dsdt)
+            dsdt%expl(:,:,tscheme%istage) = expl_dsdt(:,:)
+            !$omp target update to(dsdt)
+#else
             call finish_exp_entropy(w, dVSr_LMloc, dsdt%expl(:,:,tscheme%istage))
+#endif
          end if
          if ( l_double_curl ) then
+#ifdef WITH_OMP_GPU
+            expl_dwdt(:,:) = dwdt%expl(:,:,tscheme%istage)
+            !$omp target update to(expl_dwdt)
+            call finish_exp_pol(dVxVh_LMloc, expl_dwdt)
+            !$omp target update from(expl_dwdt)
+            dwdt%expl(:,:,tscheme%istage) = expl_dwdt(:,:)
+            !$omp target update to(dwdt)
+#else
             call finish_exp_pol(dVxVh_LMloc, dwdt%expl(:,:,tscheme%istage))
+#endif
          end if
       end if
 
@@ -632,7 +686,16 @@ contains
       end if
 
       if ( l_mag ) then
+#ifdef WITH_OMP_GPU
+         expl_djdt(:,:) = djdt%expl(:,:,tscheme%istage)
+         !$omp target update to(expl_djdt)
+         call finish_exp_mag(dVxBh_LMloc, expl_djdt)
+         !$omp target update from(expl_djdt)
+         djdt%expl(:,:,tscheme%istage) = expl_djdt(:,:)
+         !$omp target update to(djdt)
+#else
          call finish_exp_mag(dVxBh_LMloc, djdt%expl(:,:,tscheme%istage))
+#endif
       end if
 
       if ( l_cond_ic ) then
@@ -640,6 +703,11 @@ contains
               &                 dbdt_ic%expl(:,:,tscheme%istage), &
               &                 djdt_ic%expl(:,:,tscheme%istage))
       end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: expl_dsdt, expl_dxidt, expl_dwdt, expl_djdt)
+      deallocate(expl_dsdt, expl_dxidt, expl_dwdt, expl_djdt)
+#endif
 
    end subroutine finish_explicit_assembly
 !--------------------------------------------------------------------------------

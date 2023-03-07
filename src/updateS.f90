@@ -822,19 +822,11 @@ contains
       !
 
       !-- Input variables
-#ifdef WITH_OMP_GPU
-      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp), intent(inout) :: dVSrLM(:,:)
-
-      !-- Output variables
-      complex(cp), intent(inout) :: ds_exp_last(:,:)
-#else
       complex(cp), intent(in) :: w(llm:ulm,n_r_max)
       complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)
 
       !-- Output variables
       complex(cp), intent(inout) :: ds_exp_last(llm:ulm,n_r_max)
-#endif
 
       !-- Local variables
       real(cp) :: dL

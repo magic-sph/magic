@@ -562,17 +562,11 @@ contains
 !------------------------------------------------------------------------------
    subroutine finish_exp_smat(dVSrLM, ds_exp_last)
 
-#ifdef WITH_OMP_GPU
-      complex(cp), intent(inout) :: dVSrLM(:,:)
-
-      !-- Output variables
-      complex(cp), intent(inout) :: ds_exp_last(:,:)
-#else
       complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)
 
       !-- Output variables
       complex(cp), intent(inout) :: ds_exp_last(llm:ulm,n_r_max)
-#endif
+
       !-- Local variables
       integer :: n_r, start_lm, stop_lm, lm, l
 

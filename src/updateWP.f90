@@ -1495,19 +1495,12 @@ contains
 !------------------------------------------------------------------------------
    subroutine finish_exp_pol(dVxVhLM, dw_exp_last)
 
-#ifdef WITH_OMP_GPU
-      !-- Input variables
-      complex(cp), intent(inout) :: dVxVhLM(:,:)
-
-      !-- Output variables
-      complex(cp), intent(inout) :: dw_exp_last(:,:)
-#else
       !-- Input variables
       complex(cp), intent(inout) :: dVxVhLM(llm:ulm,n_r_max)
 
       !-- Output variables
       complex(cp), intent(inout) :: dw_exp_last(llm:ulm,n_r_max)
-#endif
+
       !-- Local variables
       integer :: n_r, l, lm, start_lm, stop_lm
 

@@ -732,21 +732,13 @@ contains
       ! the LM-distributed version.
       !
 
-#ifdef WITH_OMP_GPU
-      !-- Input variables
-      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp), intent(inout) :: dVXirLM(:,:)
-
-      !-- Output variables
-      complex(cp), intent(inout) :: dxi_exp_last(:,:)
-#else
       !-- Input variables
       complex(cp), intent(in) :: w(llm:ulm,n_r_max)
       complex(cp), intent(inout) :: dVXirLM(llm:ulm,n_r_max)
 
       !-- Output variables
       complex(cp), intent(inout) :: dxi_exp_last(llm:ulm,n_r_max)
-#endif
+
       !-- Local variables
       real(cp) :: dLh
       integer :: n_r, start_lm, stop_lm, l, lm
