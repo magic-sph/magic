@@ -65,14 +65,10 @@ module dtB_mod
 
    class(type_mpitransp), pointer :: r2lo_dtB
 
-#ifdef WITH_OMP_GPU
    public :: initialize_dtB_mod, get_dtBLMfinish, get_dtBLM, get_dH_dtBLM, &
    &         get_dtBLM_batch,                                              &
    &         finalize_dtB_mod
-#else
-   public :: initialize_dtB_mod, get_dtBLMfinish, get_dtBLM, get_dH_dtBLM, &
-   &         finalize_dtB_mod
-#endif
+
 contains
 
    subroutine initialize_dtB_mod
@@ -201,10 +197,6 @@ contains
 
    end subroutine dtb_gather_lo_on_rank0
 !----------------------------------------------------------------------------
-#ifdef WITH_OMP_GPU
-   !-- TODO: Need to duplicate this routine since CRAY CCE 13.x & 14.0.0/14.0.1/14.0.2 does not
-   !-- support OpenMP construct Assumed size arrays
-
    subroutine  get_dtBLM(nR,vr,vt,vp,br,bt,bp,BtVrLM,BpVrLM,BrVtLM,BrVpLM, &
                &         BtVpLM,BpVtLM,BrVZLM,BtVZLM,BpVtBtVpCotLM,        &
                &         BpVtBtVpSn2LM,BtVZsn2LM)
@@ -228,7 +220,7 @@ contains
       complex(cp), intent(out) :: BtVZsn2LM(:)
 
       !-- Local variables:
-      integer :: n_theta,n_phi,nelem
+      integer :: n_theta,n_phi
       real(cp) :: fac,facCot
       real(cp), allocatable :: BtVr(:,:),BpVr(:,:)
       real(cp), allocatable :: BrVt(:,:),BrVp(:,:)
@@ -255,59 +247,78 @@ contains
       BtVZsn2(:,:)=0.0_cp
       vpAS(:)=0.0_cp
 
+#ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
       !$omp&                             BpVtBtVpCot, BpVtBtVpSn2, BtVZsn2, vpAS)
       !$omp target update to(BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
       !$omp&                 BpVtBtVpCot, BpVtBtVpSn2, BtVZsn2, vpAS)
 
       !$omp target teams distribute parallel do &
-      !$omp& private(fac, facCot, nelem) &
+      !$omp& private(fac, facCot)               &
       !$omp& reduction(+:vpAS)
+#else
+      !$omp parallel do default(shared) &
+      !$omp& private(n_theta, n_phi, fac, facCot) &
+      !$omp& reduction(+:vpAS)
+#endif
       do n_phi=1,n_phi_max
          do n_theta=1,n_theta_max ! loop over ic-points, alternating north/south
-            nelem=radlatlon2spat(n_theta,n_phi,nR)
             fac=O_sin_theta_E2(n_theta)
             facCot=cosn_theta_E2(n_theta)*O_sin_theta(n_theta)
 
-            BtVr(n_theta,n_phi)= orho1(nR)*bt(nelem)*vr(nelem)
-            BpVr(n_theta,n_phi)= orho1(nR)*bp(nelem)*vr(nelem)
+            BtVr(n_theta,n_phi)= orho1(nR)*bt(n_theta,n_phi)*vr(n_theta,n_phi)
+            BpVr(n_theta,n_phi)= orho1(nR)*bp(n_theta,n_phi)*vr(n_theta,n_phi)
 
-            BrVt(n_theta,n_phi)= orho1(nR)*vt(nelem)*br(nelem)
-            BrVp(n_theta,n_phi)= orho1(nR)*vp(nelem)*br(nelem)
+            BrVt(n_theta,n_phi)= orho1(nR)*vt(n_theta,n_phi)*br(n_theta,n_phi)
+            BrVp(n_theta,n_phi)= orho1(nR)*vp(n_theta,n_phi)*br(n_theta,n_phi)
 
-            BtVp(n_theta,n_phi)= fac*orho1(nR)*bt(nelem)*vp(nelem)
-            BpVt(n_theta,n_phi)= fac*orho1(nR)*bp(nelem)*vt(nelem)
+            BtVp(n_theta,n_phi)= fac*orho1(nR)*bt(n_theta,n_phi)*vp(n_theta,n_phi)
+            BpVt(n_theta,n_phi)= fac*orho1(nR)*bp(n_theta,n_phi)*vt(n_theta,n_phi)
 
-            BpVtBtVpCot(n_theta,n_phi)=facCot*orho1(nR)*( bp(nelem)*vt(nelem) +  &
-            &                                             bt(nelem)*vp(nelem) )
-            BpVtBtVpSn2(n_theta,n_phi)=fac*fac*orho1(nR)*( bp(nelem)*vt(nelem) +  &
-            &                                              bt(nelem)*vp(nelem) )
-            vpAS(n_theta)=vpAS(n_theta)+orho1(nR)*vp(nelem)
+            BpVtBtVpCot(n_theta,n_phi)=facCot*orho1(nR)*( bp(n_theta,n_phi)*vt(n_theta,n_phi) +  &
+            &                                             bt(n_theta,n_phi)*vp(n_theta,n_phi) )
+            BpVtBtVpSn2(n_theta,n_phi)=fac*fac*orho1(nR)*( bp(n_theta,n_phi)*vt(n_theta,n_phi) +  &
+            &                                              bt(n_theta,n_phi)*vp(n_theta,n_phi) )
+            vpAS(n_theta)=vpAS(n_theta)+orho1(nR)*vp(n_theta,n_phi)
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
       !$omp target teams distribute parallel do
       do n_theta=1,n_theta_max
          vpAS(n_theta)=vpAS(n_theta)/real(n_phi_max,kind=cp)
       end do
       !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+      vpAS(:)=vpAS(:)/real(n_phi_max,kind=cp)
+#endif
 
       !---- For omega effect:
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2) &
-      !$omp private(fac,facCot,nelem)
+      !$omp private(fac,facCot)
+#else
+      !$omp parallel do default(shared) &
+      !$omp private(n_phi,n_theta,fac,facCot)
+#endif
       do n_phi=1,n_phi_max
          do n_theta=1,n_theta_max ! loop over ic-points, alternating north/south
-            nelem=radlatlon2spat(n_theta,n_phi,nR)
             fac=O_sin_theta_E2(n_theta)
             facCot=cosn_theta_E2(n_theta)*O_sin_theta(n_theta)
 
-            BrVZ(n_theta,n_phi)=fac*br(nelem)*vpAS(n_theta)
-            BtVZ(n_theta,n_phi)=fac*bt(nelem)*vpAS(n_theta)
-            BtVZsn2(n_theta,n_phi)=fac*fac*bt(nelem)*vpAS(n_theta)
+            BrVZ(n_theta,n_phi)=fac*br(n_theta,n_phi)*vpAS(n_theta)
+            BtVZ(n_theta,n_phi)=fac*bt(n_theta,n_phi)*vpAS(n_theta)
+            BtVZsn2(n_theta,n_phi)=fac*fac*bt(n_theta,n_phi)*vpAS(n_theta)
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
 
+#ifdef WITH_OMP_GPU
       call spat_to_sphertor(sht_l_single_gpu, BtVr, BpVr, BtVrLM, BpVrLM, l_max, .true.)
       call spat_to_sphertor(sht_l_single_gpu, BrVt, BrVp, BrVtLM, BrVpLM, l_max, .true.)
 
@@ -323,9 +334,23 @@ contains
 
       !$omp target exit data map(delete: BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
       !$omp&                             BpVtBtVpCot, BpVtBtVpSn2, BtVZsn2, vpAS)
+#else
+      call spat_to_sphertor(sht_l_single, BtVr, BpVr, BtVrLM, BpVrLM, l_max)
+      call spat_to_sphertor(sht_l_single, BrVt, BrVp, BrVtLM, BrVpLM, l_max)
+
+      call scal_to_SH(sht_l_single, BtVp, BtVpLM, l_max)
+      call scal_to_SH(sht_l_single, BpVt, BpVtLM, l_max)
+
+      call scal_to_SH(sht_l_single, BpVtBtVpCot, BpVtBtVpCotLM, l_max)
+      call scal_to_SH(sht_l_single, BpVtBtVpsn2, BpVtBtVpsn2LM, l_max)
+
+      call scal_to_SH(sht_l_single, BrVZ, BrVZLM, l_max)
+      call scal_to_SH(sht_l_single, BtVZ, BtVZLM, l_max)
+      call scal_to_SH(sht_l_single, BtVZsn2, BtVZsn2LM, l_max)
+#endif
 
    end subroutine get_dtBLM
-
+!-----------------------------------------------------------------------
    subroutine  get_dtBLM_batch(nR,vr,vt,vp,br,bt,bp,BtVrLM,BpVrLM,BrVtLM,BrVpLM, &
                &               BtVpLM,BpVtLM,BrVZLM,BtVZLM,BpVtBtVpCotLM,        &
                &               BpVtBtVpSn2LM,BtVZsn2LM)
@@ -349,7 +374,7 @@ contains
       complex(cp), intent(out) :: BtVZsn2LM(:)
 
       !-- Local variables:
-      integer :: n_theta,n_phi,nelem
+      integer :: n_theta,n_phi
       real(cp) :: fac,facCot
       real(cp), allocatable :: BtVr(:,:),BpVr(:,:)
       real(cp), allocatable :: BrVt(:,:),BrVp(:,:)
@@ -376,59 +401,78 @@ contains
       BtVZsn2(:,:)=0.0_cp
       vpAS(:)=0.0_cp
 
+#ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
       !$omp&                             BpVtBtVpCot, BpVtBtVpSn2, BtVZsn2, vpAS)
       !$omp target update to(BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
       !$omp&                 BpVtBtVpCot, BpVtBtVpSn2, BtVZsn2, vpAS)
 
       !$omp target teams distribute parallel do &
-      !$omp& private(fac, facCot, nelem) &
+      !$omp& private(fac, facCot)               &
       !$omp& reduction(+:vpAS)
+#else
+      !$omp parallel do default(shared) &
+      !$omp& private(n_theta, n_phi, fac, facCot) &
+      !$omp& reduction(+:vpAS)
+#endif
       do n_phi=1,n_phi_max
          do n_theta=1,n_theta_max ! loop over ic-points, alternating north/south
-            nelem=radlatlon2spat(n_theta,n_phi,nR)
             fac=O_sin_theta_E2(n_theta)
             facCot=cosn_theta_E2(n_theta)*O_sin_theta(n_theta)
 
-            BtVr(n_theta,n_phi)= orho1(nR)*bt(nelem)*vr(nelem)
-            BpVr(n_theta,n_phi)= orho1(nR)*bp(nelem)*vr(nelem)
+            BtVr(n_theta,n_phi)= orho1(nR)*bt(n_theta,nR,n_phi)*vr(n_theta,nR,n_phi)
+            BpVr(n_theta,n_phi)= orho1(nR)*bp(n_theta,nR,n_phi)*vr(n_theta,nR,n_phi)
 
-            BrVt(n_theta,n_phi)= orho1(nR)*vt(nelem)*br(nelem)
-            BrVp(n_theta,n_phi)= orho1(nR)*vp(nelem)*br(nelem)
+            BrVt(n_theta,n_phi)= orho1(nR)*vt(n_theta,nR,n_phi)*br(n_theta,nR,n_phi)
+            BrVp(n_theta,n_phi)= orho1(nR)*vp(n_theta,nR,n_phi)*br(n_theta,nR,n_phi)
 
-            BtVp(n_theta,n_phi)= fac*orho1(nR)*bt(nelem)*vp(nelem)
-            BpVt(n_theta,n_phi)= fac*orho1(nR)*bp(nelem)*vt(nelem)
+            BtVp(n_theta,n_phi)= fac*orho1(nR)*bt(n_theta,nR,n_phi)*vp(n_theta,nR,n_phi)
+            BpVt(n_theta,n_phi)= fac*orho1(nR)*bp(n_theta,nR,n_phi)*vt(n_theta,nR,n_phi)
 
-            BpVtBtVpCot(n_theta,n_phi)=facCot*orho1(nR)*( bp(nelem)*vt(nelem) +  &
-            &                                             bt(nelem)*vp(nelem) )
-            BpVtBtVpSn2(n_theta,n_phi)=fac*fac*orho1(nR)*( bp(nelem)*vt(nelem) +  &
-            &                                              bt(nelem)*vp(nelem) )
-            vpAS(n_theta)=vpAS(n_theta)+orho1(nR)*vp(nelem)
+            BpVtBtVpCot(n_theta,n_phi)=facCot*orho1(nR)*( bp(n_theta,nR,n_phi)*vt(n_theta,nR,n_phi) +  &
+            &                                             bt(n_theta,nR,n_phi)*vp(n_theta,nR,n_phi) )
+            BpVtBtVpSn2(n_theta,n_phi)=fac*fac*orho1(nR)*( bp(n_theta,nR,n_phi)*vt(n_theta,nR,n_phi) +  &
+            &                                              bt(n_theta,nR,n_phi)*vp(n_theta,nR,n_phi) )
+            vpAS(n_theta)=vpAS(n_theta)+orho1(nR)*vp(n_theta,nR,n_phi)
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
       !$omp target teams distribute parallel do
       do n_theta=1,n_theta_max
          vpAS(n_theta)=vpAS(n_theta)/real(n_phi_max,kind=cp)
       end do
       !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+      vpAS(:)=vpAS(:)/real(n_phi_max,kind=cp)
+#endif
 
       !---- For omega effect:
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2) &
-      !$omp private(fac,facCot,nelem)
+      !$omp private(fac,facCot)
+#else
+      !$omp parallel do default(shared) &
+      !$omp private(n_phi,n_theta,fac,facCot)
+#endif
       do n_phi=1,n_phi_max
          do n_theta=1,n_theta_max ! loop over ic-points, alternating north/south
-            nelem=radlatlon2spat(n_theta,n_phi,nR)
             fac=O_sin_theta_E2(n_theta)
             facCot=cosn_theta_E2(n_theta)*O_sin_theta(n_theta)
 
-            BrVZ(n_theta,n_phi)=fac*br(nelem)*vpAS(n_theta)
-            BtVZ(n_theta,n_phi)=fac*bt(nelem)*vpAS(n_theta)
-            BtVZsn2(n_theta,n_phi)=fac*fac*bt(nelem)*vpAS(n_theta)
+            BrVZ(n_theta,n_phi)=fac*br(n_theta,nR,n_phi)*vpAS(n_theta)
+            BtVZ(n_theta,n_phi)=fac*bt(n_theta,nR,n_phi)*vpAS(n_theta)
+            BtVZsn2(n_theta,n_phi)=fac*fac*bt(n_theta,nR,n_phi)*vpAS(n_theta)
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
 
+#ifdef WITH_OMP_GPU
       call spat_to_sphertor(sht_l_single_gpu, BtVr, BpVr, BtVrLM, BpVrLM, l_max, .true.)
       call spat_to_sphertor(sht_l_single_gpu, BrVt, BrVp, BrVtLM, BrVpLM, l_max, .true.)
 
@@ -444,88 +488,7 @@ contains
 
       !$omp target exit data map(delete: BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
       !$omp&                             BpVtBtVpCot, BpVtBtVpSn2, BtVZsn2, vpAS)
-
-   end subroutine get_dtBLM_batch
 #else
-   subroutine  get_dtBLM(nR,vr,vt,vp,br,bt,bp,BtVrLM,BpVrLM,BrVtLM,BrVpLM, &
-               &         BtVpLM,BpVtLM,BrVZLM,BtVZLM,BpVtBtVpCotLM,        &
-               &         BpVtBtVpSn2LM,BtVZsn2LM)
-      !
-      !  This subroutine calculates non-linear products in grid-space for radial
-      !  level nR.
-      !
-
-      !-- Input variables:
-      integer,  intent(in) :: nR
-      real(cp), intent(in) :: vr(*),vt(*),vp(*)
-      real(cp), intent(in) :: br(*),bt(*),bp(*)
-
-      !-- Output variables:
-      complex(cp), intent(out) :: BtVrLM(:),BpVrLM(:)
-      complex(cp), intent(out) :: BrVtLM(:),BrVpLM(:)
-      complex(cp), intent(out) :: BtVpLM(:),BpVtLM(:)
-      complex(cp), intent(out) :: BrVZLM(:),BtVZLM(:)
-      complex(cp), intent(out) :: BpVtBtVpCotLM(:)
-      complex(cp), intent(out) :: BpVtBtVpSn2LM(:)
-      complex(cp), intent(out) :: BtVZsn2LM(:)
-
-      !-- Local variables:
-      integer :: n_theta,n_phi,nelem
-      real(cp) :: fac,facCot
-      real(cp) :: BtVr(nlat_padded,n_phi_max),BpVr(nlat_padded,n_phi_max)
-      real(cp) :: BrVt(nlat_padded,n_phi_max),BrVp(nlat_padded,n_phi_max)
-      real(cp) :: BtVp(nlat_padded,n_phi_max),BpVt(nlat_padded,n_phi_max)
-      real(cp) :: BrVZ(nlat_padded,n_phi_max),BtVZ(nlat_padded,n_phi_max)
-      real(cp) :: BpVtBtVpCot(nlat_padded,n_phi_max)
-      real(cp) :: BpVtBtVpSn2(nlat_padded,n_phi_max)
-      real(cp) :: BtVZsn2(nlat_padded,n_phi_max)
-      real(cp) :: vpAS(n_theta_max)
-
-      vpAS(:)=0.0_cp
-      !$omp parallel do default(shared) &
-      !$omp& private(n_theta, n_phi, fac, facCot, nelem) &
-      !$omp& reduction(+:vpAS)
-      do n_phi=1,n_phi_max
-         do n_theta=1,n_theta_max ! loop over ic-points, alternating north/south
-            nelem=radlatlon2spat(n_theta,n_phi,nR)
-            fac=O_sin_theta_E2(n_theta)
-            facCot=cosn_theta_E2(n_theta)*O_sin_theta(n_theta)
-
-            BtVr(n_theta,n_phi)= orho1(nR)*bt(nelem)*vr(nelem)
-            BpVr(n_theta,n_phi)= orho1(nR)*bp(nelem)*vr(nelem)
-
-            BrVt(n_theta,n_phi)= orho1(nR)*vt(nelem)*br(nelem)
-            BrVp(n_theta,n_phi)= orho1(nR)*vp(nelem)*br(nelem)
-
-            BtVp(n_theta,n_phi)= fac*orho1(nR)*bt(nelem)*vp(nelem)
-            BpVt(n_theta,n_phi)= fac*orho1(nR)*bp(nelem)*vt(nelem)
-
-            BpVtBtVpCot(n_theta,n_phi)=facCot*orho1(nR)*( bp(nelem)*vt(nelem) +  &
-            &                                             bt(nelem)*vp(nelem) )
-            BpVtBtVpSn2(n_theta,n_phi)=fac*fac*orho1(nR)*( bp(nelem)*vt(nelem) +  &
-            &                                              bt(nelem)*vp(nelem) )
-            vpAS(n_theta)=vpAS(n_theta)+orho1(nR)*vp(nelem)
-         end do
-      end do
-      !$omp end parallel do
-      vpAS(:)=vpAS(:)/real(n_phi_max,kind=cp)
-
-      !---- For omega effect:
-      !$omp parallel do default(shared) &
-      !$omp private(n_phi,n_theta,fac,facCot,nelem)
-      do n_phi=1,n_phi_max
-         do n_theta=1,n_theta_max ! loop over ic-points, alternating north/south
-            nelem=radlatlon2spat(n_theta,n_phi,nR)
-            fac=O_sin_theta_E2(n_theta)
-            facCot=cosn_theta_E2(n_theta)*O_sin_theta(n_theta)
-
-            BrVZ(n_theta,n_phi)=fac*br(nelem)*vpAS(n_theta)
-            BtVZ(n_theta,n_phi)=fac*bt(nelem)*vpAS(n_theta)
-            BtVZsn2(n_theta,n_phi)=fac*fac*bt(nelem)*vpAS(n_theta)
-         end do
-      end do
-      !$omp end parallel do
-
       call spat_to_sphertor(sht_l_single, BtVr, BpVr, BtVrLM, BpVrLM, l_max)
       call spat_to_sphertor(sht_l_single, BrVt, BrVp, BrVtLM, BrVpLM, l_max)
 
@@ -538,9 +501,9 @@ contains
       call scal_to_SH(sht_l_single, BrVZ, BrVZLM, l_max)
       call scal_to_SH(sht_l_single, BtVZ, BtVZLM, l_max)
       call scal_to_SH(sht_l_single, BtVZsn2, BtVZsn2LM, l_max)
-
-   end subroutine get_dtBLM
 #endif
+
+   end subroutine get_dtBLM_batch
 !-----------------------------------------------------------------------
    subroutine get_dH_dtBLM(nR,BtVrLM,BpVrLM,BrVtLM,BrVpLM,BtVpLM,BpVtLM, &
               &            BrVZLM,BtVZLM,BpVtBtVpCotLM,BpVtBtVpSn2LM)
@@ -563,7 +526,8 @@ contains
       integer :: l,m,lm,lmS,lmA
       real(cp) :: fac
 
-#ifndef WITH_OMP_GPU
+#ifdef WITH_OMP_GPU
+#else
       !$omp parallel default(shared) private(lm,lmS,lmA,l,m,fac)
 #endif
 
