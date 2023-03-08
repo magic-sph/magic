@@ -69,7 +69,9 @@ def getParser():
                         default=1,
                         help='Specify the number of threads (hybrid version)')
     parser.add_argument('--mpicmd', action='store', dest='mpicmd', type=str,
-                        default='srun --gres=gpu:1 ', help='Specify the mpi executable')
+                        default='srun --time=00:15:00 --gpus-per-task=1 ', help='Specify the mpi executable') ### For running on Lumi02
+                        #default='srun -l --exclusive --time=00:15:00 --constraint=MI250 --gpus-per-task=1 -A cpa --mpi=cray_shasta -c 64 --cpu-bind=verbose,cores --gpu-bind=verbose,closest ', help='Specify the mpi executable') ### For running on ADASTRA
+
 
     return parser
 
@@ -231,7 +233,7 @@ def getSuite(startdir, cmd, precision, args):
         # Initial state of the Boussinesq benchmark (non-conducting IC)
         suite.addTest(dynamo_benchmark.unitTest.DynamoBenchmark('outputFileDiff',
                                                   '%s/dynamo_benchmark' \
-                                                  % startdir, 
+                                                  % startdir,
                                                   execCmd=cmd,
                                                   precision=precision))
         # Variable properties
@@ -241,7 +243,7 @@ def getSuite(startdir, cmd, precision, args):
                                                   precision=precision))
         # Time schemes
         suite.addTest(time_schemes.unitTest.TimeSchemes('outputFileDiff',
-                                                  '%s/time_schemes' % startdir, 
+                                                  '%s/time_schemes' % startdir,
                                                   execCmd=cmd,
                                                   precision=precision))
         # Finite differences
@@ -360,7 +362,7 @@ def getSuite(startdir, cmd, precision, args):
         suite.addTest(testCoeffOutputs.unitTest.TestCoeffOutputs(
                                                   'outputFileDiff',
                                                   '%s/testCoeffOutputs'\
-                                                  % startdir, 
+                                                  % startdir,
                                                   execCmd=cmd))
         # Check RMS force balance
         suite.addTest(testRMSOutputs.unitTest.TestRMSOutputs('outputFileDiff',
@@ -452,12 +454,12 @@ if __name__ == '__main__':
     # Run cmake
     print('1. cmake configuration')
     print('----------------------')
-    cmake(args, startdir, execDir)
+    #cmake(args, startdir, execDir)
 
     # Compile the code
     print('2.    compilation     ')
     print('----------------------')
-    compile()
+    #compile()
 
     # Determine the execution command
     cmd = get_exec_cmd(args, execDir)
