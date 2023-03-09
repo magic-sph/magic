@@ -31,7 +31,7 @@ module fields_average_mod
    use spectra, only: spectrum
    use graphOut_mod, only: graphOut_IC, open_graph_file, close_graph_file
 #ifdef WITH_MPI
-   use graphOut_mod, only: graphOut_mpi_cpu, graphOut_mpi_header
+   use graphOut_mod, only: graphOut_mpi, graphOut_mpi_header
 #else
    use graphOut_mod, only: graphOut, graphOut_header
 #endif
@@ -405,7 +405,7 @@ contains
                      call scal_to_spat(sht_l, phi_ave_Rloc(:,nR), Phir, l_R(nR))
                   end if
 #ifdef WITH_MPI
-                  call graphOut_mpi_cpu(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir, &
+                  call graphOut_mpi(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir, &
                        &            n_graph_handle)
 #else
                   call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir, &
@@ -431,7 +431,7 @@ contains
                end if
                do nR=nRstart,nRstop
 #ifdef WITH_MPI
-                  call graphOut_mpi_cpu(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir, &
+                  call graphOut_mpi(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir, &
                        &            n_graph_handle)
 #else
                   call graphOut(nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, Xir, Phir, &

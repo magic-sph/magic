@@ -36,7 +36,7 @@ module rIter_batched_mod
    use dtB_arrays_mod, only: dtB_arrays_t
    use torsional_oscillations, only: prep_TO_axi, getTO, getTOnext, getTOfinish
 #ifdef WITH_MPI
-   use graphOut_mod, only: graphOut_mpi_batch, graphOut_mpi_header
+   use graphOut_mod, only: graphOut_mpi, graphOut_mpi_header
 #else
    use graphOut_mod, only: graphOut, graphOut_header
 #endif
@@ -374,15 +374,15 @@ contains
          !          point for graphical output:
          if ( l_graph ) then
 #ifdef WITH_MPI
-            call graphOut_mpi_batch(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
-                 &                  this%gsa%brc,this%gsa%btc,this%gsa%bpc,    &
-                 &                  this%gsa%sc,this%gsa%pc,this%gsa%xic,      &
-                 &                  this%gsa%phic)
+            call graphOut_mpi(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
+                 &            this%gsa%brc,this%gsa%btc,this%gsa%bpc,    &
+                 &            this%gsa%sc,this%gsa%pc,this%gsa%xic,      &
+                 &            this%gsa%phic) !-- Keep on CPU
 #else
             call graphOut(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,     &
                  &        this%gsa%brc,this%gsa%btc,this%gsa%bpc,        &
                  &        this%gsa%sc,this%gsa%pc,this%gsa%xic,          &
-                 &        this%gsa%phic)
+                 &        this%gsa%phic) !-- Keep on CPU
 #endif
          end if
 
