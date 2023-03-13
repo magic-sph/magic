@@ -180,9 +180,9 @@ contains
       bytes_allocated=bytes_allocated + 3*n_phi_max*nlat_padded*(nRstop-nRstart+1)*&
       &               SIZEOF_DEF_REAL
 
-      dtVr(:)=0.0_cp
-      dtVt(:)=0.0_cp
-      dtVp(:)=0.0_cp
+      dtVr(:,:,:)=0.0_cp
+      dtVt(:,:,:)=0.0_cp
+      dtVp(:,:,:)=0.0_cp
       vt_old(:,:,:) =0.0_cp
       vr_old(:,:,:) =0.0_cp
       vp_old(:,:,:) =0.0_cp
