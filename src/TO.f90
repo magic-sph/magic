@@ -121,8 +121,8 @@ contains
 
       do l=0,l_max
          lm=lm2(l,0)
-         zASL(l+1)=real(z(lm))
-         dzASL(l+1) =real(dz(lm))
+         zASL(l+1) =real( z(lm))
+         dzASL(l+1)=real(dz(lm))
       end do
 
    end subroutine prep_TO_axi
