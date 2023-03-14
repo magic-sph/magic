@@ -122,14 +122,13 @@ contains
 
       !-- Local variables:
       integer :: nm1,nodd,i,m
-      integer :: k,k1,nRHS,nRHS2,noddRHS
+      integer :: k,k1,nRHS
       real(cp) :: help
 
       nm1    = n-1
       nodd   = mod(n,2)
-      noddRHS= mod(nRHSs,2)
 
-      !     permute vectors bc
+      !-- Permute vectors bc
       do nRHS=1,nRHSs
          do k=1,nm1
             m=ip(k)
@@ -137,77 +136,34 @@ contains
             bc(m,nRHS) =bc(k,nRHS)
             bc(k,nRHS) =help
          end do
-      end do
 
-      !     solve  l * y = b
-      do nRHS=1,nRHSs-1,2
-         nRHS2=nRHS+1
-
+         !-- Solve  l * y = b
          do k=1,n-2,2
             k1=k+1
             bc(k1,nRHS) =bc(k1,nRHS)-bc(k,nRHS)*a(k1,k)
-            bc(k1,nRHS2)=bc(k1,nRHS2)-bc(k,nRHS2)*a(k1,k)
             do i=k+2,n
                bc(i,nRHS) =bc(i,nRHS) - (bc(k,nRHS)*a(i,k)+bc(k1,nRHS)*a(i,k1))
-               bc(i,nRHS2)=bc(i,nRHS2) - (bc(k,nRHS2)*a(i,k)+bc(k1,nRHS2)*a(i,k1))
             end do
          end do
-         if ( nodd == 0 ) then
-            bc(n,nRHS) =bc(n,nRHS) -bc(nm1,nRHS)*a(n,nm1)
-            bc(n,nRHS2)=bc(n,nRHS2)-bc(nm1,nRHS2)*a(n,nm1)
-         end if
+         if ( nodd == 0 ) bc(n,nRHS) =bc(n,nRHS) -bc(nm1,nRHS)*a(n,nm1)
 
-         !     solve  u * x = y
+         !-- Solve  u * x = y
          do k=n,3,-2
             k1=k-1
             bc(k,nRHS)  =bc(k,nRHS)*a(k,k)
             bc(k1,nRHS) =(bc(k1,nRHS)-bc(k,nRHS)*a(k1,k))*a(k1,k1)
-            bc(k,nRHS2) =bc(k,nRHS2)*a(k,k)
-            bc(k1,nRHS2)=(bc(k1,nRHS2)-bc(k,nRHS2)*a(k1,k))*a(k1,k1)
             do i=1,k-2
                bc(i,nRHS)=bc(i,nRHS) - bc(k,nRHS)*a(i,k)-bc(k1,nRHS)*a(i,k1)
-               bc(i,nRHS2)=bc(i,nRHS2) - bc(k,nRHS2)*a(i,k)-bc(k1,nRHS2)*a(i,k1)
             end do
          end do
          if ( nodd == 0 ) then
             bc(2,nRHS)=bc(2,nRHS)*a(2,2)
             bc(1,nRHS)=(bc(1,nRHS)-bc(2,nRHS)*a(1,2))*a(1,1)
-            bc(2,nRHS2)=bc(2,nRHS2)*a(2,2)
-            bc(1,nRHS2)=(bc(1,nRHS2)-bc(2,nRHS2)*a(1,2))*a(1,1)
          else
             bc(1,nRHS)=bc(1,nRHS)*a(1,1)
-            bc(1,nRHS2)=bc(1,nRHS2)*a(1,1)
          end if
 
       end do
-
-      if ( noddRHS == 1 ) then
-         nRHS=nRHSs
-
-         do k=1,n-2,2
-            k1=k+1
-            bc(k1,nRHS)=bc(k1,nRHS)-bc(k,nRHS)*a(k1,k)
-            do i=k+2,n
-               bc(i,nRHS)=bc(i,nRHS) - (bc(k,nRHS)*a(i,k)+bc(k1,nRHS)*a(i,k1))
-            end do
-         end do
-         if ( nodd == 0 ) bc(n,nRHS)=bc(n,nRHS)-bc(nm1,nRHS)*a(n,nm1)
-         do k=n,3,-2
-            k1=k-1
-            bc(k,nRHS) =bc(k,nRHS)*a(k,k)
-            bc(k1,nRHS)=(bc(k1,nRHS)-bc(k,nRHS)*a(k1,k))*a(k1,k1)
-            do i=1,k-2
-               bc(i,nRHS)=bc(i,nRHS) - bc(k,nRHS)*a(i,k)-bc(k1,nRHS)*a(i,k1)
-            end do
-         end do
-         if ( nodd == 0 ) then
-            bc(2,nRHS)=bc(2,nRHS)*a(2,2)
-            bc(1,nRHS)=(bc(1,nRHS)-bc(2,nRHS)*a(1,2))*a(1,1)
-         else
-            bc(1,nRHS)=bc(1,nRHS)*a(1,1)
-         end if
-
-      end if
 
    end subroutine solve_mat_real_rhs_multi
 !-----------------------------------------------------------------------------
