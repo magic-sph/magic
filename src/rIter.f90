@@ -427,7 +427,7 @@ contains
          !   time step performed in s_LMLoop.f . This should be distributed
          !   over the different models that s_LMLoop.f parallelizes over.
          call td_counter%start_count()
-         call this%nl_lm%get_td(nR, nBc, lPressNext,                &
+         call this%nl_lm%get_td(nR, nBc, lPressNext, dVSrLM(:,nR), dVXirLM(:,nR), &
               &                 dVxVhLM(:,nR), dVxBhLM(:,nR), dwdt(:,nR),         &
               &                 dzdt(:,nR), dpdt(:,nR), dsdt(:,nR), dxidt(:,nR),  &
               &                 dbdt(:,nR), djdt(:,nR))
