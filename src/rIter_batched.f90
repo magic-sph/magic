@@ -44,7 +44,8 @@ module rIter_batched_mod
    use out_movie, only: store_movie_frame
    use outRot, only: get_lorentz_torque_batch
    use courant_mod, only: courant_batch
-   use nonlinear_bcs, only: get_br_v_bcs_batch, v_rigid_boundary_batch
+   use nonlinear_bcs, only: get_br_v_bcs_batch, v_rigid_boundary_batch, &
+       &                    v_center_sphere_batch
    use power, only: get_visc_heat_batch
    use outMisc_mod, only: get_ekin_solid_liquid_batch, get_helicity_batch, get_hemi_batch
    use outPar_mod, only: get_fluxes_batch, get_nlBlayers_batch, get_perpPar_batch
@@ -738,6 +739,11 @@ contains
                  &                      this%gsa%dvpdpc)
          end if
 
+         if ( nRstop == n_r_icb .and. l_full_sphere ) then
+            call v_center_sphere_batch(ddw_Rloc(:,n_r_icb), this%gsa%vrc, &
+                 &                     this%gsa%vtc, this%gsa%vpc)
+         end if
+
          !else if ( nBc == 1 ) then ! Stress free
          !    ! TODO don't compute vrc as it is set to 0 afterward
          !   call torpol_to_spat(w_Rloc, dw_Rloc,  z_Rloc(:,nR), &
@@ -787,6 +793,10 @@ contains
          call torpol_to_spat(dLz, dj_Rloc,  dLddw,    &
               &              this%gsa%cbrc, this%gsa%cbtc, this%gsa%cbpc, l_R(1))
 #endif
+         if ( nRstop == n_r_icb .and. l_full_sphere ) then
+            call v_center_sphere_batch(ddb_Rloc(:,n_r_icb), this%gsa%brc, &
+                 &                     this%gsa%btc, this%gsa%bpc)
+         end if
       end if
 
 #ifdef WITH_OMP_GPU

@@ -164,7 +164,7 @@ contains
 
    end subroutine set_zero
 !----------------------------------------------------------------------------
-   subroutine get_td(this,nR,nBc,lPressNext,dVxVhLM,dVxBhLM, &
+   subroutine get_td(this,nR,nBc,lPressNext,dVSrLM,dVXirLM,dVxVhLM,dVxBhLM, &
               &      dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt)
       !
       !  Purpose of this to calculate time derivatives
@@ -181,6 +181,8 @@ contains
       logical, intent(in) :: lPressNext
 
       !-- Output of variables:
+      complex(cp), intent(out) :: dVSrLM(:)
+      complex(cp), intent(out) :: dVXirLM(:)
       complex(cp), intent(out) :: dwdt(:),dzdt(:)
       complex(cp), intent(out) :: dpdt(:),dsdt(:)
       complex(cp), intent(out) :: dxidt(:)
@@ -566,6 +568,38 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#else
+            !$omp end parallel do
+#endif
+         end if
+         if ( l_heat ) then
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+#else
+            !$omp parallel do
+#endif
+            do lm=1,lm_max
+               dVSrLM(lm)=zero
+            end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+#else
+            !$omp end parallel do
+#endif
+         end if
+         if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+#else
+            !$omp parallel do
+#endif
+            do lm=1,lm_max
+               dVXirLM(lm)=zero
+            end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+#else
+            !$omp end parallel do
 #endif
          end if
 
