@@ -26,7 +26,7 @@ module out_movie
        &                      phi, theta_ord
    use fields, only: w_Rloc, b_Rloc, b_ic, bICB
    use sht, only: torpol_to_spat_single, toraxi_to_spat
-   use logic, only: l_save_out, l_cond_ic, l_mag
+   use logic, only: l_save_out, l_cond_ic, l_mag, l_full_sphere
    use constants, only: zero, one, two
    use out_dtB_frame, only: write_dtB_frame
    use output_data, only: runid
@@ -650,7 +650,11 @@ contains
 
       if ( n_field_type == 1 ) then
 
-         fac=or2(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=one
+         else
+            fac=or2(n_r)
+         end if
          do n_theta_cal=1,n_theta_max
             nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
             nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
@@ -661,7 +665,11 @@ contains
 
       else if ( n_field_type == 2 ) then
 
-         fac=or1(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=one
+         else
+            fac=or1(n_r)
+         end if
          do n_theta_cal=1,n_theta_max
             nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
             nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
@@ -672,7 +680,11 @@ contains
 
       else if ( n_field_type == 3 ) then
 
-         fac=or1(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=one
+         else
+            fac=or1(n_r)
+         end if
          do n_theta_cal=1,n_theta_max
             nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
             nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
@@ -685,7 +697,11 @@ contains
 
       else if ( n_field_type == 4 ) then
 
-         fac=or2(n_r)*orho1(n_r)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=orho1(n_r)*vScale
+         else
+            fac=or2(n_r)*orho1(n_r)*vScale
+         end if
          do n_theta_cal=1,n_theta_max
             nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
             nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
@@ -696,7 +712,11 @@ contains
 
       else if ( n_field_type == 5 ) then
 
-         fac=or1(n_r)*orho1(n_r)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=orho1(n_r)*vScale
+         else
+            fac=or1(n_r)*orho1(n_r)*vScale
+         end if
          do n_theta_cal=1,n_theta_max
             nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
             nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
@@ -709,7 +729,11 @@ contains
 
       else if ( n_field_type == 6 ) then
 
-         fac=or1(n_r)*orho1(n_r)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=orho1(n_r)*vScale
+         else
+            fac=or1(n_r)*orho1(n_r)*vScale
+         end if
          do n_theta_cal=1,n_theta_max
             nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
             nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
@@ -1099,7 +1123,11 @@ contains
 
       if ( n_field_type == 1 ) then
 
-         fac=or2(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=one
+         else
+            fac=or2(n_r)
+         end if
          do n_phi=1,n_phi_max
             nelem = radlatlon2spat(n_theta,n_phi,n_r)
             frames(n_o+n_phi)=fac*br(nelem)
@@ -1107,7 +1135,11 @@ contains
 
       else if ( n_field_type == 2 ) then
 
-         fac=or1(n_r)*O_sin_theta(n_theta)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=O_sin_theta(n_theta)
+         else
+            fac=or1(n_r)*O_sin_theta(n_theta)
+         end if
          do n_phi=1,n_phi_max
             nelem = radlatlon2spat(n_theta,n_phi,n_r)
             frames(n_o+n_phi)=fac*bt(nelem)
@@ -1115,7 +1147,11 @@ contains
 
       else if ( n_field_type == 3 ) then
 
-         fac=or1(n_r)*O_sin_theta(n_theta)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=O_sin_theta(n_theta)
+         else
+            fac=or1(n_r)*O_sin_theta(n_theta)
+         end if
          do n_phi=1,n_phi_max
             nelem = radlatlon2spat(n_theta,n_phi,n_r)
             frames(n_o+n_phi)=fac*bp(nelem)
@@ -1123,7 +1159,11 @@ contains
 
       else if ( n_field_type == 4 ) then
 
-         fac=or2(n_r)*orho1(n_r)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=orho1(n_r)*vScale
+         else
+            fac=or2(n_r)*orho1(n_r)*vScale
+         end if
          do n_phi=1,n_phi_max
             nelem = radlatlon2spat(n_theta,n_phi,n_r)
             frames(n_o+n_phi)=fac*vr(nelem)
@@ -1131,7 +1171,11 @@ contains
 
       else if ( n_field_type == 5 ) then
 
-         fac=or1(n_r)*orho1(n_r)*O_sin_theta(n_theta)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=orho1(n_r)*O_sin_theta(n_theta)*vScale
+         else
+            fac=or1(n_r)*orho1(n_r)*O_sin_theta(n_theta)*vScale
+         end if
          do n_phi=1,n_phi_max
             nelem = radlatlon2spat(n_theta,n_phi,n_r)
             frames(n_o+n_phi)=fac*vt(nelem)
@@ -1139,7 +1183,11 @@ contains
 
       else if ( n_field_type == 6 ) then
 
-         fac=or1(n_r)*orho1(n_r)*O_sin_theta(n_theta)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=orho1(n_r)*O_sin_theta(n_theta)*vScale
+         else
+            fac=or1(n_r)*orho1(n_r)*O_sin_theta(n_theta)*vScale
+         end if
          do n_phi=1,n_phi_max
             nelem = radlatlon2spat(n_theta,n_phi,n_r)
             frames(n_o+n_phi)=fac*vp(nelem)
@@ -1264,7 +1312,11 @@ contains
 
       if ( n_field_type == 1 ) then
 
-         fac=or2(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=one
+         else
+            fac=or2(n_r)
+         end if
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
@@ -1276,7 +1328,11 @@ contains
 
       else if ( n_field_type == 2 ) then
 
-         fac_r=or1(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac_r=one
+         else
+            fac_r=or1(n_r)
+         end if
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
@@ -1289,7 +1345,11 @@ contains
 
       else if ( n_field_type == 3 ) then
 
-         fac_r=or1(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac_r=one
+         else
+            fac_r=or1(n_r)
+         end if
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
@@ -1302,7 +1362,11 @@ contains
 
       else if ( n_field_type == 4 ) then
 
-         fac=or2(n_r)*orho1(n_r)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=orho1(n_r)*vScale
+         else
+            fac=or2(n_r)*orho1(n_r)*vScale
+         end if
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
@@ -1314,7 +1378,11 @@ contains
 
       else if ( n_field_type == 5 ) then
 
-         fac_r=or1(n_r)*orho1(n_r)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac_r=orho1(n_r)*vScale
+         else
+            fac_r=or1(n_r)*orho1(n_r)*vScale
+         end if
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
@@ -1327,7 +1395,11 @@ contains
 
       else if ( n_field_type == 6 ) then
 
-         fac_r=or1(n_r)*orho1(n_r)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac_r=orho1(n_r)*vScale
+         else
+            fac_r=or1(n_r)*orho1(n_r)*vScale
+         end if
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                nelem = radlatlon2spat(n_theta_cal,n_phi,n_r)
