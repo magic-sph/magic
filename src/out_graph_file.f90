@@ -11,13 +11,13 @@ module graphOut_mod
        &                 n_phi_max, n_r_ic_max, nlat_padded
    use radial_functions, only: r_cmb, orho1, or1, or2, r, r_icb, r_ic, &
        &                       O_r_ic, O_r_ic2
-   use radial_data, only: nRstart, n_r_cmb
+   use radial_data, only: nRstart, n_r_cmb, n_r_icb
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio, &
        &                          raxi, sc, stef
    use num_param, only: vScale
    use horizontal_data, only: theta_ord, O_sin_theta, n_theta_cal2ord
    use logic, only: l_mag, l_cond_ic, l_PressGraph, l_chemical_conv, l_heat, &
-       &            l_save_out, l_phase_field
+       &            l_save_out, l_phase_field, l_full_sphere
    use output_data, only: runid, n_log_file, log_file, tag
    use sht, only: torpol_to_spat_IC
 
@@ -156,7 +156,11 @@ contains
       version = 14
 
       !-- Calculate and write radial velocity:
-      fac=or2(n_r)*vScale*orho1(n_r)
+      if ( n_r == n_r_icb .and. l_full_sphere ) then
+         fac=vScale*orho1(n_r)
+      else
+         fac=or2(n_r)*vScale*orho1(n_r)
+      end if
       do n_phi=1,n_phi_max ! do loop over phis
          do n_theta_cal=1,n_theta_max
             n_theta =n_theta_cal2ord(n_theta_cal)
@@ -166,7 +170,11 @@ contains
       write(n_graph_loc) dummy(:,:)
 
       !-- Calculate and write latitudinal velocity:
-      fac_r=or1(n_r)*vScale*orho1(n_r)
+      if ( n_r == n_r_icb .and. l_full_sphere ) then
+         fac_r=vScale*orho1(n_r)
+      else
+         fac_r=or1(n_r)*vScale*orho1(n_r)
+      end if
       do n_phi=1,n_phi_max
          do n_theta_cal=1,n_theta_max
             fac=fac_r*O_sin_theta(n_theta_cal)
@@ -177,7 +185,11 @@ contains
       write(n_graph_loc) dummy(:,:)
 
       !-- Calculate and write longitudinal velocity:
-      fac_r=or1(n_r)*vScale*orho1(n_r)
+      if ( n_r == n_r_icb .and. l_full_sphere ) then
+         fac_r=vScale*orho1(n_r)
+      else
+         fac_r=or1(n_r)*vScale*orho1(n_r)
+      end if
       do n_phi=1,n_phi_max
          do n_theta_cal=1,n_theta_max
             fac=fac_r*O_sin_theta(n_theta_cal)
@@ -233,7 +245,11 @@ contains
 
       if ( l_mag ) then
          !-- Calculate and write radial magnetic field:
-         fac=or2(n_r)*vScale*orho1(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=one
+         else
+            fac=or2(n_r)
+         end if
          do n_phi=1,n_phi_max ! do loop over phis
             do n_theta_cal=1,n_theta_max
                n_theta =n_theta_cal2ord(n_theta_cal)
@@ -243,7 +259,11 @@ contains
          write(n_graph_loc) dummy(:,:)
 
          !-- Calculate and write latitudinal magnetic field:
-         fac_r=or1(n_r)*vScale*orho1(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac_r=one
+         else
+            fac_r=or1(n_r)
+         end if
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                fac=fac_r*O_sin_theta(n_theta_cal)
@@ -254,7 +274,11 @@ contains
          write(n_graph_loc) dummy(:,:)
 
          !-- Calculate and write longitudinal magnetic field:
-         fac_r=or1(n_r)*vScale*orho1(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac_r=one
+         else
+            fac_r=or1(n_r)
+         end if
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                fac=fac_r*O_sin_theta(n_theta_cal)
@@ -334,7 +358,11 @@ contains
 
       !$omp critical
       !-- Calculate and write radial velocity:
-      fac=or2(n_r)*vScale*orho1(n_r)
+      if ( n_r == n_r_icb .and. l_full_sphere ) then
+         fac=vScale*orho1(n_r)
+      else
+         fac=or2(n_r)*vScale*orho1(n_r)
+      end if
       do n_phi=1,n_phi_max
          do n_theta_cal=1,n_theta_max
             n_theta =n_theta_cal2ord(n_theta_cal)
@@ -344,7 +372,11 @@ contains
       call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
       !-- Calculate and write latitudinal velocity:
-      fac_r=or1(n_r)*vScale*orho1(n_r)
+      if ( n_r == n_r_icb .and. l_full_sphere ) then
+         fac_r=vScale*orho1(n_r)
+      else
+         fac_r=or1(n_r)*vScale*orho1(n_r)
+      end if
       do n_phi=1,n_phi_max
          do n_theta_cal=1,n_theta_max
             n_theta =n_theta_cal2ord(n_theta_cal)
@@ -355,7 +387,11 @@ contains
       call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
       !-- Calculate and write longitudinal velocity:
-      fac_r=or1(n_r)*vScale*orho1(n_r)
+      if ( n_r == n_r_icb .and. l_full_sphere ) then
+         fac_r=vScale*orho1(n_r)
+      else
+         fac_r=or1(n_r)*vScale*orho1(n_r)
+      end if
       do n_phi=1,n_phi_max
          do n_theta_cal=1,n_theta_max
             n_theta =n_theta_cal2ord(n_theta_cal)
@@ -412,7 +448,11 @@ contains
       if ( l_mag ) then
 
          !-- Calculate and write radial magnetic field:
-         fac=or2(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=one
+         else
+            fac=or2(n_r)
+         end if
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                n_theta =n_theta_cal2ord(n_theta_cal)
@@ -422,20 +462,30 @@ contains
          call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
          !-- Calculate and write latitudinal magnetic field:
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac_r=one
+         else
+            fac_r=or1(n_r)
+         end if
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                n_theta =n_theta_cal2ord(n_theta_cal)
-               fac=or1(n_r)*O_sin_theta(n_theta_cal)
+               fac=fac_r*O_sin_theta(n_theta_cal)
                dummy(n_theta,n_phi)=real(fac*bt(n_theta_cal,n_phi),kind=outp)
             end do
          end do
          call write_one_field(dummy, n_graph_loc, n_phi_max, n_theta_max)
 
          !-- Calculate and write longitudinal magnetic field:
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac_r=one
+         else
+            fac_r=or1(n_r)
+         end if
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                n_theta =n_theta_cal2ord(n_theta_cal)
-               fac=or1(n_r)*O_sin_theta(n_theta_cal)
+               fac=fac_r*O_sin_theta(n_theta_cal)
                dummy(n_theta,n_phi)=real(fac*bp(n_theta_cal,n_phi),kind=outp)
             end do
          end do

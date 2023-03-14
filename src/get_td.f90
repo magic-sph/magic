@@ -124,7 +124,7 @@ contains
 
    end subroutine set_zero
 !----------------------------------------------------------------------------
-   subroutine get_td(this,nR,nBc,lPressNext,dVxVhLM,dVxBhLM, &
+   subroutine get_td(this,nR,nBc,lPressNext,dVSrLM,dVXirLM,dVxVhLM,dVxBhLM, &
               &      dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt)
       !
       !  Purpose of this to calculate time derivatives
@@ -141,6 +141,8 @@ contains
       logical, intent(in) :: lPressNext
 
       !-- Output of variables:
+      complex(cp), intent(out) :: dVSrLM(:)
+      complex(cp), intent(out) :: dVXirLM(:)
       complex(cp), intent(out) :: dwdt(:),dzdt(:)
       complex(cp), intent(out) :: dpdt(:),dsdt(:)
       complex(cp), intent(out) :: dxidt(:)
@@ -431,6 +433,21 @@ contains
             do lm=1,lm_max
                dVxVhLM(lm)=zero
             end do
+            !$omp end parallel do
+         end if
+         if ( l_heat ) then
+            !$omp parallel do
+            do lm=1,lm_max
+               dVSrLM(lm)=zero
+            end do
+            !$omp end parallel do
+         end if
+         if ( l_chemical_conv ) then
+            !$omp parallel do
+            do lm=1,lm_max
+               dVXirLM(lm)=zero
+            end do
+            !$omp end parallel do
          end if
 
       end if  ! boundary ? lvelo ?

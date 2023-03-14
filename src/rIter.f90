@@ -39,7 +39,7 @@ module rIter_mod
    use out_movie, only: store_movie_frame
    use outRot, only: get_lorentz_torque
    use courant_mod, only: courant
-   use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary
+   use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary, v_center_sphere
    use power, only: get_visc_heat
    use outMisc_mod, only: get_ekin_solid_liquid, get_hemi, get_helicity
    use outPar_mod, only: get_fluxes, get_nlBlayers, get_perpPar
@@ -427,7 +427,7 @@ contains
          !   time step performed in s_LMLoop.f . This should be distributed
          !   over the different models that s_LMLoop.f parallelizes over.
          call td_counter%start_count()
-         call this%nl_lm%get_td(nR, nBc, lPressNext,                &
+         call this%nl_lm%get_td(nR, nBc, lPressNext, dVSrLM(:,nR), dVXirLM(:,nR), &
               &                 dVxVhLM(:,nR), dVxBhLM(:,nR), dwdt(:,nR),         &
               &                 dzdt(:,nR), dpdt(:,nR), dsdt(:,nR), dxidt(:,nR),  &
               &                 dbdt(:,nR), djdt(:,nR))
@@ -603,6 +603,11 @@ contains
                     &              this%gsa%dvpdrc, l_R(nR))
             end if
          end if
+
+         if ( nR == n_r_icb .and. l_full_sphere ) then
+            call v_center_sphere(ddw_Rloc(:,nR), this%gsa%vrc, this%gsa%vtc, &
+                 &               this%gsa%vpc)
+         end if
       end if
 
       if ( l_mag .or. l_mag_LF ) then
@@ -614,6 +619,11 @@ contains
                  &                   aj_Rloc(:,nR), dj_Rloc(:,nR),          &
                  &                   this%gsa%cbrc, this%gsa%cbtc,          &
                  &                   this%gsa%cbpc, l_R(nR))
+         end if
+
+         if ( nR == n_r_icb .and. l_full_sphere ) then
+            call v_center_sphere(ddb_Rloc(:,nR), this%gsa%brc, this%gsa%btc, &
+                 &               this%gsa%bpc)
          end if
       end if
 

@@ -25,7 +25,7 @@ module out_movie
        &                      phi, theta_ord
    use fields, only: w_Rloc, b_Rloc, b_ic, bICB
    use sht, only: torpol_to_spat, toraxi_to_spat
-   use logic, only: l_save_out, l_cond_ic, l_mag
+   use logic, only: l_save_out, l_cond_ic, l_mag, l_full_sphere
    use constants, only: zero, one, two
    use out_dtB_frame, only: write_dtB_frame
    use output_data, only: runid
@@ -640,7 +640,11 @@ contains
 
       if ( n_field_type == 1 ) then
 
-         fac=or2(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=one
+         else
+            fac=or2(n_r)
+         end if
          do n_theta_cal=1,n_theta_max
             n_theta=n_theta_cal2ord(n_theta_cal)
             frames(n_0+n_theta)  =fac*br(n_theta_cal,n_phi_0)
@@ -649,7 +653,11 @@ contains
 
       else if ( n_field_type == 2 ) then
 
-         fac=or1(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=one
+         else
+            fac=or1(n_r)
+         end if
          do n_theta_cal=1,n_theta_max
             n_theta=n_theta_cal2ord(n_theta_cal)
             frames(n_0+n_theta)  =fac*bt(n_theta_cal,n_phi_0)*   &
@@ -660,7 +668,11 @@ contains
 
       else if ( n_field_type == 3 ) then
 
-         fac=or1(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=one
+         else
+            fac=or1(n_r)
+         end if
          do n_theta_cal=1,n_theta_max
             n_theta=n_theta_cal2ord(n_theta_cal)
             frames(n_0+n_theta)  =fac*bp(n_theta_cal,n_phi_0)*   &
@@ -671,7 +683,11 @@ contains
 
       else if ( n_field_type == 4 ) then
 
-         fac=or2(n_r)*orho1(n_r)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=orho1(n_r)*vScale
+         else
+            fac=or2(n_r)*orho1(n_r)*vScale
+         end if
          do n_theta_cal=1,n_theta_max
             n_theta=n_theta_cal2ord(n_theta_cal)
             frames(n_0+n_theta)=fac*vr(n_theta_cal,n_phi_0)
@@ -680,7 +696,11 @@ contains
 
       else if ( n_field_type == 5 ) then
 
-         fac=or1(n_r)*orho1(n_r)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=orho1(n_r)*vScale
+         else
+            fac=or1(n_r)*orho1(n_r)*vScale
+         end if
          do n_theta_cal=1,n_theta_max
             n_theta=n_theta_cal2ord(n_theta_cal)
             frames(n_0+n_theta)  =fac*vt(n_theta_cal,n_phi_0)*   &
@@ -691,7 +711,11 @@ contains
 
       else if ( n_field_type == 6 ) then
 
-         fac=or1(n_r)*orho1(n_r)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=orho1(n_r)*vScale
+         else
+            fac=or1(n_r)*orho1(n_r)*vScale
+         end if
          do n_theta_cal=1,n_theta_max
             n_theta=n_theta_cal2ord(n_theta_cal)
             frames(n_0+n_theta)  =fac*vp(n_theta_cal,n_phi_0)*   &
@@ -1083,42 +1107,66 @@ contains
 
       if ( n_field_type == 1 ) then
 
-         fac=or2(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=one
+         else
+            fac=or2(n_r)
+         end if
          do n_phi=1,n_phi_max
             frames(n_o+n_phi)=fac*br(n_theta,n_phi)
          end do
 
       else if ( n_field_type == 2 ) then
 
-         fac=or1(n_r)*O_sin_theta(n_theta)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=O_sin_theta(n_theta)
+         else
+            fac=or1(n_r)*O_sin_theta(n_theta)
+         end if
          do n_phi=1,n_phi_max
             frames(n_o+n_phi)=fac*bt(n_theta,n_phi)
          end do
 
       else if ( n_field_type == 3 ) then
 
-         fac=or1(n_r)*O_sin_theta(n_theta)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=O_sin_theta(n_theta)
+         else
+            fac=or1(n_r)*O_sin_theta(n_theta)
+         end if
          do n_phi=1,n_phi_max
             frames(n_o+n_phi)=fac*bp(n_theta,n_phi)
          end do
 
       else if ( n_field_type == 4 ) then
 
-         fac=or2(n_r)*orho1(n_r)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=orho1(n_r)*vScale
+         else
+            fac=or2(n_r)*orho1(n_r)*vScale
+         end if
          do n_phi=1,n_phi_max
             frames(n_o+n_phi)=fac*vr(n_theta,n_phi)
          end do
 
       else if ( n_field_type == 5 ) then
 
-         fac=or1(n_r)*orho1(n_r)*O_sin_theta(n_theta)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=orho1(n_r)*O_sin_theta(n_theta)*vScale
+         else
+            fac=or1(n_r)*orho1(n_r)*O_sin_theta(n_theta)*vScale
+         end if
          do n_phi=1,n_phi_max
             frames(n_o+n_phi)=fac*vt(n_theta,n_phi)
          end do
 
       else if ( n_field_type == 6 ) then
 
-         fac=or1(n_r)*orho1(n_r)*O_sin_theta(n_theta)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=orho1(n_r)*O_sin_theta(n_theta)*vScale
+         else
+            fac=or1(n_r)*orho1(n_r)*O_sin_theta(n_theta)*vScale
+         end if
          do n_phi=1,n_phi_max
             frames(n_o+n_phi)=fac*vp(n_theta,n_phi)
          end do
@@ -1240,7 +1288,11 @@ contains
 
       if ( n_field_type == 1 ) then
 
-         fac=or2(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=one
+         else
+            fac=or2(n_r)
+         end if
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                n_theta=n_theta_cal2ord(n_theta_cal)
@@ -1251,7 +1303,11 @@ contains
 
       else if ( n_field_type == 2 ) then
 
-         fac_r=or1(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac_r=one
+         else
+            fac_r=or1(n_r)
+         end if
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                n_theta=n_theta_cal2ord(n_theta_cal)
@@ -1263,7 +1319,11 @@ contains
 
       else if ( n_field_type == 3 ) then
 
-         fac_r=or1(n_r)
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac_r=one
+         else
+            fac_r=or1(n_r)
+         end if
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                n_theta=n_theta_cal2ord(n_theta_cal)
@@ -1275,7 +1335,11 @@ contains
 
       else if ( n_field_type == 4 ) then
 
-         fac=or2(n_r)*orho1(n_r)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac=orho1(n_r)*vScale
+         else
+            fac=or2(n_r)*orho1(n_r)*vScale
+         end if
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                n_theta=n_theta_cal2ord(n_theta_cal)
@@ -1286,7 +1350,11 @@ contains
 
       else if ( n_field_type == 5 ) then
 
-         fac_r=or1(n_r)*orho1(n_r)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac_r=orho1(n_r)*vScale
+         else
+            fac_r=or1(n_r)*orho1(n_r)*vScale
+         end if
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                n_theta=n_theta_cal2ord(n_theta_cal)
@@ -1298,7 +1366,11 @@ contains
 
       else if ( n_field_type == 6 ) then
 
-         fac_r=or1(n_r)*orho1(n_r)*vScale
+         if ( n_r == n_r_icb .and. l_full_sphere ) then
+            fac_r=orho1(n_r)*vScale
+         else
+            fac_r=or1(n_r)*orho1(n_r)*vScale
+         end if
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                n_theta=n_theta_cal2ord(n_theta_cal)
