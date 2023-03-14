@@ -26,7 +26,7 @@ module updateS_mod
    use parallel_mod
    use radial_der, only: get_ddr, get_dr, get_dr_Rloc, get_ddr_ghost, &
        &                 exch_ghosts, bulk_to_ghost
-   use fields, only:  work_LMloc
+   use fields, only: work_LMloc, tmp_LMloc
    use constants, only: zero, one, two
    use useful, only: abortRun
    use time_schemes, only: type_tscheme
@@ -91,7 +91,7 @@ contains
 
       if ( .not. l_parallel_solve ) then
 
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+         nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
 
          if ( l_finite_diff ) then
             allocate( type_bandmat :: sMat(nLMBs2(1+rank)) )
@@ -268,7 +268,7 @@ contains
       integer :: n_r_out        ! counts cheb modes
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
-      integer, pointer :: sizeLMB2(:,:),lm2(:,:)
+      integer, pointer :: sizeLMB2(:,:),lm2(:,:),l2nLMB2(:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
       integer :: threadid,iChunk,nChunks,size_of_last_chunk,lmB0
 
@@ -284,6 +284,7 @@ contains
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
       lm22l(1:,1:,1:) => lo_sub_map%lm22l
       lm22m(1:,1:,1:) => lo_sub_map%lm22m
+      l2nLMB2(0:) => lo_sub_map%l2nLMB2
       lm2(0:,0:) => lo_map%lm2
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
@@ -318,6 +319,81 @@ contains
 #endif
       end if
 
+#ifdef NEW
+      call solve_counter%start_count()
+      !-- LU factorisation if required
+      if ( .not. lSmat(1) ) then
+         call up1_counter%start_count()
+         do nLMB2=1,nLMBs2(nLMB)
+            l1=lm22l(1,nLMB2,nLMB)
+            if ( .not. lSmat(l1) ) then
+#ifdef WITH_PRECOND_S
+               call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2),sMat_fac(:,nLMB2))
+#else
+               call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2))
+#endif
+               lSmat(l1)=.true.
+            end if
+         end do
+         call up1_counter%stop_count(l_increment=.false.)
+      end if
+
+      !-- Copy and transpose bulk points
+      !$omp target teams distribute parallel do collapse(2)
+      do lm=llm,ulm
+         do nR=2,n_r_max-1
+            tmp_LMloc(nR,lm)=work_LMLoc(lm,nR)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+      !-- Apply boundary conditions
+      !$omp target teams distribute parallel do private(l1, m1)
+      do lm=llm,ulm
+         l1=lm2l(lm)
+         m1=lm2m(lm)
+         tmp_LMloc(1,lm)      =tops(l1,m1)
+         tmp_LMloc(n_r_max,lm)=bots(l1,m1)
+      end do
+      !$omp end target teams distribute parallel do
+
+#ifdef WITH_PRECOND_S
+      !-- Apply scaling prefactor
+      !$omp target teams distribute parallel do collapse(2) private(l1,nLMB2)
+      do lm=llm,ulm
+         do nR=1,n_r_max
+            l1=lm2l(lm)
+            nLMB2=l2nLMB2(l1)
+            tmp_LMloc(nR,lm)=sMat_fac(nR,nLMB2)*tmp_LMloc(nR,lm)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+#endif
+
+      !-- Solve matrices
+      call up2_counter%start_count()
+      call solve_mat_real_dense(sMat,n_r_max,tmp_LMloc)
+      call up2_counter%stop_count(l_increment=.false.)
+
+      !-- Recombine into solution
+      !$omp target teams distribute parallel do collapse(2) private(m1)
+      do lm=llm,ulm
+         do nR=1,n_max_rSchemeOc
+         !do nR=1,rscheme_oc%n_max
+            m1=lm2m(lm)
+            if ( m1 > 0 ) then
+               s(lm,nR)=tmp_LMloc(nR,lm)
+            else
+               s(lm,nR)=cmplx(real(tmp_LMloc(nR,lm)),0.0_cp,kind=cp)
+               !if (l1 == 0) print*, nR, tmp_LMloc(nR,lm)
+            end if
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+      call solve_counter%stop_count(l_increment=.false.)
+#endif
+
+!#ifdef OLD
 #ifdef WITH_OMP_GPU
       !$omp single
       call solve_counter%start_count()
@@ -490,6 +566,7 @@ contains
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
 #endif
+!#endif
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
@@ -1763,7 +1840,7 @@ contains
       !$omp target teams distribute parallel do collapse(2)
       do nR_out=1,n_r_max
          do nr=1,n_r_max
-         dat(nR,nR_out) = dat(nR,nR_out)*sMat_fac(nR)
+            dat(nR,nR_out) = dat(nR,nR_out)*sMat_fac(nR)
          end do
       end do
       !$omp end target teams distribute parallel do
@@ -1959,5 +2036,91 @@ contains
       call sMat%prepare_mat()
 
    end subroutine get_Smat_Rdist
+!-----------------------------------------------------------------------------
+   subroutine solve_mat_real_dense(a,n,bc)
+      !
+      !  This routine does the backward substitution into a LU-decomposed real
+      !  matrix a (to solve a * x = bc ) simultaneously for nRHSs real
+      !  vectors bc. On return the results are stored in the bc.
+      !
+
+      !-- Input variables:
+      class(type_realmat), intent(in) :: a(:)
+      integer,             intent(in) :: n ! dimension of problem
+
+      !-- Output variables:
+      complex(cp), intent(inout) :: bc(1:n,llm:ulm) ! on input RHS of problem
+
+      !-- Local variables:
+      integer :: nm1,nodd,i,m,lm_start,lm_stop,nlms
+      integer :: k,k1,nRHS,nLMB2,l
+      complex(cp) :: help
+      integer, pointer :: nLMBs2(:), sizeLMB2(:,:), lm22lm(:,:,:), lm22l(:,:,:)
+
+      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
+      sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
+      lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
+      lm22l(1:,1:,1:) => lo_sub_map%lm22l
+
+      nm1 =n-1
+      nodd=mod(n,2)
+
+      !-- Loop over ell's
+      do nLMB2=1,nLMBs2(rank+1)
+
+         ! This handles spherical harmonic degree l
+         l=lm22l(1,nLMB2,rank+1)
+         !-- Boundaries of the inner loop depends on l:
+         lm_start=lm22lm(1,nLMB2,rank+1)
+         nlms    =sizeLMB2(nLMB2,rank+1)
+         lm_stop =nlms+lm_start-1
+
+         !print*, l, lm_start, lm_stop, nlms
+
+         !-- Permute vectors bc
+         do nRHS=lm_start,lm_stop
+            do k=1,nm1
+               m=a(nLMB2)%pivot(k)
+               help       =bc(m,nRHS)
+               bc(m,nRHS) =bc(k,nRHS)
+               bc(k,nRHS) =help
+            end do
+
+            !-- Solve  l * y = b
+            do k=1,n-2,2
+               k1=k+1
+               bc(k1,nRHS) =bc(k1,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(k1,k)
+               do i=k+2,n
+                  bc(i,nRHS)=bc(i,nRHS)-(bc(k,nRHS)*a(nLMB2)%dat(i,k) + &
+                  &                      bc(k1,nRHS)*a(nLMB2)%dat(i,k1))
+               end do
+            end do
+            if ( nodd == 0 ) then
+               bc(n,nRHS) =bc(n,nRHS)-bc(nm1,nRHS)*a(nLMB2)%dat(n,nm1)
+            end if
+
+            !-- Solve  u * x = y
+            do k=n,3,-2
+               k1=k-1
+               bc(k,nRHS)  =bc(k,nRHS)*a(nLMB2)%dat(k,k)
+               bc(k1,nRHS) =(bc(k1,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(k1,k)) * &
+               &            a(nLMB2)%dat(k1,k1)
+               do i=1,k-2
+                  bc(i,nRHS)=bc(i,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(i,k) - &
+                  &          bc(k1,nRHS)*a(nLMB2)%dat(i,k1)
+               end do
+            end do
+            if ( nodd == 0 ) then
+               bc(2,nRHS)=bc(2,nRHS)*a(nLMB2)%dat(2,2)
+               bc(1,nRHS)=(bc(1,nRHS)-bc(2,nRHS)*a(nLMB2)%dat(1,2))*a(nLMB2)%dat(1,1)
+            else
+               bc(1,nRHS)=bc(1,nRHS)*a(nLMB2)%dat(1,1)
+            end if
+
+         end do
+
+      end do
+
+   end subroutine solve_mat_real_dense
 !-----------------------------------------------------------------------------
 end module updateS_mod
