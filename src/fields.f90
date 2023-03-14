@@ -79,6 +79,7 @@ module fields
    complex(cp), public, allocatable :: ddj_ic_LMloc(:,:)
 
    complex(cp), public, allocatable :: work_LMloc(:,:) ! Needed in update routines
+   complex(cp), public, allocatable :: tmp_LMloc(:,:) ! Needed in update routines
 
    !-- Rotation rates:
    real(cp), public :: omega_ic,omega_ma
@@ -491,14 +492,18 @@ contains
       allocate( work_LMloc(llm:ulm,1:n_r_max) )
       work_LMloc(:,:)=zero
       bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+
+      allocate( tmp_LMloc(1:n_r_max,llm:ulm) )
+      tmp_LMloc(:,:)=zero
+      bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 #ifdef WITH_OMP_GPU
       gpu_bytes_allocated = gpu_bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, &
+      !$omp target enter data map(alloc: b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, tmp_LMloc, &
       !$omp&                             aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, work_LMloc)
-      !$omp target update to(b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, &
+      !$omp target update to(b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, tmp_LMloc, &
       !$omp&                 aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, work_LMloc) nowait
 #endif
 
@@ -557,13 +562,13 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc, &
       !$omp&                             dj_ic_LMloc, ddj_ic_LMloc, &
-      !$omp&                             work_LMloc, &
+      !$omp&                             work_LMloc, tmp_LMloc, &
       !$omp&                             phi_LMloc, phi_Rloc)
 #endif
       deallocate( b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc )
       deallocate( dj_ic_LMloc, ddj_ic_LMloc )
       deallocate( xi_LMloc_container, xi_Rloc_container )
-      deallocate( work_LMloc )
+      deallocate( work_LMloc, tmp_LMloc )
       deallocate( phi_LMloc, phi_Rloc )
       if ( l_mag_par_solve ) then
 #ifdef WITH_OMP_GPU_
