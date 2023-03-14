@@ -24,6 +24,7 @@ module LMmapping
       integer, allocatable :: nLMBs2(:)
       integer, allocatable :: sizeLMB2(:,:)
       integer, allocatable :: lm22lm(:,:,:)
+      integer, allocatable :: l2nLMB2(:)
       integer, allocatable :: lm22l(:,:,:)
       integer, allocatable :: lm22m(:,:,:)
    end type subblocks_mappings
@@ -112,18 +113,20 @@ contains
 
       allocate( self%nLMBs2(nLMBs),self%sizeLMB2(l_max+1,nLMBs) )
       allocate( self%lm22lm(self%sizeLMB2max,l_max+1,nLMBs) )
+      allocate( self%l2nLMB2(0:l_max) )
       allocate( self%lm22l(self%sizeLMB2max,l_max+1,nLMBs) )
       allocate( self%lm22m(self%sizeLMB2max,l_max+1,nLMBs) )
+      self%l2nLMB2=-1
       self%nLMBs2(:) = 0; self%sizeLMB2(:,:) = 0
       self%lm22lm(:,:,:) = 0
       self%lm22l(:,:,:) = 0
       self%lm22m(:,:,:) = 0
-      bytes_allocated = bytes_allocated +       &
-      &                 (nLMBs+(l_max+1)*nLMBs+ &
+      bytes_allocated = bytes_allocated +               &
+      &                 (nLMBs+l_max+1+(l_max+1)*nLMBs+ &
       &                 3*(l_max+1)*nLMBS*self%sizeLMB2max)*SIZEOF_INTEGER
 #ifdef WITH_OMP_GPU
       gpu_bytes_allocated = gpu_bytes_allocated +       &
-      &                 (nLMBs+(l_max+1)*nLMBs+ &
+      &                 (nLMBs+l_max+1+(l_max+1)*nLMBs+ &
       &                 3*(l_max+1)*nLMBS*self%sizeLMB2max)*SIZEOF_INTEGER
 #endif
 
@@ -134,7 +137,7 @@ contains
       type(subblocks_mappings) :: self
 
       deallocate( self%nLMBs2, self%sizeLMB2, self%lm22lm, self%lm22l )
-      deallocate( self%lm22m )
+      deallocate( self%lm22m, self%l2nLMB2 )
 
    end subroutine deallocate_subblocks_mappings
 !-------------------------------------------------------------------------------

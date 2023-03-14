@@ -367,6 +367,12 @@ contains
             end if
          end do
       end do
+
+      do nB2=1,sub_map%nLMBs2(rank+1)
+         l=sub_map%lm22l(1,nB2,rank+1)
+         sub_map%l2nLMB2(l)=nB2
+      end do
+
    end subroutine get_subblocks
 !------------------------------------------------------------------------
    subroutine get_standard_lm_blocking(map,minc)
