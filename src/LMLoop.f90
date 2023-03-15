@@ -165,9 +165,23 @@ contains
 #endif
       end if
       if ( l_conv ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dummy)
+         !$omp target update to(z10_ghost, z_ghost)
+#endif
          call prepareZ_FD(0.0_cp, tscheme, dummy, omega_ma, omega_ic, dum_scal, &
               &           dum_scal)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dummy)
+         !$omp target update from(z10_ghost, z_ghost)
+#endif
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dummy)
+#endif
          call prepareW_FD(tscheme, dummy, .false.)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dummy)
+#endif
       end if
       if ( l_mag_par_solve ) then
 #ifdef WITH_OMP_GPU
@@ -443,10 +457,27 @@ contains
 #endif
       end if
       if ( l_conv ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(dzdt)
+         !$omp target update to(z10_ghost, z_ghost)
+#endif
          call prepareZ_FD(time, tscheme, dzdt, omega_ma, omega_ic, domega_ma_dt, &
               &           domega_ic_dt)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dzdt)
+         !$omp target update from(z10_ghost, z_ghost)
+#endif
          if ( l_z10mat ) call z10Mat_FD%solver_single(z10_ghost, nRstart, nRstop)
+#ifdef WITH_OMP_GPU
+         !$omp target update to(p0_ghost)
+         !$omp target update to(dwdt)
+#endif
          call prepareW_FD(tscheme, dwdt, lPress)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(p0_ghost)
+         !$omp target update from(w_ghost)
+!         !$omp target update from(dwdt)
+#endif
          if ( lPress ) call p0Mat_FD%solver_single(p0_ghost, nRstart, nRstop)
       end if
       if ( l_mag_par_solve ) then
@@ -490,8 +521,20 @@ contains
 #endif
       end if
       if ( l_conv ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(z_ghost)
+#endif
          call fill_ghosts_Z(z_ghost)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(z_ghost)
+#endif
+#ifdef WITH_OMP_GPU
+         !$omp target update to(w_ghost)
+#endif
          call fill_ghosts_W(w_ghost, p0_ghost, lPress)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(w_ghost)
+#endif
       end if
       if ( l_mag_par_solve ) then
 #ifdef WITH_OMP_GPU
@@ -528,11 +571,27 @@ contains
 #endif
       end if
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(z_Rloc, z_ghost, dz_Rloc, dzdt)
+#endif
       call updateZ_FD(time, timeNext, z_Rloc, dz_Rloc, dzdt, omega_ma, omega_ic, &
            &          domega_ma_dt, domega_ic_dt, lorentz_torque_ma_dt,          &
            &          lorentz_torque_ic_dt, tscheme, lRmsNext)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(z_Rloc, z_ghost, dz_Rloc, dzdt)
+#endif
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dwdt, w_Rloc, dw_Rloc, p_Rloc)
+      !$omp target update to(dpdt)
+      !$omp target update to(ddw_Rloc, dp_Rloc)
+      !$omp target update to(w_ghost)
+#endif
       call updateW_FD(w_Rloc, dw_Rloc, ddw_Rloc, dwdt, p_Rloc, dp_Rloc, dpdt, tscheme, &
            &          lRmsNext, lPressNext, lP00Next)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(dwdt, w_Rloc, dw_Rloc, p_Rloc)
+      !$omp target update from(ddw_Rloc, dp_Rloc)
+#endif
 
       if ( l_mag_par_solve ) then
 #ifdef WITH_OMP_GPU
@@ -853,14 +912,27 @@ contains
             !$omp target update from(s_LMloc, ds_LMloc, dsdt)
 #endif
          end if
+#ifdef WITH_OMP_GPU
+         !$omp target update to(s_LMloc, xi_LMLoc)
+         !$omp target update to(dwdt, dpdt, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc)
+#endif
          call assemble_pol(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, &
               &            dp_LMloc, dwdt, dpdt, dpdt%expl(:,:,1), tscheme,          &
               &            lPressNext, lRmsNext)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dwdt, dpdt, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc)
+#endif
       end if
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(z_LMloc, dz_LMloc, dzdt)
+#endif
       call assemble_tor(time, z_LMloc, dz_LMloc, dzdt, domega_ic_dt, domega_ma_dt, &
            &            lorentz_torque_ic_dt, lorentz_torque_ma_dt, omega_ic,      &
            &            omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(z_LMloc, dz_LMloc, dzdt)
+#endif
 
       if ( l_mag ) then
 #ifdef WITH_OMP_GPU
@@ -950,13 +1022,26 @@ contains
 #endif
       end if
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(dwdt, dpdt, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc)
+#endif
       call assemble_pol_Rloc(block_sze, nblocks, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, &
            &                 dp_Rloc, dwdt, dpdt%expl(:,:,1), tscheme, lPressNext,  &
            &                 lRmsNext)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(w_ghost)
+      !$omp target update from(dwdt, dpdt, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc)
+#endif
 
+#ifdef WITH_OMP_GPU
+      !$omp target update to(z_ghost, z_Rloc, dz_Rloc, dzdt)
+#endif
       call assemble_tor_Rloc(time, z_Rloc, dz_Rloc, dzdt, domega_ic_dt, domega_ma_dt, &
            &                 lorentz_torque_ic_dt, lorentz_torque_ma_dt, omega_ic,    &
            &                 omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(z_ghost, z_Rloc, dz_Rloc, dzdt)
+#endif
 
       if ( l_mag ) then
          if ( l_mag_par_solve ) then

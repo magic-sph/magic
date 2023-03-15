@@ -986,6 +986,8 @@ contains
 
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm, l, lm00
+      integer :: loc_istage
+      loc_istage = tscheme%istage
 
       if ( .not. l_update_v ) return
 
@@ -998,8 +1000,11 @@ contains
 
       if ( lPressNext .and. (m_min==0) ) then
          lm00=st_map%lm2(0,0)
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+#endif
          do nR=nRstart,nRstop
-            p0_ghost(nR)=dwdt%expl(lm00,nR,tscheme%istage)
+            p0_ghost(nR)=dwdt%expl(lm00,nR,loc_istage)
             if ( l_heat ) then
                p0_ghost(nR)=p0_ghost(nR)+rho0(nR)*BuoFac*rgrav(nR)*s_Rloc(lm00,nR)
             end if
@@ -1007,7 +1012,18 @@ contains
                p0_ghost(nR)=p0_ghost(nR)+rho0(nR)*ChemFac*rgrav(nR)*xi_Rloc(lm00,nR)
             end if
          end do
-         if ( nRstart == n_r_cmb ) p0_ghost(nRstart)=zero
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
+         if ( nRstart == n_r_cmb ) then
+#ifdef WITH_OMP_GPU
+            !$omp target
+#endif
+            p0_ghost(nRstart)=zero
+#ifdef WITH_OMP_GPU
+            !$omp end target
+#endif
+         end if
       end if
 
 #ifdef WITH_OMP_GPU
@@ -1020,32 +1036,26 @@ contains
 #endif
 
       !-- Now assemble the right hand side and store it in work_LMloc
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dwdt)
-#endif
       call tscheme%set_imex_rhs_ghost(w_ghost, dwdt, lm_start, lm_stop, 2)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(w_ghost)
-#endif
 
       !-- Ensure that l=m=0 is zero
-#ifdef WITH_OMP_GPU
-#else
-#endif
       if ( m_min == 0 ) then
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+#endif
          do nR=nRstart,nRstop
             w_ghost(1,nR)=zero
          end do
-      end if
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
+      end if
 
       !-- Set boundary conditions
       if ( nRstart == n_r_cmb ) then
          nR=n_r_cmb
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do lm=lm_start,lm_stop
             l=st_map%lm2l(lm)
@@ -1056,14 +1066,14 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
       if ( nRstop == n_r_icb ) then
          nR=n_r_icb
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do lm=lm_start,lm_stop
             l=st_map%lm2l(lm)
@@ -1074,9 +1084,10 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
+
 #ifndef WITH_OMP_GPU
       !$omp end parallel
 #endif
@@ -1120,7 +1131,7 @@ contains
       dr = r(2)-r(1)
       if ( nRstart == n_r_cmb ) then ! Rank with n_r_mcb
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do lm=lm_start,lm_stop
             l=st_map%lm2l(lm)
@@ -1135,7 +1146,7 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
@@ -1143,7 +1154,7 @@ contains
       dr = r(n_r_max)-r(n_r_max-1)
       if ( nRstop == n_r_icb ) then
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do lm=lm_start,lm_stop
             l=st_map%lm2l(lm)
@@ -1167,7 +1178,7 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
@@ -1204,6 +1215,7 @@ contains
       if ( lPressNext .and. tscheme%istage == 1) then
          ! Store old dw
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
 #else
          !$omp parallel do collapse(2)
 #endif
@@ -1213,19 +1225,14 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #else
          !$omp end parallel do
 #endif
       end if
 
       !-- Roll the arrays before filling again the first block
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dwdt)
-#endif
       call tscheme%rotate_imex(dwdt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(dwdt)
-#endif
 
       !-- Calculation of the implicit part
       if ( tscheme%istage == tscheme%nstages ) then
@@ -1241,6 +1248,7 @@ contains
 
 #ifdef WITH_OMP_GPU
       lm_start=1; lm_stop=lm_max
+      !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp parallel default(shared) private(lm_start,lm_stop,nR,lm,l)
       lm_start=1; lm_stop=lm_max
@@ -1255,11 +1263,11 @@ contains
                w(lm,nR)=w_ghost(lm,nR)
             else
                if ( lPressNext .or. lP00Next ) p(lm,nR)=p0_ghost(nR)
-               cycle
             end if
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #else
       !$omp end parallel
 #endif
@@ -1981,6 +1989,12 @@ contains
       complex(cp), allocatable :: work_Rloc(:,:), dddw_Rloc(:,:)
       integer :: n_r, l, m, lm, start_lm, stop_lm
       real(cp) :: dL
+      integer :: istage_loc, nstages
+      real(cp) :: dt_loc
+
+      istage_loc  = tscheme%istage
+      nstages     = tscheme%nstages
+      dt_loc      = tscheme%dt(1)
 
       allocate(work_Rloc(lm_max,nRstart:nRstop), dddw_Rloc(lm_max,nRstart:nRstop))
       work_Rloc = zero; dddw_Rloc = zero
@@ -2013,7 +2027,7 @@ contains
 
       if ( istage == 1 ) then
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do collapse(2)
 #endif
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
@@ -2025,14 +2039,14 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
       if ( l_calc_lin ) then
 
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do collapse(2)
 #endif
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
@@ -2063,25 +2077,22 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
+
 #ifndef WITH_OMP_GPU
       !$omp end parallel
 #endif
 
       if ( (tscheme%istage==tscheme%nstages .and. lRmsNext) .or. lPressNext ) then
          !-- Recompute third derivative to have the boundary point right
-#ifdef WITH_OMP_GPU
-         !$omp target update to(ddw, dddw_Rloc)
-#endif
          call get_dr_Rloc(ddw, dddw_Rloc, lm_max, nRstart, nRstop, n_r_max, rscheme_oc )
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dddw_Rloc)
-#endif
 
 #ifdef WITH_OMP_GPU
          start_lm=1; stop_lm=lm_max
+         !$omp target teams distribute parallel do private(l, m, dL, Dif) &
+         !$omp reduction(+:DifPol2hInt)
 #else
          !$omp parallel default(shared) private(start_lm, stop_lm, n_r, lm, l, m, dL, Dif) &
          !$omp reduction(+:DifPol2hInt)
@@ -2093,40 +2104,44 @@ contains
                l=st_map%lm2l(lm)
                m=st_map%lm2m(lm)
                dL=real(l*(l+1),cp)
-               if ( l == 0 ) cycle
+               if ( l /= 0 ) then
 
-               if ( lPressNext ) then
-                  ! In the double curl formulation, we can estimate the pressure
-                  ! if required.
-                  p(lm,n_r)=-r(n_r)*r(n_r)/dL*                 dp_expl(lm,n_r)  &
-                  &            -one/tscheme%dt(1)*(dw(lm,n_r)-dwold(lm,n_r))+   &
-                  &              hdif_V(l)*visc(n_r)* (   dddw_Rloc(lm,n_r)     &
-                  &                       - (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
-                  &            - ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
-                  &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
-                  &                                              ) * dw(lm,n_r) &
-                  &             + dL*or2(n_r)*(two*or1(n_r)+two*third*beta(n_r) &
-                  &                     +dLvisc(n_r) )  *           wg(lm,n_r) )
-               end if
+                  if ( lPressNext ) then
+                     ! In the double curl formulation, we can estimate the pressure
+                     ! if required.
+                     p(lm,n_r)=-r(n_r)*r(n_r)/dL*                 dp_expl(lm,n_r)  &
+                     &            -one/dt_loc*(dw(lm,n_r)-dwold(lm,n_r))+   &
+                     &              hdif_V(l)*visc(n_r)* (   dddw_Rloc(lm,n_r)     &
+                     &                       - (beta(n_r)-dLvisc(n_r))*ddw(lm,n_r) &
+                     &            - ( dL*or2(n_r)+dLvisc(n_r)*beta(n_r)+dbeta(n_r) &
+                     &                  + two*(dLvisc(n_r)+beta(n_r))*or1(n_r)     &
+                     &                                              ) * dw(lm,n_r) &
+                     &             + dL*or2(n_r)*(two*or1(n_r)+two*third*beta(n_r) &
+                     &                     +dLvisc(n_r) )  *           wg(lm,n_r) )
+                  end if
 
-               if ( lRmsNext ) then
-                  !-- In case RMS force balance is required, one needs to also
-                  !-- compute the classical diffusion that is used in the non
-                  !-- double-curl version
-                  Dif =  hdif_V(l)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
-                  &    +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
-                  &    -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
-                  &       beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
-                  &                                     *       wg(lm,n_r) )
-               end if
+                  if ( lRmsNext ) then
+                     !-- In case RMS force balance is required, one needs to also
+                     !-- compute the classical diffusion that is used in the non
+                     !-- double-curl version
+                     Dif =  hdif_V(l)*dL*or2(n_r)*visc(n_r) *  ( ddw(lm,n_r)   &
+                     &    +(two*dLvisc(n_r)-third*beta(n_r))*     dw(lm,n_r)   &
+                     &    -( dL*or2(n_r)+four*third*( dbeta(n_r)+dLvisc(n_r)*  &
+                     &       beta(n_r)+(three*dLvisc(n_r)+beta(n_r))*or1(n_r)))&
+                     &                                     *       wg(lm,n_r) )
+                  end if
 
-               if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
-                  DifPol2hInt(l,n_r)=DifPol2hInt(l,n_r)+r(n_r)**2*cc2real(Dif,m)
-                  DifPolLMr(lm,n_r) =r(n_r)**2/dL * Dif
+                  if ( lRmsNext .and. istage_loc==nstages ) then
+                     DifPol2hInt(l,n_r)=DifPol2hInt(l,n_r)+r(n_r)**2*cc2real(Dif,m)
+                     DifPolLMr(lm,n_r) =r(n_r)**2/dL * Dif
+                  end if
+
                end if
             end do
          end do
-#ifndef WITH_OMP_GPU
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
          !$omp end parallel
 #endif
       end if
@@ -2134,13 +2149,7 @@ contains
       ! In case pressure is needed in the double curl formulation
       ! we also have to compute the radial derivative of p
       if ( lPressNext ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(p, dp)
-#endif
          call get_dr_Rloc(p, dp, lm_max, nRstart, nRstop, n_r_max, rscheme_oc )
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dp)
-#endif
       end if
 
 #ifdef WITH_OMP_GPU
@@ -2191,23 +2200,14 @@ contains
          lmStart_00=llm
       end if
 
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dwdt)
-#endif
       call tscheme%assemble_imex(work_LMloc, dwdt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(work_LMloc)
-#endif
       if ( l_double_curl) then
+#ifdef WITH_OMP_GPU
+         !$omp target update from(work_LMloc)
+#endif
          call get_pol(w, work_LMloc)
       else
-#ifdef WITH_OMP_GPU
-         !$omp target update to(dpdt)
-#endif
          call tscheme%assemble_imex(ddw, dpdt) ! Use ddw as a work array
-#ifdef WITH_OMP_GPU
-      !$omp target update from(ddw)
-#endif
       end if
 
       if ( l_double_curl) then
@@ -2218,11 +2218,6 @@ contains
          start_lm=lmStart_00; stop_lm=ulm
          call get_openmp_blocks(start_lm,stop_lm)
          !$omp barrier
-#endif
-
-#ifdef WITH_OMP_GPU
-         !$omp target update to(dw, ddw, work_LMloc, ddddw)
-         !$omp target update to(w)
 #endif
 
 #ifdef WITH_OMP_GPU
@@ -2259,12 +2254,7 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-         !$omp target update from(dw, ddw, work_LMloc, ddddw)
-         !$omp target update from(w)
-#endif
-
-#ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do collapse(2)
 #endif
          do n_r=2,n_r_max-1
             do lm=start_lm,stop_lm
@@ -2276,7 +2266,7 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
 
          if ( tscheme%l_imp_calc_rhs(1) .or. lPressNext ) then
@@ -2284,7 +2274,7 @@ contains
             n_r_bot=n_r_icb-1
 
 #ifdef WITH_OMP_GPU
-#else
+            !$omp target teams distribute parallel do collapse(2)
 #endif
             do n_r=n_r_top,n_r_bot
                do lm=start_lm,stop_lm
@@ -2338,25 +2328,18 @@ contains
                end do
             end do
 #ifdef WITH_OMP_GPU
-#else
+            !$omp end target teams distribute parallel do
 #endif
          end if
 
          ! In case pressure is needed in the double curl formulation
          ! we also have to compute the radial derivative of p
          if ( lPressNext .and. l_double_curl ) then
-#ifdef WITH_OMP_GPU
-            !$omp target update to(p)
-#endif
             call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
                  &       n_r_max, rscheme_oc, use_gpu=.true.)
-#ifdef WITH_OMP_GPU
-            !$omp target update from(p, dp)
-#endif
-#ifndef WITH_OMP_GPU
             !$omp barrier
-#endif
          end if
+
 #ifndef WITH_OMP_GPU
          !$omp end parallel
 #endif
@@ -2364,6 +2347,8 @@ contains
          if ( lRmsNext ) then
 #ifdef WITH_OMP_GPU
             start_lm=lmStart_00; stop_lm=ulm
+            !$omp target teams distribute parallel do collapse(2) private(l1,dL,m1,Dif) &
+            !$omp reduction(+:DifPol2hInt)
 #else
             !$omp parallel default(shared)  private(start_lm,stop_lm,n_r,lm,l1,dL,m1,Dif) &
             !$omp reduction(+:DifPol2hInt)
@@ -2385,7 +2370,9 @@ contains
                   DifPolLMr(lm,n_r) =r(n_r)**2/dL * Dif
                end do
             end do
-#ifndef WITH_OMP_GPU
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+#else
             !$omp end parallel
 #endif
          end if
@@ -2403,7 +2390,7 @@ contains
 
          !-- Now get the poloidal from the assembly
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do collapse(2)
 #endif
          do n_r=2,n_r_max-1
             do lm=start_lm,stop_lm
@@ -2420,28 +2407,30 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
 
          !-- Non-penetration: u_r=0 -> w_lm=0 on both boundaries
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do lm=start_lm,stop_lm
             w(lm,1)      =zero
             w(lm,n_r_max)=zero
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
+#endif
+
+#ifdef WITH_OMP_GPU
+         !$omp target update from(s, xi, dp_expl)
+         !$omp target update from(dwdt, dpdt, w, dw, ddw, p, dp)
 #endif
 
          !-- Other boundary condition: stress-free or rigid
          if ( l_full_sphere ) then
             if ( ktopv == 1 ) then ! Stress-free
                fac_top=-two*or1(1)-beta(1)
-#ifdef WITH_OMP_GPU
-#else
-#endif
                do lm=start_lm,stop_lm
                   l1 = lm2l(lm)
                   if ( l1 == 1 ) then
@@ -2450,13 +2439,7 @@ contains
                      call rscheme_oc%robin_bc(one, fac_top, zero, one, 0.0_cp, zero, dw(lm,:))
                   end if
                end do
-#ifdef WITH_OMP_GPU
-#else
-#endif
             else
-#ifdef WITH_OMP_GPU
-#else
-#endif
                do lm=start_lm,stop_lm
                   l1 = lm2l(lm)
                   if ( l1 == 1 ) then
@@ -2490,17 +2473,18 @@ contains
                   call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, zero, dw(lm,:))
                end do
             end if
-
          end if
 
 #ifdef WITH_OMP_GPU
-         !$omp target update to(ddw, work_LMloc)
-         !$omp target update to(dw)
+         !$omp target update to(s, xi, dp_expl)
+         !$omp target update to(dwdt, dpdt, w, dw, ddw, p, dp)
+#endif
+
+#ifdef WITH_OMP_GPU
          call dct_counter%start_count()
          call get_ddr( dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1, &
               &         stop_lm-llm+1, n_r_max, rscheme_oc)
          call dct_counter%stop_count()
-         !$omp target update from(ddw, work_LMloc)
 #else
          !$omp single
          call dct_counter%start_count()
@@ -2514,7 +2498,7 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do collapse(2)
 #endif
          do n_r=2,n_r_max-1
             do lm=start_lm,stop_lm
@@ -2525,7 +2509,7 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
 
          if ( tscheme%l_imp_calc_rhs(1) ) then
@@ -2533,7 +2517,7 @@ contains
             n_r_bot=n_r_icb-1
 
 #ifdef WITH_OMP_GPU
-#else
+            !$omp target teams distribute parallel do collapse(2)
 #endif
             do n_r=n_r_top,n_r_bot
                do lm=start_lm,stop_lm
@@ -2566,9 +2550,10 @@ contains
                end do
             end do
 #ifdef WITH_OMP_GPU
-#else
+            !$omp end target teams distribute parallel do
 #endif
          end if
+
 #ifndef WITH_OMP_GPU
          !$omp end parallel
 #endif
@@ -2576,6 +2561,7 @@ contains
          if ( lRmsNext ) then
 #ifdef WITH_OMP_GPU
             start_lm=lmStart_00; stop_lm=ulm
+            !$omp target teams distribute parallel do collapse(2) private(l1,dL,m1,Dif)
 #else
             !$omp parallel default(shared) private(start_lm,stop_lm,n_r,lm,l1,dL,m1,Dif)
             start_lm=lmStart_00; stop_lm=ulm
@@ -2597,8 +2583,10 @@ contains
                   DifPolLMr(lm,n_r) =r(n_r)**2/dL * Dif
                end do
             end do
-#ifndef WITH_OMP_GPU
-            !$omp end parallel
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
+         !$omp end parallel
 #endif
          end if
 
@@ -2650,13 +2638,7 @@ contains
 #endif
 
       !-- First assemble IMEX to get an r.h.s. stored in work_Rloc
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dwdt)
-#endif
       call tscheme%assemble_imex(work_Rloc, dwdt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(work_Rloc)
-#endif
 
 #ifdef WITH_MPI
       array_of_requests(:)=MPI_REQUEST_NULL
@@ -2675,30 +2657,35 @@ contains
       !-- Non-penetration boundary condition
       if ( nRstart==n_r_cmb ) then
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do lm=start_lm,stop_lm
             work_Rloc(lm,n_r_cmb)=zero
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
       if ( nRstop==n_r_icb ) then
 #ifdef WITH_OMP_GPU
-#else
+         !$omp target teams distribute parallel do
 #endif
          do lm=start_lm,stop_lm
             work_Rloc(lm,n_r_icb)=zero
          end do
 #ifdef WITH_OMP_GPU
-#else
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
       !-- Now copy into an array with proper ghost zones
+#ifdef WITH_OMP_GPU
+      call bulk_to_ghost(work_Rloc, work_ghost, 1, nRstart, nRstop, lm_max, start_lm, &
+           &             stop_lm, .true.)
+#else
       call bulk_to_ghost(work_Rloc, work_ghost, 1, nRstart, nRstop, lm_max, start_lm, &
            &             stop_lm)
+#endif
 
       tag = 0
       req=1
@@ -2733,10 +2720,8 @@ contains
          tag = tag+1
       end do
 
-#ifdef WITH_OMP_GPU
-#else
       !$omp master
-#endif
+
       do lms_block=1,lm_max,block_sze
          nlm_block = lm_max-lms_block+1
          if ( nlm_block > block_sze ) nlm_block=block_sze
@@ -2751,14 +2736,13 @@ contains
       if ( ierr /= MPI_SUCCESS ) call abortRun('MPI_Waitall failed in assemble_pol_Rloc')
       call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
-#ifdef WITH_OMP_GPU
-#else
+
       !$omp end master
       !$omp barrier
-#endif
 
 #ifdef WITH_OMP_GPU
       start_lm=1; stop_lm=lm_max
+      !$omp target teams distribute parallel do collapse(2)
 #else
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
@@ -2770,6 +2754,7 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #else
       !$omp end parallel
 #endif
@@ -2778,6 +2763,9 @@ contains
       ! call exch_ghosts(w_ghost, lm_max, nRstart-1, nRstop+1, 1)
       ! Apparently it yields some problems, not sure why yet
       call exch_ghosts(w_ghost, lm_max, nRstart, nRstop, 2)
+#ifdef WITH_OMP_GPU
+      !$omp target update to(w_ghost)
+#endif
       call fill_ghosts_W(w_ghost, p0_ghost, .false.)
       call get_pol_rhs_imp_ghost(w_ghost, dw, ddw, p, dp, dwdt, tscheme, 1, &
            &                     tscheme%l_imp_calc_rhs(1), lPressNext,     &
@@ -2785,6 +2773,7 @@ contains
 
 #ifdef WITH_OMP_GPU
       start_lm=1; stop_lm=lm_max
+      !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp parallel default(shared) private(start_lm,stop_lm,n_r,lm,l)
       start_lm=1; stop_lm=lm_max
@@ -2800,6 +2789,7 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #else
       !$omp end parallel
 #endif
