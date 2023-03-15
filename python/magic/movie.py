@@ -68,7 +68,7 @@ class Movie:
                  lastvar=None, nvar='all', levels=12, cm='RdYlBu_r', cut=0.5,
                  bgcolor=None, fluct=False, normed=False, avg=False,
                  std=False, dpi=80, normRad=False, precision=np.float32,
-                 deminc=True, ifield=0, centeredCm=True):
+                 deminc=True, ifield=0, centeredCm=True, datadir='.'):
         """
         :param nvar: the number of timesteps of the movie file we want to plot
                      starting from the last line
@@ -114,6 +114,8 @@ class Movie:
         :param ifield: in case of a multiple-field movie file, you can change
                        the default field displayed using the parameter ifield
         :type ifield: int
+        :param datadir: working directory
+        :type datadir: str
         """
 
         if avg or std:
@@ -153,6 +155,8 @@ class Movie:
 
         else:
             filename = file
+
+        filename = os.path.join(datadir, filename)
         mot = re.compile(r'.*[Mm]ov\.(.*)')
         end = mot.findall(filename)[0]
 
@@ -205,7 +209,7 @@ class Movie:
         self.phi = infile.fort_read(precision)
 
         # Determine the number of lines by reading the log.TAG file
-        logfile = open('log.{}'.format(end), 'r')
+        logfile = open(os.path.join(datadir, 'log.{}'.format(end)), 'r')
         mot = re.compile(r'  ! WRITING MOVIE FRAME NO\s*(\d*).*')
         mot2 = re.compile(r' ! WRITING TO MOVIE FRAME NO\s*(\d*).*')
         nlines = 0
