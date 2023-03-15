@@ -2056,20 +2056,73 @@ contains
       integer :: k,k1,nRHS,nLMB2,l
       complex(cp) :: help
       integer, pointer :: nLMBs2(:), sizeLMB2(:,:), lm22lm(:,:,:), lm22l(:,:,:)
+      integer, pointer :: lm2l(:), l2nLMB2(:)
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
       lm22l(1:,1:,1:) => lo_sub_map%lm22l
+      lm2l(1:lm_max) => lo_map%lm2l
+      l2nLMB2(0:) => lo_sub_map%l2nLMB2
 
       nm1 =n-1
       nodd=mod(n,2)
 
+!#ifdef V1
+      !-- Single loop over lm's
+      do nRHS=llm,ulm
+
+         l=lm2l(nRHS)
+         nLMB2=l2nLMB2(l)
+
+         !-- Permute vectors bc
+         do k=1,nm1
+            m=a(nLMB2)%pivot(k)
+            help       =bc(m,nRHS)
+            bc(m,nRHS) =bc(k,nRHS)
+            bc(k,nRHS) =help
+         end do
+
+         !-- Solve  l * y = b
+         do k=1,n-2,2
+            k1=k+1
+            bc(k1,nRHS) =bc(k1,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(k1,k)
+            do i=k+2,n
+               bc(i,nRHS)=bc(i,nRHS)-(bc(k,nRHS)*a(nLMB2)%dat(i,k) + &
+               &                      bc(k1,nRHS)*a(nLMB2)%dat(i,k1))
+            end do
+         end do
+         if ( nodd == 0 ) then
+            bc(n,nRHS) =bc(n,nRHS)-bc(nm1,nRHS)*a(nLMB2)%dat(n,nm1)
+         end if
+
+         !-- Solve  u * x = y
+         do k=n,3,-2
+            k1=k-1
+            bc(k,nRHS)  =bc(k,nRHS)*a(nLMB2)%dat(k,k)
+            bc(k1,nRHS) =(bc(k1,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(k1,k)) * &
+            &            a(nLMB2)%dat(k1,k1)
+            do i=1,k-2
+               bc(i,nRHS)=bc(i,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(i,k) - &
+               &          bc(k1,nRHS)*a(nLMB2)%dat(i,k1)
+            end do
+         end do
+         if ( nodd == 0 ) then
+            bc(2,nRHS)=bc(2,nRHS)*a(nLMB2)%dat(2,2)
+            bc(1,nRHS)=(bc(1,nRHS)-bc(2,nRHS)*a(nLMB2)%dat(1,2))*a(nLMB2)%dat(1,1)
+         else
+            bc(1,nRHS)=bc(1,nRHS)*a(nLMB2)%dat(1,1)
+         end if
+
+      end do
+!#endif
+
+#ifdef V2
       !-- Loop over ell's
       do nLMB2=1,nLMBs2(rank+1)
 
          ! This handles spherical harmonic degree l
-         l=lm22l(1,nLMB2,rank+1)
+         !l=lm22l(1,nLMB2,rank+1)
          !-- Boundaries of the inner loop depends on l:
          lm_start=lm22lm(1,nLMB2,rank+1)
          nlms    =sizeLMB2(nLMB2,rank+1)
@@ -2120,6 +2173,7 @@ contains
          end do
 
       end do
+#endif
 
    end subroutine solve_mat_real_dense
 !-----------------------------------------------------------------------------
