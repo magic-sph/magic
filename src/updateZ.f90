@@ -841,6 +841,8 @@ contains
       !-- Local variables
       real(cp) :: dom_ma, dom_ic, prec_fac
       integer :: nR, lm_start, lm_stop, lm, l, m, l1m1, l1m0
+      integer :: wimp_lin
+      wimp_lin = tscheme%wimp_lin(1)
 
       if ( .not. l_update_v ) return
 
@@ -882,30 +884,20 @@ contains
 #endif
 
       !-- Assemble the r.h.s.
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dzdt)
-#endif
       call tscheme%set_imex_rhs_ghost(z_ghost, dzdt, lm_start, lm_stop, 1)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(z_ghost)
-#endif
 
       !-- If needed fill z10_ghost
       if ( l_z10mat ) then
          l1m0=st_map%lm2(1,0)
          if ( l1m0 >= lm_start .and. l1m0 <= lm_stop ) then
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update if(update_to_zGhost) to(z10_ghost, z_ghost)
-#endif
 #ifdef WITH_OMP_GPU
+            !$omp target teams distribute parallel do
 #endif
             do nR=nRstart,nRstop
                z10_ghost(nR)=real(z_ghost(l1m0,nR))
             end do
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update if(update_from_zGhost) from(z10_ghost)
-#endif
 #ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
 #endif
          end if
       end if
@@ -914,19 +906,15 @@ contains
       if ( l_precession ) then
          l1m1=st_map%lm2(1,1)
          if ( l1m1 >= lm_start .and. l1m1 <= lm_stop ) then
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update if(update_to_zGhost) to(z_ghost)
-#endif
 #ifdef WITH_OMP_GPU
+            !$omp target teams distribute parallel do
 #endif
             do nR=nRstart,nRstop
-               z_ghost(l1m1,nR)=z_ghost(l1m1,nR)+tscheme%wimp_lin(1)*prec_fac* &
+               z_ghost(l1m1,nR)=z_ghost(l1m1,nR)+wimp_lin*prec_fac* &
                &                cmplx(sin(oek*time),cos(oek*time),cp)
             end do
 #ifdef WITH_OMP_GPU
-#endif
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update if(update_from_zGhost) from(z_ghost)
+            !$omp end target teams distribute parallel do
 #endif
          end if
       end if
@@ -934,10 +922,8 @@ contains
       !-- Boundary conditions
       if ( nRstart==n_r_cmb ) then
          nR = n_r_cmb
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update if(update_to_zGhost) to(z_ghost, z10_ghost)
-#endif
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
 #endif
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
@@ -968,18 +954,14 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
-#endif
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update if(update_from_zGhost) from(z_ghost, z10_ghost)
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
       if ( nRstop == n_r_icb ) then
          nR=n_r_icb
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update if(update_to_zGhost) to(z_ghost, z10_ghost)
-#endif
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
 #endif
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
@@ -1018,11 +1000,10 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
-#endif
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update if(update_from_zGhost) from(z_ghost, z10_ghost)
+         !$omp end target teams distribute parallel do
 #endif
       end if
+
 #ifndef WITH_OMP_GPU
       !$omp end parallel
 #endif
@@ -1045,10 +1026,6 @@ contains
 
       if ( .not. l_update_v ) return
 
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update if(update_to_zGhost) to(z_ghost)
-#endif
-
 #ifdef WITH_OMP_GPU
       lm_start=1; lm_stop=lm_max
 #else
@@ -1062,20 +1039,24 @@ contains
          dr = r(2)-r(1)
          if ( ktopv == 2 ) then
 #ifdef WITH_OMP_GPU
+            !$omp target teams distribute parallel do
 #endif
             do lm=lm_start,lm_stop
                zg(lm,nRstart-1)=two*zg(lm,nRstart)-zg(lm,nRstart+1)
             end do
 #ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
 #endif
          else
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
 #endif
          do lm=lm_start,lm_stop
                zg(lm,nRstart-1)=zg(lm,nRstart+1)-two*dr*(two*or1(1)+beta(1))* &
                &                zg(lm,nRstart)
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #endif
          end if
       end if
@@ -1084,6 +1065,7 @@ contains
       if ( nRstop == n_r_icb ) then
          dr = r(n_r_max)-r(n_r_max-1)
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
 #endif
          do lm=lm_start,lm_stop
             if ( l_full_sphere ) then
@@ -1098,14 +1080,12 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #endif
       end if
+
 #ifndef WITH_OMP_GPU
       !$omp end parallel
-#endif
-
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update if(update_from_zGhost) from(z_ghost)
 #endif
 
    end subroutine fill_ghosts_Z
@@ -1148,21 +1128,11 @@ contains
       end if
 
       !-- Roll the arrays before filling again the first block
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dzdt)
-#endif
       call tscheme%rotate_imex(dzdt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(dzdt)
-#endif
       call tscheme%rotate_imex_scalar(domega_ma_dt)
       call tscheme%rotate_imex_scalar(domega_ic_dt)
       call tscheme%rotate_imex_scalar(lorentz_torque_ma_dt)
       call tscheme%rotate_imex_scalar(lorentz_torque_ic_dt)
-
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update if(update_to_zGhost) to(z_ghost)
-#endif
 
       !-- Calculation of the implicit part
       if (  tscheme%istage == tscheme%nstages ) then
@@ -1183,12 +1153,9 @@ contains
               &                     tscheme%l_imp_calc_rhs(tscheme%istage+1), lRmsNext)
       end if
 
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update if(update_from_zGhost) from(z_ghost)
-#endif
-
 #ifdef WITH_OMP_GPU
       lm_start=1; lm_stop=lm_max
+      !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp parallel default(shared) private(lm_start,lm_stop,nR,l,lm)
       lm_start=1; lm_stop=lm_max
@@ -1205,6 +1172,7 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #else
       !$omp end parallel
 #endif
@@ -1616,13 +1584,11 @@ contains
       end if
 
 #ifdef WITH_OMP_GPU
-      !$omp target update to(zg)
       start_lm=1; stop_lm=lm_max
       call dct_counter%start_count()
       call get_ddr_ghost(zg, dz, work_Rloc, lm_max,start_lm, stop_lm,  nRstart, nRstop, &
            &             rscheme_oc)
       call dct_counter%stop_count(l_increment=.false.)
-      !$omp target update from(dz, work_Rloc)
 #else
       !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l, m)
       start_lm=1; stop_lm=lm_max
@@ -1680,6 +1646,7 @@ contains
          !-------- Correct z(2,n_r) and z(l_max+2,n_r) plus the respective
          !         derivatives:
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
 #endif
          do n_r=nRstart,nRstop
             r_E_2=r(n_r)*r(n_r)
@@ -1692,6 +1659,8 @@ contains
             &              beta(n_r)*beta(n_r)*r_E_2 )*corr_l1m0
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+         !$omp target update from(zg)
 #endif
 
          if ( ktopv == 2 .and. l_rot_ma .and. nRstart==n_r_cmb ) &
@@ -1719,6 +1688,7 @@ contains
          !-------- Correct z(2,n_r) and z(l_max+2,n_r) plus the respective
          !         derivatives:
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
 #endif
          do n_r=nRstart,nRstop
             r_E_2=r(n_r)*r(n_r)
@@ -1731,6 +1701,7 @@ contains
             &                beta(n_r)*beta(n_r)*r_E_2 )*corr_l1m1
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #endif
 
       end if ! l=1,m=1 contained in lm-block ?
@@ -1745,6 +1716,7 @@ contains
 
       if ( istage == 1 ) then
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
 #endif
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
@@ -1754,29 +1726,37 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
       if ( l_calc_lin ) then
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
+#endif
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
-               if ( l == 0 ) cycle
-               m = st_map%lm2m(lm)
-               dL = real(l*(l+1),cp)
-               Dif=hdif_V(l)*dL*or2(n_r)*visc(n_r)* ( work_Rloc(lm,n_r) +    &
-               &     (dLvisc(n_r)-beta(n_r))    *            dz(lm,n_r) -    &
-               &     ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
-               &      + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
-               &                                             zg(lm,n_r) )
+               if ( l /= 0 ) then
+                  m = st_map%lm2m(lm)
+                  dL = real(l*(l+1),cp)
+                  Dif=hdif_V(l)*dL*or2(n_r)*visc(n_r)* ( work_Rloc(lm,n_r) +    &
+                  &     (dLvisc(n_r)-beta(n_r))    *            dz(lm,n_r) -    &
+                  &     ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
+                  &      + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
+                  &                                             zg(lm,n_r) )
 
-               dzdt%impl(lm,n_r,istage)=Dif
-               if ( l_precession .and. l==1 .and. m==1 ) then
-                  dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
-                  &                        sin(oek*time),-cos(oek*time),kind=cp)
+                  dzdt%impl(lm,n_r,istage)=Dif
+                  if ( l_precession .and. l==1 .and. m==1 ) then
+                     dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
+                     &                        sin(oek*time),-cos(oek*time),kind=cp)
+                  end if
                end if
             end do
          end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
       end if
 #ifndef WITH_OMP_GPU
       !$omp end parallel
@@ -1784,34 +1764,41 @@ contains
 
       if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
 #ifdef WITH_OMP_GPU
+         start_lm=1; stop_lm=lm_max
+         !$omp target teams distribute parallel do collapse(2) private(l,m,dL,Dif) &
+         !$omp reduction(+:DifTor2hInt)
 #else
          !$omp parallel default(shared) private(start_lm,stop_lm,n_r,lm,l,m,dL,Dif) &
          !$omp reduction(+:DifTor2hInt)
-#endif
          start_lm=1; stop_lm=lm_max
          call get_openmp_blocks(start_lm,stop_lm)
-
+#endif
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
-               if ( l == 0 ) cycle
-               m = st_map%lm2m(lm)
-               dL = real(l*(l+1),cp)
-               Dif=hdif_V(l)*dL*or2(n_r)*visc(n_r)* ( work_Rloc(lm,n_r) +    &
-               &     (dLvisc(n_r)-beta(n_r))    *            dz(lm,n_r) -    &
-               &     ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
-               &      + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
-               &                                             zg(lm,n_r) )
-               DifTor2hInt(l,n_r)=DifTor2hInt(l,n_r)+r(n_r)**4/dL*cc2real(Dif,m)
+               if ( l /= 0 ) then
+                  m = st_map%lm2m(lm)
+                  dL = real(l*(l+1),cp)
+                  Dif=hdif_V(l)*dL*or2(n_r)*visc(n_r)* ( work_Rloc(lm,n_r) +    &
+                  &     (dLvisc(n_r)-beta(n_r))    *            dz(lm,n_r) -    &
+                  &     ( dLvisc(n_r)*beta(n_r)+two*dLvisc(n_r)*or1(n_r)        &
+                  &      + dL*or2(n_r)+dbeta(n_r)+two*beta(n_r)*or1(n_r) )*     &
+                  &                                             zg(lm,n_r) )
+                  DifTor2hInt(l,n_r)=DifTor2hInt(l,n_r)+r(n_r)**4/dL*cc2real(Dif,m)
+               end if
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #else
          !$omp end parallel
 #endif
       end if
 
       if ( l_z10mat ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update from(zg)
+#endif
          !----- NOTE opposite sign of viscous torque on ICB and CMB:
          if ( .not. l_SRMA .and. ktopv==2 .and. l_rot_ma .and. nRstart==n_r_cmb ) then
             domega_ma_dt%impl(istage)=visc(1)*( (two*or1(1)+beta(1))* &
@@ -1831,6 +1818,7 @@ contains
       !    beyond this point for the TO calculation.
       if ( l_TO ) then
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
 #endif
          do n_r=nRstart,nRstop
             do l=0,l_max
@@ -1838,6 +1826,7 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
@@ -1912,16 +1901,11 @@ contains
       end if
 
       !-- Store the assembled quantity in work_LMloc
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dzdt)
-#endif
       call tscheme%assemble_imex(work_LMloc, dzdt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(work_LMloc)
-#endif
 
       !-- Now get the toroidal potential from the assembly
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)
 #else
       !$omp parallel default(shared)
       !$omp do private(n_r,lm,l1,m1,dL)
@@ -1939,11 +1923,13 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #else
       !$omp end do
 #endif
 
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
 #else
       !$omp do private(lm)
 #endif
@@ -1978,14 +1964,20 @@ contains
          end if
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #else
       !$omp end do
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target update from(z)
 #endif
 
       !-- Boundary conditions
       if ( l_full_sphere ) then
          if ( ktopv /= 1 ) then ! Rigid outer
 #ifdef WITH_OMP_GPU
+            !$omp target teams distribute parallel do
 #else
             !$omp do private(lm)
 #endif
@@ -1994,6 +1986,7 @@ contains
                z(lm,n_r_max)=bot_val(lm)
             end do
 #ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
 #else
             !$omp end do
 #endif
@@ -2008,6 +2001,7 @@ contains
       else
          if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid BCs
 #ifdef WITH_OMP_GPU
+            !$omp target teams distribute parallel do
 #else
             !$omp do private(lm)
 #endif
@@ -2016,6 +2010,7 @@ contains
                z(lm,n_r_max)=bot_val(lm)
             end do
 #ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
 #else
             !$omp end do
 #endif
@@ -2043,13 +2038,13 @@ contains
             !$omp end do
          end if
       end if
+
 #ifndef WITH_OMP_GPU
       !$omp end parallel
 #endif
 
 #ifdef WITH_OMP_GPU
       !$omp target update to(z)
-      !$omp target update to(dzdt)
 #endif
 
       call update_rot_rates(z, lo_ma, lo_ic, lorentz_torque_ma_dt,    &
@@ -2059,11 +2054,6 @@ contains
            &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
            &               tscheme, 1, tscheme%l_imp_calc_rhs(1),         &
            &               lRmsNext, .false.)
-
-#ifdef WITH_OMP_GPU
-      !$omp target update from(z, dz)
-      !$omp target update from(dzdt)
-#endif
 
    end subroutine assemble_tor
 !------------------------------------------------------------------------------
@@ -2105,13 +2095,8 @@ contains
       !$omp target update to(work_Rloc)
 #endif
 
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dzdt)
-#endif
       call tscheme%assemble_imex(work_Rloc, dzdt)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(work_Rloc)
-#endif
+
       if ( amp_RiIc /= 0.0_cp .or. amp_RiMa /= 0.0_cp ) then
          call abortRun('Not implemented yet in assembly stage of z')
       end if
@@ -2142,6 +2127,7 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)
 #endif
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
@@ -2158,12 +2144,14 @@ contains
          end do
       end do
 #ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
 #endif
 
       !-- Boundary points
       if ( nRstart == n_r_cmb ) then
          n_r=n_r_cmb
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
 #endif
          do lm=start_lm,stop_lm
             l=st_map%lm2l(lm)
@@ -2187,12 +2175,14 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
       if ( nRstop == n_r_icb ) then
          n_r=n_r_icb
 #ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
 #endif
          do lm=start_lm,stop_lm
             l=st_map%lm2l(lm)
@@ -2220,29 +2210,28 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update if(update_to_zGhost) to(z_ghost)
-#endif
-
+#ifdef WITH_OMP_GPU
+      call bulk_to_ghost(z, z_ghost, 1, nRstart, nRstop, lm_max, start_lm, stop_lm, .true.)
+#else
       call bulk_to_ghost(z, z_ghost, 1, nRstart, nRstop, lm_max, start_lm, stop_lm)
-
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update if(update_from_zGhost) from(z_ghost)
 #endif
 
 #ifndef WITH_OMP_GPU
       !$omp end parallel
 #endif
 
-      call exch_ghosts(z_ghost, lm_max, nRstart, nRstop, 1)
-      call fill_ghosts_Z(z_ghost)
-
-#ifdef WITH_OMP_GPU_OFF
-      !$omp target update if(update_from_zGhost) from(z_ghost)
+#ifdef WITH_OMP_GPU
+      !$omp target update from(z_ghost)
 #endif
+      call exch_ghosts(z_ghost, lm_max, nRstart, nRstop, 1)
+#ifdef WITH_OMP_GPU
+      !$omp target update to(z_ghost)
+#endif
+      call fill_ghosts_Z(z_ghost)
 
       !-- Finally call the construction of the implicit terms for the first stage
       !-- of next iteration

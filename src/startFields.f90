@@ -464,10 +464,22 @@ contains
             call bulk_to_ghost(w_Rloc, w_ghost, 2, nRstart, nRstop, lm_max, 1, lm_max)
             call bulk_to_ghost(p_Rloc(1,:), p0_ghost, 1, nRstart, nRstop, 1, 1, 1)
             call exch_ghosts(w_ghost, lm_max, nRstart, nRstop, 2)
+#ifdef WITH_OMP_GPU
+            !$omp target update to(w_ghost)
+#endif
             call fill_ghosts_W(w_ghost, p0_ghost, .true.)
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dwdt, p_Rloc)
+            !$omp target update to(dp_Rloc, dw_Rloc, ddw_Rloc)
+#endif
+
             call get_pol_rhs_imp_ghost(w_ghost, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc,  &
                  &                     dwdt, tscheme, 1, .true., .false., .false.,   &
                  &                     dwdt%expl(:,:,1)) ! Work array
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dwdt, w_ghost, p_Rloc)
+            !$omp target update from(dp_Rloc, dw_Rloc, ddw_Rloc)
+#endif
          else
 #ifdef WITH_OMP_GPU
             !$omp target update to(w_LMloc)
@@ -497,10 +509,22 @@ contains
       if ( l_parallel_solve ) then
          call bulk_to_ghost(z_Rloc, z_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
          call exch_ghosts(z_ghost, lm_max, nRstart, nRstop, 1)
+#ifdef WITH_OMP_GPU
+         !$omp target update to(z_ghost)
+#endif
          call fill_ghosts_Z(z_ghost)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(z_ghost)
+#endif
+#ifdef WITH_OMP_GPU
+         !$omp target update to(z_ghost, dz_Rloc, dzdt)
+#endif
          call get_tor_rhs_imp_ghost(time, z_ghost, dz_Rloc, dzdt, domega_ma_dt,  &
               &                     domega_ic_dt, omega_ic, omega_ma, omega_ic1, &
               &                     omega_ma1, tscheme, 1, .true., .false.)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(z_ghost, dz_Rloc, dzdt)
+#endif
       else
 #ifdef WITH_OMP_GPU
          !$omp target update to(z_LMloc)
