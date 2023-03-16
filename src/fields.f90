@@ -492,6 +492,9 @@ contains
       allocate( work_LMloc(llm:ulm,1:n_r_max) )
       work_LMloc(:,:)=zero
       bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+      gpu_bytes_allocated = gpu_bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+#endif
 
       allocate( tmp_LMloc(1:n_r_max,llm:ulm) )
       tmp_LMloc(:,:)=zero
