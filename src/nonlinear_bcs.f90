@@ -258,7 +258,7 @@ contains
    end subroutine v_rigid_boundary
 !-------------------------------------------------------------------------
    subroutine v_rigid_boundary_batch(nR,omega,lDeriv,vrr,vtr,vpr,cvrr,dvrdtr, &
-              &                dvrdpr,dvtdpr,dvpdpr)
+              &                      dvrdpr,dvtdpr,dvpdpr)
       !
       !  Purpose of this subroutine is to set the velocities and their
       !  derivatives at a fixed boundary.
@@ -275,13 +275,18 @@ contains
       real(cp), intent(in) :: omega         ! boundary rotation rate
 
       !-- output:
-      real(cp), intent(out) :: vrr(:,:,:), vpr(:,:,:), vtr(:,:,:)
-      real(cp), intent(out) :: cvrr(:,:,:), dvrdtr(:,:,:), dvrdpr(:,:,:)
-      real(cp), intent(out) :: dvtdpr(:,:,:), dvpdpr(:,:,:)
+      real(cp), intent(inout) :: vrr(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(inout) :: vtr(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(inout) :: vpr(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(inout) :: cvrr(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(inout) :: dvrdtr(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(inout) :: dvrdpr(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(inout) :: dvtdpr(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(inout) :: dvpdpr(nlat_padded,nRstart:nRstop,n_phi_max)
 
       !-- Local variables:
       real(cp) :: r2
-      integer :: nTheta, nPhi, nelem
+      integer :: nTheta, nPhi
 
       if ( nR == n_r_cmb ) then
          r2=r_cmb*r_cmb
