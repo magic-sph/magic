@@ -493,6 +493,7 @@ contains
       info=0
       nm1 =this%nrow-1
 
+      !-- This external loop should be put on GPU
       do idx=1,this%nmat
          do k=1,nm1
             kp1=k+1
@@ -503,10 +504,10 @@ contains
             end do
             this%pivot(k,idx)=l
 
-            if ( abs(this%dat(l,k,idx))  >  10.0_cp*epsilon(0.0_cp) ) then
+            if ( abs(this%dat(l,k,idx)) > 10.0_cp*epsilon(0.0_cp) ) then
                if ( l /= k ) then
                   do i=1,this%nrow
-                     help      =this%dat(k,i,idx)
+                     help             =this%dat(k,i,idx)
                      this%dat(k,i,idx)=this%dat(l,i,idx)
                      this%dat(l,i,idx)=help
                   end do

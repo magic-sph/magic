@@ -246,6 +246,7 @@ contains
       complex(cp),       intent(inout) :: ds(llm:ulm,n_r_max) ! Radial derivative of entropy
 
       !-- Local variables:
+      logical :: l_LU_fac
       integer :: l1,m1          ! degree and order
       integer :: lm1,lm         ! position of (l,m) in array
       integer :: nLMB2,nLMB
@@ -308,21 +309,23 @@ contains
 #ifdef NEW
       call solve_counter%start_count()
       !-- Only fill the matrices: GPU looping could be only on nLMB2?
-      if ( .not. lSmat(1) ) then
-         call up1_counter%start_count()
-         do nLMB2=1,nLMBs2(nLMB)
-            l1=lm22l(1,nLMB2,nLMB)
-            if ( .not. lSmat(l1) ) then
+      l_LU_fac=.false.
+      do nLMB2=1,nLMBs2(nLMB)
+         l1=lm22l(1,nLMB2,nLMB)
+         if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
-               call get_sMat(tscheme,l1,hdif_S(l1), sMat, nLMB2, sMat_fac(:,nLMB2), &
-                    &        l_LU=.false.)
+            call get_sMat(tscheme,l1,hdif_S(l1), sMat, nLMB2, sMat_fac(:,nLMB2), &
+                 &        l_LU=.false.)
 #else
-               call get_sMat(tscheme,l1,hdif_S(l1), sMat, nLMB2, l_LU=.false.)
+            call get_sMat(tscheme,l1,hdif_S(l1), sMat, nLMB2, l_LU=.false.)
 #endif
-               lSmat(l1)=.true.
-            end if
-         end do
+            l_LU_fac=.true.
+            lSmat(l1)=.true.
+         end if
+      end do
 
+      if ( l_LU_fac ) then
+         call up1_counter%start_count()
          call sMat%prepare(info)
          if ( info /= 0 ) call abortRun('Singular matrix sMat!')
          call up1_counter%stop_count(l_increment=.false.)
@@ -1919,7 +1922,7 @@ contains
          if ( info /= 0 ) call abortRun('Singular matrix sMat!')
       end if
 
-   end subroutine get_Smat
+   end subroutine get_sMat
 !-----------------------------------------------------------------------------
    subroutine get_sMat_Rdist(tscheme,hdif,sMat)
       !
@@ -2035,6 +2038,6 @@ contains
       !-- LU decomposition:
       call sMat%prepare_mat()
 
-   end subroutine get_Smat_Rdist
+   end subroutine get_sMat_Rdist
 !-----------------------------------------------------------------------------
 end module updateS_mod
