@@ -111,6 +111,106 @@ contains
 !------------------------------------------------------------------------------
 end module real_matrices
 
+module real_many_matrices
+
+   use precision_mod
+   use iso_c_binding
+
+   implicit none
+
+   private
+
+   type, abstract, public :: type_mrealmat
+      integer :: nrow ! Number of rows
+      integer :: ncol ! Number of columns or number of bands
+      integer :: nmat ! Number of matrices
+      logical :: l_pivot
+      real(cp), pointer :: dat(:,:,:) ! Actual data
+      integer,  pointer :: pivot(:,:)
+      logical :: gpu_is_used
+   contains
+      procedure(initialize_if), deferred :: initialize
+      procedure(finalize_if), deferred :: finalize
+      procedure(prepare_if), deferred :: prepare
+      procedure(solve_real_multi_if), deferred :: solve_real_multi
+      procedure(solve_real_single_if), deferred :: solve_real_single
+      procedure(solve_complex_single_if), deferred :: solve_complex_single
+      generic :: solve => solve_real_single, solve_complex_single, solve_real_multi
+      procedure(set_data_if), deferred :: set_data
+   end type type_mrealmat
+
+   interface
+
+#ifdef WITH_OMP_GPU
+      subroutine initialize_if(this, nx, ny, nmat, l_pivot, use_gpu, nfull)
+#else
+      subroutine initialize_if(this, nx, ny, nmat, l_pivot, nfull)
+#endif
+         import
+         class(type_mrealmat) :: this
+         integer, intent(in) :: nx
+         integer, intent(in) :: ny
+         integer, intent(in) :: nmat
+         logical, intent(in) :: l_pivot
+         integer, optional, intent(in) :: nfull
+#ifdef WITH_OMP_GPU
+         logical, optional, intent(in) :: use_gpu
+#endif
+      end subroutine initialize_if
+
+      subroutine finalize_if(this)
+         import
+         class(type_mrealmat) :: this
+      end subroutine finalize_if
+
+      subroutine prepare_if(this, idx, info, handle, devInfo)
+         import
+         class(type_mrealmat) :: this
+         integer, intent(in) :: idx
+         integer, intent(out) :: info
+         integer,     optional, intent(inout) :: devInfo(:)
+         type(c_ptr), optional, intent(inout) :: handle
+      end subroutine prepare_if
+
+      subroutine solve_real_multi_if(this, rhs, nRHS, idx, handle, devInfo)
+         import
+         class(type_mrealmat) :: this
+         integer,     intent(in) :: nRHS
+         integer,     intent(in) :: idx
+         real(cp),    intent(inout) :: rhs(:,:)
+         integer,     optional, intent(inout) :: devInfo(:)
+         type(c_ptr), optional, intent(inout) :: handle
+      end subroutine solve_real_multi_if
+
+      subroutine solve_real_single_if(this, rhs, handle, devInfo)
+         import
+         class(type_mrealmat) :: this
+         real(cp),    intent(inout) :: rhs(:)
+         type(c_ptr), optional, intent(inout) :: handle
+         integer,     optional, intent(inout) :: devInfo(:)
+      end subroutine solve_real_single_if
+
+      subroutine solve_complex_single_if(this, rhs, tmpr, tmpi, handle, devInfo)
+         import
+         class(type_mrealmat) :: this
+         complex(cp), intent(inout) :: rhs(:)
+         real(cp), optional,    intent(inout) :: tmpr(:)
+         real(cp), optional,    intent(inout) :: tmpi(:)
+         type(c_ptr), optional, intent(inout) :: handle
+         integer, optional,     intent(inout) :: devInfo(:)
+      end subroutine solve_complex_single_if
+
+      subroutine set_data_if(this, dat, idx)
+         import
+         class(type_mrealmat) :: this
+         integer,  intent(in) :: idx
+         real(cp), intent(in) :: dat(:,:)
+      end subroutine set_data_if
+
+   end interface
+
+end module real_many_matrices
+
 module dense_matrices
 
    use precision_mod
@@ -120,6 +220,7 @@ module dense_matrices
    use mem_alloc
 #endif
    use real_matrices, only: type_realmat
+   use real_many_matrices, only: type_mrealmat
    use algebra, only: solve_mat, prepare_mat
 #ifdef WITH_OMP_GPU
    use algebra_hipfort, only: gpu_solve_mat, gpu_prepare_mat
@@ -138,6 +239,17 @@ module dense_matrices
       procedure :: solve_complex_single
       procedure :: set_data
    end type type_densemat
+
+   type, public, extends(type_mrealmat) :: type_mdensemat
+   contains
+      procedure :: initialize => initialize_
+      procedure :: finalize => finalize_
+      procedure :: prepare  => prepare_
+      procedure :: solve_real_multi => solve_real_multi_
+      procedure :: solve_real_single => solve_real_single_
+      procedure :: solve_complex_single => solve_complex_single_
+      procedure :: set_data => set_data_
+   end type type_mdensemat
 
 contains
 
@@ -198,6 +310,65 @@ contains
 
    end subroutine initialize
 !------------------------------------------------------------------------------
+#ifdef WITH_OMP_GPU
+   subroutine initialize(this, nx, ny, nmat, l_pivot, use_gpu, nfull)
+#else
+   subroutine initialize_(this, nx, ny, nmat, l_pivot, nfull)
+#endif
+      !
+      ! Memory allocation
+      !
+      class(type_mdensemat) :: this
+      integer, intent(in) :: nx
+      integer, intent(in) :: ny
+      integer, intent(in) :: nmat
+      logical, intent(in) :: l_pivot
+      integer, optional, intent(in) :: nfull
+#ifdef WITH_OMP_GPU
+      logical, optional, intent(in) :: use_gpu
+#endif
+
+      !--
+      logical :: loc_use_gpu
+      loc_use_gpu = .false.
+      this%gpu_is_used=.false.
+#ifdef WITH_OMP_GPU
+      if ( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
+      end if
+      if(loc_use_gpu) then
+         this%gpu_is_used = .true.
+      end if
+#endif
+
+      this%nrow = nx
+      this%ncol = ny
+      this%nmat = nmat
+      this%l_pivot = l_pivot
+      allocate( this%dat(nx, ny, nmat) )
+      this%dat(:,:,:) = 0.0_cp
+      bytes_allocated = bytes_allocated+nx*ny*nmat*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+      if ( loc_use_gpu) then
+         !$omp target enter data map(to : this%dat)
+         gpu_bytes_allocated = gpu_bytes_allocated+nx*ny*nmat*SIZEOF_DEF_REAL
+      end if
+#endif
+
+      if ( this%l_pivot ) then
+         allocate( this%pivot(this%nrow, this%nmat) )
+         this%pivot(:,:) = 0
+         bytes_allocated = bytes_allocated+this%nrow*this%nmat*SIZEOF_INTEGER
+#ifdef WITH_OMP_GPU
+         if ( loc_use_gpu) then
+            !$omp target enter data map(to : this%pivot)
+            gpu_bytes_allocated = gpu_bytes_allocated+this%nrow*this%nmat*SIZEOF_INTEGER
+         end if
+#endif
+      end if
+
+   end subroutine initialize_
+!------------------------------------------------------------------------------
    subroutine finalize(this)
       !
       ! Memory deallocation
@@ -222,6 +393,30 @@ contains
 
    end subroutine finalize
 !------------------------------------------------------------------------------
+   subroutine finalize_(this)
+      !
+      ! Memory deallocation
+      !
+      class(type_mdensemat) :: this
+
+#ifdef WITH_OMP_GPU
+      if ( this%gpu_is_used ) then
+         !$omp target exit data map(delete : this%dat)
+      end if
+#endif
+      deallocate( this%dat )
+
+      if ( this%l_pivot ) then
+#ifdef WITH_OMP_GPU
+         if ( this%gpu_is_used ) then
+            !$omp target exit data map(delete : this%pivot)
+         end if
+#endif
+         deallocate (this%pivot)
+      end if
+
+   end subroutine finalize_
+!------------------------------------------------------------------------------
    subroutine prepare(this, info, handle, devInfo)
 
       class(type_densemat) :: this
@@ -231,13 +426,34 @@ contains
 
       if ( this%gpu_is_used ) then
 #ifdef WITH_OMP_GPU
-         call gpu_prepare_mat(this%dat, this%nrow, this%nrow, this%pivot, info, handle, devInfo)
+         call gpu_prepare_mat(this%dat, this%nrow, this%nrow, this%pivot, info, &
+              &               handle, devInfo)
 #endif
       else
          call prepare_mat(this%dat, this%nrow, this%nrow, this%pivot, info)
       end if
 
    end subroutine prepare
+!------------------------------------------------------------------------------
+   subroutine prepare_(this, idx, info, handle, devInfo)
+
+      class(type_mdensemat) :: this
+      integer, intent(in) :: idx
+      integer, intent(out) :: info
+      integer,        optional, intent(inout) :: devInfo(:)
+      type(c_ptr),    optional, intent(inout) :: handle
+
+      if ( this%gpu_is_used ) then
+#ifdef WITH_OMP_GPU
+         call gpu_prepare_mat(this%dat(:,:,idx), this%nrow, this%nrow, &
+              &               this%pivot(:,idx), info, handle, devInfo)
+#endif
+      else
+         call prepare_mat(this%dat(:,:,idx), this%nrow, this%nrow, &
+              &           this%pivot(:,idx), info)
+      end if
+
+   end subroutine prepare_
 !------------------------------------------------------------------------------
    subroutine solve_real_single(this, rhs, handle, devInfo)
 
@@ -248,13 +464,32 @@ contains
 
       if ( this%gpu_is_used ) then
 #ifdef WITH_OMP_GPU
-         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, handle, devInfo)
+         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, &
+              &             handle, devInfo)
 #endif
       else
          call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)
       end if
 
    end subroutine solve_real_single
+!------------------------------------------------------------------------------
+   subroutine solve_real_single_(this, rhs, handle, devInfo)
+
+      class(type_mdensemat) :: this
+      real(cp),                 intent(inout) :: rhs(:)
+      type(c_ptr), optional,    intent(inout) :: handle
+      integer, optional,        intent(inout) :: devInfo(:)
+
+      if ( this%gpu_is_used ) then
+#ifdef WITH_OMP_GPU
+         call gpu_solve_mat(this%dat(:,:,, this%nrow, this%nrow, this%pivot(:,1), rhs, &
+              &             handle, devInfo)
+#endif
+      else
+         call solve_mat(this%dat(:,:,1), this%nrow, this%nrow, this%pivot(:,1), rhs)
+      end if
+
+   end subroutine solve_real_single_
 !------------------------------------------------------------------------------
    subroutine solve_complex_single(this, rhs, tmpr, tmpi, handle, devInfo)
 
@@ -282,7 +517,8 @@ contains
             tmpi(i) = aimag(rhs(i))
          end do
          !$omp end target teams distribute parallel do
-         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, tmpr, tmpi, handle, devInfo)
+         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, tmpr, &
+              &             tmpi, handle, devInfo)
          !$omp target teams distribute parallel do
          do i=1,n
             rhs(i)=cmplx(tmpr(i),tmpi(i),kind=cp)
@@ -295,6 +531,46 @@ contains
 
    end subroutine solve_complex_single
 !------------------------------------------------------------------------------
+   subroutine solve_complex_single_(this, rhs, tmpr, tmpi, handle, devInfo)
+
+      class(type_mdensemat) :: this
+      complex(cp), intent(inout) :: rhs(:)
+
+      !-- Output variables
+      real(cp), optional,    intent(inout) :: tmpr(:)
+      real(cp), optional,    intent(inout) :: tmpi(:)
+      type(c_ptr), optional, intent(inout) :: handle
+      integer, optional,     intent(inout) :: devInfo(:)
+
+      !--
+#ifdef WITH_OMP_GPU
+      integer :: n, i
+      n =this%nrow
+#endif
+
+      if ( this%gpu_is_used ) then
+#ifdef WITH_OMP_GPU
+         !-- Extract real and imag parts of input rhs matrix
+         !$omp target teams distribute parallel do
+         do i=1,n
+            tmpr(i) = real(rhs(i))
+            tmpi(i) = aimag(rhs(i))
+         end do
+         !$omp end target teams distribute parallel do
+         call gpu_solve_mat(this%dat(:,:,1), this%nrow, this%nrow, this%pivot(:,1), &
+              &             tmpr, tmpi, handle, devInfo)
+         !$omp target teams distribute parallel do
+         do i=1,n
+            rhs(i)=cmplx(tmpr(i),tmpi(i),kind=cp)
+         end do
+         !$omp end target teams distribute parallel do
+#endif
+      else
+         call solve_mat(this%dat(:,:,1), this%nrow, this%nrow, this%pivot(:,1), rhs)
+      end if
+
+   end subroutine solve_complex_single_
+!------------------------------------------------------------------------------
    subroutine solve_real_multi(this, rhs, nRHS, handle, devInfo)
 
       class(type_densemat) :: this
@@ -305,13 +581,35 @@ contains
 
       if ( this%gpu_is_used ) then
 #ifdef WITH_OMP_GPU
-         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, nRHS, handle, devInfo)
+         call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, &
+              &             nRHS, handle, devInfo)
 #endif
       else
          call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, nRHS)
       end if
 
    end subroutine solve_real_multi
+!------------------------------------------------------------------------------
+   subroutine solve_real_multi_(this, rhs, nRHS, idx, handle, devInfo)
+
+      class(type_mdensemat) :: this
+      integer,  intent(in) :: idx
+      integer,  intent(in) :: nRHS
+      real(cp), intent(inout) :: rhs(:,:)
+      integer,        optional, intent(inout) :: devInfo(:)
+      type(c_ptr),    optional, intent(inout) :: handle
+
+      if ( this%gpu_is_used ) then
+#ifdef WITH_OMP_GPU
+         call gpu_solve_mat(this%dat(:,:,idx), this%nrow, this%nrow, &
+              &             this%pivot(:,idx), rhs, nRHS, handle, devInfo)
+#endif
+      else
+         call solve_mat(this%dat(:,:,idx), this%nrow, this%nrow, this%pivot(:,idx), &
+              &         rhs, nRHS)
+      end if
+
+   end subroutine solve_real_multi_
 !------------------------------------------------------------------------------
    subroutine set_data(this, dat)
 
@@ -342,6 +640,36 @@ contains
 
    end subroutine set_data
 !------------------------------------------------------------------------------
+   subroutine set_data_(this, dat, idx)
+
+      class(type_mdensemat) :: this
+      integer,  intent(in) :: idx
+      real(cp), intent(in) :: dat(:,:)
+
+#ifdef WITH_OMP_GPU
+      integer :: i,j, row, col
+      real(cp), pointer :: ptr_dat(:,:)
+      ptr_dat => this%dat(:,:,idx)
+      row = this%nrow
+      col = this%ncol
+#endif
+
+      if ( this%gpu_is_used ) then
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
+         do j=1,col
+            do i=1,row
+               ptr_dat(i,j) = dat(i,j)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+#endif
+      else
+         this%dat(:,:,idx) = dat(:,:)
+      end if
+
+   end subroutine set_data_
+!------------------------------------------------------------------------------
 end module dense_matrices
 
 module band_matrices
@@ -353,6 +681,7 @@ module band_matrices
    use mem_alloc
 #endif
    use real_matrices, only: type_realmat
+   use real_many_matrices, only: type_mrealmat
    use algebra, only: solve_tridiag, prepare_tridiag, prepare_band, solve_band
    use iso_c_binding
 
@@ -373,6 +702,22 @@ module band_matrices
 !      procedure :: mat_add
 !      generic :: operator(+) => mat_add
    end type type_bandmat
+
+   type, public, extends(type_mrealmat) :: type_mbandmat
+      real(cp), pointer :: du2(:,:)
+      integer :: kl
+      integer :: ku
+   contains
+      procedure :: initialize => initialize_
+      procedure :: finalize => finalize_
+      procedure :: prepare => prepare_
+      procedure :: solve_real_multi => solve_real_multi_
+      procedure :: solve_real_single => solve_real_single_
+      procedure :: solve_complex_single => solve_complex_single_
+      procedure :: set_data => set_data_
+!      procedure :: mat_add
+!      generic :: operator(+) => mat_add
+   end type type_mbandmat
 
 contains
 
@@ -427,6 +772,59 @@ contains
 
    end subroutine initialize
 !------------------------------------------------------------------------------
+#ifdef WITH_OMP_GPU
+   subroutine initialize_(this, nx, ny, nmat, l_pivot, use_gpu, nfull)
+#else
+   subroutine initialize_(this, nx, ny, nmat, l_pivot, nfull)
+#endif
+      !
+      ! Memory allocation
+      !
+      class(type_mbandmat) :: this
+      integer, intent(in) :: nx
+      integer, intent(in) :: ny
+      integer, intent(in) :: nmat
+      logical, intent(in) :: l_pivot
+      integer, optional, intent(in) :: nfull
+#ifdef WITH_OMP_GPU
+      logical, optional, intent(in) :: use_gpu
+#endif
+
+      !--
+      logical :: loc_use_gpu
+      loc_use_gpu = .false.
+      this%gpu_is_used=.false.
+
+      this%nrow = nx
+      this%ncol = ny
+      this%nmat = nmat
+      this%l_pivot = l_pivot
+
+      this%kl = (nx-1)/2
+      this%ku = this%kl
+
+      if ( nx > 3 .and. this%l_pivot ) then
+         allocate( this%dat(nx+(nx-1)/2, ny, nmat) )
+         this%dat(:,:,:) = 0.0_cp
+         bytes_allocated = bytes_allocated+(nx+(nx-1)/2)*ny*nmat*SIZEOF_DEF_REAL
+      else
+         allocate( this%dat(nx, ny, nmat) )
+         this%dat(:,:,:) = 0.0_cp
+         bytes_allocated = bytes_allocated+nx*ny*nmat*SIZEOF_DEF_REAL
+      end if
+      if ( this%l_pivot ) then
+         allocate( this%pivot(this%ncol,this%nmat) )
+         this%pivot(:,:) = 0
+         bytes_allocated = bytes_allocated+this%ncol*this%nmat*SIZEOF_INTEGER
+         if ( nx == 3 ) then ! Only require for tridiag arrays
+            allocate( this%du2(this%ncol-2,this%nmat) ) ! Help array for tridiag
+            this%du2(:,:) = 0
+            bytes_allocated = bytes_allocated+(this%ncol-2)*this%nmat*SIZEOF_DEF_REAL
+         end if
+      end if
+
+   end subroutine initialize_
+!------------------------------------------------------------------------------
    subroutine finalize(this)
       !
       ! Memory deallocation
@@ -443,6 +841,23 @@ contains
       end if
 
    end subroutine finalize
+!------------------------------------------------------------------------------
+   subroutine finalize_(this)
+      !
+      ! Memory deallocation
+      !
+      class(type_mbandmat) :: this
+
+      deallocate( this%dat )
+
+      if ( this%l_pivot ) then
+         deallocate (this%pivot)
+         if ( this%nrow == 3 ) then
+            deallocate(this%du2)
+         end if
+      end if
+
+   end subroutine finalize_
 !------------------------------------------------------------------------------
    subroutine prepare(this, info, handle, devInfo)
 
@@ -461,6 +876,25 @@ contains
 
    end subroutine prepare
 !------------------------------------------------------------------------------
+   subroutine prepare_(this, idx, info, handle, devInfo)
+
+      class(type_mbandmat) :: this
+      integer, intent(in) :: idx
+      integer, intent(out) :: info
+      integer,        optional, intent(inout) :: devInfo(:)
+      type(c_ptr),    optional, intent(inout) :: handle
+
+      if ( this%nrow == 3 ) then
+         call prepare_tridiag(this%dat(3,1:this%ncol-1,idx), this%dat(2,:,idx),  &
+              &               this%dat(1,2:,idx), this%du2(:,idx), this%ncol,    &
+              &               this%pivot(:,idx), info)
+      else
+         call prepare_band(this%dat(:,:,idx), this%ncol, this%kl, this%ku, &
+              &            this%pivot(:,idx), info)
+      end if
+
+   end subroutine prepare_
+!------------------------------------------------------------------------------
    subroutine solve_real_single(this, rhs, handle, devInfo)
 
       class(type_bandmat) :: this
@@ -477,6 +911,24 @@ contains
       end if
 
    end subroutine solve_real_single
+!------------------------------------------------------------------------------
+   subroutine solve_real_single_(this, rhs, handle, devInfo)
+
+      class(type_mbandmat) :: this
+      real(cp), intent(inout) :: rhs(:)
+      type(c_ptr), optional,    intent(inout) :: handle
+      integer, optional,        intent(inout) :: devInfo(:)
+
+      if ( this%nrow == 3 ) then
+         call solve_tridiag(this%dat(3,1:this%ncol-1,1), this%dat(2,:,1), &
+              &             this%dat(1,2:,1), this%du2(:,1), this%ncol,   &
+              &             this%pivot(:,1), rhs)
+      else
+         call solve_band(this%dat(:,:,1), this%ncol, this%kl, this%ku, &
+              &          this%pivot(:,1), rhs)
+      end if
+
+   end subroutine solve_real_single_
 !------------------------------------------------------------------------------
    subroutine solve_complex_single(this, rhs, tmpr, tmpi, handle, devInfo)
 
@@ -499,6 +951,28 @@ contains
 
    end subroutine solve_complex_single
 !------------------------------------------------------------------------------
+   subroutine solve_complex_single_(this, rhs, tmpr, tmpi, handle, devInfo)
+
+      class(type_mbandmat) :: this
+      complex(cp), intent(inout) :: rhs(:)
+
+      !-- Output variables
+      real(cp), optional,    intent(inout) :: tmpr(:)
+      real(cp), optional,    intent(inout) :: tmpi(:)
+      type(c_ptr), optional, intent(inout) :: handle
+      integer, optional,     intent(inout) :: devInfo(:)
+
+      if ( this%nrow == 3 ) then
+         call solve_tridiag(this%dat(3,1:this%ncol-1,1), this%dat(2,:,1), &
+              &             this%dat(1,2:,1), this%du2(:,1), this%ncol,   &
+              &             this%pivot(:,1), rhs)
+      else
+         call solve_band(this%dat(:,:,1), this%ncol, this%kl, this%ku, &
+              &          this%pivot(:,1), rhs)
+      end if
+
+   end subroutine solve_complex_single_
+!------------------------------------------------------------------------------
    subroutine solve_real_multi(this, rhs, nRHS, handle, devInfo)
 
       class(type_bandmat) :: this
@@ -518,12 +992,34 @@ contains
 
    end subroutine solve_real_multi
 !------------------------------------------------------------------------------
+   subroutine solve_real_multi_(this, rhs, nRHS, idx, handle, devInfo)
+
+      class(type_mbandmat) :: this
+      integer,  intent(in) :: nRHS
+      integer,  intent(in) :: idx
+      real(cp), intent(inout) :: rhs(:,:)
+      integer,        optional, intent(inout) :: devInfo(:)
+      type(c_ptr),    optional, intent(inout) :: handle
+
+      if ( this%nrow == 3 ) then
+         call solve_tridiag(this%dat(3,1:this%ncol-1,idx), this%dat(2,:,idx),   &
+              &             this%dat(1,2:,idx), this%du2(:,idx), this%ncol,     &
+              &             this%pivot(:,idx), rhs, nRHS)
+      else
+         call solve_band(this%dat(:,:,idx), this%ncol, this%kl, this%ku, &
+              &          this%pivot(:,idx), rhs, nRHS)
+      end if
+
+   end subroutine solve_real_multi_
+!------------------------------------------------------------------------------
    subroutine set_data(this, dat)
 
       class(type_bandmat) :: this
+
+      !-- Input array
       real(cp), intent(in) :: dat(:,:)
 
-      !--
+      !-- Local variables
       integer :: i,j
 
       if ( this%nrow == 3 ) then
@@ -541,6 +1037,33 @@ contains
       end if
 
    end subroutine set_data
+!------------------------------------------------------------------------------
+   subroutine set_data_(this, dat, idx)
+
+      class(type_mbandmat) :: this
+      
+      !-- Input variables
+      integer,  intent(in) :: idx
+      real(cp), intent(in) :: dat(:,:)
+
+      !-- Local variables
+      integer :: i,j
+
+      if ( this%nrow == 3 ) then
+         do j=1,this%ncol
+            do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
+               this%dat(this%ku+1+i-j,j,idx)=dat(i,j)
+            end do
+         end do
+      else
+         do j=1,this%ncol
+            do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
+               this%dat(this%kl+this%ku+1+i-j,j,idx)=dat(i,j)
+            end do
+         end do
+      end if
+
+   end subroutine set_data_
 !------------------------------------------------------------------------------
 !   function mat_add(this, B)
 !      class(type_bandmat), intent(in) :: this
