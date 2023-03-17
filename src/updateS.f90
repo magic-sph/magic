@@ -251,6 +251,7 @@ contains
       integer :: nLMB2,nLMB
       integer :: nR             ! counts radial grid points
       integer :: n_r_out        ! counts cheb modes
+      integer :: info           ! Integer to validate LU factorisation
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:),l2nLMB2(:)
@@ -306,20 +307,24 @@ contains
 
 #ifdef NEW
       call solve_counter%start_count()
-      !-- LU factorisation if required
+      !-- Only fill the matrices: GPU looping could be only on nLMB2?
       if ( .not. lSmat(1) ) then
          call up1_counter%start_count()
          do nLMB2=1,nLMBs2(nLMB)
             l1=lm22l(1,nLMB2,nLMB)
             if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
-               call get_sMat(tscheme,l1,hdif_S(l1), sMat, nLMB2, sMat_fac(:,nLMB2))
+               call get_sMat(tscheme,l1,hdif_S(l1), sMat, nLMB2, sMat_fac(:,nLMB2), &
+                    &        l_LU=.false.)
 #else
-               call get_sMat(tscheme,l1,hdif_S(l1), sMat, nLMB2)
+               call get_sMat(tscheme,l1,hdif_S(l1), sMat, nLMB2, l_LU=.false.)
 #endif
                lSmat(l1)=.true.
             end if
          end do
+
+         call sMat%prepare(info)
+         if ( info /= 0 ) call abortRun('Singular matrix sMat!')
          call up1_counter%stop_count(l_increment=.false.)
       end if
 
@@ -357,9 +362,7 @@ contains
 
       !-- Solve matrices
       call up2_counter%start_count()
-      !-- Best to do it here but for debug 2nd line might be easier?
       call sMat%solve(tmp_LMloc, llm, ulm, lm2l, l2nLMB2)
-      !call solve_mat_real_dense(sMat,n_r_max,tmp_LMloc)
       call up2_counter%stop_count(l_increment=.false.)
 
       !-- Recombine into solution
@@ -1669,9 +1672,9 @@ contains
    end subroutine assemble_entropy
 !-------------------------------------------------------------------------------
 #ifdef WITH_PRECOND_S
-   subroutine get_sMat(tscheme,l,hdif,sMat,nLMB2,sMat_fac)
+   subroutine get_sMat(tscheme,l,hdif,sMat,nLMB2,sMat_fac,l_LU)
 #else
-   subroutine get_sMat(tscheme,l,hdif,sMat,nLMB2)
+   subroutine get_sMat(tscheme,l,hdif,sMat,nLMB2,l_LU)
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matrices
@@ -1683,6 +1686,7 @@ contains
       real(cp),            intent(in) :: hdif
       integer,             intent(in) :: nLMB2
       integer,             intent(in) :: l
+      logical, optional,   intent(in) :: l_LU
 
       !-- Output variables
       class(type_mrealmat), intent(inout) :: sMat
@@ -1692,11 +1696,18 @@ contains
 
       !-- Local variables:
       integer :: info,nR_out,nR
+      logical :: l_LU_loc
       real(cp) :: dLh
 #ifndef WITH_OMP_GPU
       real(cp) :: dat(n_r_max,n_r_max)
 #endif
       real(cp) :: wimp_lin
+
+      if ( present(l_LU) ) then
+         l_LU_loc=l_LU
+      else
+         l_LU_loc=.true.
+      end if
 
       wimp_lin = tscheme%wimp_lin(1)
 
@@ -1895,16 +1906,18 @@ contains
       call sMat%set_data(dat, nLMB2)
 
       !-- LU decomposition:
+      if ( l_LU_loc ) then
 #ifdef WITH_OMP_GPU
-      if(.not. sMat%gpu_is_used) then
-         call sMat%prepare(nLMB2, info)
-      else
-         call sMat%prepare(nLMB2, info, handle, devInfo)
-      end if
+         if (.not. sMat%gpu_is_used) then
+            call sMat%prepare(nLMB2, info)
+         else
+            call sMat%prepare(nLMB2, info, handle, devInfo)
+         end if
 #else
-      call sMat%prepare(nLMB2, info)
+         call sMat%prepare(nLMB2, info)
 #endif
-      if ( info /= 0 ) call abortRun('Singular matrix sMat!')
+         if ( info /= 0 ) call abortRun('Singular matrix sMat!')
+      end if
 
    end subroutine get_Smat
 !-----------------------------------------------------------------------------
@@ -2023,145 +2036,5 @@ contains
       call sMat%prepare_mat()
 
    end subroutine get_Smat_Rdist
-!-----------------------------------------------------------------------------
-   subroutine solve_mat_real_dense(a,n,bc)
-      !
-      !  This routine does the backward substitution into a LU-decomposed real
-      !  matrix a (to solve a * x = bc ) simultaneously for nRHSs real
-      !  vectors bc. On return the results are stored in the bc.
-      !
-
-      !-- Input variables:
-      class(type_mrealmat), intent(in) :: a
-      integer,              intent(in) :: n ! dimension of problem
-
-      !-- Output variables:
-      complex(cp), intent(inout) :: bc(1:n,llm:ulm) ! on input RHS of problem
-
-      !-- Local variables:
-      integer :: nm1,nodd,i,m,lm_start,lm_stop,nlms
-      integer :: k,k1,nRHS,nLMB2,l
-      complex(cp) :: help
-      integer, pointer :: nLMBs2(:), sizeLMB2(:,:), lm22lm(:,:,:), lm22l(:,:,:)
-      integer, pointer :: lm2l(:), l2nLMB2(:)
-
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
-      sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
-      lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
-      lm22l(1:,1:,1:) => lo_sub_map%lm22l
-      lm2l(1:lm_max) => lo_map%lm2l
-      l2nLMB2(0:) => lo_sub_map%l2nLMB2
-
-      nm1 =n-1
-      nodd=mod(n,2)
-
-!#ifdef V1
-      !-- Single loop over lm's
-      do nRHS=llm,ulm
-
-         l=lm2l(nRHS)
-         nLMB2=l2nLMB2(l)
-
-         !-- Permute vectors bc
-         do k=1,nm1
-            m=a%pivot(k,nLMB2)
-            help       =bc(m,nRHS)
-            bc(m,nRHS) =bc(k,nRHS)
-            bc(k,nRHS) =help
-         end do
-
-         !-- Solve  l * y = b
-         do k=1,n-2,2
-            k1=k+1
-            bc(k1,nRHS) =bc(k1,nRHS)-bc(k,nRHS)*a%dat(k1,k,nLMB2)
-            do i=k+2,n
-               bc(i,nRHS)=bc(i,nRHS)-(bc(k,nRHS)*a%dat(i,k,nLMB2) + &
-               &                      bc(k1,nRHS)*a%dat(i,k1,nLMB2))
-            end do
-         end do
-         if ( nodd == 0 ) then
-            bc(n,nRHS) =bc(n,nRHS)-bc(nm1,nRHS)*a%dat(n,nm1,nLMB2)
-         end if
-
-         !-- Solve  u * x = y
-         do k=n,3,-2
-            k1=k-1
-            bc(k,nRHS)  =bc(k,nRHS)*a%dat(k,k,nLMB2)
-            bc(k1,nRHS) =(bc(k1,nRHS)-bc(k,nRHS)*a%dat(k1,k,nLMB2)) * &
-            &            a%dat(k1,k1,nLMB2)
-            do i=1,k-2
-               bc(i,nRHS)=bc(i,nRHS)-bc(k,nRHS)*a%dat(i,k,nLMB2) - &
-               &          bc(k1,nRHS)*a%dat(i,k1,nLMB2)
-            end do
-         end do
-         if ( nodd == 0 ) then
-            bc(2,nRHS)=bc(2,nRHS)*a%dat(2,2,nLMB2)
-            bc(1,nRHS)=(bc(1,nRHS)-bc(2,nRHS)*a%dat(1,2,nLMB2))*a%dat(1,1,nLMB2)
-         else
-            bc(1,nRHS)=bc(1,nRHS)*a%dat(1,1,nLMB2)
-         end if
-
-      end do
-!#endif
-
-#ifdef V2
-      !-- Loop over ell's
-      do nLMB2=1,nLMBs2(rank+1)
-
-         ! This handles spherical harmonic degree l
-         !l=lm22l(1,nLMB2,rank+1)
-         !-- Boundaries of the inner loop depends on l:
-         lm_start=lm22lm(1,nLMB2,rank+1)
-         nlms    =sizeLMB2(nLMB2,rank+1)
-         lm_stop =nlms+lm_start-1
-
-         !print*, l, lm_start, lm_stop, nlms
-
-         !-- Permute vectors bc
-         do nRHS=lm_start,lm_stop
-            do k=1,nm1
-               m=a(nLMB2)%pivot(k)
-               help       =bc(m,nRHS)
-               bc(m,nRHS) =bc(k,nRHS)
-               bc(k,nRHS) =help
-            end do
-
-            !-- Solve  l * y = b
-            do k=1,n-2,2
-               k1=k+1
-               bc(k1,nRHS) =bc(k1,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(k1,k)
-               do i=k+2,n
-                  bc(i,nRHS)=bc(i,nRHS)-(bc(k,nRHS)*a(nLMB2)%dat(i,k) + &
-                  &                      bc(k1,nRHS)*a(nLMB2)%dat(i,k1))
-               end do
-            end do
-            if ( nodd == 0 ) then
-               bc(n,nRHS) =bc(n,nRHS)-bc(nm1,nRHS)*a(nLMB2)%dat(n,nm1)
-            end if
-
-            !-- Solve  u * x = y
-            do k=n,3,-2
-               k1=k-1
-               bc(k,nRHS)  =bc(k,nRHS)*a(nLMB2)%dat(k,k)
-               bc(k1,nRHS) =(bc(k1,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(k1,k)) * &
-               &            a(nLMB2)%dat(k1,k1)
-               do i=1,k-2
-                  bc(i,nRHS)=bc(i,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(i,k) - &
-                  &          bc(k1,nRHS)*a(nLMB2)%dat(i,k1)
-               end do
-            end do
-            if ( nodd == 0 ) then
-               bc(2,nRHS)=bc(2,nRHS)*a(nLMB2)%dat(2,2)
-               bc(1,nRHS)=(bc(1,nRHS)-bc(2,nRHS)*a(nLMB2)%dat(1,2))*a(nLMB2)%dat(1,1)
-            else
-               bc(1,nRHS)=bc(1,nRHS)*a(nLMB2)%dat(1,1)
-            end if
-
-         end do
-
-      end do
-#endif
-
-   end subroutine solve_mat_real_dense
 !-----------------------------------------------------------------------------
 end module updateS_mod

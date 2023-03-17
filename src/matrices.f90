@@ -131,13 +131,15 @@ module real_many_matrices
    contains
       procedure(initialize_if), deferred :: initialize
       procedure(finalize_if), deferred :: finalize
-      procedure(prepare_if), deferred :: prepare
+      procedure(prepare_single_if), deferred :: prepare_single
+      procedure(prepare_all_if), deferred :: prepare_all
       procedure(solve_real_multi_if), deferred :: solve_real_multi
       procedure(solve_real_single_if), deferred :: solve_real_single
       procedure(solve_complex_single_if), deferred :: solve_complex_single
       procedure(solve_all_mats_if), deferred :: solve_all_mats
       generic :: solve => solve_real_single, solve_complex_single, &
       &                   solve_real_multi, solve_all_mats
+      generic :: prepare => prepare_single, prepare_all
       procedure(set_data_if), deferred :: set_data
    end type type_mrealmat
 
@@ -165,14 +167,20 @@ module real_many_matrices
          class(type_mrealmat) :: this
       end subroutine finalize_if
 
-      subroutine prepare_if(this, idx, info, handle, devInfo)
+      subroutine prepare_single_if(this, idx, info, handle, devInfo)
          import
          class(type_mrealmat) :: this
          integer, intent(in) :: idx
          integer, intent(out) :: info
          integer,     optional, intent(inout) :: devInfo(:)
          type(c_ptr), optional, intent(inout) :: handle
-      end subroutine prepare_if
+      end subroutine prepare_single_if
+
+      subroutine prepare_all_if(this, info)
+         import
+         class(type_mrealmat) :: this
+         integer, intent(out) :: info
+      end subroutine prepare_all_if
 
       subroutine solve_real_multi_if(this, rhs, nRHS, idx, handle, devInfo)
          import
@@ -233,6 +241,7 @@ module dense_matrices
 #endif
    use real_matrices, only: type_realmat
    use real_many_matrices, only: type_mrealmat
+   use constants, only: one
    use algebra, only: solve_mat, prepare_mat
 #ifdef WITH_OMP_GPU
    use algebra_hipfort, only: gpu_solve_mat, gpu_prepare_mat
@@ -256,7 +265,8 @@ module dense_matrices
    contains
       procedure :: initialize => initialize_
       procedure :: finalize => finalize_
-      procedure :: prepare  => prepare_
+      procedure :: prepare_single
+      procedure :: prepare_all
       procedure :: solve_real_multi => solve_real_multi_
       procedure :: solve_real_single => solve_real_single_
       procedure :: solve_complex_single => solve_complex_single_
@@ -448,13 +458,13 @@ contains
 
    end subroutine prepare
 !------------------------------------------------------------------------------
-   subroutine prepare_(this, idx, info, handle, devInfo)
+   subroutine prepare_single(this, idx, info, handle, devInfo)
 
       class(type_mdensemat) :: this
       integer, intent(in) :: idx
       integer, intent(out) :: info
-      integer,        optional, intent(inout) :: devInfo(:)
-      type(c_ptr),    optional, intent(inout) :: handle
+      integer,     optional, intent(inout) :: devInfo(:)
+      type(c_ptr), optional, intent(inout) :: handle
 
       if ( this%gpu_is_used ) then
 #ifdef WITH_OMP_GPU
@@ -466,7 +476,71 @@ contains
               &           this%pivot(:,idx), info)
       end if
 
-   end subroutine prepare_
+   end subroutine prepare_single
+!------------------------------------------------------------------------------
+   subroutine prepare_all(this, info)
+      !
+      ! LU decomposition for all the real matrix a(n,n,ell) via Gaussian elimination
+      !
+
+      class(type_mdensemat) :: this
+      integer, intent(out) :: info ! Output diagnostic of success
+
+      !-- Local variables:
+      integer :: nm1,k,kp1,l,i,j,idx
+      real(cp) :: help
+
+      info=0
+      nm1 =this%nrow-1
+
+      do idx=1,this%nmat
+         do k=1,nm1
+            kp1=k+1
+            l  =k
+
+            do i=kp1,this%nrow
+               if ( abs(this%dat(i,k,idx)) > abs(this%dat(l,k,idx)) ) l=i
+            end do
+            this%pivot(k,idx)=l
+
+            if ( abs(this%dat(l,k,idx))  >  10.0_cp*epsilon(0.0_cp) ) then
+               if ( l /= k ) then
+                  do i=1,this%nrow
+                     help      =this%dat(k,i,idx)
+                     this%dat(k,i,idx)=this%dat(l,i,idx)
+                     this%dat(l,i,idx)=help
+                  end do
+               end if
+
+               help=one/this%dat(k,k,idx)
+               do i=kp1,this%nrow
+                  this%dat(i,k,idx)=help*this%dat(i,k,idx)
+               end do
+
+               do j=kp1,this%nrow
+                  do i=kp1,this%nrow
+                     this%dat(i,j,idx)=this%dat(i,j,idx)-this%dat(k,j,idx)* &
+                     &                 this%dat(i,k,idx)
+                  end do
+               end do
+            else
+               info=k
+            end if
+
+         end do
+
+         this%pivot(this%nrow,idx)=this%nrow
+         if ( abs(this%dat(this%nrow,this%nrow,idx)) <= 10.0_cp*epsilon(0.0_cp) ) &
+         &   info=this%nrow
+         if ( info > 0 ) return
+
+         do i=1,this%nrow
+            this%dat(i,i,idx)=one/this%dat(i,i,idx)
+         end do
+
+      end do
+
+   end subroutine prepare_all
 !------------------------------------------------------------------------------
    subroutine solve_real_single(this, rhs, handle, devInfo)
 
@@ -797,7 +871,8 @@ module band_matrices
    contains
       procedure :: initialize => initialize_
       procedure :: finalize => finalize_
-      procedure :: prepare => prepare_
+      procedure :: prepare_single
+      procedure :: prepare_all
       procedure :: solve_real_multi => solve_real_multi_
       procedure :: solve_real_single => solve_real_single_
       procedure :: solve_complex_single => solve_complex_single_
@@ -964,7 +1039,7 @@ contains
 
    end subroutine prepare
 !------------------------------------------------------------------------------
-   subroutine prepare_(this, idx, info, handle, devInfo)
+   subroutine prepare_single(this, idx, info, handle, devInfo)
 
       class(type_mbandmat) :: this
       integer, intent(in) :: idx
@@ -981,7 +1056,16 @@ contains
               &            this%pivot(:,idx), info)
       end if
 
-   end subroutine prepare_
+   end subroutine prepare_single
+!------------------------------------------------------------------------------
+   subroutine prepare_all(this, info)
+
+      class(type_mbandmat) :: this
+      integer, intent(out) :: info
+
+      print*, 'Not implemented at this stage'
+
+   end subroutine prepare_all
 !------------------------------------------------------------------------------
    subroutine solve_real_single(this, rhs, handle, devInfo)
 
