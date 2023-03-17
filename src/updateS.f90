@@ -357,7 +357,9 @@ contains
 
       !-- Solve matrices
       call up2_counter%start_count()
-      call solve_mat_real_dense(sMat,n_r_max,tmp_LMloc)
+      !-- Best to do it here but for debug 2nd line might be easier?
+      call sMat%solve(tmp_LMloc, llm, ulm, lm2l, l2nLMB2)
+      !call solve_mat_real_dense(sMat,n_r_max,tmp_LMloc)
       call up2_counter%stop_count(l_increment=.false.)
 
       !-- Recombine into solution
@@ -370,7 +372,6 @@ contains
                s(lm,nR)=tmp_LMloc(nR,lm)
             else
                s(lm,nR)=cmplx(real(tmp_LMloc(nR,lm)),0.0_cp,kind=cp)
-               !if (l1 == 0) print*, nR, tmp_LMloc(nR,lm)
             end if
          end do
       end do
@@ -2031,8 +2032,8 @@ contains
       !
 
       !-- Input variables:
-      class(type_realmat), intent(in) :: a(:)
-      integer,             intent(in) :: n ! dimension of problem
+      class(type_mrealmat), intent(in) :: a
+      integer,              intent(in) :: n ! dimension of problem
 
       !-- Output variables:
       complex(cp), intent(inout) :: bc(1:n,llm:ulm) ! on input RHS of problem
@@ -2063,7 +2064,7 @@ contains
 
          !-- Permute vectors bc
          do k=1,nm1
-            m=a(nLMB2)%pivot(k)
+            m=a%pivot(k,nLMB2)
             help       =bc(m,nRHS)
             bc(m,nRHS) =bc(k,nRHS)
             bc(k,nRHS) =help
@@ -2072,32 +2073,32 @@ contains
          !-- Solve  l * y = b
          do k=1,n-2,2
             k1=k+1
-            bc(k1,nRHS) =bc(k1,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(k1,k)
+            bc(k1,nRHS) =bc(k1,nRHS)-bc(k,nRHS)*a%dat(k1,k,nLMB2)
             do i=k+2,n
-               bc(i,nRHS)=bc(i,nRHS)-(bc(k,nRHS)*a(nLMB2)%dat(i,k) + &
-               &                      bc(k1,nRHS)*a(nLMB2)%dat(i,k1))
+               bc(i,nRHS)=bc(i,nRHS)-(bc(k,nRHS)*a%dat(i,k,nLMB2) + &
+               &                      bc(k1,nRHS)*a%dat(i,k1,nLMB2))
             end do
          end do
          if ( nodd == 0 ) then
-            bc(n,nRHS) =bc(n,nRHS)-bc(nm1,nRHS)*a(nLMB2)%dat(n,nm1)
+            bc(n,nRHS) =bc(n,nRHS)-bc(nm1,nRHS)*a%dat(n,nm1,nLMB2)
          end if
 
          !-- Solve  u * x = y
          do k=n,3,-2
             k1=k-1
-            bc(k,nRHS)  =bc(k,nRHS)*a(nLMB2)%dat(k,k)
-            bc(k1,nRHS) =(bc(k1,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(k1,k)) * &
-            &            a(nLMB2)%dat(k1,k1)
+            bc(k,nRHS)  =bc(k,nRHS)*a%dat(k,k,nLMB2)
+            bc(k1,nRHS) =(bc(k1,nRHS)-bc(k,nRHS)*a%dat(k1,k,nLMB2)) * &
+            &            a%dat(k1,k1,nLMB2)
             do i=1,k-2
-               bc(i,nRHS)=bc(i,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(i,k) - &
-               &          bc(k1,nRHS)*a(nLMB2)%dat(i,k1)
+               bc(i,nRHS)=bc(i,nRHS)-bc(k,nRHS)*a%dat(i,k,nLMB2) - &
+               &          bc(k1,nRHS)*a%dat(i,k1,nLMB2)
             end do
          end do
          if ( nodd == 0 ) then
-            bc(2,nRHS)=bc(2,nRHS)*a(nLMB2)%dat(2,2)
-            bc(1,nRHS)=(bc(1,nRHS)-bc(2,nRHS)*a(nLMB2)%dat(1,2))*a(nLMB2)%dat(1,1)
+            bc(2,nRHS)=bc(2,nRHS)*a%dat(2,2,nLMB2)
+            bc(1,nRHS)=(bc(1,nRHS)-bc(2,nRHS)*a%dat(1,2,nLMB2))*a%dat(1,1,nLMB2)
          else
-            bc(1,nRHS)=bc(1,nRHS)*a(nLMB2)%dat(1,1)
+            bc(1,nRHS)=bc(1,nRHS)*a%dat(1,1,nLMB2)
          end if
 
       end do

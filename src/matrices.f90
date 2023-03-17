@@ -1162,7 +1162,7 @@ contains
       integer, intent(in) :: llm
       integer, intent(in) :: ulm
       integer, intent(in) :: lm2l(:)
-      integer, intent(in) :: l2nLMB2(:)
+      integer, intent(in) :: l2nLMB2(0:)
 
       !-- In/Out variables
       complex(cp), intent(inout) :: rhs(this%ncol, llm:ulm)
