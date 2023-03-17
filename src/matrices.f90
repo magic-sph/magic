@@ -135,7 +135,9 @@ module real_many_matrices
       procedure(solve_real_multi_if), deferred :: solve_real_multi
       procedure(solve_real_single_if), deferred :: solve_real_single
       procedure(solve_complex_single_if), deferred :: solve_complex_single
-      generic :: solve => solve_real_single, solve_complex_single, solve_real_multi
+      procedure(solve_all_mats_if), deferred :: solve_all_mats
+      generic :: solve => solve_real_single, solve_complex_single, &
+      &                   solve_real_multi, solve_all_mats
       procedure(set_data_if), deferred :: set_data
    end type type_mrealmat
 
@@ -207,6 +209,16 @@ module real_many_matrices
          real(cp), intent(in) :: dat(:,:)
       end subroutine set_data_if
 
+      subroutine solve_all_mats_if(this, rhs, llm, ulm, lm2l, l2nLMB2)
+         import
+         class(type_mrealmat) :: this
+         integer, intent(in) :: llm
+         integer, intent(in) :: ulm
+         integer, intent(in) :: lm2l(:)
+         integer, intent(in) :: l2nLMB2(:)
+         complex(cp), intent(inout) :: rhs(this%ncol,llm:ulm)
+      end subroutine solve_all_mats_if
+
    end interface
 
 end module real_many_matrices
@@ -249,6 +261,7 @@ module dense_matrices
       procedure :: solve_real_single => solve_real_single_
       procedure :: solve_complex_single => solve_complex_single_
       procedure :: set_data => set_data_
+      procedure :: solve_all_mats
    end type type_mdensemat
 
 contains
@@ -311,7 +324,7 @@ contains
    end subroutine initialize
 !------------------------------------------------------------------------------
 #ifdef WITH_OMP_GPU
-   subroutine initialize(this, nx, ny, nmat, l_pivot, use_gpu, nfull)
+   subroutine initialize_(this, nx, ny, nmat, l_pivot, use_gpu, nfull)
 #else
    subroutine initialize_(this, nx, ny, nmat, l_pivot, nfull)
 #endif
@@ -670,6 +683,80 @@ contains
 
    end subroutine set_data_
 !------------------------------------------------------------------------------
+   subroutine solve_all_mats(this, rhs, llm, ulm, lm2l, l2nLMB2)
+
+      !use blocking, only: lo_map, lo_sub_map
+
+      class(type_mdensemat) :: this
+
+      !-- Input variables
+      integer, intent(in) :: llm
+      integer, intent(in) :: ulm
+      integer, intent(in) :: lm2l(:)
+      integer, intent(in) :: l2nLMB2(0:)
+
+      !-- In/Out variables
+      complex(cp), intent(inout) :: rhs(1:this%ncol,llm:ulm)
+
+      !-- Local variables:
+      integer :: nm1,nodd,i,m,lm_start,lm_stop,nlms
+      integer :: k,k1,nRHS,nLMB2,l,n
+      complex(cp) :: help
+
+      n = this%ncol
+
+      nm1 =n-1
+      nodd=mod(n,2)
+
+      !-- Single loop over lm's
+      do nRHS=llm,ulm
+
+         l=lm2l(nRHS)
+         nLMB2=l2nLMB2(l)
+
+         !-- Permute vectors rhs
+         do k=1,nm1
+            m=this%pivot(k,nLMB2)
+            help       =rhs(m,nRHS)
+            rhs(m,nRHS) =rhs(k,nRHS)
+            rhs(k,nRHS) =help
+         end do
+
+         !-- Solve  l * y = b
+         do k=1,n-2,2
+            k1=k+1
+            rhs(k1,nRHS) =rhs(k1,nRHS)-rhs(k,nRHS)*this%dat(k1,k,nLMB2)
+            do i=k+2,n
+               rhs(i,nRHS)=rhs(i,nRHS)-(rhs(k,nRHS)*this%dat(i,k,nLMB2) + &
+               &                      rhs(k1,nRHS)*this%dat(i,k1,nLMB2))
+            end do
+         end do
+         if ( nodd == 0 ) then
+            rhs(n,nRHS) =rhs(n,nRHS)-rhs(nm1,nRHS)*this%dat(n,nm1,nLMB2)
+         end if
+
+         !-- Solve  u * x = y
+         do k=n,3,-2
+            k1=k-1
+            rhs(k,nRHS)  =rhs(k,nRHS)*this%dat(k,k,nLMB2)
+            rhs(k1,nRHS) =(rhs(k1,nRHS)-rhs(k,nRHS)*this%dat(k1,k,nLMB2)) * &
+            &            this%dat(k1,k1,nLMB2)
+            do i=1,k-2
+               rhs(i,nRHS)=rhs(i,nRHS)-rhs(k,nRHS)*this%dat(i,k,nLMB2) - &
+               &          rhs(k1,nRHS)*this%dat(i,k1,nLMB2)
+            end do
+         end do
+         if ( nodd == 0 ) then
+            rhs(2,nRHS)=rhs(2,nRHS)*this%dat(2,2,nLMB2)
+            rhs(1,nRHS)=(rhs(1,nRHS)-rhs(2,nRHS)*this%dat(1,2,nLMB2))*this%dat(1,1,nLMB2)
+         else
+            rhs(1,nRHS)=rhs(1,nRHS)*this%dat(1,1,nLMB2)
+         end if
+
+      end do
+
+   end subroutine solve_all_mats
+!------------------------------------------------------------------------------
 end module dense_matrices
 
 module band_matrices
@@ -715,6 +802,7 @@ module band_matrices
       procedure :: solve_real_single => solve_real_single_
       procedure :: solve_complex_single => solve_complex_single_
       procedure :: set_data => set_data_
+      procedure :: solve_all_mats
 !      procedure :: mat_add
 !      generic :: operator(+) => mat_add
    end type type_mbandmat
@@ -1064,6 +1152,24 @@ contains
       end if
 
    end subroutine set_data_
+!------------------------------------------------------------------------------
+   subroutine solve_all_mats(this, rhs, llm, ulm, lm2l, l2nLMB2)
+
+      class(type_mbandmat) :: this
+
+      !-- Input variables
+      !-- Input variables
+      integer, intent(in) :: llm
+      integer, intent(in) :: ulm
+      integer, intent(in) :: lm2l(:)
+      integer, intent(in) :: l2nLMB2(:)
+
+      !-- In/Out variables
+      complex(cp), intent(inout) :: rhs(this%ncol, llm:ulm)
+
+      print*, 'Implementation to be completed...'
+
+   end subroutine solve_all_mats
 !------------------------------------------------------------------------------
 !   function mat_add(this, B)
 !      class(type_bandmat), intent(in) :: this
