@@ -841,7 +841,7 @@ contains
       !-- Local variables
       real(cp) :: dom_ma, dom_ic, prec_fac
       integer :: nR, lm_start, lm_stop, lm, l, m, l1m1, l1m0
-      integer :: wimp_lin
+      real(cp) :: wimp_lin
       wimp_lin = tscheme%wimp_lin(1)
 
       if ( .not. l_update_v ) return
