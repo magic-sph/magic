@@ -373,7 +373,6 @@ contains
       bytes_allocated = bytes_allocated+nx*ny*nmat*SIZEOF_DEF_REAL
 #ifdef WITH_OMP_GPU
       if ( loc_use_gpu) then
-         !$omp target enter data map(to : this%dat)
          gpu_bytes_allocated = gpu_bytes_allocated+nx*ny*nmat*SIZEOF_DEF_REAL
       end if
 #endif
@@ -384,11 +383,16 @@ contains
          bytes_allocated = bytes_allocated+this%nrow*this%nmat*SIZEOF_INTEGER
 #ifdef WITH_OMP_GPU
          if ( loc_use_gpu) then
-            !$omp target enter data map(to : this%pivot)
             gpu_bytes_allocated = gpu_bytes_allocated+this%nrow*this%nmat*SIZEOF_INTEGER
          end if
 #endif
       end if
+
+#ifdef WITH_OMP_GPU
+      if ( loc_use_gpu) then
+         !$omp target enter data map(to : this)
+      end if
+#endif
 
    end subroutine initialize_
 !------------------------------------------------------------------------------
@@ -424,17 +428,13 @@ contains
 
 #ifdef WITH_OMP_GPU
       if ( this%gpu_is_used ) then
-         !$omp target exit data map(delete : this%dat)
+         !$omp target exit data map(release : this)
       end if
 #endif
+
       deallocate( this%dat )
 
       if ( this%l_pivot ) then
-#ifdef WITH_OMP_GPU
-         if ( this%gpu_is_used ) then
-            !$omp target exit data map(delete : this%pivot)
-         end if
-#endif
          deallocate (this%pivot)
       end if
 
@@ -489,13 +489,21 @@ contains
       !-- Local variables:
       integer :: nm1,k,kp1,l,i,j,idx
       real(cp) :: help
+      integer, allocatable :: info_array(:,:)
 
       info=0
       nm1 =this%nrow-1
 
+      allocate( info_array(this%nrow, this%nmat) )
+      info_array(:,:) = 0
+
       !-- This external loop should be put on GPU
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do private(k,kp1,l,i,j,help)
+#endif
       do idx=1,this%nmat
          do k=1,nm1
+
             kp1=k+1
             l  =k
 
@@ -525,21 +533,35 @@ contains
                   end do
                end do
             else
-               info=k
+               info_array(k, idx)=k
             end if
 
          end do
 
          this%pivot(this%nrow,idx)=this%nrow
          if ( abs(this%dat(this%nrow,this%nrow,idx)) <= 10.0_cp*epsilon(0.0_cp) ) &
-         &   info=this%nrow
-         if ( info > 0 ) return
+          &   info_array(this%nrow,idx)=this%nrow
 
          do i=1,this%nrow
             this%dat(i,i,idx)=one/this%dat(i,i,idx)
          end do
 
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#endif
+
+      !--
+      do idx=1,this%nmat
+         do k=1,this%nrow
+            if ( info_array(k, idx) > 0 ) then
+               info = info_array(k, idx)
+               exit
+            end if
+         end do
+      end do
+
+      deallocate( info_array)
 
    end subroutine prepare_all
 !------------------------------------------------------------------------------
@@ -570,7 +592,7 @@ contains
 
       if ( this%gpu_is_used ) then
 #ifdef WITH_OMP_GPU
-         call gpu_solve_mat(this%dat(:,:,, this%nrow, this%nrow, this%pivot(:,1), rhs, &
+         call gpu_solve_mat(this%dat(:,:,1), this%nrow, this%nrow, this%pivot(:,1), rhs, &
               &             handle, devInfo)
 #endif
       else
@@ -774,7 +796,7 @@ contains
       complex(cp), intent(inout) :: rhs(1:this%ncol,llm:ulm)
 
       !-- Local variables:
-      integer :: nm1,nodd,i,m,lm_start,lm_stop,nlms
+      integer :: nm1,nodd,i,m
       integer :: k,k1,nRHS,nLMB2,l,n
       complex(cp) :: help
 
@@ -784,6 +806,9 @@ contains
       nodd=mod(n,2)
 
       !-- Single loop over lm's
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do private(i,m,k,k1,nLMB2,l,help)
+#endif
       do nRHS=llm,ulm
 
          l=lm2l(nRHS)
@@ -829,6 +854,9 @@ contains
          end if
 
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#endif
 
    end subroutine solve_all_mats
 !------------------------------------------------------------------------------

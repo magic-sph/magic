@@ -1,3 +1,4 @@
+#define NEW
 module updateS_mod
    !
    ! This module handles the time advance of the entropy s.
@@ -279,9 +280,7 @@ contains
       nLMB=1+rank
 
       !-- Now assemble the right hand side and store it in work_LMloc
-!      call up1_counter%start_count()
       call tscheme%set_imex_rhs(work_LMloc, dsdt)
-!      call up1_counter%stop_count()
 
 #ifndef WITH_OMP_GPU
       !$omp parallel default(shared)
@@ -306,6 +305,7 @@ contains
 #endif
       end if
 
+#ifdef WITH_OMP_GPU
 #ifdef NEW
       call solve_counter%start_count()
       !-- Only fill the matrices: GPU looping could be only on nLMB2?
@@ -372,7 +372,6 @@ contains
       !$omp target teams distribute parallel do collapse(2) private(m1)
       do lm=llm,ulm
          do nR=1,n_max_rSchemeOc
-         !do nR=1,rscheme_oc%n_max
             m1=lm2m(lm)
             if ( m1 > 0 ) then
                s(lm,nR)=tmp_LMloc(nR,lm)
@@ -383,10 +382,7 @@ contains
       end do
       !$omp end target teams distribute parallel do
       call solve_counter%stop_count(l_increment=.false.)
-#endif
-
-!#ifdef OLD
-#ifdef WITH_OMP_GPU
+#else
       !$omp single
       call solve_counter%start_count()
       !$omp end single
@@ -469,6 +465,7 @@ contains
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
+#endif
 #else
       !$omp single
       call solve_counter%start_count()
@@ -558,7 +555,6 @@ contains
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
 #endif
-!#endif
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
