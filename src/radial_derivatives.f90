@@ -1375,7 +1375,7 @@ contains
       end if
 
       !-- 1st and 2nd derivatives
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
 #endif
       do n_r=nRstart,nRstop
@@ -1398,7 +1398,7 @@ contains
             &                  r_scheme%ddddr(n_r,4)*f_Rloc(lm,n_r+2)
          end do
       end do
-#ifdef WITH_OMP_GPU_OFF
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
 #endif
 

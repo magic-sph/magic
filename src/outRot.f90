@@ -8,7 +8,7 @@ module outRot
    use parallel_mod
    use precision_mod
    use communications, only: allgather_from_rloc, send_lm_pair_to_master
-   use truncation, only: n_r_max, n_r_maxMag, minc, n_phi_max, n_theta_max
+   use truncation, only: n_r_max, n_r_maxMag, minc, n_phi_max, n_theta_max, nlat_padded
    use grid_blocking, only: radlatlon2spat
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: r_icb, r_cmb, r, rscheme_oc, beta, visc
@@ -41,7 +41,8 @@ module outRot
    character(len=72) :: driftBD_file, driftBQ_file
 
    public :: write_rot, get_viscous_torque, get_angular_moment, get_angular_moment_Rloc, &
-   &         get_lorentz_torque, get_lorentz_torque_batch, initialize_outRot, finalize_outRot
+   &         get_lorentz_torque, get_lorentz_torque_batch, initialize_outRot,            &
+   &         finalize_outRot
 
 contains
 
@@ -490,7 +491,7 @@ contains
 #endif
 
    end subroutine get_lorentz_torque
-
+!-----------------------------------------------------------------------
    subroutine get_lorentz_torque_batch(lorentz_torque,br,bp,nR)
       !
       !  Purpose of this subroutine is to calculate the Lorentz torque
@@ -511,8 +512,8 @@ contains
       !
 
       !-- Input variables:
-      real(cp), intent(in) :: br(:,:,:)    ! array containing :math:`r^2 B_r`
-      real(cp), intent(in) :: bp(:,:,:)    ! array containing :math:`r\sin\theta B_\phi`
+      real(cp), intent(in) :: br(nlat_padded,nRstart:nRstop,n_phi_max)    ! array containing :math:`r^2 B_r`
+      real(cp), intent(in) :: bp(nlat_padded,nRstart:nRstop,n_phi_max)    ! array containing :math:`r\sin\theta B_\phi`
       integer,  intent(in) :: nR         ! radial level
 
       !-- Output variable:

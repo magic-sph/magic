@@ -17,15 +17,9 @@ module updateB_mod
    use truncation, only: n_r_max, n_r_tot, n_r_ic_max,             &
        &                 n_cheb_ic_max, n_r_ic_maxMag, n_r_maxMag, &
        &                 n_r_totMag, lm_max, l_maxMag, lm_maxMag
-#ifdef WITH_OMP_GPU
    use radial_functions, only: chebt_ic,or2,r_cmb,chebt_ic_even, d2cheb_ic,    &
        &                       cheb_norm_ic,dr_fac_ic,lambda,dLlambda,o_r_ic,r,&
        &                       or1, cheb_ic, dcheb_ic, rscheme_oc, dr_top_ic, l_R
-#else
-   use radial_functions, only: chebt_ic,or2,r_cmb,chebt_ic_even, d2cheb_ic,    &
-       &                       cheb_norm_ic,dr_fac_ic,lambda,dLlambda,o_r_ic,r,&
-       &                       or1, cheb_ic, dcheb_ic, rscheme_oc, dr_top_ic, l_R
-#endif
    use radial_data, only: n_r_cmb, n_r_icb, nRstartMag, nRstopMag
    use physical_parameters, only: n_r_LCR, opm, O_sr, kbotb, imagcon, tmagcon, &
        &                         sigma_ratio, conductance_ma, ktopb
@@ -78,7 +72,6 @@ module updateB_mod
    logical, public, allocatable :: lBmat(:)
    type(type_tri_par), public :: bMat_FD, jMat_FD
    complex(cp), allocatable, public :: b_ghost(:,:), aj_ghost(:,:)
-
 #ifdef WITH_OMP_GPU
    real(cp), allocatable :: datJmat(:,:)
    real(cp), allocatable :: datBmat(:,:)

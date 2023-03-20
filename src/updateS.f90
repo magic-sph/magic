@@ -52,7 +52,7 @@ module updateS_mod
    real(cp), allocatable :: rhs1(:,:,:)
 #endif
    complex(cp), allocatable, public :: s_ghost(:,:)
-   class(type_realmat), pointer :: sMat(:)
+   class(type_mrealmat), pointer :: sMat
 #ifdef WITH_PRECOND_S
    real(cp), allocatable :: sMat_fac(:,:)
 #endif
@@ -83,7 +83,7 @@ contains
       !
 
       integer, pointer :: nLMBs2(:)
-      integer :: ll,n_bands
+      integer :: n_bands
 #ifdef WITH_OMP_GPU
       logical :: use_gpu, use_pivot
       use_gpu = .false.; use_pivot = .true.
@@ -94,7 +94,7 @@ contains
          nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
 
          if ( l_finite_diff ) then
-            allocate( type_bandmat :: sMat(nLMBs2(1+rank)) )
+            allocate( type_mbandmat :: sMat )
 
             if ( ktops == 1 .and. kbots == 1 .and. rscheme_oc%order == 2 &
              &   .and. rscheme_oc%order_boundary <= 2 ) then ! Fixed entropy at both boundaries
@@ -104,26 +104,18 @@ contains
             end if
 
 #ifdef WITH_OMP_GPU
-            do ll=1,nLMBs2(1+rank)
-               call sMat(ll)%initialize(n_bands,n_r_max,use_pivot,use_gpu)
-            end do
+            call sMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),use_pivot,use_gpu)
 #else
-            do ll=1,nLMBs2(1+rank)
-               call sMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
-            end do
+            call sMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),l_pivot=.true.)
 #endif
          else
-            allocate( type_densemat :: sMat(nLMBs2(1+rank)) )
+            allocate( type_mdensemat :: sMat )
 
 #ifdef WITH_OMP_GPU
             use_gpu = .true.
-            do ll=1,nLMBs2(1+rank)
-               call sMat(ll)%initialize(n_r_max,n_r_max,use_pivot,use_gpu)
-            end do
+            call sMat%initialize(n_r_max,n_r_max,nLMBs2(1+rank),use_pivot,use_gpu)
 #else
-            do ll=1,nLMBs2(1+rank)
-               call sMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
-            end do
+            call sMat%initialize(n_r_max,n_r_max,nLMBs2(1+rank),l_pivot=.true.)
 #endif
          end if
 
@@ -204,16 +196,9 @@ contains
       ! Memory deallocation of updateS module
       !
 
-      integer, pointer :: nLMBs2(:)
-      integer :: ll
-
       deallocate( lSmat)
       if ( .not. l_parallel_solve ) then
-         nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
-
-         do ll=1,nLMBs2(1+rank)
-            call sMat(ll)%finalize()
-         end do
+         call sMat%finalize()
 #ifdef WITH_OMP_GPU
          !$omp target exit data map(delete: rhs1)
 #endif
@@ -261,11 +246,13 @@ contains
       complex(cp),       intent(inout) :: ds(llm:ulm,n_r_max) ! Radial derivative of entropy
 
       !-- Local variables:
+      logical :: l_LU_fac
       integer :: l1,m1          ! degree and order
       integer :: lm1,lm         ! position of (l,m) in array
       integer :: nLMB2,nLMB
       integer :: nR             ! counts radial grid points
       integer :: n_r_out        ! counts cheb modes
+      integer :: info           ! Integer to validate LU factorisation
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:),l2nLMB2(:)
@@ -321,20 +308,26 @@ contains
 
 #ifdef NEW
       call solve_counter%start_count()
-      !-- LU factorisation if required
-      if ( .not. lSmat(1) ) then
-         call up1_counter%start_count()
-         do nLMB2=1,nLMBs2(nLMB)
-            l1=lm22l(1,nLMB2,nLMB)
-            if ( .not. lSmat(l1) ) then
+      !-- Only fill the matrices: GPU looping could be only on nLMB2?
+      l_LU_fac=.false.
+      do nLMB2=1,nLMBs2(nLMB)
+         l1=lm22l(1,nLMB2,nLMB)
+         if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
-               call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2),sMat_fac(:,nLMB2))
+            call get_sMat(tscheme,l1,hdif_S(l1), sMat, nLMB2, sMat_fac(:,nLMB2), &
+                 &        l_LU=.false.)
 #else
-               call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2))
+            call get_sMat(tscheme,l1,hdif_S(l1), sMat, nLMB2, l_LU=.false.)
 #endif
-               lSmat(l1)=.true.
-            end if
-         end do
+            l_LU_fac=.true.
+            lSmat(l1)=.true.
+         end if
+      end do
+
+      if ( l_LU_fac ) then
+         call up1_counter%start_count()
+         call sMat%prepare(info)
+         if ( info /= 0 ) call abortRun('Singular matrix sMat!')
          call up1_counter%stop_count(l_increment=.false.)
       end if
 
@@ -372,7 +365,7 @@ contains
 
       !-- Solve matrices
       call up2_counter%start_count()
-      call solve_mat_real_dense(sMat,n_r_max,tmp_LMloc)
+      call sMat%solve(tmp_LMloc, llm, ulm, lm2l, l2nLMB2)
       call up2_counter%stop_count(l_increment=.false.)
 
       !-- Recombine into solution
@@ -385,7 +378,6 @@ contains
                s(lm,nR)=tmp_LMloc(nR,lm)
             else
                s(lm,nR)=cmplx(real(tmp_LMloc(nR,lm)),0.0_cp,kind=cp)
-               !if (l1 == 0) print*, nR, tmp_LMloc(nR,lm)
             end if
          end do
       end do
@@ -407,9 +399,9 @@ contains
          l1=lm22l(1,nLMB2,nLMB)
          if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
-            call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2),sMat_fac(:,nLMB2))
+            call get_sMat(tscheme,l1,hdif_S(l1),sMat,nLMB2,sMat_fac(:,nLMB2))
 #else
-            call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2))
+            call get_sMat(tscheme,l1,hdif_S(l1),sMat,nLMB2)
 #endif
             lSmat(l1)=.true.
          end if
@@ -444,13 +436,13 @@ contains
 
          !-- Solve matrices with batched RHS (hipsolver)
          lm=sizeLMB2(nLMB2,nLMB)
-         if(.not. sMat(nLMB2)%gpu_is_used) then
+         if (.not. sMat%gpu_is_used) then
             !$omp target update from(rhs1)
-            call sMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
+            call sMat%solve(rhs1(:,:,0),2*lm,nLMB2)
             !$omp target update to(rhs1)
          else
             call up2_counter%start_count()
-            call sMat(nLMB2)%solve(rhs1(:,:,0),2*lm,handle,devInfo)
+            call sMat%solve(rhs1(:,:,0),2*lm,nLMB2,handle,devInfo)
             call up2_counter%stop_count(l_increment=.false.)
          end if
 
@@ -498,9 +490,9 @@ contains
 
          if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
-            call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2),sMat_fac(:,nLMB2))
+            call get_sMat(tscheme,l1,hdif_S(l1),sMat,nLMB2,sMat_fac(:,nLMB2))
 #else
-            call get_sMat(tscheme,l1,hdif_S(l1),sMat(nLMB2))
+            call get_sMat(tscheme,l1,hdif_S(l1),sMat,nLMB2)
 #endif
             lSmat(l1)=.true.
          end if
@@ -537,8 +529,8 @@ contains
 #endif
             end do
 
-            call sMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*(lm-1),threadid), &
-                 &                 2*(lm-1-lmB0))
+            call sMat%solve(rhs1(:,2*(lmB0+1)-1:2*(lm-1),threadid), &
+                 &          2*(lm-1-lmB0),nLMB2)
 
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                lm1=lm22lm(lm,nLMB2,nLMB)
@@ -1683,9 +1675,9 @@ contains
    end subroutine assemble_entropy
 !-------------------------------------------------------------------------------
 #ifdef WITH_PRECOND_S
-   subroutine get_sMat(tscheme,l,hdif,sMat,sMat_fac)
+   subroutine get_sMat(tscheme,l,hdif,sMat,nLMB2,sMat_fac,l_LU)
 #else
-   subroutine get_sMat(tscheme,l,hdif,sMat)
+   subroutine get_sMat(tscheme,l,hdif,sMat,nLMB2,l_LU)
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matrices
@@ -1695,21 +1687,30 @@ contains
       !-- Input variables
       class(type_tscheme), intent(in) :: tscheme        ! time step
       real(cp),            intent(in) :: hdif
+      integer,             intent(in) :: nLMB2
       integer,             intent(in) :: l
+      logical, optional,   intent(in) :: l_LU
 
       !-- Output variables
-      class(type_realmat), intent(inout) :: sMat
+      class(type_mrealmat), intent(inout) :: sMat
 #ifdef WITH_PRECOND_S
       real(cp),intent(inout) :: sMat_fac(n_r_max)
 #endif
 
       !-- Local variables:
       integer :: info,nR_out,nR
+      logical :: l_LU_loc
       real(cp) :: dLh
 #ifndef WITH_OMP_GPU
       real(cp) :: dat(n_r_max,n_r_max)
 #endif
       real(cp) :: wimp_lin
+
+      if ( present(l_LU) ) then
+         l_LU_loc=l_LU
+      else
+         l_LU_loc=.true.
+      end if
 
       wimp_lin = tscheme%wimp_lin(1)
 
@@ -1905,21 +1906,23 @@ contains
 #endif
 
       !-- Array copy
-      call sMat%set_data(dat)
+      call sMat%set_data(dat, nLMB2)
 
       !-- LU decomposition:
+      if ( l_LU_loc ) then
 #ifdef WITH_OMP_GPU
-      if(.not. sMat%gpu_is_used) then
-         call sMat%prepare(info)
-      else
-         call sMat%prepare(info, handle, devInfo)
-      end if
+         if (.not. sMat%gpu_is_used) then
+            call sMat%prepare(nLMB2, info)
+         else
+            call sMat%prepare(nLMB2, info, handle, devInfo)
+         end if
 #else
-      call sMat%prepare(info)
+         call sMat%prepare(nLMB2, info)
 #endif
-      if ( info /= 0 ) call abortRun('Singular matrix sMat!')
+         if ( info /= 0 ) call abortRun('Singular matrix sMat!')
+      end if
 
-   end subroutine get_Smat
+   end subroutine get_sMat
 !-----------------------------------------------------------------------------
    subroutine get_sMat_Rdist(tscheme,hdif,sMat)
       !
@@ -2035,146 +2038,6 @@ contains
       !-- LU decomposition:
       call sMat%prepare_mat()
 
-   end subroutine get_Smat_Rdist
-!-----------------------------------------------------------------------------
-   subroutine solve_mat_real_dense(a,n,bc)
-      !
-      !  This routine does the backward substitution into a LU-decomposed real
-      !  matrix a (to solve a * x = bc ) simultaneously for nRHSs real
-      !  vectors bc. On return the results are stored in the bc.
-      !
-
-      !-- Input variables:
-      class(type_realmat), intent(in) :: a(:)
-      integer,             intent(in) :: n ! dimension of problem
-
-      !-- Output variables:
-      complex(cp), intent(inout) :: bc(1:n,llm:ulm) ! on input RHS of problem
-
-      !-- Local variables:
-      integer :: nm1,nodd,i,m,lm_start,lm_stop,nlms
-      integer :: k,k1,nRHS,nLMB2,l
-      complex(cp) :: help
-      integer, pointer :: nLMBs2(:), sizeLMB2(:,:), lm22lm(:,:,:), lm22l(:,:,:)
-      integer, pointer :: lm2l(:), l2nLMB2(:)
-
-      nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
-      sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
-      lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
-      lm22l(1:,1:,1:) => lo_sub_map%lm22l
-      lm2l(1:lm_max) => lo_map%lm2l
-      l2nLMB2(0:) => lo_sub_map%l2nLMB2
-
-      nm1 =n-1
-      nodd=mod(n,2)
-
-!#ifdef V1
-      !-- Single loop over lm's
-      do nRHS=llm,ulm
-
-         l=lm2l(nRHS)
-         nLMB2=l2nLMB2(l)
-
-         !-- Permute vectors bc
-         do k=1,nm1
-            m=a(nLMB2)%pivot(k)
-            help       =bc(m,nRHS)
-            bc(m,nRHS) =bc(k,nRHS)
-            bc(k,nRHS) =help
-         end do
-
-         !-- Solve  l * y = b
-         do k=1,n-2,2
-            k1=k+1
-            bc(k1,nRHS) =bc(k1,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(k1,k)
-            do i=k+2,n
-               bc(i,nRHS)=bc(i,nRHS)-(bc(k,nRHS)*a(nLMB2)%dat(i,k) + &
-               &                      bc(k1,nRHS)*a(nLMB2)%dat(i,k1))
-            end do
-         end do
-         if ( nodd == 0 ) then
-            bc(n,nRHS) =bc(n,nRHS)-bc(nm1,nRHS)*a(nLMB2)%dat(n,nm1)
-         end if
-
-         !-- Solve  u * x = y
-         do k=n,3,-2
-            k1=k-1
-            bc(k,nRHS)  =bc(k,nRHS)*a(nLMB2)%dat(k,k)
-            bc(k1,nRHS) =(bc(k1,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(k1,k)) * &
-            &            a(nLMB2)%dat(k1,k1)
-            do i=1,k-2
-               bc(i,nRHS)=bc(i,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(i,k) - &
-               &          bc(k1,nRHS)*a(nLMB2)%dat(i,k1)
-            end do
-         end do
-         if ( nodd == 0 ) then
-            bc(2,nRHS)=bc(2,nRHS)*a(nLMB2)%dat(2,2)
-            bc(1,nRHS)=(bc(1,nRHS)-bc(2,nRHS)*a(nLMB2)%dat(1,2))*a(nLMB2)%dat(1,1)
-         else
-            bc(1,nRHS)=bc(1,nRHS)*a(nLMB2)%dat(1,1)
-         end if
-
-      end do
-!#endif
-
-#ifdef V2
-      !-- Loop over ell's
-      do nLMB2=1,nLMBs2(rank+1)
-
-         ! This handles spherical harmonic degree l
-         !l=lm22l(1,nLMB2,rank+1)
-         !-- Boundaries of the inner loop depends on l:
-         lm_start=lm22lm(1,nLMB2,rank+1)
-         nlms    =sizeLMB2(nLMB2,rank+1)
-         lm_stop =nlms+lm_start-1
-
-         !print*, l, lm_start, lm_stop, nlms
-
-         !-- Permute vectors bc
-         do nRHS=lm_start,lm_stop
-            do k=1,nm1
-               m=a(nLMB2)%pivot(k)
-               help       =bc(m,nRHS)
-               bc(m,nRHS) =bc(k,nRHS)
-               bc(k,nRHS) =help
-            end do
-
-            !-- Solve  l * y = b
-            do k=1,n-2,2
-               k1=k+1
-               bc(k1,nRHS) =bc(k1,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(k1,k)
-               do i=k+2,n
-                  bc(i,nRHS)=bc(i,nRHS)-(bc(k,nRHS)*a(nLMB2)%dat(i,k) + &
-                  &                      bc(k1,nRHS)*a(nLMB2)%dat(i,k1))
-               end do
-            end do
-            if ( nodd == 0 ) then
-               bc(n,nRHS) =bc(n,nRHS)-bc(nm1,nRHS)*a(nLMB2)%dat(n,nm1)
-            end if
-
-            !-- Solve  u * x = y
-            do k=n,3,-2
-               k1=k-1
-               bc(k,nRHS)  =bc(k,nRHS)*a(nLMB2)%dat(k,k)
-               bc(k1,nRHS) =(bc(k1,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(k1,k)) * &
-               &            a(nLMB2)%dat(k1,k1)
-               do i=1,k-2
-                  bc(i,nRHS)=bc(i,nRHS)-bc(k,nRHS)*a(nLMB2)%dat(i,k) - &
-                  &          bc(k1,nRHS)*a(nLMB2)%dat(i,k1)
-               end do
-            end do
-            if ( nodd == 0 ) then
-               bc(2,nRHS)=bc(2,nRHS)*a(nLMB2)%dat(2,2)
-               bc(1,nRHS)=(bc(1,nRHS)-bc(2,nRHS)*a(nLMB2)%dat(1,2))*a(nLMB2)%dat(1,1)
-            else
-               bc(1,nRHS)=bc(1,nRHS)*a(nLMB2)%dat(1,1)
-            end if
-
-         end do
-
-      end do
-#endif
-
-   end subroutine solve_mat_real_dense
+   end subroutine get_sMat_Rdist
 !-----------------------------------------------------------------------------
 end module updateS_mod
