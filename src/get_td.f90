@@ -574,7 +574,7 @@ contains
          end if
          if ( l_heat ) then
 #ifdef WITH_OMP_GPU
-            !$omp end target teams distribute parallel do
+            !$omp target teams distribute parallel do
 #else
             !$omp parallel do
 #endif
@@ -589,7 +589,7 @@ contains
          end if
          if ( l_chemical_conv ) then
 #ifdef WITH_OMP_GPU
-            !$omp end target teams distribute parallel do
+            !$omp target teams distribute parallel do
 #else
             !$omp parallel do
 #endif
