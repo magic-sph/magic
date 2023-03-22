@@ -310,6 +310,7 @@ contains
       call solve_counter%start_count()
       !-- Only fill the matrices: GPU looping could be only on nLMB2?
       l_LU_fac=.false.
+      call up1_counter%start_count()
       do nLMB2=1,nLMBs2(nLMB)
          l1=lm22l(1,nLMB2,nLMB)
          if ( .not. lSmat(l1) ) then
@@ -325,11 +326,10 @@ contains
       end do
 
       if ( l_LU_fac ) then
-         call up1_counter%start_count()
          call sMat%prepare(info)
          if ( info /= 0 ) call abortRun('Singular matrix sMat!')
-         call up1_counter%stop_count(l_increment=.false.)
       end if
+      call up1_counter%stop_count(l_increment=.false.)
 
       !-- Copy and transpose bulk points
       !$omp target teams distribute parallel do collapse(2)
@@ -381,6 +381,7 @@ contains
          end do
       end do
       !$omp end target teams distribute parallel do
+
       call solve_counter%stop_count(l_increment=.false.)
 #else
       !$omp single
