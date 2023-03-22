@@ -142,9 +142,6 @@ if(USE_GPU MATCHES yes)
       target_link_libraries(${EXEC} ${HIPFORT})
       target_link_libraries(${EXEC} -L${ROCM_PATH}/lib -lamdhip64)
    endif()
-else()
-   target_link_libraries(${EXEC} -L${ROCM_PATH}/hipfft/lib/ -lhipfft)
-   target_link_libraries(${EXEC} -L${ROCM_PATH}/lib -lamdhip64)
 endif()
 
 # Link LIBFLAME and BLIS
