@@ -262,6 +262,9 @@ module dense_matrices
    end type type_densemat
 
    type, public, extends(type_mrealmat) :: type_mdensemat
+#ifdef WITH_OMP_GPU
+      integer, allocatable :: info_array(:,:)
+#endif
    contains
       procedure :: initialize => initialize_
       procedure :: finalize => finalize_
@@ -390,6 +393,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       if ( loc_use_gpu) then
+         allocate( this%info_array(this%nrow, this%nmat) )
+         this%info_array(:,:) = 0
          !$omp target enter data map(to : this)
       end if
 #endif
@@ -437,6 +442,12 @@ contains
       if ( this%l_pivot ) then
          deallocate (this%pivot)
       end if
+
+#ifdef WITH_OMP_GPU
+      if ( this%gpu_is_used ) then
+         deallocate( this%info_array )
+      end if
+#endif
 
    end subroutine finalize_
 !------------------------------------------------------------------------------
@@ -489,13 +500,9 @@ contains
       !-- Local variables:
       integer :: nm1,k,kp1,l,i,j,idx
       real(cp) :: help
-      integer, allocatable :: info_array(:,:)
 
       info=0
       nm1 =this%nrow-1
-
-      allocate( info_array(this%nrow, this%nmat) )
-      info_array(:,:) = 0
 
       !-- This external loop should be put on GPU
 #ifdef WITH_OMP_GPU
@@ -533,14 +540,23 @@ contains
                   end do
                end do
             else
-               info_array(k, idx)=k
+#ifdef WITH_OMP_GPU
+               this%info_array(k, idx)=k
+#else
+               info=k
+#endif
             end if
 
          end do
 
          this%pivot(this%nrow,idx)=this%nrow
          if ( abs(this%dat(this%nrow,this%nrow,idx)) <= 10.0_cp*epsilon(0.0_cp) ) &
-          &   info_array(this%nrow,idx)=this%nrow
+#ifdef WITH_OMP_GPU
+          &   this%info_array(this%nrow,idx)=this%nrow
+#else
+          &   info=this%nrow
+          if ( info > 0 ) return
+#endif
 
          do i=1,this%nrow
             this%dat(i,i,idx)=one/this%dat(i,i,idx)
@@ -549,19 +565,16 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
-#endif
-
-      !--
+      !$omp target teams distribute parallel do collapse(2) reduction(+: info)
       do idx=1,this%nmat
          do k=1,this%nrow
-            if ( info_array(k, idx) > 0 ) then
-               info = info_array(k, idx)
-               exit
+            if ( this%info_array(k, idx) > 0 ) then
+               info = info + 1
             end if
          end do
       end do
-
-      deallocate( info_array)
+      !$omp end target teams distribute parallel do
+#endif
 
    end subroutine prepare_all
 !------------------------------------------------------------------------------
@@ -799,6 +812,11 @@ contains
       integer :: nm1,nodd,i,m
       integer :: k,k1,nRHS,nLMB2,l,n
       complex(cp) :: help
+      integer, pointer :: ptr_pivot(:,:)
+      real(cp), pointer :: ptr_dat(:,:,:)
+
+      ptr_dat   => this%dat
+      ptr_pivot => this%pivot
 
       n = this%ncol
 
@@ -816,7 +834,7 @@ contains
 
          !-- Permute vectors rhs
          do k=1,nm1
-            m=this%pivot(k,nLMB2)
+            m=ptr_pivot(k,nLMB2)
             help       =rhs(m,nRHS)
             rhs(m,nRHS) =rhs(k,nRHS)
             rhs(k,nRHS) =help
@@ -825,32 +843,34 @@ contains
          !-- Solve  l * y = b
          do k=1,n-2,2
             k1=k+1
-            rhs(k1,nRHS) =rhs(k1,nRHS)-rhs(k,nRHS)*this%dat(k1,k,nLMB2)
+            rhs(k1,nRHS) =rhs(k1,nRHS)-rhs(k,nRHS)*ptr_dat(k1,k,nLMB2)
+            !DIR$ CONCURRENT
             do i=k+2,n
-               rhs(i,nRHS)=rhs(i,nRHS)-(rhs(k,nRHS)*this%dat(i,k,nLMB2) + &
-               &                      rhs(k1,nRHS)*this%dat(i,k1,nLMB2))
+               rhs(i,nRHS)=rhs(i,nRHS)-(rhs(k,nRHS)*ptr_dat(i,k,nLMB2) + &
+               &                      rhs(k1,nRHS)*ptr_dat(i,k1,nLMB2))
             end do
          end do
          if ( nodd == 0 ) then
-            rhs(n,nRHS) =rhs(n,nRHS)-rhs(nm1,nRHS)*this%dat(n,nm1,nLMB2)
+            rhs(n,nRHS) =rhs(n,nRHS)-rhs(nm1,nRHS)*ptr_dat(n,nm1,nLMB2)
          end if
 
          !-- Solve  u * x = y
          do k=n,3,-2
             k1=k-1
-            rhs(k,nRHS)  =rhs(k,nRHS)*this%dat(k,k,nLMB2)
-            rhs(k1,nRHS) =(rhs(k1,nRHS)-rhs(k,nRHS)*this%dat(k1,k,nLMB2)) * &
-            &            this%dat(k1,k1,nLMB2)
+            rhs(k,nRHS)  =rhs(k,nRHS)*ptr_dat(k,k,nLMB2)
+            rhs(k1,nRHS) =(rhs(k1,nRHS)-rhs(k,nRHS)*ptr_dat(k1,k,nLMB2)) * &
+            &            ptr_dat(k1,k1,nLMB2)
+            !DIR$ CONCURRENT
             do i=1,k-2
-               rhs(i,nRHS)=rhs(i,nRHS)-rhs(k,nRHS)*this%dat(i,k,nLMB2) - &
-               &          rhs(k1,nRHS)*this%dat(i,k1,nLMB2)
+               rhs(i,nRHS)=rhs(i,nRHS)-rhs(k,nRHS)*ptr_dat(i,k,nLMB2) - &
+               &          rhs(k1,nRHS)*ptr_dat(i,k1,nLMB2)
             end do
          end do
          if ( nodd == 0 ) then
-            rhs(2,nRHS)=rhs(2,nRHS)*this%dat(2,2,nLMB2)
-            rhs(1,nRHS)=(rhs(1,nRHS)-rhs(2,nRHS)*this%dat(1,2,nLMB2))*this%dat(1,1,nLMB2)
+            rhs(2,nRHS)=rhs(2,nRHS)*ptr_dat(2,2,nLMB2)
+            rhs(1,nRHS)=(rhs(1,nRHS)-rhs(2,nRHS)*ptr_dat(1,2,nLMB2))*ptr_dat(1,1,nLMB2)
          else
-            rhs(1,nRHS)=rhs(1,nRHS)*this%dat(1,1,nLMB2)
+            rhs(1,nRHS)=rhs(1,nRHS)*ptr_dat(1,1,nLMB2)
          end if
 
       end do
