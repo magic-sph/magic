@@ -34,7 +34,7 @@ module updateZ_mod
    use outRot, only: get_angular_moment, get_angular_moment_Rloc
    use RMS, only: DifTor2hInt
    use radial_der, only: get_ddr, get_ddr_ghost, bulk_to_ghost, exch_ghosts
-   use fields, only: work_LMloc
+   use fields, only: work_LMloc, tmp_LMloc
    use useful, only: abortRun, cc2real
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray, type_tscalar
@@ -56,12 +56,12 @@ module updateZ_mod
    !-- Input of recycled work arrays:
 #ifdef WITH_OMP_GPU
    real(cp), allocatable, target :: rhs1(:,:,:) ! RHS for other modes
-   complex(cp), allocatable, target :: rhs(:) ! rhs for l=1, m=0
+   real(cp), allocatable, target :: rhs(:) ! rhs for l=1, m=0
 #else
    real(cp), allocatable :: rhs1(:,:,:) ! RHS for other modes
-   complex(cp), allocatable :: rhs(:) ! rhs for l=1, m=0
+   real(cp), allocatable :: rhs(:) ! rhs for l=1, m=0
 #endif
-   class(type_realmat), pointer :: zMat(:), z10Mat
+   class(type_mrealmat), pointer :: zMat, z10Mat
 #ifdef WITH_PRECOND_Z
    real(cp), allocatable :: zMat_fac(:,:)
 #endif
@@ -80,7 +80,6 @@ module updateZ_mod
    real(cp), allocatable :: dat(:,:)
    type(c_ptr) :: handle = c_null_ptr
    integer, allocatable, target :: devInfo(:)
-   real(cp), pointer :: tmpr_cpx(:), tmpi_cpx(:)
 #endif
 
    public :: updateZ, initialize_updateZ, finalize_updateZ, get_tor_rhs_imp,  &
@@ -96,7 +95,7 @@ contains
       !
 
       integer, pointer :: nLMBs2(:)
-      integer :: ll, n_bands
+      integer :: n_bands
 #ifdef WITH_OMP_GPU
       logical :: use_gpu, use_pivot
       use_gpu = .false.; use_pivot = .true.
@@ -106,8 +105,8 @@ contains
          nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
 
          if ( l_finite_diff ) then
-            allocate( type_bandmat :: zMat(nLMBs2(1+rank)) )
-            allocate( type_bandmat :: z10Mat )
+            allocate( type_mbandmat :: zMat )
+            allocate( type_mbandmat :: z10Mat )
 
             if ( ktopv /= 1 .and. kbotv /= 1 .and. rscheme_oc%order <= 2  .and. &
             &    rscheme_oc%order_boundary <= 2 ) then ! Rigid at both boundaries
@@ -116,13 +115,11 @@ contains
                n_bands = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
             end if
 
-            do ll=1,nLMBs2(1+rank)
 #ifdef WITH_OMP_GPU
-               call zMat(ll)%initialize(n_bands,n_r_max,use_pivot,use_gpu)
+            call zMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),use_pivot,use_gpu)
 #else
-               call zMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
+            call zMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),l_pivot=.true.)
 #endif
-            end do
 
             !-- Special care when Inner Core or Mantle is free to rotate
             if ( ktopv /= 1 .and. kbotv /= 1 .and. rscheme_oc%order <= 2  .and. &
@@ -134,26 +131,22 @@ contains
             end if
 
 #ifdef WITH_OMP_GPU
-            call z10Mat%initialize(n_bands,n_r_max,use_pivot,use_gpu)
+            call z10Mat%initialize(n_bands,n_r_max,1,use_pivot,use_gpu)
 #else
-            call z10Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
+            call z10Mat%initialize(n_bands,n_r_max,1,l_pivot=.true.)
 #endif
 
          else
-            allocate( type_densemat :: zMat(nLMBs2(1+rank)) )
-            allocate( type_densemat :: z10Mat )
+            allocate( type_mdensemat :: zMat )
+            allocate( type_mdensemat :: z10Mat )
 
 #ifdef WITH_OMP_GPU
             use_gpu = .true.
-            call z10Mat%initialize(n_r_max,n_r_max,use_pivot,use_gpu)
-            do ll=1,nLMBs2(1+rank)
-               call zMat(ll)%initialize(n_r_max,n_r_max,use_pivot,use_gpu)
-            end do
+            call z10Mat%initialize(n_r_max,n_r_max,1,use_pivot,use_gpu)
+            call zMat%initialize(n_r_max,n_r_max,nLMBs2(1+rank),use_pivot,use_gpu)
 #else
-            call z10Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
-            do ll=1,nLMBs2(1+rank)
-               call zMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
-            end do
+            call z10Mat%initialize(n_r_max,n_r_max,1,l_pivot=.true.)
+            call zMat%initialize(n_r_max,n_r_max,nLMBs2(1+rank),l_pivot=.true.)
 #endif
          end if
 
@@ -188,9 +181,9 @@ contains
          bytes_allocated=bytes_allocated+n_r_max*maxThreads* &
          &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
          allocate(rhs(n_r_max))
-         bytes_allocated=bytes_allocated+n_r_max*SIZEOF_DEF_COMPLEX
+         bytes_allocated=bytes_allocated+n_r_max*SIZEOF_DEF_REAL
          rhs1 = zero
-         rhs(:)=zero
+         rhs(:)=0.0_cp
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: rhs1, rhs)
          !$omp target update to(rhs1, rhs)
@@ -232,11 +225,6 @@ contains
          devInfo(1) = 0
          !$omp target enter data map(alloc: devInfo)
          !$omp target update to(devInfo)
-         allocate(tmpr_cpx(n_r_max), tmpi_cpx(n_r_max))
-         tmpi_cpx(:) = 0.0_cp
-         tmpr_cpx(:) = 0.0_cp
-         !$omp target enter data map(alloc: tmpi_cpx, tmpr_cpx)
-         !$omp target update to(tmpi_cpx, tmpr_cpx)
       end if
 #endif
 
@@ -247,15 +235,8 @@ contains
       ! Memory deallocation of arrays associated with time advance of Z
       !
 
-      integer, pointer :: nLMBs2(:)
-      integer :: ll
-
       if ( .not. l_parallel_solve ) then
-         nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
-
-         do ll=1,nLMBs2(1+rank)
-            call zMat(ll)%finalize()
-         end do
+         call zMat%finalize()
          call z10Mat%finalize()
 
 #ifdef WITH_PRECOND_Z10
@@ -292,8 +273,6 @@ contains
          call hipblasCheck(hipblasDestroy(handle))
          !$omp target exit data map(delete: devInfo)
          deallocate(devInfo)
-         !$omp target exit data map(delete: tmpi_cpx, tmpr_cpx)
-         deallocate(tmpi_cpx, tmpr_cpx)
       end if
 #endif
 
@@ -326,6 +305,8 @@ contains
       real(cp),    intent(out) :: omega_ic              ! Calculated IC rotation
 
       !-- local variables:
+      logical :: l_LU_fac
+      integer :: info
       integer :: l1,m1              ! degree and order
       integer :: lm1,lm,lmB         ! position of (l,m) in array
       integer :: nLMB2
@@ -334,10 +315,10 @@ contains
 
       real(cp) :: prec_fac
       real(cp) :: dom_ma, dom_ic, lo_ma, lo_ic
-      integer :: l1m0          ! position of (l=1,m=0) and (l=1,m=1) in lm.
+      integer :: l1m0, l1m1
       integer :: nLMB
 
-      integer, pointer :: nLMBs2(:),lm2l(:)
+      integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:),l2nLMB2(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
@@ -367,9 +348,12 @@ contains
       lm22m(1:,1:,1:) => lo_sub_map%lm22m
       lm2(0:,0:) => lo_map%lm2
       lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
+      l2nLMB2(0:) => lo_sub_map%l2nLMB2
 
       nLMB = 1+rank
-      l1m0       =lm2(1,0)
+      l1m0 = lm2(1,0)
+      l1m1 = lm2(1,1)
 
       if ( l_rot_ma  .and. (.not. l_SRMA) ) then
          if ( ktopv == 1 ) then
@@ -390,6 +374,169 @@ contains
       !-- Now assemble the right hand side and store it in work_LMloc
       call tscheme%set_imex_rhs(work_LMloc, dzdt)
 
+#ifdef NEW
+      call solve_counter%start_count()
+      !-- Only fill the matrices: GPU looping could be only on nLMB2?
+      l_LU_fac=.false.
+      do nLMB2=1,nLMBs2(nLMB)
+         l1=lm22l(1,nLMB2,nLMB)
+         if ( (.not. lZmat(l1)) .and. (l1 > 0) ) then
+#ifdef WITH_PRECOND_Z
+            call get_zMat(tscheme,l1,hdif_V(l1),zMat,nLMB2,zMat_fac(:,nLMB2), &
+                 &        l_LU=.false.)
+#else
+            call get_zMat(tscheme,l1,hdif_V(l1),zMat,nLMB2,l_LU=.false.)
+#endif
+            l_LU_fac=.true.
+            lZmat(l1)=.true.
+         end if
+
+         if ( (l1==1) .and. l_z10mat .and. (.not. lZ10mat) ) then
+#ifdef WITH_PRECOND_Z10
+            call get_z10Mat(tscheme,l1,hdif_V(l1),z10Mat,z10Mat_fac)
+#else
+            call get_z10Mat(tscheme,l1,hdif_V(l1),z10Mat)
+#endif
+            lZ10mat=.true.
+         end if
+      end do
+
+      if ( l_LU_fac ) then
+         call zMat%prepare(info)
+         if ( info /= 0 ) call abortRun('Singular matrix zMat!')
+      end if
+
+      !-- Copy and transpose bulk points
+      !$omp target teams distribute parallel do collapse(2)
+      do lm=llm,ulm
+         do nR=2,n_r_max-1
+            tmp_LMloc(nR,lm)=work_LMLoc(lm,nR)
+            if ( l_precession .and. lm == l1m1 ) then
+               tmp_LMloc(nR,lm)=tmp_LMloc(nR,lm)+tscheme%wimp_lin(1)*prec_fac* &
+               !tmp_LMloc(nR,lm)=tmp_LMloc(nR,lm)+wimp_lin*prec_fac* &
+               &                cmplx(sin(oek*time),-cos(oek*time),kind=cp)
+            end if
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+      !----- This is the normal RHS for the other radial grid points:
+      if ( l_z10mat .and. (l1m0 >= llm .and. l1m0 <= ulm) ) then
+         do nR=2,n_r_max-1
+            rhs(nR)=real(work_LMloc(l1m0,nR))
+         end do
+
+         if ( l_SRMA ) then
+            tOmega_ma1=time+tShift_ma1
+            tOmega_ma2=time+tShift_ma2
+            omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
+            &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+            rhs(1)=omega_ma
+         else if ( ktopv == 2 .and. l_rot_ma ) then  ! time integration
+            rhs(1)=dom_ma
+         else
+            rhs(1)=0.0_cp
+         end if
+
+         if ( l_SRIC ) then
+            tOmega_ic1=time+tShift_ic1
+            tOmega_ic2=time+tShift_ic2
+            omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
+            &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+            rhs(n_r_max)=omega_ic
+         else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
+            rhs(n_r_max)=dom_ic
+         else
+            rhs(n_r_max)=0.0_cp
+         end if
+
+#ifdef WITH_PRECOND_Z10
+         do nR=1,n_r_max
+            rhs(nR)=z10Mat_fac(nR)*rhs(nR)
+         end do
+#endif
+      end if
+
+      !-- Apply boundary conditions
+      !$omp target teams distribute parallel do private(l1, m1)
+      do lm=llm,ulm
+         l1=lm2l(lm)
+         m1=lm2m(lm)
+         tmp_LMloc(1,lm)      =zero
+         tmp_LMloc(n_r_max,lm)=zero
+         if ( amp_RiIc /= 0.0_cp ) then
+            if (l1 == (m_RiIc + RiSymmIc) .and. m1 == m_RiIc) then
+               tmp_LMloc(n_r_max,lm)=amp_RiIc*cmplx(cos(omega_RiIc*time), &
+               &                                    sin(omega_RiIc*time),cp)
+            end if
+         end if
+         if ( amp_RiMa /= 0.0_cp ) then
+            if (l1 == (m_RiMa + RiSymmMa) .and. m1 == m_RiMa) then
+               tmp_LMloc(1,lm)=amp_RiMa*cmplx(cos(omega_RiMa*time), &
+               &                              sin(omega_RiMa*time),cp)
+            end if
+         end if
+      end do
+      !$omp end target teams distribute parallel do
+
+#ifdef WITH_PRECOND_Z
+      !-- Apply scaling prefactor
+      !$omp target teams distribute parallel do collapse(2) private(l1,nLMB2)
+      do lm=llm,ulm
+         do nR=1,n_r_max
+            l1=lm2l(lm)
+            nLMB2=l2nLMB2(l1)
+            tmp_LMloc(nR,lm)=zMat_fac(nR,nLMB2)*tmp_LMloc(nR,lm)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+#endif
+
+      !-- Solve matrices
+      call zMat%solve(tmp_LMloc, llm, ulm, lm2l, l2nLMB2)
+      if ( l_z10mat .and. ( l1m0 >= llm .and. l1m0 <= ulm) ) then
+#ifdef WITH_OMP_GPU
+         !-- Small solve for l=1, m=0 in case this is needed
+         if (.not. z10Mat%gpu_is_used) then
+            !$omp target update from(rhs)
+            call z10Mat%solve(rhs)
+            !$omp target update to(rhs)
+         else
+            call z10Mat%solve(rhs,handle,devInfo)
+         end if
+#else
+         call z10Mat%solve(rhs)
+#endif
+      end if
+
+      !-- Loop to reassemble fields
+      !$omp target teams distribute parallel do collapse(2) private(l1, m1, n_r_out)
+      do lm=llm,ulm
+         do n_r_out=1,rscheme_oc%n_max
+         !do n_r_out=1,n_max_rSchemeOc
+            l1=lm2l(lm)
+            m1=lm2m(lm)
+            if ( l1 == 0 ) then
+               z(lm,n_r_out)=zero
+            else
+               if ( l_z10mat .and. lm == l1m0 ) then
+                  z(lm,n_r_out)=cmplx(rhs(n_r_out),0.0_cp,cp)
+               else
+                  if ( m1 > 0 ) then
+                     z(lm,n_r_out)=tmp_LMloc(n_r_out,lm)
+                  else
+                     z(lm,n_r_out)=cmplx(real(tmp_LMloc(n_r_out,lm)),0.0_cp,cp)
+                  end if
+               end if
+            end if
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+      call solve_counter%stop_count()
+#endif
+
+!#ifdef OLD
 #ifndef WITH_OMP_GPU
       !$omp parallel default(shared)
 #endif
@@ -407,9 +554,9 @@ contains
          if ( l1 /= 0 ) then
             if ( .not. lZmat(l1) ) then
 #ifdef WITH_PRECOND_Z
-               call get_zMat(tscheme,l1,hdif_V(l1),zMat(nLMB2),zMat_fac(:,nLMB2))
+               call get_zMat(tscheme,l1,hdif_V(l1),zMat,nLMB2,zMat_fac(:,nLMB2))
 #else
-               call get_zMat(tscheme,l1,hdif_V(l1),zMat(nLMB2))
+               call get_zMat(tscheme,l1,hdif_V(l1),zMat,nLMB2)
 #endif
                lZmat(l1)=.true.
             end if
@@ -457,12 +604,12 @@ contains
 
                   !----- This is the normal RHS for the other radial grid points:
                   do nR=2,n_r_max-1
-                     rhs(nR)=work_LMloc(lm1,nR)
+                     rhs(nR)=real(work_LMloc(lm1,nR))
                   end do
 
 #ifdef WITH_PRECOND_Z10
                   do nR=1,n_r_max
-                     rhs(nR) = z10Mat_fac(nR)*rhs(nR)
+                     rhs(nR)=z10Mat_fac(nR)*rhs(nR)
                   end do
 #endif
 
@@ -500,8 +647,8 @@ contains
 
 #ifdef WITH_PRECOND_Z
                   do nR=1,n_r_max
-                  rhs1(nR,2*lm-1,0)=zMat_fac(nR,nLMB2)*rhs1(nR,2*lm-1,0)
-                  rhs1(nR,2*lm,0)  =zMat_fac(nR,nLMB2)*rhs1(nR,2*lm,0)
+                     rhs1(nR,2*lm-1,0)=zMat_fac(nR,nLMB2)*rhs1(nR,2*lm-1,0)
+                     rhs1(nR,2*lm,0)  =zMat_fac(nR,nLMB2)*rhs1(nR,2*lm,0)
                   end do
 #endif
                end if
@@ -517,17 +664,17 @@ contains
                   call z10Mat%solve(rhs)
                   !$omp target update to(rhs)
                else
-                  call z10Mat%solve(rhs,tmpr_cpx,tmpi_cpx,handle,devInfo)
+                  call z10Mat%solve(rhs,handle,devInfo)
                end if
             end if
             !-- Big solve for other modes
             lm=sizeLMB2(nLMB2,nLMB)
             if (.not. zMat(nLMB2)%gpu_is_used) then
                !$omp target update from(rhs1)
-               call zMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
+               call zMat%solve(rhs1(:,:,0),2*lm,nLMB2)
                !$omp target update to(rhs1)
             else
-               call zMat(nLMB2)%solve(rhs1(:,:,0),2*lm,handle,devInfo)
+               call zMat%solve(rhs1(:,:,0),2*lm,nLMB2,handle,devInfo)
             end if
 
             !-- Loop to reassemble fields
@@ -538,7 +685,7 @@ contains
 
                if ( l_z10mat .and. lm1 == l1m0 ) then
                   do n_r_out=1,n_max_rSchemeOc
-                     z(lm1,n_r_out)=real(rhs(n_r_out))
+                     z(lm1,n_r_out)=cmplx(rhs(n_r_out),0.0_cp,cp)
                   end do
                else
                   if ( m1 > 0 ) then
@@ -595,9 +742,9 @@ contains
          if ( l1 /= 0 ) then
             if ( .not. lZmat(l1) ) then
 #ifdef WITH_PRECOND_Z
-               call get_zMat(tscheme,l1,hdif_V(l1),zMat(nLMB2),zMat_fac(:,nLMB2))
+               call get_zMat(tscheme,l1,hdif_V(l1),zMat,nLMB2,zMat_fac(:,nLMB2))
 #else
-               call get_zMat(tscheme,l1,hdif_V(l1),zMat(nLMB2))
+               call get_zMat(tscheme,l1,hdif_V(l1),zMat,nLMB2)
 #endif
                lZmat(l1)=.true.
             end if
@@ -663,11 +810,11 @@ contains
 
                      !----- This is the normal RHS for the other radial grid points:
                      do nR=2,n_r_max-1
-                        rhs(nR)=work_LMloc(lm1,nR)
+                        rhs(nR)=real(work_LMloc(lm1,nR))
                      end do
 
 #ifdef WITH_PRECOND_Z10
-                     rhs(:) = z10Mat_fac(:)*rhs(:)
+                     rhs(:)=z10Mat_fac(:)*rhs(:)
 #endif
                      call z10Mat%solve(rhs)
 
@@ -717,7 +864,7 @@ contains
                end do
 
                !-- Linear solves
-               call zMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*lmB,threadid),2*(lmB-lmB0))
+               call zMat%solve(rhs1(:,2*(lmB0+1)-1:2*lmB,threadid),2*(lmB-lmB0),nLMB2)
 
                lmB=lmB0
                do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
@@ -726,7 +873,7 @@ contains
 
                   if ( l_z10mat .and. lm1 == l1m0 ) then
                      do n_r_out=1,rscheme_oc%n_max
-                        z(lm1,n_r_out)=real(rhs(n_r_out))
+                        z(lm1,n_r_out)=cmplx(rhs(n_r_out),0.0_cp,cp)
                      end do
                   else
                      lmB=lmB+1
@@ -762,6 +909,7 @@ contains
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
 #endif
+!#endif
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
@@ -2418,7 +2566,7 @@ contains
       integer,             intent(in) :: l       ! Variable to loop over degrees
 
       !-- Output: z10Mat and pivot_z10
-      class(type_realmat), intent(inout) :: zMat
+      class(type_mrealmat), intent(inout) :: zMat
 #ifdef WITH_PRECOND_Z10
       real(cp), intent(out) :: zMat_fac(n_r_max)     ! Inverse of max(zMat) for inversion
 #endif
@@ -2607,7 +2755,7 @@ contains
 #endif
 
       !-- Array copy
-      call zMat%set_data(dat)
+      call zMat%set_data(dat, 1)
 
       !-- LU-decomposition of z10mat:
 #ifdef WITH_OMP_GPU
@@ -2625,9 +2773,9 @@ contains
    end subroutine get_z10Mat
 !-------------------------------------------------------------------------------
 #ifdef WITH_PRECOND_Z
-   subroutine get_zMat(tscheme,l,hdif,zMat,zMat_fac)
+   subroutine get_zMat(tscheme,l,hdif,zMat,nLMB2,zMat_fac,l_LU)
 #else
-   subroutine get_zMat(tscheme,l,hdif,zMat)
+   subroutine get_zMat(tscheme,l,hdif,zMat,nLMB2)
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matrices
@@ -2637,15 +2785,18 @@ contains
       !-- Input variables:
       class(type_tscheme), intent(in) :: tscheme  ! time step
       integer,             intent(in) :: l        ! Variable to loop over degrees
+      integer,             intent(in) :: nLMB2
       real(cp),            intent(in) :: hdif     ! Hyperdiffusivity
+      logical, optional,   intent(in) :: l_LU
 
       !-- Output variables:
-      class(type_realmat), intent(inout) :: zMat
+      class(type_mrealmat), intent(inout) :: zMat
 #ifdef WITH_PRECOND_Z
       real(cp), intent(out) :: zMat_fac(n_r_max)     !  Inverse of max(zMat) for the inversion
 #endif
 
       !-- local variables:
+      logical :: l_LU_loc
       integer :: nR,nR_out
       integer :: info
       real(cp) :: dLh
@@ -2655,6 +2806,12 @@ contains
       character(len=80) :: message
       character(len=14) :: str, str_1
       real(cp) :: wimp_lin
+
+      if ( present(l_LU) ) then
+         l_LU_loc=l_LU
+      else
+         l_LU_loc=.true.
+      end if
 
       wimp_lin = tscheme%wimp_lin(1)
       dLh=real(l*(l+1),kind=cp)
@@ -2821,25 +2978,27 @@ contains
 #endif
 
       !-- Array copy
-      call zMat%set_data(dat)
+      call zMat%set_data(dat,nLMB2)
 
       !-- LU decomposition:
+      if ( l_LU_loc ) then
 #ifdef WITH_OMP_GPU
-      if(.not. zMat%gpu_is_used) then
-         call zMat%prepare(info)
-      else
-         call zMat%prepare(info, handle, devInfo)
-      end if
+         if ( .not. zMat%gpu_is_used ) then
+            call zMat%prepare(nLMB2, info)
+         else
+            call zMat%prepare(nLMB2, info, handle, devInfo)
+         end if
 #else
-      call zMat%prepare(info)
+         call zMat%prepare(nLMB2, info)
 #endif
 
-      if ( info /= 0 ) then
-         write(str, *) l
-         write(str_1, *) info
-         message='Singular matrix zmat for l='//trim(adjustl(str))//&
-         &       ', info = '//trim(adjustl(str_1))
-         call abortRun(message)
+         if ( info /= 0 ) then
+            write(str, *) l
+            write(str_1, *) info
+            message='Singular matrix zmat for l='//trim(adjustl(str))//&
+            &       ', info = '//trim(adjustl(str_1))
+            call abortRun(message)
+         end if
       end if
 
    end subroutine get_zMat

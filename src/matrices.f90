@@ -354,7 +354,8 @@ contains
       logical, optional, intent(in) :: use_gpu
 #endif
 
-      !--
+      !-- Local variables
+      integer ::i, j, k
       logical :: loc_use_gpu
       loc_use_gpu = .false.
       this%gpu_is_used=.false.
@@ -372,7 +373,17 @@ contains
       this%nmat = nmat
       this%l_pivot = l_pivot
       allocate( this%dat(nx, ny, nmat) )
-      this%dat(:,:,:) = 0.0_cp
+      do k = 1,this%nmat
+         do j=1,this%ncol
+            do i=1,this%nrow
+               if ( i == j ) then
+                  this%dat(i,j,k)=1.0_cp
+               else
+                  this%dat(i,j,k)=0.0_cp
+               end if
+            end do
+         end do
+      end do
       bytes_allocated = bytes_allocated+nx*ny*nmat*SIZEOF_DEF_REAL
 #ifdef WITH_OMP_GPU
       if ( loc_use_gpu) then
@@ -1017,11 +1028,13 @@ contains
 
       if ( nx > 3 .and. this%l_pivot ) then
          allocate( this%dat(nx+(nx-1)/2, ny, nmat) )
-         this%dat(:,:,:) = 0.0_cp
+         this%dat(:,:,:)=0.0_cp
+         this%dat(this%kl+this%ku+1,:,:)=1.0_cp ! Identity matrix
          bytes_allocated = bytes_allocated+(nx+(nx-1)/2)*ny*nmat*SIZEOF_DEF_REAL
-      else
+      else ! Tridiag
          allocate( this%dat(nx, ny, nmat) )
          this%dat(:,:,:) = 0.0_cp
+         this%dat(2,:,:) = 1.0_cp
          bytes_allocated = bytes_allocated+nx*ny*nmat*SIZEOF_DEF_REAL
       end if
       if ( this%l_pivot ) then
