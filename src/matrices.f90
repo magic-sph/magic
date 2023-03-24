@@ -1112,7 +1112,147 @@ contains
       class(type_mbandmat) :: this
       integer, intent(out) :: info
 
-      print*, 'Not implemented at this stage'
+      !-- Local variables
+      real(cp) :: fact, temp
+      integer :: i0, j, ju, jz, j0, j1, k, kp1, l, lm, m, mm, nm1, i, idx
+
+
+      info = 0
+      if ( this%nrow == 3 ) then ! This is the tridiag version
+
+         do idx=1,this%nmat
+            !-- Initialize pivot(i) = i and du2(I) = 0
+            do i = 1, this%ncol
+               this%pivot(i,idx) = i
+            end do
+
+            this%du2(:,idx) = 0.0_cp
+            do i = 1, this%ncol-2
+               if ( abs(this%dat(2,i,idx)) >= abs(this%dat(3,i,idx))) then
+                  !-- No row interchange required, eliminate DL(I)
+                  if ( this%dat(2,i,idx) > 10.0_cp*epsilon(0.0_cp) ) then
+                     fact = this%dat(3,i,idx)/this%dat(2,i,idx)
+                     this%dat(3,i,idx) = fact
+                     this%dat(2,i+1,idx) = this%dat(2,i+1,idx) - fact*this%dat(1,i+1,idx)
+                  end if
+               else
+                  !-- Interchange rows I and I+1, eliminate DL(I)
+                  fact = this%dat(2,i,idx)/this%dat(3,i,idx)
+                  this%dat(2,i,idx) = this%dat(3,i,idx)
+                  this%dat(3,i,idx) = fact
+                  temp = this%dat(1,i+1,idx)
+                  this%dat(1,i+1,idx) = this%dat(2,i+1,idx)
+                  this%dat(2,i+1,idx) = temp - fact*this%dat(2,i+1,idx)
+                  this%du2(i,idx) = this%dat(1,i+2,idx)
+                  this%dat(1,i+2,idx) = -fact*this%dat(1,i+2,idx)
+                  this%pivot(i,idx) = i + 1
+               end if
+            end do
+
+            i = this%ncol - 1
+            if ( abs(this%dat(2,i,idx)) >= abs(this%dat(3,i,idx)) ) then
+               if ( this%dat(2,i,idx) > 10.0_cp*epsilon(0.0_cp) ) then
+                  fact = this%dat(3,i,idx)/this%dat(2,i,idx)
+                  this%dat(3,i,idx) = fact
+                  this%dat(2,i+1,idx) = this%dat(2,i+1,idx) - fact*this%dat(1,i,idx)
+               end if
+            else
+               fact = this%dat(2,i,idx) / this%dat(3,i,idx)
+               this%dat(2,i,idx) = this%dat(3,i,idx)
+               this%dat(3,i,idx) = fact
+               temp = this%dat(1,i,idx)
+               this%dat(1,i,idx) = this%dat(2,i+1,idx)
+               this%dat(2,i+1,idx) = temp - fact*this%dat(2,i+1,idx)
+               this%pivot(i,idx) = i + 1
+            end if
+
+            !-- Check for a zero on the diagonal of u.
+            outer: do i = 1, this%ncol
+               if ( this%dat(2,i,idx) <= 10.0_cp*epsilon(0.0_cp) ) then
+                  info = i
+                  exit outer
+               end if
+            end do outer
+
+         end do
+         
+      else ! This is the generic banded version
+
+         m = this%kl + this%ku + 1
+         j0 = this%ku + 2
+         j1 = min(this%ncol,m) - 1
+
+         do idx=1,this%nmat
+            if ( j1 >= j0 ) then
+               do jz = j0, j1
+                  i0 = m + 1 - jz
+                  do i = i0, this%kl
+                     this%dat(i,jz,idx)=0.0_cp
+                  end do
+               end do
+            end if
+            jz = j1
+            ju = 0
+
+            !-- Gaussian elimination
+            nm1 = this%ncol - 1
+            if (nm1 >= 1) then
+               do k = 1, nm1
+                  kp1 = k + 1
+
+                  jz = jz + 1
+                  if ( jz <= this%ncol .and. this%kl >= 1 ) then
+                     do i = 1, this%kl
+                        this%dat(i,jz,idx)=0.0_cp
+                     end do
+                  end if
+
+                  lm = min(this%kl,this%ncol-k)
+                  l = maxloc(abs(this%dat(m:m+lm,k,idx)),dim=1)+m-1
+
+                  this%pivot(k,idx) = l + k - m
+
+                  if ( abs(this%dat(l,k,idx)) > 10.0_cp*epsilon(0.0_cp) ) then
+
+                     if (l /= m) then
+                        temp = this%dat(l,k,idx)
+                        this%dat(l,k,idx) = this%dat(m,k,idx)
+                        this%dat(m,k,idx) = temp
+                     end if
+
+                     !-- Compute multipliers
+                     temp = -1.0_cp/this%dat(m,k,idx)
+                     this%dat(m+1:,k,idx)=temp*this%dat(m+1:,k,idx)
+
+                     !-- Row elimination
+                     ju = min(max(ju,this%ku+this%pivot(k,idx)),this%ncol)
+                     mm = m
+                     if ( ju >=  kp1 ) then
+                        do j = kp1, ju
+                           l = l - 1
+                           mm = mm - 1
+                           temp = this%dat(l,j,idx)
+                           if ( l /= mm) then
+                              this%dat(l,j,idx) = this%dat(mm,j,idx)
+                              this%dat(mm,j,idx) = temp
+                           end if
+                           this%dat(mm+1:mm+lm,j,idx)=this%dat(mm+1:mm+lm,j,idx) + &
+                           &                          temp*this%dat(m+1:m+lm,k,idx)
+                        end do
+                     end if
+                  else
+                     info = k
+                  end if
+               end do
+            end if
+
+            this%pivot(this%ncol,idx) = this%ncol
+
+            if ( abs(this%dat(m,this%ncol,idx)) <= 10.0_cp*epsilon(0.0_cp) ) info = this%ncol
+
+         end do
+
+      end if
 
    end subroutine prepare_all
 !------------------------------------------------------------------------------
@@ -1300,7 +1440,87 @@ contains
       !-- In/Out variables
       complex(cp), intent(inout) :: rhs(this%ncol, llm:ulm)
 
-      print*, 'Implementation to be completed...'
+      !-- Local variables
+      integer :: i, nRHS, l, nLMB2, m, nm1, k, kb, la, lb, lm, ll
+      complex(cp) :: temp
+
+      if ( this%nrow == 3 ) then ! This is the tridiagonal solver
+
+         !-- Single loop over lm's
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do private(i,nLMB2,l,temp)
+#endif
+         do nRHS=llm,ulm
+
+            l=lm2l(nRHS)
+            nLMB2=l2nLMB2(l)
+
+            !-- Solve L*x = rhs.
+            do i = 1, this%ncol-1
+               if ( this%pivot(i,nLMB2) == i ) then
+                  rhs(i+1,nRHS)=rhs(i+1,nRHS)-this%dat(3,i,nLMB2)*rhs(i,nRHS)
+               else
+                  temp=rhs(i,nRHS)
+                  rhs(i,nRHS)=rhs(i+1,nRHS)
+                  rhs(i+1,nRHS)=temp-this%dat(3,i,nLMB2)*rhs(i,nRHS)
+               end if
+            end do
+
+            !-- Solve U*x = rhs.
+            rhs(this%ncol,nRHS) = rhs(this%ncol,nRHS)/this%dat(2,this%ncol,nLMB2)
+            rhs(this%ncol-1,nRHS) = (rhs(this%ncol-1,nRHS) -        &
+            &                        this%dat(1,this%ncol,nLMB2)*   &
+            &                        rhs(this%ncol,nRHS))/this%dat(2,this%ncol-1,nLMB2)
+            do i = this%ncol-2,1,-1
+               rhs(i,nRHS) = (rhs(i,nRHS)-this%dat(1,i+1,nLMB2)*rhs(i+1,nRHS) - &
+               &              this%du2(i,nLMB2)*rhs(i+2,nRHS))/this%dat(2,i,nLMB2)
+            end do
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
+
+      else ! This is the band solver
+
+         m = this%ku + this%kl + 1
+         nm1 = this%ncol - 1
+
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do private(k,l,nLMB2,ll,temp,lm,kb,la,lb)
+#endif
+         do nRHS=llm,ulm
+
+            ll=lm2l(nRHS)
+            nLMB2=l2nLMB2(ll)
+
+            !-- First solve Ly = rhs
+            do k = 1, nm1
+               lm = min(this%kl,this%ncol-k)
+               l = this%pivot(k,nLMB2)
+               temp = rhs(l,nRHS)
+               if (l /= k) then
+                  rhs(l,nRHS) = rhs(k,nRHS)
+                  rhs(k,nRHS) = temp
+               end if
+               rhs(k+1:k+lm,nRHS)=rhs(k+1:k+lm,nRHS)+temp*this%dat(m+1:m+lm,k,nLMB2)
+            end do
+
+            !-- Solve u*x =y
+            do kb = 1, this%ncol
+               k = this%ncol + 1 - kb
+               rhs(k,nRHS) = rhs(k,nRHS)/this%dat(m,k,nLMB2)
+               lm = min(k,m) - 1
+               la = m - lm
+               lb = k - lm
+               temp = -rhs(k,nRHS)
+               rhs(lb:lb+lm-1,nRHS)=rhs(lb:lb+lm-1,nRHS)+temp*this%dat(la:la+lm-1,k,nLMB2)
+            end do
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#endif
+
+      end if
 
    end subroutine solve_all_mats
 !------------------------------------------------------------------------------
