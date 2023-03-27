@@ -1,3 +1,4 @@
+#define NEW_SOLVE_Z
 module updateZ_mod
    !
    ! This module handles the time advance of the toroidal potential z
@@ -374,8 +375,14 @@ contains
       !-- Now assemble the right hand side and store it in work_LMloc
       call tscheme%set_imex_rhs(work_LMloc, dzdt)
 
-#ifdef NEW
+#ifndef WITH_OMP_GPU
+      !$omp parallel default(shared)
+#endif
+
+#ifdef WITH_OMP_GPU
+#ifdef NEW_SOLVE_Z
       call solve_counter%start_count()
+
       !-- Only fill the matrices: GPU looping could be only on nLMB2?
       l_LU_fac=.false.
       do nLMB2=1,nLMBs2(nLMB)
@@ -390,7 +397,6 @@ contains
             l_LU_fac=.true.
             lZmat(l1)=.true.
          end if
-
          if ( (l1==1) .and. l_z10mat .and. (.not. lZ10mat) ) then
 #ifdef WITH_PRECOND_Z10
             call get_z10Mat(tscheme,l1,hdif_V(l1),z10Mat,z10Mat_fac)
@@ -412,8 +418,7 @@ contains
          do nR=2,n_r_max-1
             tmp_LMloc(nR,lm)=work_LMLoc(lm,nR)
             if ( l_precession .and. lm == l1m1 ) then
-               tmp_LMloc(nR,lm)=tmp_LMloc(nR,lm)+tscheme%wimp_lin(1)*prec_fac* &
-               !tmp_LMloc(nR,lm)=tmp_LMloc(nR,lm)+wimp_lin*prec_fac* &
+               tmp_LMloc(nR,lm)=tmp_LMloc(nR,lm)+wimp_lin*prec_fac* &
                &                cmplx(sin(oek*time),-cos(oek*time),kind=cp)
             end if
          end do
@@ -422,20 +427,28 @@ contains
 
       !----- This is the normal RHS for the other radial grid points:
       if ( l_z10mat .and. (l1m0 >= llm .and. l1m0 <= ulm) ) then
+         !$omp target teams distribute parallel do
          do nR=2,n_r_max-1
             rhs(nR)=real(work_LMloc(l1m0,nR))
          end do
+         !$omp end target teams distribute parallel do
 
          if ( l_SRMA ) then
             tOmega_ma1=time+tShift_ma1
             tOmega_ma2=time+tShift_ma2
             omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
             &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+            !$omp target
             rhs(1)=omega_ma
+            !$omp end target
          else if ( ktopv == 2 .and. l_rot_ma ) then  ! time integration
+            !$omp target
             rhs(1)=dom_ma
+            !$omp end target
          else
+            !$omp target
             rhs(1)=0.0_cp
+            !$omp end target
          end if
 
          if ( l_SRIC ) then
@@ -443,17 +456,25 @@ contains
             tOmega_ic2=time+tShift_ic2
             omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
             &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+            !$omp target
             rhs(n_r_max)=omega_ic
+            !$omp end target
          else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
+            !$omp target
             rhs(n_r_max)=dom_ic
+            !$omp end target
          else
+            !$omp target
             rhs(n_r_max)=0.0_cp
+            !$omp end target
          end if
 
 #ifdef WITH_PRECOND_Z10
+         !$omp target teams distribute parallel do
          do nR=1,n_r_max
             rhs(nR)=z10Mat_fac(nR)*rhs(nR)
          end do
+         !$omp end target teams distribute parallel do
 #endif
       end if
 
@@ -495,7 +516,6 @@ contains
       !-- Solve matrices
       call zMat%solve(tmp_LMloc, llm, ulm, lm2l, l2nLMB2)
       if ( l_z10mat .and. ( l1m0 >= llm .and. l1m0 <= ulm) ) then
-#ifdef WITH_OMP_GPU
          !-- Small solve for l=1, m=0 in case this is needed
          if (.not. z10Mat%gpu_is_used) then
             !$omp target update from(rhs)
@@ -504,13 +524,10 @@ contains
          else
             call z10Mat%solve(rhs,handle,devInfo)
          end if
-#else
-         call z10Mat%solve(rhs)
-#endif
       end if
 
       !-- Loop to reassemble fields
-      !$omp target teams distribute parallel do collapse(2) private(l1, m1, n_r_out)
+      !$omp target teams distribute parallel do collapse(2) private(l1, m1)
       do lm=llm,ulm
          do n_r_out=1,rscheme_oc%n_max
          !do n_r_out=1,n_max_rSchemeOc
@@ -534,14 +551,7 @@ contains
       !$omp end target teams distribute parallel do
 
       call solve_counter%stop_count()
-#endif
-
-!#ifdef OLD
-#ifndef WITH_OMP_GPU
-      !$omp parallel default(shared)
-#endif
-
-#ifdef WITH_OMP_GPU
+#else
       !$omp single
       call solve_counter%start_count()
       !$omp end single
@@ -718,8 +728,8 @@ contains
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
+#endif
 #else
-
       !$omp single
       call solve_counter%start_count()
       !$omp end single
@@ -909,7 +919,6 @@ contains
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
 #endif
-!#endif
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
@@ -2762,7 +2771,7 @@ contains
       if(.not. zMat%gpu_is_used) then
          call zMat%prepare(info)
       else
-         call zMat%prepare(info, handle, devInfo)
+         call zMat%prepare(1, info, handle, devInfo)
       end if
 #else
       call zMat%prepare(info)
@@ -2991,7 +3000,6 @@ contains
 #else
          call zMat%prepare(nLMB2, info)
 #endif
-
          if ( info /= 0 ) then
             write(str, *) l
             write(str_1, *) info
