@@ -188,14 +188,20 @@ contains
       integer :: n_spec_signal     ! =1 causes output of a spec file
       integer :: n_pot_signal      ! =1 causes output for pot files
 #ifdef WITH_OMP_GPU
+      integer :: lm_loc, nr_loc
+      complex(cp), pointer :: dVLM_Rloc_ptr(:,:)
       complex(cp), allocatable :: loc_dvxi(:,:), loc_dvs(:,:), loc_dvxv(:,:), loc_dvb(:,:)
       allocate(loc_dvxi(llm:ulm,1:n_r_max))
       allocate(loc_dvs(llm:ulm,1:n_r_max))
       allocate(loc_dvxv(llm:ulm,1:n_r_max))
       allocate(loc_dvb(llmMag:ulmMag,1:n_r_maxMag))
-      loc_dvxi(:,:) = zero; loc_dvs(:,:) = zero; loc_dvxv(:,:) = zero; loc_dvb(:,:) = zero
+      loc_dvxi(:,:) = zero
+      loc_dvs(:,:)  = zero
+      loc_dvxv(:,:) = zero
+      loc_dvb(:,:)  = zero
       !$omp target enter data map(alloc: loc_dvxi, loc_dvs, loc_dvxv, loc_dvb)
       !$omp target update to(loc_dvxi, loc_dvs, loc_dvxv, loc_dvb)
+      lm_loc = 0; nr_loc = 0
 #endif
 
       if ( lVerbose ) write(output_unit,'(/,'' ! STARTING STEP_TIME !'')')
@@ -888,34 +894,62 @@ contains
                !---------------
                ! Finish assembing the explicit terms
                !---------------
-               if ( (.not. l_finish_exp_early) ) then
 #ifdef WITH_OMP_GPU
+               if ( (.not. l_finish_exp_early) ) then
                   if ( l_chemical_conv ) then
-                     loc_dvxi(:,:) = dVXirLM_LMLoc(:,:,tscheme%istage)
-                     !$omp target update to(loc_dvxi)
+                     dVLM_Rloc_ptr(llm:,1:) => dVXirLM_LMLoc(:,:,tscheme%istage)
                      !$omp target update to(dxidt)
+                     !$omp target update to(dVXirLM_LMLoc)
+                     !$omp target teams distribute parallel do collapse(2)
+                     do nr_loc=1,n_r_max
+                        do lm_loc=llm,ulm
+                           loc_dvxi(lm_loc,nr_loc) = dVLM_Rloc_ptr(lm_loc,nr_loc)
+                        end do
+                     end do
+                     !$omp end target teams distribute parallel do
                   end if
                   if ( l_double_curl ) then
-                     loc_dvxv(:,:) = dVxVhLM_LMloc(:,:,tscheme%istage)
-                     !$omp target update to(loc_dvxv)
+                     dVLM_Rloc_ptr(llm:,1:) => dVxVhLM_LMloc(:,:,tscheme%istage)
                      !$omp target update to(dwdt)
+                     !$omp target update to(dVxVhLM_LMloc)
+                     !$omp target teams distribute parallel do collapse(2)
+                     do nr_loc=1,n_r_max
+                        do lm_loc=llm,ulm
+                           loc_dvxv(lm_loc,nr_loc) = dVLM_Rloc_ptr(lm_loc,nr_loc)
+                        end do
+                     end do
+                     !$omp end target teams distribute parallel do
                   end if
                   if ( l_mag ) then
-                     loc_dvb(:,:)  = dVxBhLM_LMloc(:,:,tscheme%istage)
-                     !$omp target update to(loc_dvb)
+                     dVLM_Rloc_ptr(llmMag:,1:) => dVxBhLM_LMloc(:,:,tscheme%istage)
                      !$omp target update to(djdt)
+                     !$omp target update to(dVxBhLM_LMloc)
+                     !$omp target teams distribute parallel do collapse(2)
+                     do nr_loc=1,n_r_maxMag
+                        do lm_loc=llmMag,ulmMag
+                           loc_dvb(lm_loc,nr_loc) = dVLM_Rloc_ptr(lm_loc,nr_loc)
+                        end do
+                     end do
+                     !$omp end target teams distribute parallel do
                   end if
                   if ( l_heat ) then
-                     loc_dvs(:,:)  = dVSrLM_LMLoc(:,:,tscheme%istage)
-                     !$omp target update to(loc_dvs)
+                     dVLM_Rloc_ptr(llm:,1:) => dVSrLM_LMLoc(:,:,tscheme%istage)
                      !$omp target update to(dsdt)
+                     !$omp target update to(dVSrLM_LMLoc)
+                     !$omp target teams distribute parallel do collapse(2)
+                     do nr_loc=1,n_r_max
+                        do lm_loc=llm,ulm
+                           loc_dvs(lm_loc,nr_loc) = dVLM_Rloc_ptr(lm_loc,nr_loc)
+                        end do
+                     end do
+                     !$omp end target teams distribute parallel do
                   end if
                   !$omp target update to(w_LMloc)
                   if ( l_cond_ic ) then
                      !$omp target update to(b_ic_LMloc, aj_ic_LMLoc, dbdt_ic, djdt_ic)
                   end if
-#endif
                end if
+#endif
                call lmLoop_counter%start_count()
                if ( (.not. l_finish_exp_early) ) then
                   call f_exp_counter%start_count()
@@ -937,33 +971,61 @@ contains
                   call f_exp_counter%stop_count()
                end if
                call lmLoop_counter%stop_count(l_increment=.false.)
-               if ( (.not. l_finish_exp_early) ) then
 #ifdef WITH_OMP_GPU
+               if ( (.not. l_finish_exp_early) ) then
                   if ( l_chemical_conv ) then
-                     !$omp target update from(loc_dvxi)
+                     dVLM_Rloc_ptr(llm:,1:) => dVXirLM_LMLoc(:,:,tscheme%istage)
+                     !$omp target teams distribute parallel do collapse(2)
+                     do nr_loc=1,n_r_max
+                        do lm_loc=llm,ulm
+                           dVLM_Rloc_ptr(lm_loc,nr_loc) = loc_dvxi(lm_loc,nr_loc)
+                        end do
+                     end do
+                     !$omp end target teams distribute parallel do
                      !$omp target update from(dxidt)
-                     dVXirLM_LMLoc(:,:,tscheme%istage) = loc_dvxi(:,:)
+                     !$omp target update from(dVXirLM_LMLoc)
                   end if
                   if ( l_double_curl ) then
-                     !$omp target update from(loc_dvxv)
+                     dVLM_Rloc_ptr(llm:,1:) => dVxVhLM_LMloc(:,:,tscheme%istage)
+                     !$omp target teams distribute parallel do collapse(2)
+                     do nr_loc=1,n_r_max
+                        do lm_loc=llm,ulm
+                           dVLM_Rloc_ptr(lm_loc,nr_loc) = loc_dvxv(lm_loc,nr_loc)
+                        end do
+                     end do
+                     !$omp end target teams distribute parallel do
                      !$omp target update from(dwdt)
-                     dVxVhLM_LMloc(:,:,tscheme%istage) = loc_dvxv(:,:)
+                     !$omp target update from(dVxVhLM_LMloc)
                   end if
                   if ( l_mag ) then
-                     !$omp target update from(loc_dvb)
+                     dVLM_Rloc_ptr(llmMag:,1:) => dVxBhLM_LMloc(:,:,tscheme%istage)
+                     !$omp target teams distribute parallel do collapse(2)
+                     do nr_loc=1,n_r_maxMag
+                        do lm_loc=llmMag,ulmMag
+                           dVLM_Rloc_ptr(lm_loc,nr_loc) = loc_dvb(lm_loc,nr_loc)
+                        end do
+                     end do
+                     !$omp end target teams distribute parallel do
                      !$omp target update from(djdt)
-                     dVxBhLM_LMloc(:,:,tscheme%istage) = loc_dvb(:,:)
+                     !$omp target update from(dVxBhLM_LMloc)
                   end if
                   if ( l_heat ) then
-                     !$omp target update from(loc_dvs)
+                     dVLM_Rloc_ptr(llm:,1:) => dVSrLM_LMLoc(:,:,tscheme%istage)
+                     !$omp target teams distribute parallel do collapse(2)
+                     do nr_loc=1,n_r_max
+                        do lm_loc=llm,ulm
+                           dVLM_Rloc_ptr(lm_loc,nr_loc) = loc_dvs(lm_loc,nr_loc)
+                        end do
+                     end do
+                     !$omp end target teams distribute parallel do
                      !$omp target update from(dsdt)
-                     dVSrLM_LMLoc(:,:,tscheme%istage)  = loc_dvs(:,:)
+                     !$omp target update from(dVSrLM_LMLoc)
                   end if
                   if ( l_cond_ic ) then
                      !$omp target update from(b_ic_LMloc, aj_ic_LMLoc, dbdt_ic, djdt_ic)
                   end if
-#endif
                end if
+#endif
             end if
 
             !------------
