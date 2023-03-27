@@ -33,9 +33,6 @@ module radial_functions
    use output_data, only: tag
    use num_param, only: alph1, alph2
    use special, only: l_curr, fac_loop
-#ifdef WITH_OMP_GPU_OFF
-   use cosine_transform_gpu, only: gpu_costf_odd_t
-#endif
 
    implicit none
 
