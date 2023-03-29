@@ -1503,7 +1503,129 @@ contains
 
             !-- If the scheme is a multi-step scheme that is not Crank-Nicolson
             !-- we have to use a different starting scheme
+#ifdef WITH_OMP_GPU
+            if ( l_bridge_step .and. tscheme%time_scheme /= 'CNAB2' .and.  &
+                 n_time_step <= tscheme%nold-1 .and.                       &
+                 tscheme%family=='MULTISTEP' ) then
+               if ( l_single_matrix ) then
+                  !$omp target update to(dsdt, dwdt, dpdt)
+                  !$omp target update to(s_LMloc, w_LMloc, p_LMloc)
+               else
+                  if ( l_parallel_solve ) then
+                     !$omp target update to(w_Rloc, p_Rloc, dwdt)
+                     !$omp target update to(dp_Rloc, dw_Rloc, ddw_Rloc)
+                  else
+                     !$omp target update to(w_LMloc, p_LMloc, dwdt, s_LMloc, work_LMloc)
+                     !$omp target update if(.not. l_double_curl) to(dpdt)
+                     !$omp target update if(l_chemical_conv) to(xi_LMloc)
+                  end if
+                  if ( l_heat ) then
+                     if ( l_parallel_solve ) then
+                        !$omp target update to(s_Rloc, ds_Rloc, dsdt)
+                        if(l_phase_field) then
+                           !$omp target update to(phi_Rloc)
+                        end if
+                     else
+                        !$omp target update to(s_LMloc, dsdt)
+                        if ( l_phase_field ) then
+                           !$omp target update to(phi_LMloc)
+                        end if
+                     end if
+                  end if
+               end if
+               if ( l_parallel_solve ) then
+                  !$omp target update to(z_Rloc, dz_Rloc, dzdt)
+               else
+                  !$omp target update to(z_LMloc, dzdt)
+               end if
+               if ( l_chemical_conv ) then
+                  if ( l_parallel_solve ) then
+               !$omp target update to(xi_Rloc, dxidt)
+                  else
+                     !$omp target update to(xi_LMloc, dxi_LMloc, dxidt)
+                  end if
+               end if
+               if ( l_phase_field ) then
+                  if ( l_parallel_solve ) then
+                        !$omp target update to(phi_Rloc)
+                        !$omp target update to(dphidt)
+                  else
+                     !$omp target update to(phi_LMloc, dphidt)
+                  end if
+               end if
+               if ( l_mag ) then
+                  if ( l_mag_par_solve ) then
+                     !$omp target update to(b_Rloc, aj_Rloc)
+                     !$omp target update to(dbdt, djdt)
+                  else
+                     !$omp target update to(dbdt, djdt)
+                     !$omp target update to(b_LMloc, aj_LMloc)
+                  end if
+               end if
+               if ( l_cond_ic ) then
+                  !$omp target update to(dbdt_ic, djdt_ic)
+               end if
+            end if
+#endif
             call start_from_another_scheme(timeLast, l_bridge_step, n_time_step, tscheme)
+#ifdef WITH_OMP_GPU
+            if ( l_bridge_step .and. tscheme%time_scheme /= 'CNAB2' .and.  &
+                 n_time_step <= tscheme%nold-1 .and.                       &
+                 tscheme%family=='MULTISTEP' ) then
+               if ( l_single_matrix ) then
+                  !$omp target update from(dsdt, dwdt, dpdt)
+                  !$omp target update from(s_LMloc, w_LMloc, p_LMloc)
+                  !$omp target update from(ds_LMloc, dp_LMloc, dw_LMloc, ddw_LMloc)
+               else
+                  if ( l_parallel_solve ) then
+                     !$omp target update from(dwdt, w_ghost, p_Rloc)
+                     !$omp target update from(dp_Rloc, dw_Rloc, ddw_Rloc)
+                  else
+                     !$omp target update from(w_LMloc, p_LMloc, dwdt)
+                     !$omp target update if(.not. l_double_curl) from(dpdt)
+                     !$omp target update from(dp_LMloc, dw_LMloc, ddw_LMloc)
+                  end if
+                  if ( l_heat ) then
+                     if ( l_parallel_solve ) then
+                        !$omp target update from(s_ghost, ds_Rloc, dsdt)
+                     else
+                     !$omp target update from(s_LMloc, ds_LMloc, dsdt)
+                     end if
+                  end if
+               end if
+               if ( l_parallel_solve ) then
+                  !$omp target update from(z_ghost, dz_Rloc, dzdt)
+               else
+                  !$omp target update from(z_LMloc, dz_LMloc, dzdt)
+               end if
+               if ( l_chemical_conv ) then
+                  if ( l_parallel_solve ) then
+                     !$omp target update from(xi_ghost, dxidt)
+                  else
+                     !$omp target update from(xi_LMloc, dxi_LMloc, dxidt)
+                  end if
+               end if
+               if ( l_phase_field ) then
+                  if ( l_parallel_solve ) then
+                     !$omp target update from(phi_ghost, dphidt)
+                  else
+                     !$omp target update from(phi_LMloc, dphidt)
+                  end if
+               end if
+               if ( l_mag ) then
+                  if ( l_mag_par_solve ) then
+                     !$omp target update from(dbdt, djdt, b_ghost, aj_ghost)
+                     !$omp target update from(db_Rloc, ddb_Rloc, dj_Rloc, ddj_Rloc)
+                  else
+                     !$omp target update from(dbdt, djdt, b_LMloc, aj_LMloc)
+                     !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
+                  end if
+               end if
+               if ( l_cond_ic ) then
+                  !$omp target update from(dbdt_ic, djdt_ic)
+               end if
+            end if
+#endif
 
             !---------------
             !-- LM Loop (update routines)
@@ -1770,95 +1892,51 @@ contains
            tscheme%family=='MULTISTEP' ) then
 
          if ( l_single_matrix ) then
-#ifdef WITH_OMP_GPU
-            !$omp target update to(dsdt, dwdt, dpdt)
-            !$omp target update to(s_LMloc, w_LMloc, p_LMloc)
-#endif
             call get_single_rhs_imp(s_LMloc, ds_LMloc, w_LMloc, dw_LMloc,     &
                  &                  ddw_LMloc, p_LMloc, dp_LMloc, dsdt, dwdt, &
                  &                  dpdt, tscheme, 1, .true., .false.)
-#ifdef WITH_OMP_GPU
-            !$omp target update from(dsdt, dwdt, dpdt)
-            !$omp target update from(s_LMloc, w_LMloc, p_LMloc)
-            !$omp target update from(ds_LMloc, dp_LMloc, dw_LMloc, ddw_LMloc)
-#endif
          else
             if ( l_parallel_solve ) then
+#ifdef WITH_OMP_GPU
+               call bulk_to_ghost(w_Rloc, w_ghost, 2, nRstart, nRstop, lm_max, 1, lm_max, .true.)
+               call bulk_to_ghost(p_Rloc(1,:), p0_ghost, 2, nRstart, nRstop, 1, 1, 1, .true.)
+               !$omp target update from(w_ghost, p0_ghost)
+#else
                call bulk_to_ghost(w_Rloc, w_ghost, 2, nRstart, nRstop, lm_max, 1, lm_max)
                call bulk_to_ghost(p_Rloc(1,:), p0_ghost, 2, nRstart, nRstop, 1, 1, 1)
+#endif
                call exch_ghosts(w_ghost, lm_max, nRstart, nRstop, 2)
 #ifdef WITH_OMP_GPU
                !$omp target update to(w_ghost)
 #endif
                call fill_ghosts_W(w_ghost, p0_ghost, .true.)
-#ifdef WITH_OMP_GPU
-               !$omp target update to(dwdt, p_Rloc)
-               !$omp target update to(dp_Rloc, dw_Rloc, ddw_Rloc)
-#endif
                call get_pol_rhs_imp_ghost(w_ghost, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc, &
                     &                     dwdt, tscheme, 1, .true., .false., .false.,  &
                     &                     dwdt%expl(:,:,1)) ! Work array
-#ifdef WITH_OMP_GPU
-               !$omp target update from(dwdt, w_ghost, p_Rloc)
-               !$omp target update from(dp_Rloc, dw_Rloc, ddw_Rloc)
-#endif
             else
-#ifdef WITH_OMP_GPU
-               !$omp target update to(w_LMloc)
-               !$omp target update to(p_LMloc)
-               !$omp target update to(dwdt)
-               !$omp target update if(.not. l_double_curl) to(dpdt)
-               !$omp target update to(s_LMloc)
-               !$omp target update if(l_chemical_conv) to(xi_LMloc)
-               !$omp target update to(work_LMloc)
-#endif
                call get_pol_rhs_imp(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,  &
                     &               p_LMloc, dp_LMloc, dwdt, dpdt, tscheme, 1,        &
                     &               .true., .false., .false., work_LMloc)
-#ifdef WITH_OMP_GPU
-               !$omp target update from(w_LMloc)
-               !$omp target update from(p_LMloc)
-               !$omp target update from(dwdt)
-               !$omp target update if(.not. l_double_curl) from(dpdt)
-               !$omp target update from(dp_LMloc)
-               !$omp target update from(dw_LMloc)
-               !$omp target update from(ddw_LMloc)
-#endif
             end if
             if ( l_heat ) then
                if ( l_parallel_solve ) then
+#ifdef WITH_OMP_GPU
+                  call bulk_to_ghost(s_Rloc, s_ghost, 1, nRstart, nRstop, lm_max, 1, &
+                       &             lm_max, .true.)
+                  !$omp target update from(s_ghost)
+#else
                   call bulk_to_ghost(s_Rloc, s_ghost, 1, nRstart, nRstop, lm_max, 1, &
                        &             lm_max)
+#endif
                   call exch_ghosts(s_ghost, lm_max, nRstart, nRstop, 1)
 #ifdef WITH_OMP_GPU
                   !$omp target update to(s_ghost)
 #endif
                   call fill_ghosts_S(s_ghost)
-#ifdef WITH_OMP_GPU
-                  !$omp target update from(s_ghost)
-#endif
-#ifdef WITH_OMP_GPU
-                  !$omp target update to(ds_Rloc, dsdt)
-                  if(l_phase_field) then
-                     !$omp target update to(phi_Rloc)
-                  end if
-#endif
                   call get_entropy_rhs_imp_ghost(s_ghost, ds_Rloc, dsdt, phi_Rloc, &
                        &                         1, .true.)
-#ifdef WITH_OMP_GPU
-                  !$omp target update from(ds_Rloc, dsdt)
-#endif
                else
-#ifdef WITH_OMP_GPU
-               !$omp target update to(s_LMloc, dsdt)
-               if ( l_phase_field ) then
-                  !$omp target update to(phi_LMloc)
-               end if
-#endif
                   call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, phi_LMloc, 1, .true.)
-#ifdef WITH_OMP_GPU
-               !$omp target update from(s_LMloc, ds_LMloc, dsdt)
-#endif
                end if
             end if
          end if
@@ -1867,147 +1945,102 @@ contains
          lorentz_torque_ic_dt%old(1)=omega_ic
 
          if ( l_parallel_solve ) then
+#ifdef WITH_OMP_GPU
+            call bulk_to_ghost(z_Rloc, z_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max, .true.)
+            !$omp target update from(z_ghost)
+#else
             call bulk_to_ghost(z_Rloc, z_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
+#endif
             call exch_ghosts(z_ghost, lm_max, nRstart, nRstop, 1)
 #ifdef WITH_OMP_GPU
             !$omp target update to(z_ghost)
 #endif
             call fill_ghosts_Z(z_ghost)
-#ifdef WITH_OMP_GPU
-            !$omp target update from(z_ghost)
-#endif
-#ifdef WITH_OMP_GPU
-            !$omp target update to(z_ghost, dz_Rloc, dzdt)
-#endif
             call get_tor_rhs_imp_ghost(time, z_ghost, dz_Rloc, dzdt, domega_ma_dt,  &
                  &                     domega_ic_dt, omega_ic, omega_ma, omega_ic1, &
                  &                     omega_ma1, tscheme, 1, .true., .false.)
-#ifdef WITH_OMP_GPU
-            !$omp target update from(z_ghost, dz_Rloc, dzdt)
-#endif
          else
-#ifdef WITH_OMP_GPU
-            !$omp target update to(z_LMloc)
-            !$omp target update to(dzdt)
-#endif
             call get_tor_rhs_imp(time, z_LMloc, dz_LMloc, dzdt, domega_ma_dt,  &
                  &               domega_ic_dt, omega_ic, omega_ma, omega_ic1,  &
                  &               omega_ma1, tscheme, 1, .true., .false.)
-#ifdef WITH_OMP_GPU
-            !$omp target update from(z_LMloc, dz_LMloc)
-            !$omp target update from(dzdt)
-#endif
          end if
 
          if ( l_chemical_conv ) then
             if ( l_parallel_solve ) then
+#ifdef WITH_OMP_GPU
+                  call bulk_to_ghost(xi_Rloc, xi_ghost, 1, nRstart, nRstop, lm_max, &
+                       &             1, lm_max, .true.)
+                  !$omp target update from(xi_ghost)
+#else
                   call bulk_to_ghost(xi_Rloc, xi_ghost, 1, nRstart, nRstop, lm_max, &
                        &             1, lm_max)
+#endif
                   call exch_ghosts(xi_ghost, lm_max, nRstart, nRstop, 1)
 #ifdef WITH_OMP_GPU
                   !$omp target update to(xi_ghost)
 #endif
                   call fill_ghosts_Xi(xi_ghost)
-#ifdef WITH_OMP_GPU
-                  !$omp target update from(xi_ghost)
-#endif
-#ifdef WITH_OMP_GPU
-                  !$omp target update to(xi_ghost, dxidt)
-#endif
                   call get_comp_rhs_imp_ghost(xi_ghost, dxidt, 1, .true.)
-#ifdef WITH_OMP_GPU
-                  !$omp target update from(dxidt)
-#endif
             else
-#ifdef WITH_OMP_GPU
-               !$omp target update to(xi_LMloc, dxi_LMloc, dxidt)
-#endif
                call get_comp_rhs_imp(xi_LMloc, dxi_LMloc, dxidt, 1, .true.)
-#ifdef WITH_OMP_GPU
-               !$omp target update from(xi_LMloc, dxi_LMloc, dxidt)
-#endif
             end if
          end if
 
          if ( l_phase_field ) then
             if ( l_parallel_solve ) then
+#ifdef WITH_OMP_GPU
+                  call bulk_to_ghost(phi_Rloc, phi_ghost, 1, nRstart, nRstop, lm_max, &
+                       &             1, lm_max, .true.)
+                  !$omp target update from(phi_ghost)
+#else
                   call bulk_to_ghost(phi_Rloc, phi_ghost, 1, nRstart, nRstop, lm_max, &
                        &             1, lm_max)
+#endif
                   call exch_ghosts(phi_ghost, lm_max, nRstart, nRstop, 1)
 #ifdef WITH_OMP_GPU
                   !$omp target update to(phi_ghost)
 #endif
                   call fill_ghosts_Phi(phi_ghost)
-#ifdef WITH_OMP_GPU
-                  !$omp target update from(phi_ghost)
-                  !$omp target update to(dphidt)
-#endif
                   call get_phase_rhs_imp_ghost(phi_ghost, dphidt, 1, .true.)
-#ifdef WITH_OMP_GPU
-                  !$omp target update from(dphidt)
-#endif
             else
-#ifdef WITH_OMP_GPU
-               !$omp target update to(phi_LMloc, dphidt)
-#endif
                call get_phase_rhs_imp(phi_LMloc, dphidt, 1, .true.)
-#ifdef WITH_OMP_GPU
-               !$omp target update from(phi_LMloc, dphidt)
-#endif
             end if
          end if
 
          if ( l_mag ) then
             if ( l_mag_par_solve ) then
+#ifdef WITH_OMP_GPU
+               call bulk_to_ghost(b_Rloc, b_ghost, 1, nRstart, nRstop, lm_max, 1, &
+                    &             lm_max, .true.)
+               call bulk_to_ghost(aj_Rloc, aj_ghost, 1, nRstart, nRstop, lm_max, 1, &
+                    &             lm_max, .true.)
+               !$omp target update from(b_ghost, aj_ghost)
+#else
                call bulk_to_ghost(b_Rloc, b_ghost, 1, nRstart, nRstop, lm_max, 1, &
                     &             lm_max)
                call bulk_to_ghost(aj_Rloc, aj_ghost, 1, nRstart, nRstop, lm_max, 1, &
                     &             lm_max)
+#endif
                call exch_ghosts(aj_ghost, lm_max, nRstart, nRstop, 1)
                call exch_ghosts(b_ghost, lm_max, nRstart, nRstop, 1)
 #ifdef WITH_OMP_GPU
                !$omp target update to(b_ghost, aj_ghost)
 #endif
                call fill_ghosts_B(b_ghost, aj_ghost)
-#ifdef WITH_OMP_GPU
-               !$omp target update from(b_ghost, aj_ghost)
-#endif
-#ifdef WITH_OMP_GPU
-               !$omp target update to(dbdt, djdt)
-#endif
                call get_mag_rhs_imp_ghost(b_ghost, db_Rloc, ddb_RLoc, aj_ghost,    &
                     &                     dj_Rloc, ddj_Rloc,  dbdt, djdt, tscheme, &
                     &                     1, .true., .false.)
-#ifdef WITH_OMP_GPU
-               !$omp target update from(dbdt, djdt, b_ghost, aj_ghost)
-               !$omp target update from(db_Rloc, ddb_Rloc, dj_Rloc, ddj_Rloc)
-#endif
             else
-#ifdef WITH_OMP_GPU
-               !$omp target update to(dbdt, djdt)
-               !$omp target update to(b_LMloc, aj_LMloc)
-#endif
                call get_mag_rhs_imp(b_LMloc, db_LMloc, ddb_LMLoc, aj_LMLoc, dj_LMloc, &
                     &               ddj_LMloc, dbdt, djdt, tscheme, 1, .true., .false.)
-#ifdef WITH_OMP_GPU
-               !$omp target update from(dbdt, djdt)
-               !$omp target update from(b_LMloc, aj_LMloc)
-               !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
-#endif
             end if
          end if
 
          if ( l_cond_ic ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(dbdt_ic, djdt_ic)
-#endif
-         call get_mag_ic_rhs_imp(b_ic_LMloc, db_ic_LMloc,     &
-              &                  ddb_ic_LMLoc, aj_ic_LMLoc,   &
-              &                  dj_ic_LMloc, ddj_ic_LMloc,   &
-              &                  dbdt_ic, djdt_ic, 1, .true.)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dbdt_ic, djdt_ic)
-#endif
+            call get_mag_ic_rhs_imp(b_ic_LMloc, db_ic_LMloc,     &
+                 &                  ddb_ic_LMLoc, aj_ic_LMLoc,   &
+                 &                  dj_ic_LMloc, ddj_ic_LMloc,   &
+                 &                  dbdt_ic, djdt_ic, 1, .true.)
          end if
 
          call tscheme%bridge_with_cnab2()
