@@ -1055,8 +1055,170 @@ contains
                !----------------
                !-- Rloc to Mloc transposes
                !----------------
+#ifdef WITH_OMP_GPU
+               if ( l_packed_transp ) then
+                  if ( l_finish_exp_early ) then
+                     if ( (.not. l_parallel_solve) .or. ( l_mag .and. .not. l_mag_par_solve) ) then
+                        !$omp target update to(dflowdt_Rloc_container)
+                     end if
+                     if ( (l_conv .or. l_mag_kin) .and. (.not. l_parallel_solve) ) then
+                        if ( .not. l_double_curl .or. lPressNext ) then
+                           !$omp target update to(dpdt_Rloc)
+                        end if
+                     end if
+                     if ( l_chemical_conv .and. ( .not. l_parallel_solve ) ) then
+                        !$omp target update to(dxidt_Rloc)
+                     end if
+                     if ( l_phase_field .and. ( .not. l_parallel_solve ) ) then
+                        !$omp target update to(dphidt_Rloc)
+                     end if
+                  else
+                     if ( l_conv .or. l_mag_kin ) then
+                        !$omp target update to(dflowdt_Rloc_container)
+                     end if
+                     !if ( l_heat .and. (.not. l_parallel_solve) ) then
+                     if ( l_heat  ) then
+                        !$omp target update to(dsdt_Rloc_container)
+                     end if
+                     if ( l_chemical_conv ) then
+                        !$omp target update to(dxidt_Rloc_container)
+                     end if
+                     if ( l_phase_field ) then
+                        !$omp target update to(dphidt_Rloc)
+                     end if
+                     if ( l_mag ) then
+                        !$omp target update to(dbdt_Rloc_container)
+                     end if
+                  end if
+               else
+                  if ( l_finish_exp_early ) then
+                     if ( (l_conv .or. l_mag_kin) .and. (.not. l_parallel_solve) ) then
+                        !$omp target update to(dwdt_Rloc)
+                        if ( .not. l_parallel_solve ) then
+                           !$omp target update to(dzdt_Rloc)
+                        end if
+                        if ( (.not. l_double_curl .or. lPressNext) .and. &
+                        &    (.not.  l_parallel_solve) ) then
+                           !$omp target update to(dpdt_Rloc)
+                        end if
+                     end if
+                     if ( l_heat .and. (.not. l_parallel_solve) ) then
+                        !$omp target update to(dsdt_Rloc)
+                     end if
+                     if ( l_chemical_conv .and. (.not. l_parallel_solve) ) then
+                        !$omp target update to(dxidt_Rloc)
+                     end if
+                     if ( l_phase_field .and. (.not. l_parallel_solve) ) then
+                        !$omp target update to(dphidt_Rloc)
+                     end if
+                     if ( l_mag .and. ( .not. l_mag_par_solve ) ) then
+                        !$omp target update to(dbdt_Rloc, djdt_Rloc)
+                     end if
+                  else
+                     if ( l_conv .or. l_mag_kin ) then
+                        !$omp target update to(dwdt_Rloc, dzdt_Rloc, dpdt_Rloc)
+                        if ( l_double_curl ) then
+                           !$omp target update to(dVxVhLM_Rloc)
+                        end if
+                     end if
+                     if ( l_heat .and. (.not. l_parallel_solve) ) then
+                        !$omp target update to(dsdt_Rloc, dVSrLM_Rloc)
+                     end if
+                     if ( l_chemical_conv ) then
+                        !$omp target update to(dxidt_Rloc, dVXirLM_Rloc)
+                     end if
+                     if ( l_phase_field ) then
+                        !$omp target update to(dphidt_Rloc)
+                     end if
+                     if ( l_mag ) then
+                        !$omp target update to(dbdt_Rloc, djdt_Rloc, dVxBhLM_Rloc)
+                     end if
+                  end if
+               end if
+#endif
                call transp_Rloc_to_LMloc(comm_counter,tscheme%istage, &
                     &                    l_finish_exp_early, lPressNext)
+#ifdef WITH_OMP_GPU
+               if ( l_packed_transp ) then
+                  if ( l_finish_exp_early ) then
+                     if ( (.not. l_parallel_solve) .or. ( l_mag .and. .not. l_mag_par_solve) ) then
+                        !$omp target update from(dflowdt_LMloc_container)
+                     end if
+                     if ( (l_conv .or. l_mag_kin) .and. (.not. l_parallel_solve) ) then
+                        if ( .not. l_double_curl .or. lPressNext ) then
+                           !$omp target update from(dpdt)
+                        end if
+                     end if
+                     if ( l_chemical_conv .and. ( .not. l_parallel_solve ) ) then
+                        !$omp target update from(dxidt)
+                     end if
+                     if ( l_phase_field .and. ( .not. l_parallel_solve ) ) then
+                        !$omp target update from(dphidt)
+                     end if
+                  else
+                     if ( l_conv .or. l_mag_kin ) then
+                        !$omp target update from(dflowdt_LMloc_container)
+                     end if
+                     !if ( l_heat .and. (.not. l_parallel_solve) ) then
+                     if ( l_heat  ) then
+                        !$omp target update from(dsdt_LMloc_container)
+                     end if
+                     if ( l_chemical_conv ) then
+                        !$omp target update from(dxidt_LMloc_container)
+                     end if
+                     if ( l_phase_field ) then
+                        !$omp target update from(dphidt)
+                     end if
+                     if ( l_mag ) then
+                        !$omp target update from(dbdt_LMloc_container)
+                     end if
+                  end if
+               else
+                  if ( l_finish_exp_early ) then
+                     if ( (l_conv .or. l_mag_kin) .and. (.not. l_parallel_solve) ) then
+                        !$omp target update from(dwdt)
+                        if ( .not. l_parallel_solve ) then
+                           !$omp target update from(dzdt)
+                        end if
+                        if ( (.not. l_double_curl .or. lPressNext) .and. &
+                        &    (.not.  l_parallel_solve) ) then
+                           !$omp target update from(dpdt)
+                        end if
+                     end if
+                     if ( l_heat .and. (.not. l_parallel_solve) ) then
+                        !$omp target update from(dsdt)
+                     end if
+                     if ( l_chemical_conv .and. (.not. l_parallel_solve) ) then
+                        !$omp target update from(dxidt)
+                     end if
+                     if ( l_phase_field .and. (.not. l_parallel_solve) ) then
+                        !$omp target update from(dphidt)
+                     end if
+                     if ( l_mag .and. ( .not. l_mag_par_solve ) ) then
+                        !$omp target update from(dbdt, djdt)
+                     end if
+                  else
+                     if ( l_conv .or. l_mag_kin ) then
+                        !$omp target update from(dwdt, dzdt, dpdt)
+                        if ( l_double_curl ) then
+                           !$omp target update from(dVxVhLM_LMloc)
+                        end if
+                     end if
+                     if ( l_heat .and. (.not. l_parallel_solve) ) then
+                        !$omp target update from(dsdt, dVSrLM_LMloc)
+                     end if
+                     if ( l_chemical_conv ) then
+                        !$omp target update from(dxidt, dVXirLM_LMloc)
+                     end if
+                     if ( l_phase_field ) then
+                        !$omp target update from(dphidt)
+                     end if
+                     if ( l_mag ) then
+                        !$omp target update from(dbdt, djdt, dVxBhLM_LMloc)
+                     end if
+                  end if
+               end if
+#endif
 
                !------ Nonlinear magnetic boundary conditions:
                !       For stress-free conducting boundaries
@@ -1241,7 +1403,43 @@ contains
                if ( l_parallel_solve .and. (l_log .or. l_spectrum .or. lTOCalc .or. &
                &    l_dtB .or. l_cmb .or. l_r .or. lOnsetCalc .or. l_pot .or.       &
                &    l_store .or. l_frame) ) then
+#ifdef WITH_OMP_GPU
+                  if ( l_heat ) then
+                     !$omp target update to(s_Rloc, ds_Rloc)
+                  end if
+                  if ( l_chemical_conv ) then
+                     !$omp target update to(xi_Rloc)
+                  end if
+                  if ( l_phase_field ) then
+                     !$omp target update to(phi_Rloc)
+                  end if
+                  if ( lPressCalc ) then
+                     !$omp target update to(p_Rloc)
+                  end if
+                  !$omp target update to(z_Rloc, dz_Rloc, w_Rloc, dw_Rloc, ddw_Rloc)
+                  if ( l_mag .and. l_mag_par_solve ) then
+                     !$omp target update to(b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc, dj_Rloc, ddj_Rloc)
+                  end if
+#endif
                   call transp_Rloc_to_LMloc_IO(lPressCalc .or. lP00Transp)
+#ifdef WITH_OMP_GPU
+                  if ( l_heat ) then
+                     !$omp target update from(s_LMloc, ds_LMloc)
+                  end if
+                  if ( l_chemical_conv ) then
+                     !$omp target update from(xi_LMLoc, dxi_LMloc)
+                  end if
+                  if ( l_phase_field ) then
+                     !$omp target update from(phi_LMloc)
+                  end if
+                  if ( lPressCalc ) then
+                     !$omp target update from(p_LMloc)
+                  end if
+                  !$omp target update from(z_LMloc, dz_LMloc, w_LMloc, dw_LMloc, ddw_LMloc)
+                  if ( l_mag .and. l_mag_par_solve ) then
+                     !$omp target update from(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc)
+                  end if
+#endif
                end if
                call output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,       &
                     &      l_graph,lRmsCalc,l_store,l_new_rst_file,lOnsetCalc,     &
@@ -2141,91 +2339,223 @@ contains
       if ( l_packed_transp ) then
          if ( lRloc ) then
             if ( (.not. l_parallel_solve) .or. ( l_mag .and. .not. l_mag_par_solve) ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dflowdt_Rloc_container, dflowdt_LMloc_container)
+#endif
                call r2lo_flow%transp_r2lm(dflowdt_Rloc_container, &
                     &                     dflowdt_LMloc_container(:,:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
             end if
             if ( (l_conv .or. l_mag_kin) .and. (.not. l_parallel_solve) ) then
                if ( .not. l_double_curl .or. lPressNext ) then
+#ifdef WITH_OMP_GPU
+                  !$omp target data use_device_addr(dpdt_Rloc, dpdt)
+#endif
                   call r2lo_one%transp_r2lm(dpdt_Rloc,dpdt%expl(:,:,istage))
+#ifdef WITH_OMP_GPU
+                  !$omp end target data
+#endif
                end if
             end if
             if ( l_chemical_conv .and. ( .not. l_parallel_solve ) ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dxidt_Rloc, dxidt)
+#endif
                call r2lo_one%transp_r2lm(dxidt_Rloc,dxidt%expl(:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
             end if
             if ( l_phase_field .and. ( .not. l_parallel_solve ) ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dphidt_Rloc, dphidt)
+#endif
                call r2lo_one%transp_r2lm(dphidt_Rloc,dphidt%expl(:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
             end if
          else
             if ( l_conv .or. l_mag_kin ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dflowdt_Rloc_container, dflowdt_LMloc_container)
+#endif
                call r2lo_flow%transp_r2lm(dflowdt_Rloc_container,  &
                     &                     dflowdt_LMloc_container(:,:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
             end if
             !if ( l_heat .and. (.not. l_parallel_solve) ) then
             if ( l_heat  ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dsdt_Rloc_container, dsdt_LMloc_container)
+#endif
                call r2lo_s%transp_r2lm(dsdt_Rloc_container,&
                     &                  dsdt_LMloc_container(:,:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
             end if
             if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dxidt_Rloc_container, dxidt_LMloc_container)
+#endif
                call r2lo_xi%transp_r2lm(dxidt_Rloc_container, &
                     &                   dxidt_LMloc_container(:,:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
             end if
             if ( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dphidt_Rloc, dphidt)
+#endif
                call r2lo_one%transp_r2lm(dphidt_Rloc,dphidt%expl(:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
             end if
             if ( l_mag ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dbdt_Rloc_container, dbdt_LMloc_container)
+#endif
                call r2lo_field%transp_r2lm(dbdt_Rloc_container, &
                     &                      dbdt_LMloc_container(:,:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
             end if
          end if
       else
          if ( lRloc ) then
             if ( (l_conv .or. l_mag_kin) .and. (.not. l_parallel_solve) ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dwdt_Rloc, dwdt)
+#endif
                call r2lo_one%transp_r2lm(dwdt_Rloc,dwdt%expl(:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
                if ( .not. l_parallel_solve ) then
+#ifdef WITH_OMP_GPU
+                  !$omp target data use_device_addr(dzdt_Rloc, dzdt)
+#endif
                   call r2lo_one%transp_r2lm(dzdt_Rloc,dzdt%expl(:,:,istage))
+#ifdef WITH_OMP_GPU
+                  !$omp end target data
+#endif
                end if
                if ( (.not. l_double_curl .or. lPressNext) .and. &
                &    (.not.  l_parallel_solve) ) then
+#ifdef WITH_OMP_GPU
+                  !$omp target data use_device_addr(dpdt_Rloc, dpdt)
+#endif
                   call r2lo_one%transp_r2lm(dpdt_Rloc,dpdt%expl(:,:,istage))
+#ifdef WITH_OMP_GPU
+                  !$omp end target data
+#endif
                end if
             end if
             if ( l_heat .and. (.not. l_parallel_solve) ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dsdt_Rloc, dsdt)
+#endif
                call r2lo_one%transp_r2lm(dsdt_Rloc,dsdt%expl(:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
             end if
             if ( l_chemical_conv .and. (.not. l_parallel_solve) ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dxidt_Rloc, dxidt)
+#endif
                call r2lo_one%transp_r2lm(dxidt_Rloc,dxidt%expl(:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
             end if
             if ( l_phase_field .and. (.not. l_parallel_solve) ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dphidt_Rloc, dphidt)
+#endif
                call r2lo_one%transp_r2lm(dphidt_Rloc,dphidt%expl(:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
             end if
             if ( l_mag .and. ( .not. l_mag_par_solve ) ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dbdt_Rloc, djdt_Rloc, dbdt, djdt)
+#endif
                call r2lo_one%transp_r2lm(dbdt_Rloc,dbdt%expl(:,:,istage))
                call r2lo_one%transp_r2lm(djdt_Rloc,djdt%expl(:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
             end if
          else
             if ( l_conv .or. l_mag_kin ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dwdt_Rloc, dzdt_Rloc, dpdt_Rloc, dwdt, dzdt, dpdt)
+#endif
                call r2lo_one%transp_r2lm(dwdt_Rloc,dwdt%expl(:,:,istage))
                call r2lo_one%transp_r2lm(dzdt_Rloc,dzdt%expl(:,:,istage))
                call r2lo_one%transp_r2lm(dpdt_Rloc,dpdt%expl(:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
                if ( l_double_curl ) then
+#ifdef WITH_OMP_GPU
+                  !$omp target data use_device_addr(dVxVhLM_Rloc, dVxVhLM_LMloc)
+#endif
                   call r2lo_one%transp_r2lm(dVxVhLM_Rloc,dVxVhLM_LMloc(:,:,istage))
+#ifdef WITH_OMP_GPU
+                  !$omp end target data
+#endif
                end if
             end if
             if ( l_heat .and. (.not. l_parallel_solve) ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dsdt_Rloc, dsdt, dVSrLM_Rloc, dVSrLM_LMloc)
+#endif
                call r2lo_one%transp_r2lm(dsdt_Rloc,dsdt%expl(:,:,istage))
                call r2lo_one%transp_r2lm(dVSrLM_Rloc,dVSrLM_LMloc(:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
             end if
             if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dxidt_Rloc, dxidt, dVXirLM_Rloc, dVXirLM_LMloc)
+#endif
                call r2lo_one%transp_r2lm(dxidt_Rloc,dxidt%expl(:,:,istage))
                call r2lo_one%transp_r2lm(dVXirLM_Rloc,dVXirLM_LMloc(:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
             end if
             if ( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dphidt_Rloc,dphidt)
+#endif
                call r2lo_one%transp_r2lm(dphidt_Rloc,dphidt%expl(:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
             end if
             if ( l_mag ) then
+#ifdef WITH_OMP_GPU
+               !$omp target data use_device_addr(dbdt_Rloc, djdt_Rloc, dVxBhLM_Rloc, dbdt, djdt, dVxBhLM_LMloc)
+#endif
                call r2lo_one%transp_r2lm(dbdt_Rloc,dbdt%expl(:,:,istage))
                call r2lo_one%transp_r2lm(djdt_Rloc,djdt%expl(:,:,istage))
                call r2lo_one%transp_r2lm(dVxBhLM_Rloc,dVxBhLM_LMloc(:,:,istage))
+#ifdef WITH_OMP_GPU
+               !$omp end target data
+#endif
             end if
          end if
       end if
@@ -2246,44 +2576,93 @@ contains
 
       allocate(work_Rloc(lm_max,nRstart:nRstop))
       work_Rloc(:,:) = zero
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: work_Rloc)
+      !$omp target update to(work_Rloc)
+#endif
 
       if ( l_heat ) then
+#ifdef WITH_OMP_GPU
+         !$omp target data use_device_addr(s_Rloc, ds_Rloc, s_LMloc, ds_LMloc)
+#endif
          call r2lo_one%transp_r2lm(s_Rloc,s_LMloc)
          call r2lo_one%transp_r2lm(ds_Rloc,ds_LMloc)
+#ifdef WITH_OMP_GPU
+         !$omp end target data
+#endif
       end if
 
       if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+         !$omp target data use_device_addr(xi_Rloc, xi_LMLoc)
+#endif
          call r2lo_one%transp_r2lm(xi_Rloc,xi_LMloc)
 #ifdef WITH_OMP_GPU
-         !$omp target update to(xi_Rloc)
-         !$omp target data map(tofrom: work_Rloc)
+         !$omp end target data
 #endif
          call get_dr_Rloc(xi_Rloc, work_Rloc, lm_max, nRstart, nRstop, n_r_max, &
               &           rscheme_oc)
 #ifdef WITH_OMP_GPU
-         !$omp end target data
+         !$omp target data use_device_addr(work_Rloc,dxi_LMloc)
 #endif
          call r2lo_one%transp_r2lm(work_Rloc,dxi_LMloc)
+#ifdef WITH_OMP_GPU
+         !$omp end target data
+#endif
       end if
 
-      if ( l_phase_field ) call r2lo_one%transp_r2lm(phi_Rloc,phi_LMloc)
+      if ( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+         !$omp target data use_device_addr(phi_Rloc, phi_LMloc)
+#endif
+         call r2lo_one%transp_r2lm(phi_Rloc,phi_LMloc)
+#ifdef WITH_OMP_GPU
+         !$omp end target data
+#endif
+      end if
 
-      if ( lPressCalc ) call r2lo_one%transp_r2lm(p_Rloc,p_LMloc)
+      if ( lPressCalc ) then
+#ifdef WITH_OMP_GPU
+         !$omp target data use_device_addr(p_Rloc, p_LMloc)
+#endif
+         call r2lo_one%transp_r2lm(p_Rloc,p_LMloc)
+#ifdef WITH_OMP_GPU
+         !$omp end target data
+#endif
+      end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target data use_device_addr(z_Rloc,  dz_Rloc,  w_Rloc,  dw_Rloc,  ddw_Rloc, &
+      !$omp&                             z_LMloc, dz_LMloc, w_LMloc, dw_LMloc, ddw_LMloc)
+#endif
       call r2lo_one%transp_r2lm(z_Rloc,z_LMloc)
       call r2lo_one%transp_r2lm(dz_Rloc,dz_LMloc)
       call r2lo_one%transp_r2lm(w_Rloc,w_LMloc)
       call r2lo_one%transp_r2lm(dw_Rloc,dw_LMloc)
       call r2lo_one%transp_r2lm(ddw_Rloc,ddw_LMloc)
+#ifdef WITH_OMP_GPU
+      !$omp end target data
+#endif
 
       if ( l_mag .and. l_mag_par_solve ) then
+#ifdef WITH_OMP_GPU
+         !$omp target data use_device_addr(b_Rloc,  db_Rloc,  ddb_Rloc,  aj_Rloc,  dj_Rloc,  ddj_Rloc, &
+         !$omp&                            b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc)
+#endif
          call r2lo_one%transp_r2lm(b_Rloc,b_LMloc)
          call r2lo_one%transp_r2lm(db_Rloc,db_LMloc)
          call r2lo_one%transp_r2lm(ddb_Rloc,ddb_LMloc)
          call r2lo_one%transp_r2lm(aj_Rloc,aj_LMloc)
          call r2lo_one%transp_r2lm(dj_Rloc,dj_LMloc)
          call r2lo_one%transp_r2lm(ddj_Rloc,ddj_LMloc)
+#ifdef WITH_OMP_GPU
+         !$omp end target data
+#endif
       end if
 
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: work_Rloc)
+#endif
       deallocate(work_Rloc)
 
    end subroutine transp_Rloc_to_LMloc_IO
