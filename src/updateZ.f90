@@ -529,8 +529,7 @@ contains
       !-- Loop to reassemble fields
       !$omp target teams distribute parallel do collapse(2) private(l1, m1)
       do lm=llm,ulm
-         do n_r_out=1,rscheme_oc%n_max
-         !do n_r_out=1,n_max_rSchemeOc
+         do n_r_out=1,n_max_rSchemeOc
             l1=lm2l(lm)
             m1=lm2m(lm)
             if ( l1 == 0 ) then
