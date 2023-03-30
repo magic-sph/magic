@@ -40,15 +40,15 @@ module mpi_transp_mod
       subroutine transp_lm2r_if(this, arr_LMloc, arr_Rloc)
          import
          class(type_mpitransp) :: this
-         complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
-         complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+         complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,1:this%n_fields)
+         complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
       end subroutine transp_lm2r_if
 
       subroutine transp_r2lm_if(this, arr_Rloc, arr_LMloc)
          import
          class(type_mpitransp) :: this
-         complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
-         complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
+         complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
+         complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,1:this%n_fields)
       end subroutine transp_r2lm_if
 
    end interface
@@ -64,7 +64,11 @@ module  mpi_alltoall_mod
 
    use precision_mod
    use parallel_mod
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc
+#endif
    use radial_data, only: radial_balance
    use truncation, only: lm_max, n_r_max, l_max, minc
    use radial_data, only: nRstart, nRstop
@@ -151,6 +155,14 @@ contains
       bytes_allocated=bytes_allocated+(sum(this%rcounts)+sum(this%scounts))* &
       &               SIZEOF_DEF_COMPLEX
 
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: this)
+      !$omp target update to(this)
+      gpu_bytes_allocated=gpu_bytes_allocated +4*n_procs*SIZEOF_INTEGER
+      gpu_bytes_allocated=gpu_bytes_allocated+(sum(this%rcounts)+sum(this%scounts))* &
+      &                   SIZEOF_DEF_COMPLEX
+#endif
+
    end subroutine create_comm_alltoallv
 !----------------------------------------------------------------------------------
    subroutine create_comm_alltoallp(this, n_fields)
@@ -169,6 +181,13 @@ contains
       this%buff(:)=zero
       bytes_allocated=bytes_allocated+n_procs*this%lm_loc*this%n_r_loc*this%n_fields*&
       &               SIZEOF_DEF_COMPLEX
+
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: this)
+      !$omp target update to(this)
+      gpu_bytes_allocated=gpu_bytes_allocated+n_procs*this%lm_loc*this%n_r_loc*this%n_fields*&
+      &               SIZEOF_DEF_COMPLEX
+#endif
 
    end subroutine create_comm_alltoallp
 !----------------------------------------------------------------------------------
@@ -268,12 +287,21 @@ contains
 
       deallocate(indices, blocklengths)
 
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: this)
+      !$omp target update to(this)
+      gpu_bytes_allocated=gpu_bytes_allocated+4*n_procs*SIZEOF_INTEGER
+#endif
+
    end subroutine create_comm_alltoallw
 !----------------------------------------------------------------------------------
    subroutine destroy_comm_alltoallv(this)
 
       class(type_mpiatoav) :: this
 
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(release: this)
+#endif
       deallocate( this%rbuff, this%sbuff )
       deallocate( this%sdisp, this%rdisp, this%scounts, this%rcounts )
 
@@ -283,6 +311,9 @@ contains
 
       class(type_mpiatoap) :: this
 
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(release: this)
+#endif
       deallocate( this%buff )
 
    end subroutine destroy_comm_alltoallp
@@ -290,6 +321,10 @@ contains
    subroutine destroy_comm_alltoallw(this)
 
       class(type_mpiatoaw) :: this
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(release: this)
+#endif
 
 #ifdef WITH_MPI
       !-- Local variables
@@ -311,14 +346,18 @@ contains
       !
 
       class(type_mpiatoav) :: this
-      complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
-      complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+      complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,1:this%n_fields)
+      complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
 
       !-- Local variables
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
 
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do private(ii,n_f,n_r,lm)
+#else
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm)
+#endif
       do p = 0, n_procs-1
          ii = this%rdisp(p)+1
          do n_f=1,this%n_fields
@@ -330,16 +369,30 @@ contains
             end do
          end do
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
       !$omp end parallel do
+#endif
 
 #ifdef WITH_MPI
+#ifdef WITH_OMP_GPU
+      !$omp target data use_device_addr(this)
+#endif
       call MPI_Alltoallv(this%rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
            &             this%sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
            &             MPI_COMM_WORLD, ierr)
+#ifdef WITH_OMP_GPU
+      !$omp end target data
+#endif
 #endif
 
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do private(ii,n_f,n_r,lm,l,m,lm_st)
+#else
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm,l,m,lm_st)
+#endif
       do p = 0, n_procs-1
          ii = this%sdisp(p)+1
          do n_f=1,this%n_fields
@@ -354,7 +407,11 @@ contains
             end do
          end do
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
       !$omp end parallel do
+#endif
 
    end subroutine transp_lm2r_alltoallv
 !----------------------------------------------------------------------------------
@@ -365,15 +422,19 @@ contains
       !
 
       class(type_mpiatoap) :: this
-      complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
-      complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+      complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,1:this%n_fields)
+      complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
 
       !-- Local variables
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
 
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do private(ii,n_f,n_r,lm)
+#else
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm)
       !ii=1
+#endif
       do p = 0, n_procs-1
          ii = p*this%rcounts+1
          do n_f=1,this%n_fields
@@ -393,16 +454,30 @@ contains
             end do
          end do
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
       !$omp end parallel do
-
-#ifdef WITH_MPI
-      call MPI_Alltoall(MPI_IN_PLACE, this%rcounts, MPI_DEF_COMPLEX, this%buff, &
-           &            this%scounts, MPI_DEF_COMPLEX, MPI_COMM_WORLD, ierr)
 #endif
 
+#ifdef WITH_MPI
+#ifdef WITH_OMP_GPU
+      !$omp target data use_device_addr(this)
+#endif
+      call MPI_Alltoall(MPI_IN_PLACE, this%rcounts, MPI_DEF_COMPLEX, this%buff, &
+           &            this%scounts, MPI_DEF_COMPLEX, MPI_COMM_WORLD, ierr)
+#ifdef WITH_OMP_GPU
+      !$omp end target data
+#endif
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do private(ii,n_f,n_r,lm,l,m,lm_st)
+#else
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm,l,m,lm_st)
       !ii=1
+#endif
       do p = 0, n_procs-1
          ii = p*this%scounts+1
          do n_f=1,this%n_fields
@@ -423,20 +498,30 @@ contains
             end do
          end do
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
       !$omp end parallel do
+#endif
 
    end subroutine transp_lm2r_alltoallp
 !----------------------------------------------------------------------------------
    subroutine transp_lm2r_alltoallw(this, arr_LMloc, arr_Rloc)
 
       class(type_mpiatoaw) :: this
-      complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
-      complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+      complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,1:this%n_fields)
+      complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
 
 #ifdef WITH_MPI
+#ifdef WITH_OMP_GPU
+      !$omp target data use_device_addr(this)
+#endif
       call MPI_Alltoallw(arr_LMloc, this%counts, this%disp, this%rtype, &
            &             arr_Rloc, this%counts, this%disp, this%stype,  &
            &             MPI_COMM_WORLD, ierr)
+#ifdef WITH_OMP_GPU
+      !$omp end target data
+#endif
 #endif
 
    end subroutine transp_lm2r_alltoallw
@@ -448,16 +533,21 @@ contains
       !
 
       class(type_mpiatoav) :: this
-      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
-      complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
+      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
+      complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,1:this%n_fields)
 
       !-- Local variables
 #if (KNL_BIG==1)
       complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
       integer :: p, ii, n_r, lm, l, m, n_f
 
+#ifdef WITH_OMP_GPU
+      !$omp target teams private(p,ii,n_f,n_r,lm,l,m)
+      !$omp distribute parallel do collapse(3)
+#else
       !$omp parallel default(shared) private(p,ii,n_f,n_r,lm,l,m)
       !$omp do collapse(3)
+#endif
       do n_f=1,this%n_fields
          do n_r=nRstart,nRstop
             do lm=1,lm_max
@@ -467,9 +557,17 @@ contains
             end do
          end do
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end distribute parallel do
+#else
       !$omp end do
+#endif
 
+#ifdef WITH_OMP_GPU
+      !$omp distribute parallel do
+#else
       !$omp do
+#endif
       do p = 0, n_procs-1
          ii = this%sdisp(p)+1
          do n_f=1,this%n_fields
@@ -481,14 +579,23 @@ contains
             end do
          end do
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end distribute parallel do
+      !$omp end target teams
+#else
       !$omp end do
       !$omp end parallel
+#endif
 
 #elif (KNL_BIG==0)
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
 
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do private(ii,n_f,n_r,lm,l,m,lm_st)
+#else
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm,l,m,lm_st)
+#endif
       do p = 0, n_procs-1
          ii = this%sdisp(p)+1
          do n_f=1,this%n_fields
@@ -503,17 +610,31 @@ contains
             end do
          end do
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
       !$omp end parallel do
+#endif
 #endif
 
 #ifdef WITH_MPI
+#ifdef WITH_OMP_GPU
+      !$omp target data use_device_addr(this)
+#endif
       call MPI_Alltoallv(this%sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
            &             this%rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
            &             MPI_COMM_WORLD, ierr)
+#ifdef WITH_OMP_GPU
+      !$omp end target data
+#endif
 #endif
 
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do private(ii,n_f,n_r,lm)
+#else
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm)
+#endif
       do p = 0, n_procs-1
          ii = this%rdisp(p)+1
          do n_f=1,this%n_fields
@@ -525,7 +646,11 @@ contains
             end do
          end do
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
       !$omp end parallel do
+#endif
 
    end subroutine transp_r2lm_alltoallv
 !----------------------------------------------------------------------------------
@@ -536,15 +661,19 @@ contains
       !
 
       class(type_mpiatoap) :: this
-      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
-      complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
+      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
+      complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,1:this%n_fields)
 
       !-- Local variables
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
 
       !ii = 1
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do private(ii,n_f,n_r,lm,l,m,lm_st)
+#else
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm,l,m,lm_st)
+#endif
       do p = 0, n_procs-1
          ii = p*this%scounts+1
          do n_f=1,this%n_fields
@@ -568,15 +697,29 @@ contains
             end do
          end do
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
       !$omp end parallel do
-
-#ifdef WITH_MPI
-      call MPI_Alltoall(MPI_IN_PLACE, this%scounts, MPI_DEF_COMPLEX, this%buff, &
-           &            this%rcounts, MPI_DEF_COMPLEX, MPI_COMM_WORLD, ierr)
 #endif
 
+#ifdef WITH_MPI
+#ifdef WITH_OMP_GPU
+      !$omp target data use_device_addr(this)
+#endif
+      call MPI_Alltoall(MPI_IN_PLACE, this%scounts, MPI_DEF_COMPLEX, this%buff, &
+           &            this%rcounts, MPI_DEF_COMPLEX, MPI_COMM_WORLD, ierr)
+#ifdef WITH_OMP_GPU
+      !$omp end target data
+#endif
+#endif
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do private(ii,n_f,n_r,lm)
+#else
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm)
+#endif
       do p = 0, n_procs-1
          ii = p*this%rcounts+1
          do n_f=1,this%n_fields
@@ -594,20 +737,30 @@ contains
             end do
          end do
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
       !$omp end parallel do
+#endif
 
    end subroutine transp_r2lm_alltoallp
 !----------------------------------------------------------------------------------
    subroutine transp_r2lm_alltoallw(this, arr_Rloc, arr_LMloc)
 
       class(type_mpiatoaw) :: this
-      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
-      complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
+      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
+      complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,1:this%n_fields)
 
 #ifdef WITH_MPI
+#ifdef WITH_OMP_GPU
+      !$omp target data use_device_addr(this)
+#endif
       call MPI_Alltoallw(arr_Rloc, this%counts, this%disp, this%stype,  &
            &             arr_LMloc, this%counts, this%disp, this%rtype, &
            &             MPI_COMM_WORLD, ierr)
+#ifdef WITH_OMP_GPU
+      !$omp end target data
+#endif
 #endif
 
    end subroutine transp_r2lm_alltoallw
@@ -777,8 +930,8 @@ contains
    subroutine lm2r_redist_start(this,arr_LMloc,arr_Rloc)
 
       type(type_mpiptop) :: this
-      complex(cp), intent(in)  :: arr_LMloc(llm:ulm,n_r_max,*)
-      complex(cp), intent(out) :: arr_Rloc(lm_max,nRstart:nRstop,*)
+      complex(cp), intent(in)  :: arr_LMloc(llm:ulm,n_r_max,1:this%n_fields)
+      complex(cp), intent(out) :: arr_Rloc(lm_max,nRstart:nRstop,1:this%n_fields)
 
       integer :: i
 #ifdef WITH_MPI
@@ -900,7 +1053,7 @@ contains
    subroutine lo2r_redist_start(this,arr_lo)
 
       type(type_mpiptop) :: this
-      complex(cp), intent(in) :: arr_lo(llm:ulm,1:n_r_max,*)
+      complex(cp), intent(in) :: arr_lo(llm:ulm,1:n_r_max,1:this%n_fields)
 
       call lm2r_redist_start(this,arr_lo,this%temp_Rloc)
 
@@ -911,7 +1064,7 @@ contains
       type(type_mpiptop) :: this
 
       !-- Output variable
-      complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+      complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
 
       ! Local variables
       integer :: nR, l, m, lm, i, start_lm, stop_lm
@@ -942,8 +1095,8 @@ contains
    subroutine r2lo_redist_start(this,arr_Rloc,arr_lo)
 
       type(type_mpiptop) :: this
-      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
-      complex(cp), intent(out) :: arr_lo(llm:ulm,1:n_r_max,*)
+      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
+      complex(cp), intent(out) :: arr_lo(llm:ulm,1:n_r_max,1:this%n_fields)
 
       ! Local variables
       integer :: nR,l,m,i,lm,start_lm,stop_lm
@@ -988,8 +1141,8 @@ contains
    subroutine r2lm_redist_start(this,arr_rloc,arr_LMloc)
 
       type(type_mpiptop) :: this
-      complex(cp), intent(in) :: arr_Rloc(lm_max,nRstart:nRstop,*)
-      complex(cp), intent(out) :: arr_LMloc(llm:ulm,n_r_max,*)
+      complex(cp), intent(in) :: arr_Rloc(lm_max,nRstart:nRstop,1:this%n_fields)
+      complex(cp), intent(out) :: arr_LMloc(llm:ulm,n_r_max,1:this%n_fields)
 
       integer :: i
 #ifdef WITH_MPI
@@ -1090,8 +1243,8 @@ contains
       !
 
       class(type_mpiptop) :: this
-      complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,*)
-      complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+      complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,1:this%n_fields)
+      complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
 
       call lo2r_redist_start(this, arr_LMloc)
       call lo2r_redist_wait(this, arr_Rloc)
@@ -1105,8 +1258,8 @@ contains
       !
 
       class(type_mpiptop) :: this
-      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
-      complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,*)
+      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
+      complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,1:this%n_fields)
 
       call r2lo_redist_start(this, arr_Rloc, arr_LMloc)
       call r2lo_redist_wait(this)
