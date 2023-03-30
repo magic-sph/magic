@@ -1743,18 +1743,125 @@ contains
          !----------------------------
          if ( tscheme%l_assembly ) then
             if ( l_parallel_solve ) then
+#ifdef WITH_OMP_GPU
+               if ( l_phase_field ) then
+                  !$omp target update to(phi_ghost, phi_Rloc, dphidt)
+               end if
+               if ( l_chemical_conv )  then
+                  !$omp target update to(xi_Rloc, dxidt, xi_ghost)
+               end if
+               if ( l_heat )  then
+                  !$omp target update to(s_Rloc, ds_Rloc, dsdt, s_ghost)
+                  if(l_phase_field) then
+                     !$omp target update to(phi_Rloc)
+                  end if
+               end if
+               !$omp target update to(dwdt, dpdt, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc)
+               !$omp target update to(z_ghost, z_Rloc, dz_Rloc, dzdt)
+               if ( l_mag ) then
+                  if ( l_mag_par_solve ) then
+                     !$omp target update to(dbdt, djdt, b_Rloc, aj_Rloc, b_ghost, aj_ghost)
+                  else
+                     !$omp target update to(dbdt, djdt, b_LMloc, aj_LMloc)
+                     if ( l_cond_ic ) then
+                        !$omp target update to(dbdt_ic, djdt_ic, b_ic_LMloc, aj_ic_LMloc)
+                     end if
+                  end if
+               end if
+#endif
                call assemble_stage_Rdist(time, omega_ic, omega_ic1, omega_ma, omega_ma1,&
                     &                    dwdt, dzdt, dpdt, dsdt, dxidt, dphidt, dbdt,   &
                     &                    djdt, dbdt_ic, djdt_ic, domega_ic_dt,          &
                     &                    domega_ma_dt, lorentz_torque_ic_dt,            &
                     &                    lorentz_torque_ma_dt, lPressNext, lRmsNext,    &
                     &                    tscheme)
+#ifdef WITH_OMP_GPU
+               if ( l_phase_field ) then
+                  !$omp target update from(phi_ghost, phi_Rloc, dphidt)
+               end if
+               if ( l_chemical_conv )  then
+                  !$omp target update from(xi_Rloc, dxidt, xi_ghost)
+               end if
+               if ( l_heat )  then
+                  !$omp target update from(s_Rloc, ds_Rloc, dsdt, s_ghost)
+               end if
+               !$omp target update from(w_ghost, dwdt, dpdt, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc)
+               !$omp target update from(z_ghost, z_Rloc, dz_Rloc, dzdt)
+               if ( l_mag ) then
+                  if ( l_mag_par_solve ) then
+                     !$omp target update from(dbdt, djdt, b_Rloc, aj_Rloc, db_Rloc, dj_Rloc)
+                     !$omp target update from(ddb_Rloc, ddj_Rloc, b_ghost, aj_ghost)
+                  else
+                     !$omp target update from(dbdt, djdt, b_LMloc, aj_LMloc)
+                     !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
+                     if ( l_cond_ic ) then
+                        !$omp target update from(dbdt_ic, djdt_ic, b_ic_LMloc, aj_ic_LMloc)
+                        !$omp target update from(db_ic_LMloc, dj_ic_LMloc, ddb_ic_LMloc, ddj_ic_LMloc)
+                     end if
+                  end if
+               end if
+#endif
             else
+#ifdef WITH_OMP_GPU
+               if ( l_chemical_conv )  then
+                  !$omp target update to(xi_LMloc,dxidt, dxi_LMloc)
+               end if
+               if ( l_phase_field ) then
+                  !$omp target update to(phi_LMloc, dphidt)
+               end if
+               if ( l_single_matrix ) then
+                  !$omp target update to(dwdt, dpdt, dsdt, s_LMloc, w_LMloc)
+               else
+                  if ( l_heat )  then
+                     !$omp target update to(s_LMloc, ds_LMloc, dsdt)
+                     if(l_phase_field) then
+                        !$omp target update to(phi_LMloc)
+                     end if
+                  end if
+                  !$omp target update to(s_LMloc, xi_LMLoc)
+                  !$omp target update to(dwdt, dpdt, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc)
+               end if
+               !$omp target update to(z_LMloc, dz_LMloc, dzdt)
+               if ( l_mag ) then
+                  !$omp target update to(dbdt, djdt, b_LMloc, aj_LMloc)
+                  if ( l_cond_ic ) then
+                     !$omp target update to(dbdt_ic, djdt_ic, b_ic_LMloc, aj_ic_LMloc)
+                  end if
+               end if
+#endif
                call assemble_stage(time, omega_ic, omega_ic1, omega_ma, omega_ma1,     &
                     &              dwdt, dzdt, dpdt, dsdt, dxidt, dphidt, dbdt, djdt,  &
                     &              dbdt_ic, djdt_ic, domega_ic_dt, domega_ma_dt,       &
                     &              lorentz_torque_ic_dt, lorentz_torque_ma_dt,         &
                     &              lPressNext, lRmsNext, tscheme)
+#ifdef WITH_OMP_GPU
+               if ( l_chemical_conv )  then
+                  !$omp target update from(xi_LMloc, dxi_LMloc, dxidt)
+               end if
+               if ( l_phase_field ) then
+                  !$omp target update from(phi_LMloc, dphidt)
+               end if
+               if ( l_single_matrix ) then
+                  !$omp target update from(dwdt, dpdt, dsdt)
+                  !$omp target update from(s_LMloc, w_LMloc, ds_LMloc, dw_LMloc, ddw_LMloc)
+               else
+                  if ( l_heat )  then
+                     !$omp target update from(s_LMloc, ds_LMloc, dsdt)
+                  end if
+                  !$omp target update from(dwdt, dpdt, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc)
+               end if
+               !$omp target update from(z_LMloc, dz_LMloc, dzdt)
+               if ( l_mag ) then
+                  !$omp target update from(dbdt, djdt)
+                  !$omp target update from(b_LMloc, aj_LMloc)
+                  !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
+                  if ( l_cond_ic ) then
+                     !$omp target update from(dbdt_ic, djdt_ic)
+                     !$omp target update from(b_ic_LMloc, aj_ic_LMloc)
+                     !$omp target update from(db_ic_LMloc, dj_ic_LMloc, ddb_ic_LMloc, ddj_ic_LMloc)
+                  end if
+               end if
+#endif
             end if
          end if
 

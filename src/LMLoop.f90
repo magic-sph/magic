@@ -183,11 +183,7 @@ contains
          call prepareZ_FD(0.0_cp, tscheme, dummy, omega_ma, omega_ic, dum_scal, &
               &           dum_scal)
 #ifdef WITH_OMP_GPU
-         !$omp target update from(dummy)
          !$omp target update from(z10_ghost, z_ghost)
-#endif
-#ifdef WITH_OMP_GPU
-         !$omp target update to(dummy)
 #endif
          call prepareW_FD(tscheme, dummy, .false.)
 #ifdef WITH_OMP_GPU
@@ -916,97 +912,35 @@ contains
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
 
       if ( l_chemical_conv )  then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(xi_LMloc,dxidt)
-         !$omp target update to(dxi_LMloc)
-#endif
          call assemble_comp(xi_LMloc, dxi_LMloc, dxidt, tscheme)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(xi_LMloc, dxi_LMloc, dxidt)
-#endif
       end if
 
       if ( l_phase_field ) then
-#ifdef WITH_OMP_GPU
-      !$omp target update to(phi_LMloc, dphidt)
-#endif
-      call assemble_phase(phi_LMloc, dphidt, tscheme)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(phi_LMloc, dphidt)
-#endif
+         call assemble_phase(phi_LMloc, dphidt, tscheme)
       end if
 
       if ( l_single_matrix ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(dwdt, dpdt, dsdt)
-         !$omp target update to(s_LMloc, w_LMloc)
-#endif
          call assemble_single(s_LMloc, ds_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, &
               &               dsdt, dwdt, dpdt, tscheme,lRmsNext)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dwdt, dpdt, dsdt)
-         !$omp target update from(s_LMloc, w_LMloc)
-         !$omp target update from(ds_LMloc, dw_LMloc, ddw_LMloc)
-#endif
       else
          if ( l_heat )  then
-#ifdef WITH_OMP_GPU
-            !$omp target update to(s_LMloc, ds_LMloc, dsdt)
-            if(l_phase_field) then
-               !$omp target update to(phi_LMloc)
-            end if
-#endif
             call assemble_entropy(s_LMloc, ds_LMloc, dsdt, phi_LMloc, &
                                 &                tscheme)
-#ifdef WITH_OMP_GPU
-            !$omp target update from(s_LMloc, ds_LMloc, dsdt)
-#endif
          end if
-#ifdef WITH_OMP_GPU
-         !$omp target update to(s_LMloc, xi_LMLoc)
-         !$omp target update to(dwdt, dpdt, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc)
-#endif
          call assemble_pol(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, &
               &            dp_LMloc, dwdt, dpdt, dpdt%expl(:,:,1), tscheme,          &
               &            lPressNext, lRmsNext)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dwdt, dpdt, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc)
-#endif
       end if
 
-#ifdef WITH_OMP_GPU
-      !$omp target update to(z_LMloc, dz_LMloc, dzdt)
-#endif
       call assemble_tor(time, z_LMloc, dz_LMloc, dzdt, domega_ic_dt, domega_ma_dt, &
            &            lorentz_torque_ic_dt, lorentz_torque_ma_dt, omega_ic,      &
            &            omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(z_LMloc, dz_LMloc, dzdt)
-#endif
 
       if ( l_mag ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(dbdt, djdt)
-         !$omp target update to(b_LMloc, aj_LMloc)
-         if ( l_cond_ic ) then
-            !$omp target update to(dbdt_ic, djdt_ic)
-            !$omp target update to(b_ic_LMloc, aj_ic_LMloc)
-         end if
-#endif
          call assemble_mag(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc,  &
               &            ddj_LMloc, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,  &
               &            aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, dbdt, djdt,&
               &            dbdt_ic, djdt_ic, lRmsNext, tscheme)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dbdt, djdt)
-         !$omp target update from(b_LMloc, aj_LMloc)
-         !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
-         if ( l_cond_ic ) then
-            !$omp target update from(dbdt_ic, djdt_ic)
-            !$omp target update from(b_ic_LMloc, aj_ic_LMloc)
-            !$omp target update from(db_ic_LMloc, dj_ic_LMloc, ddb_ic_LMloc, ddj_ic_LMloc)
-         end if
-#endif
       end if
 
    end subroutine assemble_stage
@@ -1037,101 +971,34 @@ contains
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
 
       if ( l_phase_field ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(phi_ghost)
-         !$omp target update to(phi_Rloc, dphidt)
-#endif
          call assemble_phase_Rloc(phi_Rloc, dphidt, tscheme)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(phi_ghost)
-         !$omp target update from(phi_Rloc, dphidt)
-#endif
-      end if
-      if ( l_chemical_conv )  then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(xi_Rloc, dxidt)
-         !$omp target update to(xi_ghost)
-#endif
-         call assemble_comp_Rloc(xi_Rloc, dxidt, tscheme)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(xi_Rloc, dxidt)
-         !$omp target update from(xi_ghost)
-#endif
-      end if
-      if ( l_heat )  then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(s_Rloc, ds_Rloc, dsdt, s_ghost)
-         if(l_phase_field) then
-            !$omp target update to(phi_Rloc)
-         end if
-#endif
-         call assemble_entropy_Rloc(s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(s_Rloc, ds_Rloc, dsdt)
-         !$omp target update from(s_ghost)
-#endif
       end if
 
-#ifdef WITH_OMP_GPU
-      !$omp target update to(dwdt, dpdt, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc)
-#endif
+      if ( l_chemical_conv )  then
+         call assemble_comp_Rloc(xi_Rloc, dxidt, tscheme)
+      end if
+
+      if ( l_heat )  then
+         call assemble_entropy_Rloc(s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
+      end if
+
       call assemble_pol_Rloc(block_sze, nblocks, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, &
            &                 dp_Rloc, dwdt, dpdt%expl(:,:,1), tscheme, lPressNext,  &
            &                 lRmsNext)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(w_ghost)
-      !$omp target update from(dwdt, dpdt, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc)
-#endif
 
-#ifdef WITH_OMP_GPU
-      !$omp target update to(z_ghost, z_Rloc, dz_Rloc, dzdt)
-#endif
       call assemble_tor_Rloc(time, z_Rloc, dz_Rloc, dzdt, domega_ic_dt, domega_ma_dt, &
            &                 lorentz_torque_ic_dt, lorentz_torque_ma_dt, omega_ic,    &
            &                 omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(z_ghost, z_Rloc, dz_Rloc, dzdt)
-#endif
 
       if ( l_mag ) then
          if ( l_mag_par_solve ) then
-#ifdef WITH_OMP_GPU
-            !$omp target update to(dbdt, djdt)
-            !$omp target update to(b_Rloc, aj_Rloc)
-            !$omp target update to(b_ghost, aj_ghost)
-#endif
             call assemble_mag_Rloc(b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc, dj_Rloc,   &
                  &                 ddj_Rloc, dbdt, djdt, lRmsNext, tscheme)
-#ifdef WITH_OMP_GPU
-            !$omp target update from(dbdt, djdt)
-            !$omp target update from(b_Rloc, aj_Rloc)
-            !$omp target update from(db_Rloc, dj_Rloc)
-            !$omp target update from(ddb_Rloc, ddj_Rloc)
-            !$omp target update from(b_ghost, aj_ghost)
-#endif
          else
-#ifdef WITH_OMP_GPU
-            !$omp target update to(dbdt, djdt)
-            !$omp target update to(b_LMloc, aj_LMloc)
-            if ( l_cond_ic ) then
-               !$omp target update to(dbdt_ic, djdt_ic)
-               !$omp target update to(b_ic_LMloc, aj_ic_LMloc)
-            end if
-#endif
             call assemble_mag(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc,   &
                  &            ddj_LMloc, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,   &
                  &            aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, dbdt, djdt, &
                  &            dbdt_ic, djdt_ic, lRmsNext, tscheme)
-#ifdef WITH_OMP_GPU
-            !$omp target update from(dbdt, djdt)
-            !$omp target update from(b_LMloc, aj_LMloc)
-            !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
-            if ( l_cond_ic ) then
-               !$omp target update from(dbdt_ic, djdt_ic)
-               !$omp target update from(b_ic_LMloc, aj_ic_LMloc)
-               !$omp target update from(db_ic_LMloc, dj_ic_LMloc, ddb_ic_LMloc, ddj_ic_LMloc)
-            end if
-#endif
          end if
       end if
 
