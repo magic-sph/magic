@@ -1068,6 +1068,10 @@ contains
       integer, parameter :: n_transp=10
       character(len=80) :: message
 
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: arr_Rloc, arr_LMloc)
+#endif
+
       !-- First fill an array with random numbers
       do n_f=1,n_fields
          do n_r=nRstart,nRstop
@@ -1078,6 +1082,10 @@ contains
             end do
          end do
       end do
+
+#ifdef WITH_OMP_GPU
+      !$omp target update to(arr_Rloc)
+#endif
 
       !-- Try the all-to-allv strategy (10 back and forth transposes)
       allocate( type_mpiatoav :: lo2r_test )
@@ -1199,6 +1207,11 @@ contains
 
       call MPI_Bcast(idx,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(minTime,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: arr_Rloc, arr_LMloc)
+#endif
+
 #else
       idx=1  ! In that case it does not matter
       minTime=0.0_cp
