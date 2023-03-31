@@ -215,15 +215,17 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc : lo_map, st_map, lo_sub_map, st_sub_map)
+      !$omp target enter data map(alloc : lo_map, st_map, lo_sub_map, st_sub_map, lm_balance)
+      !$omp target update to(lo_map, st_map, lo_sub_map, st_sub_map, lm_balance)
 #endif
+
 
    end subroutine initialize_blocking
 !------------------------------------------------------------------------
    subroutine finalize_blocking
 
 #ifdef WITH_OMP_GPU
-      !$omp target exit data map(release : lo_map, st_map, lo_sub_map, st_sub_map)
+      !$omp target exit data map(release : lo_map, st_map, lo_sub_map, st_sub_map, lm_balance)
 #endif
 
       call deallocate_mappings(st_map)

@@ -49,10 +49,6 @@ module preCalculations
    use special, only: l_curr, fac_loop, loopRadRatio, amp_curr, Le, n_imp, l_imp
    use time_schemes, only: type_tscheme
 
-#ifdef WITH_OMP_GPU
-   use blocking, only: lo_sub_map, lo_map, st_sub_map, st_map
-#endif
-
    implicit none
 
    private
@@ -811,9 +807,6 @@ contains
       if ( l_chemical_conv ) then
          !$omp target update to(topxi, botxi) nowait
       end if
-
-      !-- From blocking module
-      !$omp target update to(lo_map, st_map, lo_sub_map, st_sub_map)
 #endif
 
       !-- From num_param module
