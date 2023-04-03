@@ -678,7 +678,7 @@ contains
             end if
             !-- Big solve for other modes
             lm=sizeLMB2(nLMB2,nLMB)
-            if (.not. zMat(nLMB2)%gpu_is_used) then
+            if (.not. zMat%gpu_is_used) then
                !$omp target update from(rhs1)
                call zMat%solve(rhs1(:,:,0),2*lm,nLMB2)
                !$omp target update to(rhs1)
