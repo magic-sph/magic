@@ -50,6 +50,7 @@ module updateWP_mod
    private
 
    !-- Input of recycled work arrays:
+   complex(cp), allocatable :: wp_LMloc(:,:)
    complex(cp), allocatable :: ddddw(:,:)
    complex(cp), allocatable :: dwold(:,:)
    real(cp), allocatable :: work(:)
@@ -60,7 +61,7 @@ module updateWP_mod
 #endif
    real(cp), allocatable :: rhs0(:,:,:)
    real(cp), allocatable :: wpMat_fac(:,:,:)
-   class(type_realmat), allocatable :: wpMat(:), p0Mat, ellMat(:)
+   class(type_mrealmat), allocatable :: wpMat, p0Mat, ellMat
    logical, public, allocatable :: lWPmat(:)
    logical, allocatable :: l_ellMat(:)
    type(type_penta_par), public :: wMat_FD
@@ -92,7 +93,7 @@ contains
 
       !-- Local variables:
       integer, pointer :: nLMBs2(:)
-      integer :: ll, n_bands
+      integer :: n_bands
 #ifdef WITH_OMP_GPU
       logical :: use_gpu, use_pivot
       use_gpu = .false.; use_pivot = .true.
@@ -108,16 +109,14 @@ contains
 #endif
 
          if ( l_finite_diff ) then
-            allocate( type_bandmat :: wpMat(nLMBs2(1+rank)) )
+            allocate( type_mbandmat :: wpMat )
 
             if ( rscheme_oc%order <= 2 .and. rscheme_oc%order_boundary <= 2 ) then
                n_bands =rscheme_oc%order+3
             else
                n_bands = max(rscheme_oc%order+3,2*rscheme_oc%order_boundary+3)
             end if
-            do ll=1,nLMBs2(1+rank)
-               call wpMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
-            end do
+            call wpMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),l_pivot=.true.)
             allocate( wpMat_fac(n_r_max,2,nLMBs2(1+rank)) )
             wpMat_fac(:,:,:) = 0.0_cp
             bytes_allocated=bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
@@ -128,41 +127,40 @@ contains
             gpu_bytes_allocated=gpu_bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
             &                   SIZEOF_DEF_REAL
 #endif
-            allocate( type_bandmat :: p0Mat )
+            allocate( type_mbandmat :: p0Mat )
             n_bands = rscheme_oc%order+1
-            call p0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
+            call p0Mat%initialize(n_bands,n_r_max,1,l_pivot=.true.)
+
+            allocate( wp_LMloc(n_r_max, llm:ulm) )
+            wp_LMloc(:,:)=zero
          else
-            allocate( type_densemat :: wpMat(nLMBs2(1+rank)) )
+            allocate( type_mdensemat :: wpMat )
             if ( l_double_curl ) then
 #ifdef WITH_OMP_GPU
                use_gpu = .true.
-               do ll=1,nLMBs2(1+rank)
-                  call wpMat(ll)%initialize(n_r_max,n_r_max,use_pivot,use_gpu)
-               end do
+               call wpMat%initialize(n_r_max,n_r_max,nLMBs2(1+rank),use_pivot,use_gpu)
 #else
-               do ll=1,nLMBs2(1+rank)
-                  call wpMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
-               end do
+               call wpMat%initialize(n_r_max,n_r_max,nLMBs2(1+rank),l_pivot=.true.)
 #endif
                allocate( wpMat_fac(n_r_max,2,nLMBs2(1+rank)) )
                bytes_allocated=bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
                &               SIZEOF_DEF_REAL
 #ifdef WITH_OMP_GPU
-            !$omp target enter data map(alloc: wpMat_fac)
-            !$omp target update to(wpMat_fac)
-            gpu_bytes_allocated=gpu_bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
-            &                   SIZEOF_DEF_REAL
+               !$omp target enter data map(alloc: wpMat_fac)
+               !$omp target update to(wpMat_fac)
+               gpu_bytes_allocated=gpu_bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
+               &                   SIZEOF_DEF_REAL
 #endif
+               allocate( wp_LMloc(n_r_max, llm:ulm) )
+               wp_LMloc(:,:)=zero
             else
 #ifdef WITH_OMP_GPU
                use_gpu = .true.
-               do ll=1,nLMBs2(1+rank)
-                  call wpMat(ll)%initialize(2*n_r_max,2*n_r_max,use_pivot,use_gpu)
-               end do
+               call wpMat%initialize(2*n_r_max,2*n_r_max,nLMBs2(1+rank), &
+                    &                    use_pivot,use_gpu)
 #else
-               do ll=1,nLMBs2(1+rank)
-                  call wpMat(ll)%initialize(2*n_r_max,2*n_r_max,l_pivot=.true.)
-               end do
+               call wpMat%initialize(2*n_r_max,2*n_r_max,nLMBs2(1+rank), &
+                    &                    l_pivot=.true.)
 #endif
                allocate( wpMat_fac(2*n_r_max,2,nLMBs2(1+rank)) )
                bytes_allocated=bytes_allocated+4*n_r_max*nLMBs2(1+rank)*    &
@@ -173,16 +171,23 @@ contains
                gpu_bytes_allocated=bytes_allocated+4*n_r_max*nLMBs2(1+rank)*    &
                &                   SIZEOF_DEF_REAL
 #endif
+               allocate( wp_LMloc(2*n_r_max, llm:ulm) )
+               wp_LMloc(:,:)=zero
             end if
 
-            allocate( type_densemat :: p0Mat )
+            allocate( type_mdensemat :: p0Mat )
 #ifdef WITH_OMP_GPU
             use_gpu = .true.
-            call p0Mat%initialize(n_r_max,n_r_max,use_pivot,use_gpu)
+            call p0Mat%initialize(n_r_max,n_r_max,1,use_pivot,use_gpu)
 #else
-            call p0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
+            call p0Mat%initialize(n_r_max,n_r_max,1,l_pivot=.true.)
 #endif
          end if
+
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: wp_LMloc)
+            !$omp target update to(wp_LMloc)
+#endif
 
          if ( l_double_curl ) then
             allocate( ddddw(llm:ulm,n_r_max) )
@@ -238,7 +243,7 @@ contains
          end if
 
          if ( tscheme%l_assembly .and. l_double_curl ) then
-            allocate( type_bandmat :: ellMat(nLMBs2(1+rank)) )
+            allocate( type_mbandmat :: ellMat )
             if ( rscheme_oc%order <= 2 .and. rscheme_oc%order_boundary <= 2 .and. &
             &    ktopv /=1 .and. kbotv /=1 ) then
                !n_bands =rscheme_oc%order+1 # should be that but yield matrix singularity?
@@ -246,9 +251,7 @@ contains
             else
                n_bands = max(rscheme_oc%order+1,2*rscheme_oc%order_boundary+1)
             end if
-            do ll=1,nLMBs2(1+rank)
-               call ellMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
-            end do
+            call ellMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),l_pivot=.true.)
             allocate( rhs0(n_r_max,2*lo_sub_map%sizeLMB2max,0:maxThreads-1) )
             rhs0(:,:,:)=zero
             bytes_allocated = bytes_allocated+n_r_max*maxThreads*2* &
@@ -323,26 +326,17 @@ contains
       !-- Input variables:
       class(type_tscheme), intent(in) :: tscheme ! time scheme
 
-      !-- Local variables:
-      integer, pointer :: nLMBs2(:)
-      integer :: ll
-
       if ( .not. l_parallel_solve ) then
-         nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
 
          if ( tscheme%l_assembly .and. l_double_curl ) then
-            do ll=1,nLMBs2(1+rank)
-               call ellMat(ll)%finalize()
-            end do
+            call ellMat%finalize()
 #ifdef WITH_OMP_GPU
             !$omp target exit data map(delete: rhs0)
 #endif
             deallocate( rhs0 )
          end if
 
-         do ll=1,nLMBs2(1+rank)
-            call wpMat(ll)%finalize()
-         end do
+         call wpMat%finalize()
          call p0Mat%finalize()
 
 #ifdef WITH_OMP_GPU
@@ -405,18 +399,19 @@ contains
       complex(cp),       intent(inout) :: dp(llm:ulm,n_r_max)
 
       !-- Local variables:
+      logical :: l_LU_fac
       integer :: l1,m1      ! degree and order
       integer :: lm1,lm     ! position of (l,m) in array
       integer :: nLMB2
       integer :: nR         ! counts radial grid points
       integer :: n_r_out    ! counts cheb modes
-      integer :: nLMB
+      integer :: nLMB, l0m0
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
-      integer, pointer :: sizeLMB2(:,:),lm2(:,:)
+      integer, pointer :: sizeLMB2(:,:),lm2(:,:), l2nLMB2(:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
-      integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
+      integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid,info
 #ifdef WITH_OMP_GPU
       complex(cp), pointer :: ptr_expl(:,:)
       real(cp) :: wimp_lin
@@ -442,7 +437,9 @@ contains
       lm2(0:,0:) => lo_map%lm2
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
+      l2nLMB2(0:) => lo_sub_map%l2nLMB2
 
+      l0m0 = lm2(0,0)
       nLMB=1+rank
 
       !-- Now assemble the right hand side and store it in work_LMloc
@@ -474,6 +471,228 @@ contains
 #endif
       end if
 
+#ifdef NEW
+      !$omp single
+      call solve_counter%start_count()
+      !$omp end single
+
+      !-- Only fill the matrices: GPU looping could be only on nLMB2?
+      l_LU_fac=.false.
+      do nLMB2=1,nLMBs2(nLMB)
+         l1=lm22l(1,nLMB2,nLMB)
+         if ( (.not. lWPmat(l1)) .and. (l1 > 0) ) then
+            if ( l_double_curl ) then
+               call get_wMat(tscheme,l1,hdif_V(l1),wpMat,nLMB2, &
+                    &        wpMat_fac(:,:,nLMB2),l_LU=.false.)
+            else
+               call get_wpMat(tscheme,l1,hdif_V(l1),wpMat,nLMB2, &
+                    &         wpMat_fac(:,:,nLMB2),l_LU=.false.)
+            end if
+            l_LU_fac=.true.
+            lWPmat(l1)=.true.
+         end if
+         if ( (.not. lWPmat(l1)) .and. l1==0 ) then
+            call get_p0Mat(p0Mat)
+            lWPmat(l1)=.true.
+         end if
+      end do
+
+      if ( l_LU_fac ) then
+         call wpMat%prepare(info)
+         if ( info /= 0 ) call abortRun('Singular matrix wpMat!')
+      end if
+
+      !-- Copy and transpose bulk points
+      if ( l_double_curl ) then
+			!$omp target teams distribute parallel do collapse(2) private(l1)
+         do lm=llm,ulm
+            do nR=3,n_r_max-2
+               wp_LMloc(nR,lm)=work_LMloc(lm,nR)
+               l1=lm2l(lm)
+
+               if ( l_heat .and. (.not. l_parallel_solve) ) then
+                  wp_LMloc(nR,lm)=wp_LMloc(nR,lm)+wimp_lin*real(l1*(l1+1),cp) *  &
+                  !wp_LMloc(nR,lm)=wp_LMloc(nR,lm)+tscheme%wimp_lin(1)*real(l1*(l1+1),cp) *  &
+                  &                or2(nR)*BuoFac*rgrav(nR)*s(lm,nR)
+               end if
+               if ( l_chemical_conv .and. ( .not. l_parallel_solve ) ) then
+                  wp_LMloc(nR,lm)=wp_LMloc(nR,lm)+wimp_lin*real(l1*(l1+1),cp) *   &
+                  !wp_LMloc(nR,lm)=wp_LMloc(nR,lm)+tscheme%wimp_lin(1)*real(l1*(l1+1),cp) *   &
+                  &                or2(nR)*ChemFac*rgrav(nR)*xi(lm,nR)
+               end if
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+      else
+			!$omp target teams distribute parallel do collapse(2)
+         do lm=llm,ulm
+            do nR=2,n_r_max-1
+               wp_LMloc(nR,lm)        =work_LMloc(lm,nR)
+               wp_LMloc(nR+n_r_max,lm)=ddw(lm,nR)
+               if ( l_heat ) then
+                  wp_LMloc(nR,lm)=wp_LMloc(nR,lm)+wimp_lin*rho0(nR)*BuoFac*  &
+                  !wp_LMloc(nR,lm)=wp_LMloc(nR,lm)+tscheme%wimp_lin(1)*rho0(nR)*BuoFac*  &
+                  &                rgrav(nR)*s(lm,nR)
+               end if
+               if ( l_chemical_conv ) then
+                  wp_LMloc(nR,lm)=wp_LMloc(nR,lm)+wimp_lin*rho0(nR)*ChemFac*  &
+                  !wp_LMloc(nR,lm)=wp_LMloc(nR,lm)+tscheme%wimp_lin(1)*rho0(nR)*ChemFac*  &
+                  &                rgrav(nR)*xi(lm,nR)
+               end if
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+      end if
+
+      !-- Apply boundary conditions
+      if ( l_double_curl ) then
+         !$omp target teams distribute parallel do
+         do lm=llm,ulm
+            wp_LMloc(1,lm)        =zero
+            wp_LMloc(2,lm)        =zero
+            wp_LMloc(n_r_max-1,lm)=zero
+            wp_LMloc(n_r_max,lm)  =zero
+         end do
+         !$omp end target teams distribute parallel do
+      else
+         !$omp target teams distribute parallel do
+         do lm=llm,ulm
+            wp_LMloc(1,lm)        =zero
+            wp_LMloc(n_r_max,lm)  =zero
+            wp_LMloc(n_r_max+1,lm)=zero
+            wp_LMloc(2*n_r_max,lm)=zero
+         end do
+         !$omp end target teams distribute parallel do
+      end if
+
+      !----- This is RHS for l=m=0
+      if ( (l0m0 >= llm .and. l0m0 <= ulm) ) then
+         !-- The integral of rho' r^2 dr vanishes
+         if ( ThExpNb*ViscHeatFac /= 0 .and. ktopp==1 ) then
+            if ( rscheme_oc%version == 'cheb' ) then
+               !$omp target teams distribute parallel do
+               do nR=1,n_r_max
+                  work(nR)=ThExpNb*alpha0(nR)*temp0(nR)*rho0(nR)*r(nR)*&
+                  &        r(nR)*real(s(l0m0,nR))
+               end do
+               !$omp end target teams distribute parallel do
+               rhs(1)=rInt_R(work,r,rscheme_oc)
+            else
+               rhs(1)=0.0_cp
+            end if
+            !$omp target update to(rhs(1))
+         else
+            rhs(1)=0.0_cp
+            !$omp target update to(rhs(1))
+         end if
+
+         if ( l_chemical_conv ) then
+            !$omp target teams distribute parallel do
+            do nR=2,n_r_max
+               rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*real(s(l0m0,nR))+   &
+               &       rho0(nR)*ChemFac*rgrav(nR)*real(xi(l0m0,nR))+ &
+               &       real(ptr_expl(l0m0,nR))
+               !&       real(dwdt%expl(l0m0,nR,tscheme%istage))
+            end do
+            !$omp end target teams distribute parallel do
+         else
+            !$omp target teams distribute parallel do
+            do nR=2,n_r_max
+               rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*real(s(l0m0,nR))+  &
+               !&       real(dwdt%expl(l0m0,nR,tscheme%istage))
+               &       real(ptr_expl(l0m0,nR))
+            end do
+            !$omp end target teams distribute parallel do
+         end if
+      endif
+
+      !-- Apply scaling prefactor
+      !$omp target teams distribute parallel do collapse(2) private(l1,nLMB2)
+      do lm=llm,ulm
+         do nR=1,size_rhs1
+            l1=lm2l(lm)
+            nLMB2=l2nLMB2(l1)
+            wp_LMloc(nR,lm)=wp_LMloc(nR,lm)*wpMat_fac(nR,1,nLMB2)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+      !-- Solve matrices
+      call wpMat%solve(wp_LMloc, llm, ulm, lm2l, l2nLMB2)
+      if ( llm <= l0m0 .and. ulm >= l0m0 ) then
+         !-- Small solve for l=0, m=0 in case this is needed
+         if (.not. p0Mat%gpu_is_used) then
+            !$omp target update from(rhs)
+            call p0Mat%solve(rhs)
+            !$omp target update to(rhs)
+         else
+#ifdef WITH_OMP_GPU
+            call p0Mat%solve(rhs,handle,devInfo)
+#endif
+         end if
+      end if
+
+      !-- Rescale solution
+      !$omp target teams distribute parallel do collapse(2) private(l1,nLMB2)
+      do lm=llm,ulm
+         do nR=1,size_rhs1
+            l1=lm2l(lm)
+            nLMB2=l2nLMB2(l1)
+            wp_LMloc(nR,lm)=wp_LMloc(nR,lm)*wpMat_fac(nR,2,nLMB2)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+      !-- Loop to reassemble fields
+      if ( l_double_curl ) then
+         !$omp target teams distribute parallel do collapse(2) private(l1, m1)
+         do lm=llm,ulm
+            do n_r_out=1,n_max_rSchemeOc
+            !do n_r_out=1,rscheme_oc%n_max
+               l1=lm2l(lm)
+               m1=lm2m(lm)
+               if ( l1 == 0 ) then
+                  w(lm,n_r_out)=zero
+                  p(lm,n_r_out)=rhs(n_r_out)
+               else
+                  if ( m1 > 0 ) then
+                     w(lm,n_r_out)=wp_LMloc(n_r_out,lm)
+                  else
+                     w(lm,n_r_out)=cmplx(real(wp_LMloc(n_r_out,lm)),0.0_cp,cp)
+                  end if
+               end if
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+      else
+         !$omp target teams distribute parallel do collapse(2) private(l1, m1)
+         do lm=llm,ulm
+            do n_r_out=1,n_max_rSchemeOc
+            !do n_r_out=1,rscheme_oc%n_max
+               l1=lm2l(lm)
+               m1=lm2m(lm)
+               if ( l1 == 0 ) then
+                  w(lm,n_r_out)=zero
+                  p(lm,n_r_out)=rhs(n_r_out)
+               else
+                  if ( m1 > 0 ) then
+                     w(lm,n_r_out)=wp_LMloc(n_r_out,lm)
+                     p(lm,n_r_out)=wp_LMloc(n_r_out+n_r_max,lm)
+                  else
+                     w(lm,n_r_out)=cmplx(real(wp_LMloc(n_r_out,lm)),0.0_cp,cp)
+                     p(lm,n_r_out)=cmplx(real(wp_LMloc(n_r_out+n_r_max,lm)),0.0_cp,cp)
+                  end if
+               end if
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+      end if
+      !$omp single
+      call solve_counter%stop_count()
+      !$omp end single
+#endif
+
+!#ifdef OLD
 #ifdef WITH_OMP_GPU
       !$omp single
       call solve_counter%start_count()
@@ -485,7 +704,7 @@ contains
 
          l1=lm22l(1,nLMB2,nLMB)
 
-         if ( l1 == 0 ) then ! Spherically-symmetric modes
+         if ( l1 == 0 ) then ! Spherically-symmetric mode
             lm1=lm2(0,0)
             if ( .not. lWPmat(l1) ) then
                call get_p0Mat(p0Mat)
@@ -548,10 +767,10 @@ contains
 
             if ( .not. lWPmat(l1) ) then
                if ( l_double_curl ) then
-                  call get_wMat(tscheme,l1,hdif_V(l1),wpMat(nLMB2), &
+                  call get_wMat(tscheme,l1,hdif_V(l1),wpMat,nLMB2, &
                        &        wpMat_fac(:,:,nLMB2))
                else
-                  call get_wpMat(tscheme,l1,hdif_V(l1),wpMat(nLMB2), &
+                  call get_wpMat(tscheme,l1,hdif_V(l1),wpMat,nLMB2, &
                        &         wpMat_fac(:,:,nLMB2))
                end if
                lWPmat(l1)=.true.
@@ -643,12 +862,12 @@ contains
 
             !-- Solve matrices with batched RHS (hipsolver)
             lm=sizeLMB2(nLMB2,nLMB)
-            if (.not. wpMat(nLMB2)%gpu_is_used) then
+            if (.not. wpMat%gpu_is_used) then
                !$omp target update from(rhs1)
-               call wpMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
+               call wpMat%solve(rhs1(:,:,0),2*lm,nLMB2)
                !$omp target update to(rhs1)
             else
-               call wpMat(nLMB2)%solve(rhs1(:,:,0),2*lm,handle,devInfo)
+               call wpMat%solve(rhs1(:,:,0),2*lm,handle,devInfo,nLMB2)
             end if
 
             !-- Loop to reassemble fields
@@ -729,9 +948,9 @@ contains
          else
             if ( .not. lWPmat(l1) ) then
                if ( l_double_curl ) then
-                  call get_wMat(tscheme,l1,hdif_V(l1),wpMat(nLMB2),wpMat_fac(:,:,nLMB2))
+                  call get_wMat(tscheme,l1,hdif_V(l1),wpMat,nLMB2,wpMat_fac(:,:,nLMB2))
                else
-                  call get_wpMat(tscheme,l1,hdif_V(l1),wpMat(nLMB2),wpMat_fac(:,:,nLMB2))
+                  call get_wpMat(tscheme,l1,hdif_V(l1),wpMat,nLMB2,wpMat_fac(:,:,nLMB2))
                end if
                lWPmat(l1)=.true.
             end if
@@ -872,8 +1091,8 @@ contains
                   end do
                end do
 
-               call wpMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*(lm-1),threadid), &
-                    &                  2*(lm-1-lmB0))
+               call wpMat%solve(rhs1(:,2*(lmB0+1)-1:2*(lm-1),threadid), &
+                    &           2*(lm-1-lmB0),nLMB2)
 
                do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                   lm1=lm22lm(lm,nLMB2,nLMB)
@@ -930,6 +1149,7 @@ contains
       call solve_counter%stop_count()
       !$omp end single
 #endif
+!#endif
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU
@@ -1332,7 +1552,7 @@ contains
          if ( l1 > 0 ) then
             !-- LU factorisation (big loop but hardly any work because of l_ellMat)
             if ( .not. l_ellMat(l1) ) then
-               call get_elliptic_mat(l1, ellMat(nLMB2))
+               call get_elliptic_mat(l1, ellMat, nLMB2)
                l_ellMat(l1) = .true.
             end if
 
@@ -1356,7 +1576,7 @@ contains
 
             !-- Solve matrices with batched RHS (hipsolver)
             lm=sizeLMB2(nLMB2,nLMB)
-            call ellMat(nLMB2)%solve(rhs0(:,:,0),2*lm)
+            call ellMat%solve(rhs0(:,:,0),2*lm,nLMB2)
 
             !-- Loop to reassemble fields
             do lm=1,sizeLMB2(nLMB2,nLMB)
@@ -1409,7 +1629,7 @@ contains
          if ( l1 > 0 ) then
 
             if ( .not. l_ellMat(l1) ) then
-               call get_elliptic_mat(l1, ellMat(nLMB2))
+               call get_elliptic_mat(l1,ellMat,nLMB2)
                l_ellMat(l1) = .true.
             end if
 
@@ -1441,8 +1661,8 @@ contains
                   end do
                end do
 
-               call ellMat(nLMB2)%solve(rhs0(:,2*(lmB0+1)-1:2*(lm-1),threadid), &
-                    &                   2*(lm-1-lmB0))
+               call ellMat%solve(rhs0(:,2*(lmB0+1)-1:2*(lm-1),threadid), &
+                    &                   2*(lm-1-lmB0),nLMB2)
 
                do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                   lm1=lm22lm(lm,nLMB2,nLMB)
@@ -2801,7 +3021,7 @@ contains
 
    end subroutine assemble_pol_Rloc
 !------------------------------------------------------------------------------
-   subroutine get_wpMat(tscheme,l,hdif,wpMat,wpMat_fac)
+   subroutine get_wpMat(tscheme,l,hdif,wpMat,nLMB2,wpMat_fac,l_LU)
       !
       !  Purpose of this subroutine is to contruct the time step matrix
       !  ``wpMat`` for the Navier-Stokes equation.
@@ -2810,17 +3030,26 @@ contains
       !-- Input variables:
       class(type_tscheme), intent(in) :: tscheme ! time scheme
       real(cp),            intent(in) :: hdif    ! hyperdiffusion
+      integer,             intent(in) :: nLMB2
       integer,             intent(in) :: l       ! degree :math:`\ell`
+      logical, optional,   intent(in) :: l_LU
 
       !-- Output variables:
-      class(type_realmat), intent(inout) :: wpMat
+      class(type_mrealmat), intent(inout) :: wpMat
       real(cp), intent(out) :: wpMat_fac(2*n_r_max,2)
 
       !-- local variables:
+      logical :: l_LU_loc
       integer :: nR,nR_out,nR_p,nR_out_p,n_r_out
       integer :: info
       real(cp) :: dLh
       real(cp) :: wimp_lin
+
+      if ( present(l_LU) ) then
+         l_LU_loc=l_LU
+      else
+         l_LU_loc=.true.
+      end if
 
       dLh =real(l*(l+1),kind=cp)
 
@@ -2835,42 +3064,42 @@ contains
       do nR_out=1,rscheme_oc%n_max
          nR_out_p=nR_out+n_r_max
 
-         wpMat%dat(1,nR_out)        =rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
-         wpMat%dat(1,nR_out_p)      =0.0_cp
-         wpMat%dat(n_r_max,nR_out)  =rscheme_oc%rnorm* &
+         wpMat%dat(1,nR_out,nLMB2)        =rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
+         wpMat%dat(1,nR_out_p,nLMB2)      =0.0_cp
+         wpMat%dat(n_r_max,nR_out,nLMB2)  =rscheme_oc%rnorm* &
          &                       rscheme_oc%rMat(n_r_max,nR_out)
-         wpMat%dat(n_r_max,nR_out_p)=0.0_cp
+         wpMat%dat(n_r_max,nR_out_p,nLMB2)=0.0_cp
 
          if ( ktopv == 1 ) then  ! free slip !
-            wpMat%dat(n_r_max+1,nR_out)= rscheme_oc%rnorm * (        &
+            wpMat%dat(n_r_max+1,nR_out,nLMB2)= rscheme_oc%rnorm * (  &
             &                        rscheme_oc%d2rMat(1,nR_out) -   &
             &    (two*or1(1)+beta(1))*rscheme_oc%drMat(1,nR_out) )
          else                    ! no slip, note exception for l=1,m=0
-            wpMat%dat(n_r_max+1,nR_out)=rscheme_oc%rnorm*    &
+            wpMat%dat(n_r_max+1,nR_out,nLMB2)=rscheme_oc%rnorm*    &
             &                       rscheme_oc%drMat(1,nR_out)
          end if
-         wpMat%dat(n_r_max+1,nR_out_p)=0.0_cp
+         wpMat%dat(n_r_max+1,nR_out_p,nLMB2)=0.0_cp
 
          if ( l_full_sphere ) then
             if ( l == 1 ) then
-               wpMat%dat(2*n_r_max,nR_out)=rscheme_oc%rnorm * &
+               wpMat%dat(2*n_r_max,nR_out,nLMB2)=rscheme_oc%rnorm * &
                &                       rscheme_oc%drMat(n_r_max,nR_out)
             else
-               wpMat%dat(2*n_r_max,nR_out)=rscheme_oc%rnorm * &
+               wpMat%dat(2*n_r_max,nR_out,nLMB2)=rscheme_oc%rnorm * &
                &                       rscheme_oc%d2rMat(n_r_max,nR_out)
             end if
          else
             if ( kbotv == 1 ) then  ! free slip !
-               wpMat%dat(2*n_r_max,nR_out)=rscheme_oc%rnorm * (       &
+               wpMat%dat(2*n_r_max,nR_out,nLMB2)=rscheme_oc%rnorm * ( &
                &                  rscheme_oc%d2rMat(n_r_max,nR_out) - &
                &      ( two*or1(n_r_max)+beta(n_r_max))*              &
                &                  rscheme_oc%drMat(n_r_max,nR_out))
             else                 ! no slip, note exception for l=1,m=0
-               wpMat%dat(2*n_r_max,nR_out)=rscheme_oc%rnorm * &
+               wpMat%dat(2*n_r_max,nR_out,nLMB2)=rscheme_oc%rnorm * &
                &                       rscheme_oc%drMat(n_r_max,nR_out)
             end if
          end if
-         wpMat%dat(2*n_r_max,nR_out_p)=0.0_cp
+         wpMat%dat(2*n_r_max,nR_out_p,nLMB2)=0.0_cp
 
       end do   !  loop over nR_out
 #ifdef WITH_OMP_GPU
@@ -2883,14 +3112,14 @@ contains
 #endif
          do nR_out=rscheme_oc%n_max+1,n_r_max
             nR_out_p=nR_out+n_r_max
-            wpMat%dat(1,nR_out)          =0.0_cp
-            wpMat%dat(n_r_max,nR_out)    =0.0_cp
-            wpMat%dat(n_r_max+1,nR_out)  =0.0_cp
-            wpMat%dat(2*n_r_max,nR_out)  =0.0_cp
-            wpMat%dat(1,nR_out_p)        =0.0_cp
-            wpMat%dat(n_r_max,nR_out_p)  =0.0_cp
-            wpMat%dat(n_r_max+1,nR_out_p)=0.0_cp
-            wpMat%dat(2*n_r_max,nR_out_p)=0.0_cp
+            wpMat%dat(1,nR_out,nLMB2)          =0.0_cp
+            wpMat%dat(n_r_max,nR_out,nLMB2)    =0.0_cp
+            wpMat%dat(n_r_max+1,nR_out,nLMB2)  =0.0_cp
+            wpMat%dat(2*n_r_max,nR_out,nLMB2)  =0.0_cp
+            wpMat%dat(1,nR_out_p,nLMB2)        =0.0_cp
+            wpMat%dat(n_r_max,nR_out_p,nLMB2)  =0.0_cp
+            wpMat%dat(n_r_max+1,nR_out_p,nLMB2)=0.0_cp
+            wpMat%dat(2*n_r_max,nR_out_p,nLMB2)=0.0_cp
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target
@@ -2906,7 +3135,7 @@ contains
          do nR=2,n_r_max-1
             ! in the BM2 case: visc=1.0,beta=0.0,dLvisc=0.0,dbeta=0.0
             nR_p=nR+n_r_max
-            wpMat%dat(nR,nR_out)= rscheme_oc%rnorm *  (                     &
+            wpMat%dat(nR,nR_out,nLMB2)= rscheme_oc%rnorm *  (               &
             &               dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out)          &
             &         - wimp_lin*hdif*visc(nR)*dLh*or2(nR) * (              &
             &                              rscheme_oc%d2rMat(nR,nR_out)     &
@@ -2916,12 +3145,12 @@ contains
             &          +(three*dLvisc(nR)+beta(nR))*or1(nR)+dbeta(nR) )     &
             &          )                    *rscheme_oc%rMat(nR,nR_out)  )  )
 
-            wpMat%dat(nR,nR_out_p)= rscheme_oc%rnorm*wimp_lin*(             &
+            wpMat%dat(nR,nR_out_p,nLMB2)= rscheme_oc%rnorm*wimp_lin*(       &
             &                            rscheme_oc%drMat(nR,nR_out)        &
             &                  -beta(nR)* rscheme_oc%rMat(nR,nR_out))
             ! the following part gives sometimes very large
             ! matrix entries
-            wpMat%dat(nR_p,nR_out)=rscheme_oc%rnorm * (                       &
+            wpMat%dat(nR_p,nR_out,nLMB2)=rscheme_oc%rnorm * (                 &
             &                  -dLh*or2(nR)*rscheme_oc%drMat(nR,nR_out)       &
             &         -wimp_lin*hdif*visc(nR)*dLh*or2(nR)      *(             &
             &                                 - rscheme_oc%d3rMat(nR,nR_out)  &
@@ -2932,7 +3161,7 @@ contains
             &          -dLh*or2(nR)*( two*or1(nR)+dLvisc(nR)                  &
             &          +two*third*beta(nR)   )*   rscheme_oc%rMat(nR,nR_out) ) )
 
-            wpMat%dat(nR_p,nR_out_p)= -rscheme_oc%rnorm*wimp_lin*           &
+            wpMat%dat(nR_p,nR_out_p,nLMB2)= -rscheme_oc%rnorm*wimp_lin*       &
             &                          dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out)
          end do
       end do
@@ -2946,14 +3175,14 @@ contains
 #endif
       do nR=1,n_r_max
          nR_p=nR+n_r_max
-         wpMat%dat(nR,1)          =rscheme_oc%boundary_fac*wpMat%dat(nR,1)
-         wpMat%dat(nR,n_r_max)    =rscheme_oc%boundary_fac*wpMat%dat(nR,n_r_max)
-         wpMat%dat(nR,n_r_max+1)  =rscheme_oc%boundary_fac*wpMat%dat(nR,n_r_max+1)
-         wpMat%dat(nR,2*n_r_max)  =rscheme_oc%boundary_fac*wpMat%dat(nR,2*n_r_max)
-         wpMat%dat(nR_p,1)        =rscheme_oc%boundary_fac*wpMat%dat(nR_p,1)
-         wpMat%dat(nR_p,n_r_max)  =rscheme_oc%boundary_fac*wpMat%dat(nR_p,n_r_max)
-         wpMat%dat(nR_p,n_r_max+1)=rscheme_oc%boundary_fac*wpMat%dat(nR_p,n_r_max+1)
-         wpMat%dat(nR_p,2*n_r_max)=rscheme_oc%boundary_fac*wpMat%dat(nR_p,2*n_r_max)
+         wpMat%dat(nR,1,nLMB2)          =rscheme_oc%boundary_fac*wpMat%dat(nR,1,nLMB2)
+         wpMat%dat(nR,n_r_max,nLMB2)    =rscheme_oc%boundary_fac*wpMat%dat(nR,n_r_max,nLMB2)
+         wpMat%dat(nR,n_r_max+1,nLMB2)  =rscheme_oc%boundary_fac*wpMat%dat(nR,n_r_max+1,nLMB2)
+         wpMat%dat(nR,2*n_r_max,nLMB2)  =rscheme_oc%boundary_fac*wpMat%dat(nR,2*n_r_max,nLMB2)
+         wpMat%dat(nR_p,1,nLMB2)        =rscheme_oc%boundary_fac*wpMat%dat(nR_p,1,nLMB2)
+         wpMat%dat(nR_p,n_r_max,nLMB2)  =rscheme_oc%boundary_fac*wpMat%dat(nR_p,n_r_max,nLMB2)
+         wpMat%dat(nR_p,n_r_max+1,nLMB2)=rscheme_oc%boundary_fac*wpMat%dat(nR_p,n_r_max+1,nLMB2)
+         wpMat%dat(nR_p,2*n_r_max,nLMB2)=rscheme_oc%boundary_fac*wpMat%dat(nR_p,2*n_r_max,nLMB2)
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
@@ -2964,7 +3193,7 @@ contains
       !$omp target teams distribute parallel do
 #endif
       do nR=1,2*n_r_max
-         wpMat_fac(nR,1)=one/maxval(abs(wpMat%dat(nR,:)))
+         wpMat_fac(nR,1)=one/maxval(abs(wpMat%dat(nR,:,nLMB2)))
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
@@ -2974,13 +3203,13 @@ contains
       !$omp target teams distribute parallel do collapse(2)
       do n_r_out=1,2*n_r_max
          do nr=1,2*n_r_max
-            wpMat%dat(nR,n_r_out) = wpMat%dat(nR,n_r_out)*wpMat_fac(nR,1)
+            wpMat%dat(nR,n_r_out,nLMB2) = wpMat%dat(nR,n_r_out,nLMB2)*wpMat_fac(nR,1)
          end do
       end do
       !$omp end target teams distribute parallel do
 #else
       do nr=1,2*n_r_max
-         wpMat%dat(nR,:) = wpMat%dat(nR,:)*wpMat_fac(nR,1)
+         wpMat%dat(nR,:,nLMB2) = wpMat%dat(nR,:,nLMB2)*wpMat_fac(nR,1)
       end do
 #endif
 
@@ -2989,7 +3218,7 @@ contains
       !$omp target teams distribute parallel do
 #endif
       do nR=1,2*n_r_max
-         wpMat_fac(nR,2)=one/maxval(abs(wpMat%dat(:,nR)))
+         wpMat_fac(nR,2)=one/maxval(abs(wpMat%dat(:,nR,nLMB2)))
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
@@ -2999,59 +3228,14 @@ contains
       !$omp target teams distribute parallel do collapse(2)
       do nR=1,2*n_r_max
          do n_r_out=1,2*n_r_max
-            wpMat%dat(n_r_out,nR) = wpMat%dat(n_r_out,nR)*wpMat_fac(nR,2)
+            wpMat%dat(n_r_out,nR,nLMB2) = wpMat%dat(n_r_out,nR,nLMB2)*wpMat_fac(nR,2)
          end do
       end do
       !$omp end target teams distribute parallel do
 #else
       do nR=1,2*n_r_max
-         wpMat%dat(:,nR) = wpMat%dat(:,nR)*wpMat_fac(nR,2)
+         wpMat%dat(:,nR,nLMB2) = wpMat%dat(:,nR,nLMB2)*wpMat_fac(nR,2)
       end do
-#endif
-
-#ifdef MATRIX_CHECK
-      block
-
-      integer ::ipiv(2*n_r_max),iwork(2*n_r_max),i,j
-      real(cp) :: work(8*n_r_max),anorm,linesum,rcond
-      real(cp) :: temp_wpMat(2*n_r_max,2*n_r_max)
-      integer, save :: counter=0
-      integer :: filehandle
-      character(len=100) :: filename
-      logical :: first_run=.true.
-
-      write(filename,"(A,I3.3,A,I3.3,A)") "wpMat_",l,"_",counter,".dat"
-      open(newunit=filehandle,file=trim(filename))
-      counter= counter+1
-
-#ifdef WITH_OMP_GPU
-      !$omp target update from(wpMat%dat)
-#endif
-
-      do i=1,2*n_r_max
-         do j=1,2*n_r_max
-            write(filehandle,"(2ES20.12,1X)",advance="no") wpMat%dat(i,j)
-         end do
-         write(filehandle,"(A)") ""
-      end do
-      close(filehandle)
-      temp_wpMat=wpMat%dat
-      anorm = 0.0_cp
-      do i=1,2*n_r_max
-         linesum = 0.0_cp
-         do j=1,2*n_r_max
-            linesum = linesum + abs(temp_wpMat(i,j))
-         end do
-         if (linesum  >  anorm) anorm=linesum
-      end do
-      write(*,"(A,ES20.12)") "anorm = ",anorm
-      ! LU factorization
-      call dgetrf(2*n_r_max,2*n_r_max,temp_wpMat,2*n_r_max,ipiv,info)
-      ! estimate the condition number
-      call dgecon('I',2*n_r_max,temp_wpMat,2*n_r_max,anorm,rcond,work,iwork,info)
-      write(*,"(A,I3,A,ES11.3)") "inverse condition number of wpMat for l=",l," is ",rcond
-
-      end block
 #endif
 
 #ifdef WITH_OMP_GPU
@@ -3060,21 +3244,23 @@ contains
       end if
 #endif
 
+      !-- LU decomposition
+      if ( l_LU_loc ) then
 #ifdef WITH_OMP_GPU
-      if(.not. wpMat%gpu_is_used) then
-         call wpMat%prepare(info)
-      else
-         call wpMat%prepare(info, handle, devInfo)
-      end if
+         if (.not. wpMat%gpu_is_used) then
+            call wpMat%prepare(nLMB2, info)
+         else
+            call wpMat%prepare(nLMB2, info, handle, devInfo)
+         end if
 #else
-      call wpMat%prepare(info)
+         call wpMat%prepare(nLMB2, info)
 #endif
-
-      if ( info /= 0 ) call abortRun('Singular matrix wpMat!')
+         if ( info /= 0 ) call abortRun('Singular matrix wpMat!')
+      end if
 
    end subroutine get_wpMat
 !------------------------------------------------------------------------------
-   subroutine get_elliptic_mat(l, ellMat)
+   subroutine get_elliptic_mat(l, ellMat, nLMB2)
       !
       !  Purpose of this subroutine is to contruct the matrix needed
       !  for the derivation of w for the time advance of the poloidal equation
@@ -3083,9 +3269,10 @@ contains
 
       !-- Input variables:
       integer, intent(in) :: l       ! degree :math:`\ell`
+      integer, intent(in) :: nLMB2
 
       !-- Output variables:
-      class(type_realmat), intent(inout) :: ellMat
+      class(type_mrealmat), intent(inout) :: ellMat
 
       !-- local variables:
       integer :: nR, nR_out
@@ -3154,15 +3341,15 @@ contains
 #endif
 
       !-- Array copy
-      call ellMat%set_data(dat)
+      call ellMat%set_data(dat,nLMB2)
 
       !-- Lu factorisation
-      call ellMat%prepare(info)
+      call ellMat%prepare(nLMB2,info)
       if ( info /= 0 ) call abortRun('Singular matrix ellMat!')
 
    end subroutine get_elliptic_mat
 !-----------------------------------------------------------------------------
-   subroutine get_wMat(tscheme,l,hdif,wMat,wMat_fac)
+   subroutine get_wMat(tscheme,l,hdif,wMat,nLMB2,wMat_fac,l_LU)
       !
       !  Purpose of this subroutine is to contruct the time step matrix
       !  wpmat  for the NS equation. This matrix corresponds here to the
@@ -3172,13 +3359,16 @@ contains
       !-- Input variables:
       class(type_tscheme), intent(in) :: tscheme  ! time scheme
       real(cp),            intent(in) :: hdif     ! hyperdiffusion
+      integer,             intent(in) :: nLMB2
       integer,             intent(in) :: l        ! degree :math:`\ell`
+      logical, optional,   intent(in) :: l_LU
 
       !-- Output variables:
-      class(type_realmat), intent(inout) :: wMat
+      class(type_mrealmat), intent(inout) :: wMat
       real(cp), intent(out) :: wMat_fac(n_r_max,2)
 
       !-- local variables:
+      logical :: l_LU_loc
       integer :: nR, nR_out,n_r_out
       integer :: info
       real(cp) :: dLh
@@ -3186,6 +3376,12 @@ contains
       real(cp) :: dat(n_r_max,n_r_max)
 #endif
       real(cp) :: wimp_lin
+
+      if ( present(l_LU) ) then
+         l_LU_loc=l_LU
+      else
+         l_LU_loc=.true.
+      end if
 
       dLh =real(l*(l+1),kind=cp)
 
@@ -3375,20 +3571,22 @@ contains
 #endif
 
       !-- Array copy
-      call wMat%set_data(dat)
+      call wMat%set_data(dat,nLMB2)
 
       !-- LU decomposition
+      if ( l_LU_loc ) then
 #ifdef WITH_OMP_GPU
-      if(.not. wMat%gpu_is_used) then
-         call wMat%prepare(info)
-      else
-         call wMat%prepare(info, handle, devInfo)
-      end if
+         if (.not. wMat%gpu_is_used) then
+            call wMat%prepare(nLMB2, info)
+         else
+            call wMat%prepare(nLMB2, info, handle, devInfo)
+         end if
 #else
-      call wMat%prepare(info)
+         call wMat%prepare(nlMB2, info)
 #endif
 
-      if ( info /= 0 ) call abortRun('Singular matrix wMat!')
+         if ( info /= 0 ) call abortRun('Singular matrix wMat!')
+      end if
 
    end subroutine get_wMat
 !-----------------------------------------------------------------------------
@@ -3612,7 +3810,7 @@ contains
       !
 
       !-- Output variables:
-      class(type_realmat), intent(inout) :: pMat ! matrix
+      class(type_mrealmat), intent(inout) :: pMat ! matrix
 
       !-- Local variables:
 #ifndef WITH_OMP_GPU
@@ -3739,14 +3937,14 @@ contains
 #endif
 
       !-- Array copy
-      call pMat%set_data(dat)
+      call pMat%set_data(dat, 1)
 
       !---- LU decomposition:
 #ifdef WITH_OMP_GPU
       if(.not. pMat%gpu_is_used) then
          call pMat%prepare(info)
       else
-         call pMat%prepare(info, handle, devInfo)
+         call pMat%prepare(1, info, handle, devInfo)
       end if
 #else
       call pMat%prepare(info)
