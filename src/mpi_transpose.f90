@@ -81,12 +81,12 @@ module  mpi_alltoall_mod
    private
 
    type, public, extends(type_mpitransp) :: type_mpiatoav
-      integer, allocatable :: rcounts(:)
-      integer, allocatable :: scounts(:)
-      integer, allocatable :: rdisp(:)
-      integer, allocatable :: sdisp(:)
-      complex(cp), allocatable :: sbuff(:)
-      complex(cp), allocatable :: rbuff(:)
+      integer, pointer :: rcounts(:)
+      integer, pointer :: scounts(:)
+      integer, pointer :: rdisp(:)
+      integer, pointer :: sdisp(:)
+      complex(cp), pointer :: sbuff(:)
+      complex(cp), pointer :: rbuff(:)
    contains
       procedure :: create_comm => create_comm_alltoallv
       procedure :: destroy_comm => destroy_comm_alltoallv
@@ -99,7 +99,7 @@ module  mpi_alltoall_mod
       integer :: scounts
       integer :: n_r_loc
       integer :: lm_loc
-      complex(cp), allocatable :: buff(:)
+      complex(cp), pointer :: buff(:)
    contains
       procedure :: create_comm => create_comm_alltoallp
       procedure :: destroy_comm => destroy_comm_alltoallp
@@ -108,10 +108,10 @@ module  mpi_alltoall_mod
    end type type_mpiatoap
 
    type, public, extends(type_mpitransp) :: type_mpiatoaw
-      integer, allocatable :: rtype(:)
-      integer, allocatable :: stype(:)
-      integer, allocatable :: disp(:)
-      integer, allocatable :: counts(:)
+      integer, pointer :: rtype(:)
+      integer, pointer :: stype(:)
+      integer, pointer :: disp(:)
+      integer, pointer :: counts(:)
    contains
       procedure :: create_comm => create_comm_alltoallw
       procedure :: destroy_comm => destroy_comm_alltoallw
@@ -351,6 +351,10 @@ contains
 
       !-- Local variables
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
+#ifdef WITH_OMP_GPU
+      integer, pointer :: rcounts_ptr(:), scounts_ptr(:), rdisp_ptr(:), sdisp_ptr(:)
+      complex(cp), pointer :: rbuff_ptr(:), sbuff_ptr(:)
+#endif
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(ii,n_f,n_r,lm)
@@ -377,13 +381,21 @@ contains
 
 #ifdef WITH_MPI
 #ifdef WITH_OMP_GPU
-      !$omp target data use_device_addr(this)
-#endif
+      rcounts_ptr => this%rcounts
+      scounts_ptr => this%scounts
+      rdisp_ptr   => this%rdisp
+      sdisp_ptr   => this%sdisp
+      rbuff_ptr   => this%rbuff
+      sbuff_ptr   => this%sbuff
+      !$omp target data use_device_addr(rcounts_ptr, scounts_ptr, rdisp_ptr, sdisp_ptr, rbuff_ptr, sbuff_ptr)
+      call MPI_Alltoallv(rbuff_ptr, rcounts_ptr, rdisp_ptr, MPI_DEF_COMPLEX, &
+           &             sbuff_ptr, scounts_ptr, sdisp_ptr, MPI_DEF_COMPLEX, &
+           &             MPI_COMM_WORLD, ierr)
+      !$omp end target data
+#else
       call MPI_Alltoallv(this%rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
            &             this%sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
            &             MPI_COMM_WORLD, ierr)
-#ifdef WITH_OMP_GPU
-      !$omp end target data
 #endif
 #endif
 
@@ -427,6 +439,10 @@ contains
 
       !-- Local variables
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
+#ifdef WITH_OMP_GPU
+      integer :: rcounts_loc, scounts_loc
+      complex(cp), pointer :: buff_ptr(:)
+#endif
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(ii,n_f,n_r,lm)
@@ -462,12 +478,16 @@ contains
 
 #ifdef WITH_MPI
 #ifdef WITH_OMP_GPU
-      !$omp target data use_device_addr(this)
-#endif
+      rcounts_loc = this%rcounts
+      scounts_loc = this%scounts
+      buff_ptr    => this%buff
+      !$omp target data use_device_addr(buff_ptr)
+      call MPI_Alltoall(MPI_IN_PLACE, rcounts_loc, MPI_DEF_COMPLEX, buff_ptr, &
+           &            scounts_loc, MPI_DEF_COMPLEX, MPI_COMM_WORLD, ierr)
+      !$omp end target data
+#else
       call MPI_Alltoall(MPI_IN_PLACE, this%rcounts, MPI_DEF_COMPLEX, this%buff, &
            &            this%scounts, MPI_DEF_COMPLEX, MPI_COMM_WORLD, ierr)
-#ifdef WITH_OMP_GPU
-      !$omp end target data
 #endif
 #endif
 
@@ -512,15 +532,25 @@ contains
       complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,1:this%n_fields)
       complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
 
+#ifdef WITH_OMP_GPU
+      integer, pointer :: counts_ptr(:), disp_ptr(:), rtype_ptr(:), stype_ptr(:)
+      counts_ptr => this%counts
+      disp_ptr   => this%disp
+      rtype_ptr  => this%rtype
+      stype_ptr  => this%stype
+#endif
+
 #ifdef WITH_MPI
 #ifdef WITH_OMP_GPU
-      !$omp target data use_device_addr(this)
-#endif
+      !$omp target data use_device_addr(counts_ptr, disp_ptr, rtype_ptr, stype_ptr, arr_LMLoc, arr_Rloc)
       call MPI_Alltoallw(arr_LMloc, this%counts, this%disp, this%rtype, &
            &             arr_Rloc, this%counts, this%disp, this%stype,  &
            &             MPI_COMM_WORLD, ierr)
-#ifdef WITH_OMP_GPU
       !$omp end target data
+#else
+      call MPI_Alltoallw(arr_LMloc, this%counts, this%disp, this%rtype, &
+           &             arr_Rloc, this%counts, this%disp, this%stype,  &
+           &             MPI_COMM_WORLD, ierr)
 #endif
 #endif
 
@@ -537,11 +567,17 @@ contains
       complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,1:this%n_fields)
 
       !-- Local variables
+#ifdef WITH_OMP_GPU
+      integer, pointer :: rcounts_ptr(:), scounts_ptr(:), rdisp_ptr(:), sdisp_ptr(:)
+      complex(cp), pointer :: rbuff_ptr(:), sbuff_ptr(:)
+#endif
+
 #if (KNL_BIG==1)
       complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
       integer :: p, ii, n_r, lm, l, m, n_f
 
 #ifdef WITH_OMP_GPU
+      !$omp target data map(alloc: temp_Rloc)
       !$omp target teams private(p,ii,n_f,n_r,lm,l,m)
       !$omp distribute parallel do collapse(3)
 #else
@@ -582,11 +618,11 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp end distribute parallel do
       !$omp end target teams
+      !$omp end target data
 #else
       !$omp end do
       !$omp end parallel
 #endif
-
 #elif (KNL_BIG==0)
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
 
@@ -619,13 +655,21 @@ contains
 
 #ifdef WITH_MPI
 #ifdef WITH_OMP_GPU
-      !$omp target data use_device_addr(this)
-#endif
+      rcounts_ptr => this%rcounts
+      scounts_ptr => this%scounts
+      rdisp_ptr   => this%rdisp
+      sdisp_ptr   => this%sdisp
+      rbuff_ptr   => this%rbuff
+      sbuff_ptr   => this%sbuff
+      !$omp target data use_device_addr(rcounts_ptr, scounts_ptr, rdisp_ptr, sdisp_ptr, rbuff_ptr, sbuff_ptr)
+      call MPI_Alltoallv(sbuff_ptr, scounts_ptr, sdisp_ptr, MPI_DEF_COMPLEX, &
+           &             rbuff_ptr, rcounts_ptr, rdisp_ptr, MPI_DEF_COMPLEX, &
+           &             MPI_COMM_WORLD, ierr)
+      !$omp end target data
+#else
       call MPI_Alltoallv(this%sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
            &             this%rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
            &             MPI_COMM_WORLD, ierr)
-#ifdef WITH_OMP_GPU
-      !$omp end target data
 #endif
 #endif
 
@@ -666,6 +710,10 @@ contains
 
       !-- Local variables
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
+#ifdef WITH_OMP_GPU
+      integer :: rcounts_loc, scounts_loc
+      complex(cp), pointer :: buff_ptr(:)
+#endif
 
       !ii = 1
 #ifdef WITH_OMP_GPU
@@ -705,12 +753,16 @@ contains
 
 #ifdef WITH_MPI
 #ifdef WITH_OMP_GPU
-      !$omp target data use_device_addr(this)
-#endif
+      rcounts_loc = this%rcounts
+      scounts_loc = this%scounts
+      buff_ptr    => this%buff
+      !$omp target data use_device_addr(buff_ptr)
+      call MPI_Alltoall(MPI_IN_PLACE, scounts_loc, MPI_DEF_COMPLEX, buff_ptr, &
+           &            rcounts_loc, MPI_DEF_COMPLEX, MPI_COMM_WORLD, ierr)
+      !$omp end target data
+#else
       call MPI_Alltoall(MPI_IN_PLACE, this%scounts, MPI_DEF_COMPLEX, this%buff, &
            &            this%rcounts, MPI_DEF_COMPLEX, MPI_COMM_WORLD, ierr)
-#ifdef WITH_OMP_GPU
-      !$omp end target data
 #endif
 #endif
 
@@ -751,23 +803,31 @@ contains
       complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
       complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,1:this%n_fields)
 
+#ifdef WITH_OMP_GPU
+      integer, pointer :: counts_ptr(:), disp_ptr(:), rtype_ptr(:), stype_ptr(:)
+      counts_ptr => this%counts
+      disp_ptr   => this%disp
+      rtype_ptr  => this%rtype
+      stype_ptr  => this%stype
+#endif
+
 #ifdef WITH_MPI
 #ifdef WITH_OMP_GPU
-      !$omp target data use_device_addr(this)
-#endif
+      !$omp target data use_device_addr(counts_ptr, disp_ptr, rtype_ptr, stype_ptr, arr_LMloc, arr_Rloc)
+      call MPI_Alltoallw(arr_Rloc, counts_ptr, disp_ptr, stype_ptr,  &
+           &             arr_LMloc, counts_ptr, disp_ptr, rtype_ptr, &
+           &             MPI_COMM_WORLD, ierr)
+      !$omp end target data
+#else
       call MPI_Alltoallw(arr_Rloc, this%counts, this%disp, this%stype,  &
            &             arr_LMloc, this%counts, this%disp, this%rtype, &
            &             MPI_COMM_WORLD, ierr)
-#ifdef WITH_OMP_GPU
-      !$omp end target data
 #endif
 #endif
 
    end subroutine transp_r2lm_alltoallw
 !----------------------------------------------------------------------------------
 end module mpi_alltoall_mod
-
-
 
 !----------------------------------------------------------------------------------
 module  mpi_ptop_mod

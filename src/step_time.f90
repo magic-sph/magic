@@ -2176,35 +2176,17 @@ contains
       if ( l_packed_transp ) then
          if ( l_Rloc ) then
             if ( (.not. l_parallel_solve) .or. (l_mag .and. .not. l_mag_par_solve) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(flow_LMloc_container, flow_Rloc_container)
-#endif
                call lo2r_flow%transp_lm2r(flow_LMloc_container, flow_Rloc_container)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_heat .and. lHTCalc .and. (.not. l_parallel_solve) ) then
                call get_dr_Rloc(s_Rloc, ds_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                     &           rscheme_oc)
             end if
             if ( l_chemical_conv .and. (.not. l_parallel_solve) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(xi_LMLoc, xi_Rloc)
-#endif
                call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_phase_field .and. (.not. l_parallel_solve) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(phi_LMloc, phi_Rloc)
-#endif
                call lo2r_one%transp_lm2r(phi_LMloc,phi_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( (l_conv .or. l_mag_kin) .and. (.not. l_parallel_solve) ) then
                call get_ddr_Rloc(w_Rloc, dw_Rloc, ddw_Rloc, lm_max, nRstart, nRstop, &
@@ -2213,13 +2195,7 @@ contains
                     &           rscheme_oc)
             end if
             if ( lPressCalc .and. ( .not. l_parallel_solve) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(p_LMloc, p_Rloc)
-#endif
                call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
                call get_dr_Rloc(p_Rloc, dp_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                     &           rscheme_oc)
             end if
@@ -2232,227 +2208,93 @@ contains
          else
             if ( l_heat ) then
                !if ( .not. l_parallel_solve ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(s_LMloc, s_Rloc)
-#endif
                call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
                if ( lHTCalc ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(ds_LMloc, ds_Rloc)
-#endif
                   call lo2r_one%transp_lm2r(ds_LMloc, ds_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
                end if
             end if
             if ( l_chemical_conv ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(xi_LMLoc, xi_Rloc)
-#endif
                call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_phase_field ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(phi_LMloc, phi_Rloc)
-#endif
                call lo2r_one%transp_lm2r(phi_LMloc,phi_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_conv .or. l_mag_kin ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(flow_LMloc_container, flow_Rloc_container)
-#endif
                call lo2r_flow%transp_lm2r(flow_LMloc_container,flow_Rloc_container)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( lPressCalc ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(press_LMloc_container, press_Rloc_container)
-#endif
                call lo2r_press%transp_lm2r(press_LMloc_container,press_Rloc_container)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_mag ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(field_LMloc_container, field_Rloc_container)
-#endif
                call lo2r_field%transp_lm2r(field_LMloc_container,field_Rloc_container)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
          end if
       else
          if ( l_Rloc ) then
             if ( l_heat .and. (.not. l_parallel_solve) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(s_LMloc, s_Rloc)
-#endif
                call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
                if ( lHTCalc ) then
                   call get_dr_Rloc(s_Rloc, ds_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                        &           rscheme_oc)
                end if
             end if
             if ( l_chemical_conv .and. (.not. l_parallel_solve) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(xi_LMLoc, xi_Rloc)
-#endif
                call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_phase_field .and. (.not. l_parallel_solve) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(phi_LMloc, phi_Rloc)
-#endif
                call lo2r_one%transp_lm2r(phi_LMloc,phi_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( (l_conv .or. l_mag_kin) .and. (.not. l_parallel_solve) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(w_LMloc, w_Rloc)
-#endif
                call lo2r_one%transp_lm2r(w_LMloc, w_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
                call get_ddr_Rloc(w_Rloc, dw_Rloc, ddw_Rloc, lm_max, nRstart, nRstop, &
                     &            n_r_max, rscheme_oc)
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(z_LMloc, z_Rloc)
-#endif
                call lo2r_one%transp_lm2r(z_LMloc, z_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
                call get_dr_Rloc(z_Rloc, dz_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                     &           rscheme_oc)
             end if
             if ( lPressCalc .and. (.not. l_parallel_solve) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(p_LMloc, p_Rloc)
-#endif
                call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
                call get_dr_Rloc(p_Rloc, dp_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                     &           rscheme_oc)
             end if
             if ( l_mag .and. ( .not. l_mag_par_solve ) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(b_LMloc, b_Rloc)
-#endif
                call lo2r_one%transp_lm2r(b_LMloc, b_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
                call get_ddr_Rloc(b_Rloc, db_Rloc, ddb_Rloc, lm_max, nRstart, nRstop, &
                     &            n_r_max, rscheme_oc)
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(aj_LMLoc, aj_Rloc)
-#endif
                call lo2r_one%transp_lm2r(aj_LMloc, aj_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
                call get_dr_Rloc(aj_Rloc, dj_Rloc, lm_max, nRstart, nRstop, n_r_max, &
                     &           rscheme_oc)
             end if
          else
             if ( l_heat ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(s_LMloc, s_Rloc)
-#endif
                call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
                if ( lHTCalc ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(ds_LMloc, ds_Rloc)
-#endif
                   call lo2r_one%transp_lm2r(ds_LMloc, ds_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
                end if
             end if
             if ( l_chemical_conv ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(xi_LMLoc, xi_Rloc)
-#endif
                call lo2r_one%transp_lm2r(xi_LMloc,xi_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_phase_field ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(phi_LMloc, phi_Rloc)
-#endif
                call lo2r_one%transp_lm2r(phi_LMloc,phi_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_conv .or. l_mag_kin ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(w_LMloc, dw_LMloc, ddw_LMloc, z_LMloc, dz_LMloc, &
-               !$omp&                            w_Rloc,  dw_Rloc,  ddw_Rloc,  z_Rloc,  dz_Rloc)
-#endif
                call lo2r_one%transp_lm2r(w_LMloc, w_Rloc)
                call lo2r_one%transp_lm2r(dw_LMloc, dw_Rloc)
                call lo2r_one%transp_lm2r(ddw_LMloc, ddw_Rloc)
                call lo2r_one%transp_lm2r(z_LMloc, z_Rloc)
                call lo2r_one%transp_lm2r(dz_LMloc, dz_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( lPressCalc ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(p_LMloc, p_Rloc, dp_LMloc, dp_Rloc)
-#endif
                call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
                call lo2r_one%transp_lm2r(dp_LMloc, dp_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_mag ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(b_LMloc, db_LMloc, ddb_LMLoc, aj_LMLoc, dj_LMloc, &
-               !$omp&                            b_Rloc,  db_Rloc,  ddb_RLoc,  aj_Rloc,  dj_Rloc)
-#endif
                call lo2r_one%transp_lm2r(b_LMloc, b_Rloc)
                call lo2r_one%transp_lm2r(db_LMloc, db_Rloc)
                call lo2r_one%transp_lm2r(ddb_LMloc, ddb_Rloc)
                call lo2r_one%transp_lm2r(aj_LMloc, aj_Rloc)
                call lo2r_one%transp_lm2r(dj_LMloc, dj_Rloc)
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
          end if
       end if
@@ -2479,223 +2321,91 @@ contains
       if ( l_packed_transp ) then
          if ( lRloc ) then
             if ( (.not. l_parallel_solve) .or. ( l_mag .and. .not. l_mag_par_solve) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dflowdt_Rloc_container, dflowdt_LMloc_container)
-#endif
                call r2lo_flow%transp_r2lm(dflowdt_Rloc_container, &
                     &                     dflowdt_LMloc_container(:,:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( (l_conv .or. l_mag_kin) .and. (.not. l_parallel_solve) ) then
                if ( .not. l_double_curl .or. lPressNext ) then
-#ifdef WITH_OMP_GPU
-                  !$omp target data use_device_addr(dpdt_Rloc, dpdt)
-#endif
                   call r2lo_one%transp_r2lm(dpdt_Rloc,dpdt%expl(:,:,istage))
-#ifdef WITH_OMP_GPU
-                  !$omp end target data
-#endif
                end if
             end if
             if ( l_chemical_conv .and. ( .not. l_parallel_solve ) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dxidt_Rloc, dxidt)
-#endif
                call r2lo_one%transp_r2lm(dxidt_Rloc,dxidt%expl(:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_phase_field .and. ( .not. l_parallel_solve ) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dphidt_Rloc, dphidt)
-#endif
                call r2lo_one%transp_r2lm(dphidt_Rloc,dphidt%expl(:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
          else
             if ( l_conv .or. l_mag_kin ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dflowdt_Rloc_container, dflowdt_LMloc_container)
-#endif
                call r2lo_flow%transp_r2lm(dflowdt_Rloc_container,  &
                     &                     dflowdt_LMloc_container(:,:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             !if ( l_heat .and. (.not. l_parallel_solve) ) then
             if ( l_heat  ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dsdt_Rloc_container, dsdt_LMloc_container)
-#endif
                call r2lo_s%transp_r2lm(dsdt_Rloc_container,&
                     &                  dsdt_LMloc_container(:,:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_chemical_conv ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dxidt_Rloc_container, dxidt_LMloc_container)
-#endif
                call r2lo_xi%transp_r2lm(dxidt_Rloc_container, &
                     &                   dxidt_LMloc_container(:,:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_phase_field ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dphidt_Rloc, dphidt)
-#endif
                call r2lo_one%transp_r2lm(dphidt_Rloc,dphidt%expl(:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_mag ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dbdt_Rloc_container, dbdt_LMloc_container)
-#endif
                call r2lo_field%transp_r2lm(dbdt_Rloc_container, &
                     &                      dbdt_LMloc_container(:,:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
          end if
       else
          if ( lRloc ) then
             if ( (l_conv .or. l_mag_kin) .and. (.not. l_parallel_solve) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dwdt_Rloc, dwdt)
-#endif
                call r2lo_one%transp_r2lm(dwdt_Rloc,dwdt%expl(:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
                if ( .not. l_parallel_solve ) then
-#ifdef WITH_OMP_GPU
-                  !$omp target data use_device_addr(dzdt_Rloc, dzdt)
-#endif
                   call r2lo_one%transp_r2lm(dzdt_Rloc,dzdt%expl(:,:,istage))
-#ifdef WITH_OMP_GPU
-                  !$omp end target data
-#endif
                end if
                if ( (.not. l_double_curl .or. lPressNext) .and. &
                &    (.not.  l_parallel_solve) ) then
-#ifdef WITH_OMP_GPU
-                  !$omp target data use_device_addr(dpdt_Rloc, dpdt)
-#endif
                   call r2lo_one%transp_r2lm(dpdt_Rloc,dpdt%expl(:,:,istage))
-#ifdef WITH_OMP_GPU
-                  !$omp end target data
-#endif
                end if
             end if
             if ( l_heat .and. (.not. l_parallel_solve) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dsdt_Rloc, dsdt)
-#endif
                call r2lo_one%transp_r2lm(dsdt_Rloc,dsdt%expl(:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_chemical_conv .and. (.not. l_parallel_solve) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dxidt_Rloc, dxidt)
-#endif
                call r2lo_one%transp_r2lm(dxidt_Rloc,dxidt%expl(:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_phase_field .and. (.not. l_parallel_solve) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dphidt_Rloc, dphidt)
-#endif
                call r2lo_one%transp_r2lm(dphidt_Rloc,dphidt%expl(:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_mag .and. ( .not. l_mag_par_solve ) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dbdt_Rloc, djdt_Rloc, dbdt, djdt)
-#endif
                call r2lo_one%transp_r2lm(dbdt_Rloc,dbdt%expl(:,:,istage))
                call r2lo_one%transp_r2lm(djdt_Rloc,djdt%expl(:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
          else
             if ( l_conv .or. l_mag_kin ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dwdt_Rloc, dzdt_Rloc, dpdt_Rloc, dwdt, dzdt, dpdt)
-#endif
                call r2lo_one%transp_r2lm(dwdt_Rloc,dwdt%expl(:,:,istage))
                call r2lo_one%transp_r2lm(dzdt_Rloc,dzdt%expl(:,:,istage))
                call r2lo_one%transp_r2lm(dpdt_Rloc,dpdt%expl(:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
                if ( l_double_curl ) then
-#ifdef WITH_OMP_GPU
-                  !$omp target data use_device_addr(dVxVhLM_Rloc, dVxVhLM_LMloc)
-#endif
                   call r2lo_one%transp_r2lm(dVxVhLM_Rloc,dVxVhLM_LMloc(:,:,istage))
-#ifdef WITH_OMP_GPU
-                  !$omp end target data
-#endif
                end if
             end if
             if ( l_heat .and. (.not. l_parallel_solve) ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dsdt_Rloc, dsdt, dVSrLM_Rloc, dVSrLM_LMloc)
-#endif
                call r2lo_one%transp_r2lm(dsdt_Rloc,dsdt%expl(:,:,istage))
                call r2lo_one%transp_r2lm(dVSrLM_Rloc,dVSrLM_LMloc(:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_chemical_conv ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dxidt_Rloc, dxidt, dVXirLM_Rloc, dVXirLM_LMloc)
-#endif
                call r2lo_one%transp_r2lm(dxidt_Rloc,dxidt%expl(:,:,istage))
                call r2lo_one%transp_r2lm(dVXirLM_Rloc,dVXirLM_LMloc(:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_phase_field ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dphidt_Rloc,dphidt)
-#endif
                call r2lo_one%transp_r2lm(dphidt_Rloc,dphidt%expl(:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
             if ( l_mag ) then
-#ifdef WITH_OMP_GPU
-               !$omp target data use_device_addr(dbdt_Rloc, djdt_Rloc, dVxBhLM_Rloc, dbdt, djdt, dVxBhLM_LMloc)
-#endif
                call r2lo_one%transp_r2lm(dbdt_Rloc,dbdt%expl(:,:,istage))
                call r2lo_one%transp_r2lm(djdt_Rloc,djdt%expl(:,:,istage))
                call r2lo_one%transp_r2lm(dVxBhLM_Rloc,dVxBhLM_LMloc(:,:,istage))
-#ifdef WITH_OMP_GPU
-               !$omp end target data
-#endif
             end if
          end if
       end if
@@ -2722,82 +2432,38 @@ contains
 #endif
 
       if ( l_heat ) then
-#ifdef WITH_OMP_GPU
-         !$omp target data use_device_addr(s_Rloc, ds_Rloc, s_LMloc, ds_LMloc)
-#endif
          call r2lo_one%transp_r2lm(s_Rloc,s_LMloc)
          call r2lo_one%transp_r2lm(ds_Rloc,ds_LMloc)
-#ifdef WITH_OMP_GPU
-         !$omp end target data
-#endif
       end if
 
       if ( l_chemical_conv ) then
-#ifdef WITH_OMP_GPU
-         !$omp target data use_device_addr(xi_Rloc, xi_LMLoc)
-#endif
          call r2lo_one%transp_r2lm(xi_Rloc,xi_LMloc)
-#ifdef WITH_OMP_GPU
-         !$omp end target data
-#endif
          call get_dr_Rloc(xi_Rloc, work_Rloc, lm_max, nRstart, nRstop, n_r_max, &
               &           rscheme_oc)
-#ifdef WITH_OMP_GPU
-         !$omp target data use_device_addr(work_Rloc,dxi_LMloc)
-#endif
          call r2lo_one%transp_r2lm(work_Rloc,dxi_LMloc)
-#ifdef WITH_OMP_GPU
-         !$omp end target data
-#endif
       end if
 
       if ( l_phase_field ) then
-#ifdef WITH_OMP_GPU
-         !$omp target data use_device_addr(phi_Rloc, phi_LMloc)
-#endif
          call r2lo_one%transp_r2lm(phi_Rloc,phi_LMloc)
-#ifdef WITH_OMP_GPU
-         !$omp end target data
-#endif
       end if
 
       if ( lPressCalc ) then
-#ifdef WITH_OMP_GPU
-         !$omp target data use_device_addr(p_Rloc, p_LMloc)
-#endif
          call r2lo_one%transp_r2lm(p_Rloc,p_LMloc)
-#ifdef WITH_OMP_GPU
-         !$omp end target data
-#endif
       end if
 
-#ifdef WITH_OMP_GPU
-      !$omp target data use_device_addr(z_Rloc,  dz_Rloc,  w_Rloc,  dw_Rloc,  ddw_Rloc, &
-      !$omp&                             z_LMloc, dz_LMloc, w_LMloc, dw_LMloc, ddw_LMloc)
-#endif
       call r2lo_one%transp_r2lm(z_Rloc,z_LMloc)
       call r2lo_one%transp_r2lm(dz_Rloc,dz_LMloc)
       call r2lo_one%transp_r2lm(w_Rloc,w_LMloc)
       call r2lo_one%transp_r2lm(dw_Rloc,dw_LMloc)
       call r2lo_one%transp_r2lm(ddw_Rloc,ddw_LMloc)
-#ifdef WITH_OMP_GPU
-      !$omp end target data
-#endif
 
       if ( l_mag .and. l_mag_par_solve ) then
-#ifdef WITH_OMP_GPU
-         !$omp target data use_device_addr(b_Rloc,  db_Rloc,  ddb_Rloc,  aj_Rloc,  dj_Rloc,  ddj_Rloc, &
-         !$omp&                            b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc)
-#endif
          call r2lo_one%transp_r2lm(b_Rloc,b_LMloc)
          call r2lo_one%transp_r2lm(db_Rloc,db_LMloc)
          call r2lo_one%transp_r2lm(ddb_Rloc,ddb_LMloc)
          call r2lo_one%transp_r2lm(aj_Rloc,aj_LMloc)
          call r2lo_one%transp_r2lm(dj_Rloc,dj_LMloc)
          call r2lo_one%transp_r2lm(ddj_Rloc,ddj_LMloc)
-#ifdef WITH_OMP_GPU
-         !$omp end target data
-#endif
       end if
 
 #ifdef WITH_OMP_GPU
