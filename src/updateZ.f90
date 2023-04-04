@@ -2767,10 +2767,10 @@ contains
 
       !-- LU-decomposition of z10mat:
 #ifdef WITH_OMP_GPU
-      if(.not. zMat%gpu_is_used) then
+      if (.not. zMat%gpu_is_used) then
          call zMat%prepare(info)
       else
-         call zMat%prepare(1, info, handle, devInfo)
+         call zMat%prepare(info, handle, devInfo)
       end if
 #else
       call zMat%prepare(info)
