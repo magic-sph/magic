@@ -2030,7 +2030,7 @@ contains
       integer, intent(in) :: l2nLMB2(0:)
 
       !-- In/Out variables
-      complex(cp), intent(inout) :: rhs(1:this%ncol,llm:ulm)
+      complex(cp), intent(inout) :: rhs(1:this%ncol+this%nfull,llm:ulm)
 
       !-- Local variables:
       complex(cp) :: tmp
