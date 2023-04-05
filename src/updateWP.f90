@@ -3942,12 +3942,12 @@ contains
       !---- LU decomposition:
 #ifdef WITH_OMP_GPU
       if(.not. pMat%gpu_is_used) then
-         call pMat%prepare(info)
+         call pMat%prepare(1, info)
       else
          call pMat%prepare(1, info, handle, devInfo)
       end if
 #else
-      call pMat%prepare(info)
+      call pMat%prepare(1, info)
 #endif
       if ( info /= 0 ) call abortRun('! Singular matrix p0Mat!')
 

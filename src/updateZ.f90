@@ -2768,12 +2768,12 @@ contains
       !-- LU-decomposition of z10mat:
 #ifdef WITH_OMP_GPU
       if (.not. zMat%gpu_is_used) then
-         call zMat%prepare(info)
+         call zMat%prepare(1, info)
       else
-         call zMat%prepare(info, handle, devInfo)
+         call zMat%prepare(1, info, handle, devInfo)
       end if
 #else
-      call zMat%prepare(info)
+      call zMat%prepare(1, info)
 #endif
 
       if ( info /= 0 ) call abortRun('Error from get_z10Mat: singular matrix!')
