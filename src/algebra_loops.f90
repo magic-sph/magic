@@ -117,7 +117,6 @@ contains
       integer :: i, idx
       real(cp) :: fact, temp
 
-      print*, 'hello'
       info=0
 
 #ifdef WITH_OMP_GPU
@@ -182,8 +181,6 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
 #endif
-
-      print*, 'value of info is', info
 
    end subroutine prepare_tridiag_all
 !------------------------------------------------------------------------------
