@@ -114,7 +114,7 @@ contains
          istart = 1; iend = len_per_line
          write(out_unit, '(A,A)') prefix, long_string(istart:iend)
          istart = iend+1
-         do while (iend <= len_long_str-len_per_line)
+         do while (iend < len_long_str-len_per_line)
             iend = istart+len_per_line
             write(out_unit, '(A,'//trim(fmtstr)//',A)') ' !','',long_string(istart:iend)
             istart = iend+1

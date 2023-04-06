@@ -59,12 +59,13 @@ module updateB_mod
    !-- Local work arrays:
    complex(cp), allocatable :: workA(:,:), workB(:,:)
    complex(cp), allocatable :: work_ic_LMloc(:,:)
+   complex(cp), allocatable :: tmpb_LMloc(:,:), tmpj_LMloc(:,:)
 #ifdef WITH_OMP_GPU
    real(cp), allocatable, target :: rhs1(:,:,:),rhs2(:,:,:)
 #else
    real(cp), allocatable :: rhs1(:,:,:),rhs2(:,:,:)
 #endif
-   class(type_realmat), pointer :: bMat(:), jMat(:)
+   class(type_mrealmat), pointer :: bMat, jMat
 #ifdef WITH_PRECOND_BJ
    real(cp), allocatable :: bMat_fac(:,:)
    real(cp), allocatable :: jMat_fac(:,:)
@@ -96,7 +97,7 @@ contains
 
       !-- Local variables
       integer, pointer :: nLMBs2(:)
-      integer :: maxThreads, ll, n_bandsJ, n_bandsB
+      integer :: maxThreads, n_bandsJ, n_bandsB
 #ifdef WITH_OMP_GPU
       logical :: use_gpu, use_pivot
       use_gpu = .false.; use_pivot = .true.
@@ -107,11 +108,11 @@ contains
 
          if ( l_finite_diff ) then
             if ( l_cond_ic ) then
-               allocate( type_bordmat :: jMat(nLMBs2(1+rank)) )
-               allocate( type_bordmat :: bMat(nLMBs2(1+rank)) )
+               allocate( type_mbordmat :: jMat )
+               allocate( type_mbordmat :: bMat )
             else
-               allocate( type_bandmat :: jMat(nLMBs2(1+rank)) )
-               allocate( type_bandmat :: bMat(nLMBs2(1+rank)) )
+               allocate( type_mbandmat :: jMat )
+               allocate( type_mbandmat :: bMat )
             end if
 
             if ( kbotb == 2 .or. ktopb == 2 .or. conductance_ma /= 0 .or. &
@@ -130,40 +131,36 @@ contains
             end if
 
             if ( l_cond_ic ) then
-               do ll=1,nLMBs2(1+rank)
 #ifdef WITH_OMP_GPU
-                  call bMat(ll)%initialize(n_bandsB,n_r_max,use_pivot,use_gpu,n_r_ic_max)
-                  call jMat(ll)%initialize(n_bandsJ,n_r_max,use_pivot,use_gpu,n_r_ic_max)
+               call bMat%initialize(n_bandsB,n_r_max,nLMBs2(1+rank),use_pivot, &
+                    &               use_gpu,n_r_ic_max)
+               call jMat%initialize(n_bandsJ,n_r_max,nLMBs2(1+rank),use_pivot, &
+                    &               use_gpu,n_r_ic_max)
 #else
-                  call bMat(ll)%initialize(n_bandsB,n_r_max,.true.,n_r_ic_max)
-                  call jMat(ll)%initialize(n_bandsJ,n_r_max,.true.,n_r_ic_max)
+               call bMat%initialize(n_bandsB,n_r_max,nLMBs2(1+rank),.true.,n_r_ic_max)
+               call jMat%initialize(n_bandsJ,n_r_max,nLMBs2(1+rank),.true.,n_r_ic_max)
 #endif
-               end do
             else
-               do ll=1,nLMBs2(1+rank)
 #ifdef WITH_OMP_GPU
-                  call bMat(ll)%initialize(n_bandsB,n_r_tot,use_pivot,use_gpu)
-                  call jMat(ll)%initialize(n_bandsJ,n_r_tot,use_pivot,use_gpu)
+               call bMat%initialize(n_bandsB,n_r_tot,nLMBs2(1+rank),use_pivot,use_gpu)
+               call jMat%initialize(n_bandsJ,n_r_tot,nLMBs2(1+rank),use_pivot,use_gpu)
 #else
-                  call bMat(ll)%initialize(n_bandsB,n_r_tot,l_pivot=.true.)
-                  call jMat(ll)%initialize(n_bandsJ,n_r_tot,l_pivot=.true.)
+               call bMat%initialize(n_bandsB,n_r_tot,nLMBs2(1+rank),l_pivot=.true.)
+               call jMat%initialize(n_bandsJ,n_r_tot,nLMBs2(1+rank),l_pivot=.true.)
 #endif
-               end do
             end if
          else
-            allocate( type_densemat :: jMat(nLMBs2(1+rank)) )
-            allocate( type_densemat :: bMat(nLMBs2(1+rank)) )
+            allocate( type_mdensemat :: jMat )
+            allocate( type_mdensemat :: bMat )
 
-            do ll=1,nLMBs2(1+rank)
 #ifdef WITH_OMP_GPU
-               use_gpu = .true.
-               call bMat(ll)%initialize(n_r_tot,n_r_tot,use_pivot,use_gpu)
-               call jMat(ll)%initialize(n_r_tot,n_r_tot,use_pivot,use_gpu)
+            use_gpu = .true.
+            call bMat%initialize(n_r_tot,n_r_tot,nLMBs2(1+rank),use_pivot,use_gpu)
+            call jMat%initialize(n_r_tot,n_r_tot,nLMBs2(1+rank),use_pivot,use_gpu)
 #else
-               call bMat(ll)%initialize(n_r_tot,n_r_tot,l_pivot=.true.)
-               call jMat(ll)%initialize(n_r_tot,n_r_tot,l_pivot=.true.)
+            call bMat%initialize(n_r_tot,n_r_tot,nLMBs2(1+rank),l_pivot=.true.)
+            call jMat%initialize(n_r_tot,n_r_tot,nLMBs2(1+rank),l_pivot=.true.)
 #endif
-            end do
          end if
 
 #ifdef WITH_PRECOND_BJ
@@ -243,6 +240,16 @@ contains
       allocate( lBmat(0:l_maxMag) )
       bytes_allocated = bytes_allocated+(l_maxMag+1)*SIZEOF_LOGICAL
 
+      if ( .not. l_mag_par_solve ) then
+         allocate( tmpb_LMloc(n_r_tot,llmMag:ulmMag),tmpj_LMloc(n_r_tot,llmMag:ulmMag) )
+         tmpb_LMloc(:,:)=zero
+         tmpj_LMloc(:,:)=zero
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: tmb_LMloc, tmpj_LMloc)
+         !$omp target update to(tmb_LMloc, tmpj_LMloc)
+#endif
+      end if
+
 #ifdef WITH_OMP_GPU
       if ( (.not. l_mag_par_solve) .and. ( .not. l_finite_diff) ) then
          call hipblasCheck(hipblasCreate(handle))
@@ -266,18 +273,10 @@ contains
       ! advance of the magnetic field.
       !
 
-      !-- Local variables
-      integer, pointer :: nLMBs2(:)
-      integer :: ll
-
       if ( l_RMS ) deallocate( workA, workB )
       if ( .not. l_mag_par_solve ) then
-         nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
-
-         do ll=1,nLMBs2(1+rank)
-            call jMat(ll)%finalize()
-            call bMat(ll)%finalize()
-         end do
+         call jMat%finalize()
+         call bMat%finalize()
 
          if ( l_cond_ic ) deallocate ( work_ic_LMloc )
 
@@ -309,6 +308,13 @@ contains
          deallocate(devInfo)
       end if
 #endif
+
+      if ( .not. l_mag_par_solve ) then
+         deallocate( tmpb_LMloc, tmpj_LMloc )
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: tmpb_LMloc, tmpj_LMloc)
+#endif
+      end if
 
    end subroutine finalize_updateB
 !-----------------------------------------------------------------------------
@@ -356,12 +362,13 @@ contains
       integer :: n_r_out         ! No of cheb polynome (degree+1)
       integer :: nR              ! No of radial grid point
 
-      integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
+      integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:),l2nLMB2(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
+      logical :: l_LU_fac
 
       !-- for feedback
-      integer :: l1m0
+      integer :: l1m0, info
       real(cp) :: ff,cimp,aimp,b10max
       real(cp), save :: direction
 
@@ -381,6 +388,8 @@ contains
       lm2(0:,0:) => lo_map%lm2
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
+      l2nLMB2(0:) => lo_sub_map%l2nLMB2
+
       l1m0 = lm2(1,0)
 
       nLMB=1+rank
@@ -427,6 +436,248 @@ contains
 #endif
       end if
 
+#ifdef NEW
+      call solve_counter%start_count()
+      !-- Only fill the matrices: GPU looping could be only on nLMB2?
+      l_LU_fac=.false.
+      do nLMB2=1,nLMBs2(nLMB)
+         l1=lm22l(1,nLMB2,nLMB)
+         if ( (.not. lBmat(l1)) .and. (l1 > 0) ) then
+#ifdef WITH_PRECOND_BJ
+            call get_bMat(tscheme,l1,hdif_B(l1),bMat,bMat_fac(:,nLMB2),  &
+                 &        jMat,jMat_fac(:,nLMB2),nLMB2,l_LU=.false.)
+#else
+            call get_bMat(tscheme,l1,hdif_B(l1),bMat,jMat,nLMB2,l_LU=.false.)
+#endif
+            l_LU_fac=.true.
+            lBmat(l1)=.true.
+         end if
+      end do
+
+      if ( l_LU_fac ) then
+         call bMat%prepare(info)
+         if ( info /= 0 ) call abortRun('Singular matrix bMat!')
+         call jMat%prepare(info)
+         if ( info /= 0 ) call abortRun('Singular matrix jMat!')
+      end if
+
+      call solve_counter%stop_count(l_increment=.false.)
+
+      !-- Copy and transpose bulk points
+      !$omp target teams distribute parallel do collapse(2)
+      do lm=llmMag,ulmMag
+         do nR=2,n_r_max-1
+            if ( l_LCR .and. nR<=n_r_LCR ) then
+               tmpb_LMloc(nR,lm)=zero
+               tmpj_LMloc(nR,lm)=zero
+            else
+               tmpb_LMloc(nR,lm)=work_LMloc(lm,nR)
+               tmpj_LMloc(nR,lm)=ddb(lm,nR)
+            end if
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+      !-- Apply boundary conditions
+      !$omp target teams distribute parallel do &
+      !$omp private(l1, m1, yl0_norm, prefac,bpeaktop, ff, aimp, cimp)
+      do lm=llmMag,ulmMag
+         l1=lm2l(lm)
+         m1=lm2m(lm)
+
+         !-------- Magnetic boundary conditions, outer core:
+         !         Note: the CMB condition is not correct if we assume free slip
+         !         and a conducting mantle (conductance_ma>0).
+         if ( l_b_nl_cmb ) then ! finitely conducting mantle
+            tmpb_LMloc(1,lm)= b_nl_cmb(st_map%lm2(l1,m1))
+            tmpj_LMloc(1,lm)=aj_nl_cmb(st_map%lm2(l1,m1))
+         else
+            tmpb_LMloc(1,lm)=zero
+            tmpj_LMloc(1,lm)=zero
+         end if
+
+         !-------- inner core
+         tmpb_LMloc(n_r_max,lm)=zero
+         tmpj_LMloc(n_r_max,lm)=zero
+
+         if ( m1 == 0 ) then   ! Magnetoconvection boundary conditions
+            if ( imagcon /= 0 .and. tmagcon <= time ) then
+               if ( l1 == 2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
+                  tmpj_LMloc(1,lm)      =cmplx(bpeaktop,0.0_cp,cp)
+                  tmpj_LMloc(n_r_max,lm)=cmplx(bpeakbot,0.0_cp,cp)
+               else if( l1 == 1 .and. imagcon == 12 ) then
+                  tmpj_LMloc(1,lm)      =cmplx(bpeaktop,0.0_cp,cp)
+                  tmpj_LMloc(n_r_max,lm)=cmplx(bpeakbot,0.0_cp,cp)
+               else if( l1 == 1 .and. imagcon == -1) then
+                  tmpb_LMloc(n_r_max,lm)=cmplx(bpeakbot,0.0_cp,cp)
+               else if( l1 == 1 .and. imagcon == -2) then
+                  tmpb_LMloc(1,lm)      =cmplx(bpeaktop,0.0_cp,cp)
+               else if( l1 == 3 .and. imagcon == -10 ) then
+                  tmpj_LMloc(1,lm)      =cmplx(bpeaktop,0.0_cp,cp)
+                  tmpj_LMloc(n_r_max,lm)=cmplx(bpeakbot,0.0_cp,cp)
+               end if
+            end if
+
+            if ( l_curr .and. (mod(l1,2) /= 0) ) then    !Current carrying loop around equator of sphere, only odd harmonics
+
+               !General normalization for spherical harmonics of degree l and order 0
+               yl0_norm=half*sqrt((2*l1+1)/pi)
+
+               !Prefactor for CMB matching condition
+               prefac = real(2*l1+1,kind=cp)/real((l1+1),kind=cp)
+               bpeaktop=prefac*fac_loop(l1)*amp_curr*r_cmb/yl0_norm
+
+               tmpb_LMloc(1,lm)=cmplx(bpeaktop,0.0_cp,cp)
+
+            end if
+
+            if ( n_imp > 1 .and. l1 == l_imp ) then
+               ! General normalization for degree l and order 0
+               yl0_norm = half*sqrt((2*l1+1)/pi)
+               ! Prefactor for CMB matching condition
+               prefac = real(2*l1+1,kind=cp)/real((l1+1),kind=cp)
+
+               if ( n_imp == 2 ) then
+                  !  Chose external field coefficient so that amp_imp is
+                  !  the amplitude of the external field:
+                  bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
+                  tmpb_LMloc(1,lm)=cmplx(bpeaktop,0.0_cp,cp)
+               else if ( n_imp == 3 ) then
+                  !  Chose external field coefficient so that amp_imp is
+                  !  the amplitude of the external field:
+                  bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
+                  if ( real(b(l1m0,n_r_cmb)) > 1.0e-9_cp ) &
+                  &    direction=real(b(l1m0,n_r_cmb))/abs(real(b(l1m0,n_r_cmb)))
+                  tmpb_LMloc(1,lm)=cmplx(bpeaktop*direction,0.0_cp,cp)
+               else if ( n_imp == 4 ) then
+                  !  I have forgotten what this was supposed to do:
+                  bpeaktop=three/r_cmb*amp_imp*real(b(l1m0,n_r_cmb))**2
+                  tmpb_LMloc(1,lm)=cmplx(bpeaktop/real(b(l1m0,n_r_cmb)),0.0_cp,cp)
+               else
+                  ! Special Heyner feedback functions:
+                  ff=0.0_cp
+                  if ( n_imp == 7 ) then
+                     b10max=bmax_imp*r_cmb**2
+                     cimp=b10max**expo_imp / (expo_imp-1)
+                     aimp=amp_imp*cimp*expo_imp / &
+                     &    (cimp*(expo_imp-1))**((expo_imp-1)/expo_imp)
+                     ff=  aimp*real(b(l1m0,n_r_cmb))**expo_imp/ &
+                     &    (cimp+real(b(l1m0,n_r_cmb))**expo_imp)
+                  end if
+                  tmpb_LMloc(1,lm)=cmplx((2*l1+1)/r_cmb*ff,0.0_cp,cp)
+               end if
+            end if ! n_imp  > 0
+         end if ! m = 0
+      end do
+      !$omp end target teams distribute parallel do
+
+      !-- Overwrite RHS when perfect conductor
+      if ( ktopb == 2 ) then
+         !$omp target teams distribute parallel do
+         do lm=llmMag,ulmMag
+            tmpb_LMloc(2,lm)=zero
+         end do
+         !$omp end target teams distribute parallel do
+      end if
+      if ( kbotb == 2 ) then
+         !$omp target teams distribute parallel do
+         do lm=llmMag,ulmMag
+            tmpb_LMloc(n_r_max-1,lm)=zero
+         end do
+         !$omp end target teams distribute parallel do
+      end if
+
+
+      !-- Inner core
+      if ( l_cond_ic ) then    ! inner core
+         !$omp target teams distribute parallel do collapse(2)
+         do lm=llmMag,ulmMag
+            do nR=2,n_r_ic_max
+               tmpb_LMloc(n_r_max+nR,lm)=ddb_ic(lm,nR)
+               tmpj_LMloc(n_r_max+nR,lm)=ddj_ic(lm,nR)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+
+         !$omp target teams distribute parallel do private(l1,m1)
+         do lm=llmMag,ulmMag
+            l1=lm2l(lm)
+            m1=lm2m(lm)
+            tmpb_LMloc(n_r_max+1,lm)=zero
+            if ( l_b_nl_icb ) then
+               tmpj_LMloc(n_r_max+1,lm)=aj_nl_icb(st_map%lm2(l1,m1))
+            else
+               tmpj_LMloc(n_r_max+1,lm)=zero
+            end if
+         end do
+         !$omp end target teams distribute parallel do
+      end if
+
+#ifdef WITH_PRECOND_BJ
+      !$omp target teams distribute parallel do collapse(2) private(l1,nLMB2)
+      do lm=llmMag,ulmMag
+         do nR=1,n_r_tot
+            l1=lm2l(lm)
+            nLMB2=l2nLMB2(l1)
+            tmpb_LMloc(nR,lm)=tmpb_LMloc(nR,lm)*bMat_fac(nR,nLMB2)
+            tmpj_LMloc(nR,lm)=tmpj_LMloc(nR,lm)*jMat_fac(nR,nLMB2)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+#endif
+
+      !-- Solve matrices
+      call bMat%solve(tmpb_LMloc, llmMag, ulmMag, lm2l, l2nLMB2)
+      call jMat%solve(tmpj_LMloc, llmMag, ulmMag, lm2l, l2nLMB2)
+
+      !-- Loop to reassemble fields
+      !$omp target teams distribute parallel do collapse(2) private(l1, m1)
+      do lm=llmMag,ulmMag
+         do n_r_out=1,n_max_rSchemeOc
+         !do n_r_out=1,rscheme_oc%n_max
+            l1=lm2l(lm)
+            m1=lm2m(lm)
+            if ( l1 == 0 ) then
+               b(lm,n_r_out) =zero
+               aj(lm,n_r_out)=zero
+            else
+               if ( m1 > 0 ) then
+                  b(lm,n_r_out) =tmpb_LMloc(n_r_out,lm)
+                  aj(lm,n_r_out)=tmpj_LMloc(n_r_out,lm)
+               else
+                  b(lm,n_r_out) =cmplx(real(tmpb_LMloc(n_r_out,lm)),0.0_cp,cp)
+                  aj(lm,n_r_out)=cmplx(real(tmpj_LMloc(n_r_out,lm)),0.0_cp,cp)
+               end if
+            end if
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+      if ( l_cond_ic ) then
+         !$omp target teams distribute parallel do collapse(2) private(l1, m1)
+         do lm=llmMag,ulmMag
+            do n_r_out=1,n_cheb_ic_max
+               l1=lm2l(lm)
+               m1=lm2m(lm)
+               if ( l1 == 0 ) then
+                  b_ic(lm,n_r_out) =zero
+                  aj_ic(lm,n_r_out)=zero
+               else
+                  if ( m1 > 0 ) then
+                     b_ic(lm,n_r_out) =tmpb_LMloc(n_r_max+n_r_out,lm)
+                     aj_ic(lm,n_r_out)=tmpj_LMloc(n_r_max+n_r_out,lm)
+                  else
+                     b_ic(lm,n_r_out) =cmplx(real(tmpb_LMloc(n_r_max+n_r_out,lm)),0.0_cp,cp)
+                     aj_ic(lm,n_r_out)=cmplx(real(tmpj_LMloc(n_r_max+n_r_out,lm)),0.0_cp,cp)
+                  end if
+               end if
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+      end if
+#endif
+
+!#ifdef OLD
 #ifdef WITH_OMP_GPU
       !$omp single
       call solve_counter%start_count()
@@ -440,10 +691,10 @@ contains
          if ( l1 > 0 ) then
             if ( .not. lBmat(l1) ) then
 #ifdef WITH_PRECOND_BJ
-               call get_bMat(tscheme,l1,hdif_B(l1),bMat(nLMB2), &
-                    &        bMat_fac(:,nLMB2),jMat(nLMB2),jMat_fac(:,nLMB2))
+               call get_bMat(tscheme,l1,hdif_B(l1),bMat, &
+                    &        bMat_fac(:,nLMB2),jMat,jMat_fac(:,nLMB2),nLMB2)
 #else
-               call get_bMat(tscheme,l1,hdif_B(l1),bMat(nLMB2),jMat(nLMB2))
+               call get_bMat(tscheme,l1,hdif_B(l1),bMat,jMat,nLMB2)
 #endif
                lBmat(l1)=.true.
             end if
@@ -654,19 +905,19 @@ contains
 
             !-- Solve matrices with batched RHS (hipsolver)
             lm=sizeLMB2(nLMB2,nLMB)
-            if (.not. bMat(nLMB2)%gpu_is_used) then
+            if (.not. bMat%gpu_is_used) then
                !$omp target update from(rhs1)
-               call bMat(nLMB2)%solve(rhs1(:,:,0),2*lm)
+               call bMat%solve(rhs1(:,:,0),2*lm,nLMB2)
                !$omp target update to(rhs1)
             else
-               call bMat(nLMB2)%solve(rhs1(:,:,0),2*lm,handle,devInfo)
+               call bMat%solve(rhs1(:,:,0),2*lm,nLMB2,handle,devInfo)
             end if
-            if (.not. jMat(nLMB2)%gpu_is_used) then
+            if ( .not. jMat%gpu_is_used) then
                !$omp target update from(rhs2)
-               call jMat(nLMB2)%solve(rhs2(:,:,0),2*lm)
+               call jMat%solve(rhs2(:,:,0),2*lm,nLMB2)
                !$omp target update to(rhs2)
             else
-               call jMat(nLMB2)%solve(rhs2(:,:,0),2*lm,handle,devInfo)
+               call jMat%solve(rhs2(:,:,0),2*lm,nLMB2,handle,devInfo)
             end if
 
             !----- Update magnetic field in cheb space:
@@ -755,10 +1006,10 @@ contains
          if ( l1 > 0 ) then
             if ( .not. lBmat(l1) ) then
 #ifdef WITH_PRECOND_BJ
-               call get_bMat(tscheme,l1,hdif_B(l1),bMat(nLMB2), &
-                    &        bMat_fac(:,nLMB2),jMat(nLMB2),jMat_fac(:,nLMB2))
+               call get_bMat(tscheme,l1,hdif_B(l1),bMat, &
+                    &        bMat_fac(:,nLMB2),jMat,jMat_fac(:,nLMB2),nLMB2)
 #else
-               call get_bMat(tscheme,l1,hdif_B(l1),bMat(nLMB2),jMat(nLMB2))
+               call get_bMat(tscheme,l1,hdif_B(l1),bMat,jMat,nLMB2)
 #endif
                lBmat(l1)=.true.
             end if
@@ -979,10 +1230,10 @@ contains
                end do    ! loop over lm in block
                   !LIKWID_ON('upB_sol')
 
-               call bMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*(lm-1),threadid), &
-                    &                 2*(lm-1-lmB0))
-               call jMat(nLMB2)%solve(rhs2(:,2*(lmB0+1)-1:2*(lm-1),threadid), &
-                    &                 2*(lm-1-lmB0))
+               call bMat%solve(rhs1(:,2*(lmB0+1)-1:2*(lm-1),threadid), &
+                    &          2*(lm-1-lmB0),nLMB2)
+               call jMat%solve(rhs2(:,2*(lmB0+1)-1:2*(lm-1),threadid), &
+                    &          2*(lm-1-lmB0),nLMB2)
 
                !----- Update magnetic field in cheb space:
                do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
@@ -1051,6 +1302,7 @@ contains
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
 #endif
+!#endif
 
       !-- Set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       !   for inner core modes > 2*n_cheb_ic_max = 0
@@ -2646,9 +2898,9 @@ contains
    end subroutine get_mag_rhs_imp_ghost
 !-----------------------------------------------------------------------------
 #ifdef WITH_PRECOND_BJ
-   subroutine get_bMat(tscheme,l,hdif,bMat,bMat_fac,jMat,jMat_fac)
+   subroutine get_bMat(tscheme,l,hdif,bMat,bMat_fac,jMat,jMat_fac,nLMB2,l_LU)
 #else
-   subroutine get_bMat(tscheme,l,hdif,bMat,jMat)
+   subroutine get_bMat(tscheme,l,hdif,bMat,jMat,nLMB2,l_LU)
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matrices
@@ -2658,26 +2910,32 @@ contains
       !-- Input variables:
       class(type_tscheme), intent(in) :: tscheme        ! time step
       integer,             intent(in) :: l
+      integer,             intent(in) :: nLMB2
       real(cp),            intent(in) :: hdif
+      logical, optional,   intent(in) :: l_LU
 
       !-- Output variables:
-      class(type_realmat), intent(inout) :: bMat
-      class(type_realmat), intent(inout) :: jMat
+      class(type_mrealmat), intent(inout) :: bMat
+      class(type_mrealmat), intent(inout) :: jMat
 #ifdef WITH_PRECOND_BJ
       real(cp), intent(out) :: bMat_fac(n_r_totMag),jMat_fac(n_r_totMag)
 #endif
 
       !-- local variables:
-      integer :: nR,nCheb,nR_out,nRall
-      integer :: info
-      real(cp) :: l_P_1
-      real(cp) :: dLh
-      real(cp) :: rRatio
+      logical :: l_LU_loc
+      integer :: nR,nCheb,nR_out,nRall,info
+      real(cp) :: l_P_1, dLh, rRatio
 #ifndef WITH_OMP_GPU
       real(cp) :: datJmat(n_r_tot,n_r_tot)
       real(cp) :: datBmat(n_r_tot,n_r_tot)
 #endif
       real(cp) :: wimp_lin
+
+      if ( present(l_LU) ) then
+         l_LU_loc=l_LU
+      else
+         l_LU_loc=.true.
+      end if
 
       nRall=n_r_max
       if ( l_cond_ic ) nRall=nRall+n_r_ic_max
@@ -3111,32 +3369,34 @@ contains
 #endif
 
       !-- Array copy
-      call bMat%set_data(datBmat)
-      call jMat%set_data(datJmat)
+      call bMat%set_data(datBmat,nLMB2)
+      call jMat%set_data(datJmat,nLMB2)
 
       !----- LU decomposition:
+      if ( l_LU_loc ) then
 #ifdef WITH_OMP_GPU
-      if(.not. bMat%gpu_is_used) then
-         call bMat%prepare(info)
-      else
-         call bMat%prepare(info, handle, devInfo)
-      end if
+         if(.not. bMat%gpu_is_used) then
+            call bMat%prepare(nLMB2, info)
+         else
+            call bMat%prepare(nLMB2, info, handle, devInfo)
+         end if
 #else
-      call bMat%prepare(info)
+         call bMat%prepare(nLMB2, info)
 #endif
-      if ( info /= 0 ) call abortRun('Singular matrix bMat in get_bmat')
+         if ( info /= 0 ) call abortRun('Singular matrix bMat in get_bmat')
 
-      !----- LU decomposition:
+         !----- LU decomposition:
 #ifdef WITH_OMP_GPU
-      if(.not. jMat%gpu_is_used) then
-         call jMat%prepare(info)
-      else
-         call jMat%prepare(info, handle, devInfo)
-      end if
+         if(.not. jMat%gpu_is_used) then
+            call jMat%prepare(nLMB2, info)
+         else
+            call jMat%prepare(nLMB2, info, handle, devInfo)
+         end if
 #else
-      call jMat%prepare(info)
+         call jMat%prepare(nLMB2, info)
 #endif
-      if ( info /= 0 ) call abortRun('! Singular matrix jMat in get_bmat!')
+         if ( info /= 0 ) call abortRun('! Singular matrix jMat in get_bmat!')
+      end if
 
    end subroutine get_bMat
 !-----------------------------------------------------------------------------

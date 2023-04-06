@@ -243,6 +243,7 @@ module dense_matrices
    use real_many_matrices, only: type_mrealmat
    use constants, only: one
    use algebra, only: solve_mat, prepare_mat
+   use algebra_loops, only: prepare_dense_all, solve_dense_all
 #ifdef WITH_OMP_GPU
    use algebra_hipfort, only: gpu_solve_mat, gpu_prepare_mat
 #endif
@@ -508,6 +509,9 @@ contains
       class(type_mdensemat) :: this
       integer, intent(out) :: info ! Output diagnostic of success
 
+      call prepare_dense_all(this%dat, this%pivot, this%nrow, this%nmat, info)
+
+#ifdef OLD
       !-- Local variables:
       integer :: nm1,k,kp1,l,i,j,idx
       real(cp) :: help
@@ -585,6 +589,7 @@ contains
          end do
       end do
       !$omp end target teams distribute parallel do
+#endif
 #endif
 
    end subroutine prepare_all
@@ -820,6 +825,17 @@ contains
       complex(cp), intent(inout) :: rhs(1:this%ncol,llm:ulm)
 
       !-- Local variables:
+      integer, pointer :: ptr_pivot(:,:)
+      real(cp), pointer :: ptr_dat(:,:,:)
+
+      ptr_dat   => this%dat
+      ptr_pivot => this%pivot
+
+      call solve_dense_all(ptr_dat, ptr_pivot, rhs, lm2l, l2nLMB2, this%ncol, &
+           &               this%nmat, llm, ulm)
+
+#ifdef OLD
+      !-- Local variables:
       integer :: nm1,nodd,i,m
       integer :: k,k1,nRHS,nLMB2,l,n
       complex(cp) :: help
@@ -888,6 +904,7 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
 #endif
+#endif
 
    end subroutine solve_all_mats
 !------------------------------------------------------------------------------
@@ -903,6 +920,8 @@ module band_matrices
 #endif
    use real_matrices, only: type_realmat
    use real_many_matrices, only: type_mrealmat
+   use algebra_loops, only: prepare_band_all, prepare_tridiag_all, solve_band_all, &
+       &                    solve_tridiag_all
    use algebra, only: solve_tridiag, prepare_tridiag, prepare_band, solve_band
    use iso_c_binding
 
@@ -1125,10 +1144,18 @@ contains
       class(type_mbandmat) :: this
       integer, intent(out) :: info
 
+      if ( this%nrow == 3 ) then ! tridiag version
+         call prepare_tridiag_all(this%dat, this%du2, this%pivot, this%ncol, &
+              &                   this%nmat, info)
+      else ! band version
+         call prepare_band_all(this%dat, this%pivot, this%ncol, this%kl, this%ku, &
+              &                this%nmat, info)
+      end if
+
+#ifdef OLD
       !-- Local variables
       real(cp) :: fact, temp
       integer :: i0, j, ju, jz, j0, j1, k, kp1, l, lm, m, mm, nm1, i, idx
-
 
       info = 0
       if ( this%nrow == 3 ) then ! This is the tridiag version
@@ -1266,6 +1293,7 @@ contains
          end do
 
       end if
+#endif
 
    end subroutine prepare_all
 !------------------------------------------------------------------------------
@@ -1453,6 +1481,17 @@ contains
       !-- In/Out variables
       complex(cp), intent(inout) :: rhs(this%ncol, llm:ulm)
 
+   if ( this%nrow == 3 ) then ! This is the tridiagonal solver
+         call solve_tridiag_all(this%dat, this%pivot, this%du2, rhs, lm2l, &
+              &                 l2nLMB2, this%ncol, this%nmat, llm, ulm)
+
+      else ! This is the band solver
+         call solve_band_all(this%dat, this%pivot, rhs, lm2l, l2nLMB2, &
+              &              this%ncol, this%kl, this%ku, this%nmat,   &
+              &              llm, ulm)
+      end if
+
+#ifdef OLD
       !-- Local variables
       integer :: i, nRHS, l, nLMB2, m, nm1, k, kb, la, lb, lm, ll
       complex(cp) :: temp
@@ -1534,6 +1573,7 @@ contains
 #endif
 
       end if
+#endif
 
    end subroutine solve_all_mats
 !------------------------------------------------------------------------------
@@ -1557,6 +1597,9 @@ module bordered_matrices
 
    use precision_mod
    use mem_alloc
+   use real_many_matrices, only: type_mrealmat
+   use algebra_loops, only: prepare_band_all, prepare_dense_all, solve_band_all, &
+       &                    solve_dense_all, solve_band_real_all
    use real_matrices, only: type_realmat
    use algebra, only: solve_bordered, prepare_bordered
    use iso_c_binding
@@ -1584,6 +1627,28 @@ module bordered_matrices
 !      procedure :: mat_add
 !      generic :: operator(+) => mat_add
    end type type_bordmat
+
+   type, public, extends(type_mrealmat) :: type_mbordmat
+      real(cp), allocatable :: A1(:,:,:)
+      real(cp), allocatable :: A2(:,:,:)
+      real(cp), allocatable :: A3(:,:)
+      real(cp), allocatable :: A4(:,:,:)
+      integer, allocatable :: pivA1(:,:)
+      integer, allocatable :: pivA4(:,:)
+      integer :: kl
+      integer :: ku
+      integer :: nfull
+   contains
+      procedure :: initialize => initialize_
+      procedure :: finalize => finalize_
+      procedure :: prepare_single
+      procedure :: prepare_all
+      procedure :: solve_real_multi => solve_real_multi_
+      procedure :: solve_real_single => solve_real_single_
+      procedure :: solve_complex_single => solve_complex_single_
+      procedure :: set_data => set_data_
+      procedure :: solve_all_mats
+   end type type_mbordmat
 
 contains
 
@@ -1638,6 +1703,71 @@ contains
 
    end subroutine initialize
 !------------------------------------------------------------------------------
+#ifdef WITH_OMP_GPU
+   subroutine initialize_(this, nx, ny, nmat, l_pivot, use_gpu, nfull)
+#else
+   subroutine initialize_(this, nx, ny, nmat, l_pivot, nfull)
+#endif
+      !
+      ! Memory allocation
+      !
+      class(type_mbordmat) :: this
+      integer, intent(in) :: nx
+      integer, intent(in) :: ny
+      integer, intent(in) :: nmat
+      logical, intent(in) :: l_pivot
+      integer, optional, intent(in) :: nfull
+#ifdef WITH_OMP_GPU
+      logical, optional, intent(in) :: use_gpu
+#endif
+
+      !-- Local variables
+      integer ::  i, j, k
+      logical :: loc_use_gpu
+
+      loc_use_gpu = .false.
+      this%gpu_is_used=.false.
+
+      this%nrow = nx
+      this%ncol = ny
+      this%nmat = nmat
+      this%l_pivot = l_pivot
+
+      this%kl = (nx-1)/2
+      this%ku = this%kl
+      this%nfull = nfull
+
+      allocate( this%A1(nx+(nx-1)/2, ny, nmat) )
+      allocate( this%A2(ny,nfull,nmat) )
+      allocate( this%A3(ny,nmat) )
+      allocate( this%A4(nfull,nfull,nmat) )
+      this%A1(:,:,:)=0.0_cp
+      this%A1(this%kl+this%ku+1,:,:)=1.0_cp ! Identity matrix
+      this%A2(:,:,:)=0.0_cp
+      this%A3(:,:)  =0.0_cp
+      this%A4(:,:,:)=0.0_cp
+      do k=1,this%nmat
+         do j=1,this%nfull
+            do i=1,this%nfull
+               if ( i == j ) then
+                  this%A4(i,j,k)=1.0_cp ! Identity matrix
+               end if
+            end do
+         end do
+      end do
+      bytes_allocated = bytes_allocated+nmat*(nfull*nfull+nfull*ny+ny+ &
+      &                 (nx+(nx-1)/2)*ny)*SIZEOF_DEF_REAL
+
+      if ( this%l_pivot ) then
+         allocate( this%pivA1(ny,nmat) )
+         allocate( this%pivA4(nfull,nmat) )
+         bytes_allocated = bytes_allocated+nmat*(ny+nfull)*SIZEOF_INTEGER
+         this%pivA1(:,:) = 0
+         this%pivA4(:,:) = 0
+      end if
+
+   end subroutine initialize_
+!------------------------------------------------------------------------------
    subroutine finalize(this)
       !
       ! Memory deallocation
@@ -1648,6 +1778,17 @@ contains
       if ( this%l_pivot  ) deallocate( this%pivA1, this%pivA4 )
 
    end subroutine finalize
+!------------------------------------------------------------------------------
+   subroutine finalize_(this)
+      !
+      ! Memory deallocation
+      !
+      class(type_mbordmat) :: this
+
+      deallocate( this%A1, this%A2, this%A3, this%A4 )
+      if ( this%l_pivot  ) deallocate( this%pivA1, this%pivA4 )
+
+   end subroutine finalize_
 !------------------------------------------------------------------------------
    subroutine prepare(this, info, handle, devInfo)
 
@@ -1660,6 +1801,52 @@ contains
            &                this%kl,this%ku,this%pivA1,this%pivA4,info)
 
    end subroutine prepare
+!------------------------------------------------------------------------------
+   subroutine prepare_single(this, idx, info, handle, devInfo)
+
+      class(type_mbordmat) :: this
+      integer, intent(in) :: idx
+      integer, intent(out) :: info
+      integer,     optional, intent(inout) :: devInfo(:)
+      type(c_ptr), optional, intent(inout) :: handle
+
+      call prepare_bordered(this%A1(:,:,idx),this%A2(:,:,idx),this%A3(:,idx), &
+           &                this%A4(:,:,idx),this%ncol,this%nfull,this%kl,    &
+           &                this%ku,this%pivA1(:,idx),this%pivA4(:,idx),info)
+
+   end subroutine prepare_single
+!------------------------------------------------------------------------------
+   subroutine prepare_all(this, info)
+
+      class(type_mbordmat) :: this
+
+      !-- Output variable
+      integer, intent(out) :: info
+
+      !-- Local variables:
+      integer :: i, j, k
+
+      !-- LU factorisation for the banded block
+      call prepare_band_all(this%A1, this%pivA1, this%ncol, this%kl, this%ku, &
+           &                this%nmat, info)
+
+      !-- Solve A1*v = A2 (on output v = A2)
+      call solve_band_real_all(this%A1, this%pivA1, this%A2, this%ncol, this%kl, &
+           &                   this%ku, this%nmat, this%nfull)
+
+      !-- Assemble the Schur complement of A1: A4 <- A4-A3*v
+      do k=1,this%nmat
+         do i=1,this%nfull
+            do j=1,this%ncol
+               this%A4(1,i,k)=this%A4(1,i,k)-this%A3(j,k)*this%A2(j,i,k)
+            end do
+         end do
+      end do
+
+      !-- LU factorisation of the Schur complement
+      call prepare_dense_all(this%A4, this%pivA4, this%nfull, this%nmat, info)
+
+   end subroutine prepare_all
 !------------------------------------------------------------------------------
    subroutine solve_real_single(this, rhs, handle, devInfo)
 
@@ -1676,6 +1863,23 @@ contains
            &              this%kl,this%ku,this%pivA1,this%pivA4,rhs,lenRhs)
 
    end subroutine solve_real_single
+!------------------------------------------------------------------------------
+   subroutine solve_real_single_(this, rhs, handle, devInfo)
+
+      class(type_mbordmat) :: this
+      real(cp), intent(inout) :: rhs(:)
+      type(c_ptr), optional,    intent(inout) :: handle
+      integer, optional,        intent(inout) :: devInfo(:)
+
+      !-- Local variable :
+      integer :: lenRhs
+
+      lenRhs = this%nfull+this%ncol
+      call solve_bordered(this%A1(:,:,1),this%A2(:,:,1),this%A3(:,1),   &
+           &              this%A4(:,:,1),this%ncol,this%nfull,this%kl,  &
+           &              this%ku,this%pivA1(:,1),this%pivA4(:,1),rhs,lenRhs)
+
+   end subroutine solve_real_single_
 !------------------------------------------------------------------------------
    subroutine solve_complex_single(this, rhs, tmpr, tmpi, handle, devInfo)
 
@@ -1697,18 +1901,54 @@ contains
 
    end subroutine solve_complex_single
 !------------------------------------------------------------------------------
+   subroutine solve_complex_single_(this, rhs, tmpr, tmpi, handle, devInfo)
+
+      class(type_mbordmat) :: this
+      complex(cp), intent(inout) :: rhs(:)
+
+      !-- Output variables
+      real(cp), optional,    intent(inout) :: tmpr(:)
+      real(cp), optional,    intent(inout) :: tmpi(:)
+      type(c_ptr), optional, intent(inout) :: handle
+      integer, optional,     intent(inout) :: devInfo(:)
+
+      !-- Local variable :
+      integer :: lenRhs
+
+      lenRhs = this%nfull+this%ncol
+      call solve_bordered(this%A1(:,:,1),this%A2(:,:,1),this%A3(:,1),   &
+           &              this%A4(:,:,1),this%ncol,this%nfull,this%kl,  &
+           &              this%ku,this%pivA1(:,1),this%pivA4(:,1),rhs,lenRhs)
+
+   end subroutine solve_complex_single_
+!------------------------------------------------------------------------------
    subroutine solve_real_multi(this, rhs, nRHS, handle, devInfo)
 
       class(type_bordmat) :: this
       integer,  intent(in) :: nRHS
       real(cp), intent(inout) :: rhs(:,:)
-      integer,        optional, intent(inout) :: devInfo(:)
-      type(c_ptr),    optional, intent(inout) :: handle
+      integer,     optional, intent(inout) :: devInfo(:)
+      type(c_ptr), optional, intent(inout) :: handle
 
       call solve_bordered(this%A1,this%A2,this%A3,this%A4,this%ncol,this%nfull, &
            &              this%kl,this%ku,this%pivA1,this%pivA4,rhs,nRHS)
 
    end subroutine solve_real_multi
+!------------------------------------------------------------------------------
+   subroutine solve_real_multi_(this, rhs, nRHS, idx, handle, devInfo)
+
+      class(type_mbordmat) :: this
+      integer,  intent(in) :: idx
+      integer,  intent(in) :: nRHS
+      real(cp), intent(inout) :: rhs(:,:)
+      integer,     optional, intent(inout) :: devInfo(:)
+      type(c_ptr), optional, intent(inout) :: handle
+
+      call solve_bordered(this%A1(:,:,idx),this%A2(:,:,idx),this%A3(:,idx), &
+           &              this%A4(:,:,idx),this%ncol,this%nfull,this%kl,    &
+           &              this%ku,this%pivA1(:,idx),this%pivA4(:,idx),rhs,nRHS)
+
+   end subroutine solve_real_multi_
 !------------------------------------------------------------------------------
    subroutine set_data(this, dat)
 
@@ -1742,5 +1982,92 @@ contains
       end do
 
    end subroutine set_data
+!------------------------------------------------------------------------------
+   subroutine set_data_(this, dat, idx)
+
+      class(type_mbordmat) :: this
+
+      !-- Input variables
+      integer,  intent(in) :: idx
+      real(cp), intent(in) :: dat(:,:)
+
+      !-- Local variables
+      integer :: i, j
+
+      !-- A1 = band matrix
+      do j=1,this%ncol
+         do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
+            this%A1(this%kl+this%ku+1+i-j,j,idx)=dat(i,j)
+         end do
+      end do
+
+      do j=1,this%nfull
+         do i=1,this%ncol
+            this%A2(i,j,idx)=dat(i,this%ncol+j)
+         end do
+      end do
+
+      do j=1,this%ncol
+         this%A3(j,idx)=dat(this%ncol+1,j)
+      end do
+
+      do j=1,this%nfull
+         do i=1,this%nfull
+            this%A4(i,j,idx)=dat(this%ncol+i,this%ncol+j)
+         end do
+      end do
+
+   end subroutine set_data_
+!------------------------------------------------------------------------------
+   subroutine solve_all_mats(this, rhs, llm, ulm, lm2l, l2nLMB2)
+
+      class(type_mbordmat) :: this
+
+      !-- Input variables
+      integer, intent(in) :: llm
+      integer, intent(in) :: ulm
+      integer, intent(in) :: lm2l(:)
+      integer, intent(in) :: l2nLMB2(0:)
+
+      !-- In/Out variables
+      complex(cp), intent(inout) :: rhs(1:this%ncol+this%nfull,llm:ulm)
+
+      !-- Local variables:
+      complex(cp) :: tmp
+      integer :: j, k, nRHS, nLMB2, l
+
+      !-- Solve A1*w = rhs1
+      call solve_band_all(this%A1, this%pivA1, rhs(1:this%ncol,llm:ulm), lm2l, l2nLMB2, &
+           &              this%ncol, this%kl, this%ku, this%nmat, llm, ulm)
+
+      !-- rhs2 <- rhs2-A3*rhs1
+      do nRHS=llm,ulm
+         l=lm2l(nRHS)
+         nLMB2=l2nLMB2(l)
+
+         do k=1,this%ncol
+            rhs(this%ncol+1,nRHS)=rhs(this%ncol+1,nRHS)-this%A3(k,nLMB2)*rhs(k,nRHS)
+         end do
+      end do
+
+      !-- Solve A4*y = rhs2
+      call solve_dense_all(this%A4, this%pivA4, rhs(this%ncol+1:,llm:ulm), lm2l, &
+           &               l2nLMB2, this%nfull, this%nmat, llm, ulm)
+
+      !-- Assemble rhs1 <- rhs1-A2*rhs2
+      do nRHS=llm,ulm
+         l=lm2l(nRHS)
+         nLMB2=l2nLMB2(l)
+
+         do k=1,this%ncol
+            tmp=0.0_cp
+            do j=1,this%nfull
+               tmp=tmp+this%A2(k,j,nLMB2)*rhs(this%ncol+j,nRHS)
+            end do
+            rhs(k,nRHS)=rhs(k,nRHS)-tmp
+         end do
+      end do
+
+   end subroutine solve_all_mats
 !------------------------------------------------------------------------------
 end module bordered_matrices
