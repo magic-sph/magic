@@ -57,7 +57,7 @@ contains
       &                               c_loc(tmpi), n, c_loc(devInfo)))
       !$omp end target data
 #elif (DEFAULT_PRECISION==dble)
-      !-- TODO: Replace these two calls by a single to hipblasZgetrs direcly on input complex rhs
+      !-- NOTE: We can replace these two calls by a single to hipblasZgetrs direcly on input complex rhs
       !$omp target data use_device_addr(a, pivot, tmpr, tmpi, devInfo)
       call hipblasCheck(hipblasDgetrs(handle, HIPBLAS_OP_N, n, 1, c_loc(a), len_a, c_loc(pivot), &
       &                               c_loc(tmpr), n, c_loc(devInfo)))
