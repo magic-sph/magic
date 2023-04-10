@@ -1,3 +1,4 @@
+#define NEW_SOLVE_UPDATEB
 module updateB_mod
    !
    ! This module handles the time advance of the magnetic field potentials
@@ -98,10 +99,6 @@ contains
       !-- Local variables
       integer, pointer :: nLMBs2(:)
       integer :: maxThreads, n_bandsJ, n_bandsB
-#ifdef WITH_OMP_GPU
-      logical :: use_gpu, use_pivot
-      use_gpu = .false.; use_pivot = .true.
-#endif
 
       if ( .not. l_mag_par_solve ) then
          nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
@@ -132,18 +129,30 @@ contains
 
             if ( l_cond_ic ) then
 #ifdef WITH_OMP_GPU
-               call bMat%initialize(n_bandsB,n_r_max,nLMBs2(1+rank),use_pivot, &
-                    &               use_gpu,n_r_ic_max)
-               call jMat%initialize(n_bandsJ,n_r_max,nLMBs2(1+rank),use_pivot, &
-                    &               use_gpu,n_r_ic_max)
+#ifdef NEW_SOLVE_UPDATEB
+               call bMat%initialize(n_bandsB,n_r_max,nLMBs2(1+rank),l_pivot=.true., &
+                    &               use_gpu=.true.,nfull=n_r_ic_max)
+               call jMat%initialize(n_bandsJ,n_r_max,nLMBs2(1+rank),l_pivot=.true., &
+                    &               use_gpu=.true.,nfull=n_r_ic_max)
+#else
+               call bMat%initialize(n_bandsB,n_r_max,nLMBs2(1+rank),l_pivot=.true., &
+                    &               use_gpu=.false.,n_r_ic_max)
+               call jMat%initialize(n_bandsJ,n_r_max,nLMBs2(1+rank),l_pivot=.true., &
+                    &               use_gpu=.false.,n_r_ic_max)
+#endif
 #else
                call bMat%initialize(n_bandsB,n_r_max,nLMBs2(1+rank),.true.,n_r_ic_max)
                call jMat%initialize(n_bandsJ,n_r_max,nLMBs2(1+rank),.true.,n_r_ic_max)
 #endif
             else
 #ifdef WITH_OMP_GPU
-               call bMat%initialize(n_bandsB,n_r_tot,nLMBs2(1+rank),use_pivot,use_gpu)
-               call jMat%initialize(n_bandsJ,n_r_tot,nLMBs2(1+rank),use_pivot,use_gpu)
+#ifdef NEW_SOLVE_UPDATEB
+               call bMat%initialize(n_bandsB,n_r_tot,nLMBs2(1+rank),l_pivot=.true.,use_gpu=.true.)
+               call jMat%initialize(n_bandsJ,n_r_tot,nLMBs2(1+rank),l_pivot=.true.,use_gpu=.true.)
+#else
+               call bMat%initialize(n_bandsB,n_r_tot,nLMBs2(1+rank),l_pivot=.true.,use_gpu=.false.)
+               call jMat%initialize(n_bandsJ,n_r_tot,nLMBs2(1+rank),l_pivot=.true.,use_gpu=.false.)
+#endif
 #else
                call bMat%initialize(n_bandsB,n_r_tot,nLMBs2(1+rank),l_pivot=.true.)
                call jMat%initialize(n_bandsJ,n_r_tot,nLMBs2(1+rank),l_pivot=.true.)
@@ -152,11 +161,9 @@ contains
          else
             allocate( type_mdensemat :: jMat )
             allocate( type_mdensemat :: bMat )
-
 #ifdef WITH_OMP_GPU
-            use_gpu = .true.
-            call bMat%initialize(n_r_tot,n_r_tot,nLMBs2(1+rank),use_pivot,use_gpu)
-            call jMat%initialize(n_r_tot,n_r_tot,nLMBs2(1+rank),use_pivot,use_gpu)
+            call bMat%initialize(n_r_tot,n_r_tot,nLMBs2(1+rank),l_pivot=.true.,use_gpu=.true.)
+            call jMat%initialize(n_r_tot,n_r_tot,nLMBs2(1+rank),l_pivot=.true.,use_gpu=.true.)
 #else
             call bMat%initialize(n_r_tot,n_r_tot,nLMBs2(1+rank),l_pivot=.true.)
             call jMat%initialize(n_r_tot,n_r_tot,nLMBs2(1+rank),l_pivot=.true.)
@@ -245,8 +252,8 @@ contains
          tmpb_LMloc(:,:)=zero
          tmpj_LMloc(:,:)=zero
 #ifdef WITH_OMP_GPU
-         !$omp target enter data map(alloc: tmb_LMloc, tmpj_LMloc)
-         !$omp target update to(tmb_LMloc, tmpj_LMloc)
+         !$omp target enter data map(alloc: tmpb_LMloc, tmpj_LMloc)
+         !$omp target update to(tmpb_LMloc, tmpj_LMloc)
 #endif
       end if
 
@@ -310,10 +317,10 @@ contains
 #endif
 
       if ( .not. l_mag_par_solve ) then
-         deallocate( tmpb_LMloc, tmpj_LMloc )
 #ifdef WITH_OMP_GPU
          !$omp target exit data map(delete: tmpb_LMloc, tmpj_LMloc)
 #endif
+         deallocate( tmpb_LMloc, tmpj_LMloc )
       end if
 
    end subroutine finalize_updateB
@@ -436,8 +443,11 @@ contains
 #endif
       end if
 
-#ifdef NEW
+#ifdef WITH_OMP_GPU
+#ifdef NEW_SOLVE_UPDATEB
+      !$omp single
       call solve_counter%start_count()
+      !$omp end single
       !-- Only fill the matrices: GPU looping could be only on nLMB2?
       l_LU_fac=.false.
       do nLMB2=1,nLMBs2(nLMB)
@@ -460,8 +470,6 @@ contains
          call jMat%prepare(info)
          if ( info /= 0 ) call abortRun('Singular matrix jMat!')
       end if
-
-      call solve_counter%stop_count(l_increment=.false.)
 
       !-- Copy and transpose bulk points
       !$omp target teams distribute parallel do collapse(2)
@@ -587,7 +595,6 @@ contains
          !$omp end target teams distribute parallel do
       end if
 
-
       !-- Inner core
       if ( l_cond_ic ) then    ! inner core
          !$omp target teams distribute parallel do collapse(2)
@@ -675,10 +682,10 @@ contains
          end do
          !$omp end target teams distribute parallel do
       end if
-#endif
-
-!#ifdef OLD
-#ifdef WITH_OMP_GPU
+      !$omp single
+      call solve_counter%stop_count(l_increment=.false.)
+      !$omp end single
+#else
       !$omp single
       call solve_counter%start_count()
       !$omp end single
@@ -984,6 +991,7 @@ contains
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
+#endif
 #else
       !$omp single
       call solve_counter%start_count()
@@ -1302,7 +1310,6 @@ contains
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single
 #endif
-!#endif
 
       !-- Set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       !   for inner core modes > 2*n_cheb_ic_max = 0
@@ -3385,7 +3392,6 @@ contains
 #endif
          if ( info /= 0 ) call abortRun('Singular matrix bMat in get_bmat')
 
-         !----- LU decomposition:
 #ifdef WITH_OMP_GPU
          if(.not. jMat%gpu_is_used) then
             call jMat%prepare(nLMB2, info)

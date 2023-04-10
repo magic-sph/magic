@@ -1,4 +1,4 @@
-#define NEW_SOLVE_Z
+#define NEW_SOLVE_UPDATEZ
 module updateZ_mod
    !
    ! This module handles the time advance of the toroidal potential z
@@ -97,10 +97,6 @@ contains
 
       integer, pointer :: nLMBs2(:)
       integer :: n_bands
-#ifdef WITH_OMP_GPU
-      logical :: use_gpu, use_pivot
-      use_gpu = .false.; use_pivot = .true.
-#endif
 
       if ( .not. l_parallel_solve ) then
          nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
@@ -117,7 +113,11 @@ contains
             end if
 
 #ifdef WITH_OMP_GPU
-            call zMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),use_pivot,use_gpu)
+#ifdef NEW_SOLVE_UPDATEZ
+            call zMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),l_pivot=.true.,use_gpu=.true.)
+#else
+            call zMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),l_pivot=.true.,use_gpu=.false.)
+#endif
 #else
             call zMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),l_pivot=.true.)
 #endif
@@ -132,7 +132,11 @@ contains
             end if
 
 #ifdef WITH_OMP_GPU
-            call z10Mat%initialize(n_bands,n_r_max,1,use_pivot,use_gpu)
+#ifdef NEW_SOLVE_UPDATEZ
+            call z10Mat%initialize(n_bands,n_r_max,1,l_pivot=.true.,use_gpu=.true.)
+#else
+            call z10Mat%initialize(n_bands,n_r_max,1,l_pivot=.true.,use_gpu=.false.)
+#endif
 #else
             call z10Mat%initialize(n_bands,n_r_max,1,l_pivot=.true.)
 #endif
@@ -142,9 +146,8 @@ contains
             allocate( type_mdensemat :: z10Mat )
 
 #ifdef WITH_OMP_GPU
-            use_gpu = .true.
-            call z10Mat%initialize(n_r_max,n_r_max,1,use_pivot,use_gpu)
-            call zMat%initialize(n_r_max,n_r_max,nLMBs2(1+rank),use_pivot,use_gpu)
+            call z10Mat%initialize(n_r_max,n_r_max,1,l_pivot=.true.,use_gpu=.true.)
+            call zMat%initialize(n_r_max,n_r_max,nLMBs2(1+rank),l_pivot=.true.,use_gpu=.true.)
 #else
             call z10Mat%initialize(n_r_max,n_r_max,1,l_pivot=.true.)
             call zMat%initialize(n_r_max,n_r_max,nLMBs2(1+rank),l_pivot=.true.)
@@ -380,9 +383,8 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-#ifdef NEW_SOLVE_Z
+#ifdef NEW_SOLVE_UPDATEZ
       call solve_counter%start_count()
-
       !-- Only fill the matrices: GPU looping could be only on nLMB2?
       l_LU_fac=.false.
       do nLMB2=1,nLMBs2(nLMB)
@@ -548,13 +550,11 @@ contains
          end do
       end do
       !$omp end target teams distribute parallel do
-
       call solve_counter%stop_count()
 #else
       !$omp single
       call solve_counter%start_count()
       !$omp end single
-
       !-- MPI Level
       do nLMB2=1,nLMBs2(nLMB)
 
@@ -723,7 +723,6 @@ contains
          end if
 
       end do
-
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
       !$omp end single

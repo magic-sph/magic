@@ -1,3 +1,4 @@
+#define NEW_SOLVE_UPDATEWP
 module updateWP_mod
    !
    ! This module handles the time advance of the poloidal potential w and the pressure p.
@@ -94,10 +95,6 @@ contains
       !-- Local variables:
       integer, pointer :: nLMBs2(:)
       integer :: n_bands
-#ifdef WITH_OMP_GPU
-      logical :: use_gpu, use_pivot
-      use_gpu = .false.; use_pivot = .true.
-#endif
 
       if ( .not. l_parallel_solve ) then
          nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
@@ -116,7 +113,15 @@ contains
             else
                n_bands = max(rscheme_oc%order+3,2*rscheme_oc%order_boundary+3)
             end if
+#ifdef WITH_OMP_GPU
+#ifdef NEW_SOLVE_UPDATEWP
+            call wpMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),l_pivot=.true.,use_gpu=.true.)
+#else
+            call wpMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),l_pivot=.true.,use_gpu=.false.)
+#endif
+#else
             call wpMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),l_pivot=.true.)
+#endif
             allocate( wpMat_fac(n_r_max,2,nLMBs2(1+rank)) )
             wpMat_fac(:,:,:) = 0.0_cp
             bytes_allocated=bytes_allocated+2*n_r_max*nLMBs2(1+rank)*    &
@@ -137,8 +142,7 @@ contains
             allocate( type_mdensemat :: wpMat )
             if ( l_double_curl ) then
 #ifdef WITH_OMP_GPU
-               use_gpu = .true.
-               call wpMat%initialize(n_r_max,n_r_max,nLMBs2(1+rank),use_pivot,use_gpu)
+               call wpMat%initialize(n_r_max,n_r_max,nLMBs2(1+rank),l_pivot=.true.,use_gpu=.true.)
 #else
                call wpMat%initialize(n_r_max,n_r_max,nLMBs2(1+rank),l_pivot=.true.)
 #endif
@@ -155,9 +159,8 @@ contains
                wp_LMloc(:,:)=zero
             else
 #ifdef WITH_OMP_GPU
-               use_gpu = .true.
                call wpMat%initialize(2*n_r_max,2*n_r_max,nLMBs2(1+rank), &
-                    &                    use_pivot,use_gpu)
+                    &                    l_pivot=.true.,use_gpu=.true.)
 #else
                call wpMat%initialize(2*n_r_max,2*n_r_max,nLMBs2(1+rank), &
                     &                    l_pivot=.true.)
@@ -177,8 +180,7 @@ contains
 
             allocate( type_mdensemat :: p0Mat )
 #ifdef WITH_OMP_GPU
-            use_gpu = .true.
-            call p0Mat%initialize(n_r_max,n_r_max,1,use_pivot,use_gpu)
+            call p0Mat%initialize(n_r_max,n_r_max,1,l_pivot=.true.,use_gpu=.true.)
 #else
             call p0Mat%initialize(n_r_max,n_r_max,1,l_pivot=.true.)
 #endif
@@ -471,11 +473,11 @@ contains
 #endif
       end if
 
-#ifdef NEW
+#ifdef WITH_OMP_GPU
+#ifdef NEW_SOLVE_UPDATEWP
       !$omp single
       call solve_counter%start_count()
       !$omp end single
-
       !-- Only fill the matrices: GPU looping could be only on nLMB2?
       l_LU_fac=.false.
       do nLMB2=1,nLMBs2(nLMB)
@@ -504,7 +506,7 @@ contains
 
       !-- Copy and transpose bulk points
       if ( l_double_curl ) then
-			!$omp target teams distribute parallel do collapse(2) private(l1)
+         !$omp target teams distribute parallel do collapse(2) private(l1)
          do lm=llm,ulm
             do nR=3,n_r_max-2
                wp_LMloc(nR,lm)=work_LMloc(lm,nR)
@@ -524,7 +526,7 @@ contains
          end do
          !$omp end target teams distribute parallel do
       else
-			!$omp target teams distribute parallel do collapse(2)
+         !$omp target teams distribute parallel do collapse(2)
          do lm=llm,ulm
             do nR=2,n_r_max-1
                wp_LMloc(nR,lm)        =work_LMloc(lm,nR)
@@ -626,9 +628,7 @@ contains
             call p0Mat%solve(rhs)
             !$omp target update to(rhs)
          else
-#ifdef WITH_OMP_GPU
             call p0Mat%solve(rhs,handle,devInfo)
-#endif
          end if
       end if
 
@@ -690,14 +690,10 @@ contains
       !$omp single
       call solve_counter%stop_count()
       !$omp end single
-#endif
-
-!#ifdef OLD
-#ifdef WITH_OMP_GPU
+#else
       !$omp single
       call solve_counter%start_count()
       !$omp end single
-
       ! each of the nLMBs2(nLMB) subblocks have one l value
       !-- MPI Level
       do nLMB2=1,nLMBs2(nLMB)
@@ -915,10 +911,10 @@ contains
 
          end if ! Test of l /= 0
       end do
-
       !$omp single
       call solve_counter%stop_count()
       !$omp end single
+#endif
 #else
       !$omp single
       call solve_counter%start_count()
@@ -1149,7 +1145,6 @@ contains
       call solve_counter%stop_count()
       !$omp end single
 #endif
-!#endif
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
 #ifdef WITH_OMP_GPU

@@ -1,4 +1,4 @@
-#define NEW
+#define NEW_SOLVE_UPDATES
 module updateS_mod
    !
    ! This module handles the time advance of the entropy s.
@@ -85,10 +85,6 @@ contains
 
       integer, pointer :: nLMBs2(:)
       integer :: n_bands
-#ifdef WITH_OMP_GPU
-      logical :: use_gpu, use_pivot
-      use_gpu = .false.; use_pivot = .true.
-#endif
 
       if ( .not. l_parallel_solve ) then
 
@@ -105,7 +101,11 @@ contains
             end if
 
 #ifdef WITH_OMP_GPU
-            call sMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),use_pivot,use_gpu)
+#ifdef NEW_SOLVE_UPDATES
+            call sMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),l_pivot=.true.,use_gpu=.true.)
+#else
+            call sMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),l_pivot=.true.,use_gpu=.false.)
+#endif
 #else
             call sMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),l_pivot=.true.)
 #endif
@@ -113,8 +113,7 @@ contains
             allocate( type_mdensemat :: sMat )
 
 #ifdef WITH_OMP_GPU
-            use_gpu = .true.
-            call sMat%initialize(n_r_max,n_r_max,nLMBs2(1+rank),use_pivot,use_gpu)
+            call sMat%initialize(n_r_max,n_r_max,nLMBs2(1+rank),l_pivot=.true.,use_gpu=.true.)
 #else
             call sMat%initialize(n_r_max,n_r_max,nLMBs2(1+rank),l_pivot=.true.)
 #endif
@@ -306,7 +305,7 @@ contains
       end if
 
 #ifdef WITH_OMP_GPU
-#ifdef NEW
+#ifdef NEW_SOLVE_UPDATES
       call solve_counter%start_count()
       !-- Only fill the matrices: GPU looping could be only on nLMB2?
       l_LU_fac=.false.

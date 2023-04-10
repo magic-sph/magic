@@ -263,9 +263,6 @@ module dense_matrices
    end type type_densemat
 
    type, public, extends(type_mrealmat) :: type_mdensemat
-#ifdef WITH_OMP_GPU
-      integer, allocatable :: info_array(:,:)
-#endif
    contains
       procedure :: initialize => initialize_
       procedure :: finalize => finalize_
@@ -405,8 +402,6 @@ contains
 
 #ifdef WITH_OMP_GPU
       if ( loc_use_gpu) then
-         allocate( this%info_array(this%nrow, this%nmat) )
-         this%info_array(:,:) = 0
          !$omp target enter data map(to : this)
       end if
 #endif
@@ -454,12 +449,6 @@ contains
       if ( this%l_pivot ) then
          deallocate (this%pivot)
       end if
-
-#ifdef WITH_OMP_GPU
-      if ( this%gpu_is_used ) then
-         deallocate( this%info_array )
-      end if
-#endif
 
    end subroutine finalize_
 !------------------------------------------------------------------------------
@@ -510,87 +499,6 @@ contains
       integer, intent(out) :: info ! Output diagnostic of success
 
       call prepare_dense_all(this%dat, this%pivot, this%nrow, this%nmat, info)
-
-#ifdef OLD
-      !-- Local variables:
-      integer :: nm1,k,kp1,l,i,j,idx
-      real(cp) :: help
-
-      info=0
-      nm1 =this%nrow-1
-
-      !-- This external loop should be put on GPU
-#ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do private(k,kp1,l,i,j,help)
-#endif
-      do idx=1,this%nmat
-         do k=1,nm1
-
-            kp1=k+1
-            l  =k
-
-            do i=kp1,this%nrow
-               if ( abs(this%dat(i,k,idx)) > abs(this%dat(l,k,idx)) ) l=i
-            end do
-            this%pivot(k,idx)=l
-
-            if ( abs(this%dat(l,k,idx)) > 10.0_cp*epsilon(0.0_cp) ) then
-               if ( l /= k ) then
-                  do i=1,this%nrow
-                     help             =this%dat(k,i,idx)
-                     this%dat(k,i,idx)=this%dat(l,i,idx)
-                     this%dat(l,i,idx)=help
-                  end do
-               end if
-
-               help=one/this%dat(k,k,idx)
-               do i=kp1,this%nrow
-                  this%dat(i,k,idx)=help*this%dat(i,k,idx)
-               end do
-
-               do j=kp1,this%nrow
-                  do i=kp1,this%nrow
-                     this%dat(i,j,idx)=this%dat(i,j,idx)-this%dat(k,j,idx)* &
-                     &                 this%dat(i,k,idx)
-                  end do
-               end do
-            else
-#ifdef WITH_OMP_GPU
-               this%info_array(k, idx)=k
-#else
-               info=k
-#endif
-            end if
-
-         end do
-
-         this%pivot(this%nrow,idx)=this%nrow
-         if ( abs(this%dat(this%nrow,this%nrow,idx)) <= 10.0_cp*epsilon(0.0_cp) ) &
-#ifdef WITH_OMP_GPU
-          &   this%info_array(this%nrow,idx)=this%nrow
-#else
-          &   info=this%nrow
-          if ( info > 0 ) return
-#endif
-
-         do i=1,this%nrow
-            this%dat(i,i,idx)=one/this%dat(i,i,idx)
-         end do
-
-      end do
-#ifdef WITH_OMP_GPU
-      !$omp end target teams distribute parallel do
-      !$omp target teams distribute parallel do collapse(2) reduction(+: info)
-      do idx=1,this%nmat
-         do k=1,this%nrow
-            if ( this%info_array(k, idx) > 0 ) then
-               info = info + 1
-            end if
-         end do
-      end do
-      !$omp end target teams distribute parallel do
-#endif
-#endif
 
    end subroutine prepare_all
 !------------------------------------------------------------------------------
@@ -750,6 +658,33 @@ contains
 
    end subroutine solve_real_multi_
 !------------------------------------------------------------------------------
+   subroutine solve_all_mats(this, rhs, llm, ulm, lm2l, l2nLMB2)
+
+      !use blocking, only: lo_map, lo_sub_map
+
+      class(type_mdensemat) :: this
+
+      !-- Input variables
+      integer, intent(in) :: llm
+      integer, intent(in) :: ulm
+      integer, intent(in) :: lm2l(:)
+      integer, intent(in) :: l2nLMB2(0:)
+
+      !-- In/Out variables
+      complex(cp), intent(inout) :: rhs(1:this%ncol,llm:ulm)
+
+      !-- Local variables:
+      integer, pointer :: ptr_pivot(:,:)
+      real(cp), pointer :: ptr_dat(:,:,:)
+
+      ptr_dat   => this%dat
+      ptr_pivot => this%pivot
+
+      call solve_dense_all(ptr_dat, ptr_pivot, rhs, lm2l, l2nLMB2, this%ncol, &
+           &               this%nmat, llm, ulm)
+
+   end subroutine solve_all_mats
+!------------------------------------------------------------------------------
    subroutine set_data(this, dat)
 
       class(type_densemat) :: this
@@ -808,105 +743,6 @@ contains
       end if
 
    end subroutine set_data_
-!------------------------------------------------------------------------------
-   subroutine solve_all_mats(this, rhs, llm, ulm, lm2l, l2nLMB2)
-
-      !use blocking, only: lo_map, lo_sub_map
-
-      class(type_mdensemat) :: this
-
-      !-- Input variables
-      integer, intent(in) :: llm
-      integer, intent(in) :: ulm
-      integer, intent(in) :: lm2l(:)
-      integer, intent(in) :: l2nLMB2(0:)
-
-      !-- In/Out variables
-      complex(cp), intent(inout) :: rhs(1:this%ncol,llm:ulm)
-
-      !-- Local variables:
-      integer, pointer :: ptr_pivot(:,:)
-      real(cp), pointer :: ptr_dat(:,:,:)
-
-      ptr_dat   => this%dat
-      ptr_pivot => this%pivot
-
-      call solve_dense_all(ptr_dat, ptr_pivot, rhs, lm2l, l2nLMB2, this%ncol, &
-           &               this%nmat, llm, ulm)
-
-#ifdef OLD
-      !-- Local variables:
-      integer :: nm1,nodd,i,m
-      integer :: k,k1,nRHS,nLMB2,l,n
-      complex(cp) :: help
-      integer, pointer :: ptr_pivot(:,:)
-      real(cp), pointer :: ptr_dat(:,:,:)
-
-      ptr_dat   => this%dat
-      ptr_pivot => this%pivot
-
-      n = this%ncol
-
-      nm1 =n-1
-      nodd=mod(n,2)
-
-      !-- Single loop over lm's
-#ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do private(i,m,k,k1,nLMB2,l,help)
-#endif
-      do nRHS=llm,ulm
-
-         l=lm2l(nRHS)
-         nLMB2=l2nLMB2(l)
-
-         !-- Permute vectors rhs
-         do k=1,nm1
-            m=ptr_pivot(k,nLMB2)
-            help       =rhs(m,nRHS)
-            rhs(m,nRHS) =rhs(k,nRHS)
-            rhs(k,nRHS) =help
-         end do
-
-         !-- Solve  l * y = b
-         do k=1,n-2,2
-            k1=k+1
-            rhs(k1,nRHS) =rhs(k1,nRHS)-rhs(k,nRHS)*ptr_dat(k1,k,nLMB2)
-            !DIR$ CONCURRENT
-            do i=k+2,n
-               rhs(i,nRHS)=rhs(i,nRHS)-(rhs(k,nRHS)*ptr_dat(i,k,nLMB2) + &
-               &                      rhs(k1,nRHS)*ptr_dat(i,k1,nLMB2))
-            end do
-         end do
-         if ( nodd == 0 ) then
-            rhs(n,nRHS) =rhs(n,nRHS)-rhs(nm1,nRHS)*ptr_dat(n,nm1,nLMB2)
-         end if
-
-         !-- Solve  u * x = y
-         do k=n,3,-2
-            k1=k-1
-            rhs(k,nRHS)  =rhs(k,nRHS)*ptr_dat(k,k,nLMB2)
-            rhs(k1,nRHS) =(rhs(k1,nRHS)-rhs(k,nRHS)*ptr_dat(k1,k,nLMB2)) * &
-            &            ptr_dat(k1,k1,nLMB2)
-            !DIR$ CONCURRENT
-            do i=1,k-2
-               rhs(i,nRHS)=rhs(i,nRHS)-rhs(k,nRHS)*ptr_dat(i,k,nLMB2) - &
-               &          rhs(k1,nRHS)*ptr_dat(i,k1,nLMB2)
-            end do
-         end do
-         if ( nodd == 0 ) then
-            rhs(2,nRHS)=rhs(2,nRHS)*ptr_dat(2,2,nLMB2)
-            rhs(1,nRHS)=(rhs(1,nRHS)-rhs(2,nRHS)*ptr_dat(1,2,nLMB2))*ptr_dat(1,1,nLMB2)
-         else
-            rhs(1,nRHS)=rhs(1,nRHS)*ptr_dat(1,1,nLMB2)
-         end if
-
-      end do
-#ifdef WITH_OMP_GPU
-      !$omp end target teams distribute parallel do
-#endif
-#endif
-
-   end subroutine solve_all_mats
 !------------------------------------------------------------------------------
 end module dense_matrices
 
@@ -1036,6 +872,14 @@ contains
       logical :: loc_use_gpu
       loc_use_gpu = .false.
       this%gpu_is_used=.false.
+#ifdef WITH_OMP_GPU
+      if ( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
+      end if
+      if(loc_use_gpu) then
+         this%gpu_is_used = .true.
+      end if
+#endif
 
       this%nrow = nx
       this%ncol = ny
@@ -1050,22 +894,48 @@ contains
          this%dat(:,:,:)=0.0_cp
          this%dat(this%kl+this%ku+1,:,:)=1.0_cp ! Identity matrix
          bytes_allocated = bytes_allocated+(nx+(nx-1)/2)*ny*nmat*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+         if ( loc_use_gpu) then
+            gpu_bytes_allocated = gpu_bytes_allocated+(nx+(nx-1)/2)*ny*nmat*SIZEOF_DEF_REAL
+         end if
+#endif
       else ! Tridiag
          allocate( this%dat(nx, ny, nmat) )
          this%dat(:,:,:) = 0.0_cp
          this%dat(2,:,:) = 1.0_cp
          bytes_allocated = bytes_allocated+nx*ny*nmat*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+         if ( loc_use_gpu) then
+            gpu_bytes_allocated = gpu_bytes_allocated+nx*ny*nmat*SIZEOF_DEF_REAL
+         end if
+#endif
       end if
       if ( this%l_pivot ) then
          allocate( this%pivot(this%ncol,this%nmat) )
          this%pivot(:,:) = 0
          bytes_allocated = bytes_allocated+this%ncol*this%nmat*SIZEOF_INTEGER
+#ifdef WITH_OMP_GPU
+         if ( loc_use_gpu) then
+            gpu_bytes_allocated = gpu_bytes_allocated+this%ncol*this%nmat*SIZEOF_INTEGER
+         end if
+#endif
          if ( nx == 3 ) then ! Only require for tridiag arrays
             allocate( this%du2(this%ncol-2,this%nmat) ) ! Help array for tridiag
             this%du2(:,:) = 0
             bytes_allocated = bytes_allocated+(this%ncol-2)*this%nmat*SIZEOF_DEF_REAL
+#ifdef WITH_OMP_GPU
+            if ( loc_use_gpu) then
+               gpu_bytes_allocated = gpu_bytes_allocated+(this%ncol-2)*this%nmat*SIZEOF_DEF_REAL
+            end if
+#endif
          end if
       end if
+
+#ifdef WITH_OMP_GPU
+      if ( loc_use_gpu) then
+         !$omp target enter data map(to : this)
+      end if
+#endif
 
    end subroutine initialize_
 !------------------------------------------------------------------------------
@@ -1091,6 +961,12 @@ contains
       ! Memory deallocation
       !
       class(type_mbandmat) :: this
+
+#ifdef WITH_OMP_GPU
+      if ( this%gpu_is_used ) then
+         !$omp target exit data map(release: this)
+      end if
+#endif
 
       deallocate( this%dat )
 
@@ -1151,149 +1027,6 @@ contains
          call prepare_band_all(this%dat, this%pivot, this%ncol, this%kl, this%ku, &
               &                this%nmat, info)
       end if
-
-#ifdef OLD
-      !-- Local variables
-      real(cp) :: fact, temp
-      integer :: i0, j, ju, jz, j0, j1, k, kp1, l, lm, m, mm, nm1, i, idx
-
-      info = 0
-      if ( this%nrow == 3 ) then ! This is the tridiag version
-
-         do idx=1,this%nmat
-            !-- Initialize pivot(i) = i and du2(I) = 0
-            do i = 1, this%ncol
-               this%pivot(i,idx) = i
-            end do
-
-            this%du2(:,idx) = 0.0_cp
-            do i = 1, this%ncol-2
-               if ( abs(this%dat(2,i,idx)) >= abs(this%dat(3,i,idx))) then
-                  !-- No row interchange required, eliminate DL(I)
-                  if ( this%dat(2,i,idx) > 10.0_cp*epsilon(0.0_cp) ) then
-                     fact = this%dat(3,i,idx)/this%dat(2,i,idx)
-                     this%dat(3,i,idx) = fact
-                     this%dat(2,i+1,idx) = this%dat(2,i+1,idx) - fact*this%dat(1,i+1,idx)
-                  end if
-               else
-                  !-- Interchange rows I and I+1, eliminate DL(I)
-                  fact = this%dat(2,i,idx)/this%dat(3,i,idx)
-                  this%dat(2,i,idx) = this%dat(3,i,idx)
-                  this%dat(3,i,idx) = fact
-                  temp = this%dat(1,i+1,idx)
-                  this%dat(1,i+1,idx) = this%dat(2,i+1,idx)
-                  this%dat(2,i+1,idx) = temp - fact*this%dat(2,i+1,idx)
-                  this%du2(i,idx) = this%dat(1,i+2,idx)
-                  this%dat(1,i+2,idx) = -fact*this%dat(1,i+2,idx)
-                  this%pivot(i,idx) = i + 1
-               end if
-            end do
-
-            i = this%ncol - 1
-            if ( abs(this%dat(2,i,idx)) >= abs(this%dat(3,i,idx)) ) then
-               if ( this%dat(2,i,idx) > 10.0_cp*epsilon(0.0_cp) ) then
-                  fact = this%dat(3,i,idx)/this%dat(2,i,idx)
-                  this%dat(3,i,idx) = fact
-                  this%dat(2,i+1,idx) = this%dat(2,i+1,idx) - fact*this%dat(1,i,idx)
-               end if
-            else
-               fact = this%dat(2,i,idx) / this%dat(3,i,idx)
-               this%dat(2,i,idx) = this%dat(3,i,idx)
-               this%dat(3,i,idx) = fact
-               temp = this%dat(1,i,idx)
-               this%dat(1,i,idx) = this%dat(2,i+1,idx)
-               this%dat(2,i+1,idx) = temp - fact*this%dat(2,i+1,idx)
-               this%pivot(i,idx) = i + 1
-            end if
-
-            !-- Check for a zero on the diagonal of u.
-            outer: do i = 1, this%ncol
-               if ( this%dat(2,i,idx) <= 10.0_cp*epsilon(0.0_cp) ) then
-                  info = i
-                  exit outer
-               end if
-            end do outer
-
-         end do
-         
-      else ! This is the generic banded version
-
-         m = this%kl + this%ku + 1
-         j0 = this%ku + 2
-         j1 = min(this%ncol,m) - 1
-
-         do idx=1,this%nmat
-            if ( j1 >= j0 ) then
-               do jz = j0, j1
-                  i0 = m + 1 - jz
-                  do i = i0, this%kl
-                     this%dat(i,jz,idx)=0.0_cp
-                  end do
-               end do
-            end if
-            jz = j1
-            ju = 0
-
-            !-- Gaussian elimination
-            nm1 = this%ncol - 1
-            if (nm1 >= 1) then
-               do k = 1, nm1
-                  kp1 = k + 1
-
-                  jz = jz + 1
-                  if ( jz <= this%ncol .and. this%kl >= 1 ) then
-                     do i = 1, this%kl
-                        this%dat(i,jz,idx)=0.0_cp
-                     end do
-                  end if
-
-                  lm = min(this%kl,this%ncol-k)
-                  l = maxloc(abs(this%dat(m:m+lm,k,idx)),dim=1)+m-1
-
-                  this%pivot(k,idx) = l + k - m
-
-                  if ( abs(this%dat(l,k,idx)) > 10.0_cp*epsilon(0.0_cp) ) then
-
-                     if (l /= m) then
-                        temp = this%dat(l,k,idx)
-                        this%dat(l,k,idx) = this%dat(m,k,idx)
-                        this%dat(m,k,idx) = temp
-                     end if
-
-                     !-- Compute multipliers
-                     temp = -1.0_cp/this%dat(m,k,idx)
-                     this%dat(m+1:,k,idx)=temp*this%dat(m+1:,k,idx)
-
-                     !-- Row elimination
-                     ju = min(max(ju,this%ku+this%pivot(k,idx)),this%ncol)
-                     mm = m
-                     if ( ju >=  kp1 ) then
-                        do j = kp1, ju
-                           l = l - 1
-                           mm = mm - 1
-                           temp = this%dat(l,j,idx)
-                           if ( l /= mm) then
-                              this%dat(l,j,idx) = this%dat(mm,j,idx)
-                              this%dat(mm,j,idx) = temp
-                           end if
-                           this%dat(mm+1:mm+lm,j,idx)=this%dat(mm+1:mm+lm,j,idx) + &
-                           &                          temp*this%dat(m+1:m+lm,k,idx)
-                        end do
-                     end if
-                  else
-                     info = k
-                  end if
-               end do
-            end if
-
-            this%pivot(this%ncol,idx) = this%ncol
-
-            if ( abs(this%dat(m,this%ncol,idx)) <= 10.0_cp*epsilon(0.0_cp) ) info = this%ncol
-
-         end do
-
-      end if
-#endif
 
    end subroutine prepare_all
 !------------------------------------------------------------------------------
@@ -1414,6 +1147,32 @@ contains
 
    end subroutine solve_real_multi_
 !------------------------------------------------------------------------------
+   subroutine solve_all_mats(this, rhs, llm, ulm, lm2l, l2nLMB2)
+
+      class(type_mbandmat) :: this
+
+      !-- Input variables
+      !-- Input variables
+      integer, intent(in) :: llm
+      integer, intent(in) :: ulm
+      integer, intent(in) :: lm2l(:)
+      integer, intent(in) :: l2nLMB2(0:)
+
+      !-- In/Out variables
+      complex(cp), intent(inout) :: rhs(this%ncol, llm:ulm)
+
+      if ( this%nrow == 3 ) then ! This is the tridiagonal solver
+         call solve_tridiag_all(this%dat, this%pivot, this%du2, rhs, lm2l, &
+              &                 l2nLMB2, this%ncol, this%nmat, llm, ulm)
+
+      else ! This is the band solver
+         call solve_band_all(this%dat, this%pivot, rhs, lm2l, l2nLMB2, &
+              &              this%ncol, this%kl, this%ku, this%nmat,   &
+              &              llm, ulm)
+      end if
+
+   end subroutine solve_all_mats
+!------------------------------------------------------------------------------
    subroutine set_data(this, dat)
 
       class(type_bandmat) :: this
@@ -1451,131 +1210,43 @@ contains
       !-- Local variables
       integer :: i,j
 
-      if ( this%nrow == 3 ) then
-         do j=1,this%ncol
-            do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
-               this%dat(this%ku+1+i-j,j,idx)=dat(i,j)
+      if( this%gpu_is_used ) then
+#ifdef WITH_OMP_GPU
+         if ( this%nrow == 3 ) then
+            !$omp target teams distribute parallel do
+            do j=1,this%ncol
+               do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
+                  this%dat(this%ku+1+i-j,j,idx)=dat(i,j)
+               end do
             end do
-         end do
+            !$omp end target teams distribute parallel do
+         else
+            !$omp target teams distribute parallel do
+            do j=1,this%ncol
+               do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
+                  this%dat(this%kl+this%ku+1+i-j,j,idx)=dat(i,j)
+               end do
+            end do
+            !$omp end target teams distribute parallel do
+         end if
+#endif
       else
-         do j=1,this%ncol
-            do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
-               this%dat(this%kl+this%ku+1+i-j,j,idx)=dat(i,j)
+         if ( this%nrow == 3 ) then
+            do j=1,this%ncol
+               do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
+                  this%dat(this%ku+1+i-j,j,idx)=dat(i,j)
+               end do
             end do
-         end do
+         else
+            do j=1,this%ncol
+               do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
+                  this%dat(this%kl+this%ku+1+i-j,j,idx)=dat(i,j)
+               end do
+            end do
+         end if
       end if
 
    end subroutine set_data_
-!------------------------------------------------------------------------------
-   subroutine solve_all_mats(this, rhs, llm, ulm, lm2l, l2nLMB2)
-
-      class(type_mbandmat) :: this
-
-      !-- Input variables
-      !-- Input variables
-      integer, intent(in) :: llm
-      integer, intent(in) :: ulm
-      integer, intent(in) :: lm2l(:)
-      integer, intent(in) :: l2nLMB2(0:)
-
-      !-- In/Out variables
-      complex(cp), intent(inout) :: rhs(this%ncol, llm:ulm)
-
-   if ( this%nrow == 3 ) then ! This is the tridiagonal solver
-         call solve_tridiag_all(this%dat, this%pivot, this%du2, rhs, lm2l, &
-              &                 l2nLMB2, this%ncol, this%nmat, llm, ulm)
-
-      else ! This is the band solver
-         call solve_band_all(this%dat, this%pivot, rhs, lm2l, l2nLMB2, &
-              &              this%ncol, this%kl, this%ku, this%nmat,   &
-              &              llm, ulm)
-      end if
-
-#ifdef OLD
-      !-- Local variables
-      integer :: i, nRHS, l, nLMB2, m, nm1, k, kb, la, lb, lm, ll
-      complex(cp) :: temp
-
-      if ( this%nrow == 3 ) then ! This is the tridiagonal solver
-
-         !-- Single loop over lm's
-#ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do private(i,nLMB2,l,temp)
-#endif
-         do nRHS=llm,ulm
-
-            l=lm2l(nRHS)
-            nLMB2=l2nLMB2(l)
-
-            !-- Solve L*x = rhs.
-            do i = 1, this%ncol-1
-               if ( this%pivot(i,nLMB2) == i ) then
-                  rhs(i+1,nRHS)=rhs(i+1,nRHS)-this%dat(3,i,nLMB2)*rhs(i,nRHS)
-               else
-                  temp=rhs(i,nRHS)
-                  rhs(i,nRHS)=rhs(i+1,nRHS)
-                  rhs(i+1,nRHS)=temp-this%dat(3,i,nLMB2)*rhs(i,nRHS)
-               end if
-            end do
-
-            !-- Solve U*x = rhs.
-            rhs(this%ncol,nRHS) = rhs(this%ncol,nRHS)/this%dat(2,this%ncol,nLMB2)
-            rhs(this%ncol-1,nRHS) = (rhs(this%ncol-1,nRHS) -        &
-            &                        this%dat(1,this%ncol,nLMB2)*   &
-            &                        rhs(this%ncol,nRHS))/this%dat(2,this%ncol-1,nLMB2)
-            do i = this%ncol-2,1,-1
-               rhs(i,nRHS) = (rhs(i,nRHS)-this%dat(1,i+1,nLMB2)*rhs(i+1,nRHS) - &
-               &              this%du2(i,nLMB2)*rhs(i+2,nRHS))/this%dat(2,i,nLMB2)
-            end do
-         end do
-#ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
-#endif
-
-      else ! This is the band solver
-
-         m = this%ku + this%kl + 1
-         nm1 = this%ncol - 1
-
-#ifdef WITH_OMP_GPU
-         !$omp target teams distribute parallel do private(k,l,nLMB2,ll,temp,lm,kb,la,lb)
-#endif
-         do nRHS=llm,ulm
-
-            ll=lm2l(nRHS)
-            nLMB2=l2nLMB2(ll)
-
-            !-- First solve Ly = rhs
-            do k = 1, nm1
-               lm = min(this%kl,this%ncol-k)
-               l = this%pivot(k,nLMB2)
-               temp = rhs(l,nRHS)
-               if (l /= k) then
-                  rhs(l,nRHS) = rhs(k,nRHS)
-                  rhs(k,nRHS) = temp
-               end if
-               rhs(k+1:k+lm,nRHS)=rhs(k+1:k+lm,nRHS)+temp*this%dat(m+1:m+lm,k,nLMB2)
-            end do
-
-            !-- Solve u*x =y
-            do kb = 1, this%ncol
-               k = this%ncol + 1 - kb
-               rhs(k,nRHS) = rhs(k,nRHS)/this%dat(m,k,nLMB2)
-               lm = min(k,m) - 1
-               la = m - lm
-               lb = k - lm
-               temp = -rhs(k,nRHS)
-               rhs(lb:lb+lm-1,nRHS)=rhs(lb:lb+lm-1,nRHS)+temp*this%dat(la:la+lm-1,k,nLMB2)
-            end do
-         end do
-#ifdef WITH_OMP_GPU
-         !$omp end target teams distribute parallel do
-#endif
-
-      end if
-#endif
-
-   end subroutine solve_all_mats
 !------------------------------------------------------------------------------
 !   function mat_add(this, B)
 !      class(type_bandmat), intent(in) :: this
@@ -1727,6 +1398,14 @@ contains
 
       loc_use_gpu = .false.
       this%gpu_is_used=.false.
+#ifdef WITH_OMP_GPU
+      if ( present(use_gpu) ) then
+         loc_use_gpu = use_gpu
+      end if
+      if(loc_use_gpu) then
+         this%gpu_is_used = .true.
+      end if
+#endif
 
       this%nrow = nx
       this%ncol = ny
@@ -1757,14 +1436,24 @@ contains
       end do
       bytes_allocated = bytes_allocated+nmat*(nfull*nfull+nfull*ny+ny+ &
       &                 (nx+(nx-1)/2)*ny)*SIZEOF_DEF_REAL
-
+#ifdef WITH_OMP_GPU
+      gpu_bytes_allocated = gpu_bytes_allocated+nmat*(nfull*nfull+nfull*ny+ny+ &
+      &                 (nx+(nx-1)/2)*ny)*SIZEOF_DEF_REAL
+#endif
       if ( this%l_pivot ) then
          allocate( this%pivA1(ny,nmat) )
          allocate( this%pivA4(nfull,nmat) )
          bytes_allocated = bytes_allocated+nmat*(ny+nfull)*SIZEOF_INTEGER
+#ifdef WITH_OMP_GPU
+         gpu_bytes_allocated = gpu_bytes_allocated+nmat*(ny+nfull)*SIZEOF_INTEGER
+#endif
          this%pivA1(:,:) = 0
          this%pivA4(:,:) = 0
       end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(to: this)
+#endif
 
    end subroutine initialize_
 !------------------------------------------------------------------------------
@@ -1784,6 +1473,10 @@ contains
       ! Memory deallocation
       !
       class(type_mbordmat) :: this
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(release: this)
+#endif
 
       deallocate( this%A1, this%A2, this%A3, this%A4 )
       if ( this%l_pivot  ) deallocate( this%pivA1, this%pivA4 )
@@ -1835,6 +1528,9 @@ contains
            &                   this%ku, this%nmat, this%nfull)
 
       !-- Assemble the Schur complement of A1: A4 <- A4-A3*v
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
+#endif
       do k=1,this%nmat
          do i=1,this%nfull
             do j=1,this%ncol
@@ -1842,6 +1538,9 @@ contains
             end do
          end do
       end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#endif
 
       !-- LU factorisation of the Schur complement
       call prepare_dense_all(this%A4, this%pivA4, this%nfull, this%nmat, info)
@@ -1950,6 +1649,69 @@ contains
 
    end subroutine solve_real_multi_
 !------------------------------------------------------------------------------
+   subroutine solve_all_mats(this, rhs, llm, ulm, lm2l, l2nLMB2)
+
+      class(type_mbordmat) :: this
+
+      !-- Input variables
+      integer, intent(in) :: llm
+      integer, intent(in) :: ulm
+      integer, intent(in) :: lm2l(:)
+      integer, intent(in) :: l2nLMB2(0:)
+
+      !-- In/Out variables
+      complex(cp), intent(inout) :: rhs(1:this%ncol+this%nfull,llm:ulm)
+
+      !-- Local variables:
+      complex(cp) :: tmp
+      integer :: j, k, nRHS, nLMB2, l
+
+      !-- Solve A1*w = rhs1
+      call solve_band_all(this%A1, this%pivA1, rhs(1:this%ncol,llm:ulm), lm2l, l2nLMB2, &
+           &              this%ncol, this%kl, this%ku, this%nmat, llm, ulm)
+
+      !-- rhs2 <- rhs2-A3*rhs1
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
+#endif
+      do nRHS=llm,ulm
+         l=lm2l(nRHS)
+         nLMB2=l2nLMB2(l)
+
+         do k=1,this%ncol
+            rhs(this%ncol+1,nRHS)=rhs(this%ncol+1,nRHS)-this%A3(k,nLMB2)*rhs(k,nRHS)
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#endif
+
+      !-- Solve A4*y = rhs2
+      call solve_dense_all(this%A4, this%pivA4, rhs(this%ncol+1:,llm:ulm), lm2l, &
+           &               l2nLMB2, this%nfull, this%nmat, llm, ulm)
+
+      !-- Assemble rhs1 <- rhs1-A2*rhs2
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do
+#endif
+      do nRHS=llm,ulm
+         l=lm2l(nRHS)
+         nLMB2=l2nLMB2(l)
+
+         do k=1,this%ncol
+            tmp=0.0_cp
+            do j=1,this%nfull
+               tmp=tmp+this%A2(k,j,nLMB2)*rhs(this%ncol+j,nRHS)
+            end do
+            rhs(k,nRHS)=rhs(k,nRHS)-tmp
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#endif
+
+   end subroutine solve_all_mats
+!------------------------------------------------------------------------------
    subroutine set_data(this, dat)
 
       class(type_bordmat) :: this
@@ -1995,79 +1757,62 @@ contains
       integer :: i, j
 
       !-- A1 = band matrix
-      do j=1,this%ncol
-         do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
-            this%A1(this%kl+this%ku+1+i-j,j,idx)=dat(i,j)
+      if ( this%gpu_is_used ) then
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+         do j=1,this%ncol
+            do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
+               this%A1(this%kl+this%ku+1+i-j,j,idx)=dat(i,j)
+            end do
          end do
-      end do
+         !$omp end target teams distribute parallel do
 
-      do j=1,this%nfull
-         do i=1,this%ncol
-            this%A2(i,j,idx)=dat(i,this%ncol+j)
+         !$omp target teams distribute parallel do
+         do j=1,this%nfull
+            do i=1,this%ncol
+               this%A2(i,j,idx)=dat(i,this%ncol+j)
+            end do
          end do
-      end do
+         !$omp end target teams distribute parallel do
 
-      do j=1,this%ncol
-         this%A3(j,idx)=dat(this%ncol+1,j)
-      end do
-
-      do j=1,this%nfull
-         do i=1,this%nfull
-            this%A4(i,j,idx)=dat(this%ncol+i,this%ncol+j)
+         !$omp target teams distribute parallel do
+         do j=1,this%ncol
+            this%A3(j,idx)=dat(this%ncol+1,j)
          end do
-      end do
+         !$omp end target teams distribute parallel do
+
+         !$omp target teams distribute parallel do
+         do j=1,this%nfull
+            do i=1,this%nfull
+               this%A4(i,j,idx)=dat(this%ncol+i,this%ncol+j)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+#endif
+      else
+         do j=1,this%ncol
+            do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
+               this%A1(this%kl+this%ku+1+i-j,j,idx)=dat(i,j)
+            end do
+         end do
+
+         do j=1,this%nfull
+            do i=1,this%ncol
+               this%A2(i,j,idx)=dat(i,this%ncol+j)
+            end do
+         end do
+
+         do j=1,this%ncol
+            this%A3(j,idx)=dat(this%ncol+1,j)
+         end do
+
+         do j=1,this%nfull
+            do i=1,this%nfull
+               this%A4(i,j,idx)=dat(this%ncol+i,this%ncol+j)
+            end do
+         end do
+      end if
 
    end subroutine set_data_
-!------------------------------------------------------------------------------
-   subroutine solve_all_mats(this, rhs, llm, ulm, lm2l, l2nLMB2)
-
-      class(type_mbordmat) :: this
-
-      !-- Input variables
-      integer, intent(in) :: llm
-      integer, intent(in) :: ulm
-      integer, intent(in) :: lm2l(:)
-      integer, intent(in) :: l2nLMB2(0:)
-
-      !-- In/Out variables
-      complex(cp), intent(inout) :: rhs(1:this%ncol+this%nfull,llm:ulm)
-
-      !-- Local variables:
-      complex(cp) :: tmp
-      integer :: j, k, nRHS, nLMB2, l
-
-      !-- Solve A1*w = rhs1
-      call solve_band_all(this%A1, this%pivA1, rhs(1:this%ncol,llm:ulm), lm2l, l2nLMB2, &
-           &              this%ncol, this%kl, this%ku, this%nmat, llm, ulm)
-
-      !-- rhs2 <- rhs2-A3*rhs1
-      do nRHS=llm,ulm
-         l=lm2l(nRHS)
-         nLMB2=l2nLMB2(l)
-
-         do k=1,this%ncol
-            rhs(this%ncol+1,nRHS)=rhs(this%ncol+1,nRHS)-this%A3(k,nLMB2)*rhs(k,nRHS)
-         end do
-      end do
-
-      !-- Solve A4*y = rhs2
-      call solve_dense_all(this%A4, this%pivA4, rhs(this%ncol+1:,llm:ulm), lm2l, &
-           &               l2nLMB2, this%nfull, this%nmat, llm, ulm)
-
-      !-- Assemble rhs1 <- rhs1-A2*rhs2
-      do nRHS=llm,ulm
-         l=lm2l(nRHS)
-         nLMB2=l2nLMB2(l)
-
-         do k=1,this%ncol
-            tmp=0.0_cp
-            do j=1,this%nfull
-               tmp=tmp+this%A2(k,j,nLMB2)*rhs(this%ncol+j,nRHS)
-            end do
-            rhs(k,nRHS)=rhs(k,nRHS)-tmp
-         end do
-      end do
-
-   end subroutine solve_all_mats
 !------------------------------------------------------------------------------
 end module bordered_matrices

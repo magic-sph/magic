@@ -77,10 +77,6 @@ contains
 
       integer :: ll, n_bands
       integer, pointer :: nLMBs2(:)
-#ifdef WITH_OMP_GPU
-      logical :: use_gpu, use_pivot
-      use_gpu = .false.; use_pivot = .true.
-#endif
 
       if ( .not. l_parallel_solve ) then
          nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
@@ -97,7 +93,7 @@ contains
 
 #ifdef WITH_OMP_GPU
             do ll=1,nLMBs2(1+rank)
-               call xiMat(ll)%initialize(n_bands,n_r_max,use_pivot,use_gpu)
+               call xiMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.,use_gpu=.false.)
             end do
 #else
             do ll=1,nLMBs2(1+rank)
@@ -108,9 +104,8 @@ contains
             allocate( type_densemat :: xiMat(nLMBs2(1+rank)) )
 
 #ifdef WITH_OMP_GPU
-            use_gpu = .true.
             do ll=1,nLMBs2(1+rank)
-               call xiMat(ll)%initialize(n_r_max,n_r_max,use_pivot,use_gpu)
+               call xiMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.,use_gpu=.true.)
             end do
 #else
             do ll=1,nLMBs2(1+rank)
