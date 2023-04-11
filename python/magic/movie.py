@@ -4,6 +4,7 @@ import re
 import os
 import copy
 import numpy as np
+from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 from .npfile import *
 from magic.libmagic import symmetrize, chebgrid
@@ -384,24 +385,105 @@ class Movie:
 
     def __add__(self, new):
         """
-        Built-in function to sum two movies
+        Built-in function to sum two movies. In case, the spatial grid have been
+        changed an interpolation onto the new grid is used.
 
-        .. note:: So far this function only works for two movies with the same
-                  grid sizes. At some point, we might introduce grid
-                  extrapolation to allow any summation.
+        :param new: the new movie file to be added
+        :type new: magic.Movie
         """
         out = copy.deepcopy(new)
-        if new.time[0] == self.time[-1]:
+
+        # Interpolate on the new grid whenever required
+        if self.data[0, 0, ...].shape != new.data[0, 0, ...].shape:
+            new_shape = new.data[0, 0, ...].shape
+            old_shape = self.data[0, 0, ...].shape
+            if self.surftype == 'r_constant':
+                if (new_shape[0] != old_shape[0]) and (new_shape[1] != old_shape[1]):
+                    ip = interp1d(self.phi, self.data, axis=-2,
+                                  fill_value='extrapolate')
+                    tmp = ip(new.phi)
+                    it = interp1d(self.theta, tmp, axis=-1,
+                                  fill_value='extrapolate')
+                    self.data = it(new.theta)
+                elif (new_shape[0] != old_shape[0]) and (new_shape[1] == old_shape[1]):
+                    ip = interp1d(self.phi, self.data, axis=-2,
+                                  fill_value='extrapolate')
+                    self.data = ip(new.phi)
+                elif (new_shape[0] == old_shape[0]) and (new_shape[1] != old_shape[1]):
+                    it = interp1d(self.theta, self.data, axis=-1,
+                                  fill_value='extrapolate')
+                    self.data = it(new.theta)
+            elif self.surftype == 'theta_constant':
+                if (new_shape[0] != old_shape[0]) and (new_shape[1] != old_shape[1]):
+                    ip = interp1d(self.phi, self.data, axis=-2,
+                                  fill_value='extrapolate')
+                    tmp = ip(new.phi)
+                    ir = interp1d(self.radius[::-1], tmp[..., ::-1], axis=-1)
+                    tmp = ir(new.radius[::-1])
+                    self.data = tmp[..., ::-1]
+                elif (new_shape[0] != old_shape[0]) and (new_shape[1] == old_shape[1]):
+                    ip = interp1d(self.phi, self.data, axis=-2,
+                                  fill_value='extrapolate')
+                    self.data = ip(new.phi)
+                elif (new_shape[0] == old_shape[0]) and (new_shape[1] != old_shape[1]):
+                    ir = interp1d(self.radius[::-1], self.data[..., ::-1], axis=-1)
+                    tmp = ir(new.radius[::-1])
+                    self.data = self.data[..., ::-1]
+            elif self.surftype == 'phi_constant' and \
+                 self.movtype in [10, 11, 12, 19, 92, 94, 95, 110, 111]:
+                if (new_shape[0] != old_shape[0]) and (new_shape[1] != old_shape[1]):
+                    it = interp1d(self.theta, self.data, axis=-2,
+                                  fill_value='extrapolate')
+                    tmp = it(new.theta)
+                    ir = interp1d(self.radius[::-1], tmp[..., ::-1], axis=-1)
+                    tmp = ir(new.radius[::-1])
+                    self.data = tmp[..., ::-1]
+                elif (new_shape[0] != old_shape[0]) and (new_shape[1] == old_shape[1]):
+                    it = interp1d(self.theta, self.data, axis=-2,
+                                  fill_value='extrapolate')
+                    self.data = it(new.theta)
+                elif (new_shape[0] == old_shape[0]) and (new_shape[1] != old_shape[1]):
+                    ir = interp1d(self.radius[::-1], self.data[..., ::-1], axis=-1)
+                    tmp = ir(new.radius[::-1])
+                    self.data = self.data[..., ::-1]
+            elif self.surftype == 'phi_constant' and \
+                 self.movtype not in [10, 11, 12, 19, 92, 94, 95, 110, 111]:
+                if (new_shape[0] != old_shape[0]) and (new_shape[1] != old_shape[1]):
+                    it = interp1d(self.theta, self.data[..., :self.n_theta_max, :],
+                                  axis=-2, fill_value='extrapolate')
+                    tmp1 = it(new.theta)
+                    it = interp1d(self.theta, self.data[..., self.n_theta_max:, :],
+                                  axis=-2, fill_value='extrapolate')
+                    tmp2 = it(new.theta)
+                    tmp = np.concatenate((tmp1, tmp2), axis=-2)
+                    ir = interp1d(self.radius[::-1], tmp[..., ::-1], axis=-1)
+                    tmp = ir(new.radius[::-1])
+                    self.data = tmp[..., ::-1]
+                elif (new_shape[0] != old_shape[0]) and (new_shape[1] == old_shape[1]):
+                    it = interp1d(self.theta, self.data[..., :self.n_theta_max, :],
+                                  axis=-2, fill_value='extrapolate')
+                    tmp1 = it(new.theta)
+                    it = interp1d(self.theta, self.data[..., self.n_theta_max:, :],
+                                  axis=-2, fill_value='extrapolate')
+                    tmp2 = it(new.theta)
+                    self.data = np.concatenate((tmp1, tmp2), axis=-2)
+                elif (new_shape[0] == old_shape[0]) and (new_shape[1] != old_shape[1]):
+                    ir = interp1d(self.radius[::-1], self.data[..., ::-1], axis=-1)
+                    tmp = ir(new.radius[::-1])
+                    self.data = self.data[..., ::-1]
+
+        # Stack the data
+        if abs(new.time[0]-self.time[-1]) <= 1e-10:
+            out.data = np.concatenate((self.data, new.data[:, 1:, ...]), axis=1)
             out.time = np.concatenate((self.time, new.time[1:]), axis=0)
-            out.data = np.concatenate((self.data, new.data[:, 1:, ...]),
-                                      axis=1)
             out.nvar = self.nvar+new.nvar-1
-            out.var2 = out.nvar
         else:
-            out.time = np.concatenate((self.time, new.time), axis=0)
             out.data = np.concatenate((self.data, new.data), axis=1)
+            out.time = np.concatenate((self.time, new.time), axis=0)
             out.nvar = self.nvar+new.nvar
-            out.var2 = out.nvar
+
+        out.var2 = out.nvar
+
         return out
 
     def avgStd(self, ifield=0, std=False, cut=0.5, centeredCm=True,
