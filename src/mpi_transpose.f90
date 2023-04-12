@@ -543,8 +543,8 @@ contains
 #ifdef WITH_MPI
 #ifdef WITH_OMP_GPU
       !$omp target data use_device_addr(counts_ptr, disp_ptr, rtype_ptr, stype_ptr, arr_LMLoc, arr_Rloc)
-      call MPI_Alltoallw(arr_LMloc, this%counts, this%disp, this%rtype, &
-           &             arr_Rloc, this%counts, this%disp, this%stype,  &
+      call MPI_Alltoallw(arr_LMloc, counts_ptr, disp_ptr, rtype_ptr, &
+           &             arr_Rloc, counts_ptr, disp_ptr, stype_ptr,  &
            &             MPI_COMM_WORLD, ierr)
       !$omp end target data
 #else
