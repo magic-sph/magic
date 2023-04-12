@@ -8,7 +8,11 @@ module communications
 #endif
    use constants, only: zero
    use precision_mod
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: memWrite, bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: memWrite, bytes_allocated
+#endif
    use parallel_mod, only: rank, n_procs, ierr
    use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max, &
        &                 fd_order, fd_order_bound, m_max, m_min
@@ -39,6 +43,10 @@ module communications
       integer, allocatable :: gather_mpi_type(:)
       integer :: dim2
    end type gather_type
+
+#ifdef WITH_OMP_GPU
+   integer, public :: mpi_com_type
+#endif
 
    public :: gather_from_lo_to_rank0,scatter_from_rank0_to_lo, allgather_from_Rloc, &
    &         gather_all_from_lo_to_rank0, gather_from_Rloc
@@ -77,10 +85,17 @@ contains
    subroutine initialize_communications
 
       integer(lip) :: local_bytes_used
+#ifdef WITH_OMP_GPU
+      integer(lip) :: local_bytes_used_gpu
+#endif
       real(cp) :: minTime, minTime5, minTime1
       integer :: idx, idx5, idx1, n, n_out
 
       local_bytes_used=bytes_allocated
+#ifdef WITH_OMP_GPU
+      mpi_com_type = 0
+      local_bytes_used_gpu=gpu_bytes_allocated
+#endif
 
       call create_gather_type(gt_OC,n_r_max)
       call create_gather_type(gt_IC,n_r_ic_max)
@@ -175,6 +190,9 @@ contains
          allocate( type_mpiptop :: lo2r_xi )
          allocate( type_mpiptop :: r2lo_xi )
          allocate( type_mpiptop :: lo2r_press )
+#ifdef WITH_OMP_GPU
+         mpi_com_type = 1
+#endif
       else if ( idx == 2 ) then
          allocate( type_mpiatoav :: lo2r_one )
          allocate( type_mpiatoav :: r2lo_one )
@@ -187,6 +205,9 @@ contains
          allocate( type_mpiatoav :: lo2r_xi )
          allocate( type_mpiatoav :: r2lo_xi )
          allocate( type_mpiatoav :: lo2r_press )
+#ifdef WITH_OMP_GPU
+         mpi_com_type = 2
+#endif
       else if ( idx == 3 ) then
          allocate( type_mpiatoaw :: lo2r_one )
          allocate( type_mpiatoaw :: r2lo_one )
@@ -199,6 +220,9 @@ contains
          allocate( type_mpiatoaw :: lo2r_xi )
          allocate( type_mpiatoaw :: r2lo_xi )
          allocate( type_mpiatoaw :: lo2r_press )
+#ifdef WITH_OMP_GPU
+         mpi_com_type = 3
+#endif
       else if ( idx == 4 ) then
          allocate( type_mpiatoap :: lo2r_one )
          allocate( type_mpiatoap :: r2lo_one )
@@ -211,6 +235,9 @@ contains
          allocate( type_mpiatoap :: lo2r_xi )
          allocate( type_mpiatoap :: r2lo_xi )
          allocate( type_mpiatoap :: lo2r_press )
+#ifdef WITH_OMP_GPU
+         mpi_com_type = 4
+#endif
       end if
 
       if ( l_packed_transp ) then
@@ -264,12 +291,19 @@ contains
       if ( rank == 0 ) then
          allocate(temp_gather_lo(1:lm_max))
          bytes_allocated = bytes_allocated + lm_max*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+         gpu_bytes_allocated = gpu_bytes_allocated + lm_max*SIZEOF_DEF_COMPLEX
+#endif
       else
          allocate(temp_gather_lo(1))
       end if
 
       local_bytes_used = bytes_allocated - local_bytes_used
       call memWrite('communications.f90', local_bytes_used)
+#ifdef WITH_OMP_GPU
+      local_bytes_used_gpu = gpu_bytes_allocated - local_bytes_used_gpu
+      call memWrite('communications.f90 - GPU', local_bytes_used_gpu)
+#endif
 
    end subroutine initialize_communications
 !-------------------------------------------------------------------------------
