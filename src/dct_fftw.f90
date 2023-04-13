@@ -2,7 +2,7 @@
 #define dct_loop 1
 #define dft_loop 2
 #define dft_many 3
-#define DCT_VERSION dft_many
+#define DCT_VERSION dft_loop
 
 module cosine_transform_odd
    !
