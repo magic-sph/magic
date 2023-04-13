@@ -342,15 +342,57 @@ contains
 
       !---- For now fiels initialized in R-distributed arrays: now transpose them if needed
       if ( l_parallel_solve ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(w_LMloc, z_LMloc)
+#endif
          call lo2r_one%transp_lm2r(w_LMloc, w_Rloc)
          call lo2r_one%transp_lm2r(z_LMloc, z_Rloc)
-         if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_LMloc, xi_Rloc)
-         if ( l_phase_field ) call lo2r_one%transp_lm2r(phi_LMloc, phi_Rloc)
-         if ( l_heat ) call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(w_Rloc, z_Rloc)
+#endif
+         if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(xi_LMloc)
+#endif
+            call lo2r_one%transp_lm2r(xi_LMloc, xi_Rloc)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(xi_Rloc)
+#endif
+         end if
+         if ( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(phi_LMloc)
+#endif
+            call lo2r_one%transp_lm2r(phi_LMloc, phi_Rloc)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(phi_Rloc)
+#endif
+         end if
+         if ( l_heat ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(s_LMloc)
+#endif
+            call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(s_Rloc)
+#endif
+         end if
+#ifdef WITH_OMP_GPU
+         !$omp target update to(p_LMloc)
+#endif
          call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(p_Rloc)
+#endif
          if ( l_mag .and. l_mag_par_solve ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(b_LMloc, aj_LMloc)
+#endif
             call lo2r_one%transp_lm2r(b_LMloc, b_Rloc)
             call lo2r_one%transp_lm2r(aj_LMloc, aj_Rloc)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(b_Rloc, aj_Rloc)
+#endif
          end if
       end if
 

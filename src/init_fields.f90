@@ -200,7 +200,13 @@ contains
          call lo2r_initv%create_comm(1)
 
          !-- From lo distributed to r distributed
+#ifdef WITH_OMP_GPU
+         !$omp target update to(z)
+#endif
          call lo2r_initv%transp_lm2r(z, z_Rloc)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(z_Rloc)
+#endif
 
          !-- Approximating the Stewardson solution:
          do nR=nRstart,nRstop
@@ -240,7 +246,13 @@ contains
          end do ! close loop over radial grid points
 
          !-- Transpose back to lo distributed
+#ifdef WITH_OMP_GPU
+         !$omp target update to(z_Rloc)
+#endif
          call r2lo_initv%transp_r2lm(z_Rloc, z)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(z)
+#endif
 
          !-- Destroy MPI communicators
          call r2lo_initv%destroy_comm()
@@ -252,7 +264,13 @@ contains
          call lo2r_initv%create_comm(1)
 
          !-- From lo distributed to r distributed
+#ifdef WITH_OMP_GPU
+         !$omp target update to(z)
+#endif
          call lo2r_initv%transp_lm2r(z, z_Rloc)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(z_Rloc)
+#endif
 
          !-- Approximating the Stewardson solution:
          do nR=nRstart,nRstop
@@ -288,7 +306,13 @@ contains
          end do ! close loop over radial grid points
 
          !-- Transpose back to lo distributed
+#ifdef WITH_OMP_GPU
+         !$omp target update to(z_Rloc)
+#endif
          call r2lo_initv%transp_r2lm(z_Rloc, z)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(z)
+#endif
 
          !-- Destroy MPI communicators
          call r2lo_initv%destroy_comm()
