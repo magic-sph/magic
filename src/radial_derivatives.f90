@@ -1,11 +1,14 @@
 !-- TODO: All GPU kernels are sequentiels ("!$omp target") for "FD" branch in get_dr_complex, get_ddr, get_dddr routines.
 !-- This makes finite_differences, testRMSOutputs, & varProps work again. Next: Debug kernel by kernel
+!#define USE_FFT
 module radial_der
    !
    ! Radial derivatives functions
    !
 
    use constants, only: zero, one, three
+   use chebyshev, only: type_cheb_odd
+   use finite_differences, only: type_fd
    use precision_mod
 #ifdef WITH_OMP_GPU
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
@@ -526,7 +529,9 @@ contains
       end if
 #endif
 
-      if ( r_scheme%version == 'cheb' ) then
+      select type (r_scheme)
+
+      type is(type_cheb_odd)
 
          if ( present(l_dct_in) ) then
             l_dct_in_loc=l_dct_in
@@ -541,7 +546,7 @@ contains
          end if
     
          if ( copy_array )  then
-            if(loc_use_gpu) then
+            if (loc_use_gpu) then
 #ifdef WITH_OMP_GPU
                !$omp target teams distribute parallel do collapse(2)
                do n_r=1,n_r_max
@@ -559,6 +564,10 @@ contains
                end do
             end if
        
+#ifdef USE_FFT
+            call r_scheme%chebt_oc%get_dr_fft(work,df,r_scheme%x_cheb,n_f_max, &
+                 &                            n_f_start,n_f_stop,r_scheme%n_max,l_dct_in_loc)
+#else
             !-- Transform f to cheb space:
             if ( l_dct_in_loc ) then
                call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
@@ -570,9 +579,14 @@ contains
           
             !-- Transform back:
             call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
+#endif
 
          else
 
+#ifdef USE_FFT
+            call r_scheme%chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max, &
+                 &                            n_f_start,n_f_stop,r_scheme%n_max,l_dct_in_loc)
+#else
             !-- Transform f to cheb space:
             if ( l_dct_in_loc ) then
                call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
@@ -587,11 +601,12 @@ contains
                call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
             end if
             call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
+#endif
 
          end if
        
          !-- New map:
-         if(loc_use_gpu) then
+         if (loc_use_gpu) then
 #ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do collapse(2)
             do n_r=1,n_r_max
@@ -609,9 +624,9 @@ contains
             end do
          end if
 
-      else
+      type is(type_fd)
 
-         if(loc_use_gpu) then
+         if (loc_use_gpu) then
 #ifdef WITH_OMP_GPU
             !-- Initialise to zero:
             !$omp target
@@ -690,7 +705,7 @@ contains
             end do
         end if
 
-      end if
+      end select
 
    end subroutine get_dr_complex
 !------------------------------------------------------------------------------

@@ -19,7 +19,7 @@ module cosine_transform_odd
    use precision_mod
    use parallel_mod, only: nThreads, get_openmp_blocks
    use mem_alloc, only: bytes_allocated
-   use constants, only: half, pi, one, two
+   use constants, only: half, pi, one, two, ci, zero
 #ifdef WITHOMP
    use omp_lib
 #endif
@@ -39,9 +39,12 @@ module cosine_transform_odd
       real(cp) :: cheb_fac              ! Normalisation factor
       type(c_ptr) :: plan               ! FFTW many plan
       type(c_ptr) :: plan_1d            ! FFTW single plan for DCT
-      type(c_ptr) :: plan_fft_1d        ! FFTW single plan for FFT
+      type(c_ptr) :: plan_fft_1d_back   ! FFTW single plan for FFT
+      type(c_ptr) :: plan_fft_1d_forw   ! FFTW single plan for FFT
+      integer, allocatable :: der(:)
 #if (DCT_VERSION==dft_many)
-      type(c_ptr), allocatable :: plan_fft_many(:)   ! FFTW many plan for FFT
+      type(c_ptr), allocatable :: plan_fft_many_back(:)   ! FFTW many plan for FFT
+      type(c_ptr), allocatable :: plan_fft_many_forw(:)   ! FFTW many plan for FFT
 #endif
       complex(cp), pointer :: work(:,:) ! Complex work array
       real(cp), pointer :: work_r(:,:)  ! Real work array
@@ -51,6 +54,7 @@ module cosine_transform_odd
       procedure, private :: costf1_complex
       procedure, private :: costf1_real_1d
       procedure, private :: costf1_complex_1d
+      procedure :: get_dr_fft
       generic :: costf1 => costf1_real_1d, costf1_complex, costf1_complex_1d
    end type costf_odd_t
 
@@ -76,11 +80,12 @@ contains
       integer :: onembed(1), ostride, odist, isize, howmany
       integer(C_INT) :: plan_type(1)
 #if (DCT_VERSION==dft_loop)
+      integer :: k, j
       complex(cp) :: array_cplx_1d(2*n_r_max-2), array_cplx_out_1d(2*n_r_max-2)
 #elif (DCT_VERSION==dct_many)
       real(cp) :: array_in(2*(ulm-llm+1),n_r_max), array_out(2*(ulm-llm+1),n_r_max)
 #elif (DCT_VERSION==dft_many)
-      integer :: threadid, start_lm, stop_lm, iThread
+      integer :: threadid, start_lm, stop_lm, iThread, j, k
       integer, allocatable :: idx1(:), idx2(:)
       complex(cp) :: array_in(llm:ulm,2*n_r_max-2), array_out(llm:ulm,2*n_r_max-2)
 #endif
@@ -117,10 +122,35 @@ contains
       &                 SIZEOF_DEF_COMPLEX
 #elif (DCT_VERSION==dft_loop)
       plan_size(1) = 2*n_r_max-2
-      this%plan_fft_1d = fftw_plan_dft(1, plan_size, array_cplx_1d, array_cplx_out_1d, &
-                         &             1, fft_plan_flag)
+      this%plan_fft_1d_back = fftw_plan_dft(1, plan_size, array_cplx_1d,      &
+                              &             array_cplx_out_1d, FFTW_BACKWARD, &
+                              &             fft_plan_flag)
+      this%plan_fft_1d_forw = fftw_plan_dft(1, plan_size, array_cplx_1d,      &
+                              &             array_cplx_out_1d, FFTW_FORWARD,  &
+                              &             fft_plan_flag)
+      allocate( this%der(2*n_r_max-2) )
+      do k=1,n_r_max-1
+         this%der(k)=k-1
+      end do
+      this%der(n_r_max)=0
+      j=1
+      do k=2*n_r_max-2,n_r_max+1,-1
+         this%der(k)=-j
+         j=j+1
+      end do
 #elif (DCT_VERSION==dft_many)
-      allocate( this%plan_fft_many(0:nThreads-1) )
+      allocate( this%der(2*n_r_max-2) )
+      do k=1,n_r_max-1
+         this%der(k)=k-1
+      end do
+      this%der(n_r_max)=0
+      j=1
+      do k=2*n_r_max-2,n_r_max+1,-1
+         this%der(k)=-j
+         j=j+1
+      end do
+      allocate( this%plan_fft_many_back(0:nThreads-1) )
+      allocate( this%plan_fft_many_forw(0:nThreads-1) )
       allocate( idx2(0:nThreads-1), idx1(0:nThreads-1) )
 
       !$omp parallel private(start_lm, stop_lm)
@@ -146,12 +176,18 @@ contains
          howmany = stop_lm-start_lm+1
          istride = stop_lm-start_lm+1
          ostride = stop_lm-start_lm+1
-         this%plan_fft_many(iThread) = fftw_plan_many_dft(1, plan_size, howmany,        &
-                                       &                  array_in(start_lm:stop_lm,:), &
-                                       &                  inembed, istride, idist,      &
-                                       &                  array_out(start_lm:stop_lm,:),&
-                                       &                  onembed, ostride, odist, 1,   &
-                                       &                  fft_plan_flag)
+         this%plan_fft_many_back(iThread) = fftw_plan_many_dft(1, plan_size, howmany,   &
+                                            &             array_in(start_lm:stop_lm,:), &
+                                            &             inembed, istride, idist,      &
+                                            &             array_out(start_lm:stop_lm,:),&
+                                            &             onembed, ostride, odist,      &
+                                            &             FFTW_BACKWARD, fft_plan_flag)
+         this%plan_fft_many_forw(iThread) = fftw_plan_many_dft(1, plan_size, howmany,   &
+                                            &             array_in(start_lm:stop_lm,:), &
+                                            &             inembed, istride, idist,      &
+                                            &             array_out(start_lm:stop_lm,:),&
+                                            &             onembed, ostride, odist,      &
+                                            &             FFTW_FORWARD, fft_plan_flag)
       end do
       deallocate( idx1, idx2 )
 #endif
@@ -176,14 +212,17 @@ contains
       deallocate( this%work )
       call fftw_destroy_plan(this%plan)
 #elif (DCT_VERSION==dft_loop)
-      call fftw_destroy_plan(this%plan_fft_1d)
+      call fftw_destroy_plan(this%plan_fft_1d_back)
+      call fftw_destroy_plan(this%plan_fft_1d_forw)
+      deallocate( this%der)
 #elif (DCT_VERSION==dft_many)
       integer :: iThread
 
       do iThread=0,nThreads-1
-         call fftw_destroy_plan(this%plan_fft_many(iThread))
+         call fftw_destroy_plan(this%plan_fft_many_back(iThread))
+         call fftw_destroy_plan(this%plan_fft_many_forw(iThread))
       end do
-      deallocate(this%plan_fft_many)
+      deallocate(this%plan_fft_many_back, this%plan_fft_many_forw,this%der)
 #endif
 #ifdef WITHOMP
       !call fftw_cleanup_threads()
@@ -216,7 +255,7 @@ contains
       do n_f=n_f_start,n_f_stop
          work_1d(1:this%n_r_max) = array_in(n_f,1:this%n_r_max)
          work_1d(this%n_r_max+1:) = array_in(n_f,this%n_r_max-1:2:-1)
-         call fftw_execute_dft(this%plan_fft_1d, work_1d, work_1d_out)
+         call fftw_execute_dft(this%plan_fft_1d_forw, work_1d, work_1d_out)
          array_in(n_f,1:this%n_r_max)=this%cheb_fac* work_1d_out(1:this%n_r_max)
       end do
 
@@ -238,7 +277,7 @@ contains
 #else
       threadid=0
 #endif
-      call fftw_execute_dft(this%plan_fft_many(threadid), tmp_in, tmp_out)
+      call fftw_execute_dft(this%plan_fft_many_forw(threadid), tmp_in, tmp_out)
 
       !-- Copy output onto a
       do n_r=1,this%n_r_max
@@ -323,5 +362,171 @@ contains
       array_in(:)=this%cheb_fac*cmplx(outr(:), outi(:), cp)
 
    end subroutine costf1_complex_1d
+!------------------------------------------------------------------------------
+   subroutine get_dr_fft(this, array_in, array_out, xcheb, n_f_max, n_f_start, &
+              &          n_f_stop, n_cheb_max, l_dct_in)
+
+      class(costf_odd_t), intent(in) :: this
+
+      !-- Input variables
+      integer,     intent(in) :: n_f_start ! Starting index (OMP)
+      integer,     intent(in) :: n_f_stop  ! Stopping index (OMP)
+      integer,     intent(in) :: n_f_max   ! Number of vectors
+      integer,     intent(in) :: n_cheb_max  ! Max cheb
+      real(cp),    intent(in) :: xcheb(:) ! Gauss-Lobatto grid
+      complex(cp), intent(in) :: array_in(n_f_max,*) ! Array to be transformed
+      logical,     intent(in) :: l_dct_in ! Do we need a DCT for the input array?
+
+      !-- Output variables:
+      complex(cp), intent(out) :: array_out(n_f_max,*)  ! Radial derivative
+
+#if (DCT_VERSION==dft_loop)
+      !-- Local variables:
+      integer :: n_f, k
+      complex :: tot
+      complex(cp) :: work_1d(2*this%n_r_max-2), work_1d_out(2*this%n_r_max-2)
+
+      if ( l_dct_in ) then
+         do n_f=n_f_start,n_f_stop
+            work_1d(1:this%n_r_max) =array_in(n_f,1:this%n_r_max)
+            work_1d(this%n_r_max+1:)=array_in(n_f,this%n_r_max-1:2:-1)
+            !# FFT derivatives
+            call fftw_execute_dft(this%plan_fft_1d_forw, work_1d, work_1d_out)
+
+            ! Boundary points
+            tot=zero
+            !do k=1,this%n_r_max
+            do k=1,n_cheb_max
+               tot=tot+(k-1)**2 * work_1d_out(k)
+            end do
+            array_out(n_f,1)=tot/(this%n_r_max-1)
+            tot=zero
+            !do k=1,this%n_r_max
+            do k=1,n_cheb_max
+               tot=tot+(-1)**k*(k-1)**2*work_1d_out(k)
+            end do
+            array_out(n_f,this%n_r_max)=tot/(this%n_r_max-1)
+
+            !-- Dealiasing
+            work_1d_out(n_cheb_max+1:this%n_r_max)=zero
+            work_1d_out(this%n_r_max+1:2*this%n_r_max-n_cheb_max-1)=zero
+            work_1d_out(:)=ci*this%der(:)*work_1d_out(:)
+            call fftw_execute_dft(this%plan_fft_1d_back, work_1d_out, work_1d)
+            array_out(n_f,2:this%n_r_max-1)=-work_1d(2:this%n_r_max-1) /           &
+            &                                sqrt(one-xcheb(2:this%n_r_max-1)**2) /&
+            &                                (2*this%n_r_max-2)
+         end do
+      else
+         do n_f=n_f_start,n_f_stop
+            work_1d_out(1:this%n_r_max) =array_in(n_f,1:this%n_r_max)
+            work_1d_out(this%n_r_max+1:)=array_in(n_f,this%n_r_max-1:2:-1)
+            ! Boundary points
+            tot=zero
+            !do k=1,this%n_r_max
+            do k=1,n_cheb_max
+               tot=tot+(k-1)**2 * work_1d_out(k)
+            end do
+            array_out(n_f,1)=tot/(this%n_r_max-1)/this%cheb_fac
+            tot=zero
+            do k=1,n_cheb_max
+               tot=tot+(-1)**k*(k-1)**2*work_1d_out(k)
+            end do
+            array_out(n_f,this%n_r_max)=tot/(this%n_r_max-1)/this%cheb_fac
+
+            !-- Dealiasing
+            work_1d_out(n_cheb_max+1:this%n_r_max)=zero
+            work_1d_out(this%n_r_max+1:2*this%n_r_max-n_cheb_max-1)=zero
+            work_1d_out(:)=ci*this%der(:)*work_1d_out(:)/this%cheb_fac
+            call fftw_execute_dft(this%plan_fft_1d_back, work_1d_out, work_1d)
+            array_out(n_f,2:this%n_r_max-1)=-work_1d(2:this%n_r_max-1) /           &
+            &                                sqrt(one-xcheb(2:this%n_r_max-1)**2) /&
+            &                                (2*this%n_r_max-2)
+         end do
+      end if
+
+#elif (DCT_VERSION==dft_many)
+      integer :: k, n_r, threadid, n_f
+      complex(cp) :: tot
+      complex(cp) :: tmp_in(n_f_start:n_f_stop,2*this%n_r_max-2)
+      complex(cp) :: tmp_out(n_f_start:n_f_stop,2*this%n_r_max-2)
+
+      !-- Prepare array for dft many
+      do n_r=1,this%n_r_max
+         tmp_in(:,n_r)=array_in(n_f_start:n_f_stop,n_r)
+      end do
+      do n_r=this%n_r_max+1,2*this%n_r_max-2
+         tmp_in(:,n_r)=array_in(n_f_start:n_f_stop,2*this%n_r_max-n_r)
+      end do
+
+      if ( l_dct_in ) then
+#ifdef WITHOMP
+         threadid=omp_get_thread_num()
+#else
+         threadid=0
+#endif
+         call fftw_execute_dft(this%plan_fft_many_forw(threadid), tmp_in, tmp_out)
+
+         !-- Boundary points
+         do n_f=n_f_start,n_f_stop
+            tot=zero
+            do k=1,n_cheb_max
+               tot=tot+(k-1)**2 * tmp_out(n_f,k)
+            end do
+            tmp_out(n_f,1)=tot/(this%n_r_max-1)
+            tot=zero
+            do k=1,n_cheb_max
+               tot=tot+(-1)**k*(k-1)**2*tmp_out(n_f,k)
+            end do
+            tmp_out(n_f,this%n_r_max)=tot/(this%n_r_max-1)
+         end do
+
+      else
+         !-- Boundary points
+         do n_f=n_f_start,n_f_stop
+            tot=zero
+            do k=1,n_cheb_max
+               tot=tot+(k-1)**2 * tmp_in(n_f,k)
+            end do
+            tmp_out(n_f,1)=tot/(this%n_r_max-1)/this%cheb_fac
+            tot=zero
+            do k=1,n_cheb_max
+               tot=tot+(-1)**k*(k-1)**2*tmp_in(n_f,k)
+            end do
+            tmp_out(n_f,this%n_r_max)=tot/(this%n_r_max-1)/this%cheb_fac
+         end do
+
+      end if
+
+      !-- Dealiasing
+      do n_r=n_cheb_max+1,2*this%n_r_max-n_cheb_max-1
+         do n_f=n_f_start,n_f_stop
+            tmp_out(n_f,n_r)=zero
+         end do
+      end do
+
+      !-- Derivative in FFT space
+      if ( l_dct_in ) then
+         do n_r=1,2*this%n_r_max-2
+            tmp_out(:,n_r)=ci*this%der(n_r)*tmp_out(:,n_r)
+         end do
+      else
+         do n_r=1,2*this%n_r_max-2
+            tmp_out(:,n_r)=ci*this%der(n_r)*tmp_in(:,n_r)/this%cheb_fac
+         end do
+      end if
+
+#ifdef WITHOMP
+      threadid=omp_get_thread_num()
+#else
+      threadid=0
+#endif
+      call fftw_execute_dft(this%plan_fft_many_back(threadid), tmp_out, tmp_in)
+
+      do n_r=2,this%n_r_max-1
+         array_out(:,n_r)=-tmp_in(:,n_r)/sqrt(one-xcheb(n_r)**2)/(2*this%n_r_max-2)
+      end do
+#endif
+
+   end subroutine get_dr_fft
 !------------------------------------------------------------------------------
 end module cosine_transform_odd
