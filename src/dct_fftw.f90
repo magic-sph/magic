@@ -2,7 +2,7 @@
 #define dct_loop 1
 #define dft_loop 2
 #define dft_many 3
-#define DCT_VERSION dft_loop
+#define DCT_VERSION dft_many
 
 module cosine_transform_odd
    !
@@ -523,7 +523,8 @@ contains
       call fftw_execute_dft(this%plan_fft_many_back(threadid), tmp_out, tmp_in)
 
       do n_r=2,this%n_r_max-1
-         array_out(:,n_r)=-tmp_in(:,n_r)/sqrt(one-xcheb(n_r)**2)/(2*this%n_r_max-2)
+         array_out(n_f_start:n_f_stop,n_r)=-tmp_in(:,n_r)/sqrt(one-xcheb(n_r)**2)/ &
+         &                                  (2*this%n_r_max-2)
       end do
 #endif
 
