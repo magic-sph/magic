@@ -8,7 +8,7 @@ module cosine_transform_gpu
 
    use iso_c_binding
    use precision_mod
-   use constants, only: half, pi, one, two, zero
+   use constants, only: half, pi, one, two, zero, ci
    use blocking, only: llm, ulm
    use omp_lib
    use hipfort_hipfft
@@ -31,10 +31,12 @@ module cosine_transform_gpu
       procedure, private :: costf1_complex
       procedure, private :: costf1_real_1d
       procedure, private :: costf1_complex_1d
+      procedure :: get_dr_fft
       generic :: costf1 => costf1_real_1d, costf1_complex, costf1_complex_1d
    end type gpu_costf_odd_t
 
    complex(cp), allocatable, target :: tmp_in(:,:), tmp_out(:,:)
+   integer, allocatable :: der(:)
 
 contains
 
@@ -50,7 +52,7 @@ contains
       integer, intent(in) :: n_in2   ! Not used here, only for compatibility
       integer, intent(in) :: n_r_max ! Number of radial grid points
       integer ::start_lm, stop_lm
-      integer :: inembed(1), istride, idist
+      integer :: inembed(1), istride, idist, j, k
       integer :: onembed(1), ostride, odist, howmany
 
       this%n_r_max = n_r_max
@@ -71,14 +73,26 @@ contains
       howmany = stop_lm-start_lm+1
       istride = stop_lm-start_lm+1
       ostride = stop_lm-start_lm+1
-      call hipfftCheck(hipfftPlanMany(this%plan_many, 1, c_loc(this%plan_many_size), c_loc(inembed), istride, &
-                                    & idist, c_loc(onembed), ostride, odist, HIPFFT_Z2Z, howmany))
+      call hipfftCheck(hipfftPlanMany(this%plan_many, 1, c_loc(this%plan_many_size), &
+           &                          c_loc(inembed), istride, idist, c_loc(onembed),&
+           &                          ostride, odist, HIPFFT_Z2Z, howmany))
 
       !-- Allocate tmp_* arrays
       allocate(tmp_in(1:ulm-llm+1,2*this%n_r_max-2), tmp_out(1:ulm-llm+1,2*this%n_r_max-2))
       tmp_in(:,:) = zero; tmp_out(:,:) = zero
-      !$omp target enter data map(alloc : tmp_in, tmp_out)
-      !$omp target update to(tmp_in, tmp_out)
+      allocate( der(2*n_r_max-2) )
+      do k=1,n_r_max-1
+         der(k)=k-1
+      end do
+      der(n_r_max)=0
+      j=1
+      do k=2*n_r_max-2,n_r_max+1,-1
+         der(k)=-j
+         j=j+1
+      end do
+
+      !$omp target enter data map(alloc : tmp_in, tmp_out,der)
+      !$omp target update to(tmp_in, tmp_out, der)
 
    end subroutine initialize
 !------------------------------------------------------------------------------
@@ -93,8 +107,8 @@ contains
       call hipfftcheck( hipfftDestroy(this%plan_many))
 
       !-- Free tmp_* arrays
-      !$omp target exit data map(delete : tmp_in, tmp_out)
-      deallocate(tmp_in, tmp_out)
+      !$omp target exit data map(delete : tmp_in, tmp_out, der)
+      deallocate(tmp_in, tmp_out, der)
 
    end subroutine finalize
 !------------------------------------------------------------------------------
@@ -129,7 +143,8 @@ contains
       !$omp target enter data map(alloc : temp_in, temp_out)
       !$omp target update to(temp_in, temp_out)
       !$omp target data use_device_addr(temp_in, temp_out)
-      call hipfftCheck(hipfftExecZ2Z(this%plan_1d, c_loc(temp_in), c_loc(temp_out), HIPFFT_FORWARD))
+      call hipfftCheck(hipfftExecZ2Z(this%plan_1d, c_loc(temp_in), c_loc(temp_out), &
+           &           HIPFFT_FORWARD))
       !$omp end target data
       !$omp target update from(temp_out)
       !$omp target exit data map(delete : temp_in, temp_out)
@@ -180,8 +195,10 @@ contains
       !$omp target enter data map(alloc : real_, aimag_, out_real, out_aim)
       !$omp target update to(real_, aimag_, out_real, out_aim)
       !$omp target data use_device_addr(real_, aimag_, out_real, out_aim)
-      call hipfftCheck(hipfftExecZ2Z(this%plan_1d, c_loc(real_), c_loc(out_real), HIPFFT_FORWARD))
-      call hipfftCheck(hipfftExecZ2Z(this%plan_1d, c_loc(aimag_), c_loc(out_aim), HIPFFT_FORWARD))
+      call hipfftCheck(hipfftExecZ2Z(this%plan_1d, c_loc(real_), c_loc(out_real), &
+           &           HIPFFT_FORWARD))
+      call hipfftCheck(hipfftExecZ2Z(this%plan_1d, c_loc(aimag_), c_loc(out_aim), &
+           &           HIPFFT_FORWARD))
       !$omp end target data
       !$omp target update from(out_real, out_aim)
       !$omp target exit data map(delete : real_, aimag_, out_real, out_aim)
@@ -233,7 +250,8 @@ contains
 
       !-- Perform DFT many
       !$omp target data use_device_addr(tmp_in, tmp_out)
-      call hipfftCheck(hipfftExecZ2Z(this%plan_many, c_loc(tmp_in), c_loc(tmp_out), HIPFFT_FORWARD))
+      call hipfftCheck(hipfftExecZ2Z(this%plan_many, c_loc(tmp_in), c_loc(tmp_out),
+                                     HIPFFT_FORWARD))
       !$omp end target data
 
       !-- Copy output onto array_in
@@ -248,6 +266,133 @@ contains
 
    end subroutine costf1_complex
 !------------------------------------------------------------------------------
+   subroutine get_dr_fft(this, array_in, array_out, xcheb, n_f_max, n_f_start, &
+              &          n_f_stop, n_cheb_max, l_dct_in)
+
+      class(gpu_costf_odd_t), intent(in) :: this
+
+      !-- Input variables
+      integer,     intent(in) :: n_f_start ! Starting index (OMP)
+      integer,     intent(in) :: n_f_stop  ! Stopping index (OMP)
+      integer,     intent(in) :: n_f_max   ! Number of vectors
+      integer,     intent(in) :: n_cheb_max  ! Max cheb
+      real(cp),    intent(in) :: xcheb(:) ! Gauss-Lobatto grid
+      complex(cp), intent(in) :: array_in(n_f_max,this%n_r_max) ! Array to be transformed
+      logical,     intent(in) :: l_dct_in ! Do we need a DCT for the input array?
+
+      !-- Output variables:
+      complex(cp), intent(out) :: array_out(n_f_max,this%n_r_max)  ! Radial derivative
+
+      !-- Local variables:
+      integer :: n_r, n_f, tmp_n_r_max, k
+      real(cp) :: tmp_fac_cheb
+      complex(cp) :: tot
+
+      n_r = 0; n_f = 0; tmp_n_r_max = this%n_r_max
+      tmp_fac_cheb = this%cheb_fac
+
+      !-- Prepare array for dft many
+      !$omp target teams distribute parallel do collapse(2)
+      do n_r=1,2*tmp_n_r_max-2
+         do n_f=n_f_start,n_f_stop
+            if(n_r <= tmp_n_r_max) then
+               tmp_in(n_f,n_r)=array_in(n_f,n_r)
+            else
+               tmp_in(n_f,n_r)=array_in(n_f,2*tmp_n_r_max-n_r)
+            end if
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+      if ( l_dct_in ) then
+         !-- Perform DFT many
+         !$omp target data use_device_addr(tmp_in, tmp_out)
+         call hipfftCheck(hipfftExecZ2Z(this%plan_many, c_loc(tmp_in), c_loc(tmp_out),
+                                        HIPFFT_FORWARD))
+         !$omp end target data
+
+         !-- Boundary points
+         ! I'm not sure how to properly do those sums on GPU $omp reduction(+:tot)?
+         !!$omp target teams distribute parallel do private(k)
+         do n_f=n_f_start,n_f_stop
+            tot=zero
+            do k=1,n_cheb_max
+               tot=tot+(k-1)**2 * tmp_out(n_f,k)
+            end do
+            tmp_out(n_f,1)=tot/(tmp_n_r_max-1)
+            tot=zero
+            do k=1,n_cheb_max
+               tot=tot+(-1)**k*(k-1)**2*tmp_out(n_f,k)
+            end do
+            tmp_out(n_f,tmp_n_r_max)=tot/(tmp_n_r_max-1)
+         end do
+         !!$omp end target teams distribute parallel do
+
+      else
+
+         !-- Boundary points
+         !!$omp target teams distribute parallel do private(tot,k)
+         do n_f=n_f_start,n_f_stop
+            tot=zero
+            do k=1,n_cheb_max
+               tot=tot+(k-1)**2 * tmp_in(n_f,k)
+            end do
+            tmp_out(n_f,1)=tot/(tmp_n_r_max-1)/tmp_fac_cheb
+            tot=zero
+            do k=1,n_cheb_max
+               tot=tot+(-1)**k*(k-1)**2*tmp_in(n_f,k)
+            end do
+            tmp_out(n_f,tmp_n_r_max)=tot/(tmp_n_r_max-1)/tmp_fac_cheb
+         end do
+         !!$omp end target teams distribute parallel do
+
+      end if
+
+      !-- Dealiasing
+      if ( n_cheb_max < tmp_n_r_max ) then
+         !$omp target teams distribute parallel do collapse(2)
+         do n_r=n_cheb_max+1,2*tmp_n_r_max-n_cheb_max-1
+            do n_f=n_f_start,n_f_stop
+               tmp_out(n_f,n_r)=zero
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+      end if
+
+      !-- Derivative in FFT space
+      if ( l_dct_in ) then
+         !$omp target teams distribute parallel do collapse(2)
+         do n_r=1,2*tmp_n_r_max-2
+            do n_f=n_f_start,n_f_stop
+               tmp_out(n_f,n_r)=ci*der(n_r)*tmp_out(n_f,n_r)
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+      else
+         !$omp target teams distribute parallel do collapse(2)
+         do n_r=1,2*tmp_n_r_max-2
+            do n_f=n_f_start,n_f_stop
+               tmp_out(n_f,n_r)=ci*der(n_r)*tmp_in(n_f,n_r)/tmp_fac_cheb
+            end do
+         end do
+         !$omp end target teams distribute parallel do
+      end if
+
+      !-- Perform DFT many
+      !$omp target data use_device_addr(tmp_in, tmp_out)
+      call hipfftCheck(hipfftExecZ2Z(this%plan_many, c_loc(tmp_out), c_loc(tmp_in),
+                                     HIPFFT_BACKWARD))
+      !$omp end target data
+
+      !$omp target teams distribute parallel do collapse(2)
+      do n_r=2,tmp_n_r_max-1
+         do n_f=n_f_start,n_f_stop
+            array_out(n_f,n_r)=-tmp_in(n_f,n_r)/sqrt(one-xcheb(n_r)**2)/(2*tmp_n_r_max-2)
+         end do
+      end do
+      !$omp end target teams distribute parallel do
+
+   end subroutine get_dr_fft
 
 #endif
 
