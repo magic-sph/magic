@@ -100,5 +100,7 @@ module logic
    logical :: l_hemi ! Compute North/South asymmetry of energies
    logical :: l_onset ! A flag to turn MagIC into a linear stability analysis code
    logical :: l_grav  ! Flag to output gravity coefficients
+   logical :: l_scramble_theta ! A flag to set theta scrambling
+   logical :: l_geosMovie ! A flag to trigger the production of geos movies
 
 end module logic

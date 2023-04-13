@@ -72,7 +72,7 @@ $ ./install-shtns.sh
 or install it manually after downloading and extracting the latest version [here](https://bitbucket.org/nschaeff/shtns/downloads/)
 
 ```sh
-$ ./configure --enable-openmp --enable-ishioka --enable-magic-layout --prefix=$HOME/local
+$ ./configure --enable-openmp --prefix=$HOME/local
 ```
 
 if FFTW is used or

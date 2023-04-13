@@ -246,21 +246,21 @@ class MagicGraph(MagicSetup):
         fmt = '{}f{}'.format(prefix, suffix)
         self.colatitude = np.fromfile(f, fmt, count=self.ntheta)
         self.radius = np.fromfile(f, fmt, count=self.nr)
-        if ( l_mag > 0 and self.n_r_ic_max > 1 ):
+        if ( l_mag != 0 and self.n_r_ic_max > 1 ):
             self.radius_ic = np.fromfile(f, fmt, count=self.n_r_ic_max)
 
         self.vr = np.zeros((self.npI, self.ntheta, self.nr), self.precision)
         self.vtheta = np.zeros_like(self.vr)
         self.vphi = np.zeros_like(self.vr)
-        if l_heat > 0:
+        if l_heat != 0:
             self.entropy = np.zeros_like(self.vr)
-        if l_chem > 0:
+        if l_chem != 0:
             self.xi = np.zeros_like(self.vr)
-        if l_phase > 0:
+        if l_phase != 0:
             self.phase = np.zeros_like(self.vr)
-        if l_press > 0:
+        if l_press != 0:
             self.pre = np.zeros_like(self.vr)
-        if l_mag > 0:
+        if l_mag != 0:
             self.Br = np.zeros_like(self.vr)
             self.Btheta = np.zeros_like(self.vr)
             self.Bphi = np.zeros_like(self.vr)
@@ -278,19 +278,19 @@ class MagicGraph(MagicSetup):
             self.vtheta[:, :, i] = dat.reshape(self.npI, self.ntheta)
             dat = np.fromfile(f, fmt, count=self.ntheta*self.npI)
             self.vphi[:, :, i] = dat.reshape(self.npI, self.ntheta)
-            if l_heat > 0:
+            if l_heat != 0:
                 dat = np.fromfile(f, fmt, count=self.ntheta*self.npI)
                 self.entropy[:, :, i] = dat.reshape(self.npI, self.ntheta)
-            if l_chem > 0:
+            if l_chem != 0:
                 dat = np.fromfile(f, fmt, count=self.ntheta*self.npI)
                 self.xi[:, :, i] = dat.reshape(self.npI, self.ntheta)
-            if l_phase > 0:
+            if l_phase != 0:
                 dat = np.fromfile(f, fmt, count=self.ntheta*self.npI)
                 self.phase[:, :, i] = dat.reshape(self.npI, self.ntheta)
-            if l_press > 0:
+            if l_press != 0:
                 dat = np.fromfile(f, fmt, count=self.ntheta*self.npI)
                 self.pre[:, :, i] = dat.reshape(self.npI, self.ntheta)
-            if l_mag > 0:
+            if l_mag != 0:
                 dat = np.fromfile(f, fmt, count=self.ntheta*self.npI)
                 self.Br[:, :, i] = dat.reshape(self.npI, self.ntheta)
                 dat = np.fromfile(f, fmt, count=self.ntheta*self.npI)
@@ -299,7 +299,7 @@ class MagicGraph(MagicSetup):
                 self.Bphi[:, :, i] = dat.reshape(self.npI, self.ntheta)
 
         # Inner core
-        if ( l_mag > 0 and self.n_r_ic_max > 1 ):
+        if ( l_mag != 0 and self.n_r_ic_max > 1 ):
             for i in range(self.n_r_ic_max):
                 dat = np.fromfile(f, fmt, count=self.ntheta*self.npI)
                 self.Br_ic[:, :, i] = dat.reshape(self.npI, self.ntheta)

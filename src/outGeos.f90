@@ -17,6 +17,7 @@ module geos
    use output_data, only: sDens, zDens, tag
    use horizontal_data, only: n_theta_cal2ord, O_sin_theta_E2, theta_ord, &
        &                      O_sin_theta, cosTheta, sinTheta
+   use movie_data, only: n_movie_type, n_movie_fields, n_movie_file
    use truncation, only: n_phi_max, n_theta_max, n_r_max, nlat_padded, l_max
    use integration, only: simps, cylmean_otc, cylmean_itc
    use logic, only: l_save_out
@@ -26,7 +27,7 @@ module geos
 
    private
 
-   real(cp), allocatable :: cyl(:) ! Cylindrical grid
+   real(cp), public, allocatable :: cyl(:) ! Cylindrical grid
    real(cp), allocatable :: h(:)   ! h(s)
    real(cp), allocatable :: us_Rloc(:,:,:), up_Rloc(:,:,:), uz_Rloc(:,:,:)
    real(cp), allocatable :: us_Ploc(:,:,:), up_Ploc(:,:,:), uz_Ploc(:,:,:)
@@ -37,25 +38,27 @@ module geos
    integer :: nPstop  ! Stoping nPhi index when MPI distributed
    type(load), allocatable :: phi_balance(:) ! phi-distributed balance
    integer :: n_geos_file ! file unit for geos.TAG
-   integer :: n_s_max ! Number of cylindrical points
+   integer, public :: n_s_max ! Number of cylindrical points
    integer :: n_s_otc ! Index for last point outside TC
    character(len=72) :: geos_file ! file name
 
-   public :: initialize_geos, finalize_geos, calcGeos, outGeos, outOmega
+   public :: initialize_geos, finalize_geos, calcGeos, outGeos, outOmega, &
+   &         write_geos_frame
 
 contains
 
-   subroutine initialize_geos(l_geos, l_SRIC)
+   subroutine initialize_geos(l_geos, l_SRIC, l_geosMovie)
       !
       ! Memory allocation and definition of the cylindrical grid
       !
       logical, intent(in) :: l_geos ! Do we need the geos outputs
       logical, intent(in) :: l_SRIC ! Is the inner core rotating
+      logical, intent(in) :: l_geosMovie ! Geos movie
 
       integer :: n_s
       real(cp) :: smin, smax, ds
 
-      if ( l_geos ) then
+      if ( l_geos .or. l_geosMovie ) then
          !-- R-distributed arrays
          allocate( us_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
          allocate( up_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
@@ -79,7 +82,7 @@ contains
          &               SIZEOF_DEF_REAL
       end if
 
-      if ( l_geos .or. l_SRIC ) then
+      if ( l_geos .or. l_SRIC .or. l_geosMovie ) then
          !-- Cylindrical radius
          n_s_max = n_r_max+int(r_ICB*n_r_max)
          n_s_max = int(sDens*n_s_max)
@@ -87,7 +90,8 @@ contains
          bytes_allocated=bytes_allocated+n_s_max*SIZEOF_DEF_REAL
 
          ! Minimum and maximum cylindrical radii
-         smin = r_CMB*sin(theta_ord(1))
+         !smin = r_CMB*sin(theta_ord(1))
+         smin = 0.0_cp
          smax = r_CMB
 
          !-- Grid spacing
@@ -124,19 +128,20 @@ contains
 
    end subroutine initialize_geos
 !------------------------------------------------------------------------------------
-   subroutine finalize_geos(l_geos, l_SRIC)
+   subroutine finalize_geos(l_geos, l_SRIC, l_geosMovie)
       !
       ! Memory deallocation
       !
       logical, intent(in) :: l_geos ! Do we need the geos outputs
       logical, intent(in) :: l_SRIC ! Is the inner core rotating?
+      logical, intent(in) :: l_geosMovie ! Do we have geos movies?
 
-      if ( l_geos ) then
+      if ( l_geos .or. l_geosMovie ) then
          if ( rank == 0 .and. (.not. l_save_out) ) close(n_geos_file)
          deallocate( us_Ploc, up_Ploc, uz_Ploc, wz_Ploc )
          deallocate( us_Rloc, up_Rloc, uz_Rloc, wz_Rloc )
       end if
-      if ( l_geos .or. l_SRIC ) deallocate( cyl, h )
+      if ( l_geos .or. l_SRIC .or. l_geosMovie ) deallocate( cyl, h )
 
    end subroutine finalize_geos
 !------------------------------------------------------------------------------------
@@ -194,7 +199,7 @@ contains
       real(cp), intent(out) :: Geos, GeosA, GeosZ, GeosM, GeosNAP, Ekin
 
       !-- Local variables
-      real(cp) :: phiNorm
+      real(cp) :: phiNorm, den
       real(cp) :: tmp(n_theta_max,n_r_max)
       real(cp) :: us_axi(n_theta_max,n_r_max),us_axi_dist(n_theta_max,n_r_max)
       real(cp) :: up_axi(n_theta_max,n_r_max),up_axi_dist(n_theta_max,n_r_max)
@@ -377,10 +382,10 @@ contains
          end do
          call cylmean_otc(tmp,uzSN_OTC,n_s_max,n_s_otc,r,cyl,theta_ord,zDens)
 
-         do n_s=1,n_s_max
-            if ( uzNN_OTC(n_s) > 0.0_cp .and. wzNN_OTC(n_s) > 0.0_cp ) then
-               CHel_dist(n_s)=CHel_dist(n_s)+uzSN_OTC(n_s)/sqrt(uzNN_OTC(n_s))/ &
-               &              sqrt(wzNN_OTC(n_s))
+         do n_s=1,n_s_otc
+            den=uzNN_OTC(n_s)*wzNN_OTC(n_s)
+            if ( den > 0.0_cp ) then
+               CHel_dist(n_s)=CHel_dist(n_s)+uzSN_OTC(n_s)/sqrt(den)
             else
                CHel_dist(n_s)=CHel_dist(n_s)+one
             end if
@@ -495,6 +500,56 @@ contains
 
    end subroutine outGeos
 !------------------------------------------------------------------------------------
+   subroutine write_geos_frame(n_movie)
+      !
+      ! This subroutine handles the computation and the writing of geos movie
+      ! files.
+      !
+
+      !-- Input variables
+      integer, intent(in) :: n_movie ! The index of the movie in list of movies
+
+      !-- Local variables
+      integer :: n_type, n_p, n_fields, n_field, n_out
+      real(cp) :: dat(n_s_max,nPstart:nPstop), dat_full(n_phi_max,n_s_max)
+      real(cp) :: datITC_N(n_s_max), datITC_S(n_s_max)
+
+      n_type  =n_movie_type(n_movie)
+      n_fields=n_movie_fields(n_movie)
+      n_out   =n_movie_file(n_movie)
+
+      if ( n_type == 130 ) then ! Us
+         call transp_R2Phi(us_Rloc, us_Ploc)
+      else if (n_type == 131 ) then ! Uphi
+         call transp_R2Phi(up_Rloc, up_Ploc)
+      else if (n_type == 132 ) then ! Vort z
+         call transp_R2Phi(wz_Rloc, wz_Ploc)
+      end if
+
+      !-- Z averaging
+      do n_p=nPstart,nPstop
+         if ( n_type == 130 ) then
+            call cylmean(us_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
+         else if ( n_type == 131 ) then
+            call cylmean(up_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
+         else if ( n_type == 132 ) then
+            call cylmean(wz_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
+         end if
+         dat(:,n_p)=dat(:,n_p)+datITC_N(:)
+      end do
+
+      !-- MPI gather
+      call gather_Ploc(dat,  dat_full)
+
+      !-- Write outputs
+      if ( rank == 0 ) then
+         do n_field=1,n_fields
+            write(n_out) real(dat_full,kind=outp)
+         end do
+      end if
+
+   end subroutine write_geos_frame
+!------------------------------------------------------------------------------------
    subroutine outOmega(z, omega_ic)
       !
       !   Output of axisymmetric zonal flow omega(s) into field omega.TAG,
@@ -557,6 +612,53 @@ contains
       end if
 
    end subroutine outOmega
+!------------------------------------------------------------------------------------
+   subroutine gather_Ploc(arr_Ploc, arr_full)
+      !
+      ! This subroutine gathers and transpose a phi-distributed array on rank0.
+      !
+
+      !-- Input variable
+      real(cp), intent(in) :: arr_Ploc(n_s_max,nPstart:nPstop)
+
+      !-- Output variable
+      real(cp), intent(out) :: arr_full(n_phi_max,n_s_max)
+
+      !-- Local variables
+      integer :: n_s, n_p
+#ifdef WITH_MPI
+      real(cp) :: tmp(n_s_max,n_phi_max)
+      integer :: rcounts(0:n_procs-1), rdisp(0:n_procs-1), scount
+      integer :: p
+
+      scount = (nPstop-nPstart+1)*n_s_max
+      do p=0,n_procs-1
+         rcounts(p)=phi_balance(p)%n_per_rank*n_s_max
+      end do
+      rdisp(0)=0
+      do p=1,n_procs-1
+         rdisp(p)=rdisp(p-1)+rcounts(p-1)
+      end do
+
+      call MPI_GatherV(arr_Ploc, scount, MPI_DEF_REAL, tmp, rcounts, rdisp, &
+           &           MPI_DEF_REAL, 0, MPI_COMM_WORLD, ierr)
+
+      if ( rank == 0 ) then
+         do n_p=1,n_phi_max
+            do n_s=1,n_s_max
+               arr_full(n_p,n_s)=tmp(n_s,n_p)
+            end do
+         end do
+      end if
+#else
+      do n_p=1,n_phi_max
+         do n_s=1,n_s_max
+            arr_full(n_p,n_s)=arr_Ploc(n_s,n_p)
+         end do
+      end do
+#endif
+
+   end subroutine gather_Ploc
 !------------------------------------------------------------------------------------
    subroutine transp_R2Phi(arr_Rloc, arr_Ploc)
       !

@@ -94,7 +94,7 @@ def sph2cyl_plane(data, rad, ns):
 if zavgMode == 'f2py':
 
     def zavg(input, radius, ns, minc, save=True, filename='vp.pickle',
-             normed=True):
+             normed=True, colat=None):
         """
         This function computes a z-integration of a list of input arrays 
         (on the spherical grid). This works well for 2-D (phi-slice) arrays.
@@ -117,6 +117,8 @@ if zavgMode == 'f2py':
         :param normed: a boolean to specify if ones wants to simply integrate 
                        over z or compute a z-average (default is True: average)
         :type normed: bool
+        :param colat: an optional array containing the colatitudes
+        :type colat: numpy.ndarray
         :returns: a python tuple that contains two numpy.ndarray and a list
                   (height,cylRad,output) height[ns] is the height of the
                   spherical shell for all radii. cylRad[ns] is the cylindrical
@@ -131,7 +133,10 @@ if zavgMode == 'f2py':
             ntheta = input[0].shape[1]
         elif len(input[0].shape) == 2:
             ntheta = input[0].shape[0]
-        theta = np.linspace(0., np.pi, ntheta)
+        if colat is None:
+            theta = np.linspace(0., np.pi, ntheta)
+        else:
+            theta = colat
 
         height = np.zeros_like(cylRad)
         height[cylRad >= ri] = 2.*np.sqrt(ro**2-cylRad[cylRad >= ri]**2)

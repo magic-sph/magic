@@ -39,7 +39,7 @@ module rIter_mod
    use out_movie, only: store_movie_frame
    use outRot, only: get_lorentz_torque
    use courant_mod, only: courant
-   use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary
+   use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary, v_center_sphere
    use power, only: get_visc_heat
    use outMisc_mod, only: get_ekin_solid_liquid, get_hemi, get_helicity
    use outPar_mod, only: get_fluxes, get_nlBlayers, get_perpPar
@@ -173,13 +173,9 @@ contains
       !------ Set nonlinear terms that are possibly needed at the boundaries.
       !       They may be overwritten by get_td later.
       if ( rank == 0 ) then
-         if ( l_heat ) dVSrLM(:,n_r_cmb) =zero
-         if ( l_chemical_conv ) dVXirLM(:,n_r_cmb)=zero
          if ( l_mag ) dVxBhLM(:,n_r_cmb)=zero
          if ( l_double_curl ) dVxVhLM(:,n_r_cmb)=zero
       else if (rank == n_procs-1) then
-         if ( l_heat ) dVSrLM(:,n_r_icb) =zero
-         if ( l_chemical_conv ) dVXirLM(:,n_r_icb)=zero
          if ( l_mag ) dVxBhLM(:,n_r_icb)=zero
          if ( l_double_curl ) dVxVhLM(:,n_r_icb)=zero
       end if
@@ -261,7 +257,8 @@ contains
             end if
 
             call phy2lm_counter%start_count()
-            call this%transform_to_lm_space(nR, lRmsCalc)
+            call this%transform_to_lm_space(nR, lRmsCalc, dVSrLM(:,nR), dVXirLM(:,nR), &
+                 &                         dphidt(:,nR))
             call phy2lm_counter%stop_count(l_increment=.false.)
          else if ( l_mag ) then
             this%nl_lm%VxBtLM(:)=zero
@@ -433,7 +430,7 @@ contains
          call this%nl_lm%get_td(nR, nBc, lPressNext, dVSrLM(:,nR), dVXirLM(:,nR), &
               &                 dVxVhLM(:,nR), dVxBhLM(:,nR), dwdt(:,nR),         &
               &                 dzdt(:,nR), dpdt(:,nR), dsdt(:,nR), dxidt(:,nR),  &
-              &                 dphidt(:,nR), dbdt(:,nR), djdt(:,nR))
+              &                 dbdt(:,nR), djdt(:,nR))
          call td_counter%stop_count(l_increment=.false.)
 
          !-- Finish computation of r.m.s. forces
@@ -462,6 +459,16 @@ contains
          end if
 
       end do
+
+      !------ Set nonlinear terms that are possibly needed at the boundaries.
+      !       They may be overwritten by get_td later.
+      if ( rank == 0 ) then
+         if ( l_heat ) dVSrLM(:,n_r_cmb) =zero
+         if ( l_chemical_conv ) dVXirLM(:,n_r_cmb)=zero
+      else if (rank == n_procs-1) then
+         if ( l_heat ) dVSrLM(:,n_r_icb) =zero
+         if ( l_chemical_conv ) dVXirLM(:,n_r_icb)=zero
+      end if
 
       phy2lm_counter%n_counts=phy2lm_counter%n_counts+1
       lm2phy_counter%n_counts=lm2phy_counter%n_counts+1
@@ -596,6 +603,11 @@ contains
                     &              this%gsa%dvpdrc, l_R(nR))
             end if
          end if
+
+         if ( nR == n_r_icb .and. l_full_sphere ) then
+            call v_center_sphere(ddw_Rloc(:,nR), this%gsa%vrc, this%gsa%vtc, &
+                 &               this%gsa%vpc)
+         end if
       end if
 
       if ( l_mag .or. l_mag_LF ) then
@@ -608,11 +620,16 @@ contains
                  &                   this%gsa%cbrc, this%gsa%cbtc,          &
                  &                   this%gsa%cbpc, l_R(nR))
          end if
+
+         if ( nR == n_r_icb .and. l_full_sphere ) then
+            call v_center_sphere(ddb_Rloc(:,nR), this%gsa%brc, this%gsa%btc, &
+                 &               this%gsa%bpc)
+         end if
       end if
 
    end subroutine transform_to_grid_space
 !-------------------------------------------------------------------------------
-   subroutine transform_to_lm_space(this, nR, lRmsCalc)
+   subroutine transform_to_lm_space(this, nR, lRmsCalc, dVSrLM, dVXirLM, dphidt)
       !
       ! This subroutine actually handles the spherical harmonic transforms from
       ! (\theta,\phi) space to (\ell,m) space.
@@ -623,6 +640,11 @@ contains
       !-- Input variables
       integer, intent(in) :: nR
       logical, intent(in) :: lRmsCalc
+
+      !-- Output variables
+      complex(cp), intent(out) :: dVSrLM(lm_max)
+      complex(cp), intent(out) :: dVXirLM(lm_max)
+      complex(cp), intent(out) :: dphidt(lm_max)
 
       !-- Local variables
       integer :: nPhi, nPhStart, nPhStop
@@ -672,19 +694,16 @@ contains
 
       if ( l_heat ) then
          call spat_to_qst(this%gsa%VSr, this%gsa%VSt, this%gsa%VSp, &
-              &           this%nl_lm%VSrLM, this%nl_lm%VStLM,       &
-              &           this%nl_lm%VSpLM, l_R(nR))
+              &           dVSrLM, this%nl_lm%VStLM, this%nl_lm%VSpLM, l_R(nR))
 
          if ( l_anel ) call scal_to_SH(this%gsa%heatTerms, this%nl_lm%heatTermsLM, &
                             &          l_R(nR))
       end if
       if ( l_chemical_conv ) then
          call spat_to_qst(this%gsa%VXir, this%gsa%VXit, this%gsa%VXip, &
-              &           this%nl_lm%VXirLM, this%nl_lm%VXitLM,        &
-              &           this%nl_lm%VXipLM, l_R(nR))
+              &           dVXirLM, this%nl_lm%VXitLM, this%nl_lm%VXipLM, l_R(nR))
       end if
-      if( l_phase_field ) call scal_to_SH(this%gsa%phiTerms, this%nl_lm%dphidtLM, &
-                               &          l_R(nR))
+      if( l_phase_field ) call scal_to_SH(this%gsa%phiTerms, dphidt,l_R(nR))
       if ( l_mag_nl ) then
          if ( nR>n_r_LCR ) then
             call spat_to_qst(this%gsa%VxBr, this%gsa%VxBt, this%gsa%VxBp, &

@@ -10,7 +10,7 @@ module updateWP_mod
    use truncation, only: lm_max, n_r_max, l_max, m_min
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or1, or2, rho0, rgrav, visc, dLvisc, r, &
-       &                       alpha0, temp0, beta, dbeta, ogrun,      &
+       &                       alpha0, temp0, beta, dbeta, ogrun, l_R, &
        &                       rscheme_oc, ddLvisc, ddbeta, orho1
    use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,   &
        &                          ViscHeatFac, ThExpNb, ktopp
@@ -698,6 +698,7 @@ contains
       if ( nRstop == n_r_icb ) then
          do lm=lm_start,lm_stop
             if ( l_full_sphere ) then
+               l=st_map%lm2l(lm)
                if ( l == 1 ) then
                   wg(lm,nRstop+1)=wg(lm,nRstop-1) ! dw=0
                else
@@ -942,7 +943,7 @@ contains
       complex(cp), intent(inout) :: dw_exp_last(llm:ulm,n_r_max)
 
       !-- Local variables
-      integer :: n_r, start_lm, stop_lm
+      integer :: n_r, l, lm, start_lm, stop_lm
 
       !$omp parallel default(shared) private(start_lm,stop_lm)
       start_lm=llm; stop_lm=ulm
@@ -951,9 +952,13 @@ contains
            &       stop_lm-llm+1,n_r_max,rscheme_oc, nocopy=.true. )
       !$omp barrier
 
-      !$omp do
+      !$omp do private(lm,l)
       do n_r=1,n_r_max
-         dw_exp_last(:,n_r)= dw_exp_last(:,n_r)+or2(n_r)*work_LMloc(:,n_r)
+         do lm=llm,ulm
+            l=lo_map%lm2l(lm)
+            if ( l == 0 .or. l > l_R(n_r) ) cycle
+            dw_exp_last(lm,n_r)= dw_exp_last(lm,n_r)+or2(n_r)*work_LMloc(lm,n_r)
+         end do
       end do
       !$omp end do
       !$omp end parallel
@@ -984,7 +989,7 @@ contains
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
             l = st_map%lm2l(lm)
-            if ( l == 0 ) cycle
+            if ( l == 0 .or. l > l_R(n_r) ) cycle
             dw_exp_last(lm,n_r)=dw_exp_last(lm,n_r)+or2(n_r)*work_Rloc(lm,n_r)
          end do
       end do
@@ -993,7 +998,7 @@ contains
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
-               if ( l == 0 ) cycle
+               if ( l == 0 .or. l > l_R(n_r) ) cycle
                dLh = real(l*(l+1),cp)
                dw_exp_last(lm,n_r)=dw_exp_last(lm,n_r)+dLh*or2(n_r)*BuoFac* &
                &                   rgrav(n_r)*s_Rloc(lm,n_r)
@@ -1005,7 +1010,7 @@ contains
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
-               if ( l == 0 ) cycle
+               if ( l == 0 .or. l > l_R(n_r) ) cycle
                dLh = real(l*(l+1),cp)
                dw_exp_last(lm,n_r)=dw_exp_last(lm,n_r)+dLh*or2(n_r)*ChemFac* &
                &                   rgrav(n_r)*xi_Rloc(lm,n_r)

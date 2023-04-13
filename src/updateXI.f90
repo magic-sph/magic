@@ -9,7 +9,7 @@ module updateXi_mod
    use precision_mod
    use truncation, only: n_r_max, lm_max, l_max
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
-   use radial_functions, only: orho1, or1, or2, beta, rscheme_oc, r, dxicond
+   use radial_functions, only: orho1, or1, or2, beta, rscheme_oc, r, dxicond, l_R
    use physical_parameters, only: osc, kbotxi, ktopxi
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: topxi, botxi
@@ -359,10 +359,10 @@ contains
             m = st_map%lm2m(lm)
 
             if ( l_full_sphere ) then
-               if ( l == 1 ) then
-                  xi_ghost(lm,nR)=botxi(l,m)
-               else
+               if ( l == 0 ) then
                   xi_ghost(lm,nR)=xi_ghost(lm,nR)+fd_fac_bot(l)*botxi(l,m)
+               else
+                  xi_ghost(lm,nR)=botxi(l,m)
                end if
             else
                if ( kbotxi == 1 ) then ! Fixed composition
@@ -420,10 +420,10 @@ contains
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
             if ( l_full_sphere ) then
-               if (l == 1 ) then
-                  xig(lm,nRstop+1)=two*xig(lm,nRstop)-xig(lm,nRstop-1)
-               else
+               if (l == 0 ) then
                   xig(lm,nRstop+1)=xig(lm,nRstop-1)+two*dr*botxi(l,m)
+               else
+                  xig(lm,nRstop+1)=two*xig(lm,nRstop)-xig(lm,nRstop-1)
                end if
             else ! Not a full sphere
                if (kbotxi == 1) then ! Fixed temperature at bottom
@@ -509,18 +509,23 @@ contains
            &       stop_lm-llm+1, n_r_max, rscheme_oc, nocopy=.true. )
       !$omp barrier
 
-      !$omp do
+      !$omp do private(lm,l)
       do n_r=1,n_r_max
-         dxi_exp_last(:,n_r)=orho1(n_r)*( dxi_exp_last(:,n_r)-   &
-         &                         or2(n_r)*work_LMloc(:,n_r) )
+         do lm=llm,ulm
+            l = lo_map%lm2l(lm)
+            if ( l > l_R(n_r) ) cycle
+            dxi_exp_last(lm,n_r)=orho1(n_r)*( dxi_exp_last(lm,n_r)-   &
+            &                         or2(n_r)*work_LMloc(lm,n_r) )
+         end do
       end do
       !$omp end do
 
       if ( l_onset ) then
-         !$omp do private(lm, l, dLh)
+         !$omp do private(lm,l,dLh)
          do n_r=1,n_r_max
             do lm=llm,ulm
                l = lo_map%lm2l(lm)
+               if ( l > l_R(n_r) ) cycle
                dLh = real(l*(l+1),cp)
                dxi_exp_last(lm,n_r)=-dLh*or2(n_r)*orho1(n_r)*w(lm,n_r)*dxicond(n_r)
             end do
@@ -559,6 +564,8 @@ contains
       !$omp barrier
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
+            l=st_map%lm2l(lm)
+            if ( l > l_R(n_r) ) cycle
             dxi_exp_last(lm,n_r)=orho1(n_r)*( dxi_exp_last(lm,n_r)-   &
             &                           or2(n_r)*work_Rloc(lm,n_r) )
          end do
@@ -568,6 +575,7 @@ contains
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
+               if ( l > l_R(n_r) ) cycle
                dLh = real(l*(l+1),cp)
                dxi_exp_last(lm,n_r)=-dLh*or2(n_r)*orho1(n_r)*w(lm,n_r)*dxicond(n_r)
             end do
@@ -758,11 +766,11 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
-               if ( l1 == 1 ) then
-                  call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), 0.0_cp, one, &
+               if ( l1 == 0 ) then
+                  call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), one, 0.0_cp, &
                        &                   botxi(l1,m1), xi(lm,:))
                else
-                  call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), one, 0.0_cp, &
+                  call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), 0.0_cp, one, &
                        &                   botxi(l1,m1), xi(lm,:))
                end if
             end do
@@ -772,11 +780,11 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
-               if ( l1 == 1 ) then
-                  call rscheme_oc%robin_bc(one, 0.0_cp, topxi(l1,m1), 0.0_cp, one, &
+               if ( l1 == 0 ) then
+                  call rscheme_oc%robin_bc(one, 0.0_cp, topxi(l1,m1), one, 0.0_cp, &
                        &                   botxi(l1,m1), xi(lm,:))
                else
-                  call rscheme_oc%robin_bc(one, 0.0_cp, topxi(l1,m1), one, 0.0_cp, &
+                  call rscheme_oc%robin_bc(one, 0.0_cp, topxi(l1,m1), 0.0_cp, one, &
                        &                   botxi(l1,m1), xi(lm,:))
                end if
             end do
@@ -930,10 +938,10 @@ contains
 
       if ( l_full_sphere ) then
          !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-         if ( l == 1 ) then
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-         else
+         if ( l == 0 ) then
             dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         else
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
          end if
       else
          if ( kbotxi == 1 ) then
@@ -1039,13 +1047,13 @@ contains
 
          if ( l_full_sphere ) then
             !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-            if ( l == 1 ) then
+            if ( l == 0 ) then
+               xiMat%low(l,n_r_max)=xiMat%up(l,n_r_max)+xiMat%low(l,n_r_max)
+               fd_fac_bot(l)=two*(r(n_r_max-1)-r(n_r_max))*xiMat%up(l,n_r_max)
+            else
                xiMat%diag(l,n_r_max)=one
                xiMat%up(l,n_r_max)  =0.0_cp
                xiMat%low(l,n_r_max) =0.0_cp
-            else
-               xiMat%low(l,n_r_max)=xiMat%up(l,n_r_max)+xiMat%low(l,n_r_max)
-               fd_fac_bot(l)=two*(r(n_r_max-1)-r(n_r_max))*xiMat%up(l,n_r_max)
             end if
          else
             if ( kbotxi == 1 ) then

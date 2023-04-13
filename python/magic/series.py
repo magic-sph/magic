@@ -429,7 +429,7 @@ class MagicTs(MagicSetup):
         elif self.field == 'heat':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            if self.kbots==2 and self.ktops==2:
+            if self.kbots == 2 and self.ktops == 2:
                 ax.plot(self.time, self.deltaTnuss, label=r'$Nu_{\Delta T}$')
             else:
                 ax.plot(self.time, self.topnuss, label='Top Nusselt')
@@ -440,11 +440,14 @@ class MagicTs(MagicSetup):
             ax.set_ylabel('Nusselt number')
             fig.tight_layout()
 
-            if self.topsherwood.max() != 1.0:
+            if self.topsherwood.max() != 1.0 or self.deltasherwood.max() != 1.0:
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
-                ax.plot(self.time, self.topsherwood, label='Top Sherwood')
-                ax.plot(self.time, self.botsherwood, label='Bottom Sherwood')
+                if self.kbotxi == 2 and self.ktopxi == 2:
+                    ax.plot(self.time, self.deltasherwood, label=r'$Sh_{\Delta \xi}$')
+                else:
+                    ax.plot(self.time, self.topsherwood, label='Top Sherwood')
+                    ax.plot(self.time, self.botsherwood, label='Bottom Sherwood')
                 ax.legend(loc='lower right', frameon=False)
                 ax.set_xlim(self.time[0], self.time[-1])
                 ax.set_xlabel('Time')

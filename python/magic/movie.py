@@ -4,6 +4,7 @@ import re
 import os
 import copy
 import numpy as np
+from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 from .npfile import *
 from magic.libmagic import symmetrize, chebgrid
@@ -68,7 +69,7 @@ class Movie:
                  lastvar=None, nvar='all', levels=12, cm='RdYlBu_r', cut=0.5,
                  bgcolor=None, fluct=False, normed=False, avg=False,
                  std=False, dpi=80, normRad=False, precision=np.float32,
-                 deminc=True, ifield=0, centeredCm=True):
+                 deminc=True, ifield=0, centeredCm=True, datadir='.'):
         """
         :param nvar: the number of timesteps of the movie file we want to plot
                      starting from the last line
@@ -114,6 +115,8 @@ class Movie:
         :param ifield: in case of a multiple-field movie file, you can change
                        the default field displayed using the parameter ifield
         :type ifield: int
+        :param datadir: working directory
+        :type datadir: str
         """
 
         if avg or std:
@@ -153,6 +156,8 @@ class Movie:
 
         else:
             filename = file
+
+        filename = os.path.join(datadir, filename)
         mot = re.compile(r'.*[Mm]ov\.(.*)')
         end = mot.findall(filename)[0]
 
@@ -184,6 +189,11 @@ class Movie:
         self.n_phi_tot = int(n_phi_tot)
 
         # Grid
+        if self.movtype in [100, 101, 102]:
+            self.cylRad = infile.fort_read(precision)
+            self.n_s_max = len(self.cylRad)
+        else:
+            self.n_s_max = 0
         self.radius = infile.fort_read(precision)
         self.radius_ic = np.zeros((self.n_r_ic_max+2), precision)
         self.radius_ic[:-1] = self.radius[self.n_r_max-1:]
@@ -200,7 +210,7 @@ class Movie:
         self.phi = infile.fort_read(precision)
 
         # Determine the number of lines by reading the log.TAG file
-        logfile = open('log.{}'.format(end), 'r')
+        logfile = open(os.path.join(datadir, 'log.{}'.format(end)), 'r')
         mot = re.compile(r'  ! WRITING MOVIE FRAME NO\s*(\d*).*')
         mot2 = re.compile(r' ! WRITING TO MOVIE FRAME NO\s*(\d*).*')
         nlines = 0
@@ -253,6 +263,11 @@ class Movie:
                                   self.n_r_max), precision)
             self.data_ic = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
                                     self.n_r_ic_max+2), precision)
+        elif n_surface == -2:
+            self.surftype = 'theta_constant'
+            shape = (self.n_s_max, self.n_phi_tot)
+            self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
+                                  self.n_s_max), precision)
         elif n_surface == 3:
             self.surftype = 'phi_constant'
             if self.movtype in [1, 2, 3, 14]:  # read inner core
@@ -311,6 +326,9 @@ class Movie:
                         self.data_ic[ll, k, ...] = datic
                     else:
                         self.data[ll, k, ...] = dat.T
+                elif n_surface == -2:
+                    dat = dat.reshape(shape)
+                    self.data[ll, k, ...] = dat.T
                 elif n_surface == 3:
                     if self.movtype in [1, 2, 3, 14]:
                         len1 = (self.n_r_max*self.n_theta_max*2)
@@ -367,24 +385,105 @@ class Movie:
 
     def __add__(self, new):
         """
-        Built-in function to sum two movies
+        Built-in function to sum two movies. In case, the spatial grid have been
+        changed an interpolation onto the new grid is used.
 
-        .. note:: So far this function only works for two movies with the same
-                  grid sizes. At some point, we might introduce grid
-                  extrapolation to allow any summation.
+        :param new: the new movie file to be added
+        :type new: magic.Movie
         """
         out = copy.deepcopy(new)
-        if new.time[0] == self.time[-1]:
+
+        # Interpolate on the new grid whenever required
+        if self.data[0, 0, ...].shape != new.data[0, 0, ...].shape:
+            new_shape = new.data[0, 0, ...].shape
+            old_shape = self.data[0, 0, ...].shape
+            if self.surftype == 'r_constant':
+                if (new_shape[0] != old_shape[0]) and (new_shape[1] != old_shape[1]):
+                    ip = interp1d(self.phi, self.data, axis=-2,
+                                  fill_value='extrapolate')
+                    tmp = ip(new.phi)
+                    it = interp1d(self.theta, tmp, axis=-1,
+                                  fill_value='extrapolate')
+                    self.data = it(new.theta)
+                elif (new_shape[0] != old_shape[0]) and (new_shape[1] == old_shape[1]):
+                    ip = interp1d(self.phi, self.data, axis=-2,
+                                  fill_value='extrapolate')
+                    self.data = ip(new.phi)
+                elif (new_shape[0] == old_shape[0]) and (new_shape[1] != old_shape[1]):
+                    it = interp1d(self.theta, self.data, axis=-1,
+                                  fill_value='extrapolate')
+                    self.data = it(new.theta)
+            elif self.surftype == 'theta_constant':
+                if (new_shape[0] != old_shape[0]) and (new_shape[1] != old_shape[1]):
+                    ip = interp1d(self.phi, self.data, axis=-2,
+                                  fill_value='extrapolate')
+                    tmp = ip(new.phi)
+                    ir = interp1d(self.radius[::-1], tmp[..., ::-1], axis=-1)
+                    tmp = ir(new.radius[::-1])
+                    self.data = tmp[..., ::-1]
+                elif (new_shape[0] != old_shape[0]) and (new_shape[1] == old_shape[1]):
+                    ip = interp1d(self.phi, self.data, axis=-2,
+                                  fill_value='extrapolate')
+                    self.data = ip(new.phi)
+                elif (new_shape[0] == old_shape[0]) and (new_shape[1] != old_shape[1]):
+                    ir = interp1d(self.radius[::-1], self.data[..., ::-1], axis=-1)
+                    tmp = ir(new.radius[::-1])
+                    self.data = self.data[..., ::-1]
+            elif self.surftype == 'phi_constant' and \
+                 self.movtype in [10, 11, 12, 19, 92, 94, 95, 110, 111]:
+                if (new_shape[0] != old_shape[0]) and (new_shape[1] != old_shape[1]):
+                    it = interp1d(self.theta, self.data, axis=-2,
+                                  fill_value='extrapolate')
+                    tmp = it(new.theta)
+                    ir = interp1d(self.radius[::-1], tmp[..., ::-1], axis=-1)
+                    tmp = ir(new.radius[::-1])
+                    self.data = tmp[..., ::-1]
+                elif (new_shape[0] != old_shape[0]) and (new_shape[1] == old_shape[1]):
+                    it = interp1d(self.theta, self.data, axis=-2,
+                                  fill_value='extrapolate')
+                    self.data = it(new.theta)
+                elif (new_shape[0] == old_shape[0]) and (new_shape[1] != old_shape[1]):
+                    ir = interp1d(self.radius[::-1], self.data[..., ::-1], axis=-1)
+                    tmp = ir(new.radius[::-1])
+                    self.data = self.data[..., ::-1]
+            elif self.surftype == 'phi_constant' and \
+                 self.movtype not in [10, 11, 12, 19, 92, 94, 95, 110, 111]:
+                if (new_shape[0] != old_shape[0]) and (new_shape[1] != old_shape[1]):
+                    it = interp1d(self.theta, self.data[..., :self.n_theta_max, :],
+                                  axis=-2, fill_value='extrapolate')
+                    tmp1 = it(new.theta)
+                    it = interp1d(self.theta, self.data[..., self.n_theta_max:, :],
+                                  axis=-2, fill_value='extrapolate')
+                    tmp2 = it(new.theta)
+                    tmp = np.concatenate((tmp1, tmp2), axis=-2)
+                    ir = interp1d(self.radius[::-1], tmp[..., ::-1], axis=-1)
+                    tmp = ir(new.radius[::-1])
+                    self.data = tmp[..., ::-1]
+                elif (new_shape[0] != old_shape[0]) and (new_shape[1] == old_shape[1]):
+                    it = interp1d(self.theta, self.data[..., :self.n_theta_max, :],
+                                  axis=-2, fill_value='extrapolate')
+                    tmp1 = it(new.theta)
+                    it = interp1d(self.theta, self.data[..., self.n_theta_max:, :],
+                                  axis=-2, fill_value='extrapolate')
+                    tmp2 = it(new.theta)
+                    self.data = np.concatenate((tmp1, tmp2), axis=-2)
+                elif (new_shape[0] == old_shape[0]) and (new_shape[1] != old_shape[1]):
+                    ir = interp1d(self.radius[::-1], self.data[..., ::-1], axis=-1)
+                    tmp = ir(new.radius[::-1])
+                    self.data = self.data[..., ::-1]
+
+        # Stack the data
+        if abs(new.time[0]-self.time[-1]) <= 1e-10:
+            out.data = np.concatenate((self.data, new.data[:, 1:, ...]), axis=1)
             out.time = np.concatenate((self.time, new.time[1:]), axis=0)
-            out.data = np.concatenate((self.data, new.data[:, 1:, ...]),
-                                      axis=1)
             out.nvar = self.nvar+new.nvar-1
-            out.var2 = out.nvar
         else:
-            out.time = np.concatenate((self.time, new.time), axis=0)
             out.data = np.concatenate((self.data, new.data), axis=1)
+            out.time = np.concatenate((self.time, new.time), axis=0)
             out.nvar = self.nvar+new.nvar
-            out.var2 = out.nvar
+
+        out.var2 = out.nvar
+
         return out
 
     def avgStd(self, ifield=0, std=False, cut=0.5, centeredCm=True,
@@ -582,7 +681,10 @@ class Movie:
                 phi = np.linspace(0., 2.*np.pi, self.n_phi_tot*self.minc+1)
             else:
                 phi = np.linspace(0., 2.*np.pi/self.minc, self.n_phi_tot)
-            rr, pphi = np.meshgrid(self.radius, phi)
+            if self.movtype in [100, 101, 102]:
+                rr, pphi = np.meshgrid(self.cylRad, phi)
+            else:
+                rr, pphi = np.meshgrid(self.radius, phi)
             xx = rr * np.cos(pphi)
             yy = rr * np.sin(pphi)
             xxout = rr.max() * np.cos(pphi)

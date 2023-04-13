@@ -11,7 +11,7 @@ module updateS_mod
    use truncation, only: n_r_max, lm_max, l_max
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: orho1, or1, or2, beta, dentropy0, rscheme_oc,  &
-       &                       kappa, dLkappa, dLtemp0, temp0, r
+       &                       kappa, dLkappa, dLtemp0, temp0, r, l_R
    use physical_parameters, only: opr, kbots, ktops, stef
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: tops, bots
@@ -387,11 +387,11 @@ contains
             m = st_map%lm2m(lm)
 
             if ( l_full_sphere ) then
-               if ( l == 1 ) then
-                  s_ghost(lm,nR)=bots(l,m)
+               if ( l == 0 ) then
+                  s_ghost(lm,nR)=s_ghost(lm,nR)+fd_fac_bot(l)*bots(l,m)
                else
                   ! TBD
-                  s_ghost(lm,nR)=s_ghost(lm,nR)+fd_fac_bot(l)*bots(l,m)
+                  s_ghost(lm,nR)=bots(l,m)
                end if
             else
                if ( kbots == 1 ) then ! Fixed temperature
@@ -450,10 +450,10 @@ contains
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
             if ( l_full_sphere ) then
-               if (l == 1 ) then
-                  sg(lm,nRstop+1)=two*sg(lm,nRstop)-sg(lm,nRstop-1)
-               else
+               if (l == 0 ) then
                   sg(lm,nRstop+1)=sg(lm,nRstop-1)+two*dr*bots(l,m)
+               else
+                  sg(lm,nRstop+1)=two*sg(lm,nRstop)-sg(lm,nRstop-1)
                end if
             else ! Not a full sphere
                if (kbots == 1) then ! Fixed temperature at bottom
@@ -534,7 +534,7 @@ contains
 
       !-- Local variables
       real(cp) :: dL
-      integer :: n_r, lm, start_lm, stop_lm, l1
+      integer :: n_r, lm, start_lm, stop_lm, l
       integer, pointer :: lm2l(:)
 
       lm2l(1:lm_max) => lo_map%lm2l
@@ -547,11 +547,12 @@ contains
       !$omp barrier
 
       if ( l_anelastic_liquid ) then
-         !$omp do private(n_r,l1,lm,dL)
+         !$omp do private(n_r,l,lm,dL)
          do n_r=1,n_r_max
             do lm=llm,ulm
-               l1 = lm2l(lm)
-               dL = real(l1*(l1+1),cp)
+               l = lm2l(lm)
+               if ( l > l_R(n_r) ) cycle
+               dL = real(l*(l+1),cp)
                ds_exp_last(lm,n_r)=orho1(n_r)*     ds_exp_last(lm,n_r) - &
                &        or2(n_r)*orho1(n_r)*        work_LMloc(lm,n_r) + &
                &       or2(n_r)*orho1(n_r)*dLtemp0(n_r)*dVSrLM(lm,n_r) - &
@@ -561,11 +562,12 @@ contains
          end do
          !$omp end do
       else
-         !$omp do private(n_r,l1,dL,lm)
+         !$omp do private(n_r,l,dL,lm)
          do n_r=1,n_r_max
             do lm=llm,ulm
-               l1 = lm2l(lm)
-               dL = real(l1*(l1+1),cp)
+               l = lm2l(lm)
+               if ( l > l_R(n_r) ) cycle
+               dL = real(l*(l+1),cp)
                ds_exp_last(lm,n_r)=orho1(n_r)*(      ds_exp_last(lm,n_r)- &
                &                             or2(n_r)*work_LMloc(lm,n_r)- &
                &                    dL*or2(n_r)*dentropy0(n_r)*w(lm,n_r))
@@ -607,6 +609,7 @@ contains
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
+               if ( l > l_R(n_r) ) cycle
                dL = real(l*(l+1),cp)
                ds_exp_last(lm,n_r)=orho1(n_r)*     ds_exp_last(lm,n_r) - &
                &         or2(n_r)*orho1(n_r)*        work_Rloc(lm,n_r) + &
@@ -619,6 +622,7 @@ contains
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                l = st_map%lm2l(lm)
+               if ( l > l_R(n_r) ) cycle
                dL = real(l*(l+1),cp)
                ds_exp_last(lm,n_r)=orho1(n_r)*(      ds_exp_last(lm,n_r)- &
                &                              or2(n_r)*work_Rloc(lm,n_r)- &
@@ -835,6 +839,16 @@ contains
       call get_openmp_blocks(start_lm,stop_lm)
       !$omp barrier
 
+      !-- In case phase field is used it needs to be substracted from work_LMloc
+      !-- since time advance handles \partial/\partial t (T-St*Phi)
+      if ( l_phase_field ) then
+         do n_r=nRstart,nRstop
+            do lm=start_lm,stop_lm
+               work_Rloc(lm,n_r)=work_Rloc(lm,n_r)+stef*phi(lm,n_r)
+            end do
+         end do
+      end if
+
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
             m = st_map%lm2m(lm)
@@ -900,6 +914,19 @@ contains
       call tscheme%assemble_imex(work_LMloc, dsdt)
 
       !$omp parallel default(shared)
+
+      !-- In case phase field is used it needs to be substracted from work_LMloc
+      !-- since time advance handles \partial/\partial t (T-St*Phi)
+      if ( l_phase_field ) then
+         !$omp do private(n_r,lm)
+         do n_r=1,n_r_max
+            do lm=llm,ulm
+               work_LMloc(lm,n_r)=work_LMloc(lm,n_r)+stef*phi(lm,n_r)
+            end do
+         end do
+         !$omp end do
+      end if
+
       !$omp do private(n_r,lm,m1)
       do n_r=2,n_r_max
          do lm=llm,ulm
@@ -920,11 +947,11 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
-               if ( l1 == 1 ) then
-                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
+               if ( l1 == 0 ) then
+                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
                        &                   bots(l1,m1), s(lm,:))
                else
-                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
+                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
                        &                   bots(l1,m1), s(lm,:))
                end if
             end do
@@ -934,11 +961,11 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
-               if ( l1 == 1 ) then
-                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
+               if ( l1 == 0 ) then
+                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), one, 0.0_cp, &
                        &                   bots(l1,m1), s(lm,:))
                else
-                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), one, 0.0_cp, &
+                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
                        &                   bots(l1,m1), s(lm,:))
                end if
             end do
@@ -1028,10 +1055,10 @@ contains
       end if
 
       if ( l_full_sphere ) then
-         if ( l == 1 ) then
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-         else
+         if ( l == 0 ) then
             dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         else
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
          end if
       else
          if ( kbots == 1 ) then
@@ -1211,14 +1238,14 @@ contains
          end if
 
          if ( l_full_sphere ) then
-            if ( l == 1 ) then
-               sMat%diag(l,n_r_max)=one
-               sMat%up(l,n_r_max)  =0.0_cp
-               sMat%low(l,n_r_max) =0.0_cp
-            else
+            if ( l == 0 ) then
                !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
                sMat%low(l,n_r_max)=sMat%up(l,n_r_max)+sMat%low(l,n_r_max)
                fd_fac_bot(l)=two*(r(n_r_max-1)-r(n_r_max))*sMat%up(l,n_r_max)
+            else
+               sMat%diag(l,n_r_max)=one
+               sMat%up(l,n_r_max)  =0.0_cp
+               sMat%low(l,n_r_max) =0.0_cp
             end if
          else
             if ( kbots == 1 ) then

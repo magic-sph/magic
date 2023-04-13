@@ -17,7 +17,7 @@ module spectra
    use num_param, only: eScale, tScale
    use blocking, only: lo_map, llm, ulm, llmMag, ulmMag
    use logic, only: l_mag, l_anel, l_cond_ic, l_heat, l_save_out, l_chemical_conv, &
-       &            l_energy_modes, l_2D_spectra
+       &            l_energy_modes, l_2D_spectra, l_full_sphere
    use output_data, only: tag, m_max_modes
    use useful, only: cc2real, cc22real, logWrite, round_off
    use integration, only: rInt_R, rIntIC
@@ -33,16 +33,16 @@ module spectra
    type(mean_sd_type) :: e_mag_cmb_l_ave, e_mag_cmb_m_ave
 
    type(mean_sd_type) :: u2_p_l_ave, u2_p_m_ave
-   type(mean_sd_type) :: u2_t_l_ave, u2_t_m_ave
+   type(mean_sd_type) :: u2_t_l_ave, u2_t_m_ave, u2_zon_l_ave, u2_mer_l_ave
 
-   type(mean_sd_type) :: e_kin_p_l_ave, e_kin_p_m_ave
-   type(mean_sd_type) :: e_kin_t_l_ave, e_kin_t_m_ave
+   type(mean_sd_type) :: e_kin_p_l_ave, e_kin_p_m_ave, e_mer_l_ave
+   type(mean_sd_type) :: e_kin_t_l_ave, e_kin_t_m_ave, e_zon_l_ave
 
-   type(mean_sd_2D_type) :: e_mag_p_r_l_ave, e_mag_p_r_m_ave
-   type(mean_sd_2D_type) :: e_mag_t_r_l_ave, e_mag_t_r_m_ave
+   type(mean_sd_2D_type) :: e_mag_p_r_l_ave, e_mag_pa_r_l_ave, e_mag_p_r_m_ave
+   type(mean_sd_2D_type) :: e_mag_t_r_l_ave, e_mag_ta_r_l_ave, e_mag_t_r_m_ave
 
-   type(mean_sd_2D_type) :: e_kin_p_r_l_ave, e_kin_p_r_m_ave
-   type(mean_sd_2D_type) :: e_kin_t_r_l_ave, e_kin_t_r_m_ave
+   type(mean_sd_2D_type) :: e_kin_p_r_l_ave, e_mer_r_l_ave, e_kin_p_r_m_ave
+   type(mean_sd_2D_type) :: e_kin_t_r_l_ave, e_zon_r_l_ave, e_kin_t_r_m_ave
 
    type(mean_sd_type) :: T_l_ave, T_ICB_l_ave, dT_ICB_l_ave
    type(mean_sd_type) :: T_m_ave, T_ICB_m_ave, dT_ICB_m_ave
@@ -77,12 +77,16 @@ contains
          call u2_p_l_ave%initialize(0,l_max)
          call u2_p_m_ave%initialize(0,l_max)
          call u2_t_l_ave%initialize(0,l_max)
+         call u2_mer_l_ave%initialize(0,l_max)
+         call u2_zon_l_ave%initialize(0,l_max)
          call u2_t_m_ave%initialize(0,l_max)
       end if
 
       call e_kin_p_l_ave%initialize(0,l_max)
       call e_kin_p_m_ave%initialize(0,l_max)
       call e_kin_t_l_ave%initialize(0,l_max)
+      call e_mer_l_ave%initialize(0,l_max)
+      call e_zon_l_ave%initialize(0,l_max)
       call e_kin_t_m_ave%initialize(0,l_max)
 
       if ( l_2D_spectra ) then
@@ -92,12 +96,16 @@ contains
             call e_mag_p_r_m_ave%initialize(1,n_r_max,0,l_max,.false.)
             call e_mag_t_r_l_ave%initialize(1,n_r_max,0,l_max,.false.)
             call e_mag_t_r_m_ave%initialize(1,n_r_max,0,l_max,.false.)
+            call e_mag_pa_r_l_ave%initialize(1,n_r_max,0,l_max,.false.)
+            call e_mag_ta_r_l_ave%initialize(1,n_r_max,0,l_max,.false.)
          end if
 
          call e_kin_p_r_l_ave%initialize(1,n_r_max,0,l_max,.false.)
          call e_kin_p_r_m_ave%initialize(1,n_r_max,0,l_max,.false.)
          call e_kin_t_r_l_ave%initialize(1,n_r_max,0,l_max,.false.)
          call e_kin_t_r_m_ave%initialize(1,n_r_max,0,l_max,.false.)
+         call e_mer_r_l_ave%initialize(1,n_r_max,0,l_max,.false.)
+         call e_zon_r_l_ave%initialize(1,n_r_max,0,l_max,.false.)
 
       end if
 
@@ -158,12 +166,16 @@ contains
          call u2_p_l_ave%finalize()
          call u2_p_m_ave%finalize()
          call u2_t_l_ave%finalize()
+         call u2_mer_l_ave%finalize()
+         call u2_zon_l_ave%finalize()
          call u2_t_m_ave%finalize()
       end if
 
       call e_kin_p_l_ave%finalize()
       call e_kin_p_m_ave%finalize()
       call e_kin_t_l_ave%finalize()
+      call e_mer_l_ave%finalize()
+      call e_zon_l_ave%finalize()
       call e_kin_t_m_ave%finalize()
 
       if ( l_2D_spectra ) then
@@ -172,11 +184,15 @@ contains
             call e_mag_p_r_m_ave%finalize()
             call e_mag_t_r_l_ave%finalize()
             call e_mag_t_r_m_ave%finalize()
+            call e_mag_pa_r_l_ave%finalize()
+            call e_mag_ta_r_l_ave%finalize()
          end if
          call e_kin_p_r_l_ave%finalize()
          call e_kin_p_r_m_ave%finalize()
          call e_kin_t_r_l_ave%finalize()
          call e_kin_t_r_m_ave%finalize()
+         call e_mer_r_l_ave%finalize()
+         call e_zon_r_l_ave%finalize()
       end if
 
       if ( l_chemical_conv ) then
@@ -237,14 +253,14 @@ contains
       logical,     intent(in) :: l_avg, l_stop_time
 
       !-- Local arrays
-      real(cp) :: e_mag_p_l(0:l_max),e_mag_t_l(0:l_max)
-      real(cp) :: e_kin_p_l(0:l_max),e_kin_t_l(0:l_max)
+      real(cp) :: e_mag_p_l(0:l_max),e_mag_t_l(0:l_max),e_mag_ta_l(0:l_max)
+      real(cp) :: e_kin_p_l(0:l_max),e_kin_t_l(0:l_max),e_zon_l(0:l_max)
       real(cp) :: e_mag_p_ic_l(0:l_max),e_mag_t_ic_l(0:l_max)
-      real(cp) :: u2_p_l(0:l_max),u2_t_l(0:l_max)
-      real(cp) :: e_mag_p_m(0:l_max),e_mag_t_m(0:l_max)
-      real(cp) :: e_kin_p_m(0:l_max),e_kin_t_m(0:l_max)
+      real(cp) :: u2_p_l(0:l_max),u2_t_l(0:l_max), u2_zon_l(0:l_max)
+      real(cp) :: e_mag_p_m(0:l_max),e_mag_t_m(0:l_max),e_mer_l(0:l_max)
+      real(cp) :: e_kin_p_m(0:l_max),e_kin_t_m(0:l_max),u2_mer_l(0:l_max)
       real(cp) :: e_mag_p_ic_m(0:l_max),e_mag_t_ic_m(0:l_max)
-      real(cp) :: u2_p_m(0:l_max),u2_t_m(0:l_max)
+      real(cp) :: u2_p_m(0:l_max),u2_t_m(0:l_max),e_mag_pa_l(0:l_max)
       real(cp) :: e_mag_cmb_l(0:l_max), e_mag_cmb_m(0:l_max)
       real(cp) :: e_kin_nearSurf_l(0:l_max), e_kin_nearSurf_m(0:l_max)
       real(cp) :: eCMB(0:l_max),eCMB_global(0:l_max)
@@ -265,8 +281,11 @@ contains
 
       !-- Local 2D spectra
       real(cp) :: e_mag_p_r_l(n_r_max,0:l_max), e_mag_t_r_l(n_r_max,0:l_max)
+      real(cp) :: e_mag_pa_r_l(n_r_max,0:l_max), e_mag_ta_r_l(n_r_max,0:l_max)
       real(cp) :: e_kin_p_r_l(n_r_max,0:l_max), e_kin_t_r_l(n_r_max,0:l_max)
+      real(cp) :: e_mer_r_l(n_r_max,0:l_max), e_zon_r_l(n_r_max,0:l_max)
       real(cp) :: u2_p_r_l(n_r_max,0:l_max), u2_t_r_l(n_r_max,0:l_max)
+      real(cp) :: u2_mer_r_l(n_r_max,0:l_max), u2_zon_r_l(n_r_max,0:l_max)
       real(cp) :: e_mag_p_r_m(n_r_max,0:l_max), e_mag_t_r_m(n_r_max,0:l_max)
       real(cp) :: e_kin_p_r_m(n_r_max,0:l_max), e_kin_t_r_m(n_r_max,0:l_max)
       real(cp) :: u2_p_r_m(n_r_max,0:l_max), u2_t_r_m(n_r_max,0:l_max)
@@ -274,11 +293,13 @@ contains
       fac_mag=half*LFfac*eScale
       fac_kin=half*eScale
       !-- Compute spectra
-      call spectrum_vec(w,dw,z,e_kin_p_r_l,e_kin_t_r_l,e_kin_p_r_m,e_kin_t_r_m, &
-           &            e_kin_p_l,e_kin_t_l,e_kin_p_m,e_kin_t_m,fac_kin,orho1)
+      call spectrum_vec(w,dw,z,e_kin_p_r_l,e_kin_t_r_l,e_kin_p_r_m,e_kin_t_r_m,  &
+           &            e_mer_r_l,e_zon_r_l,e_kin_p_l,e_kin_t_l,e_mer_l,e_zon_l, &
+           &            e_kin_p_m,e_kin_t_m,fac_kin,orho1)
 
-      if ( l_anel ) call spectrum_vec(w,dw,z,u2_p_r_l,u2_t_r_l,u2_p_r_m,u2_t_r_m, &
-                         &            u2_p_l,u2_t_l,u2_p_m,u2_t_m,fac_kin,orho2)
+      if ( l_anel ) call spectrum_vec(w,dw,z,u2_p_r_l,u2_t_r_l,u2_p_r_m,u2_t_r_m,  &
+                         &            u2_mer_r_l,u2_zon_r_l,u2_p_l,u2_t_l,u2_mer_l,&
+                         &            u2_zon_l,u2_p_m,u2_t_m,fac_kin,orho2)
 
       if ( l_heat ) call spectrum_scal(s, ds, T_l, T_m, T_ICB_l, T_ICB_m, &
                          &             dT_ICB_l, dT_ICB_m)
@@ -306,8 +327,9 @@ contains
       end if
 
       if ( l_mag ) then
-         call spectrum_vec(b,db,aj,e_mag_p_r_l,e_mag_t_r_l,e_mag_p_r_m,e_mag_t_r_m,&
-              &            e_mag_p_l,e_mag_t_l,e_mag_p_m,e_mag_t_m,fac_mag)
+         call spectrum_vec(b,db,aj,e_mag_p_r_l,e_mag_t_r_l,e_mag_p_r_m,e_mag_t_r_m,  &
+              &            e_mag_pa_r_l,e_mag_ta_r_l,e_mag_p_l,e_mag_t_l,e_mag_pa_l, &
+              &            e_mag_ta_l,e_mag_p_m,e_mag_t_m,fac_mag)
          !-- inner core:
          if ( l_cond_ic ) then
             call spectrum_vec_IC(b_ic,db_ic,aj_ic,e_mag_p_ic_l,e_mag_t_ic_l, &
@@ -343,6 +365,8 @@ contains
 
          call e_kin_p_l_ave%compute(e_kin_p_l, n_time_ave, time_passed, time_norm)
          call e_kin_t_l_ave%compute(e_kin_t_l, n_time_ave, time_passed, time_norm)
+         call e_mer_l_ave%compute(e_mer_l, n_time_ave, time_passed, time_norm)
+         call e_zon_l_ave%compute(e_zon_l, n_time_ave, time_passed, time_norm)
          call e_kin_p_m_ave%compute(e_kin_p_m, n_time_ave, time_passed, time_norm)
          call e_kin_t_m_ave%compute(e_kin_t_m, n_time_ave, time_passed, time_norm)
 
@@ -352,11 +376,15 @@ contains
             call e_kin_t_r_l_ave%compute(e_kin_t_r_l, n_time_ave, time_passed, time_norm)
             call e_kin_p_r_m_ave%compute(e_kin_p_r_m, n_time_ave, time_passed, time_norm)
             call e_kin_t_r_m_ave%compute(e_kin_t_r_m, n_time_ave, time_passed, time_norm)
+            call e_mer_r_l_ave%compute(e_mer_r_l, n_time_ave, time_passed, time_norm)
+            call e_zon_r_l_ave%compute(e_zon_r_l, n_time_ave, time_passed, time_norm)
          end if
 
          if ( l_anel ) then
             call u2_p_l_ave%compute(u2_p_l, n_time_ave, time_passed, time_norm)
             call u2_t_l_ave%compute(u2_t_l, n_time_ave, time_passed, time_norm)
+            call u2_mer_l_ave%compute(u2_mer_l, n_time_ave, time_passed, time_norm)
+            call u2_zon_l_ave%compute(u2_zon_l, n_time_ave, time_passed, time_norm)
             call u2_p_m_ave%compute(u2_p_m, n_time_ave, time_passed, time_norm)
             call u2_t_m_ave%compute(u2_t_m, n_time_ave, time_passed, time_norm)
          end if
@@ -393,6 +421,8 @@ contains
                call e_mag_t_r_l_ave%compute(e_mag_t_r_l, n_time_ave, time_passed, time_norm)
                call e_mag_p_r_m_ave%compute(e_mag_p_r_m, n_time_ave, time_passed, time_norm)
                call e_mag_t_r_m_ave%compute(e_mag_t_r_m, n_time_ave, time_passed, time_norm)
+               call e_mag_pa_r_l_ave%compute(e_mag_pa_r_l, n_time_ave, time_passed, time_norm)
+               call e_mag_ta_r_l_ave%compute(e_mag_ta_r_l, n_time_ave, time_passed, time_norm)
             end if
          end if
       end if
@@ -410,20 +440,22 @@ contains
             &     time*tScale
          end if
          do ml=0,l_max
-            write(file_handle,'(1p,i4,6ES16.8)')                                &
+            write(file_handle,'(1p,i4,8ES16.8)')                                &
             &     ml,round_off(e_kin_p_l(ml),maxval(e_kin_p_l),cut),            &
             &     round_off(e_kin_p_m(ml),maxval(e_kin_p_m),cut),               &
             &     round_off(e_kin_t_l(ml),maxval(e_kin_t_l),cut),               &
             &     round_off(e_kin_t_m(ml),maxval(e_kin_t_m),cut),               & 
             &     round_off(e_kin_nearSurf_l(ml),maxval(e_kin_nearSurf_l),cut), &
-            &     round_off(e_kin_nearSurf_m(ml),maxval(e_kin_nearSurf_m),cut)
+            &     round_off(e_kin_nearSurf_m(ml),maxval(e_kin_nearSurf_m),cut), &
+            &     round_off(e_mer_l(ml),maxval(e_mer_l),cut),                   &
+            &     round_off(e_zon_l(ml),maxval(e_zon_l),cut)
          end do
          close(file_handle)
 
          if ( l_2D_spectra ) then
             file_name='2D_kin_spec_'//trim(adjustl(string))//'.'//tag
-            call write_2D_spectra(file_name,e_kin_p_r_l,e_kin_t_r_l, e_kin_p_r_m,   &
-                 &                e_kin_t_r_m,fac_kin,time)
+            call write_2D_spectra(file_name,e_kin_p_r_l,e_kin_t_r_l,e_kin_p_r_m,   &
+                 &                e_kin_t_r_m,e_mer_r_l,e_zon_r_l,fac_kin,time)
          end if
 
          if ( l_anel ) then
@@ -436,11 +468,13 @@ contains
                &          ES20.12)') time*tScale
             end if
             do ml=0,l_max
-               write(file_handle,'(1p,i4,4ES16.8)')               &
+               write(file_handle,'(1p,i4,6ES16.8)')               &
                &     ml,round_off(u2_p_l(ml),maxval(u2_p_l),cut), &
                &     round_off(u2_p_m(ml),maxval(u2_p_m),cut),    &
                &     round_off(u2_t_l(ml),maxval(u2_t_l),cut),    &
-               &     round_off(u2_t_m(ml),maxval(u2_t_m),cut)
+               &     round_off(u2_t_m(ml),maxval(u2_t_m),cut),    &
+               &     round_off(u2_mer_l(ml),maxval(u2_mer_l),cut),&
+               &     round_off(u2_zon_l(ml),maxval(u2_zon_l),cut)
             end do
             close(file_handle)
          end if
@@ -514,8 +548,9 @@ contains
 
             if ( l_2D_spectra ) then
                file_name='2D_mag_spec_'//trim(adjustl(string))//'.'//tag
-               call write_2D_spectra(file_name,e_mag_p_r_l,e_mag_t_r_l, e_mag_p_r_m, &
-                    &                e_mag_t_r_m, fac_mag, time)
+               call write_2D_spectra(file_name,e_mag_p_r_l,e_mag_t_r_l,e_mag_p_r_m, &
+                    &                e_mag_t_r_m,e_mag_pa_r_l,e_mag_ta_r_l,fac_mag, &
+                    &                time)
             end if
          end if
 
@@ -529,47 +564,60 @@ contains
          !-- Terminates computation of time-averaged quantities
          call e_kin_p_l_ave%finalize_SD(time_norm)
          call e_kin_t_l_ave%finalize_SD(time_norm)
+         call e_mer_l_ave%finalize_SD(time_norm)
+         call e_zon_l_ave%finalize_SD(time_norm)
          call e_kin_p_m_ave%finalize_SD(time_norm)
          call e_kin_t_m_ave%finalize_SD(time_norm)
          file_name='kin_spec_ave.'//tag
          open(newunit=file_handle, file=file_name, status='unknown')
          do l=0,l_max
-            write(file_handle,'(2X,1P,I4,8ES16.8)') l,                             &
+            write(file_handle,'(2X,1P,I4,12ES16.8)') l,                            &
             &     round_off(e_kin_p_l_ave%mean(l),maxval(e_kin_p_l_ave%mean),cut), &
             &     round_off(e_kin_p_m_ave%mean(l),maxval(e_kin_p_m_ave%mean),cut), &
             &     round_off(e_kin_t_l_ave%mean(l),maxval(e_kin_t_l_ave%mean),cut), &
             &     round_off(e_kin_t_m_ave%mean(l),maxval(e_kin_t_m_ave%mean),cut), &
+            &     round_off(e_mer_l_ave%mean(l),maxval(e_mer_l_ave%mean),cut),     &
+            &     round_off(e_zon_l_ave%mean(l),maxval(e_zon_l_ave%mean),cut),     &
             &     round_off(e_kin_p_l_ave%SD(l),maxval(e_kin_p_l_ave%SD),cut),     &
             &     round_off(e_kin_p_m_ave%SD(l),maxval(e_kin_p_m_ave%SD),cut),     &
             &     round_off(e_kin_t_l_ave%SD(l),maxval(e_kin_t_l_ave%SD),cut),     &
-            &     round_off(e_kin_t_m_ave%SD(l),maxval(e_kin_t_m_ave%SD),cut)
+            &     round_off(e_kin_t_m_ave%SD(l),maxval(e_kin_t_m_ave%SD),cut),     &
+            &     round_off(e_mer_l_ave%SD(l),maxval(e_mer_l_ave%SD),cut),         &
+            &     round_off(e_zon_l_ave%SD(l),maxval(e_zon_l_ave%SD),cut)
          end do
          close(file_handle)
 
          if ( l_2D_spectra ) then
             file_name='2D_kin_spec_ave.'//tag
             call write_2D_spectra(file_name,e_kin_p_r_l_ave%mean,e_kin_t_r_l_ave%mean, &
-                 &                e_kin_p_r_m_ave%mean,e_kin_t_r_m_ave%mean,fac_kin)
+                 &                e_kin_p_r_m_ave%mean,e_kin_t_r_m_ave%mean,           &
+                 &                e_mer_r_l_ave%mean,e_zon_r_l_ave%mean,fac_kin)
          end if
 
          if ( l_anel ) then
             !-- Output: at end of run
             call u2_p_l_ave%finalize_SD(time_norm)
             call u2_t_l_ave%finalize_SD(time_norm)
+            call u2_mer_l_ave%finalize_SD(time_norm)
+            call u2_zon_l_ave%finalize_SD(time_norm)
             call u2_p_m_ave%finalize_SD(time_norm)
             call u2_t_m_ave%finalize_SD(time_norm)
             file_name='u2_spec_ave.'//tag
             open(newunit=file_handle, file=file_name, status='unknown')
             do l=0,l_max
-               write(file_handle,'(2X,1P,I4,8ES16.8)') l,                       &
-               &     round_off(u2_p_l_ave%mean(l),maxval(u2_p_l_ave%mean),cut), &
-               &     round_off(u2_p_m_ave%mean(l),maxval(u2_p_m_ave%mean),cut), &
-               &     round_off(u2_t_l_ave%mean(l),maxval(u2_t_l_ave%mean),cut), &
-               &     round_off(u2_t_m_ave%mean(l),maxval(u2_t_m_ave%mean),cut), &
-               &     round_off(u2_p_l_ave%SD(l),maxval(u2_p_l_ave%SD),cut),     &
-               &     round_off(u2_p_m_ave%SD(l),maxval(u2_p_m_ave%SD),cut),     &
-               &     round_off(u2_t_l_ave%SD(l),maxval(u2_t_l_ave%SD),cut),     &
-               &     round_off(u2_t_m_ave%SD(l),maxval(u2_t_m_ave%SD),cut)
+               write(file_handle,'(2X,1P,I4,12ES16.8)') l,                          &
+               &     round_off(u2_p_l_ave%mean(l),maxval(u2_p_l_ave%mean),cut),     &
+               &     round_off(u2_p_m_ave%mean(l),maxval(u2_p_m_ave%mean),cut),     &
+               &     round_off(u2_t_l_ave%mean(l),maxval(u2_t_l_ave%mean),cut),     &
+               &     round_off(u2_t_m_ave%mean(l),maxval(u2_t_m_ave%mean),cut),     &
+               &     round_off(u2_mer_l_ave%mean(l),maxval(u2_mer_l_ave%mean),cut), &
+               &     round_off(u2_zon_l_ave%mean(l),maxval(u2_zon_l_ave%mean),cut), &
+               &     round_off(u2_p_l_ave%SD(l),maxval(u2_p_l_ave%SD),cut),         &
+               &     round_off(u2_p_m_ave%SD(l),maxval(u2_p_m_ave%SD),cut),         &
+               &     round_off(u2_t_l_ave%SD(l),maxval(u2_t_l_ave%SD),cut),         &
+               &     round_off(u2_t_m_ave%SD(l),maxval(u2_t_m_ave%SD),cut),         &
+               &     round_off(u2_mer_l_ave%SD(l),maxval(u2_mer_l_ave%SD),cut),     &
+               &     round_off(u2_zon_l_ave%SD(l),maxval(u2_zon_l_ave%SD),cut)
             end do
             close(file_handle)
          end if
@@ -660,7 +708,8 @@ contains
             if ( l_2D_spectra ) then
                file_name='2D_mag_spec_ave.'//tag
                call write_2D_spectra(file_name,e_mag_p_r_l_ave%mean,e_mag_t_r_l_ave%mean,&
-                    &                e_mag_p_r_m_ave%mean,e_mag_t_r_m_ave%mean, fac_mag)
+                    &                e_mag_p_r_m_ave%mean,e_mag_t_r_m_ave%mean,          &
+                    &                e_mag_pa_r_l_ave%mean,e_mag_ta_r_l_ave%mean,fac_mag)
             end if
          end if
 
@@ -668,7 +717,12 @@ contains
 
    end subroutine spectrum
 !----------------------------------------------------------------------------
-   subroutine write_2D_spectra(file_name,e_p_r_l,e_t_r_l,e_p_r_m,e_t_r_m,fac,time)
+   subroutine write_2D_spectra(file_name,e_p_r_l,e_t_r_l,e_p_r_m,e_t_r_m, &
+              &                e_pa_r_l,e_ta_r_l,fac,time)
+      !
+      ! This routine handles the writing of 2D spectra of energy in both
+      ! (r,ell) and (r,m) spaces
+      !
 
       !-- Input variables
       character(len=*), intent(in) :: file_name ! name of the output file
@@ -676,13 +730,17 @@ contains
       real(cp), intent(in) :: e_t_r_l(n_r_max,0:l_max) ! Toroidal spectrum (r,l) space
       real(cp), intent(in) :: e_p_r_m(n_r_max,0:l_max) ! Poloidal spectrum (r,m) space
       real(cp), intent(in) :: e_t_r_m(n_r_max,0:l_max) ! Toroidal spectrum (r,m) space
+      real(cp), intent(in) :: e_pa_r_l(n_r_max,0:l_max) ! Pol. axi. spectrum (r,l) space
+      real(cp), intent(in) :: e_ta_r_l(n_r_max,0:l_max) ! Tor. axi. spectrum (r,l) space
       real(cp), intent(in) :: fac ! normalisation factor
       real(cp), optional, intent(in) :: time ! Time for a snapshot
 
       !-- Local variables
+      integer, parameter :: version=1
       integer :: file_handle
 
       open(newunit=file_handle, file=file_name, status='unknown', form='unformatted')
+      write(file_handle) version
       if ( present(time) ) then
          write(file_handle) time*tScale,n_r_max,l_max,minc
       else
@@ -693,6 +751,8 @@ contains
       write(file_handle) fac*e_p_r_m
       write(file_handle) fac*e_t_r_l(1:n_r_max,1:l_max)
       write(file_handle) fac*e_t_r_m
+      write(file_handle) fac*e_pa_r_l(1:n_r_max,1:l_max)
+      write(file_handle) fac*e_ta_r_l(1:n_r_max,1:l_max)
       close(file_handle)
 
    end subroutine write_2D_spectra
@@ -772,7 +832,11 @@ contains
          !-- Radial Integrals:
          surf_ICB=four*pi*r_icb*r_icb
          fac      =one/vol_oc
-         facICB   =one/surf_ICB
+         if ( l_full_sphere ) then
+            facICB=0.0_cp
+         else
+            facICB=one/surf_ICB
+         end if
          do l=0,l_max
             T_l(l)=fac*rInt_R(T_r_l_global(:,l),r,rscheme_oc)
             T_ICB_l(l)=facICB*T_ICB_l_global(l)
@@ -787,8 +851,9 @@ contains
 
    end subroutine spectrum_scal
 !----------------------------------------------------------------------------
-   subroutine spectrum_vec(w,dw,z,e_p_r_l,e_t_r_l,e_p_r_m,e_t_r_m, &
-              &            e_p_l,e_t_l,e_p_m,e_t_m,fac_scal,fac)
+   subroutine spectrum_vec(w,dw,z,e_p_r_l,e_t_r_l,e_p_r_m,e_t_r_m,e_mer_r_l, &
+              &            e_zon_r_l,e_p_l,e_t_l,e_mer_l,e_zon_l,e_p_m,e_t_m,&
+              &            fac_scal,fac)
       !
       ! This routine handles the computation of spectra of a solenoidal vector
       ! field.
@@ -804,14 +869,19 @@ contains
       real(cp), intent(out) :: e_t_r_l(n_r_max,0:l_max) ! Toroidal spectrum (r,l) space
       real(cp), intent(out) :: e_p_r_m(n_r_max,0:l_max) ! Poloidal spectrum (r,m) space
       real(cp), intent(out) :: e_t_r_m(n_r_max,0:l_max) ! Toroidal spectrum (r,m) space
+      real(cp), intent(out) :: e_mer_r_l(n_r_max,0:l_max) ! Pol. axi. spectrum (r,l) space
+      real(cp), intent(out) :: e_zon_r_l(n_r_max,0:l_max) ! Tor. axi. spectrum (r,l) space
       real(cp), intent(out) :: e_p_l(0:l_max) ! Poloidal spectrum as a function of l
       real(cp), intent(out) :: e_t_l(0:l_max) ! Toroidal spectrum as a function of l
       real(cp), intent(out) :: e_p_m(0:l_max) ! Poloidal spectrum as a function of m
       real(cp), intent(out) :: e_t_m(0:l_max) ! Toroidal spectrum as a function of m
+      real(cp), intent(out) :: e_mer_l(0:l_max) ! Pol. axi. spectrum as a function of l
+      real(cp), intent(out) :: e_zon_l(0:l_max) ! Tor. axi. spectrum as a function of l
 
       !-- Local variables
       integer :: n_r, lm, l, m
       real(cp) :: e_p_tmp, e_t_tmp, facR(n_r_max)
+      real(cp) :: e_zon_r_l_loc(n_r_max,0:l_max), e_mer_r_l_loc(n_r_max,0:l_max)
       real(cp) :: e_p_r_l_loc(n_r_max,0:l_max), e_t_r_l_loc(n_r_max,0:l_max)
       real(cp) :: e_p_r_m_loc(n_r_max,0:l_max), e_t_r_m_loc(n_r_max,0:l_max)
 
@@ -825,6 +895,8 @@ contains
       e_p_r_l_loc(:,:)=0.0_cp; e_t_r_l_loc(:,:)=0.0_cp
       e_p_r_m_loc(:,:)=0.0_cp; e_t_r_m_loc(:,:)=0.0_cp
       e_p_l(:)=0.0_cp; e_t_l(:)=0.0_cp; e_p_m(:)=0.0_cp; e_t_m(:)=0.0_cp
+      e_zon_r_l_loc(:,:)=0.0_cp; e_zon_l(:)=0.0_cp
+      e_mer_r_l_loc(:,:)=0.0_cp; e_mer_l(:)=0.0_cp
 
       do n_r=1,n_r_max
          do lm=llm,ulm
@@ -839,6 +911,10 @@ contains
             !----- l-spectra:
             e_p_r_l_loc(n_r,l) = e_p_r_l_loc(n_r,l) + e_p_tmp
             e_t_r_l_loc(n_r,l) = e_t_r_l_loc(n_r,l) + e_t_tmp
+            if ( m == 0 ) then
+               e_mer_r_l_loc(n_r,l)=e_p_tmp
+               e_zon_r_l_loc(n_r,l)=e_t_tmp
+            end if
             !if ( m == 0 .and. n_r == n_r_cmb ) eCMB(l)=e_mag_p_temp
 
             !----- m-spectra:
@@ -850,6 +926,8 @@ contains
       ! ----------- We need a reduction here ----------------
       call reduce_radial(e_p_r_l_loc, e_p_r_l, 0)
       call reduce_radial(e_t_r_l_loc, e_t_r_l, 0)
+      call reduce_radial(e_mer_r_l_loc, e_mer_r_l, 0)
+      call reduce_radial(e_zon_r_l_loc, e_zon_r_l, 0)
       call reduce_radial(e_p_r_m_loc, e_p_r_m, 0)
       call reduce_radial(e_t_r_m_loc, e_t_r_m, 0)
       !call reduce_radial(eCMB, eCMB_global, 0)
@@ -857,8 +935,10 @@ contains
       if ( rank == 0 ) then
          !-- Radial integration only computed by rank==0
          do l=1,l_max
-            e_p_l(l)=fac_scal*rInt_R(e_p_r_l(:,l),r,rscheme_oc)
-            e_t_l(l)=fac_scal*rInt_R(e_t_r_l(:,l),r,rscheme_oc)
+            e_p_l(l)  =fac_scal*rInt_R(e_p_r_l(:,l),r,rscheme_oc)
+            e_t_l(l)  =fac_scal*rInt_R(e_t_r_l(:,l),r,rscheme_oc)
+            e_mer_l(l)=fac_scal*rInt_R(e_mer_r_l(:,l),r,rscheme_oc)
+            e_zon_l(l)=fac_scal*rInt_R(e_zon_r_l(:,l),r,rscheme_oc)
          end do
          do m=0,l_max
             e_p_m(m)=fac_scal*rInt_R(e_p_r_m(:,m),r,rscheme_oc)

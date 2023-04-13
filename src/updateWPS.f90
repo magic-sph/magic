@@ -14,13 +14,13 @@ module updateWPS_mod
    use radial_functions, only: or1, or2, rho0, rgrav, r, visc, dLvisc,    &
        &                       rscheme_oc, beta, dbeta, dLkappa, dLtemp0, &
        &                       ddLtemp0, alpha0, dLalpha0, ddLalpha0,     &
-       &                       ogrun, kappa, orho1, dentropy0, temp0
+       &                       ogrun, kappa, orho1, dentropy0, temp0, l_R
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
        &                          ViscHeatFac, ThExpNb, BuoFac,        &
        &                          CorFac, ktopp
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: tops, bots
-   use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm
+   use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V, hdif_S
    use logic, only: l_update_v, l_temperature_diff, l_RMS, l_full_sphere
    use RMS, only: DifPol2hInt, DifPolLMr
@@ -343,7 +343,7 @@ contains
       complex(cp), intent(inout) :: ds_exp_last(llm:ulm,n_r_max)
 
       !-- Local variables
-      integer :: n_r, start_lm, stop_lm
+      integer :: n_r, start_lm, stop_lm, lm, l
 
       !$omp parallel default(shared) private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
@@ -352,10 +352,14 @@ contains
            &       stop_lm-llm+1, n_r_max, rscheme_oc, nocopy=.true. )
       !$omp barrier
 
-      !$omp do
+      !$omp do private(lm,l)
       do n_r=1,n_r_max
-         ds_exp_last(:,n_r)=orho1(n_r)*(ds_exp_last(:,n_r)-   &
-         &                      or2(n_r)*work_LMloc(:,n_r))
+         do lm=llm,ulm
+            l=lo_map%lm2l(lm)
+            if ( l > l_R(n_r) ) cycle
+            ds_exp_last(lm,n_r)=orho1(n_r)*(ds_exp_last(lm,n_r)-   &
+            &                      or2(n_r)*work_LMloc(lm,n_r))
+         end do
       end do
       !$omp end do
 
@@ -372,18 +376,20 @@ contains
 
       !-- Local variables
       complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
-      integer :: n_r, lm, start_lm, stop_lm
+      integer :: n_r, lm, l, start_lm, stop_lm
 
       call get_dr_Rloc(dVSrLM, work_Rloc, lm_max, nRstart, nRstop, n_r_max, &
            &           rscheme_oc)
 
-      !$omp parallel default(shared) private(n_r, lm, start_lm, stop_lm)
+      !$omp parallel default(shared) private(n_r, lm, start_lm, stop_lm, l)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm, stop_lm)
       !$omp barrier
 
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
+            l=st_map%lm2l(lm)
+            if ( l > l_R(n_r) ) cycle
             ds_exp_last(lm,n_r)=orho1(n_r)*(ds_exp_last(lm,n_r) - &
             &                        or2(n_r)*work_Rloc(lm,n_r))
          end do
@@ -471,11 +477,11 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
-               if ( l1 == 1 ) then
-                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
+               if ( l1 == 0 ) then
+                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
                        &                   bots(l1,m1), s(lm,:))
                else
-                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
+                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
                        &                   bots(l1,m1), s(lm,:))
                end if
             end do
@@ -485,11 +491,11 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
-               if ( l1 == 1 ) then
-                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
+               if ( l1 == 0 ) then
+                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), one, 0.0_cp, &
                        &                   bots(l1,m1), s(lm,:))
                else
-                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), one, 0.0_cp, &
+                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
                        &                   bots(l1,m1), s(lm,:))
                end if
             end do

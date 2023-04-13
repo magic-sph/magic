@@ -29,7 +29,7 @@ module output_mod
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
        &             db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc,     &
        &             b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc,     &
-       &             dj_ic_LMloc, ddj_ic_LMloc, xi_LMloc,                    &
+       &             dj_ic_LMloc, ddj_ic_LMloc, xi_LMloc, dp_LMloc,          &
        &             dxi_LMloc,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
        &             aj_Rloc, bICB, phi_Rloc, phi_LMloc
    use fieldsLast, only: dwdt, dzdt, dpdt, dsdt, dbdt, djdt, dbdt_ic, dphidt,&
@@ -411,8 +411,9 @@ contains
               &      dlVRc,dlPolPeakR,'V')
 
          !-- Out radial profiles of parameters
-         call outPar(timePassedLog,timeNormLog,l_stop_time,ekinR,RolRu2,   &
-              &      dlVR,dlVRc,dlPolPeakR,RmR)
+         call outPar(s_LMloc, ds_LMloc, xi_LMloc, p_LMloc, dp_LMloc, timePassedLog, &
+              &      timeNormLog, l_stop_time, ekinR, RolRu2, dlVR, dlVRc,          &
+              &      dlPolPeakR, RmR)
 
          !-- Perpendicular/parallel
          if ( l_perpPar ) call outPerpPar(time,timePassedLog,timeNormLog,l_stop_time)
