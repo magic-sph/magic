@@ -1,6 +1,6 @@
 !-- TODO: All GPU kernels are sequentiels ("!$omp target") for "FD" branch in get_dr_complex, get_ddr, get_dddr routines.
 !-- This makes finite_differences, testRMSOutputs, & varProps work again. Next: Debug kernel by kernel
-!#define USE_FFT
+#define USE_FFT
 module radial_der
    !
    ! Radial derivatives functions
@@ -565,8 +565,15 @@ contains
             end if
        
 #ifdef USE_FFT
-            call r_scheme%chebt_oc%get_dr_fft(work,df,r_scheme%x_cheb,n_f_max, &
-                 &                            n_f_start,n_f_stop,r_scheme%n_max,l_dct_in_loc)
+            if (loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+               call r_scheme%gpu_chebt_oc%get_dr_fft(work,df,r_scheme%x_cheb,n_f_max, &
+                    &                                n_f_start,n_f_stop,r_scheme%n_max,l_dct_in_loc)
+#endif
+            else
+               call r_scheme%chebt_oc%get_dr_fft(work,df,r_scheme%x_cheb,n_f_max, &
+                    &                            n_f_start,n_f_stop,r_scheme%n_max,l_dct_in_loc)
+            end if
 #else
             !-- Transform f to cheb space:
             if ( l_dct_in_loc ) then
@@ -584,8 +591,15 @@ contains
          else
 
 #ifdef USE_FFT
-            call r_scheme%chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max, &
-                 &                            n_f_start,n_f_stop,r_scheme%n_max,l_dct_in_loc)
+            if (loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+               call r_scheme%gpu_chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max, &
+                    &                                n_f_start,n_f_stop,r_scheme%n_max,l_dct_in_loc)
+#endif
+            else
+               call r_scheme%chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max, &
+                    &                            n_f_start,n_f_stop,r_scheme%n_max,l_dct_in_loc)
+            end if
 #else
             !-- Transform f to cheb space:
             if ( l_dct_in_loc ) then

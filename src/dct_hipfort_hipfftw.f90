@@ -250,8 +250,7 @@ contains
 
       !-- Perform DFT many
       !$omp target data use_device_addr(tmp_in, tmp_out)
-      call hipfftCheck(hipfftExecZ2Z(this%plan_many, c_loc(tmp_in), c_loc(tmp_out),
-                                     HIPFFT_FORWARD))
+      call hipfftCheck(hipfftExecZ2Z(this%plan_many, c_loc(tmp_in), c_loc(tmp_out), HIPFFT_FORWARD))
       !$omp end target data
 
       !-- Copy output onto array_in
@@ -307,13 +306,11 @@ contains
       if ( l_dct_in ) then
          !-- Perform DFT many
          !$omp target data use_device_addr(tmp_in, tmp_out)
-         call hipfftCheck(hipfftExecZ2Z(this%plan_many, c_loc(tmp_in), c_loc(tmp_out),
-                                        HIPFFT_FORWARD))
+         call hipfftCheck(hipfftExecZ2Z(this%plan_many, c_loc(tmp_in), c_loc(tmp_out), HIPFFT_FORWARD))
          !$omp end target data
 
-         !-- Boundary points
-         ! I'm not sure how to properly do those sums on GPU $omp reduction(+:tot)?
-         !!$omp target teams distribute parallel do private(k)
+         !-- Boundary point
+         !$omp target teams distribute parallel do private(k,tot)
          do n_f=n_f_start,n_f_stop
             tot=zero
             do k=1,n_cheb_max
@@ -326,12 +323,11 @@ contains
             end do
             tmp_out(n_f,tmp_n_r_max)=tot/(tmp_n_r_max-1)
          end do
-         !!$omp end target teams distribute parallel do
-
+         !$omp end target teams distribute parallel do
       else
 
          !-- Boundary points
-         !!$omp target teams distribute parallel do private(tot,k)
+         !$omp target teams distribute parallel do private(k,tot)
          do n_f=n_f_start,n_f_stop
             tot=zero
             do k=1,n_cheb_max
@@ -344,7 +340,7 @@ contains
             end do
             tmp_out(n_f,tmp_n_r_max)=tot/(tmp_n_r_max-1)/tmp_fac_cheb
          end do
-         !!$omp end target teams distribute parallel do
+         !$omp end target teams distribute parallel do
 
       end if
 
@@ -380,8 +376,7 @@ contains
 
       !-- Perform DFT many
       !$omp target data use_device_addr(tmp_in, tmp_out)
-      call hipfftCheck(hipfftExecZ2Z(this%plan_many, c_loc(tmp_out), c_loc(tmp_in),
-                                     HIPFFT_BACKWARD))
+      call hipfftCheck(hipfftExecZ2Z(this%plan_many, c_loc(tmp_out), c_loc(tmp_in), HIPFFT_BACKWARD))
       !$omp end target data
 
       !$omp target teams distribute parallel do collapse(2)
