@@ -445,7 +445,7 @@ class Movie:
                 elif (new_shape[0] == old_shape[0]) and (new_shape[1] != old_shape[1]):
                     ir = interp1d(self.radius[::-1], self.data[..., ::-1], axis=-1)
                     tmp = ir(new.radius[::-1])
-                    self.data = self.data[..., ::-1]
+                    self.data = tmp[..., ::-1]
             elif self.surftype == 'phi_constant' and \
                  self.movtype not in [10, 11, 12, 19, 92, 94, 95, 110, 111]:
                 if (new_shape[0] != old_shape[0]) and (new_shape[1] != old_shape[1]):
@@ -470,7 +470,7 @@ class Movie:
                 elif (new_shape[0] == old_shape[0]) and (new_shape[1] != old_shape[1]):
                     ir = interp1d(self.radius[::-1], self.data[..., ::-1], axis=-1)
                     tmp = ir(new.radius[::-1])
-                    self.data = self.data[..., ::-1]
+                    self.data = tmp[..., ::-1]
 
         # Stack the data
         if abs(new.time[0]-self.time[-1]) <= 1e-10:
