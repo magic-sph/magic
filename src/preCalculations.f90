@@ -186,19 +186,7 @@ contains
 
       call radial()
 
-      if ( ( l_newmap ) .and. (rank == 0) ) then
-         fileName='rNM.'//tag
-         open(newunit=fileHandle, file=fileName, status='unknown')
-         do n_r=1,n_r_max
-            write(fileHandle,'(I4,4ES16.8)') n_r, r(n_r)-r_icb,   &
-            &                                rscheme_oc%drx(n_r), &
-            &                                rscheme_oc%ddrx(n_r),&
-            &                                rscheme_oc%dddrx(n_r)
-         end do
-         close(fileHandle)
-      end if
-
-      call transportProperties
+      call transportProperties()
 
       if ( ( l_anel .or. l_non_adia ) .and. ( rank == 0 ) ) then
          ! Write the equilibrium setup in anel.tag
