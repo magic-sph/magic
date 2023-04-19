@@ -15,6 +15,10 @@ module finite_differences
    private
 
    type, public, extends(type_rscheme) :: type_fd
+      !real(cp), allocatable :: ddr_top(:,:)
+      !real(cp), allocatable :: ddr_bot(:,:)
+      real(cp), allocatable :: dddr_top(:,:)
+      real(cp), allocatable :: dddr_bot(:,:)
       real(cp), allocatable :: ddddr_top(:,:)
       real(cp), allocatable :: ddddr_bot(:,:)
    contains

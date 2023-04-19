@@ -19,8 +19,11 @@ module chebyshev
       real(cp) :: alpha2 !Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
       logical :: l_map
       type(costf_odd_t) :: chebt_oc
-      real(cp), allocatable :: r_cheb(:)
+      real(cp), allocatable :: x_cheb(:)
       complex(cp), pointer :: work_costf(:,:)
+      !real(cp), allocatable :: drx(:)   ! First derivative of non-linear mapping (see Bayliss and Turkel, 1990)
+      real(cp), allocatable :: ddrx(:)  ! Second derivative of non-linear mapping
+      real(cp), allocatable :: dddrx(:) ! Third derivative of non-linear mapping
    contains
       procedure :: initialize
       procedure :: finalize
@@ -48,11 +51,12 @@ contains
       integer, intent(in) :: order ! This is going to be n_cheb_max
       integer, intent(in) :: order_boundary ! this is used to determine whether mappings are used
 
-      !-- Local variables:
-      integer :: ni,nd
+      !-- Local variable
+      integer :: nd
 
       this%rnorm = sqrt(two/real(n_r_max-1,kind=cp))
       this%n_max = order  ! n_cheb_max
+      print*, 'this is n_cheb_max in chebyshev.f90:', this%n_max
       this%boundary_fac = half
       this%version = 'cheb'
       this%nRmax = n_r_max
@@ -68,7 +72,7 @@ contains
       allocate( this%drMat(n_r_max,n_r_max) )
       allocate( this%d2rMat(n_r_max,n_r_max) )
       allocate( this%d3rMat(n_r_max,n_r_max) )
-      allocate( this%r_cheb(n_r_max) )
+      allocate( this%x_cheb(n_r_max) )
       bytes_allocated=bytes_allocated+(4*n_r_max*n_r_max+n_r_max)*SIZEOF_DEF_REAL
 
       allocate( this%work_costf(1:ulm-llm+1,n_r_max) )
@@ -79,10 +83,8 @@ contains
       this%dr_top(:,:)=0.0_cp
       this%dr_bot(:,:)=0.0_cp
 
-      ni = 2*n_r_max+2
       nd = 2*n_r_max+5
-
-      call this%chebt_oc%initialize(n_r_max, ni, nd)
+      call this%chebt_oc%initialize(n_r_max, this%n_max, nd)
 
       allocate ( this%drx(n_r_max), this%ddrx(n_r_max), this%dddrx(n_r_max) )
       bytes_allocated=bytes_allocated+3*n_r_max*SIZEOF_DEF_REAL
@@ -122,7 +124,7 @@ contains
          this%alpha2=0.0_cp
       end if
 
-      call cheb_grid(ricb,rcmb,n_r_max-1,r,this%r_cheb,this%alpha1,this%alpha2, &
+      call cheb_grid(ricb,rcmb,n_r_max-1,r,this%x_cheb,this%alpha1,this%alpha2, &
            &         paraX0,lambd,this%l_map)
 
       if ( this%l_map ) then
@@ -147,11 +149,11 @@ contains
          else if ( index(map_function, 'ARCSIN') /= 0 .or. &
          &         index(map_function, 'KTL') /= 0 ) then
             this%drx(:)  =two*asin(this%alpha1)/this%alpha1*sqrt(one-           &
-            &             this%alpha1**2*this%r_cheb(:)**2)/(rcmb-ricb)
-            this%ddrx(:) =-four*asin(this%alpha1)**2*this%r_cheb(:)/            &
+            &             this%alpha1**2*this%x_cheb(:)**2)/(rcmb-ricb)
+            this%ddrx(:) =-four*asin(this%alpha1)**2*this%x_cheb(:)/            &
             &              (rcmb-ricb)**2
             this%dddrx(:)=-8.0_cp*asin(this%alpha1)**3*sqrt(one-this%alpha1**2* &
-            &             this%r_cheb(:)**2)/this%alpha1/(rcmb-ricb)**3
+            &             this%x_cheb(:)**2)/this%alpha1/(rcmb-ricb)**3
          end if
 
       else !-- Regular affine mapping between ricb and rcmb
@@ -169,7 +171,7 @@ contains
       class(type_cheb_odd) :: this
 
       deallocate( this%rMat, this%drMat, this%d2rMat, this%d3rMat )
-      deallocate( this%r_cheb, this%drx, this%ddrx, this%dddrx )
+      deallocate( this%x_cheb, this%drx, this%ddrx, this%dddrx )
       deallocate( this%work_costf, this%dr_top, this%dr_bot )
 
       call this%chebt_oc%finalize()
@@ -268,7 +270,7 @@ contains
 
          !----- set first two chebs:
          this%rMat(1,k)  =one
-         this%rMat(2,k)  =this%r_cheb(k)
+         this%rMat(2,k)  =this%x_cheb(k)
          this%drMat(1,k) =0.0_cp
          this%drMat(2,k) =this%drx(k)
          this%d2rMat(1,k)=0.0_cp
@@ -279,18 +281,18 @@ contains
          !----- now construct the rest with a recursion:
          do n=3,n_r_max ! do loop over the (n-1) order of the chebs
 
-            this%rMat(n,k) =two*this%r_cheb(k)*this%rMat(n-1,k)-this%rMat(n-2,k)
+            this%rMat(n,k) =two*this%x_cheb(k)*this%rMat(n-1,k)-this%rMat(n-2,k)
             this%drMat(n,k)=    two*this%drx(k)*this%rMat(n-1,k) + &
-            &               two*this%r_cheb(k)*this%drMat(n-1,k) - &
+            &               two*this%x_cheb(k)*this%drMat(n-1,k) - &
             &                                  this%drMat(n-2,k)
             this%d2rMat(n,k)=  two*this%ddrx(k)*this%rMat(n-1,k) + &
             &                 four*this%drx(k)*this%drMat(n-1,k) + &
-            &              two*this%r_cheb(k)*this%d2rMat(n-1,k) - &
+            &              two*this%x_cheb(k)*this%d2rMat(n-1,k) - &
             &                                 this%d2rMat(n-2,k)
             this%d3rMat(n,k)=  two*this%dddrx(k)*this%rMat(n-1,k) + &
             &               6.0_cp*this%ddrx(k)*this%drMat(n-1,k) + &
             &               6.0_cp*this%drx(k)*this%d2rMat(n-1,k) + &
-            &               two*this%r_cheb(k)*this%d3rMat(n-1,k) - &
+            &               two*this%x_cheb(k)*this%d3rMat(n-1,k) - &
             &                                  this%d3rMat(n-2,k)
 
          end do
