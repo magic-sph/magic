@@ -8,6 +8,8 @@ module init_fields
    use parallel_mod
    use mpi_ptop_mod, only: type_mpiptop
    use mpi_transp_mod, only: type_mpitransp
+   use chebyshev, only: type_cheb_odd
+   use finite_differences, only: type_fd
    use truncation, only: n_r_max, n_r_maxMag, n_r_ic_max, m_min, l_max, &
        &                 n_phi_max, n_theta_max, n_r_tot, m_max,        &
        &                 minc, n_cheb_ic_max, lm_max, nlat_padded
@@ -1639,6 +1641,7 @@ contains
       do n_r_out=1,rscheme_oc%n_max
          aj0(n_r_out)=rhs(n_r_out)
       end do
+
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          aj0(n_r_out)=zero
       end do
@@ -1957,18 +1960,20 @@ contains
 
          work(:)=ViscHeatFac*alpha0(:)*(ThExpNb*alpha0(:)*temp0(:)+&
          &       ogrun(:))*r(:)*r(:)
-         call rscheme_oc%costf1(work)
-         work         =work*rscheme_oc%rnorm
-         work(1)      =rscheme_oc%boundary_fac*work(1)
-         work(n_r_max)=rscheme_oc%boundary_fac*work(n_r_max)
 
          work2(:)=-alpha0(:)*rho0(:)*r(:)*r(:)
          call rscheme_oc%costf1(work2)
-         work2         =work2*rscheme_oc%rnorm
-         work2(1)      =rscheme_oc%boundary_fac*work2(1)
-         work2(n_r_max)=rscheme_oc%boundary_fac*work2(n_r_max)
 
-         if ( rscheme_oc%version == 'cheb' ) then
+         select type(rscheme_oc)
+
+         type is(type_cheb_odd)
+            call rscheme_oc%costf1(work)
+            work(:)      =work(:)*rscheme_oc%rnorm
+            work(1)      =rscheme_oc%boundary_fac*work(1)
+            work(n_r_max)=rscheme_oc%boundary_fac*work(n_r_max)
+            work2(:)     =work2(:)*rscheme_oc%rnorm
+            work2(1)      =rscheme_oc%boundary_fac*work2(1)
+            work2(n_r_max)=rscheme_oc%boundary_fac*work2(n_r_max)
 
             do n_cheb=1,rscheme_oc%n_max
                nCheb_p=n_cheb+n_r_max
@@ -1988,7 +1993,7 @@ contains
                end do
             end do
 
-         else
+         type is(type_fd)
 
             !-- In the finite differences case, we restrict the integral boundary
             !-- condition to a trapezoidal rule of integration
@@ -2004,7 +2009,7 @@ contains
             pt0Mat(n_r_max+1,n_r_max)  =half*work2(n_r_max)*( r(n_r_max)-r(n_r_max-1) )
             pt0Mat(n_r_max+1,2*n_r_max)=half* work(n_r_max)*( r(n_r_max)-r(n_r_max-1) )
 
-         end if
+         end select
 
       else
 
