@@ -588,17 +588,17 @@ contains
       integer :: jj
       integer, pointer :: rcounts_ptr(:), scounts_ptr(:), rdisp_ptr(:), sdisp_ptr(:)
       complex(cp), pointer :: rbuff_ptr(:), sbuff_ptr(:)
+#endif
+
+#if (KNL_BIG==1)
+      complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
+      integer :: p, ii, n_r, lm, l, m, n_f
       rcounts_ptr => this%rcounts
       scounts_ptr => this%scounts
       rdisp_ptr   => this%rdisp
       sdisp_ptr   => this%sdisp
       rbuff_ptr   => this%rbuff
       sbuff_ptr   => this%sbuff
-#endif
-
-#if (KNL_BIG==1)
-      complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
-      integer :: p, ii, n_r, lm, l, m, n_f
 
 #ifdef WITH_OMP_GPU
       !$omp target data map(alloc: temp_Rloc)
@@ -649,6 +649,12 @@ contains
 #endif
 #elif (KNL_BIG==0)
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
+      rcounts_ptr => this%rcounts
+      scounts_ptr => this%scounts
+      rdisp_ptr   => this%rdisp
+      sdisp_ptr   => this%sdisp
+      rbuff_ptr   => this%rbuff
+      sbuff_ptr   => this%sbuff
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(ii,n_f,n_r,lm,l,m,lm_st)
