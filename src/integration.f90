@@ -6,6 +6,8 @@ module integration
    use precision_mod
    use constants, only: half, one, two, pi
    use radial_scheme, only: type_rscheme
+   use chebyshev, only: type_cheb_odd
+   use finite_differences, only: type_fd
    use cosine_transform_odd
 
    implicit none
@@ -66,9 +68,10 @@ contains
       real(cp), allocatable :: f2(:)
       integer :: nCheb, nRmax
 
-
       !--- Integrals:
-      if ( r_scheme%version == 'cheb' ) then
+      select type(r_scheme)
+
+      type is(type_cheb_odd)
 
          nRmax=size(f)
          allocate( f2(nRmax) )
@@ -91,11 +94,11 @@ contains
 
          deallocate( f2 )
 
-      else
+      type is(type_fd)
 
          rInt=simps(f,r)
 
-      end if
+      end select
 
    end function rInt_R
 !------------------------------------------------------------------------------
