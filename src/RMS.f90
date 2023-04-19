@@ -391,7 +391,10 @@ contains
       nS=nS-1
       n_r_max2=n_r_max-2*nS
 
-      if ( .not. l_finite_diff ) then
+      select type (rscheme_RMS)
+
+      type is(type_cheb_odd)
+
          ! Allowed number of radial grid points:
          nRs = [25, 33, 37, 41, 49, 61, 65, 73, 81, 97, 101, 109, 121,  &
          &      129, 145, 161, 181, 193, 201, 217, 241, 257, 289, 301,  &
@@ -447,7 +450,7 @@ contains
             end do
          end if
 
-      else ! finite differences
+      type is(type_fd) ! finite differences
 
          allocate( r2(n_r_max2) )
          bytes_allocated = bytes_allocated+n_r_max2*SIZEOF_DEF_REAL
@@ -465,7 +468,7 @@ contains
          call rscheme_RMS%get_grid(n_r_max, r_icb, r_cmb, ratio1, ratio2, r2C)
          call rscheme_oc%get_der_mat(n_r_max)
 
-      end if
+      end select
 
    end subroutine init_rNB
 !----------------------------------------------------------------------------
@@ -997,24 +1000,14 @@ contains
 
       !-- Diffusion
       DifRms=0.0_cp
-      if ( rscheme_RMS%version == 'cheb' ) then
-         call get_dr(DifPolLMr(llm:ulm,:),workA(llm:ulm,:),ulm-llm+1,1, &
-              &      ulm-llm+1,n_r_max,rscheme_oc,nocopy=.true.)
-      else
-         if ( l_parallel_solve ) then
-            call get_dr_Rloc(DifPolLMr,work_Rloc,lm_max,nRstart,nRstop,n_r_max,&
-                 &           rscheme_oc)
-         else
-            call get_dr(DifPolLMr(llm:ulm,:),workA(llm:ulm,:),ulm-llm+1,1, &
-                 &      ulm-llm+1,n_r_max,rscheme_oc)
-         end if
-      end if
-
       if ( l_parallel_solve ) then
+         call get_dr_Rloc(DifPolLMr,work_Rloc,lm_max,nRstart,nRstop,n_r_max,rscheme_oc)
          do nR=nRstart,nRstop
             call hInt2dPol(work_Rloc(:,nR),1,lm_max,DifPol2hInt(:,nR),st_map)
          end do
       else
+         call get_dr(DifPolLMr(llm:ulm,:),workA(llm:ulm,:),ulm-llm+1,1, &
+              &      ulm-llm+1,n_r_max,rscheme_oc,nocopy=.true.)
          do nR=1,n_r_max
             call hInt2dPol(workA(llm:ulm,nR),llm,ulm,DifPol2hInt(:,nR),lo_map)
          end do
