@@ -353,6 +353,7 @@ contains
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
 #ifdef WITH_OMP_GPU
       integer :: jj
+#endif
       integer, pointer :: rcounts_ptr(:), scounts_ptr(:), rdisp_ptr(:), sdisp_ptr(:)
       complex(cp), pointer :: rbuff_ptr(:), sbuff_ptr(:)
       rcounts_ptr => this%rcounts
@@ -361,7 +362,6 @@ contains
       sdisp_ptr   => this%sdisp
       rbuff_ptr   => this%rbuff
       sbuff_ptr   => this%sbuff
-#endif
 
 #ifdef WITH_OMP_GPU
       !$omp target teams private(ii,n_f,n_r,lm, jj)
@@ -430,7 +430,7 @@ contains
                   l = lo_map%lm2l(lm)
                   m = lo_map%lm2m(lm)
                   lm_st = st_map%lm2(l,m)
-                  arr_Rloc(lm_st,n_r,n_f)=this%sbuff(ii)
+                  arr_Rloc(lm_st,n_r,n_f)=sbuff_ptr(ii)
                   ii=ii+1
                end do
             end do
@@ -456,13 +456,11 @@ contains
 
       !-- Local variables
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
-#ifdef WITH_OMP_GPU
       integer :: rcounts_loc, scounts_loc
       complex(cp), pointer :: buff_ptr(:)
       rcounts_loc = this%rcounts
       scounts_loc = this%scounts
       buff_ptr    => this%buff
-#endif
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(ii,n_f,n_r,lm)
@@ -549,13 +547,11 @@ contains
       complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,1:this%n_fields)
       complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
 
-#ifdef WITH_OMP_GPU
       integer, pointer :: counts_ptr(:), disp_ptr(:), rtype_ptr(:), stype_ptr(:)
       counts_ptr => this%counts
       disp_ptr   => this%disp
       rtype_ptr  => this%rtype
       stype_ptr  => this%stype
-#endif
 
 #ifdef WITH_MPI
 #ifdef WITH_OMP_GPU
@@ -586,9 +582,9 @@ contains
       !-- Local variables
 #ifdef WITH_OMP_GPU
       integer :: jj
+#endif
       integer, pointer :: rcounts_ptr(:), scounts_ptr(:), rdisp_ptr(:), sdisp_ptr(:)
       complex(cp), pointer :: rbuff_ptr(:), sbuff_ptr(:)
-#endif
 
 #if (KNL_BIG==1)
       complex(cp) :: temp_Rloc(lm_max,nRstart:nRstop,this%n_fields)
@@ -599,7 +595,6 @@ contains
       sdisp_ptr   => this%sdisp
       rbuff_ptr   => this%rbuff
       sbuff_ptr   => this%sbuff
-
 #ifdef WITH_OMP_GPU
       !$omp target data map(alloc: temp_Rloc)
       !$omp target teams private(p,ii,n_f,n_r,lm,l,m)
@@ -655,7 +650,6 @@ contains
       sdisp_ptr   => this%sdisp
       rbuff_ptr   => this%rbuff
       sbuff_ptr   => this%sbuff
-
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(ii,n_f,n_r,lm,l,m,lm_st)
 #else
@@ -750,13 +744,11 @@ contains
 
       !-- Local variables
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
-#ifdef WITH_OMP_GPU
       integer :: rcounts_loc, scounts_loc
       complex(cp), pointer :: buff_ptr(:)
       rcounts_loc = this%rcounts
       scounts_loc = this%scounts
       buff_ptr    => this%buff
-#endif
 
       !ii = 1
 #ifdef WITH_OMP_GPU
@@ -843,13 +835,11 @@ contains
       complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
       complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,1:this%n_fields)
 
-#ifdef WITH_OMP_GPU
       integer, pointer :: counts_ptr(:), disp_ptr(:), rtype_ptr(:), stype_ptr(:)
       counts_ptr => this%counts
       disp_ptr   => this%disp
       rtype_ptr  => this%rtype
       stype_ptr  => this%stype
-#endif
 
 #ifdef WITH_MPI
 #ifdef WITH_OMP_GPU
