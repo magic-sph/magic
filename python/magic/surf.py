@@ -1174,11 +1174,6 @@ class Surf:
             phiavg /= (denom + mask)
             #phiavg /= den
 
-        if field in ['entropy', 's', 'S', 'u2', 'b2', 'nrj', 'temperature',
-                     't', 'T', 'ekin', 'Ekin', 'Emag', 'emag', 'Em', 'Ek',
-                     'ek', 'em']:
-            normed = False
-
         if normed is None:
             normed = diverging_cmap(field)
         if cm is None:
@@ -1237,7 +1232,7 @@ class Surf:
                 ax.plot(radi*np.sin(th), radi*np.cos(th), 'k--')
 
     def slice(self, field='Bphi', lon_0=0., levels=defaultLevels, cm=None,
-              normed=False, vmin=None, vmax=None, cbar=True, tit=True,
+              normed=None, vmin=None, vmax=None, cbar=True, tit=True,
               grid=False, nGridLevs=16, normRad=False, ic=False):
         """
         Plot an azimuthal slice of a given field.
@@ -1470,10 +1465,6 @@ class Surf:
         else:
             data, data_ic, label = selectField(self.gr, field, labTex, ic)
 
-        data = symmetrize(data, self.gr.minc)
-        if ic and data_ic is not None:
-            data_ic = symmetrize(data_ic, self.gr.minc)
-
         th = np.linspace(np.pi/2, -np.pi/2, self.gr.ntheta)
         rr, tth = np.meshgrid(self.gr.radius, th)
         xx = rr * np.cos(tth)
@@ -1494,6 +1485,11 @@ class Surf:
         cmap = plt.get_cmap(cm)
 
         if len(lon_0) > 1:
+            if self.gr.minc > 1:
+                data = symmetrize(data, self.gr.minc)
+                if ic and data_ic is not None:
+                    data_ic = symmetrize(data_ic, self.gr.minc)
+
             fig = plt.figure(figsize=(2.5*len(lon_0), 5.1))
             fig.subplots_adjust(top=0.99, bottom=0.01, right=0.99, left=0.01,
                               wspace=0.01)
