@@ -445,12 +445,12 @@ contains
       integer :: n_r, od
     
     
-      if ( r_scheme%version == 'cheb' ) then
+      select type (r_scheme)
+
+      type is(type_cheb_odd)
 
          !-- Copy input functions:
-         do n_r=1,n_r_max
-            work_1d_real(n_r)=f(n_r)
-         end do
+         work_1d_real(:)=f(:)
     
          !-- Transform f to cheb space:
          call r_scheme%costf1(work_1d_real)
@@ -462,11 +462,9 @@ contains
          call r_scheme%costf1(df)
     
          !-- New map:
-         do n_r=1,n_r_max
-            df(n_r)=r_scheme%drx(n_r)*df(n_r)
-         end do
+         df(:)=r_scheme%drx(:)*df(:)
 
-      else
+      type is(type_fd)
 
          df(:) = 0.0_cp
 
@@ -487,7 +485,7 @@ contains
             end do
          end do
 
-      end if
+      end select
 
    end subroutine get_dr_real_1d
 !------------------------------------------------------------------------------
@@ -542,6 +540,19 @@ contains
          end if
     
          if ( copy_array )  then
+#ifdef USE_FFT
+            if (loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+               call r_scheme%gpu_chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max,     &
+                    &                                n_f_start,n_f_stop,r_scheme%n_max,&
+                    &                                l_dct_in_loc)
+#endif
+            else
+               call r_scheme%chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max,     &
+                    &                            n_f_start,n_f_stop,r_scheme%n_max,&
+                    &                            l_dct_in_loc)
+            end if
+#else
             if (loc_use_gpu) then
 #ifdef WITH_OMP_GPU
                !$omp target teams distribute parallel do collapse(2)
@@ -559,18 +570,7 @@ contains
                   end do
                end do
             end if
-       
-#ifdef USE_FFT
-            if (loc_use_gpu) then
-#ifdef WITH_OMP_GPU
-               call r_scheme%gpu_chebt_oc%get_dr_fft(work,df,r_scheme%x_cheb,n_f_max, &
-                    &                                n_f_start,n_f_stop,r_scheme%n_max,l_dct_in_loc)
-#endif
-            else
-               call r_scheme%chebt_oc%get_dr_fft(work,df,r_scheme%x_cheb,n_f_max, &
-                    &                            n_f_start,n_f_stop,r_scheme%n_max,l_dct_in_loc)
-            end if
-#else
+
             !-- Transform f to cheb space:
             if ( l_dct_in_loc ) then
                call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
@@ -589,8 +589,9 @@ contains
 #ifdef USE_FFT
             if (loc_use_gpu) then
 #ifdef WITH_OMP_GPU
-               call r_scheme%gpu_chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max, &
-                    &                                n_f_start,n_f_stop,r_scheme%n_max,l_dct_in_loc)
+               call r_scheme%gpu_chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max,     &
+                    &                                n_f_start,n_f_stop,r_scheme%n_max,&
+                    &                                l_dct_in_loc)
 #endif
             else
                call r_scheme%chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max, &
@@ -752,7 +753,9 @@ contains
       loc_use_gpu = .true.
 #endif
 
-      if ( r_scheme%version == 'cheb' ) then
+      select type (r_scheme)
+
+      type is(type_cheb_odd)
 
          if ( present(l_dct_in) ) then
             l_dct_in_loc=l_dct_in
@@ -760,6 +763,11 @@ contains
             l_dct_in_loc=.true.
          end if
     
+#ifdef USE_FFT
+         call r_scheme%chebt_oc%get_ddr_fft(f,df,ddf,r_scheme%x_cheb,n_f_max, &
+              &                             n_f_start,n_f_stop,r_scheme%n_max,&
+              &                             l_dct_in_loc)
+#else
          !-- Copy input functions:
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
@@ -785,6 +793,7 @@ contains
          !-- Transform back:
          call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
          call r_scheme%costf1(ddf,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
+#endif
     
          !-- New map:
 #ifdef WITH_OMP_GPU
@@ -801,7 +810,7 @@ contains
          !$omp end target teams distribute parallel do
 #endif
 
-      else
+      type is(type_fd)
 
          !-- Initialise to zero:
 #ifdef WITH_OMP_GPU
@@ -867,7 +876,7 @@ contains
          !$omp end target
 #endif
 
-      end if
+      end select
 
    end subroutine get_ddr
 !------------------------------------------------------------------------------
@@ -905,7 +914,9 @@ contains
       loc_use_gpu = .true.
 #endif
 
-      if ( r_scheme%version == 'cheb' ) then
+      select type (r_scheme)
+
+      type is(type_cheb_odd)
 
          if ( present(l_dct_in) ) then
             l_dct_in_loc=l_dct_in
@@ -913,6 +924,11 @@ contains
             l_dct_in_loc=.true.
          end if
 
+#ifdef USE_FFT
+         call r_scheme%chebt_oc%get_dddr_fft(f,df,ddf,dddf,r_scheme%x_cheb,n_f_max, &
+              &                              n_f_start,n_f_stop,r_scheme%n_max,     &
+              &                              l_dct_in_loc)
+#else
          !-- Copy input functions:
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
@@ -939,6 +955,7 @@ contains
          call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
          call r_scheme%costf1(ddf,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
          call r_scheme%costf1(dddf,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
+#endif
 
          !-- New map:
 #ifdef WITH_OMP_GPU
@@ -960,7 +977,7 @@ contains
          !$omp end target teams distribute parallel do
 #endif
 
-      else
+      type is(type_fd)
 
          !-- Initialise to zero:
 #ifdef WITH_OMP_GPU
@@ -1059,7 +1076,7 @@ contains
          !$omp end target
 #endif
 
-      end if
+      end select
 
    end subroutine get_dddr
 !------------------------------------------------------------------------------

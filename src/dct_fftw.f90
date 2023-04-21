@@ -19,7 +19,7 @@ module cosine_transform_odd
    use precision_mod
    use parallel_mod, only: nThreads, get_openmp_blocks
    use mem_alloc, only: bytes_allocated
-   use constants, only: half, pi, one, two, ci, zero
+   use constants, only: half, pi, one, two, ci, zero, third, three
 #ifdef WITHOMP
    use omp_lib
 #endif
@@ -56,6 +56,8 @@ module cosine_transform_odd
       procedure, private :: costf1_real_1d
       procedure, private :: costf1_complex_1d
       procedure :: get_dr_fft
+      procedure :: get_ddr_fft
+      procedure :: get_dddr_fft
       generic :: costf1 => costf1_real_1d, costf1_complex, costf1_complex_1d
    end type costf_odd_t
 
@@ -495,5 +497,191 @@ contains
 #endif
 
    end subroutine get_dr_fft
+!------------------------------------------------------------------------------
+   subroutine get_ddr_fft(this, f, df, ddf, xcheb, n_f_max, n_f_start, &
+              &           n_f_stop, n_cheb_max, l_dct_in)
+
+      class(costf_odd_t), intent(in) :: this
+
+      !-- Input variables
+      integer,     intent(in) :: n_f_start ! Starting index (OMP)
+      integer,     intent(in) :: n_f_stop  ! Stopping index (OMP)
+      integer,     intent(in) :: n_f_max   ! Number of vectors
+      integer,     intent(in) :: n_cheb_max  ! Max cheb
+      real(cp),    intent(in) :: xcheb(:) ! Gauss-Lobatto grid
+      complex(cp), intent(in) :: f(n_f_max,*) ! Array to be transformed
+      logical,     intent(in) :: l_dct_in ! Do we need a DCT for the input array?
+
+      !-- Output variables:
+      complex(cp), intent(out) :: df(n_f_max,*)  ! Radial derivative
+      complex(cp), intent(out) :: ddf(n_f_max,*)  ! 2nd radial derivative
+
+#if (DCT_VERSION==dft_loop)
+      !-- Local variables:
+      integer :: n_f, k
+      complex(cp) :: tot
+      complex(cp) :: work_1(2*this%n_r_max-2), tmp(2*this%n_r_max-2)
+      complex(cp) :: work_2(2*this%n_r_max-2)
+
+      do n_f=n_f_start,n_f_stop
+         if ( l_dct_in ) then
+            work_1(1:this%n_r_max) =f(n_f,1:this%n_r_max)
+            work_1(this%n_r_max+1:)=f(n_f,this%n_r_max-1:2:-1)
+            call fftw_execute_dft(this%plan_fft_1d_forw, work_1, tmp)
+         else
+            tmp(1:this%n_r_max) =f(n_f,1:this%n_r_max) / this%cheb_fac
+            tmp(this%n_r_max+1:)=f(n_f,this%n_r_max-1:2:-1) / this%cheb_fac
+         end if
+
+         tmp(this%n_r_max)=half*tmp(this%n_r_max)
+
+         !--  Boundary points = tau lines
+         tot=zero
+         do k=1,this%n_r_max-1
+            tot=tot+k**2 * tmp(k+1)
+         end do
+         df(n_f,1)=tot/(this%n_r_max-1)
+         tot=zero
+         do k=1,this%n_r_max-1
+            tot=tot+k**2*(k**2-1) * tmp(k+1)
+         end do
+         ddf(n_f,1)=third * tot/(this%n_r_max-1)
+         tot=zero
+         do k=1,this%n_r_max-1
+            tot=tot+(-1)**(k+1)*k**2*tmp(k+1)
+         end do
+         df(n_f,this%n_r_max)=tot/(this%n_r_max-1)
+         tot=zero
+         do k=1,this%n_r_max-1
+            tot=tot+(-1)**k*k**2*(k**2-1)*tmp(k+1)
+         end do
+         ddf(n_f,this%n_r_max)=third*tot/(this%n_r_max-1)
+
+         tmp(this%n_r_max)=two*tmp(this%n_r_max)
+
+         !-- Derivatives in Fourier space
+         work_2(:)     =ci*this%der(:)*tmp(:)
+         call fftw_execute_dft(this%plan_fft_1d_back, work_2, work_1)
+         tmp(:)=-this%der2(:)*tmp(:)
+         call fftw_execute_dft(this%plan_fft_1d_back, tmp, work_2)
+
+         !-- Bring back to Gauss-Lobatto grid for bulk points
+         df(n_f,2:this%n_r_max-1)=-work_1(2:this%n_r_max-1) /            &
+         &                         sqrt(one-xcheb(2:this%n_r_max-1)**2) /&
+         &                         (2*this%n_r_max-2)
+         ddf(n_f,2:this%n_r_max-1)=-work_1(2:this%n_r_max-1)*                  &
+         &                          xcheb(2:this%n_r_max-1) /                  &
+         &                         (one-xcheb(2:this%n_r_max-1)**2)**1.5_cp /  &
+         &                         (2*this%n_r_max-2)+work_2(2:this%n_r_max-1)/&
+         &                         (one-xcheb(2:this%n_r_max-1)**2)/           &
+         &                         (2*this%n_r_max-2)
+      end do
+#endif
+
+   end subroutine get_ddr_fft
+!------------------------------------------------------------------------------
+   subroutine get_dddr_fft(this, f, df, ddf, dddf, xcheb, n_f_max, n_f_start, &
+              &            n_f_stop, n_cheb_max, l_dct_in)
+
+      class(costf_odd_t), intent(in) :: this
+
+      !-- Input variables
+      integer,     intent(in) :: n_f_start ! Starting index (OMP)
+      integer,     intent(in) :: n_f_stop  ! Stopping index (OMP)
+      integer,     intent(in) :: n_f_max   ! Number of vectors
+      integer,     intent(in) :: n_cheb_max  ! Max cheb
+      real(cp),    intent(in) :: xcheb(:) ! Gauss-Lobatto grid
+      complex(cp), intent(in) :: f(n_f_max,*) ! Array to be transformed
+      logical,     intent(in) :: l_dct_in ! Do we need a DCT for the input array?
+
+      !-- Output variables:
+      complex(cp), intent(out) :: df(n_f_max,*)  ! Radial derivative
+      complex(cp), intent(out) :: ddf(n_f_max,*)  ! 2nd radial derivative
+      complex(cp), intent(out) :: dddf(n_f_max,*)  ! 3rd radial derivative
+
+#if (DCT_VERSION==dft_loop)
+      !-- Local variables:
+      integer :: n_f, k
+      complex(cp) :: tot
+      complex(cp) :: work_1(2*this%n_r_max-2), tmp(2*this%n_r_max-2)
+      complex(cp) :: work_2(2*this%n_r_max-2), work_3(2*this%n_r_max-2)
+
+      do n_f=n_f_start,n_f_stop
+         if ( l_dct_in ) then
+            work_1(1:this%n_r_max) =f(n_f,1:this%n_r_max)
+            work_1(this%n_r_max+1:)=f(n_f,this%n_r_max-1:2:-1)
+            call fftw_execute_dft(this%plan_fft_1d_forw, work_1, tmp)
+         else
+            tmp(1:this%n_r_max) =f(n_f,1:this%n_r_max) / this%cheb_fac
+            tmp(this%n_r_max+1:)=f(n_f,this%n_r_max-1:2:-1) / this%cheb_fac
+         end if
+
+         tmp(this%n_r_max)=half*tmp(this%n_r_max)
+
+         !--  Boundary points = tau lines
+         tot=zero
+         do k=1,this%n_r_max-1
+            tot=tot+k**2 * tmp(k+1)
+         end do
+         df(n_f,1)=tot/(this%n_r_max-1)
+         tot=zero
+         do k=1,this%n_r_max-1
+            tot=tot+k**2*(k**2-1) * tmp(k+1)
+         end do
+         ddf(n_f,1)=third * tot/(this%n_r_max-1)
+         tot=zero
+         do k=1,this%n_r_max-1
+            tot=tot+k**2*(k**2-1)*(k**2-4) * tmp(k+1)
+         end do
+         dddf(n_f,1)=1.0_cp/15.0_cp * tot/(this%n_r_max-1)
+         tot=zero
+         do k=1,this%n_r_max-1
+            tot=tot+(-1)**(k+1)*k**2*tmp(k+1)
+         end do
+         df(n_f,this%n_r_max)=tot/(this%n_r_max-1)
+         tot=zero
+         do k=1,this%n_r_max-1
+            tot=tot+(-1)**k*k**2*(k**2-1)*tmp(k+1)
+         end do
+         ddf(n_f,this%n_r_max)=third*tot/(this%n_r_max-1)
+         tot=zero
+         do k=2,this%n_r_max-1
+            tot=tot+(-1)**(k+1)*k**2*(k**2-1)*(k**2-4)*tmp(k+1)
+         end do
+         dddf(n_f,this%n_r_max)=1.0_cp/15.0_cp*tot/(this%n_r_max-1)
+
+         tmp(this%n_r_max)=two*tmp(this%n_r_max)
+
+         !-- Derivatives in Fourier space
+         work_3(:)=ci*this%der(:)*tmp(:)
+         call fftw_execute_dft(this%plan_fft_1d_back, work_3, work_1)
+         work_3(:)=-this%der2(:)*tmp(:)
+         call fftw_execute_dft(this%plan_fft_1d_back, work_3, work_2)
+         tmp(:)=-ci*this%der(:)**3*tmp(:)
+         call fftw_execute_dft(this%plan_fft_1d_back, tmp, work_3)
+
+         !-- Bring back to Gauss-Lobatto grid for bulk points
+         df(n_f,2:this%n_r_max-1)=-work_1(2:this%n_r_max-1) /            &
+         &                         sqrt(one-xcheb(2:this%n_r_max-1)**2) /&
+         &                         (2*this%n_r_max-2)
+         ddf(n_f,2:this%n_r_max-1)=-work_1(2:this%n_r_max-1)*                  &
+         &                          xcheb(2:this%n_r_max-1) /                  &
+         &                         (one-xcheb(2:this%n_r_max-1)**2)**1.5_cp /  &
+         &                         (2*this%n_r_max-2)+work_2(2:this%n_r_max-1)/&
+         &                         (one-xcheb(2:this%n_r_max-1)**2)/           &
+         &                         (2*this%n_r_max-2)
+         dddf(n_f,2:this%n_r_max-1)=-work_1(2:this%n_r_max-1)*                  &
+         &                          (one+two*xcheb(2:this%n_r_max-1)**2) /      &
+         &                          (one-xcheb(2:this%n_r_max-1)**2)**2.5_cp /  &
+         &                          (2*this%n_r_max-2)+work_2(2:this%n_r_max-1)*&
+         &                          three*xcheb(2:this%n_r_max-1)/              &
+         &                          (one-xcheb(2:this%n_r_max-1)**2)**2/        &
+         &                          (2*this%n_r_max-2)-work_3(2:this%n_r_max-1)/&
+         &                          (one-xcheb(2:this%n_r_max-1)**2)**1.5_cp/   &
+         &                          (2*this%n_r_max-2)
+      end do
+#endif
+
+   end subroutine get_dddr_fft
 !------------------------------------------------------------------------------
 end module cosine_transform_odd
