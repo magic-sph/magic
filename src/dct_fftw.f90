@@ -645,7 +645,7 @@ contains
          end do
          ddf(n_f,this%n_r_max)=third*tot/(this%n_r_max-1)
          tot=zero
-         do k=2,this%n_r_max-1
+         do k=1,this%n_r_max-1
             tot=tot+(-1)**(k+1)*k**2*(k**2-1)*(k**2-4)*tmp(k+1)
          end do
          dddf(n_f,this%n_r_max)=1.0_cp/15.0_cp*tot/(this%n_r_max-1)
