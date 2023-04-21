@@ -764,9 +764,17 @@ contains
          end if
     
 #ifdef USE_FFT
-         call r_scheme%chebt_oc%get_ddr_fft(f,df,ddf,r_scheme%x_cheb,n_f_max, &
-              &                             n_f_start,n_f_stop,r_scheme%n_max,&
-              &                             l_dct_in_loc)
+         if (loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+            call r_scheme%gpu_chebt_oc%get_ddr_fft(f,df,ddf,r_scheme%x_cheb,n_f_max, &
+                 &                                 n_f_start,n_f_stop,r_scheme%n_max,&
+                 &                                 l_dct_in_loc)
+#endif
+         else
+            call r_scheme%chebt_oc%get_ddr_fft(f,df,ddf,r_scheme%x_cheb,n_f_max, &
+                 &                             n_f_start,n_f_stop,r_scheme%n_max,&
+                 &                             l_dct_in_loc)
+         end if
 #else
          !-- Copy input functions:
 #ifdef WITH_OMP_GPU
@@ -925,9 +933,17 @@ contains
          end if
 
 #ifdef USE_FFT
-         call r_scheme%chebt_oc%get_dddr_fft(f,df,ddf,dddf,r_scheme%x_cheb,n_f_max, &
-              &                              n_f_start,n_f_stop,r_scheme%n_max,     &
-              &                              l_dct_in_loc)
+         if (loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+            call r_scheme%gpu_chebt_oc%get_dddr_fft(f,df,ddf,dddf,r_scheme%x_cheb,  &
+                 &                                  n_f_max,n_f_start,n_f_stop,     &
+                 &                                  r_scheme%n_max,l_dct_in_loc)
+#endif
+         else
+            call r_scheme%chebt_oc%get_dddr_fft(f,df,ddf,dddf,r_scheme%x_cheb,n_f_max, &
+                 &                              n_f_start,n_f_stop,r_scheme%n_max,     &
+                 &                              l_dct_in_loc)
+         end if
 #else
          !-- Copy input functions:
 #ifdef WITH_OMP_GPU
