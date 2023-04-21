@@ -35,7 +35,7 @@ module radial_der
       module procedure get_dcheb_complex
    end interface get_dcheb
 
-   public :: get_ddr, get_dddr, get_dcheb, get_dr, initialize_der_arrays,   &
+   public :: get_ddr, get_dddr, get_dr, initialize_der_arrays,              &
    &         finalize_der_arrays, get_dr_Rloc, get_ddr_Rloc, get_ddr_ghost, &
    &         bulk_to_ghost, exch_ghosts, get_ddddr_ghost
 
@@ -83,7 +83,7 @@ contains
    end subroutine finalize_der_arrays
 !------------------------------------------------------------------------------
    subroutine get_dcheb_complex(f,df,n_f_max,n_f_start,n_f_stop, &
-              &                 n_r_max,n_cheb_max,d_fac,use_gpu)
+              &                 n_r_max,n_cheb_max,use_gpu)
       !
       !  Returns Chebyshev coeffitients of first derivative df and second  
       !  derivative ddf for a function whose cheb-coeff. are given as     
@@ -97,7 +97,6 @@ contains
       integer,     intent(in) :: n_r_max    ! second dimension of f,df,ddf
       integer,     intent(in) :: n_cheb_max ! Number of cheb modes
       complex(cp), intent(in) :: f(n_f_max,n_r_max)
-      real(cp),    intent(in) :: d_fac      ! factor for interval mapping
       logical, optional, intent(in) :: use_gpu
 
       !-- Output variables:
@@ -120,9 +119,9 @@ contains
          !-- First Coefficient
          tmp_n_cheb = n_cheb_max-1
          if ( n_r_max == n_cheb_max ) then
-            fac_cheb=d_fac*real(tmp_n_cheb,kind=cp)
+            fac_cheb=real(tmp_n_cheb,kind=cp)
          else
-            fac_cheb=d_fac*real(2*tmp_n_cheb,kind=cp)
+            fac_cheb=real(2*tmp_n_cheb,kind=cp)
          end if
 
          !-- initialize derivatives:
@@ -141,7 +140,7 @@ contains
          !----- Recursion
          !$omp target teams private(n_f,n_cheb,fac_cheb)
          do n_cheb=n_cheb_max-2,1,-1
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
             !$omp distribute parallel do
             do n_f=n_f_start,n_f_stop
                df(n_f,n_cheb)=df(n_f,n_cheb+2) + fac_cheb*f(n_f,n_cheb+1)
@@ -161,9 +160,9 @@ contains
          !-- First Coefficient
          n_cheb  =n_cheb_max-1
          if ( n_r_max == n_cheb_max ) then
-            fac_cheb=d_fac*real(n_cheb,kind=cp)
+            fac_cheb=real(n_cheb,kind=cp)
          else
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
          end if
          do n_f=n_f_start,n_f_stop
             df(n_f,n_cheb)=fac_cheb*f(n_f,n_cheb+1)
@@ -171,7 +170,7 @@ contains
 
          !----- Recursion
          do n_cheb=n_cheb_max-2,1,-1
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
             do n_f=n_f_start,n_f_stop
                df(n_f,n_cheb)=df(n_f,n_cheb+2) + fac_cheb*f(n_f,n_cheb+1)
             end do
@@ -180,13 +179,12 @@ contains
       end if
    end subroutine get_dcheb_complex
 !------------------------------------------------------------------------------
-   subroutine get_dcheb_real_1d(f,df, n_r_max,n_cheb_max,d_fac)
+   subroutine get_dcheb_real_1d(f,df, n_r_max,n_cheb_max)
 
       !-- Input variables:
       integer,  intent(in) :: n_r_max    ! Dimension of f,df,ddf
       integer,  intent(in) :: n_cheb_max ! Number of cheb modes
       real(cp), intent(in) :: f(n_r_max)
-      real(cp), intent(in) :: d_fac      ! factor for interval mapping
 
       !-- Output variables:
       real(cp), intent(out) ::  df(n_r_max)
@@ -203,22 +201,22 @@ contains
 
       !-- First coefficient
       if ( n_r_max == n_cheb_max ) then
-         fac_cheb=d_fac*real(n_cheb,kind=cp)
+         fac_cheb=real(n_cheb,kind=cp)
       else
-         fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+         fac_cheb=real(2*n_cheb,kind=cp)
       end if
       df(n_cheb)=fac_cheb*f(n_cheb+1)
 
       !----- Recursion
       do n_cheb=n_cheb_max-2,1,-1
-         fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+         fac_cheb=real(2*n_cheb,kind=cp)
          df(n_cheb)=df(n_cheb+2)+fac_cheb*f(n_cheb+1)
       end do
 
    end subroutine get_dcheb_real_1d
 !------------------------------------------------------------------------------
    subroutine get_ddcheb(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
-              &          n_r_max,n_cheb_max,d_fac,use_gpu)
+              &          n_r_max,n_cheb_max,use_gpu)
       !
       !  Returns Chebyshev coefficients of first derivative df and second  
       !  derivative ddf for a function whose cheb-coeff. are given as     
@@ -232,7 +230,6 @@ contains
       integer,     intent(in) :: n_r_max    ! second dimension of f,df,ddf
       integer,     intent(in) :: n_cheb_max ! Number of cheb modes
       complex(cp), intent(in) :: f(n_f_max,n_r_max)
-      real(cp),    intent(in) :: d_fac      ! factor for interval mapping
       logical, optional, intent(in) :: use_gpu
     
       !-- Output variables:
@@ -256,9 +253,9 @@ contains
          !-- First coefficients:
          tmp_n_cheb = n_cheb_max - 1
          if ( n_cheb_max == n_r_max ) then
-            fac_cheb=d_fac*real(tmp_n_cheb,kind=cp)
+            fac_cheb=real(tmp_n_cheb,kind=cp)
          else
-            fac_cheb=d_fac*real(2*tmp_n_cheb,kind=cp)
+            fac_cheb=real(2*tmp_n_cheb,kind=cp)
          end if
 
          !----- initialize derivatives:
@@ -279,7 +276,7 @@ contains
          !----- recursion
          !$omp target teams private(n_f,n_cheb,fac_cheb)
          do n_cheb=n_cheb_max-2,1,-1
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
             !$omp distribute parallel do
             do n_f=n_f_start,n_f_stop
                df(n_f,n_cheb) = df(n_f,n_cheb+2) + fac_cheb* f(n_f,n_cheb+1)
@@ -301,9 +298,9 @@ contains
          !-- First coefficients:
          n_cheb=n_cheb_max-1
          if ( n_cheb_max == n_r_max ) then
-            fac_cheb=d_fac*real(n_cheb,kind=cp)
+            fac_cheb=real(n_cheb,kind=cp)
          else
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
          end if
 
          do n_f=n_f_start,n_f_stop
@@ -313,7 +310,7 @@ contains
 
          !----- recursion
          do n_cheb=n_cheb_max-2,1,-1
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
             do n_f=n_f_start,n_f_stop
                df(n_f,n_cheb) = df(n_f,n_cheb+2) + fac_cheb* f(n_f,n_cheb+1)
                ddf(n_f,n_cheb)=ddf(n_f,n_cheb+2) + fac_cheb*df(n_f,n_cheb+1)
@@ -324,7 +321,7 @@ contains
       end subroutine get_ddcheb
 !------------------------------------------------------------------------------
    subroutine get_dddcheb(f,df,ddf,dddf,n_f_max,n_f_start,n_f_stop, &
-              &           n_r_max,n_cheb_max,d_fac,use_gpu)
+              &           n_r_max,n_cheb_max,use_gpu)
       !
       !  Returns chebychev coeffitiens of first derivative df and second  
       !  derivative ddf for a function whose cheb-coeff. are given as     
@@ -338,7 +335,6 @@ contains
       integer,     intent(in) :: n_r_max    ! second dimension of f,df,ddf
       integer,     intent(in) :: n_cheb_max ! Number of cheb modes
       complex(cp), intent(in) :: f(n_f_max,n_r_max)
-      real(cp),    intent(in) :: d_fac      ! factor for interval mapping
       logical, optional, intent(in) :: use_gpu
 
       !-- Output variables:
@@ -363,9 +359,9 @@ contains
          !-- First coefficients
          tmp_n_cheb=n_cheb_max-1
          if ( n_cheb_max == n_r_max ) then
-            fac_cheb=d_fac*real(tmp_n_cheb,kind=cp)
+            fac_cheb=real(tmp_n_cheb,kind=cp)
          else
-            fac_cheb=d_fac*real(2*tmp_n_cheb,kind=cp)
+            fac_cheb=real(2*tmp_n_cheb,kind=cp)
          end if
 
          !----- initialize derivatives:
@@ -388,7 +384,7 @@ contains
          !----- Recursion
          !$omp target teams private(n_f,n_cheb,fac_cheb)
          do n_cheb=n_cheb_max-2,1,-1
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
             !$omp distribute parallel do
             do n_f=n_f_start,n_f_stop
                df(n_f,n_cheb)  =  df(n_f,n_cheb+2) + fac_cheb*  f(n_f,n_cheb+1)
@@ -412,9 +408,9 @@ contains
          !-- First coefficients
          n_cheb=n_cheb_max-1
          if ( n_cheb_max == n_r_max ) then
-            fac_cheb=d_fac*real(n_cheb,kind=cp)
+            fac_cheb=real(n_cheb,kind=cp)
          else
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
          end if
          do n_f=n_f_start,n_f_stop
             df(n_f,n_cheb)  =fac_cheb*f(n_f,n_cheb+1)
@@ -424,7 +420,7 @@ contains
 
          !----- Recursion
          do n_cheb=n_cheb_max-2,1,-1
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
             do n_f=n_f_start,n_f_stop
                df(n_f,n_cheb)  =  df(n_f,n_cheb+2) + fac_cheb*  f(n_f,n_cheb+1)
                ddf(n_f,n_cheb) = ddf(n_f,n_cheb+2) + fac_cheb* df(n_f,n_cheb+1)
@@ -460,7 +456,7 @@ contains
          call r_scheme%costf1(work_1d_real)
     
          !-- Get derivatives:
-         call get_dcheb(work_1d_real,df,n_r_max,r_scheme%n_max,one)
+         call get_dcheb(work_1d_real,df,n_r_max,r_scheme%n_max)
     
          !-- Transform back:
          call r_scheme%costf1(df)
@@ -582,7 +578,7 @@ contains
           
             !-- Get derivatives:
             call get_dcheb(work,df,n_f_max,n_f_start,n_f_stop,n_r_max, &
-                 &         r_scheme%n_max,one,loc_use_gpu)
+                 &         r_scheme%n_max,loc_use_gpu)
           
             !-- Transform back:
             call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
@@ -608,7 +604,7 @@ contains
           
             !-- Get derivatives:
             call get_dcheb(f,df,n_f_max,n_f_start,n_f_stop,n_r_max, &
-                 &         r_scheme%n_max,one,loc_use_gpu)
+                 &         r_scheme%n_max,loc_use_gpu)
 
             !-- Transform back:
             if ( l_dct_in_loc ) then
@@ -784,7 +780,7 @@ contains
     
          !-- Get derivatives:
          call get_ddcheb(work,df,ddf,n_f_max,n_f_start,n_f_stop, &
-              &          n_r_max,r_scheme%n_max,one,loc_use_gpu)
+              &          n_r_max,r_scheme%n_max,loc_use_gpu)
     
          !-- Transform back:
          call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
@@ -937,7 +933,7 @@ contains
 
          !-- Get derivatives:
          call get_dddcheb(work,df,ddf,dddf,n_f_max,n_f_start,n_f_stop,  &
-              &           n_r_max,r_scheme%n_max,one,loc_use_gpu)
+              &           n_r_max,r_scheme%n_max,loc_use_gpu)
 
          !-- Transform back:
          call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,loc_use_gpu)

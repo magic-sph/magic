@@ -42,6 +42,7 @@ module cosine_transform_odd
       type(c_ptr) :: plan_fft_1d_back   ! FFTW single plan for FFT
       type(c_ptr) :: plan_fft_1d_forw   ! FFTW single plan for FFT
       integer, allocatable :: der(:)
+      integer, allocatable :: der2(:)
 #if (DCT_VERSION==dft_many)
       type(c_ptr), allocatable :: plan_fft_many_back(:)   ! FFTW many plan for FFT
       type(c_ptr), allocatable :: plan_fft_many_forw(:)   ! FFTW many plan for FFT
@@ -60,7 +61,7 @@ module cosine_transform_odd
 
 contains
 
-   subroutine initialize(this, n_r_max, n_in, n_in2)
+   subroutine initialize(this, n_r_max, n_cheb_max, n_in)
       !
       ! Definition of FFTW plans for type I DCTs. 
       !
@@ -68,8 +69,8 @@ contains
       class(costf_odd_t) :: this
       
       !-- Input variables
+      integer, intent(in) :: n_cheb_max ! Max number of Chebyshev polynomials
       integer, intent(in) :: n_in    ! Not used here, only for compatibility
-      integer, intent(in) :: n_in2   ! Not used here, only for compatibility
       integer, intent(in) :: n_r_max ! Number of radial grid points
 
       !--Local variables
@@ -128,27 +129,34 @@ contains
       this%plan_fft_1d_forw = fftw_plan_dft(1, plan_size, array_cplx_1d,      &
                               &             array_cplx_out_1d, FFTW_FORWARD,  &
                               &             fft_plan_flag)
-      allocate( this%der(2*n_r_max-2) )
-      do k=1,n_r_max-1
+
+      allocate ( this%der(2*n_r_max-2), this%der2(2*n_r_max-2) )
+      this%der(:)=0
+      bytes_allocated=bytes_allocated+(2*n_r_max-2)*SIZEOF_INTEGER
+      do k=1,n_cheb_max!-1
          this%der(k)=k-1
       end do
-      this%der(n_r_max)=0
       j=1
       do k=2*n_r_max-2,n_r_max+1,-1
-         this%der(k)=-j
+         if ( j < n_cheb_max ) this%der(k)=-j
          j=j+1
       end do
+      this%der2(:)=this%der(:)*this%der(:)
+      this%der(n_r_max)=0
 #elif (DCT_VERSION==dft_many)
-      allocate( this%der(2*n_r_max-2) )
-      do k=1,n_r_max-1
+      allocate ( this%der(2*n_r_max-2), this%der2(2*n_r_max-2) )
+      this%der(:)=0
+      bytes_allocated=bytes_allocated+(2*n_r_max-2)*SIZEOF_INTEGER
+      do k=1,n_cheb_max!-1
          this%der(k)=k-1
       end do
-      this%der(n_r_max)=0
       j=1
       do k=2*n_r_max-2,n_r_max+1,-1
-         this%der(k)=-j
+         if ( j < n_cheb_max ) this%der(k)=-j
          j=j+1
       end do
+      this%der2(:)=this%der(:)*this%der(:)
+      this%der(n_r_max)=0
       allocate( this%plan_fft_many_back(0:nThreads-1) )
       allocate( this%plan_fft_many_forw(0:nThreads-1) )
       allocate( idx2(0:nThreads-1), idx1(0:nThreads-1) )
@@ -214,7 +222,7 @@ contains
 #elif (DCT_VERSION==dft_loop)
       call fftw_destroy_plan(this%plan_fft_1d_back)
       call fftw_destroy_plan(this%plan_fft_1d_forw)
-      deallocate( this%der)
+      deallocate( this%der, this%der2 )
 #elif (DCT_VERSION==dft_many)
       integer :: iThread
 
@@ -222,7 +230,7 @@ contains
          call fftw_destroy_plan(this%plan_fft_many_back(iThread))
          call fftw_destroy_plan(this%plan_fft_many_forw(iThread))
       end do
-      deallocate(this%plan_fft_many_back, this%plan_fft_many_forw,this%der)
+      deallocate(this%plan_fft_many_back, this%plan_fft_many_forw,this%der,this%der2)
 #endif
 #ifdef WITHOMP
       !call fftw_cleanup_threads()
@@ -363,7 +371,7 @@ contains
 
    end subroutine costf1_complex_1d
 !------------------------------------------------------------------------------
-   subroutine get_dr_fft(this, array_in, array_out, xcheb, n_f_max, n_f_start, &
+   subroutine get_dr_fft(this, f, df, xcheb, n_f_max, n_f_start, &
               &          n_f_stop, n_cheb_max, l_dct_in)
 
       class(costf_odd_t), intent(in) :: this
@@ -374,11 +382,11 @@ contains
       integer,     intent(in) :: n_f_max   ! Number of vectors
       integer,     intent(in) :: n_cheb_max  ! Max cheb
       real(cp),    intent(in) :: xcheb(:) ! Gauss-Lobatto grid
-      complex(cp), intent(in) :: array_in(n_f_max,*) ! Array to be transformed
+      complex(cp), intent(in) :: f(n_f_max,*) ! Array to be transformed
       logical,     intent(in) :: l_dct_in ! Do we need a DCT for the input array?
 
       !-- Output variables:
-      complex(cp), intent(out) :: array_out(n_f_max,*)  ! Radial derivative
+      complex(cp), intent(out) :: df(n_f_max,*)  ! Radial derivative
 
 #if (DCT_VERSION==dft_loop)
       !-- Local variables:
@@ -386,64 +394,42 @@ contains
       complex :: tot
       complex(cp) :: work_1d(2*this%n_r_max-2), work_1d_out(2*this%n_r_max-2)
 
-      if ( l_dct_in ) then
-         do n_f=n_f_start,n_f_stop
-            work_1d(1:this%n_r_max) =array_in(n_f,1:this%n_r_max)
-            work_1d(this%n_r_max+1:)=array_in(n_f,this%n_r_max-1:2:-1)
-            !# FFT derivatives
+      do n_f=n_f_start,n_f_stop
+         if ( l_dct_in ) then
+            work_1d(1:this%n_r_max) =f(n_f,1:this%n_r_max)
+            work_1d(this%n_r_max+1:)=f(n_f,this%n_r_max-1:2:-1)
             call fftw_execute_dft(this%plan_fft_1d_forw, work_1d, work_1d_out)
+         else
+            work_1d_out(1:this%n_r_max) =f(n_f,1:this%n_r_max) / this%cheb_fac
+            work_1d_out(this%n_r_max+1:)=f(n_f,this%n_r_max-1:2:-1) / this%cheb_fac
+         end if
 
-            ! Boundary points
-            tot=zero
-            !do k=1,this%n_r_max
-            do k=1,n_cheb_max
-               tot=tot+(k-1)**2 * work_1d_out(k)
-            end do
-            array_out(n_f,1)=tot/(this%n_r_max-1)
-            tot=zero
-            !do k=1,this%n_r_max
-            do k=1,n_cheb_max
-               tot=tot+(-1)**k*(k-1)**2*work_1d_out(k)
-            end do
-            array_out(n_f,this%n_r_max)=tot/(this%n_r_max-1)
+         work_1d_out(this%n_r_max)=half*work_1d_out(this%n_r_max)
 
-            !-- Dealiasing
-            work_1d_out(n_cheb_max+1:this%n_r_max)=zero
-            work_1d_out(this%n_r_max+1:2*this%n_r_max-n_cheb_max-1)=zero
-            work_1d_out(:)=ci*this%der(:)*work_1d_out(:)
-            call fftw_execute_dft(this%plan_fft_1d_back, work_1d_out, work_1d)
-            array_out(n_f,2:this%n_r_max-1)=-work_1d(2:this%n_r_max-1) /           &
-            &                                sqrt(one-xcheb(2:this%n_r_max-1)**2) /&
-            &                                (2*this%n_r_max-2)
+         !--  Boundary points = tau lines
+         tot=zero
+         do k=1,this%n_r_max-1
+            tot=tot+k**2 * work_1d_out(k+1)
          end do
-      else
-         do n_f=n_f_start,n_f_stop
-            work_1d_out(1:this%n_r_max) =array_in(n_f,1:this%n_r_max)
-            work_1d_out(this%n_r_max+1:)=array_in(n_f,this%n_r_max-1:2:-1)
-            ! Boundary points
-            tot=zero
-            !do k=1,this%n_r_max
-            do k=1,n_cheb_max
-               tot=tot+(k-1)**2 * work_1d_out(k)
-            end do
-            array_out(n_f,1)=tot/(this%n_r_max-1)/this%cheb_fac
-            tot=zero
-            do k=1,n_cheb_max
-               tot=tot+(-1)**k*(k-1)**2*work_1d_out(k)
-            end do
-            array_out(n_f,this%n_r_max)=tot/(this%n_r_max-1)/this%cheb_fac
-
-            !-- Dealiasing
-            work_1d_out(n_cheb_max+1:this%n_r_max)=zero
-            work_1d_out(this%n_r_max+1:2*this%n_r_max-n_cheb_max-1)=zero
-            work_1d_out(:)=ci*this%der(:)*work_1d_out(:)/this%cheb_fac
-            call fftw_execute_dft(this%plan_fft_1d_back, work_1d_out, work_1d)
-            array_out(n_f,2:this%n_r_max-1)=-work_1d(2:this%n_r_max-1) /           &
-            &                                sqrt(one-xcheb(2:this%n_r_max-1)**2) /&
-            &                                (2*this%n_r_max-2)
+         df(n_f,1)=tot/(this%n_r_max-1)
+         tot=zero
+         do k=1,this%n_r_max-1
+            tot=tot+(-1)**(k+1)*k**2*work_1d_out(k+1)
          end do
-      end if
+         df(n_f,this%n_r_max)=tot/(this%n_r_max-1)
 
+         work_1d_out(this%n_r_max)=two*work_1d_out(this%n_r_max)
+
+         !-- Derivatives in FFT space
+         work_1d_out(:)=ci*this%der(:)*work_1d_out(:)
+         call fftw_execute_dft(this%plan_fft_1d_back, work_1d_out, work_1d)
+
+         !-- Bring back to Gauss-Lobatto grid for bulk points
+         df(n_f,2:this%n_r_max-1)=-work_1d(2:this%n_r_max-1) /           &
+         &                         sqrt(one-xcheb(2:this%n_r_max-1)**2) /&
+         &                         (2*this%n_r_max-2)
+      end do
+         
 #elif (DCT_VERSION==dft_many)
       integer :: k, n_r, threadid, n_f
       complex(cp) :: tot
@@ -451,69 +437,49 @@ contains
       complex(cp) :: tmp_out(n_f_start:n_f_stop,2*this%n_r_max-2)
 
       !-- Prepare array for dft many
-      do n_r=1,this%n_r_max
-         tmp_in(:,n_r)=array_in(n_f_start:n_f_stop,n_r)
-      end do
-      do n_r=this%n_r_max+1,2*this%n_r_max-2
-         tmp_in(:,n_r)=array_in(n_f_start:n_f_stop,2*this%n_r_max-n_r)
-      end do
-
       if ( l_dct_in ) then
+         do n_r=1,this%n_r_max
+            tmp_in(:,n_r)=f(n_f_start:n_f_stop,n_r)
+         end do
+         do n_r=this%n_r_max+1,2*this%n_r_max-2
+            tmp_in(:,n_r)=f(n_f_start:n_f_stop,2*this%n_r_max-n_r)
+         end do
 #ifdef WITHOMP
          threadid=omp_get_thread_num()
 #else
          threadid=0
 #endif
          call fftw_execute_dft(this%plan_fft_many_forw(threadid), tmp_in, tmp_out)
-
-         !-- Boundary points
-         do n_f=n_f_start,n_f_stop
-            tot=zero
-            do k=1,n_cheb_max
-               tot=tot+(k-1)**2 * tmp_out(n_f,k)
-            end do
-            tmp_out(n_f,1)=tot/(this%n_r_max-1)
-            tot=zero
-            do k=1,n_cheb_max
-               tot=tot+(-1)**k*(k-1)**2*tmp_out(n_f,k)
-            end do
-            tmp_out(n_f,this%n_r_max)=tot/(this%n_r_max-1)
-         end do
-
       else
-         !-- Boundary points
-         do n_f=n_f_start,n_f_stop
-            tot=zero
-            do k=1,n_cheb_max
-               tot=tot+(k-1)**2 * tmp_in(n_f,k)
-            end do
-            tmp_out(n_f,1)=tot/(this%n_r_max-1)/this%cheb_fac
-            tot=zero
-            do k=1,n_cheb_max
-               tot=tot+(-1)**k*(k-1)**2*tmp_in(n_f,k)
-            end do
-            tmp_out(n_f,this%n_r_max)=tot/(this%n_r_max-1)/this%cheb_fac
+         do n_r=1,this%n_r_max
+            tmp_out(:,n_r)=f(n_f_start:n_f_stop,n_r)/this%cheb_fac
          end do
-
+         do n_r=this%n_r_max+1,2*this%n_r_max-2
+            tmp_out(:,n_r)=f(n_f_start:n_f_stop,2*this%n_r_max-n_r)/this%cheb_fac
+         end do
       end if
 
-      !-- Dealiasing
-      do n_r=n_cheb_max+1,2*this%n_r_max-n_cheb_max-1
-         do n_f=n_f_start,n_f_stop
-            tmp_out(n_f,n_r)=zero
+      !-- Boundary points
+      do n_f=n_f_start,n_f_stop
+
+         tmp_out(n_f,this%n_r_max)=half*tmp_out(n_f,this%n_r_max)
+         tot=zero
+         do k=1,this%n_r_max-2
+            tot=tot+k**2 * tmp_out(n_f,k+1)
          end do
+         df(n_f,1)=tot/(this%n_r_max-1)
+         tot=zero
+         do k=1,this%n_r_max-1
+            tot=tot+(-1)**(k+1)*k**2*tmp_out(n_f,k+1)
+         end do
+         df(n_f,this%n_r_max)=tot/(this%n_r_max-1)
+
+         tmp_out(n_f,this%n_r_max)=two*tmp_out(n_f,this%n_r_max)
       end do
 
-      !-- Derivative in FFT space
-      if ( l_dct_in ) then
-         do n_r=1,2*this%n_r_max-2
-            tmp_out(:,n_r)=ci*this%der(n_r)*tmp_out(:,n_r)
-         end do
-      else
-         do n_r=1,2*this%n_r_max-2
-            tmp_out(:,n_r)=ci*this%der(n_r)*tmp_in(:,n_r)/this%cheb_fac
-         end do
-      end if
+      do n_r=1,2*this%n_r_max-2
+         tmp_out(:,n_r)=ci*this%der(n_r)*tmp_out(:,n_r)
+      end do
 
 #ifdef WITHOMP
       threadid=omp_get_thread_num()
@@ -523,7 +489,7 @@ contains
       call fftw_execute_dft(this%plan_fft_many_back(threadid), tmp_out, tmp_in)
 
       do n_r=2,this%n_r_max-1
-         array_out(n_f_start:n_f_stop,n_r)=-tmp_in(:,n_r)/sqrt(one-xcheb(n_r)**2)/ &
+         df(n_f_start:n_f_stop,n_r)=-tmp_in(:,n_r)/sqrt(one-xcheb(n_r)**2)/ &
          &                                  (2*this%n_r_max-2)
       end do
 #endif
