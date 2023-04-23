@@ -108,4 +108,9 @@ module physical_parameters
    real(cp) :: penaltyFac     ! Factor that enters the penalty method in the NS equations
    real(cp) :: tmelt          ! Melting temperature
 
+   real(cp) :: ellipticity_cmb    ! Ellipticity of CMB, used for libration
+   real(cp) :: ellipticity_icb    ! Ellipticity of ICB, used for libration
+   real(cp) :: ellip_fac_cmb      ! d/d\phi (Y22) * d/dt exp(i\omega t) at CMB
+   real(cp) :: ellip_fac_icb      ! d/d\phi (Y22) * d/dt exp(i\omega t) at ICB
+
 end module physical_parameters

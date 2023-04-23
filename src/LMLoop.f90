@@ -247,12 +247,12 @@ contains
 #endif
             call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
                  &          p_LMloc, dp_LMloc, dpdt, s_LMloc, ds_LMloc, &
-                 &          dsdt, tscheme, lRmsNext )
+                 &          dsdt, tscheme, lRmsNext, time )
          else
             PERFON('up_WP')
             call updateWP( s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc, ddw_LMloc, &
                  &         dwdt, p_LMloc, dp_LMloc, dpdt, tscheme,          &
-                 &         lRmsNext, lPressNext )
+                 &         lRmsNext, lPressNext, time )
             PERFOFF
          end if
       end if
