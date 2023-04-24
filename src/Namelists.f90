@@ -87,7 +87,7 @@ contains
       &    nVarDiff,nVarVisc,difExp,nVarEps,interior_model,    &
       &    nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,   &
       &    dilution_fac,stef,tmelt,phaseDiffFac,penaltyFac,    &
-      &    epsPhase,ktopphi,kbotphi
+      &    epsPhase,ktopphi,kbotphi,ampForce
 
       namelist/B_external/                                     &
       &    rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,         &
@@ -942,6 +942,7 @@ contains
       write(n_out,'(''  tmelt           ='',ES14.6,'','')') tmelt
       write(n_out,'(''  prec_angle      ='',ES14.6,'','')') prec_angle
       write(n_out,'(''  dilution_fac    ='',ES14.6,'','')') dilution_fac
+      write(n_out,'(''  ampForce        ='',ES14.6,'','')') ampForce
       write(n_out,'(''  epsc0           ='',ES14.6,'','')') epsc0/sq4pi
       write(n_out,'(''  epscxi0         ='',ES14.6,'','')') epscxi0/sq4pi
       write(n_out,'(''  Bn              ='',ES14.6,'','')') Bn
@@ -1363,6 +1364,7 @@ contains
       Bn          =1.0_cp
       radratio    =0.35_cp
       dilution_fac=0.0_cp    ! centrifugal acceleration
+      ampForce    =0.0_cp    ! External body force amplitude
 
       !-- Phase field
       tmelt       =0.0_cp    ! Melting temperature
