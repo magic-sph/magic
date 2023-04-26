@@ -17,8 +17,8 @@ endspin() {
 
 # Determines where matplotlib is installed
 hasPythonMplDarwin() {
-  if hash python 2>/dev/null; then
-    local cmd=`python $MAGIC_HOME/bin/testBackend.py 2> /dev/null`
+  if hash python3 2>/dev/null; then
+    local cmd=`python3 $MAGIC_HOME/bin/testBackend.py 2> /dev/null`
     if [ -n "$cmd" ]; then
       local backendValue=$cmd;
     else
@@ -89,7 +89,11 @@ hasf2py3 () {
 }
 
 whichPython () {
-  local cmd=`python -c 'import sys; print(sys.version_info[0])'`
+  if hash python 2>/dev/null; then
+      local cmd=`python -c 'import sys; print(sys.version_info[0])'`
+  elif hash python3 2>/dev/null; then
+      local cmd=`python3 -c 'import sys; print(sys.version_info[0])'`
+  fi
   local pythonVersion=$cmd;
   echo $pythonVersion
 }
@@ -192,7 +196,7 @@ buildLibs () {
 
 # Get matplotlib backend
 getBackend () {
-  
+
   local backend2=$(hasPython2Mpl);
   local backend3=$(hasPython3Mpl);
   local backendDarwin=$(hasPythonMplDarwin);
@@ -215,7 +219,7 @@ getBackend () {
       else
         local backendValue=$backend2
       fi
-    else 
+    else
       if [ $backend3 == "NotFound" ]; then
         echo "matplotlib was not found"
         echo "the backend can't be set in $MAGIC_HOME/python/magic/magic.cfg"
@@ -224,7 +228,7 @@ getBackend () {
         local backendValue=$backend3
       fi
     fi
-  fi 
+  fi
 
 
   if [ $backendValue != "NotFound" ]; then
@@ -235,7 +239,7 @@ getBackend () {
 ifGWDG() {
 
   local host_name=$HOSTNAME
- 
+
   if [[ $host_name == *"gwd"* ]]
   then
       $SED "s/ccompiler.*/ccompiler = intelem/g" $MAGIC_HOME/python/magic/magic.cfg

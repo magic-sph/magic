@@ -591,6 +591,7 @@ class MagicPotential(MagicSetup):
         if hasattr(self, 'nVarCond'):
             if self.nVarCond == 2:
                 radi = self.con_RadRatio * self.radius[0]
+                phi = np.linspace(0., 2*np.pi, self.n_phi_max)
                 ax.plot(radi*np.cos(phi), radi*np.sin(phi), 'k--', lw=1.5)
 
     def surf(self, field='vr', proj='hammer', lon_0=0., r=0.85, vmax=None,
