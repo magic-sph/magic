@@ -863,7 +863,7 @@ contains
                call wpMat%solve(rhs1(:,:,0),2*lm,nLMB2)
                !$omp target update to(rhs1)
             else
-               call wpMat%solve(rhs1(:,:,0),2*lm,handle,devInfo,nLMB2)
+               call wpMat%solve(rhs1(:,:,0),2*lm,nLMB2,handle,devInfo)
             end if
 
             !-- Loop to reassemble fields
