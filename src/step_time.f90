@@ -143,7 +143,7 @@ contains
       logical :: l_probe_out      ! Sensor output
 
       !-- Timers:
-      type(timer_type) :: rLoop_counter, lmLoop_counter, comm_counter
+      type(timer_type) :: rLoop_counter, lmLoop_counter, comm_counter, mpi_barrier_counter
       type(timer_type) :: mat_counter, tot_counter, io_counter, pure_counter
       real(cp) :: run_time_passed, dt_new
 
@@ -255,6 +255,7 @@ contains
       call tot_counter%initialize()
       call pure_counter%initialize()
       call io_counter%initialize()
+      call mpi_barrier_counter%initialize()
 
       !!!!! Time loop starts !!!!!!
       if ( n_time_steps == 1 ) then
@@ -605,7 +606,7 @@ contains
                end if
 #endif
                call transp_LMloc_to_Rloc(comm_counter, l_finish_exp_early, &
-                    &                    lPressCalc,l_HT)
+                    &                    lPressCalc, l_HT, mpi_barrier_counter)
 #ifdef WITH_OMP_GPU
                if ( l_packed_transp ) then
                   if ( l_finish_exp_early ) then
@@ -1143,7 +1144,7 @@ contains
                end if
 #endif
                call transp_Rloc_to_LMloc(comm_counter,tscheme%istage, &
-                    &                    l_finish_exp_early, lPressNext)
+                    &                    l_finish_exp_early, lPressNext, mpi_barrier_counter)
 #ifdef WITH_OMP_GPU
                if ( l_packed_transp ) then
                   if ( l_finish_exp_early ) then
@@ -2022,6 +2023,8 @@ contains
            &                      n_log_file)
       call comm_counter%finalize('! Mean wall time for MPI communications     :',  &
            &                     n_log_file)
+      call mpi_barrier_counter%finalize('! Mean wall time for MPI_Barrier in transp   :',  &
+           &                            n_log_file)
       call mat_counter%finalize('! Mean wall time for t-step with matrix calc:',   &
            &                    n_log_file)
       call io_counter%finalize('! Mean wall time for output routine         :',  &
@@ -2225,7 +2228,7 @@ contains
 
    end subroutine start_from_another_scheme
 !--------------------------------------------------------------------------------
-   subroutine transp_LMloc_to_Rloc(comm_counter, l_Rloc, lPressCalc, lHTCalc)
+   subroutine transp_LMloc_to_Rloc(comm_counter, l_Rloc, lPressCalc, lHTCalc, mpi_barrier_counter)
       ! Here now comes the block where the LM distributed fields
       ! are redistributed to Rloc distribution which is needed for
       ! the radialLoop.
@@ -2235,6 +2238,13 @@ contains
 
       !-- Output variable
       type(timer_type), intent(inout) :: comm_counter
+      type(timer_type), intent(inout) :: mpi_barrier_counter
+
+#ifdef WITH_MPI
+      call mpi_barrier_counter%start_count()
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
+      call mpi_barrier_counter%stop_count(l_increment=.false.)
+#endif
 
       call comm_counter%start_count()
       if ( l_packed_transp ) then
@@ -2366,7 +2376,7 @@ contains
 
    end subroutine transp_LMloc_to_Rloc
 !--------------------------------------------------------------------------------
-   subroutine transp_Rloc_to_LMloc(comm_counter, istage, lRloc, lPressNext)
+   subroutine transp_Rloc_to_LMloc(comm_counter, istage, lRloc, lPressNext, mpi_barrier_counter)
       !
       !- MPI transposition from r-distributed to LM-distributed
       !
@@ -2378,9 +2388,15 @@ contains
 
       !-- Output variable
       type(timer_type), intent(inout) :: comm_counter
+      type(timer_type), intent(inout) :: mpi_barrier_counter
 
       if ( lVerbose ) write(output_unit,*) "! start r2lo redistribution"
 
+#ifdef WITH_MPI
+      call mpi_barrier_counter%start_count()
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
+      call mpi_barrier_counter%stop_count()
+#endif
       call comm_counter%start_count()
       if ( l_packed_transp ) then
          if ( lRloc ) then
