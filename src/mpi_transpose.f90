@@ -672,27 +672,48 @@ contains
       rbuff_ptr   => this%rbuff
       sbuff_ptr   => this%sbuff
 #ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do private(ii,n_f,n_r,lm,l,m,lm_st)
+      !$omp target teams private(ii,n_f,n_r,lm,l,m,lm_st,jj)
 #else
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm,l,m,lm_st)
 #endif
       do p = 0, n_procs-1
          ii = this%sdisp(p)+1
+#ifdef WITH_OMP_GPU
+         !$omp distribute parallel do collapse(2)
+         !DIR$ CONCURRENT
+#endif
          do n_f=1,this%n_fields
+#ifdef WITH_OMP_GPU
+           !DIR$ CONCURRENT
+#endif
             do n_r=nRstart,nRstop
                do lm=lm_balance(p)%nStart,lm_balance(p)%nStop
                   l = lo_map%lm2l(lm)
                   m = lo_map%lm2m(lm)
+#ifdef WITH_OMP_GPU
+                  if (l >= 0 .and. m >= 0) then
+                     lm_st = st_map%lm2(l,m)
+                     if (lm_st >= 1 .and. lm_st <= lm_max) then
+                        jj = ii + ((n_f - 1) * (nRstop - nRstart + 1) + &
+                        &    (n_r - nRstart))*(lm_balance(p)%nStop - lm_balance(p)%nStart + 1) + (lm - lm_balance(p)%nStart)
+                        sbuff_ptr(jj)=arr_Rloc(lm_st,n_r,n_f)
+                     end if
+                  end if
+#else
                   lm_st = st_map%lm2(l,m)
                   sbuff_ptr(ii)=arr_Rloc(lm_st,n_r,n_f)
                   ii = ii +1
+#endif
                end do
             end do
          end do
+#ifdef WITH_OMP_GPU
+         !$omp end distribute parallel do
+#endif
       end do
 #ifdef WITH_OMP_GPU
-      !$omp end target teams distribute parallel do
+      !$omp end target teams
 #else
       !$omp end parallel do
 #endif
