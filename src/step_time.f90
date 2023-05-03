@@ -2240,7 +2240,7 @@ contains
       type(timer_type), intent(inout) :: comm_counter
       type(timer_type), intent(inout) :: mpi_barrier_counter
 
-#ifdef WITH_MPI
+#ifdef WITH_MPI_OFF
       call mpi_barrier_counter%start_count()
       call MPI_Barrier(MPI_COMM_WORLD, ierr)
       call mpi_barrier_counter%stop_count(l_increment=.false.)
@@ -2392,7 +2392,7 @@ contains
 
       if ( lVerbose ) write(output_unit,*) "! start r2lo redistribution"
 
-#ifdef WITH_MPI
+#ifdef WITH_MPI_OFF
       call mpi_barrier_counter%start_count()
       call MPI_Barrier(MPI_COMM_WORLD, ierr)
       call mpi_barrier_counter%stop_count()
