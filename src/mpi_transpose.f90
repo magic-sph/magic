@@ -351,6 +351,7 @@ contains
 
       !-- Local variables
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
+      integer, pointer :: lm2l(:),lm2m(:)
 #ifdef WITH_OMP_GPU
       integer :: jj
 #endif
@@ -362,6 +363,9 @@ contains
       sdisp_ptr   => this%sdisp
       rbuff_ptr   => this%rbuff
       sbuff_ptr   => this%sbuff
+
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
 
 #ifdef WITH_OMP_GPU
       !$omp target teams private(ii,n_f,n_r,lm, jj)
@@ -434,8 +438,8 @@ contains
 #endif
             do n_r=nRstart,nRstop
                do lm=lm_balance(p)%nStart,lm_balance(p)%nStop
-                  l = lo_map%lm2l(lm)
-                  m = lo_map%lm2m(lm)
+                  l = lm2l(lm)
+                  m = lm2m(lm)
 #ifdef WITH_OMP_GPU
                   if (l >= 0 .and. m >= 0) then
                      lm_st = st_map%lm2(l,m)
@@ -601,6 +605,7 @@ contains
       complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max,1:this%n_fields)
 
       !-- Local variables
+      integer, pointer :: lm2l(:),lm2m(:)
 #ifdef WITH_OMP_GPU
       integer :: jj
 #endif
@@ -671,6 +676,8 @@ contains
       sdisp_ptr   => this%sdisp
       rbuff_ptr   => this%rbuff
       sbuff_ptr   => this%sbuff
+      lm2l(1:lm_max) => lo_map%lm2l
+      lm2m(1:lm_max) => lo_map%lm2m
 #ifdef WITH_OMP_GPU
       !$omp target teams private(ii,n_f,n_r,lm,l,m,lm_st,jj)
 #else
@@ -689,8 +696,8 @@ contains
 #endif
             do n_r=nRstart,nRstop
                do lm=lm_balance(p)%nStart,lm_balance(p)%nStop
-                  l = lo_map%lm2l(lm)
-                  m = lo_map%lm2m(lm)
+                  l = lm2l(lm)
+                  m = lm2m(lm)
 #ifdef WITH_OMP_GPU
                   if (l >= 0 .and. m >= 0) then
                      lm_st = st_map%lm2(l,m)
