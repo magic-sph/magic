@@ -136,9 +136,9 @@ contains
                     &               use_gpu=.true.,nfull=n_r_ic_max)
 #else
                call bMat%initialize(n_bandsB,n_r_max,nLMBs2(1+rank),l_pivot=.true., &
-                    &               use_gpu=.false.,n_r_ic_max)
+                    &               use_gpu=.false.,nfull=n_r_ic_max)
                call jMat%initialize(n_bandsJ,n_r_max,nLMBs2(1+rank),l_pivot=.true., &
-                    &               use_gpu=.false.,n_r_ic_max)
+                    &               use_gpu=.false.,nfull=n_r_ic_max)
 #endif
 #else
                call bMat%initialize(n_bandsB,n_r_max,nLMBs2(1+rank),.true.,n_r_ic_max)

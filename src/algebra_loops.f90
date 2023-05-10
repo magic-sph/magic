@@ -316,6 +316,7 @@ contains
       nm1=n-1
       nodd=mod(n,2)
 
+#ifdef OLD
       !-- Single loop over lm's
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(i,m,k,k1,nLMB2,l,help)
@@ -369,6 +370,45 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#endif
+#else
+      !-- Single loop over lm's
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do private(i,m,k,nLMB2,l,help)
+#endif
+      do nRHS=llm,ulm
+
+         l=lm2l(nRHS)
+         nLMB2=l2nLMB2(l)
+
+         !-- Permute vectors rhs
+         do k=1,n
+            m=pivot(k,nLMB2)
+            help       =rhs(m,nRHS)
+            rhs(m,nRHS)=rhs(k,nRHS)
+            rhs(k,nRHS)=help
+         end do
+
+         !-- Solve  l * y = b
+         do k=1,n
+            !DIR$ CONCURRENT
+            do i=k+1,n
+               rhs(i,nRHS)=rhs(i,nRHS)-rhs(k,nRHS)*dat(i,k,nLMB2)
+            end do
+         end do
+
+         !-- Solve  u * x = y
+         do k=n,1,-1
+            rhs(k,nRHS) =rhs(k,nRHS)*dat(k,k,nLMB2)
+            !DIR$ CONCURRENT
+            do i=1,k-1
+               rhs(i,nRHS)=rhs(i,nRHS)-rhs(k,nRHS)*dat(i,k,nLMB2)
+            end do
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#endif
 #endif
 
    end subroutine solve_dense_all

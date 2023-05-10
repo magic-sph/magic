@@ -1,7 +1,7 @@
 module start_fields
    !
    ! This module is used to set-up the initial starting fields. They can be obtained
-   ! by reading a starting checkpoint file or by setting some starting conditions. 
+   ! by reading a starting checkpoint file or by setting some starting conditions.
    !
 
    use truncation
@@ -14,7 +14,7 @@ module start_fields
        &                       otemp1, ogrun, dentropy0, dxicond, r_icb
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
        &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
-       &                          ViscHeatFac, impXi
+       &                          ViscHeatFac, impXi, ampForce
    use num_param, only: dtMax, alpha
    use special, only: lGrenoble
    use output_data, only: log_file, n_log_file
@@ -28,7 +28,7 @@ module start_fields
    use init_fields, only: l_start_file, init_s1, init_b1, tops, pt_cond,  &
        &                  initV, initS, initB, initXi, ps_cond,           &
        &                  start_file, init_xi1, topxi, xi_cond, omega_ic1,&
-       &                  omega_ma1, initPhi, init_phi
+       &                  omega_ma1, initPhi, init_phi, initF
    use fields ! The entire module is required
    use fieldsLast ! The entire module is required
    use timing, only: timer_type
@@ -342,15 +342,57 @@ contains
 
       !---- For now fiels initialized in R-distributed arrays: now transpose them if needed
       if ( l_parallel_solve ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(w_LMloc, z_LMloc)
+#endif
          call lo2r_one%transp_lm2r(w_LMloc, w_Rloc)
          call lo2r_one%transp_lm2r(z_LMloc, z_Rloc)
-         if ( l_chemical_conv ) call lo2r_one%transp_lm2r(xi_LMloc, xi_Rloc)
-         if ( l_phase_field ) call lo2r_one%transp_lm2r(phi_LMloc, phi_Rloc)
-         if ( l_heat ) call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(w_Rloc, z_Rloc)
+#endif
+         if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(xi_LMloc)
+#endif
+            call lo2r_one%transp_lm2r(xi_LMloc, xi_Rloc)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(xi_Rloc)
+#endif
+         end if
+         if ( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(phi_LMloc)
+#endif
+            call lo2r_one%transp_lm2r(phi_LMloc, phi_Rloc)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(phi_Rloc)
+#endif
+         end if
+         if ( l_heat ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(s_LMloc)
+#endif
+            call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(s_Rloc)
+#endif
+         end if
+#ifdef WITH_OMP_GPU
+         !$omp target update to(p_LMloc)
+#endif
          call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(p_Rloc)
+#endif
          if ( l_mag .and. l_mag_par_solve ) then
+#ifdef WITH_OMP_GPU
+            !$omp target update to(b_LMloc, aj_LMloc)
+#endif
             call lo2r_one%transp_lm2r(b_LMloc, b_Rloc)
             call lo2r_one%transp_lm2r(aj_LMloc, aj_Rloc)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(b_Rloc, aj_Rloc)
+#endif
          end if
       end if
 
@@ -645,6 +687,13 @@ contains
             write(message,'(''! Rel. RMS axi. asym. topxi:'',ES16.6)') xiAA
             call logWrite(message)
          end if
+      end if
+
+      if ( ampForce /= 0.0_cp ) then
+         call initF(bodyForce)
+#ifdef WITH_OMP_GPU
+         !$omp target update to(bodyForce)
+#endif
       end if
 
    end subroutine getStartFields

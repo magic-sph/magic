@@ -993,6 +993,11 @@ contains
 
          allocate( arr_RLoc(lm_max,nRstart:nRstop, block_size(iblock)) )
          allocate( arr_LMLoc(llm:ulm,n_r_max, block_size(iblock)) )
+         arr_RLoc(:,:,:) = 0.0_cp; arr_LMLoc(:,:,:) = 0.0_cp
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: arr_LMLoc, arr_RLoc)
+         !$omp target update to(arr_LMLoc, arr_RLoc)
+#endif
 
          !-- Try the all-to-allv strategy (10 back and forth transposes)
          call lo2r_test%create_comm(block_size(iblock))
@@ -1010,8 +1015,14 @@ contains
          tStart = MPI_Wtime()
          do n_t=1,n_transp
             call MPI_Barrier(MPI_COMM_WORLD, ierr)
-            call lo2r_test%transp_r2lm(arr_Rloc, arr_LMloc)
-            call lo2r_test%transp_lm2r(arr_LMloc, arr_Rloc)
+#ifdef WITH_OMP_GPU
+            !$omp target update to(arr_LMLoc, arr_RLoc)
+#endif
+            call lo2r_test%transp_r2lm(arr_RLoc, arr_LMLoc)
+            call lo2r_test%transp_lm2r(arr_LMLoc, arr_RLoc)
+#ifdef WITH_OMP_GPU
+            !$omp target update from(arr_LMLoc, arr_RLoc)
+#endif
          end do
          tStop = MPI_Wtime()
          tBlock(iblock) = tStop-tStart
@@ -1020,7 +1031,10 @@ contains
          call MPI_Barrier(MPI_COMM_WORLD, ierr)
          call lo2r_test%destroy_comm()
 
-         deallocate( arr_Rloc, arr_LMloc )
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: arr_LMLoc, arr_RLoc)
+#endif
+         deallocate( arr_RLoc, arr_LMLoc )
       end do
       deallocate( lo2r_test )
 
@@ -1103,7 +1117,9 @@ contains
       character(len=80) :: message
 
 #ifdef WITH_OMP_GPU
+      arr_Rloc(:,:,:) = 0.0_cp;  arr_LMloc(:,:,:) = 0.0_cp
       !$omp target enter data map(alloc: arr_Rloc, arr_LMloc)
+      !$omp target update to(arr_Rloc, arr_LMloc)
 #endif
 
       !-- First fill an array with random numbers

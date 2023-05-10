@@ -15,7 +15,8 @@ module preCalculations
        &                 lm_max, n_phi_max, n_theta_max
    use init_fields, only: bots, tops, s_bot, s_top, n_s_bounds,    &
        &                  l_reset_t, topxi, botxi, xi_bot, xi_top, &
-       &                  n_xi_bounds
+       &                  n_xi_bounds, omega_ma1, omegaOsz_ma1,    &
+       &                  omega_ic1, omegaOsz_ic1
    use parallel_mod, only: rank, n_procs, rank_with_r_LCR
    use logic, only: l_mag, l_cond_ic, l_non_rot, l_mag_LF, l_newmap,     &
        &            l_anel, l_heat, l_anelastic_liquid,                  &
@@ -42,7 +43,9 @@ module preCalculations
        &                          ktops, kbots, interior_model, r_LCR,     &
        &                          n_r_LCR, mode, tmagcon, oek, Bn, imagcon,&
        &                          ktopxi, kbotxi, epscxi, epscxi0, sc, osc,&
-       &                          ChemFac, raxi, Po, prec_angle
+       &                          ChemFac, raxi, Po, prec_angle,           &
+       &                          ellipticity_cmb, ellip_fac_cmb,          &
+       &                          ellipticity_icb, ellip_fac_icb
    use horizontal_data, only: horizontal
    use integration, only: rInt_R
    use useful, only: logWrite, abortRun
@@ -775,6 +778,11 @@ contains
       if ( ((imagcon /= 0) .or. l_curr .or. (n_imp > 1)) .and. l_LCR ) then
          call abortRun('LCR not compatible with imposed field!')
       end if
+
+      ellip_fac_cmb = - r_cmb*r_cmb*r_cmb * ellipticity_cmb * omega_ma1 *   &
+      &                 omegaOsz_ma1 * two
+      ellip_fac_icb = - r_icb*r_icb*r_icb * ellipticity_icb * omega_ic1 *   &
+      &                 omegaOsz_ic1 * two
 
       !-- From radial_data
 #ifdef WITH_OMP_GPU

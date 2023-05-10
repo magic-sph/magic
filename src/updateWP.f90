@@ -18,8 +18,11 @@ module updateWP_mod
        &                       alpha0, temp0, beta, dbeta, ogrun, l_R, &
        &                       rscheme_oc, ddLvisc, ddbeta, orho1
    use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,   &
-       &                          ViscHeatFac, ThExpNb, ktopp
+       &                          ViscHeatFac, ThExpNb, ktopp,         &
+       &                          ellipticity_cmb, ellipticity_icb,    &
+       &                          ellip_fac_cmb, ellip_fac_icb
    use num_param, only: dct_counter, solve_counter
+   use init_fields, only: omegaOsz_ma1, tShift_ma1, omegaOsz_ic1, tShift_ic1
    use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V
    use logic, only: l_update_v, l_chemical_conv, l_RMS, l_double_curl, &
@@ -378,7 +381,7 @@ contains
    end subroutine finalize_updateWP
 !-----------------------------------------------------------------------------
    subroutine updateWP(s, xi, w, dw, ddw, dwdt, p, dp, dpdt, tscheme, &
-              &        lRmsNext, lPressNext)
+              &        lRmsNext, lPressNext, time)
       !
       !  updates the poloidal velocity potential w, the pressure p, and
       !  their radial derivatives.
@@ -388,7 +391,7 @@ contains
       class(type_tscheme), intent(in) :: tscheme
       logical,             intent(in) :: lRmsNext
       logical,             intent(in) :: lPressNext
-
+      real(cp),            intent(in) :: time
       type(type_tarray), intent(inout) :: dpdt
       type(type_tarray), intent(inout) :: dwdt
       complex(cp),       intent(inout) :: s(llm:ulm,n_r_max)
@@ -407,7 +410,7 @@ contains
       integer :: nLMB2
       integer :: nR         ! counts radial grid points
       integer :: n_r_out    ! counts cheb modes
-      integer :: nLMB, l0m0
+      integer :: nLMB, l0m0, l2m2
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:), l2nLMB2(:)
@@ -442,6 +445,7 @@ contains
       l2nLMB2(0:) => lo_sub_map%l2nLMB2
 
       l0m0 = lm2(0,0)
+      l2m2 = lm2(2,2)
       nLMB=1+rank
 
       !-- Now assemble the right hand side and store it in work_LMloc
@@ -565,6 +569,18 @@ contains
             wp_LMloc(2*n_r_max,lm)=zero
          end do
          !$omp end target teams distribute parallel do
+      end if
+
+      if ( l2m2 >= llm .and. l2m2 <= ulm .and. ellipticity_cmb /= 0.0_cp ) then
+         wp_LMloc(1,l2m2)=ellip_fac_cmb/6.0_cp                        &
+         &                *cmplx(cos(omegaOsz_ma1*(time+tShift_ma1)), &
+         &                       sin(omegaOsz_ma1*(time+tShift_ma1)),cp)
+      end if
+
+      if ( l2m2 >= llm .and. l2m2 <= ulm .and. ellipticity_icb /= 0.0_cp ) then
+         wp_LMloc(n_r_max,l2m2)=ellip_fac_icb/6.0_cp                        &
+         &                      *cmplx(cos(omegaOsz_ic1*(time+tShift_ic1)), &
+         &                             sin(omegaOsz_ic1*(time+tShift_ic1)),cp)
       end if
 
       !----- This is RHS for l=m=0
@@ -782,6 +798,23 @@ contains
                rhs1(1,2*lm,0)        =0.0_cp
                rhs1(n_r_max,2*lm-1,0)=0.0_cp
                rhs1(n_r_max,2*lm,0)  =0.0_cp
+
+               if ( l1 == 2 .and. m1 == 2 ) then
+                  if ( ellipticity_cmb /= 0.0_cp ) then
+                     rhs1(1,2*lm-1,0)=ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
+                     &                *cos(omegaOsz_ma1*(time+tShift_ma1))
+                     rhs1(1,2*lm,0)  =ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
+                     &                *sin(omegaOsz_ma1*(time+tShift_ma1))
+                  end if
+
+                  if ( ellipticity_icb /= 0.0_cp ) then
+                     rhs1(n_r_max,2*lm-1,0)=ellip_fac_icb/real(l1*(l1+1),kind=cp) &
+                     &                      *cos(omegaOsz_ic1*(time+tShift_ic1))
+                     rhs1(n_r_max,2*lm,0)  =ellip_fac_icb/real(l1*(l1+1),kind=cp) &
+                     &                      *sin(omegaOsz_ic1*(time+tShift_ic1))
+                  end if
+               end if
+
                if ( l_double_curl ) then
                   rhs1(2,2*lm-1,0)        =0.0_cp
                   rhs1(2,2*lm,0)          =0.0_cp
@@ -863,7 +896,7 @@ contains
                call wpMat%solve(rhs1(:,:,0),2*lm,nLMB2)
                !$omp target update to(rhs1)
             else
-               call wpMat%solve(rhs1(:,:,0),2*lm,handle,devInfo,nLMB2)
+               call wpMat%solve(rhs1(:,:,0),2*lm,nLMB2,handle,devInfo)
             end if
 
             !-- Loop to reassemble fields
@@ -1012,6 +1045,23 @@ contains
                   rhs1(1,2*lm,threadid)        =0.0_cp
                   rhs1(n_r_max,2*lm-1,threadid)=0.0_cp
                   rhs1(n_r_max,2*lm,threadid)  =0.0_cp
+
+                  if ( l1 == 2 .and. m1 == 2 ) then
+                     if ( ellipticity_cmb /= 0.0_cp ) then
+                        rhs1(1,2*lm-1,threadid)=ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
+                        &                       *cos(omegaOsz_ma1*(time+tShift_ma1))
+                        rhs1(1,2*lm,threadid)  =ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
+                        &                       *sin(omegaOsz_ma1*(time+tShift_ma1))
+                     end if
+
+                     if ( ellipticity_icb /= 0.0_cp ) then
+                        rhs1(n_r_max,2*lm-1,threadid)=ellip_fac_icb/real(l1*(l1+1),kind=cp) &
+                        &                             *cos(omegaOsz_ic1*(time+tShift_ic1))
+                        rhs1(n_r_max,2*lm,threadid)  =ellip_fac_icb/real(l1*(l1+1),kind=cp) &
+                        &                             *sin(omegaOsz_ic1*(time+tShift_ic1))
+                     end if
+                  end if
+
                   if ( l_double_curl ) then
                      rhs1(2,2*lm-1,threadid)        =0.0_cp
                      rhs1(2,2*lm,threadid)          =0.0_cp

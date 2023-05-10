@@ -49,9 +49,17 @@ contains
                nRstart,",",nRstop,"), nR_per_rank is ",nR_per_rank
       end if
 
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(to: radial_balance)
+#endif
+
    end subroutine initialize_radial_data
 !------------------------------------------------------------------------------
    subroutine finalize_radial_data
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(release: radial_balance)
+#endif
 
       deallocate( radial_balance )
 
