@@ -253,17 +253,17 @@ contains
 
                   if ( l1 == 2 .and. m1 == 2 ) then
                      if ( ellipticity_cmb /= 0.0_cp ) then
-                           rhs1(1,2*lm-1,threadid) = ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
-                           &                          * cos(omegaOsz_ma1 * (time + tShift_ma1))
-                           rhs1(1,2*lm,threadid)   = ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
-                           &                          * sin(omegaOsz_ma1 * (time + tShift_ma1))
+                        rhs1(1,2*lm-1,threadid)=ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
+                        &                       *cos(omegaOsz_ma1*(time+tShift_ma1))
+                        rhs1(1,2*lm,threadid)  =ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
+                        &                       *sin(omegaOsz_ma1*(time+tShift_ma1))
                      end if
 
                      if ( ellipticity_icb /= 0.0_cp ) then
-                           rhs1(n_r_max,2*lm-1,threadid) = ellip_fac_icb/real(l1*(l1+1),kind=cp) &
-                           &                                * cos(omegaOsz_ic1 * (time + tShift_ic1))
-                           rhs1(n_r_max,2*lm,threadid)   = ellip_fac_icb/real(l1*(l1+1),kind=cp) &
-                           &                                * sin(omegaOsz_ic1 * (time + tShift_ic1))
+                        rhs1(n_r_max,2*lm-1,threadid)=ellip_fac_icb/real(l1*(l1+1),kind=cp) &
+                        &                             *cos(omegaOsz_ic1*(time+tShift_ic1))
+                        rhs1(n_r_max,2*lm,threadid)  =ellip_fac_icb/real(l1*(l1+1),kind=cp) &
+                        &                             *sin(omegaOsz_ic1*(time+tShift_ic1))
                      end if
                   end if
 
