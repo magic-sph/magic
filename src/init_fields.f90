@@ -1504,13 +1504,14 @@ contains
       ! be extended to other forms of body forces prescribed in physical space.
       !
 
+      !-- In/out variables
       complex(cp), intent(inout) :: bodyForce(llm:ulm,n_r_max)
-      complex(cp) :: bf_Rloc(lm_max,nRstart:nRstop)
-      integer :: lm,l,m,st_lmP
-      integer :: nR,nTheta,nPhi
+
+      !-- Local variables
+      complex(cp) :: bf_Rloc(lm_max,nRstart:nRstop), bfLM(lm_max)
+      integer :: lm,l,m,st_lmP, nR,nTheta,nPhi
       class(type_mpitransp), pointer :: r2lo_initf, lo2r_initf
       real(cp) :: bf_spat(nlat_padded,n_phi_max)
-      complex(cp) :: bfLM(lm_max)
       real(cp) :: eta_fac, a_force, b_force
 
       allocate( type_mpiptop :: r2lo_initf )
@@ -1540,14 +1541,14 @@ contains
 
          call scal_to_SH(bf_spat,bfLM,l_max)
 
-            !------- body force is now in spherical harmonic space,
-            !        For toroidal equation, get radial component of
-            !        curl by applying operator
-            !        dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
-            !        comment out for poloidal equation
+         !------- body force is now in spherical harmonic space,
+         !        For toroidal equation, get radial component of
+         !        curl by applying operator
+         !        dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
+         !        comment out for poloidal equation
          do lm=2,lm_max
-            l   =st_map%lm2l(lm)
-            m   =st_map%lm2m(lm)
+            l=st_map%lm2l(lm)
+            m=st_map%lm2m(lm)
             if ( l < l_max .and. l > m ) then
                bf_Rloc(lm,nR)=dTheta1S(lm)*bfLM(st_map%lm2lmS(lm))   &
                &             -dTheta1A(lm)*bfLM(st_map%lm2lmA(lm))
