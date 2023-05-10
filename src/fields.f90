@@ -11,6 +11,7 @@ module fields
    use mem_alloc, only: bytes_allocated
 #endif
    use constants, only: zero
+   use physical_parameters, only: ampForce
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
        &                 n_r_ic_maxMag, fd_order, fd_order_bound
    use logic, only: l_chemical_conv, l_finite_diff, l_mag, l_parallel_solve, &
@@ -77,7 +78,7 @@ module fields
    complex(cp), public, allocatable :: aj_ic_LMloc(:,:)
    complex(cp), public, allocatable :: dj_ic_LMloc(:,:)
    complex(cp), public, allocatable :: ddj_ic_LMloc(:,:)
-
+   complex(cp), public, allocatable :: bodyForce(:,:)
    complex(cp), public, allocatable :: work_LMloc(:,:) ! Needed in update routines
 
    !-- Rotation rates:
@@ -502,6 +503,17 @@ contains
       !$omp&                 aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, work_LMloc) nowait
 #endif
 
+      if (ampForce /= 0.0_cp) then
+         allocate(bodyForce(llm:ulm,n_r_max))
+         bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+         bodyForce(:,:) = zero
+#ifdef WITH_OMP_GPU
+         gpu_bytes_allocated=gpu_bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+         !$omp target enter data map(alloc: bodyForce)
+         !$omp target update to(bodyForce)
+#endif
+      end if
+
    end subroutine initialize_fields
 !----------------------------------------------------------------------------
    subroutine finalize_fields
@@ -570,6 +582,12 @@ contains
       !$omp target exit data map(delete: ddj_Rloc)
 #endif
          deallocate(ddj_Rloc)
+      end if
+      if ( ampForce /= 0.0_cp ) then
+#ifdef WITH_OMP_GPU_
+      !$omp target exit data map(delete: bodyForce)
+#endif
+         deallocate(bodyForce)
       end if
 
    end subroutine finalize_fields

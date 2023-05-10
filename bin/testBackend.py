@@ -32,6 +32,16 @@ def getMyMatplotlibEnv():
             except ImportError:
                 pass
 
+            # GTK3Agg
+            try:
+                try:
+                    plt.switch_backend('GTK3Agg')
+                    return 'GTK3Agg'
+                except Warning:
+                    pass
+            except ImportError:
+                pass
+
             # Qt5
             try:
                 try:

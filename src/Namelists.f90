@@ -87,7 +87,7 @@ contains
       &    nVarDiff,nVarVisc,difExp,nVarEps,interior_model,    &
       &    nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,   &
       &    dilution_fac,stef,tmelt,phaseDiffFac,penaltyFac,    &
-      &    epsPhase,ktopphi,kbotphi
+      &    epsPhase,ktopphi,kbotphi,ampForce
 
       namelist/B_external/                                     &
       &    rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,         &
@@ -133,12 +133,14 @@ contains
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
       &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
       &    omega_ma2,omegaOsz_ma2,tShift_ma2,             &
-      &    amp_RiMa,omega_RiMa,m_RiMa,RiSymmMa
+      &    amp_RiMa,omega_RiMa,m_RiMa,RiSymmMa,           &
+      &    ellipticity_cmb
 
       namelist/inner_core/sigma_ratio,nRotIc,rho_ratio_ic, &
       &    omega_ic1,omegaOsz_ic1,tShift_ic1,              &
       &    omega_ic2,omegaOsz_ic2,tShift_ic2,BIC,          &
-      &    amp_RiIc,omega_RiIc,m_RiIc,RiSymmIc
+      &    amp_RiIc,omega_RiIc,m_RiIc,RiSymmIc,            &
+      &    ellipticity_icb
 
 
       do n=1,4*n_impS_max
@@ -950,6 +952,7 @@ contains
       write(n_out,'(''  tmelt           ='',ES14.6,'','')') tmelt
       write(n_out,'(''  prec_angle      ='',ES14.6,'','')') prec_angle
       write(n_out,'(''  dilution_fac    ='',ES14.6,'','')') dilution_fac
+      write(n_out,'(''  ampForce        ='',ES14.6,'','')') ampForce
       write(n_out,'(''  epsc0           ='',ES14.6,'','')') epsc0/sq4pi
       write(n_out,'(''  epscxi0         ='',ES14.6,'','')') epscxi0/sq4pi
       write(n_out,'(''  Bn              ='',ES14.6,'','')') Bn
@@ -1239,6 +1242,7 @@ contains
       write(n_out,'(''  omega_RiMa      ='',ES14.6,'','')') omega_RiMa
       write(n_out,'(''  m_RiMa          ='',i4,'','')')  m_RiMa
       write(n_out,'(''  RiSymmMa        ='',i4,'','')')  RiSymmMa
+      write(n_out,'(''  ellipticity_cmb ='',ES14.6,'','')') ellipticity_cmb
       write(n_out,*) "/"
 
       write(n_out,*) "&inner_core"
@@ -1256,6 +1260,7 @@ contains
       write(n_out,'(''  omega_RiIc      ='',ES14.6,'','')') omega_RiIc
       write(n_out,'(''  m_RiIc          ='',i4,'','')') m_RiIc
       write(n_out,'(''  RiSymmIc        ='',i4,'','')')  RiSymmIc
+      write(n_out,'(''  ellipticity_icb ='',ES14.6,'','')') ellipticity_icb
       write(n_out,*) "/"
       write(n_out,*) " "
 
@@ -1370,6 +1375,7 @@ contains
       Bn          =1.0_cp
       radratio    =0.35_cp
       dilution_fac=0.0_cp    ! centrifugal acceleration
+      ampForce    =0.0_cp    ! External body force amplitude
 
       !-- Phase field
       tmelt       =0.0_cp    ! Melting temperature
@@ -1674,6 +1680,7 @@ contains
       omega_RiMa    =0.0_cp    ! frequency of Rieutord forcing
       m_RiMa        =0         ! default forcing -> axisymmetric
       RiSymmMa      =0         ! default symmetry -> eq antisymmetric
+      ellipticity_cmb=0.0_cp   ! default is sphere
 
       !----- Inner core name list:
       sigma_ratio   =0.0_cp    ! no conducting inner core is default
@@ -1690,6 +1697,7 @@ contains
       omega_RiIc    =0.0_cp    ! frequency of Rieutord forcing
       m_RiIc        =0         ! default forcing -> axisymmetric
       RiSymmIc      =0         ! default symmetry -> eq antisymmetric
+      ellipticity_icb=0.0_cp   ! default is sphere
 
    end subroutine defaultNamelists
 !------------------------------------------------------------------------------

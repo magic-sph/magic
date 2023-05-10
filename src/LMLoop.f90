@@ -353,14 +353,14 @@ contains
             call upWP_counter%start_count()
             call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
                  &          p_LMloc, dp_LMloc, dpdt, s_LMloc, ds_LMloc, &
-                 &          dsdt, tscheme, lRmsNext )
+                 &          dsdt, tscheme, lRmsNext, time )
             call upWP_counter%stop_count()
          else
             PERFON('up_WP')
             call upWP_counter%start_count()
             call updateWP( s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc, ddw_LMloc, &
                  &         dwdt, p_LMloc, dp_LMloc, dpdt, tscheme,          &
-                 &         lRmsNext, lPressNext )
+                 &         lRmsNext, lPressNext, time )
             call upWP_counter%stop_count()
             PERFOFF
          end if

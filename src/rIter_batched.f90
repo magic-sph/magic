@@ -56,7 +56,8 @@ module rIter_batched_mod
        &             w_Rloc, dw_Rloc, ddw_Rloc, xi_Rloc, omega_ic,&
        &             omega_ma, dp_Rloc, phi_Rloc
    use time_schemes, only: type_tscheme
-   use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv
+   use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv, &
+       &                          ellip_fac_cmb, ellip_fac_icb
    use rIteration, only: rIter_t
    use RMS, only: get_nl_RMS_batch, transform_to_lm_RMS, compute_lm_forces,       &
        &          transform_to_grid_RMS_batch, dtVrLM, dtVtLM, dtVpLM, dpkindrLM, &
@@ -726,12 +727,12 @@ contains
 #ifdef WITH_OMP_GPU
          call hipCheck(hipDeviceSynchronize())
 #endif
-         if ( nRstart == n_r_cmb .and. ktopv==2 ) then
+         if ( nRstart == n_r_cmb .and. ktopv==2 .and. ellip_fac_cmb == 0.0_cp ) then
             call v_rigid_boundary_batch(n_r_cmb, omega_ma, .true., this%gsa%vrc,   &
                  &                      this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
                  &                      this%gsa%dvrdtc, this%gsa%dvrdpc,          &
                  &                      this%gsa%dvtdpc,this%gsa%dvpdpc)
-         else if ( nRstop == n_r_icb .and. kbotv==2 ) then
+         else if ( nRstop == n_r_icb .and. kbotv==2 .and. ellip_fac_icb == 0.0_cp ) then
             call v_rigid_boundary_batch(n_r_icb, omega_ic, .true., this%gsa%vrc, &
                  &                      this%gsa%vtc, this%gsa%vpc,              &
                  &                      this%gsa%cvrc, this%gsa%dvrdtc,          &
