@@ -314,7 +314,9 @@ if(APPLE)
     include_directories(/usr/local/include)
 endif()
 
-include_directories(/usr/include)  #For Ubuntu-like systems
+if (EXISTS /usr/include)
+    include_directories(/usr/include)  #For Ubuntu-like systems
+endif()
 
 # Detect SHTNS
 if(USE_SHTNS MATCHES yes)

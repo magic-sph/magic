@@ -13,8 +13,11 @@ module updateWP_mod
        &                       alpha0, temp0, beta, dbeta, ogrun, l_R, &
        &                       rscheme_oc, ddLvisc, ddbeta, orho1
    use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,   &
-       &                          ViscHeatFac, ThExpNb, ktopp
+       &                          ViscHeatFac, ThExpNb, ktopp,         &
+       &                          ellipticity_cmb, ellipticity_icb,    &
+       &                          ellip_fac_cmb, ellip_fac_icb
    use num_param, only: dct_counter, solve_counter
+   use init_fields, only: omegaOsz_ma1, tShift_ma1, omegaOsz_ic1, tShift_ic1
    use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V
    use logic, only: l_update_v, l_chemical_conv, l_RMS, l_double_curl, &
@@ -248,7 +251,7 @@ contains
    end subroutine finalize_updateWP
 !-----------------------------------------------------------------------------
    subroutine updateWP(s, xi, w, dw, ddw, dwdt, p, dp, dpdt, tscheme, &
-              &        lRmsNext, lPressNext)
+              &        lRmsNext, lPressNext, time)
       !
       !  updates the poloidal velocity potential w, the pressure p, and
       !  their radial derivatives.
@@ -258,7 +261,7 @@ contains
       class(type_tscheme), intent(in) :: tscheme
       logical,             intent(in) :: lRmsNext
       logical,             intent(in) :: lPressNext
-
+      real(cp),            intent(in) :: time
       type(type_tarray), intent(inout) :: dpdt
       type(type_tarray), intent(inout) :: dwdt
       complex(cp),       intent(inout) :: s(llm:ulm,n_r_max)
@@ -411,6 +414,23 @@ contains
                   rhs1(1,2*lm,threadid)        =0.0_cp
                   rhs1(n_r_max,2*lm-1,threadid)=0.0_cp
                   rhs1(n_r_max,2*lm,threadid)  =0.0_cp
+
+                  if ( l1 == 2 .and. m1 == 2 ) then
+                     if ( ellipticity_cmb /= 0.0_cp ) then
+                           rhs1(1,2*lm-1,threadid) = ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
+                           &                          * cos(omegaOsz_ma1 * (time + tShift_ma1))
+                           rhs1(1,2*lm,threadid)   = ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
+                           &                          * sin(omegaOsz_ma1 * (time + tShift_ma1))
+                     end if
+
+                     if ( ellipticity_icb /= 0.0_cp ) then
+                           rhs1(n_r_max,2*lm-1,threadid) = ellip_fac_icb/real(l1*(l1+1),kind=cp) &
+                           &                                * cos(omegaOsz_ic1 * (time + tShift_ic1))
+                           rhs1(n_r_max,2*lm,threadid)   = ellip_fac_icb/real(l1*(l1+1),kind=cp) &
+                           &                                * sin(omegaOsz_ic1 * (time + tShift_ic1))
+                     end if
+                  end if
+
                   if ( l_double_curl ) then
                      rhs1(2,2*lm-1,threadid)        =0.0_cp
                      rhs1(2,2*lm,threadid)          =0.0_cp

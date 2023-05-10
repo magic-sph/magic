@@ -1,7 +1,7 @@
 module start_fields
    !
    ! This module is used to set-up the initial starting fields. They can be obtained
-   ! by reading a starting checkpoint file or by setting some starting conditions. 
+   ! by reading a starting checkpoint file or by setting some starting conditions.
    !
 
    use truncation
@@ -14,7 +14,7 @@ module start_fields
        &                       otemp1, ogrun, dentropy0, dxicond, r_icb
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
        &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
-       &                          ViscHeatFac, impXi
+       &                          ViscHeatFac, impXi, ampForce
    use num_param, only: dtMax, alpha
    use special, only: lGrenoble
    use output_data, only: log_file, n_log_file
@@ -28,7 +28,7 @@ module start_fields
    use init_fields, only: l_start_file, init_s1, init_b1, tops, pt_cond,  &
        &                  initV, initS, initB, initXi, ps_cond,           &
        &                  start_file, init_xi1, topxi, xi_cond, omega_ic1,&
-       &                  omega_ma1, initPhi, init_phi
+       &                  omega_ma1, initPhi, init_phi, initF
    use fields ! The entire module is required
    use fieldsLast ! The entire module is required
    use timing, only: timer_type
@@ -494,6 +494,8 @@ contains
             call logWrite(message)
          end if
       end if
+
+      if ( ampForce /= 0.0_cp ) call initF(bodyForce)
 
    end subroutine getStartFields
 !------------------------------------------------------------------------------

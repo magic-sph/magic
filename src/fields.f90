@@ -7,6 +7,7 @@ module fields
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use constants, only: zero
+   use physical_parameters, only: ampForce
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
        &                 n_r_ic_maxMag, fd_order, fd_order_bound
    use logic, only: l_chemical_conv, l_finite_diff, l_mag, l_parallel_solve, &
@@ -73,6 +74,8 @@ module fields
    complex(cp), public, allocatable :: aj_ic_LMloc(:,:)
    complex(cp), public, allocatable :: dj_ic_LMloc(:,:)
    complex(cp), public, allocatable :: ddj_ic_LMloc(:,:)
+
+   complex(cp), public, allocatable :: bodyForce(:,:)
 
    complex(cp), public, allocatable :: work_LMloc(:,:) ! Needed in update routines
 
@@ -344,6 +347,11 @@ contains
       work_LMloc(:,:)=zero
       bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 
+      if (ampForce /= 0.0_cp) then
+         allocate(bodyForce(llm:ulm,n_r_max))
+         bodyForce(:,:) = zero
+      end if
+
    end subroutine initialize_fields
 !----------------------------------------------------------------------------
    subroutine finalize_fields
@@ -380,6 +388,7 @@ contains
       deallocate( work_LMloc )
       deallocate( phi_LMloc, phi_Rloc )
       if ( l_mag_par_solve ) deallocate(ddj_Rloc)
+      if (ampForce /= 0.0_cp) deallocate(bodyForce)
 
    end subroutine finalize_fields
 !----------------------------------------------------------------------------
