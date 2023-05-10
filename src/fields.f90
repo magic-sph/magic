@@ -388,6 +388,7 @@ contains
       deallocate( work_LMloc )
       deallocate( phi_LMloc, phi_Rloc )
       if ( l_mag_par_solve ) deallocate(ddj_Rloc)
+      if (ampForce /= 0.0_cp) deallocate(bodyForce)
 
    end subroutine finalize_fields
 !----------------------------------------------------------------------------

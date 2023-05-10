@@ -51,7 +51,7 @@ module rIter_mod
        &             omega_ma, dp_Rloc, phi_Rloc
    use time_schemes, only: type_tscheme
    use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv,&
-       &             ellip_fac_cmb, ellip_fac_icb
+       &                          ellip_fac_cmb, ellip_fac_icb
    use rIteration, only: rIter_t
    use RMS, only: get_nl_RMS, transform_to_lm_RMS, compute_lm_forces, &
        &          transform_to_grid_RMS

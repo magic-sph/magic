@@ -14,8 +14,7 @@ module updateWPS_mod
    use radial_functions, only: or1, or2, rho0, rgrav, r, visc, dLvisc,    &
        &                       rscheme_oc, beta, dbeta, dLkappa, dLtemp0, &
        &                       ddLtemp0, alpha0, dLalpha0, ddLalpha0,     &
-       &                       ogrun, kappa, orho1, dentropy0, temp0, l_R,&
-       &                       r_icb, r_cmb
+       &                       ogrun, kappa, orho1, dentropy0, temp0, l_R
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
        &                          ViscHeatFac, ThExpNb, BuoFac,        &
        &                          CorFac, ktopp, ellipticity_cmb,      &
@@ -116,7 +115,6 @@ contains
       class(type_tscheme), intent(in) :: tscheme
       real(cp),            intent(in) :: z10(n_r_max)
       logical,             intent(in) :: lRmsNext
-
       real(cp),            intent(in) :: time
 
       !-- Output variables

@@ -261,9 +261,7 @@ contains
       class(type_tscheme), intent(in) :: tscheme
       logical,             intent(in) :: lRmsNext
       logical,             intent(in) :: lPressNext
-
       real(cp),            intent(in) :: time
-
       type(type_tarray), intent(inout) :: dpdt
       type(type_tarray), intent(inout) :: dwdt
       complex(cp),       intent(inout) :: s(llm:ulm,n_r_max)
