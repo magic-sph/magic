@@ -586,19 +586,17 @@ contains
                     &                 this%gsa%dvtdpc, this%gsa%dvpdpc, l_R(nR))
             end if
          else if ( nBc == 2 ) then
-            if (ellip_fac_cmb == 0.0_cp .and. ellip_fac_icb == 0.0_cp) then
-               if ( nR == n_r_cmb ) then
-                  call v_rigid_boundary(nR, omega_ma, lDeriv, this%gsa%vrc,        &
-                     &                this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
-                     &                this%gsa%dvrdtc, this%gsa%dvrdpc,          &
-                     &                this%gsa%dvtdpc,this%gsa%dvpdpc)
-               else if ( nR == n_r_icb ) then
-                  call v_rigid_boundary(nR, omega_ic, lDeriv, this%gsa%vrc,      &
-                     &                this%gsa%vtc, this%gsa%vpc,              &
-                     &                this%gsa%cvrc, this%gsa%dvrdtc,          &
-                     &                this%gsa%dvrdpc, this%gsa%dvtdpc,        &
-                     &                this%gsa%dvpdpc)
-               end if
+            if ( nR == n_r_cmb .and. ellip_fac_cmb == 0.0_cp ) then
+               call v_rigid_boundary(nR, omega_ma, lDeriv, this%gsa%vrc,      &
+                    &              this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
+                    &              this%gsa%dvrdtc, this%gsa%dvrdpc,          &
+                    &              this%gsa%dvtdpc,this%gsa%dvpdpc)
+            else if ( nR == n_r_icb .and. ellip_fac_icb == 0.0_cp ) then
+               call v_rigid_boundary(nR, omega_ic, lDeriv, this%gsa%vrc,    &
+                    &              this%gsa%vtc, this%gsa%vpc,              &
+                    &              this%gsa%cvrc, this%gsa%dvrdtc,          &
+                    &              this%gsa%dvrdpc, this%gsa%dvtdpc,        &
+                    &              this%gsa%dvpdpc)
             end if
             if ( lDeriv ) then
                call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &
