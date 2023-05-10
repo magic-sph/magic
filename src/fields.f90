@@ -350,6 +350,7 @@ contains
       if (ampForce /= 0.0_cp) then
          allocate(bodyForce(llm:ulm,n_r_max))
          bodyForce(:,:) = zero
+         bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
       end if
 
    end subroutine initialize_fields
