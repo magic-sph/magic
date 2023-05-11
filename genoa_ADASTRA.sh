@@ -18,10 +18,11 @@ mkdir build && cd build
 cmake .. -DUSE_SHTNS=yes -DUSE_GPU=no 
 make -j16
 
-source ../namelists_hpc/run_middle_ADASTRA/CPU/clear.sh
-source ../namelists_hpc/run_big_ADASTRA/CPU/clear.sh
-source ../samples/boussBenchSat/clear.sh
+cd ../namelists_hpc/run_middle_ADASTRA/CPU/ && source clear.sh
+cd ../../run_big_ADASTRA/CPU/ && source clear.sh
+cd ../../../samples/boussBenchSat/ && source clear.sh
 
+cd ../../build
 cp magic.exe ../namelists_hpc/run_middle_ADASTRA/CPU
 cp magic.exe ../namelists_hpc/run_big_ADASTRA/CPU
 cp magic.exe ../samples/boussBenchSat
@@ -36,3 +37,5 @@ cd ../../../samples/boussBenchSat/
 sbatch genoa_ADATRA_submit.sh
 
 squeue | grep MagIC
+
+

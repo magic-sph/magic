@@ -22,10 +22,11 @@ mkdir build && cd build
 
 cmake .. -DUSE_SHTNS=yes -DUSE_GPU=yes && make -j16
 
-source ../namelists_hpc/run_middle_ADASTRA/GPU/ clear.sh
-source ../namelists_hpc/run_big_ADASTRA/GPU/ clear.sh
-source ../samples/boussBenchSat/ clear.sh
+cd ../namelists_hpc/run_middle_ADASTRA/CPU/ && source clear.sh
+cd ../../run_big_ADASTRA/CPU/ && source clear.sh
+cd ../../../samples/boussBenchSat/ && source clear.sh
 
+cd ../../build
 cp magic.exe ../namelists_hpc/run_middle_ADASTRA/GPU
 cp magic.exe ../namelists_hpc/run_big_ADASTRA/GPU
 cp magic.exe ../samples/boussBenchSat
