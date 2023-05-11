@@ -9,7 +9,7 @@ module load hipfort
 module list
 
 export HIPFORT_PATH=/lus/home/NAT/cpa2204/SHARED/INSTALL/hipfort/0.4-6f6ae98e/cpe-cray/15.0.0/rocm/5.2.3/cmpich/8.1.21
-export LDFLAGS+=""
+export LDFLAGS=""
 export LDFLAGS+="-L/opt/cray/pe/fftw/3.3.10.3/x86_genoa/lib/"
 export HIP_LAUNCH_BLOCKING=1
 export OMP_NUM_THREADS=1
