@@ -496,7 +496,6 @@ contains
                         rhs1(nR,2*lm,0)  =rhs1(nR,2*lm,0) - &
                         &                 wimp_lin*prec_fac*cos(oek*time)
                      end if
-                     ²
                      if ( ampForce /= 0.0_cp ) then
                         rhs1(nR,2*lm-1,0)=rhs1(nR,2*lm-1,0)+real(bodyForce(lm1,nR))
                         rhs1(nR,2*lm,0)  =rhs1(nR,2*lm,0)  +aimag(bodyForce(lm1,nR))
