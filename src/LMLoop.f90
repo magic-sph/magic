@@ -185,7 +185,7 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target update from(z10_ghost, z_ghost)
 #endif
-         call prepareW_FD(tscheme, dummy, .false.)
+         call prepareW_FD(0.0_cp, tscheme, dummy, .false.)
 #ifdef WITH_OMP_GPU
          !$omp target update from(dummy)
 #endif
@@ -347,16 +347,16 @@ contains
             end if
 #endif
             call upWP_counter%start_count()
-            call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
-                 &          p_LMloc, dp_LMloc, dpdt, s_LMloc, ds_LMloc, &
-                 &          dsdt, tscheme, lRmsNext, time )
+            call updateWPS( time, w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt, &
+                 &          p_LMloc, dp_LMloc, dpdt, s_LMloc, ds_LMloc,    &
+                 &          dsdt, tscheme, lRmsNext )
             call upWP_counter%stop_count()
          else
             PERFON('up_WP')
             call upWP_counter%start_count()
-            call updateWP( s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc, ddw_LMloc, &
-                 &         dwdt, p_LMloc, dp_LMloc, dpdt, tscheme,          &
-                 &         lRmsNext, lPressNext, time )
+            call updateWP( time, s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc, &
+                 &         ddw_LMloc, dwdt, p_LMloc, dp_LMloc, dpdt,   &
+                 &         tscheme, lRmsNext, lPressNext )
             call upWP_counter%stop_count()
             PERFOFF
          end if
@@ -454,7 +454,7 @@ contains
          !$omp target update from(z10_ghost, z_ghost)
 #endif
          if ( l_z10mat ) call z10Mat_FD%solver_single(z10_ghost, nRstart, nRstop)
-         call prepareW_FD(tscheme, dwdt, lPress)
+         call prepareW_FD(time, tscheme, dwdt, lPress)
 #ifdef WITH_OMP_GPU
          !$omp target update from(p0_ghost, w_ghost)
 #endif

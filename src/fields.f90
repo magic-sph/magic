@@ -78,7 +78,9 @@ module fields
    complex(cp), public, allocatable :: aj_ic_LMloc(:,:)
    complex(cp), public, allocatable :: dj_ic_LMloc(:,:)
    complex(cp), public, allocatable :: ddj_ic_LMloc(:,:)
-   complex(cp), public, allocatable :: bodyForce(:,:)
+   complex(cp), public, allocatable :: bodyForce_Rloc(:,:)
+   complex(cp), public, allocatable :: bodyForce_LMloc(:,:)
+
    complex(cp), public, allocatable :: work_LMloc(:,:) ! Needed in update routines
    complex(cp), public, allocatable :: tmp_LMloc(:,:) ! Needed in update routines
 
@@ -504,14 +506,26 @@ contains
 #endif
 
       if (ampForce /= 0.0_cp) then
-         allocate(bodyForce(llm:ulm,n_r_max))
+         allocate(bodyForce_LMloc(llm:ulm,n_r_max))
          bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-         bodyForce(:,:) = zero
+         bodyForce_LMloc(:,:) = zero
 #ifdef WITH_OMP_GPU
          gpu_bytes_allocated=gpu_bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-         !$omp target enter data map(alloc: bodyForce)
-         !$omp target update to(bodyForce)
+         !$omp target enter data map(alloc: bodyForce_LMloc)
+         !$omp target update to(bodyForce_LMloc)
 #endif
+         if ( l_parallel_solve ) then
+            allocate(bodyForce_Rloc(lm_max,nRstart:nRstop))
+            bodyForce_Rloc(:,:) = zero
+            bytes_allocated = bytes_allocated + lm_max*(nRstop-nRstart+1)*&
+            &                 SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+            gpu_bytes_allocated=gpu_bytes_allocated+lm_max*(nRstop-nRstart+1)*&
+            &                   SIZEOF_DEF_COMPLEX
+            !$omp target enter data map(alloc: bodyForce_Rloc)
+            !$omp target update to(bodyForce_Rloc)
+#endif
+         end if
       end if
 
    end subroutine initialize_fields
@@ -584,10 +598,16 @@ contains
          deallocate(ddj_Rloc)
       end if
       if ( ampForce /= 0.0_cp ) then
-#ifdef WITH_OMP_GPU_
-      !$omp target exit data map(delete: bodyForce)
+#ifdef WITH_OMP_GPU
+         !$omp target exit data map(delete: bodyForce_LMloc)
 #endif
-         deallocate(bodyForce)
+         deallocate(bodyForce_LMloc)
+         if ( l_parallel_solve ) then
+#ifdef WITH_OMP_GPU
+            !$omp target exit data map(delete: bodyForce_Rloc)
+#endif
+            deallocate(bodyForce_Rloc)
+         end if
       end if
 
    end subroutine finalize_fields

@@ -380,8 +380,8 @@ contains
 
    end subroutine finalize_updateWP
 !-----------------------------------------------------------------------------
-   subroutine updateWP(s, xi, w, dw, ddw, dwdt, p, dp, dpdt, tscheme, &
-              &        lRmsNext, lPressNext, time)
+   subroutine updateWP(time, s, xi, w, dw, ddw, dwdt, p, dp, dpdt, tscheme, &
+              &        lRmsNext, lPressNext)
       !
       !  updates the poloidal velocity potential w, the pressure p, and
       !  their radial derivatives.
@@ -1240,17 +1240,18 @@ contains
 
    end subroutine updateWP
 !------------------------------------------------------------------------------
-   subroutine prepareW_FD(tscheme, dwdt, lPressNext)
+   subroutine prepareW_FD(time, tscheme, dwdt, lPressNext)
 
       !-- Input of variable
       logical,             intent(in) :: lPressNext
+      real(cp),            intent(in) :: time
       class(type_tscheme), intent(in) :: tscheme
 
       !-- Input/output of scalar fields:
       type(type_tarray), intent(inout) :: dwdt
 
       !-- Local variables
-      integer :: nR, lm_start, lm_stop, lm, l, lm00
+      integer :: nR, lm_start, lm_stop, lm, l, m, lm00
       integer :: loc_istage
       loc_istage = tscheme%istage
 
@@ -1294,7 +1295,7 @@ contains
 #ifdef WITH_OMP_GPU
       lm_start=1; lm_stop=lm_max
 #else
-      !$omp parallel default(shared) private(lm_start,lm_stop, nR, l, lm)
+      !$omp parallel default(shared) private(lm_start,lm_stop, nR, l, m, lm)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
       !$omp barrier
@@ -1324,8 +1325,14 @@ contains
 #endif
          do lm=lm_start,lm_stop
             l=st_map%lm2l(lm)
+            m=st_map%lm2m(lm)
             if ( l /= 0 ) then
                w_ghost(lm,nR)  =zero ! Non-penetration condition
+               if ( ellipticity_cmb /= 0.0_cp .and. l==2 .and. m==2 ) then
+                  w_ghost(lm,nR)=ellip_fac_cmb/6.0_cp*cmplx(           &
+                  &                cos(omegaOsz_ma1*(time+tShift_ma1)),&
+                  &                sin(omegaOsz_ma1*(time+tShift_ma1)),cp)
+               end if
                w_ghost(lm,nR-1)=zero ! Ghost zones set to zero
                w_ghost(lm,nR-2)=zero
             end if
@@ -1342,8 +1349,14 @@ contains
 #endif
          do lm=lm_start,lm_stop
             l=st_map%lm2l(lm)
+            m=st_map%lm2m(lm)
             if ( l /= 0 ) then
                w_ghost(lm,nR)=zero ! Non-penetration condition
+               if ( ellipticity_icb /= 0.0_cp .and. l==2 .and. m==2 ) then
+                  w_ghost(lm,nR)=ellip_fac_icb/6.0_cp*cmplx(           &
+                  &                cos(omegaOsz_ic1*(time+tShift_ic1)),&
+                  &                sin(omegaOsz_ic1*(time+tShift_ic1)),cp)
+               end if
                w_ghost(lm,nR+1)=zero ! Ghost zones set to zero
                w_ghost(lm,nR+2)=zero
             end if
