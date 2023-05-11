@@ -2931,7 +2931,7 @@ contains
       !
       !  Copy (interpolate) data (read from disc file) from old grid structure
       !  to new grid. Linear interploation is used in r if the radial grid
-      !  structure differs. 
+      !  structure differs.
       !
 
       !--- Input variables
