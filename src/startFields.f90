@@ -261,8 +261,8 @@ contains
          if ( l_heat .and. llm <= lm00 .and. ulm >= lm00 ) then
             topval=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
             botval= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
-            if ( abs(s_LMloc(lm00,n_r_cmb)-topval) <= 100.0_cp*epsilon(one) .and. &
-            &    abs(s_LMloc(lm00,n_r_icb)-botval) <= 100.0_cp*epsilon(one) ) then
+            if ( abs(s_LMloc(lm00,n_r_cmb)-topval) <= 10000.0_cp*epsilon(one) .and. &
+            &    abs(s_LMloc(lm00,n_r_icb)-botval) <= 10000.0_cp*epsilon(one) ) then
                s_LMloc(lm00,:)=s_LMloc(lm00,:)-cmplx(topval,0.0_cp,cp)
             end if
          end if
@@ -272,8 +272,8 @@ contains
          if ( l_chemical_conv .and. llm <= lm00 .and. ulm >= lm00 ) then
             topval=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
             botval= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
-            if ( abs(xi_LMloc(lm00,n_r_cmb)-topval) <= 100.0_cp*epsilon(one) .and. &
-            &    abs(xi_LMloc(lm00,n_r_icb)-botval) <= 100.0_cp*epsilon(one) ) then
+            if ( abs(xi_LMloc(lm00,n_r_cmb)-topval) <= 10000.0_cp*epsilon(one) .and. &
+            &    abs(xi_LMloc(lm00,n_r_icb)-botval) <= 10000.0_cp*epsilon(one) ) then
                xi_LMloc(lm00,:)=xi_LMloc(lm00,:)-cmplx(topval,0.0_cp,cp)
             end if
          end if
