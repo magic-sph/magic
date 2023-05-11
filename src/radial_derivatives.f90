@@ -1,4 +1,4 @@
-#define USE_FFT
+#define USE_DCT_FFT
 module radial_der
    !
    ! Radial derivatives functions
@@ -366,7 +366,7 @@ contains
          end if
     
          if ( copy_array )  then
-#ifdef USE_FFT
+#ifdef USE_DCT_FFT
              call r_scheme%chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max,     &
                   &                            n_f_start,n_f_stop,r_scheme%n_max,&
                   &                            l_dct_in_loc)
@@ -392,7 +392,7 @@ contains
 
          else
 
-#ifdef USE_FFT
+#ifdef USE_DCT_FFT
             call r_scheme%chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max,     &
                  &                            n_f_start,n_f_stop,r_scheme%n_max,&
                  &                            l_dct_in_loc)
@@ -493,7 +493,7 @@ contains
             l_dct_in_loc=.true.
          end if
     
-#ifdef USE_FFT
+#ifdef USE_DCT_FFT
          call r_scheme%chebt_oc%get_ddr_fft(f,df,ddf,r_scheme%x_cheb,n_f_max, &
               &                             n_f_start,n_f_stop,r_scheme%n_max,&
               &                             l_dct_in_loc)
@@ -613,7 +613,7 @@ contains
             l_dct_in_loc=.true.
          end if
 
-#ifdef USE_FFT
+#ifdef USE_DCT_FFT
          call r_scheme%chebt_oc%get_dddr_fft(f,df,ddf,dddf,r_scheme%x_cheb,n_f_max, &
               &                              n_f_start,n_f_stop,r_scheme%n_max,     &
               &                              l_dct_in_loc)
