@@ -2692,8 +2692,17 @@ contains
       complex(cp), intent(out) :: w(lm_max,dim1)
 
       !--- Local variables
+      type(costf_odd_t) :: chebt_ic_old
+      logical :: l_remap
       integer :: lm,lmo,lmStart,lmStop,n_proc
       complex(cp) :: woR(n_r_maxL)
+
+      l_remap=.false.
+      if ( dim1 /= n_r_max_old .or. ratio1 /= ratio1_old .or. ratio2 /= ratio2_old &
+      &    .or. rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary         &
+      &    .or. rscheme_oc%version /= rscheme_oc_old%version ) l_remap=.true.
+
+      if ( l_IC ) call chebt_ic_old%initialize(n_r_max_old, n_r_max_old, 2*n_r_maxL+5)
 
       !$omp parallel do default(shared) private(n_proc,lmStart,lmStop,lm,lmo,woR)
       do n_proc=0,n_procs-1 ! Blocking of loop over all (l,m)
@@ -2703,13 +2712,10 @@ contains
          do lm=lmStart,lmStop
             lmo=lm2lmo(lm)
             if ( lmo > 0 ) then
-               if ( dim1 /= n_r_max_old .or. ratio1 /= ratio1_old .or.        &
-               &    ratio2 /= ratio2_old .or.                                 &
-               &    rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary&
-               &    .or. rscheme_oc%version /= rscheme_oc_old%version ) then
-
+               if ( l_remap ) then
                   woR(1:n_r_max_old)=wo(lmo,:)
-                  call mapDataR(woR,r_old,dim1,n_r_max_old,n_r_maxL,lBc1,l_IC)
+                  call mapDataR(woR,r_old,dim1,n_r_max_old,n_r_maxL,lBc1,l_IC, &
+                       &        chebt_ic_old)
                   w(lm,:)=scale_w*woR(1:dim1)
                else
                   w(lm,:)=scale_w*wo(lmo,:)
@@ -2720,6 +2726,8 @@ contains
          end do
       end do
       !$omp end parallel do
+
+      if ( l_IC ) call chebt_ic_old%finalize()
 
    end subroutine mapOneField
 !------------------------------------------------------------------------------
@@ -2860,12 +2868,14 @@ contains
       complex(cp), intent(out) :: p(lm_maxMag,dim1),s(lm_maxMag,dim1)
 
       !--- Local variables
+      type(costf_odd_t) :: chebt_ic_old
       integer :: lm,lmo,lmStart,lmStop,n_proc
       complex(cp), allocatable :: woR(:),zoR(:),poR(:),soR(:)
 
       allocate( woR(n_r_maxL),zoR(n_r_maxL) )
       allocate( poR(n_r_maxL),soR(n_r_maxL) )
       bytes_allocated = bytes_allocated + 4*n_r_maxL*SIZEOF_DEF_COMPLEX
+      if ( l_IC ) call chebt_ic_old%initialize(n_r_max_old, n_r_max_old, 2*n_r_maxL+5)
 
       !PERFON('mD_map')
       do n_proc=0,n_procs-1 ! Blocking of loop over all (l,m)
@@ -2883,10 +2893,14 @@ contains
                   zoR(1:n_r_max_old)=zo(lmo,:)
                   poR(1:n_r_max_old)=po(lmo,:)
                   soR(1:n_r_max_old)=so(lmo,:)
-                  call mapDataR(woR,r_old,dim1,n_r_max_old,n_r_maxL,.false.,l_IC)
-                  call mapDataR(zoR,r_old,dim1,n_r_max_old,n_r_maxL,.true.,l_IC)
-                  call mapDataR(poR,r_old,dim1,n_r_max_old,n_r_maxL,.true.,l_IC)
-                  call mapDataR(soR,r_old,dim1,n_r_max_old,n_r_maxL,.false.,l_IC)
+                  call mapDataR(woR,r_old,dim1,n_r_max_old,n_r_maxL,.false.,l_IC,&
+                       &        chebt_ic_old)
+                  call mapDataR(zoR,r_old,dim1,n_r_max_old,n_r_maxL,.true.,l_IC, &
+                       &        chebt_ic_old)
+                  call mapDataR(poR,r_old,dim1,n_r_max_old,n_r_maxL,.true.,l_IC, &
+                       &        chebt_ic_old)
+                  call mapDataR(soR,r_old,dim1,n_r_max_old,n_r_maxL,.false.,l_IC,&
+                       &        chebt_ic_old)
                   w(lm,:)=scale_b*woR(:)
                   z(lm,:)=scale_b*zoR(:)
                   p(lm,:)=scale_b*poR(:)
@@ -2908,18 +2922,16 @@ contains
       !PERFOFF
       deallocate(woR,zoR,poR,soR)
       bytes_allocated = bytes_allocated - 4*n_r_maxL*SIZEOF_DEF_COMPLEX
+      if ( l_IC ) call chebt_ic_old%finalize()
 
    end subroutine mapDataMag
 !------------------------------------------------------------------------------
-   subroutine mapDataR(dataR,r_old,n_rad_tot,n_r_max_old,n_r_maxL,lBc,l_IC)
-      !
+   subroutine mapDataR(dataR,r_old,n_rad_tot,n_r_max_old,n_r_maxL,lBc,l_IC, &
+              &        chebt_ic_old)
       !
       !  Copy (interpolate) data (read from disc file) from old grid structure
       !  to new grid. Linear interploation is used in r if the radial grid
-      !  structure differs
-      !
-      !  called in mapdata
-      !
+      !  structure differs. 
       !
 
       !--- Input variables
@@ -2927,6 +2939,7 @@ contains
       integer,  intent(in) :: n_r_maxL,n_rad_tot
       real(cp), intent(in) :: r_old(:)
       logical,  intent(in) :: lBc,l_IC
+      type(costf_odd_t), optional, intent(in) :: chebt_ic_old
 
       !--- Output variables
       complex(cp), intent(inout) :: dataR(:)  ! old data
@@ -2937,7 +2950,6 @@ contains
       complex(cp) :: yold(4)
       complex(cp), allocatable :: work(:)
       real(cp) :: cheb_norm_old,scale
-      type(costf_odd_t) :: chebt_oc_old
 
       !-- If **both** the old and the new schemes are Chebyshev, we can
       !-- use costf to get the new data
@@ -2956,9 +2968,7 @@ contains
          !----- Transform old data to cheb space:
          if ( l_IC ) then
             allocate( work(n_r_maxL) )
-            call chebt_oc_old%initialize(n_r_max_old, n_r_max_old, 2*n_r_maxL+5)
-            call chebt_oc_old%costf1(dataR, work)
-            call chebt_oc_old%finalize()
+            call chebt_ic_old%costf1(dataR, work)
          else
             call rscheme_oc_old%costf1(dataR)
          end if
@@ -3002,13 +3012,8 @@ contains
 
             allocate( work(n_r_maxL) )
 
-            !-- This is needed for the inner core
-            call chebt_oc_old%initialize(n_r_max_old, n_r_max_old, 2*n_r_maxL+5)
-
             !----- Transform old data to cheb space:
-            call chebt_oc_old%costf1(dataR, work)
-
-            call chebt_oc_old%finalize()
+            call chebt_ic_old%costf1(dataR, work)
 
             !----- Fill up cheb polynomial with zeros:
             if ( n_rad_tot>n_r_max_old ) then
