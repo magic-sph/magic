@@ -15,7 +15,8 @@ export FC=ftn
 if [ -e "build" ];then rm -rf "build" ; fi
 
 mkdir build && cd build
-cmake .. -DUSE_SHTNS=yes -DUSE_GPU=no && make -j16
+cmake .. -DUSE_SHTNS=yes -DUSE_GPU=no 
+make -j16
 
 source ../namelists_hpc/run_middle_ADASTRA/CPU/clear.sh
 source ../namelists_hpc/run_big_ADASTRA/CPU/clear.sh
