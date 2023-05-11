@@ -607,7 +607,6 @@ contains
 
       type is(type_cheb_odd)
 
-
          if ( present(l_dct_in) ) then
             l_dct_in_loc=l_dct_in
          else

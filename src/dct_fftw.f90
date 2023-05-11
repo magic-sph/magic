@@ -127,19 +127,13 @@ contains
       do k=1,n_cheb_max!-1
          this%der(k)=k-1
       end do
-      !this%der(n_r_max)=0
       j=1
       do k=2*n_r_max-2,n_r_max+1,-1
-         if ( j < n_cheb_max ) then
-            this%der(k)=-j
-            print*, k, j, this%der(k)
-         end if
+         if ( j < n_cheb_max ) this%der(k)=-j
          j=j+1
       end do
       this%der2(:)=this%der(:)*this%der(:)
       this%der(n_r_max)=0
-      print*, 'n_r_max', n_r_max, 'n_cheb_max', n_cheb_max, this%der(:)
-      !stop
 #endif
       
       plan_size(1) = n_r_max

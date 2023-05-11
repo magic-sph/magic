@@ -56,7 +56,6 @@ contains
 
       this%rnorm = sqrt(two/real(n_r_max-1,kind=cp))
       this%n_max = order  ! n_cheb_max
-      print*, 'this is n_cheb_max in chebyshev.f90:', this%n_max
       this%boundary_fac = half
       this%version = 'cheb'
       this%nRmax = n_r_max
