@@ -14,7 +14,7 @@ module updateZ_mod
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: visc, or1, or2, rscheme_oc, dLvisc, beta, &
        &                       rho0, r_icb, r_cmb, r, beta, dbeta
-   use physical_parameters, only: kbotv, ktopv, prec_angle, po, oek
+   use physical_parameters, only: kbotv, ktopv, prec_angle, po, oek, ampForce
    use num_param, only: AMstart, dct_counter, solve_counter
    use torsional_oscillations, only: ddzASL
    use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
@@ -30,7 +30,7 @@ module updateZ_mod
    use outRot, only: get_angular_moment, get_angular_moment_Rloc
    use RMS, only: DifTor2hInt
    use radial_der, only: get_ddr, get_ddr_ghost, bulk_to_ghost, exch_ghosts
-   use fields, only: work_LMloc
+   use fields, only: work_LMloc, bodyForce_LMloc, bodyForce_Rloc
    use useful, only: abortRun, cc2real
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray, type_tscalar
@@ -402,6 +402,13 @@ contains
                            &                       tscheme%wimp_lin(1)*prec_fac*&
                            &                       cos(oek*time)
                         end if
+
+                        if ( ampForce /= 0.0_cp ) then
+                           rhs1(nR,2*lmB-1,threadid)=rhs1(nR,2*lmB-1,threadid)+ &
+                           &                         real(bodyForce_LMloc(lm1,nR))
+                           rhs1(nR,2*lmB,threadid)  =rhs1(nR,2*lmB,threadid)+   &
+                           &                         aimag(bodyForce_LMloc(lm1,nR))
+                        end if
                      end do
 
 #ifdef WITH_PRECOND_Z
@@ -574,6 +581,15 @@ contains
                &                cmplx(sin(oek*time),cos(oek*time),cp)
             end do
          end if
+      end if
+
+      !-- Add body force if needed
+      if ( ampForce /= 0.0_cp ) then
+         do lm=lm_start,lm_stop
+            do nR=nRstart,nRstop
+               z_ghost(lm,nR)=z_ghost(lm,nR)+bodyForce_Rloc(lm,nR)
+            end do
+         end do
       end if
 
       !-- Boundary conditions

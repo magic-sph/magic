@@ -17,9 +17,12 @@ module updateWPS_mod
        &                       ogrun, kappa, orho1, dentropy0, temp0, l_R
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
        &                          ViscHeatFac, ThExpNb, BuoFac,        &
-       &                          CorFac, ktopp
+       &                          CorFac, ktopp, ellipticity_cmb,      &
+       &                          ellipticity_icb, ellip_fac_cmb,      &
+       &                          ellip_fac_icb
    use num_param, only: dct_counter, solve_counter
-   use init_fields, only: tops, bots
+   use init_fields, only: tops, bots, omegaOsz_ma1, tShift_ma1,        &
+       &                  omegaOsz_ic1, tShift_ic1
    use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V, hdif_S
    use logic, only: l_update_v, l_temperature_diff, l_RMS, l_full_sphere
@@ -102,7 +105,7 @@ contains
 
    end subroutine finalize_updateWPS
 !-----------------------------------------------------------------------------
-   subroutine updateWPS(w,dw,ddw,z10,dwdt,p,dp,dpdt,s,ds,dsdt,tscheme,lRmsNext)
+   subroutine updateWPS(time,w,dw,ddw,z10,dwdt,p,dp,dpdt,s,ds,dsdt,tscheme,lRmsNext)
       !
       !  updates the poloidal velocity potential w, the pressure p, the entropy
       !  and their radial derivatives.
@@ -112,6 +115,7 @@ contains
       class(type_tscheme), intent(in) :: tscheme
       real(cp),            intent(in) :: z10(n_r_max)
       logical,             intent(in) :: lRmsNext
+      real(cp),            intent(in) :: time
 
       !-- Output variables
       type(type_tarray), intent(inout) :: dwdt
@@ -246,6 +250,23 @@ contains
                   rhs1(2*n_r_max+1,2*lm,threadid)  =aimag(tops(l1,m1))
                   rhs1(3*n_r_max,2*lm-1,threadid)  = real(bots(l1,m1))
                   rhs1(3*n_r_max,2*lm,threadid)    =aimag(bots(l1,m1))
+
+                  if ( l1 == 2 .and. m1 == 2 ) then
+                     if ( ellipticity_cmb /= 0.0_cp ) then
+                        rhs1(1,2*lm-1,threadid)=ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
+                        &                       *cos(omegaOsz_ma1*(time+tShift_ma1))
+                        rhs1(1,2*lm,threadid)  =ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
+                        &                       *sin(omegaOsz_ma1*(time+tShift_ma1))
+                     end if
+
+                     if ( ellipticity_icb /= 0.0_cp ) then
+                        rhs1(n_r_max,2*lm-1,threadid)=ellip_fac_icb/real(l1*(l1+1),kind=cp) &
+                        &                             *cos(omegaOsz_ic1*(time+tShift_ic1))
+                        rhs1(n_r_max,2*lm,threadid)  =ellip_fac_icb/real(l1*(l1+1),kind=cp) &
+                        &                             *sin(omegaOsz_ic1*(time+tShift_ic1))
+                     end if
+                  end if
+
                   do nR=2,n_r_max-1
                      !-- dp and ds used as work arrays here
                      rhs1(nR,2*lm-1,threadid)          = real(work_LMloc(lm1,nR))
