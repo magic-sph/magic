@@ -648,7 +648,7 @@ contains
       end if
 
       if ( ampForce /= 0.0_cp ) then
-         call initF(bodyForce)
+         call initF(bodyForce_LMloc)
 #ifdef WITH_OMP_GPU
          !$omp target update to(bodyForce_LMloc)
 #endif
