@@ -2939,7 +2939,6 @@ contains
       real(cp) :: cheb_norm_old,scale
       type(costf_odd_t) :: chebt_oc_old
 
-
       !-- If **both** the old and the new schemes are Chebyshev, we can
       !-- use costf to get the new data
       !-- Both have also to use the same mapping
@@ -2957,7 +2956,7 @@ contains
          !----- Transform old data to cheb space:
          if ( l_IC ) then
             allocate( work(n_r_maxL) )
-            call chebt_oc_old%initialize(n_r_max_old, 2*n_r_maxL+2, 2*n_r_maxL+5)
+            call chebt_oc_old%initialize(n_r_max_old, n_r_max_old, 2*n_r_maxL+5)
             call chebt_oc_old%costf1(dataR, work)
             call chebt_oc_old%finalize()
          else
@@ -3004,7 +3003,7 @@ contains
             allocate( work(n_r_maxL) )
 
             !-- This is needed for the inner core
-            call chebt_oc_old%initialize(n_r_max_old, 2*n_r_maxL+2, 2*n_r_maxL+5)
+            call chebt_oc_old%initialize(n_r_max_old, n_r_max_old, 2*n_r_maxL+5)
 
             !----- Transform old data to cheb space:
             call chebt_oc_old%costf1(dataR, work)
