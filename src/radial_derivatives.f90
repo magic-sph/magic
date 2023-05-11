@@ -1,4 +1,3 @@
-#define USE_DCT_FFT
 module radial_der
    !
    ! Radial derivatives functions
