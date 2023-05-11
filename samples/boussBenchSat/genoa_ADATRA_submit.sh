@@ -25,7 +25,8 @@
 module purge
 module load craype/2.7.19 PrgEnv-cray/8.3.3
 module load craype-x86-genoa libfabric/1.15.2.0 craype-network-ofi cray-dsmml/0.2.2 cray-mpich/8.1.21
-module load cpe/22.11 cray-fftw/3.3.10.2 cray-libsci/22.11.1.2
+module load cpe/22.11 cray-fftw/3.3.10.3 cray-libsci/22.11.1.2
+module list
 
 export KMP_STACKSIZE=1g
 

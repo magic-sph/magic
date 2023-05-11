@@ -9,14 +9,20 @@ module load cpe/22.11 cray-fftw/3.3.10.3 cray-libsci/22.11.1.2
 
 export LDFLAGS+=""
 export LDFLAGS+="-L/opt/cray/pe/fftw/3.3.10.3/x86_genoa/lib/"
+export FC=ftn
 
-cd magic && mkdir build && cd build
-cmake .. -DUSE_SHTNS=yes -DUSE_GPU=no
-make -j16
+git clone https://github.com/magic-sph/magic.git
+cd magic 
+git checkout dct_no_recurrence
 
-cp magic.exe ../namelists_hpc/run_middle_ADASTRA/CPU
-cp magic.exe ../namelists_hpc/run_big_ADASTRA/CPU
-cp magic.exe ../samples/boussBenchSat
+if [ -e "build" ];then rm -rf "build" ; fi
+mkdir build && cd build
+
+cmake .. -DUSE_SHTNS=yes -DUSE_GPU=no && make -j16
+
+source ../namelists_hpc/run_middle_ADASTRA/CPU/ clear.sh
+source ../namelists_hpc/run_big_ADASTRA/CPU/ clear.sh
+source ../samples/boussBenchSat/ clear.sh
 
 cd ../namelists_hpc/run_middle_ADASTRA/CPU
 sbatch submit.sh

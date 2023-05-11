@@ -15,6 +15,7 @@ n_cheb_ic_max=15,
  runHours    =12,
  runMinutes  =00,
  time_scheme ='BPR353',
+ mpi_transp='a2av',
 /
 &phys_param
  ra          =1.1D5,

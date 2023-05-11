@@ -17,8 +17,8 @@ n_cheb_ic_max=15,
  alpha       =0.6D0,
  runHours    =00,
  runMinutes  =20,
-l_adv_curl   =.true.,
- mpi_transp  ="auto",
+ l_adv_curl   =.true.,
+ mpi_transp  ="a2av",
 /
 &phys_param
  ra          =1.0D5,
