@@ -692,8 +692,14 @@ contains
       if ( ampForce /= 0.0_cp ) then
          call initF(bodyForce)
 #ifdef WITH_OMP_GPU
-         !$omp target update to(bodyForce)
+         !$omp target update to(bodyForce_LMloc)
 #endif
+         if ( l_parallel_solve ) then
+            call lo2r_one%transp_lm2r(bodyForce_LMloc, bodyForce_Rloc)
+#ifdef WITH_OMP_GPU
+            !$omp target update to(bodyForce_Rloc)
+#endif
+         end if
       end if
 
    end subroutine getStartFields
