@@ -495,7 +495,12 @@ contains
          end if
       end if
 
-      if ( ampForce /= 0.0_cp ) call initF(bodyForce)
+      if ( ampForce /= 0.0_cp ) then
+         call initF(bodyForce_LMloc)
+         if ( l_parallel_solve ) then
+            call lo2r_one%transp_lm2r(bodyForce_LMloc, bodyForce_Rloc)
+         end if
+      end if
 
    end subroutine getStartFields
 !------------------------------------------------------------------------------

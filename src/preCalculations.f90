@@ -207,8 +207,8 @@ contains
          ! Write the equilibrium setup in anel.tag
          fileName='anel.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
-         write(fileHandle,'(11a15)') 'radius', 'temp0', 'rho0', 'beta',         &
-         &                          'dbeta', 'grav', 'ds0/dr', 'div(k grad T)', &
+         write(fileHandle,'(11a15)') 'radius', 'temp0', 'rho0', 'beta',       &
+         &                          'dbeta', 'grav', 'ds0/dr', 'div(kgradT)', &
          &                          'alpha', 'ogrun', 'dLtemp0'
          do n_r=1,n_r_max
             write(fileHandle,'(11ES16.8)') r(n_r), temp0(n_r), rho0(n_r),    &

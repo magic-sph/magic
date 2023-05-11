@@ -75,7 +75,8 @@ module fields
    complex(cp), public, allocatable :: dj_ic_LMloc(:,:)
    complex(cp), public, allocatable :: ddj_ic_LMloc(:,:)
 
-   complex(cp), public, allocatable :: bodyForce(:,:)
+   complex(cp), public, allocatable :: bodyForce_Rloc(:,:)
+   complex(cp), public, allocatable :: bodyForce_LMloc(:,:)
 
    complex(cp), public, allocatable :: work_LMloc(:,:) ! Needed in update routines
 
@@ -348,9 +349,15 @@ contains
       bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 
       if (ampForce /= 0.0_cp) then
-         allocate(bodyForce(llm:ulm,n_r_max))
-         bodyForce(:,:) = zero
+         allocate(bodyForce_LMloc(llm:ulm,n_r_max))
+         bodyForce_LMloc(:,:) = zero
          bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+         if ( l_parallel_solve ) then
+            allocate(bodyForce_Rloc(lm_max,nRstart:nRstop))
+            bodyForce_Rloc(:,:) = zero
+            bytes_allocated = bytes_allocated + lm_max*(nRstop-nRstart+1)*&
+            &                 SIZEOF_DEF_COMPLEX
+         end if
       end if
 
    end subroutine initialize_fields
@@ -389,7 +396,10 @@ contains
       deallocate( work_LMloc )
       deallocate( phi_LMloc, phi_Rloc )
       if ( l_mag_par_solve ) deallocate(ddj_Rloc)
-      if (ampForce /= 0.0_cp) deallocate(bodyForce)
+      if (ampForce /= 0.0_cp) then
+         deallocate(bodyForce_LMloc)
+         if ( l_parallel_solve ) deallocate(bodyForce_Rloc)
+      end if
 
    end subroutine finalize_fields
 !----------------------------------------------------------------------------
