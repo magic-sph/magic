@@ -105,7 +105,7 @@ contains
 
    end subroutine finalize_updateWPS
 !-----------------------------------------------------------------------------
-   subroutine updateWPS(w,dw,ddw,z10,dwdt,p,dp,dpdt,s,ds,dsdt,tscheme,lRmsNext,time)
+   subroutine updateWPS(time,w,dw,ddw,z10,dwdt,p,dp,dpdt,s,ds,dsdt,tscheme,lRmsNext)
       !
       !  updates the poloidal velocity potential w, the pressure p, the entropy
       !  and their radial derivatives.
