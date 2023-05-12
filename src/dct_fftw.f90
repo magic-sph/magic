@@ -410,12 +410,12 @@ contains
 
          !--  Boundary points = tau lines
          tot=zero
-         do k=1,this%n_r_max-1
+         do k=1,n_cheb_max-1
             tot=tot+k**2 * work_1d_out(k+1)
          end do
          df(n_f,1)=tot/(this%n_r_max-1)
          tot=zero
-         do k=1,this%n_r_max-1
+         do k=1,n_cheb_max-1
             tot=tot+(-1)**(k+1)*k**2*work_1d_out(k+1)
          end do
          df(n_f,this%n_r_max)=tot/(this%n_r_max-1)
@@ -466,12 +466,12 @@ contains
 
          tmp_out(n_f,this%n_r_max)=half*tmp_out(n_f,this%n_r_max)
          tot=zero
-         do k=1,this%n_r_max-2
+         do k=1,n_cheb_max-1
             tot=tot+k**2 * tmp_out(n_f,k+1)
          end do
          df(n_f,1)=tot/(this%n_r_max-1)
          tot=zero
-         do k=1,this%n_r_max-1
+         do k=1,n_cheb_max-1
             tot=tot+(-1)**(k+1)*k**2*tmp_out(n_f,k+1)
          end do
          df(n_f,this%n_r_max)=tot/(this%n_r_max-1)
@@ -537,22 +537,22 @@ contains
 
          !--  Boundary points = tau lines
          tot=zero
-         do k=1,this%n_r_max-1
+         do k=1,n_cheb_max-1
             tot=tot+k**2 * tmp(k+1)
          end do
          df(n_f,1)=tot/(this%n_r_max-1)
          tot=zero
-         do k=1,this%n_r_max-1
+         do k=2,n_cheb_max-1
             tot=tot+k**2*(k**2-1) * tmp(k+1)
          end do
          ddf(n_f,1)=third * tot/(this%n_r_max-1)
          tot=zero
-         do k=1,this%n_r_max-1
+         do k=1,n_cheb_max-1
             tot=tot+(-1)**(k+1)*k**2*tmp(k+1)
          end do
          df(n_f,this%n_r_max)=tot/(this%n_r_max-1)
          tot=zero
-         do k=1,this%n_r_max-1
+         do k=2,n_cheb_max-1
             tot=tot+(-1)**k*k**2*(k**2-1)*tmp(k+1)
          end do
          ddf(n_f,this%n_r_max)=third*tot/(this%n_r_max-1)
@@ -560,9 +560,9 @@ contains
          tmp(this%n_r_max)=two*tmp(this%n_r_max)
 
          !-- Derivatives in Fourier space
-         work_2(:)     =ci*this%der(:)*tmp(:)
+         work_2(:)=ci*this%der(:)*tmp(:)
          call fftw_execute_dft(this%plan_fft_1d_back, work_2, work_1)
-         tmp(:)=-this%der2(:)*tmp(:)
+         tmp(:)   =-this%der2(:)*tmp(:)
          call fftw_execute_dft(this%plan_fft_1d_back, tmp, work_2)
 
          !-- Bring back to Gauss-Lobatto grid for bulk points
@@ -620,32 +620,32 @@ contains
 
          !--  Boundary points = tau lines
          tot=zero
-         do k=1,this%n_r_max-1
+         do k=1,n_cheb_max-1
             tot=tot+k**2 * tmp(k+1)
          end do
          df(n_f,1)=tot/(this%n_r_max-1)
          tot=zero
-         do k=1,this%n_r_max-1
+         do k=2,n_cheb_max-1
             tot=tot+k**2*(k**2-1) * tmp(k+1)
          end do
          ddf(n_f,1)=third * tot/(this%n_r_max-1)
          tot=zero
-         do k=1,this%n_r_max-1
+         do k=3,n_cheb_max-1
             tot=tot+k**2*(k**2-1)*(k**2-4) * tmp(k+1)
          end do
          dddf(n_f,1)=1.0_cp/15.0_cp * tot/(this%n_r_max-1)
          tot=zero
-         do k=1,this%n_r_max-1
+         do k=1,n_cheb_max-1
             tot=tot+(-1)**(k+1)*k**2*tmp(k+1)
          end do
          df(n_f,this%n_r_max)=tot/(this%n_r_max-1)
          tot=zero
-         do k=1,this%n_r_max-1
+         do k=2,n_cheb_max-1
             tot=tot+(-1)**k*k**2*(k**2-1)*tmp(k+1)
          end do
          ddf(n_f,this%n_r_max)=third*tot/(this%n_r_max-1)
          tot=zero
-         do k=1,this%n_r_max-1
+         do k=3,n_cheb_max-1
             tot=tot+(-1)**(k+1)*k**2*(k**2-1)*(k**2-4)*tmp(k+1)
          end do
          dddf(n_f,this%n_r_max)=1.0_cp/15.0_cp*tot/(this%n_r_max-1)
@@ -657,7 +657,7 @@ contains
          call fftw_execute_dft(this%plan_fft_1d_back, work_3, work_1)
          work_3(:)=-this%der2(:)*tmp(:)
          call fftw_execute_dft(this%plan_fft_1d_back, work_3, work_2)
-         tmp(:)=-ci*this%der(:)**3*tmp(:)
+         tmp(:)   =-ci*this%der(:)**3*tmp(:)
          call fftw_execute_dft(this%plan_fft_1d_back, tmp, work_3)
 
          !-- Bring back to Gauss-Lobatto grid for bulk points

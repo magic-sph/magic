@@ -333,17 +333,17 @@ contains
          !$omp end target teams distribute parallel do
       end if
 
-      !-- Boundary point
+      !-- Boundary points
       !$omp target teams distribute parallel do private(k,tot)
       do n_f=n_f_start,n_f_stop
          tot=zero
          tmp_out(n_f,tmp_n_r_max)=half*tmp_out(n_f,tmp_n_r_max)
-         do k=1,tmp_n_r_max-1
+         do k=1,n_cheb_max-1
             tot=tot+k**2 * tmp_out(n_f,k+1)
          end do
          df(n_f,1)=tot/(tmp_n_r_max-1)
          tot=zero
-         do k=1,tmp_n_r_max-1
+         do k=1,n_cheb_max-1
             tot=tot+(-1)**(k+1)*k**2*tmp_out(n_f,k+1)
          end do
          df(n_f,tmp_n_r_max)=tot/(tmp_n_r_max-1)
@@ -439,22 +439,22 @@ contains
       do n_f=n_f_start,n_f_stop
          tot=zero
          tmp_out(n_f,tmp_n_r_max)=half*tmp_out(n_f,tmp_n_r_max)
-         do k=1,tmp_n_r_max-1
+         do k=1,n_cheb_max-1
             tot=tot+k**2 * tmp_out(n_f,k+1)
          end do
          df(n_f,1)=tot/(tmp_n_r_max-1)
          tot=zero
-         do k=1,tmp_n_r_max-1
+         do k=2,n_cheb_max-1
             tot=tot+k**2*(k**2-1) * tmp_out(n_f,k+1)
          end do
          ddf(n_f,1)=third * tot/(tmp_n_r_max-1)
          tot=zero
-         do k=1,tmp_n_r_max-1
+         do k=1,n_cheb_max-1
             tot=tot+(-1)**(k+1)*k**2*tmp_out(n_f,k+1)
          end do
          df(n_f,tmp_n_r_max)=tot/(tmp_n_r_max-1)
          tot=zero
-         do k=1,tmp_n_r_max-1
+         do k=2,n_cheb_max-1
             tot=tot+(-1)**k*k**2*(k**2-1)*tmp_out(n_f,k+1)
          end do
          ddf(n_f,tmp_n_r_max)=third*tot/(tmp_n_r_max-1)
@@ -560,32 +560,32 @@ contains
       do n_f=n_f_start,n_f_stop
          tot=zero
          tmp_out(n_f,tmp_n_r_max)=half*tmp_out(n_f,tmp_n_r_max)
-         do k=1,tmp_n_r_max-1
+         do k=1,n_cheb_max-1
             tot=tot+k**2 * tmp_out(n_f,k+1)
          end do
          df(n_f,1)=tot/(tmp_n_r_max-1)
          tot=zero
-         do k=1,tmp_n_r_max-1
+         do k=2,n_cheb_max-1
             tot=tot+k**2*(k**2-1) * tmp_out(n_f,k+1)
          end do
          ddf(n_f,1)=third * tot/(tmp_n_r_max-1)
          tot=zero
-         do k=1,tmp_n_r_max-1
+         do k=3,n_cheb_max-1
             tot=tot+k**2*(k**2-1)*(k**2-4) * tmp_out(n_f,k+1)
          end do
          dddf(n_f,1)=1.0_cp/15.0_cp*tot/(tmp_n_r_max-1)
          tot=zero
-         do k=1,tmp_n_r_max-1
+         do k=1,n_cheb_max-1
             tot=tot+(-1)**(k+1)*k**2*tmp_out(n_f,k+1)
          end do
          df(n_f,tmp_n_r_max)=tot/(tmp_n_r_max-1)
          tot=zero
-         do k=1,tmp_n_r_max-1
+         do k=2,n_cheb_max-1
             tot=tot+(-1)**k*k**2*(k**2-1)*tmp_out(n_f,k+1)
          end do
          ddf(n_f,tmp_n_r_max)=third*tot/(tmp_n_r_max-1)
          tot=zero
-         do k=1,tmp_n_r_max-1
+         do k=3,n_cheb_max-1
             tot=tot+(-1)**(k+1)*k**2*(k**2-1)*(k**2-4)*tmp_out(n_f,k+1)
          end do
          dddf(n_f,tmp_n_r_max)=1.0_cp/15.0_cp*tot/(tmp_n_r_max-1)
