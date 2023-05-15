@@ -69,7 +69,9 @@ def getParser():
                         default=1,
                         help='Specify the number of threads (hybrid version)')
     parser.add_argument('--mpicmd', action='store', dest='mpicmd', type=str,
-                        default='srun -l --nodes=1 --time=00:30:00 --exclusive --constraint=GENOA -A cpa --reservation=eolen_cpu --mpi=cray_shasta  -c 48 --cpu-bind=verbose,core', ### Slurm options for ADASTRA Genoa CPUs
+                        default='srun -l --nodes=1 --time=00:30:00 --exclusive --constraint=GENOA -A cpa --reservation=eolen_cpu --mpi=cray_shasta  -c 48 --cpu-bind=verbose,core ', ### Slurm options for ADASTRA Genoa CPUs
+                        #default='srun -l --exclusive --time=00:30:00 --constraint=MI250 --gpus-per-task=1 -A cpa --mpi=cray_shasta -c 32 --cpu-bind=verbose,cores --gpu-bind=verbose,closest ', ### Slurm options for ADASTRA MI250x GPUs (hosted in Trento CPUs)
+                        #default='srun '
                         help='Specify the mpi executable')
 
     return parser
