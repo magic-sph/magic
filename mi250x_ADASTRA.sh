@@ -22,8 +22,8 @@ mkdir build && cd build
 
 cmake .. -DUSE_SHTNS=yes -DUSE_GPU=yes && make -j16
 
-cd ../namelists_hpc/run_middle_ADASTRA/CPU/ && source clear.sh
-cd ../../run_big_ADASTRA/CPU/ && source clear.sh
+cd ../namelists_hpc/run_middle_ADASTRA/GPU/ && source clear.sh
+cd ../../run_big_ADASTRA/GPU/ && source clear.sh
 cd ../../../samples/boussBenchSat/ && source clear.sh
 
 cd ../../build
@@ -38,6 +38,6 @@ cd ../../run_big_ADASTRA/GPU
 sbatch submit.sh
 
 cd ../../../samples/boussBenchSat/
-sbatch genoa_ADATRA_submit.sh
+sbatch mi250x_ADASTRA_submit.sh
 
 squeue | grep MagIC
