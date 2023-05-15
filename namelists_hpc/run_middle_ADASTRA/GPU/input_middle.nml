@@ -1,0 +1,55 @@
+&grid
+ n_r_max     =257,
+ n_cheb_max  =255,
+ n_phi_tot   =1280,
+ n_r_ic_max  =17,
+n_cheb_ic_max=15,
+ nalias      =20,
+ minc        =1,
+/
+&control
+ mode        =0,
+ tag         ="test",
+ n_time_steps=150,
+ courfac     =2.5D0,
+ alffac      =1.0D0,
+ dtmax       =3.0D-5,
+ alpha       =0.6D0,
+ runHours    =00,
+ runMinutes  =20,
+ l_adv_curl   =.true.,
+ mpi_transp  ="a2av",
+/
+&phys_param
+ ra          =1.0D5,
+ ek          =1.0D-3,
+ pr          =1.0D0,
+ prmag       =5.0D0,
+ radratio    =0.35D0,
+ ktops       =1,
+ kbots       =1,
+ ktopv       =2,
+ kbotv       =2,
+/
+&start_field
+ l_start_file=.false.,
+ start_file  ="NONE",
+ init_b1     =3,
+ amp_b1      =5,
+ init_s1     =0404,
+ amp_s1      =0.1,
+/
+&output_control
+ n_log_step  =300,
+ n_graphs    =0,
+ n_rsts      =0,
+ n_stores    =0,
+ runid       ="Benchmark 1",
+/
+&mantle
+ nRotMa      =0
+/
+&inner_core
+ sigma_ratio =0.d0,
+ nRotIC      =0,
+/
