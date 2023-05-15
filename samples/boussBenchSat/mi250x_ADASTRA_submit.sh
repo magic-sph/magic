@@ -21,7 +21,9 @@ module load hipfort
 module list
 
 export HIPFORT_PATH=/lus/home/NAT/cpa2204/SHARED/INSTALL/hipfort/0.4-6f6ae98e/cpe-cray/15.0.0/rocm/5.2.3/cmpich/8.1.21
-export LDFLAGS+="-L/opt/cray/pe/fftw/3.3.10.2/x86_trento/lib/"
+export LDFLAGS=""
+export LDFLAGS+="-L/opt/cray/pe/fftw/3.3.10.3/x86_trento/lib/"
+
 export KMP_STACKSIZE=1g
 
 ulimit -s unlimited
@@ -34,7 +36,7 @@ echo "Total tasks: $TOTAL_NTASKS"
 
 export OMP_NUM_THREADS=1
 export AMD_LOG_LEVEL=2
-export CRAY_ACC_DEBUG=1
+export CRAY_ACC_DEBUG=3
 export HIP_LAUNCH_BLOCKING=1
 
 echo "----------------------------------------"

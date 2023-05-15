@@ -28,6 +28,9 @@ module load craype-x86-genoa libfabric/1.15.2.0 craype-network-ofi cray-dsmml/0.
 module load cpe/22.11 cray-fftw/3.3.10.3 cray-libsci/22.11.1.2
 module list
 
+export LDFLAGS=""
+export LDFLAGS+="-L/opt/cray/pe/fftw/3.3.10.3/x86_genoa/lib/"
+
 export KMP_STACKSIZE=1g
 
 ulimit -s unlimited
