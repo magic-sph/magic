@@ -1329,7 +1329,7 @@ contains
       polo_flow_eq  ="WP"   ! Choose between 'DC' (double-curl) and 'WP' (Pressure)
       radial_scheme ="CHEB" ! Choose between 'CHEB' and 'FD'
       time_scheme   ="CNAB2"
-      mpi_transp    ="AUTO"   ! automatic detection of the MPI strategy
+      mpi_transp    ="a2av"   ! automatic detection of the MPI strategy
       mpi_packing   ="PACKED" ! automatic detection of the MPI packing ('SINGLE','PACKED')
 
       l_update_v    =.true.
