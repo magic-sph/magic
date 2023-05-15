@@ -697,7 +697,7 @@ contains
          if ( l_parallel_solve ) then
             call lo2r_one%transp_lm2r(bodyForce_LMloc, bodyForce_Rloc)
 #ifdef WITH_OMP_GPU
-            !$omp target update to(bodyForce_Rloc)
+            !$omp target update from(bodyForce_Rloc)
 #endif
          end if
       end if
