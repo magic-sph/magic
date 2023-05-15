@@ -777,6 +777,13 @@ contains
       !-- Local variables
       integer :: n_o
       integer :: istat(MPI_STATUS_SIZE)
+#ifdef WITH_OMP_GPU
+      complex(cp), allocatable :: ptr_dwdt(:,:)
+      allocate(ptr_dwdt(llm:ulm,nRstart:nRstop))
+      ptr_dwdt(:,:) = 0.0_cp
+      !$omp target enter data map(alloc: work, ptr_dwdt)
+      !$omp target update to(work, ptr_dwdt)
+#endif
 
       call MPI_File_Write_all(fh, w, lm_max*nR_per_rank, &
            &                  MPI_DEF_COMPLEX, istat, ierr)
@@ -788,7 +795,14 @@ contains
 
          do n_o=2,tscheme%nexp
             if ( l_transp ) then
+#ifdef WITH_OMP_GPU
+               ptr_dwdt(:,:) = dwdt%expl(:,:,n_o)
+               !$omp target update to(ptr_dwdt)
+               call lo2r_one%transp_lm2r(ptr_dwdt, work)
+               !$omp target update from(work)
+#else
                call lo2r_one%transp_lm2r(dwdt%expl(:,:,n_o), work)
+#endif
                call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
                     &                  MPI_DEF_COMPLEX, istat, ierr)
             else
@@ -802,7 +816,14 @@ contains
 
          do n_o=2,tscheme%nimp
             if ( l_transp ) then
+#ifdef WITH_OMP_GPU
+               ptr_dwdt(:,:) = dwdt%impl(:,:,n_o)
+               !$omp target update to(ptr_dwdt)
+               call lo2r_one%transp_lm2r(ptr_dwdt, work)
+               !$omp target update from(work)
+#else
                call lo2r_one%transp_lm2r(dwdt%impl(:,:,n_o), work)
+#endif
                call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
                     &                  MPI_DEF_COMPLEX, istat, ierr)
             else
@@ -816,7 +837,14 @@ contains
 
          do n_o=2,tscheme%nold
             if ( l_transp ) then
+#ifdef WITH_OMP_GPU
+               ptr_dwdt(:,:) = dwdt%old(:,:,n_o)
+               !$omp target update to(ptr_dwdt)
+               call lo2r_one%transp_lm2r(ptr_dwdt, work)
+               !$omp target update from(work)
+#else
                call lo2r_one%transp_lm2r(dwdt%old(:,:,n_o), work)
+#endif
                call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
                     &                  MPI_DEF_COMPLEX, istat, ierr)
             else
@@ -829,6 +857,11 @@ contains
          end do
 
       end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: work, ptr_dwdt)
+      deallocate(ptr_dwdt)
+#endif
 
    end subroutine write_one_field_mpi
 !-----------------------------------------------------------------------------------

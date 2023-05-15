@@ -688,7 +688,14 @@ contains
       complex(cp) :: work_LMloc(llmMag:ulmMag,n_r_max)
 
       !-- Bring some array from rLoc to LMloc
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(to: dtB_Rloc_container, dtB_LMloc_container)
+#endif
       call r2lo_dtB%transp_r2lm(dtB_Rloc_container, dtB_LMloc_container)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(dtB_Rloc_container, dtB_LMloc_container)
+         !$omp target exit data map(delete: dtB_Rloc_container, dtB_LMloc_container)
+#endif
 
       !$omp parallel default(shared) private(nR, lm, start_lm, stop_lm, l, m, dL)
       start_lm=llmMag; stop_lm=ulmMag

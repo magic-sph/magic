@@ -28,7 +28,11 @@ module readCheckPoints
        &                  scale_s,scale_xi
    use radial_functions, only: rscheme_oc, chebt_ic, cheb_norm_ic, r
    use num_param, only: alph1, alph2, alpha
+#ifdef WITH_OMP_GPU
+   use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
+#else
    use radial_data, only: n_r_icb, n_r_cmb
+#endif
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio, &
        &                          kbotv, ktopv, sc, raxi, LFfac
    use constants, only: c_z10_omega_ic, c_z10_omega_ma, pi, zero, two, &
@@ -2580,10 +2584,13 @@ contains
 
       !-- Local variables:
       logical :: l_field
-      complex(cp) :: work(llm:ulm, n_r_max)
+      complex(cp), allocatable :: work(:, :)
       integer(lip) :: size_old
       integer :: istat(MPI_STATUS_SIZE)
       integer :: n_o, nR_per_rank_old
+#ifdef WITH_OMP_GPU
+      complex(cp), pointer :: ptr_dwdt(:,:)
+#endif
 
       if ( present(l_read_field_only) ) then
          l_field=l_read_field_only
@@ -2592,6 +2599,12 @@ contains
       end if
 
       nR_per_rank_old = nRstop_old-nRstart_old+1
+
+      allocate(work(llm:ulm, n_r_max))
+      work(:,:) = 0.0_cp
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(to: work)
+#endif
 
       !-- Poloidal potential: w
       call MPI_File_Read_All(fh, wOld, lm_max_old*nR_per_rank_old, &
@@ -2623,7 +2636,14 @@ contains
                     &                r_old, n_r_maxL, n_r_max, .true., .false.,  &
                     &                scale_w, work )
                if ( l_transp ) then
+#ifdef WITH_OMP_GPU
+                  ptr_dwdt(llm:,nRstart:) => dwdt%expl(:,:,n_o)
+                  !$omp target update to(work)
+                  call lo2r_one%transp_lm2r(work, ptr_dwdt)
+                  !$omp target update from(ptr_dwdt)
+#else
                   call lo2r_one%transp_lm2r(work, dwdt%expl(:,:,n_o) )
+#endif
                else
                   dwdt%expl(:,:,n_o)=work(:,:)
                end if
@@ -2641,7 +2661,14 @@ contains
                     &                r_old, n_r_maxL, n_r_max, .true., .false.,  &
                     &                scale_v, work )
                if ( l_transp ) then
+#ifdef WITH_OMP_GPU
+                  ptr_dwdt(llm:,nRstart:) => dwdt%impl(:,:,n_o)
+                  !$omp target update to(work)
+                  call lo2r_one%transp_lm2r(work, ptr_dwdt)
+                  !$omp target update from(ptr_dwdt)
+#else
                   call lo2r_one%transp_lm2r(work, dwdt%impl(:,:,n_o) )
+#endif
                else
                   dwdt%impl(:,:,n_o)=work(:,:)
                end if
@@ -2660,13 +2687,25 @@ contains
                     &                r_old, n_r_maxL, n_r_max, .true., .false.,  &
                     &                scale_v, work )
                if ( l_transp ) then
+#ifdef WITH_OMP_GPU
+                  ptr_dwdt(llm:,nRstart:) => dwdt%old(:,:,n_o)
+                  !$omp target update to(work)
+                  call lo2r_one%transp_lm2r(work, ptr_dwdt)
+                  !$omp target update from(ptr_dwdt)
+#else
                   call lo2r_one%transp_lm2r(work, dwdt%old(:,:,n_o) )
+#endif
                else
                   dwdt%old(:,:,n_o)=work(:,:)
                end if
             end if
          end do
       end if
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: work)
+#endif
+      deallocate(work)
 
    end subroutine read_map_one_field_mpi
 #endif
