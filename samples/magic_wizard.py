@@ -54,7 +54,7 @@ def getParser():
     parser.add_argument('--use-openmp', action='store_true', dest='use_openmp', 
                         default=True, help='Use the hybrid version')
     parser.add_argument('--use-gpu-openmpOffload', action='store_true', dest='use_gpu_openmpOffload',
-                        default=True, help='Use the hybrid version')
+                        default=False, help='Use the hybrid version') ### Set to True if compiling for GPU
     parser.add_argument('--use-mkl', action='store_true', dest='use_mkl', 
                         default=True, 
                         help='Use the MKL for FFTs and Lapack calls')
@@ -69,12 +69,10 @@ def getParser():
                         default=1,
                         help='Specify the number of threads (hybrid version)')
     parser.add_argument('--mpicmd', action='store', dest='mpicmd', type=str,
-                        default='srun --time=00:15:00 --gpus-per-task=1 ', help='Specify the mpi executable') ### For running on Lumi02
-                        #default='srun -l --exclusive --time=00:15:00 --constraint=MI250 --gpus-per-task=1 -A cpa --mpi=cray_shasta -c 64 --cpu-bind=verbose,cores --gpu-bind=verbose,closest ', help='Specify the mpi executable') ### For running on ADASTRA
-
+                        default='srun -l --nodes=1 --time=00:30:00 --exclusive --constraint=GENOA -A cpa --reservation=eolen_cpu --mpi=cray_shasta  -c 48 --cpu-bind=verbose,core', ### Slurm options for ADASTRA Genoa CPUs
+                        help='Specify the mpi executable')
 
     return parser
-
 
 def wizard():
     print('\n')
@@ -454,12 +452,12 @@ if __name__ == '__main__':
     # Run cmake
     print('1. cmake configuration')
     print('----------------------')
-    #cmake(args, startdir, execDir)
+    cmake(args, startdir, execDir)
 
     # Compile the code
     print('2.    compilation     ')
     print('----------------------')
-    #compile()
+    compile()
 
     # Determine the execution command
     cmd = get_exec_cmd(args, execDir)
