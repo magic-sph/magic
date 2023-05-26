@@ -763,10 +763,17 @@ contains
          call abortRun('LCR not compatible with imposed field!')
       end if
 
-      ellip_fac_cmb = - r_cmb*r_cmb*r_cmb * ellipticity_cmb * omega_ma1 *   &
-      &                 omegaOsz_ma1 * two
-      ellip_fac_icb = - r_icb*r_icb*r_icb * ellipticity_icb * omega_ic1 *   &
-      &                 omegaOsz_ic1 * two
+      if ( ellipticity_cmb /= 0.0_cp ) then
+         ellip_fac_cmb=-two*r_cmb**3*ellipticity_cmb*omega_ma1*omegaOsz_ma1
+      else
+         ellip_fac_cmb=0.0_cp
+      end if
+
+      if ( ellipticity_icb /= 0.0_cp ) then
+         ellip_fac_icb=-two*r_icb**3*ellipticity_icb*omega_ic1*omegaOsz_ic1
+      else
+         ellip_fac_icb=0.0_cp
+      end if
 
    end subroutine preCalc
 !-------------------------------------------------------------------------------
