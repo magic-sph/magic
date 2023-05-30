@@ -1511,7 +1511,7 @@ contains
 
       !-- Local variables
       complex(cp) :: bf_Rloc(lm_max,nRstart:nRstop), bfLM(lm_max)
-      integer :: lm,l,m,st_lmP, nR,nTheta,nPhi
+      integer :: lm,l,m,nR,nTheta,nPhi
       class(type_mpitransp), pointer :: r2lo_initf, lo2r_initf
       real(cp) :: bf_spat(nlat_padded,n_phi_max)
       real(cp) :: eta_fac, a_force, b_force

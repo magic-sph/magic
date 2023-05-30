@@ -363,13 +363,14 @@ contains
          else
             copy_array=.true.
          end if
-    
-         if ( copy_array )  then
+
 #ifdef USE_DCT_FFT
-             call r_scheme%chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max,     &
-                  &                            n_f_start,n_f_stop,r_scheme%n_max,&
-                  &                            l_dct_in_loc)
+          call r_scheme%chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max,     &
+               &                            n_f_start,n_f_stop,r_scheme%n_max,&
+               &                            l_dct_in_loc)
 #else
+         if ( copy_array )  then
+
             do n_r=1,n_r_max
                do n_f=n_f_start,n_f_stop
                   work(n_f,n_r)=f(n_f,n_r)
@@ -387,32 +388,22 @@ contains
           
             !-- Transform back:
             call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop)
-#endif
 
          else
 
-#ifdef USE_DCT_FFT
-            call r_scheme%chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max,     &
-                 &                            n_f_start,n_f_stop,r_scheme%n_max,&
-                 &                            l_dct_in_loc)
-#else
             !-- Transform f to cheb space:
-            if ( l_dct_in_loc ) then
-               call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop)
-            end if
+            if ( l_dct_in_loc ) call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop)
           
             !-- Get derivatives:
             call get_dcheb(f,df,n_f_max,n_f_start,n_f_stop,n_r_max, &
                  &         r_scheme%n_max)
           
             !-- Transform back:
-            if ( l_dct_in_loc ) then
-               call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop)
-            end if
+            if ( l_dct_in_loc ) call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop)
             call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop)
-#endif
 
          end if
+#endif
        
          !-- New map:
          do n_r=1,n_r_max
