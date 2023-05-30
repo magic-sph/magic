@@ -36,8 +36,8 @@ echo "Running on: $SLURM_NODELIST"
 echo "Total tasks: $TOTAL_NTASKS"
 
 export OMP_NUM_THREADS=1
-export AMD_LOG_LEVEL=1 #For debug
-export CRAY_ACC_DEBUG=3 #For debug
+export AMD_LOG_LEVEL=0 #For debug
+export CRAY_ACC_DEBUG=0 #For debug
 #export CRAY_ACC_TIME=0 #For debug
 export HIP_LAUNCH_BLOCKING=1
 
