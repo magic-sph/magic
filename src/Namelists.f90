@@ -133,14 +133,14 @@ contains
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
       &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
       &    omega_ma2,omegaOsz_ma2,tShift_ma2,             &
-      &    amp_RiMa,omega_RiMa,m_RiMa,RiSymmMa,           &
-      &    ellipticity_cmb
+      &    amp_mode_ma,omega_mode_ma,m_mode_ma,           &
+      &    mode_symm_ma,ellipticity_cmb
 
       namelist/inner_core/sigma_ratio,nRotIc,rho_ratio_ic, &
       &    omega_ic1,omegaOsz_ic1,tShift_ic1,              &
       &    omega_ic2,omegaOsz_ic2,tShift_ic2,BIC,          &
-      &    amp_RiIc,omega_RiIc,m_RiIc,RiSymmIc,            &
-      &    ellipticity_icb
+      &    amp_mode_ic,omega_mode_ic,m_mode_ic,            &
+      &    mode_symm_ic,ellipticity_icb
 
 
       do n=1,4*n_impS_max
@@ -1228,10 +1228,10 @@ contains
       write(n_out,'(''  omega_ma2       ='',ES14.6,'','')') omega_ma2
       write(n_out,'(''  omegaOsz_ma2    ='',ES14.6,'','')') omegaOsz_ma2
       write(n_out,'(''  tShift_ma2      ='',ES14.6,'','')') tShift_ma2
-      write(n_out,'(''  amp_RiMa        ='',ES14.6,'','')') amp_RiMa
-      write(n_out,'(''  omega_RiMa      ='',ES14.6,'','')') omega_RiMa
-      write(n_out,'(''  m_RiMa          ='',i4,'','')')  m_RiMa
-      write(n_out,'(''  RiSymmMa        ='',i4,'','')')  RiSymmMa
+      write(n_out,'(''  amp_mode_ma     ='',ES14.6,'','')') amp_mode_ma
+      write(n_out,'(''  omega_mode_ma   ='',ES14.6,'','')') omega_mode_ma
+      write(n_out,'(''  m_mode_ma       ='',i4,'','')')  m_mode_ma
+      write(n_out,'(''  mode_symm_ma    ='',i4,'','')')  mode_symm_ma
       write(n_out,'(''  ellipticity_cmb ='',ES14.6,'','')') ellipticity_cmb
       write(n_out,*) "/"
 
@@ -1246,10 +1246,10 @@ contains
       write(n_out,'(''  omegaOsz_ic2    ='',ES14.6,'','')') omegaOsz_ic2
       write(n_out,'(''  tShift_ic2      ='',ES14.6,'','')') tShift_ic2
       write(n_out,'(''  BIC             ='',ES14.6,'','')') BIC
-      write(n_out,'(''  amp_RiIc        ='',ES14.6,'','')') amp_RiIc
-      write(n_out,'(''  omega_RiIc      ='',ES14.6,'','')') omega_RiIc
-      write(n_out,'(''  m_RiIc          ='',i4,'','')') m_RiIc
-      write(n_out,'(''  RiSymmIc        ='',i4,'','')')  RiSymmIc
+      write(n_out,'(''  amp_mode_ic     ='',ES14.6,'','')') amp_mode_ic
+      write(n_out,'(''  omega_mode_ic   ='',ES14.6,'','')') omega_mode_ic
+      write(n_out,'(''  m_mode_ic       ='',i4,'','')') m_mode_ic
+      write(n_out,'(''  mode_symm_ic    ='',i4,'','')')  mode_symm_ic
       write(n_out,'(''  ellipticity_icb ='',ES14.6,'','')') ellipticity_icb
       write(n_out,*) "/"
       write(n_out,*) " "
@@ -1665,10 +1665,10 @@ contains
       omega_ma2     =0.0_cp    ! second mantle rotation rate
       omegaOsz_ma2  =0.0_cp    ! oscillation frequency of second mantle rotation
       tShift_ma2    =0.0_cp    ! time shift for second rotation
-      amp_RiMa      =0.0_cp    ! amplitude of Rieutord forcing
-      omega_RiMa    =0.0_cp    ! frequency of Rieutord forcing
-      m_RiMa        =0         ! default forcing -> axisymmetric
-      RiSymmMa      =0         ! default symmetry -> eq antisymmetric
+      amp_mode_ma      =0.0_cp    ! amplitude of Rieutord forcing
+      omega_mode_ma    =0.0_cp    ! frequency of Rieutord forcing
+      m_mode_ma        =0         ! default forcing -> axisymmetric
+      mode_symm_ma      =0         ! default symmetry -> eq antisymmetric
       ellipticity_cmb=0.0_cp   ! default is sphere
 
       !----- Inner core name list:
@@ -1682,10 +1682,10 @@ contains
       omegaOsz_ic2  =0.0_cp    ! oscillation frequency of second IC rotation rate
       tShift_ic2    =0.0_cp    ! tims shift for second IC rotation
       BIC           =0.0_cp    ! Imposed dipole field strength at ICB
-      amp_RiIc      =0.0_cp    ! amplitude of Rieutord forcing
-      omega_RiIc    =0.0_cp    ! frequency of Rieutord forcing
-      m_RiIc        =0         ! default forcing -> axisymmetric
-      RiSymmIc      =0         ! default symmetry -> eq antisymmetric
+      amp_mode_ic      =0.0_cp    ! amplitude of Rieutord forcing
+      omega_mode_ic    =0.0_cp    ! frequency of Rieutord forcing
+      m_mode_ic        =0         ! default forcing -> axisymmetric
+      mode_symm_ic      =0         ! default symmetry -> eq antisymmetric
       ellipticity_icb=0.0_cp   ! default is sphere
 
    end subroutine defaultNamelists
