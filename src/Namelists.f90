@@ -57,7 +57,7 @@ contains
       integer :: inputHandle, cacheblock_size_in_B
       character(len=100) :: input_filename, errmess
 
-      !-- Name lists:
+      !-- Namelists:
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
       &     n_r_ic_max,n_cheb_ic_max,minc,nalias,l_axi,       &
       &     fd_order,fd_order_bound,fd_ratio,fd_stretch,      &
@@ -860,7 +860,7 @@ contains
       integer :: length
 
 
-      !-- Output of name lists:
+      !-- Output of namelists:
 
       write(n_out,*) " "
       write(n_out,*) "&grid"
@@ -1655,38 +1655,38 @@ contains
       rDea          =0.0_cp  ! Controls dealiazing in  RMS calculation
       ! rDea=0.1 means that highest 10% of cheb modes are set to zero
 
-      !----- Mantle name list:
-      conductance_ma=0.0_cp    ! insulation mantle is default
-      nRotMa        =0         ! non rotating mantle is default
-      rho_ratio_ma  =one       ! same density as outer core
-      omega_ma1     =0.0_cp    ! prescribed rotation rate
-      omegaOsz_ma1  =0.0_cp    ! oscillation frequency of mantle rotation rate
-      tShift_ma1    =0.0_cp    ! time shift
-      omega_ma2     =0.0_cp    ! second mantle rotation rate
-      omegaOsz_ma2  =0.0_cp    ! oscillation frequency of second mantle rotation
-      tShift_ma2    =0.0_cp    ! time shift for second rotation
-      amp_mode_ma      =0.0_cp    ! amplitude of Rieutord forcing
-      omega_mode_ma    =0.0_cp    ! frequency of Rieutord forcing
-      m_mode_ma        =0         ! default forcing -> axisymmetric
-      mode_symm_ma      =0         ! default symmetry -> eq antisymmetric
-      ellipticity_cmb=0.0_cp   ! default is sphere
+      !----- Mantle namelist:
+      conductance_ma =0.0_cp    ! insulation mantle is default
+      nRotMa         =0         ! non rotating mantle is default
+      rho_ratio_ma   =one       ! same density as outer core
+      omega_ma1      =0.0_cp    ! prescribed rotation rate
+      omegaOsz_ma1   =0.0_cp    ! oscillation frequency of mantle rotation rate
+      tShift_ma1     =0.0_cp    ! time shift
+      omega_ma2      =0.0_cp    ! second mantle rotation rate
+      omegaOsz_ma2   =0.0_cp    ! oscillation frequency of second mantle rotation
+      tShift_ma2     =0.0_cp    ! time shift for second rotation
+      amp_mode_ma    =0.0_cp    ! amplitude of Rieutord forcing
+      omega_mode_ma  =0.0_cp    ! frequency of Rieutord forcing
+      m_mode_ma      =0         ! default forcing -> axisymmetric
+      mode_symm_ma   =0         ! default symmetry -> eq antisymmetric
+      ellipticity_cmb=0.0_cp    ! default is sphere
 
-      !----- Inner core name list:
-      sigma_ratio   =0.0_cp    ! no conducting inner core is default
-      nRotIc        =0         ! non rotating inner core is default
-      rho_ratio_ic  =one       ! same density as outer core
-      omega_ic1     =0.0_cp    ! prescribed rotation rate, added to first one
-      omegaOsz_ic1  =0.0_cp    ! oscillation frequency of IC rotation rate
-      tShift_ic1    =0.0_cp    ! time shift
-      omega_ic2     =0.0_cp    ! second prescribed rotation rate
-      omegaOsz_ic2  =0.0_cp    ! oscillation frequency of second IC rotation rate
-      tShift_ic2    =0.0_cp    ! tims shift for second IC rotation
-      BIC           =0.0_cp    ! Imposed dipole field strength at ICB
-      amp_mode_ic      =0.0_cp    ! amplitude of Rieutord forcing
-      omega_mode_ic    =0.0_cp    ! frequency of Rieutord forcing
-      m_mode_ic        =0         ! default forcing -> axisymmetric
-      mode_symm_ic      =0         ! default symmetry -> eq antisymmetric
-      ellipticity_icb=0.0_cp   ! default is sphere
+      !----- Inner core namelist:
+      sigma_ratio    =0.0_cp    ! no conducting inner core is default
+      nRotIc         =0         ! non rotating inner core is default
+      rho_ratio_ic   =one       ! same density as outer core
+      omega_ic1      =0.0_cp    ! prescribed rotation rate, added to first one
+      omegaOsz_ic1   =0.0_cp    ! oscillation frequency of IC rotation rate
+      tShift_ic1     =0.0_cp    ! time shift
+      omega_ic2      =0.0_cp    ! second prescribed rotation rate
+      omegaOsz_ic2   =0.0_cp    ! oscillation frequency of second IC rotation rate
+      tShift_ic2     =0.0_cp    ! tims shift for second IC rotation
+      BIC            =0.0_cp    ! Imposed dipole field strength at ICB
+      amp_mode_ic    =0.0_cp    ! amplitude of Rieutord forcing
+      omega_mode_ic  =0.0_cp    ! frequency of Rieutord forcing
+      m_mode_ic      =0         ! default forcing -> axisymmetric
+      mode_symm_ic   =0         ! default symmetry -> eq antisymmetric
+      ellipticity_icb=0.0_cp    ! default is sphere
 
    end subroutine defaultNamelists
 !------------------------------------------------------------------------------
