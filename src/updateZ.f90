@@ -490,16 +490,16 @@ contains
          m1=lm2m(lm)
          tmp_LMloc(1,lm)      =zero
          tmp_LMloc(n_r_max,lm)=zero
-         if ( amp_RiIc /= 0.0_cp ) then
-            if (l1 == (m_RiIc + RiSymmIc) .and. m1 == m_RiIc) then
-               tmp_LMloc(n_r_max,lm)=amp_RiIc*cmplx(cos(omega_RiIc*time), &
-               &                                    sin(omega_RiIc*time),cp)
+         if ( amp_mode_ic /= 0.0_cp ) then
+            if (l1 == (m_mode_ic + mode_symm_ic) .and. m1 == m_mode_ic) then
+               tmp_LMloc(n_r_max,lm)=amp_mode_ic*cmplx(cos(omega_mode_ic*time), &
+               &                                       sin(omega_mode_ic*time),cp)
             end if
          end if
-         if ( amp_RiMa /= 0.0_cp ) then
-            if (l1 == (m_RiMa + RiSymmMa) .and. m1 == m_RiMa) then
-               tmp_LMloc(1,lm)=amp_RiMa*cmplx(cos(omega_RiMa*time), &
-               &                              sin(omega_RiMa*time),cp)
+         if ( amp_mode_ma /= 0.0_cp ) then
+            if (l1 == (m_mode_ma + mode_symm_ma) .and. m1 == m_mode_ma) then
+               tmp_LMloc(1,lm)=amp_mode_ma*cmplx(cos(omega_mode_ma*time), &
+               &                                 sin(omega_mode_ma*time),cp)
             end if
          end if
       end do
