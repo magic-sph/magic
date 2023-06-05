@@ -473,17 +473,17 @@ contains
                   rhs1(n_r_max,2*lm-1,0)=0.0_cp
                   rhs1(n_r_max,2*lm,0)  =0.0_cp
 
-                  if (amp_RiIc /= 0.0_cp) then
-                     if (l1 == (m_RiIc + RiSymmIc) .and. m1 == m_RiIc) then
-                        rhs1(n_r_max,2*lm-1,0)=amp_RiIc*cos(omega_RiIc*time)
-                        rhs1(n_r_max,2*lm,0)  =amp_RiIc*sin(omega_RiIc*time)
+                  if (amp_mode_ic /= 0.0_cp) then
+                     if (l1 == (m_mode_ic + mode_symm_ic) .and. m1 == m_mode_ic) then
+                        rhs1(n_r_max,2*lm-1,0)=amp_mode_ic*cos(omega_mode_ic*time)
+                        rhs1(n_r_max,2*lm,0)  =amp_mode_ic*sin(omega_mode_ic*time)
                      end if
                   end if
 
-                  if (amp_RiMa /= 0.0_cp) then
-                     if (l1 == (m_RiMa + RiSymmMa) .and. m1 == m_RiMa) then
-                        rhs1(1,2*lm-1,0)=amp_RiMa*cos(omega_RiMa*time)
-                        rhs1(1,2*lm,0)  =amp_RiMa*sin(omega_RiMa*time)
+                  if (amp_mode_ma /= 0.0_cp) then
+                     if (l1 == (m_mode_ma + mode_symm_ma) .and. m1 == m_mode_ma) then
+                        rhs1(1,2*lm-1,0)=amp_mode_ma*cos(omega_mode_ma*time)
+                        rhs1(1,2*lm,0)  =amp_mode_ma*sin(omega_mode_ma*time)
                      end if
                   end if
 
