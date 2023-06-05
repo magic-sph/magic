@@ -67,5 +67,3 @@ export MPICH_OFI_NIC_VERBOSE=1
 
 env MAP_VERBOSE=1 srun -l --cpu-bind=verbose --cpus-per-task=${SLURM_CPUS_PER_TASK} --mpi=cray_shasta /lus/home/NAT/cpa/SHARED/TESTS/GetMapping/map_gpu.ordered.sh /lus/home/NAT/cpa/SHARED/TESTS/GetMapping/getMapping_cray_gpu
 env MAP_VERBOSE=1 srun --kill-on-bad-exit -l --cpu-bind=verbose --cpus-per-task=${SLURM_CPUS_PER_TASK} --mpi=cray_shasta /lus/home/NAT/cpa/SHARED/TESTS/GetMapping/map_gpu.ordered.sh ./magic.exe input_middle.nml
-
-
