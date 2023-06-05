@@ -3,6 +3,7 @@ module special
    ! This module contains all variables for the case of an imposed IC dipole,
    ! an imposed external magnetic field and a special boundary forcing to excite
    ! inertial modes
+   !
 
    use precision_mod
 
@@ -32,9 +33,9 @@ module special
    !-- Parameters for a toroidal boundary forcing of symmetry (m,m) or (m+1,m)
    !-- to excite inertial modes of desired symmetry
    !-- Can be applied to inner or outer boundary
-   integer, public :: m_RiIc, m_RiMa !Order of forcing 
-   real(cp), public :: amp_RiIc, omega_RiIc  !Amplitude and frequency of forcing at the inner boundary
-   real(cp), public :: amp_RiMa, omega_RiMa  !Amplitude and frequency of forcing at the outer boundary
-   integer, public :: RiSymmMa, RiSymmIc     !Symmetry of forcing: 1 (0) for eq symm (antisymm)
+   integer, public :: m_mode_ic, m_mode_ma          ! Order of forcing
+   real(cp), public :: amp_mode_ic, amp_mode_ma     ! Amplitude of forcing
+   real(cp), public :: omega_mode_ic, omega_mode_ma ! Frequency of forcing
+   integer, public :: mode_symm_ic, mode_symm_ma    ! Symmetry of forcing: 1 : eq symm, 0 : eq antisymm
 
 end module special

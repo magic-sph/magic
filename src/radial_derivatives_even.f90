@@ -98,7 +98,6 @@ contains
       complex(cp),       intent(out) :: work1(n_f_max,n_r_max)   ! work array needed for costf
       complex(cp),       intent(out) :: df(n_f_max,n_r_max)  ! first derivative of f
 
-
       !-- Transform f to cheb space:
       call chebt_odd%costf1(f,n_f_max,n_f_start,n_f_stop,work1)
 
@@ -110,7 +109,6 @@ contains
       !   cause df is odd:
       call chebt_odd%costf1(f,n_f_max,n_f_start,n_f_stop,work1)
       call chebt_even%costf2(df,n_f_max,n_f_start,n_f_stop,work1)
-
 
    end subroutine get_drNS_even
 !------------------------------------------------------------------------------
@@ -144,7 +142,6 @@ contains
       complex(cp), intent(out) :: work1(n_f_max,n_r_max)  ! work array needed for costf
       complex(cp), intent(out) :: df(n_f_max,n_r_max)  ! first derivative of f
       complex(cp), intent(out) :: ddf(n_f_max,n_r_max) ! second derivative of f
-
 
       !-- Transform f to cheb space:
       call chebt_odd%costf1(f,n_f_max,n_f_start,n_f_stop,work1)
