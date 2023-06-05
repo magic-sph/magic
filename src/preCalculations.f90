@@ -197,19 +197,7 @@ contains
 
       call radial()
 
-      if ( ( l_newmap ) .and. (rank == 0) ) then
-         fileName='rNM.'//tag
-         open(newunit=fileHandle, file=fileName, status='unknown')
-         do n_r=1,n_r_max
-            write(fileHandle,'(I4,4ES16.8)') n_r, r(n_r)-r_icb,   &
-            &                                rscheme_oc%drx(n_r), &
-            &                                rscheme_oc%ddrx(n_r),&
-            &                                rscheme_oc%dddrx(n_r)
-         end do
-         close(fileHandle)
-      end if
-
-      call transportProperties
+      call transportProperties()
 
       if ( ( l_anel .or. l_non_adia ) .and. ( rank == 0 ) ) then
          ! Write the equilibrium setup in anel.tag
@@ -783,10 +771,17 @@ contains
          call abortRun('LCR not compatible with imposed field!')
       end if
 
-      ellip_fac_cmb = - r_cmb*r_cmb*r_cmb * ellipticity_cmb * omega_ma1 *   &
-      &                 omegaOsz_ma1 * two
-      ellip_fac_icb = - r_icb*r_icb*r_icb * ellipticity_icb * omega_ic1 *   &
-      &                 omegaOsz_ic1 * two
+      if ( ellipticity_cmb /= 0.0_cp ) then
+         ellip_fac_cmb=-two*r_cmb**3*ellipticity_cmb*omega_ma1*omegaOsz_ma1
+      else
+         ellip_fac_cmb=0.0_cp
+      end if
+
+      if ( ellipticity_icb /= 0.0_cp ) then
+         ellip_fac_icb=-two*r_icb**3*ellipticity_icb*omega_ic1*omegaOsz_ic1
+      else
+         ellip_fac_icb=0.0_cp
+      end if
 
       !-- From radial_data
 #ifdef WITH_OMP_GPU

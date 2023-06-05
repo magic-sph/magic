@@ -684,19 +684,19 @@ contains
                      rhs1(n_r_max,2*lmB-1,threadid)=0.0_cp
                      rhs1(n_r_max,2*lmB,threadid)  =0.0_cp
 
-                     if (amp_RiIc /= 0.0_cp) then
-                        if (l1 == (m_RiIc + RiSymmIc) .and. m1 == m_RiIc) then
-                           rhs1(n_r_max,2*lmB-1,threadid)=amp_RiIc* &
-                           &                              cos(omega_RiIc*time)
-                           rhs1(n_r_max,2*lmB,threadid)  =amp_RiIc* &
-                           &                              sin(omega_RiIc*time)
+                     if (amp_mode_ic /= 0.0_cp) then
+                        if (l1 == (m_mode_ic + mode_symm_ic) .and. m1 == m_mode_ic) then
+                           rhs1(n_r_max,2*lmB-1,threadid)=amp_mode_ic* &
+                           &                              cos(omega_mode_ic*time)
+                           rhs1(n_r_max,2*lmB,threadid)  =amp_mode_ic* &
+                           &                              sin(omega_mode_ic*time)
                         end if
                      end if
 
-                     if (amp_RiMa /= 0.0_cp) then
-                        if (l1 == (m_RiMa + RiSymmMa) .and. m1 == m_RiMa) then
-                           rhs1(1,2*lmB-1,threadid)=amp_RiMa*cos(omega_RiMa*time)
-                           rhs1(1,2*lmB,threadid)  =amp_RiMa*sin(omega_RiMa*time)
+                     if (amp_mode_ma /= 0.0_cp) then
+                        if (l1 == (m_mode_ma + mode_symm_ma) .and. m1 == m_mode_ma) then
+                           rhs1(1,2*lmB-1,threadid)=amp_mode_ma*cos(omega_mode_ma*time)
+                           rhs1(1,2*lmB,threadid)  =amp_mode_ma*sin(omega_mode_ma*time)
                         end if
                      end if
 
@@ -971,9 +971,9 @@ contains
                end if
                if ( ktopv==2 ) z_ghost(lm,nR)=zero
 
-               if (amp_RiMa /= 0.0_cp .and. l==(m_RiMa+RiSymmMa) .and. m==m_RiMa) then
-                  z_ghost(lm,nR)=cmplx(amp_RiMa*cos(omega_RiMa*time), &
-                  &                    amp_RiMa*sin(omega_RiMa*time),cp)
+               if (amp_mode_ma /= 0.0_cp .and. l==(m_mode_ma+mode_symm_ma) .and. m==m_mode_ma) then
+                  z_ghost(lm,nR)=cmplx(amp_mode_ma*cos(omega_mode_ma*time), &
+                  &                    amp_mode_ma*sin(omega_mode_ma*time),cp)
                end if
 
                z_ghost(lm,nR-1)=zero ! Set ghost zone to zero
@@ -1017,9 +1017,9 @@ contains
                   if ( kbotv==2 ) z_ghost(lm,nR)=zero
                end if
 
-               if (amp_RiIc /= 0.0_cp .and. l==(m_RiIc+RiSymmIc) .and. m==m_RiIc) then
-                  z_ghost(lm,nR)=cmplx(amp_RiIc*cos(omega_RiIc*time),  &
-                  &                    amp_RiIc*sin(omega_RiIc*time),cp)
+               if (amp_mode_ic /= 0.0_cp .and. l==(m_mode_ic+mode_symm_ic) .and. m==m_mode_ic) then
+                  z_ghost(lm,nR)=cmplx(amp_mode_ic*cos(omega_mode_ic*time),  &
+                  &                    amp_mode_ic*sin(omega_mode_ic*time),cp)
                end if
 
                z_ghost(lm,nR+1)=zero ! Set ghost zone to zero
@@ -1906,7 +1906,7 @@ contains
       end if
       l1m0       =lm2(1,0)
 
-      if ( amp_RiIc /= 0.0_cp .or. amp_RiMa /= 0.0_cp ) then
+      if ( amp_mode_ic /= 0.0_cp .or. amp_mode_ma /= 0.0_cp ) then
          call abortRun('Not implemented yet in assembly stage of z')
       end if
 
@@ -2123,7 +2123,7 @@ contains
 
       call tscheme%assemble_imex(work_Rloc, dzdt)
 
-      if ( amp_RiIc /= 0.0_cp .or. amp_RiMa /= 0.0_cp ) then
+      if ( amp_mode_ic /= 0.0_cp .or. amp_mode_ma /= 0.0_cp ) then
          call abortRun('Not implemented yet in assembly stage of z')
       end if
 
