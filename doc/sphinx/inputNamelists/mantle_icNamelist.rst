@@ -7,7 +7,7 @@ Mantle and Inner Core Namelists
 Mantle Namelist
 ---------------
 
-This namelist defines mantle properties 
+This namelist defines mantle properties
 
 * **conductance_ma** (default :f:var:`conductance_ma=0.0 <conductance_ma>`) is a real that defines the conductance (dimensionless) of the mantle.
 
@@ -44,21 +44,20 @@ The resultant prescribed mantle rotation rate is computed as:
   omega_ma = omega_ma1*cos(omegaOsz_ma1*(time+tShift_ma1)) + &
              omega_ma2*cos(omegaOsz_ma2*(time+tShift_ma2))
 
+* **ellipticity_cmb** (default :f:var:`ellipticity_cmb=0.0 <ellipticity_cmb>`) is a real which defines the ellipticity of the outer boundary. This is used together with ``omega_ma1`` and ``omegaOsz_ma1`` to represent the effect of a librating ellipsoidal boundary using a radial flow boundary condition.
+
 The following defines the parameters when one wants to excite inertial modes in
 the system artificially using a method similar to `Rieutord et. al 2012
 <http://dx.doi.org/10.1103/PhysRevE.86.026304>`_ .
 
-* **amp_RiMaSym** (default :f:var:`amp_RiMaSym=0.0 <amp_rimasym>`) is a real which defines the amplitude of forcing on the outer boundary for an equatorially symmetric mode
+* **amp_mode_ma** (default :f:var:`amp_mode_ma=0.0 <amp_mode_ma>`) is a real which defines the amplitude of forcing on the outer boundary.
 
-* **omega_RiMaSym** (default :f:var:`omega_RiMaSym=0.0 <omega_rimasym>`) is a real which defines the frequency of forcing on the outer boundary for an equatorially symmetric mode 
+* **omega_mode_ma** (default :f:var:`omega_mode_ma=0.0 <omega_mode_ma>`) is a real which defines the frequency of forcing on the outer boundary.
 
-* **m_RiMaSym** (default :f:var:`m_RiMaSym=0.0 <m_rimasym>`) is an integer which defines the wavenumber of the equatorially symmetric mode one wants to excite
+* **m_mode_ma** (default :f:var:`m_mode_ma=0 <m_mode_ma>`) is an integer which defines the wavenumber of the forced mode.
 
-The following variables define the same for an equatorially anti-symmetric mode:
+* **mode_symm_ma** (default :f:var:`mode_symm_ma=0 <mode_symm_ma>`) is an integer which defines the symmetry of the forced mode. ``0`` is for an equatorially anti-symmetric mode while ``1`` is for an equatorially symmetric mode.
 
-* **amp_RiMaAsym** (default :f:var:`amp_RiMaAsym=0.0 <amp_rimaasym>`)
-* **omega_RiMaAsym** (default :f:var:`omega_RiMaAsym=0.0 <omega_rimaasym>`)
-* **m_RiMaAsym** (default :f:var:`m_RiMaAsym=0.0 <m_rimaasym>`)
 
 .. _secInnerCore:
 
@@ -93,16 +92,14 @@ As with the mantle, the resultant prescribed rotation rate for the inner core is
   omega_ic = omega_ic1*cos(omegaOsz_ic1*(time+tShift_ic1)) + &
              omega_ic2*cos(omegaOsz_ic2*(time+tShift_ic2))
 
+* **ellipticity_icb** (default :f:var:`ellipticity_cmb=0.0 <ellipticity_cmb>`) is a real which defines the ellipticity of the inner boundary. This is used together with ``omega_ic1`` and ``omegaOsz_ic1`` to represent the effect of a librating ellipsoidal boundary using a radial flow boundary condition.
+
 The following, as for the mantle namelist, is for artificially exciting inertial modes in the spherical shell, but for the inner boundary.
 
-* **amp_RiIcSym** (default :f:var:`amp_RiIcSym=0.0 <amp_riicsym>`) is a real which defines the amplitude of forcing on the inner boundary for an equatorially symmetric mode
+* **amp_mode_ic** (default :f:var:`amp_mode_ic=0.0 <amp_mode_ic>`) is a real which defines the amplitude of forcing on the inner boundary.
 
-* **omega_RiIcSym** (default :f:var:`omega_RiIcSym=0.0 <omega_riicsym>`) is a real which defines the frequency of forcing on the inner boundary for an equatorially symmetric mode 
+* **omega_mode_ic** (default :f:var:`omega_mode_ic=0.0 <omega_mode_ic>`) is a real which defines the frequency of forcing.
 
-* **m_RiIcSym** (default :f:var:`m_RiIcSym=0.0 <m_riicsym>`) is an integer which defines the wavenumber of the equatorially symmetric mode one wants to excite
+* **m_mode_ic** (default :f:var:`m_mode_ic=0 <m_mode_ic>`) is an integer which defines the wavenumber of the forced mode.
 
-The following variables define the same for an equatorially anti-symmetric mode:
-
-* **amp_RiIcAsym** (default :f:var:`amp_RiIcAsym=0.0 <amp_riicasym>`)
-* **omega_RiIcAsym** (default :f:var:`omega_RiIcAsym=0.0 <omega_riicasym>`)
-* **m_RiIcAsym** (default :f:var:`m_RiIcAsym=0.0 <m_riicasym>`)
+* **mode_symm_ic** (default :f:var:`mode_symm_ic=0 <mode_symm_ic>`) is an integer which defines the symmetry of the forced mode. ``0`` is for an equatorially anti-symmetric mode while ``1`` is for an equatorially symmetric mode.
