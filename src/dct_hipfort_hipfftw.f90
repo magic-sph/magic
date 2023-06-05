@@ -55,7 +55,7 @@ contains
       integer, intent(in) :: n_in    ! Not used here, only for compatibility
       integer, intent(in) :: n_r_max ! Number of radial grid points
       integer ::start_lm, stop_lm
-      integer :: inembed(1), istride, idist, j, k
+      integer :: inembed(1), istride, idist, k
       integer :: onembed(1), ostride, odist, howmany
 
       this%n_r_max = n_r_max
@@ -88,15 +88,8 @@ contains
 
       allocate ( der(2*n_r_max-2), der2(2*n_r_max-2) )
       der(:)=0
-      !bytes_allocated=bytes_allocated+(2*n_r_max-2)*SIZEOF_INTEGER
-      do k=1,n_cheb_max!-1
-         der(k)=k-1
-      end do
-      j=1
-      do k=2*n_r_max-2,n_r_max+1,-1
-         if ( j < n_cheb_max ) der(k)=-j
-         j=j+1
-      end do
+      der(2*n_r_max-2:2*n_r_max-n_cheb_max:-1)=[(-k,k=1,n_cheb_max-1)]
+      der(1:n_cheb_max)=[(k-1,k=1,n_cheb_max)]
       der2(:)=der(:)*der(:)
       der(n_r_max)=0
 

@@ -83,12 +83,12 @@ contains
       integer :: onembed(1), ostride, odist, isize, howmany
       integer(C_INT) :: plan_type(1)
 #if (DCT_VERSION==dft_loop)
-      integer :: k, j
+      integer :: k
       complex(cp) :: array_cplx_1d(2*n_r_max-2), array_cplx_out_1d(2*n_r_max-2)
 #elif (DCT_VERSION==dct_many)
       real(cp) :: array_in(2*(ulm-llm+1),n_r_max), array_out(2*(ulm-llm+1),n_r_max)
 #elif (DCT_VERSION==dft_many)
-      integer :: threadid, start_lm, stop_lm, iThread, j, k
+      integer :: threadid, start_lm, stop_lm, iThread, k
       integer, allocatable :: idx1(:), idx2(:)
       complex(cp) :: array_in(llm:ulm,2*n_r_max-2), array_out(llm:ulm,2*n_r_max-2)
 #endif
@@ -133,30 +133,18 @@ contains
                               &             fft_plan_flag)
 
       allocate ( this%der(2*n_r_max-2), this%der2(2*n_r_max-2) )
-      this%der(:)=0
       bytes_allocated=bytes_allocated+(2*n_r_max-2)*SIZEOF_INTEGER
-      do k=1,n_cheb_max!-1
-         this%der(k)=k-1
-      end do
-      j=1
-      do k=2*n_r_max-2,n_r_max+1,-1
-         if ( j < n_cheb_max ) this%der(k)=-j
-         j=j+1
-      end do
+      this%der(:)=0
+      this%der(2*n_r_max-2:2*n_r_max-n_cheb_max:-1)=[(-k,k=1,n_cheb_max-1)]
+      this%der(1:n_cheb_max)=[(k-1,k=1,n_cheb_max)]
       this%der2(:)=this%der(:)*this%der(:)
       this%der(n_r_max)=0
 #elif (DCT_VERSION==dft_many)
       allocate ( this%der(2*n_r_max-2), this%der2(2*n_r_max-2) )
-      this%der(:)=0
       bytes_allocated=bytes_allocated+(2*n_r_max-2)*SIZEOF_INTEGER
-      do k=1,n_cheb_max!-1
-         this%der(k)=k-1
-      end do
-      j=1
-      do k=2*n_r_max-2,n_r_max+1,-1
-         if ( j < n_cheb_max ) this%der(k)=-j
-         j=j+1
-      end do
+      this%der(:)=0
+      this%der(2*n_r_max-2:2*n_r_max-n_cheb_max:-1)=[(-k,k=1,n_cheb_max-1)]
+      this%der(1:n_cheb_max)=[(k-1,k=1,n_cheb_max)]
       this%der2(:)=this%der(:)*this%der(:)
       this%der(n_r_max)=0
       allocate( this%plan_fft_many_back(0:nThreads-1) )
