@@ -10,7 +10,8 @@ export LDFLAGS+="-L/opt/cray/pe/fftw/3.3.10.3/x86_genoa/lib/"
 git clone https://gricad-gitlab.univ-grenoble-alpes.fr/schaeffn/shtns.git 
 cd shtns
 git checkout hip-rtc
-env CC=cc ./configure --enable-openmp --prefix=$HOME/local #(ex.: --prefix=PATH_TO_INSTALL_DIR)
+#env CC=cc ./configure --enable-openmp --prefix=/lus/home/NAT/cpa2204/SHARED/INSTALL/shtns #(ex.: --prefix=PATH_TO_INSTALL_DIR)
+./configure --enable-openmp --prefix=$HOME/local #(ex.: --prefix=PATH_TO_INSTALL_DIR)
 make -j
 make install #Install libshtns_omp.a in $PATH_TO_INSTALL_DIR/lib
 make time_SHT
