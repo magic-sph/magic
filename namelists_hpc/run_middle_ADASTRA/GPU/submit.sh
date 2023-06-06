@@ -13,17 +13,16 @@
 
 module purge
 module load craype/2.7.19 PrgEnv-cray/8.3.3
-module load craype-x86-trento libfabric/1.15.2.0 craype-network-ofi cray-dsmml/0.2.2 cray-mpich/8.1.21
-module load cpe/22.11 craype-accel-amd-gfx90a cray-fftw/3.3.10.3 cray-libsci/22.11.1.2 rocm/5.2.3
+module load craype-x86-trento libfabric/1.15.2.0 craype-network-ofi cray-dsmml/0.2.2 cray-mpich/8.1.24
+module load cpe/23.02 craype-accel-amd-gfx90a cray-fftw/3.3.10.3 cray-libsci/23.02.1.1 rocm/5.3.0
 module use -a ${SHAREDHOMEDIR}/modulefiles
 module load rocm/5.2.3
 module load hipfort
-export HIPFORT_PATH=/lus/home/NAT/cpa2204/SHARED/INSTALL/hipfort/0.4-6f6ae98e/cpe-cray/15.0.0/rocm/5.2.3/cmpich/8.1.21
-
 module list
 
 export LDFLAGS=""
 export LDFLAGS+="-L/opt/cray/pe/fftw/3.3.10.3/x86_trento/lib/"
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/cray/pe/fftw/3.3.10.3/x86_trento/lib/
 
 export KMP_STACKSIZE=1g
 
@@ -38,7 +37,7 @@ echo "Total tasks: $TOTAL_NTASKS"
 export OMP_NUM_THREADS=1
 export AMD_LOG_LEVEL=0 #For debug
 export CRAY_ACC_DEBUG=0 #For debug
-export CRAY_ACC_TIME=0 #For debug
+#export CRAY_ACC_TIME=0 #For debug
 export HIP_LAUNCH_BLOCKING=1
 
 echo "----------------------------------------"
@@ -66,6 +65,6 @@ export MPICH_OFI_NIC_VERBOSE=1
 #export MPICH_OFI_NUM_NICS=1:{0|1|2|3}[,{0|1|2|3}]*
 
 env MAP_VERBOSE=1 srun -l --cpu-bind=verbose --cpus-per-task=${SLURM_CPUS_PER_TASK} --mpi=cray_shasta /lus/home/NAT/cpa/SHARED/TESTS/GetMapping/map_gpu.ordered.sh /lus/home/NAT/cpa/SHARED/TESTS/GetMapping/getMapping_cray_gpu
-env MAP_VERBOSE=1 srun -l --cpu-bind=verbose --cpus-per-task=${SLURM_CPUS_PER_TASK} --mpi=cray_shasta /lus/home/NAT/cpa/SHARED/TESTS/GetMapping/map_gpu.ordered.sh ./magic.exe input_middle.nml
+env MAP_VERBOSE=1 srun --kill-on-bad-exit -l --cpu-bind=verbose --cpus-per-task=${SLURM_CPUS_PER_TASK} --mpi=cray_shasta /lus/home/NAT/cpa/SHARED/TESTS/GetMapping/map_gpu.ordered.sh ./magic.exe input_middle.nml
 
 
