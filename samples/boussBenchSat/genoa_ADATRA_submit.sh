@@ -1,31 +1,20 @@
 #!/bin/sh
 
 #SBATCH -J MagIC
-
 #SBATCH --nodes=1
-
 #SBATCH --cpus-per-task=48    # Thread OpenMP per MPI
-
 #SBATCH --ntasks=4           # Total number of MPI
-
 #SBATCH --threads-per-core=1
-
 #SBATCH --time=00:50:00
-
 #SBATCH --exclusive
-
 #SBATCH --constraint=GENOA
-
 #SBATCH -A cpa
-
-#SBATCH --reservation=eolen_cpu
-
 #SBATCH --output=Magic_1N1MPI1OMP_%j.out
 
 module purge
 module load craype/2.7.19 PrgEnv-cray/8.3.3
-module load craype-x86-genoa libfabric/1.15.2.0 craype-network-ofi cray-dsmml/0.2.2 cray-mpich/8.1.21
-module load cpe/22.11 cray-fftw/3.3.10.3 cray-libsci/22.11.1.2
+module load craype-x86-genoa libfabric/1.15.2.0 craype-network-ofi cray-dsmml/0.2.2 cray-mpich/8.1.24
+module load cpe/23.02 cray-fftw/3.3.10.3 cray-libsci/23.02.1.1
 module list
 
 export LDFLAGS=""
