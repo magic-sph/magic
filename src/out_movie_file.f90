@@ -16,7 +16,7 @@ module out_movie
        &                 movie_file, movie_const
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: orho1, orho2, or1, or2, or3, or4, beta,  &
-       &                       r_surface, r_cmb, r, r_ic
+       &                       r_surface, r_cmb, r, r_ic, temp0
    use physical_parameters, only: LFfac, radratio, ra, ek, pr, prmag
    use num_param, only: vScale, tScale
    use blocking, only: lm2l, lm2, llmMag, ulmMag
@@ -26,7 +26,7 @@ module out_movie
    use fields, only: w_Rloc, b_Rloc, b_ic, bICB
    use sht, only: torpol_to_spat, toraxi_to_spat
    use logic, only: l_save_out, l_cond_ic, l_mag, l_full_sphere
-   use constants, only: zero, one, two
+   use constants, only: zero, half, one, two
    use out_dtB_frame, only: write_dtB_frame
    use output_data, only: runid
    use useful, only: abortRun
@@ -524,14 +524,25 @@ contains
             end do
          end do
 
-      else if ( n_field_type == 17 ) then
+      else if ( n_field_type == 17 ) then ! Convective heat flux
 
-         fac=-or2(n_r)*orho1(n_r)*vScale
+         fac=or2(n_r)*temp0(n_r)*vScale
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_store_last+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=fac * vr(n_theta_cal,n_phi)*drSr(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac * vr(n_theta_cal,n_phi)*sr(n_theta_cal,n_phi)
+            end do
+         end do
+
+      else if ( n_field_type == 113 ) then ! Chemical heat flux
+
+         fac=or2(n_r)*vScale
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               n_theta=n_theta_cal2ord(n_theta_cal)
+               n_o=n_store_last+(n_theta-1)*n_phi_max
+               frames(n_phi+n_o)=fac * vr(n_theta_cal,n_phi)*xir(n_theta_cal,n_phi)
             end do
          end do
 
@@ -858,6 +869,50 @@ contains
             frames(n_0+n_theta) =phi_norm*fl(1)
          end do
 
+      else if ( n_field_type == 115 ) then
+
+         !--- Axisymmetric convective heat flux:
+         do n_theta_cal=1,n_theta_max
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            fl(1)=0.0_cp
+            do n_phi=1,n_phi_max   ! Average over phis
+               fl(1)=fl(1)+temp0(n_r)*or2(n_r)*vr(n_theta_cal,n_phi)* &
+               &     sr(n_theta_cal,n_phi)
+            end do
+            frames(n_0+n_theta) =phi_norm*fl(1)
+         end do
+
+      else if ( n_field_type == 116 ) then
+
+         !--- Axisymmetric flux of chemical composition
+         do n_theta_cal=1,n_theta_max
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            fl(1)=0.0_cp
+            do n_phi=1,n_phi_max   ! Average over phis
+               fl(1)=fl(1)+temp0(n_r)*or2(n_r)*vr(n_theta_cal,n_phi)* &
+               &     xir(n_theta_cal,n_phi)
+            end do
+            frames(n_0+n_theta) =phi_norm*fl(1)
+         end do
+
+      else if ( n_field_type == 114 ) then
+
+         !--- Kinetic energy
+         do n_theta_cal=1,n_theta_max
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            fl(1)=0.0_cp
+            do n_phi=1,n_phi_max   ! Average over phis
+               fl(1)=fl(1)+half*orho1(n_r)*or2(n_r)*(                         &
+               &      or2(n_r)* vr(n_theta_cal,n_phi)*vr(n_theta_cal,n_phi) + &
+               &     O_sin_theta_E2(n_theta_cal)*                             &
+               &                vt(n_theta_cal,n_phi)*vt(n_theta_cal,n_phi) + &
+               &     O_sin_theta_E2(n_theta_cal)*                             &
+               &                vp(n_theta_cal,n_phi)*vp(n_theta_cal,n_phi) )
+               &
+            end do
+            frames(n_0+n_theta) =phi_norm*fl(1)
+         end do
+
       else if ( n_field_type == 94 ) then
 
          !--- Axisymmetric v_s=sin(theta)*v_r+cos(theta)*v_theta
@@ -966,14 +1021,24 @@ contains
             &                          beta(n_r)*vp(n_theta_cal,n_phi_180)  )
          end do
 
-      else if ( n_field_type == 17 ) then
+      else if ( n_field_type == 17 ) then ! Convective heat flux
 
-         fac=-or2(n_r)*orho1(n_r)*vScale
+         fac=or2(n_r)*temp0(n_r)*vScale
          do n_theta_cal=1,n_theta_max
             n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=fac*vr(n_theta_cal,n_phi_0)*drSr(n_theta_cal,n_phi_0)
+            frames(n_0+n_theta)=fac*vr(n_theta_cal,n_phi_0)*sr(n_theta_cal,n_phi_0)
             frames(n_180+n_theta)=fac*vr(n_theta_cal,n_phi_180) * &
-            &                     drSr(n_theta_cal,n_phi_180)
+            &                     sr(n_theta_cal,n_phi_180)
+         end do
+
+      else if ( n_field_type == 113 ) then ! Composition heat flux
+
+         fac=or2(n_r)*vScale
+         do n_theta_cal=1,n_theta_max
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=fac*vr(n_theta_cal,n_phi_0)*xir(n_theta_cal,n_phi_0)
+            frames(n_180+n_theta)=fac*vr(n_theta_cal,n_phi_180) * &
+            &                     xir(n_theta_cal,n_phi_180)
          end do
 
       else if ( n_field_type == 91 ) then
@@ -1222,11 +1287,18 @@ contains
             &                         beta(n_r)*   vp(n_theta,n_phi) )
          end do
 
-      else if ( n_field_type == 17 ) then
+      else if ( n_field_type == 17 ) then ! Convective heat flux
 
-         fac=-or2(n_r)*orho1(n_r)*vScale
+         fac=or2(n_r)*temp0(n_r)*vScale
          do n_phi=1,n_phi_max
-            frames(n_o+n_phi)=fac*vr(n_theta,n_phi)*drSr(n_theta,n_phi)
+            frames(n_o+n_phi)=fac*vr(n_theta,n_phi)*sr(n_theta,n_phi)
+         end do
+
+      else if ( n_field_type == 113 ) then ! Chemical heat flux
+
+         fac=or2(n_r)*vScale
+         do n_phi=1,n_phi_max
+            frames(n_o+n_phi)=fac*vr(n_theta,n_phi)*xir(n_theta,n_phi)
          end do
 
       else if ( n_field_type == 91 ) then
@@ -1441,12 +1513,23 @@ contains
 
       else if ( n_field_type == 17 ) then
 
-         fac=-or2(n_r)*orho1(n_r)*vScale
+         fac=or2(n_r)*temp0(n_r)*vScale
          do n_phi=1,n_phi_max
             do n_theta_cal=1,n_theta_max
                n_theta=n_theta_cal2ord(n_theta_cal)
                n_o=n_or+(n_theta-1)*n_phi_max
-               frames(n_phi+n_o)=fac*vr(n_theta_cal,n_phi)*drSr(n_theta_cal,n_phi)
+               frames(n_phi+n_o)=fac*vr(n_theta_cal,n_phi)*sr(n_theta_cal,n_phi)
+            end do
+         end do
+
+      else if ( n_field_type == 113 ) then
+
+         fac=or2(n_r)*vScale
+         do n_phi=1,n_phi_max
+            do n_theta_cal=1,n_theta_max
+               n_theta=n_theta_cal2ord(n_theta_cal)
+               n_o=n_or+(n_theta-1)*n_phi_max
+               frames(n_phi+n_o)=fac*vr(n_theta_cal,n_phi)*xir(n_theta_cal,n_phi)
             end do
          end do
 
