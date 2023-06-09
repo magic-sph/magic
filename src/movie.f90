@@ -280,15 +280,20 @@ contains
       !                   - =101  : Stress fields
       !                   - =102  : Force fields
       !                   - =103  : Br Inverse appearence at CMB
-      !                   - =110  : radial heat flow
+      !                   - =110  : radial derivative of temperature/composition
       !                   - =111  : Vz and Vorz north/south correlation
       !                   - =112  : axisymm dtB tersm for Br and Bp
+      !                   - =113  : axisymmetric radial derivative of entropy/temperature
       !                   - =114  : Cylindrically radial magnetic field
       !                   - =115  : Composition field
       !                   - =116  : axisymmetric Vs
       !                   - =117  : axisymmetric Composition field
       !                   - =118  : axisymmetric phase field
       !                   - =121  : phase field
+      !                   - =122  : flux of chemical composition
+      !                   - =123  : axisymmetric kinetic energy
+      !                   - =124  : axisymmetric convective heat flux
+      !                   - =125  : axisymmetric flux of chemical composition
       !                     for phi=const.
       !
       !     * n_movie_surface(n_movie) = defines surface
@@ -320,7 +325,7 @@ contains
       !                      - =14 : z-comp. of poloidal Jz
       !                      - =15 : z-comp. of velocity
       !                      - =16 : z-comp. of vorticity
-      !                      - =17 : radial derivative of T * vr
+      !                      - =17 : convective heat flux T * vr
       !                      - =18 : helicity
       !                      - =19 : axisymmetric helicity
       !                      - =20 : axisymm field-line production
@@ -381,6 +386,10 @@ contains
       !                      - =110: axisymm. composition
       !                      - =111: axisymm. phase
       !                      - =112: phase field
+      !                      - =113: flux of chemical composition
+      !                      - =114: axisymmetric kinetic energy
+      !                      - =115: axisymmetric convective heat flux
+      !                      - =116: axisymmetric heat flux of composition
       !
       !     * n_movie_field_start(n_field,n_movie) = defines where first
       !       element of a field is stored in ``frames(*)``
@@ -754,7 +763,8 @@ contains
                n_fields=1
                n_field_type(1)=14
             end if
-         else if ( index(string,'VR') /= 0 ) then
+         ! Possible conflict with HEATTCONV r= (which contains VR)
+         else if ( index(string,'VR') /= 0 .and. index(string,'CONV') == 0) then
             n_type=11
             typeStr=' radial velocity field '
             file_name='Vr_'
@@ -791,7 +801,7 @@ contains
          else if ( index(string,'VH') /= 0 .or. index(string,'VM') /= 0 ) then
             n_type=14
             file_name='Vh_'
-         else if ( index(string,'VA') /= 0 ) then
+         else if ( index(string,'VALL') /= 0 ) then
             n_type=15
             typeStr=' all velocity components '
             file_name='V_'
@@ -897,7 +907,7 @@ contains
                n_fields=1
                n_field_type(1)=15
             end if
-         else if ( ( index(string,'AX'  ) /= 0 .and.  &
+         else if ( ( index(string,'AX') /= 0 .and.  &
          &    index(string,'HEL' ) /= 0 ) .or. index(string,'AHEL') /= 0 ) then
             n_type=24
             typeStr=' axisymmetric helicity '
@@ -910,21 +920,21 @@ contains
             file_name='HE_'
             n_fields=1
             n_field_type(1)=18
-         else if ( index(string,'AX' ) /= 0 .and. &
+         else if ( index(string,'AX') /= 0 .and. &
          &    ( index(string,'TEM') /= 0 .or. index(string,'ENT') /= 0 ) ) then
             n_type=28
             typeStr=' axisymmetric temp. '
             file_name='AT'
             n_fields=1
             n_field_type(1)=12
-         else if ( index(string,'AX' ) /= 0 .and. &
+         else if ( index(string,'AX') /= 0 .and. &
          &    ( index(string,'COMP') /= 0 .or. index(string,'XI') /= 0 ) ) then
             n_type=117
             typeStr=' axisymmetric comp. '
             file_name='AC'
             n_fields=1
             n_field_type(1)=110
-         else if ( index(string,'AX' ) /= 0 .and. ( index(string,'PHASE') /= 0 ) ) then
+         else if ( index(string,'AX') /= 0 .and. ( index(string,'PHASE') /= 0 ) ) then
             n_type=118
             typeStr=' axisymmetric phase '
             file_name='APHI'
@@ -966,43 +976,79 @@ contains
             file_name='PHI_'
             n_fields=1
             n_field_type(1)=112
-         else if ( ( index(string,'CONV' ) /= 0 .and.  &
-         &    index(string,'HEAT' ) /= 0 ) .or. index(string,'HEATT') /= 0 ) then
-            ns=index(string,'S')
-            if ( ns > 0 ) then
-               if ( string(ns:ns+2) == 'SUR' ) then
-                  call abortRun('! No surface T field available !')
+         else if ( index(string,'HEATTCONV') /= 0 ) then
+            if ( index(string,'AX') /= 0 ) then
+
+               print*, 'Am I reaching here ...................?'
+               n_type=124
+               typeStr='axisymmetric convective heat transport '
+               file_name='AHT_'
+               n_fields=1
+               n_field_type(1)=115
+            else
+               ns=index(string,'S')
+               if ( ns > 0 ) then
+                  if ( string(ns:ns+2) == 'SUR' ) then
+                     call abortRun('! No surface convective heat flux !')
+                  end if
                end if
+               n_type=22
+               typeStr=' radial convective heat transport '
+               file_name='HT_'
+               n_fields=1
+               n_field_type(1)=17
             end if
-            n_type=22
-            typeStr=' radial convective heat transport '
-            file_name='HT_'
-            l_HTmovie=.true.
-            n_fields=1
-            n_field_type(1)=17
-         else if ( index(string,'AX' ) /= 0 .and. index(string,'HEATF') /= 0   ) then
-            n_type=113
-            typeStr='axisymmetric dSdr '
-            file_name='AHF_'
-            l_HTmovie=.true.
-            n_fields=1
-            n_field_type(1)=92
+         else if ( index(string,'HEATXCONV') /= 0 ) then
+            if ( index(string,'AX') /= 0 ) then
+               n_type=125
+               typeStr='axisymmetric transport of composition '
+               file_name='AHXi_'
+               n_fields=1
+               n_field_type(1)=116
+            else
+               ns=index(string,'S')
+               if ( ns > 0 ) then
+                  if ( string(ns:ns+2) == 'SUR' ) then
+                     call abortRun('! No surface flux of composition !')
+                  end if
+               end if
+               n_type=122
+               typeStr=' radial transport of composition '
+               file_name='HXi_'
+               n_fields=1
+               n_field_type(1)=113
+            end if
          else if ( index(string,'HEATF') /= 0 ) then
-            ns=index(string,'S')
-            if ( ns > 0 ) then
-               if ( string(ns:ns+2) == 'SUR' ) then
-                  call abortRun('! No surface T field available !')
+            if ( index(string,'AX') /= 0 ) then
+               n_type=113
+               typeStr='axisymmetric dSdr '
+               file_name='AHF_'
+               l_HTmovie=.true.
+               n_fields=1
+               n_field_type(1)=92
+            else
+               ns=index(string,'S')
+               if ( ns > 0 ) then
+                  if ( string(ns:ns+2) == 'SUR' ) then
+                     call abortRun('! No surface T field available !')
+                  end if
                end if
+               n_type=110
+               typeStr='dSdr '
+               file_name='HF_'
+               l_HTmovie=.true.
+               n_fields=1
+               n_field_type(1)=91
             end if
-            n_type=110
-            typeStr=' radial heat transport '
-            file_name='HF_'
-            l_HTmovie=.true.
+         else if ( index(string,'AX') /= 0 .and. index(string,'EKIN') /= 0   ) then
+            n_type=123
+            typeStr='axisymmetric kinetic energy '
+            file_name='AEKIN_'
             n_fields=1
-            n_field_type(1)=91
+            n_field_type(1)=114
          else if ( index(string,'POT') /= 0 .and. index(string,'TOR') /= 0 ) then
             n_type=96
-            typeStr=' radial convective heat transport '
+            typeStr=' pot tor '
             file_name='PotTor_'
             lIC=.true.
             lStore=.false.
@@ -1489,13 +1535,15 @@ contains
                sendcount=local_end-local_start+1
 
                !-- Either only the axisymmetric or both slices
-               if ( n_field_type == 9 .or. n_field_type == 11 .or.  &
-               &    n_field_type == 12 .or. n_field_type == 92 .or. &
-               &    n_field_type == 94 .or. n_field_type == 95 .or. &
-               &    n_field_type == 96 .or. n_field_type == 97 .or. &
-               &    n_field_type == 98 .or. n_field_type == 99 .or. &
-               &    n_field_type == 19 .or. n_field_type == 8  .or. &
-               &    n_field_type == 110 .or. n_field_type == 111 ) then
+               if ( n_field_type == 9 .or. n_field_type == 11 .or.    &
+               &    n_field_type == 12 .or. n_field_type == 92 .or.   &
+               &    n_field_type == 94 .or. n_field_type == 95 .or.   &
+               &    n_field_type == 96 .or. n_field_type == 97 .or.   &
+               &    n_field_type == 98 .or. n_field_type == 99 .or.   &
+               &    n_field_type == 19 .or. n_field_type == 8  .or.   &
+               &    n_field_type == 110 .or. n_field_type == 111 .or. &
+               &    n_field_type == 114 .or. n_field_type == 115 .or. &
+               &    n_field_type == 116 ) then
                   call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
                        &           field_frames_global,recvcounts,displs,      &
                        &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
