@@ -335,11 +335,11 @@ contains
                   ! bgExp > -2 for Rayleigh stable flow
                   uphi_bg(:,nPhi) = omega_bg * r(nR) * sinTheta(:)      &
                   &                      * ( r(nR)/r_cmb )**(bgExp)
-                  dupdr(:,nPhi) = two * omega_bg * ( bgExp + 1.0_cp) &
+                  dupdr(:,nPhi) = omega_bg * ( bgExp + 1.0_cp)          &
                   &            * sinTheta(:) * ( r(nR)/r_cmb )**(bgExp)
 
                   ! (Curl U)_r in Glatzmaier form = r^2 curl(rho U).\hat{r}
-                  cur(:,nPhi) = two * omega_bg * r(nR) * rho0(nR) *   &
+                  cur(:,nPhi) = two * omega_bg * r(nR)*r(nR) * rho0(nR) *   &
                   &             cosTheta(:) * ( r(nR)/r_cmb )**bgExp
 
                else if ( n_bgflow == 2 ) then
@@ -351,7 +351,7 @@ contains
 
                   ! (Curl U)_r in Glatzmaier form = r^2 curl(rho U).\hat{r}
                   cur(:,nPhi) = 4.0_cp * omega_bg * rho0(nR) * r(nR)**4/r_cmb**2 * &
-                  &             sinTheta_E2(:) * sinTheta(:) * cosTheta(:)
+                  &             sinTheta_E2(:) * cosTheta(:)
                end if
 
                !Convert to Glatzmaier variables
@@ -368,7 +368,7 @@ contains
 
                Adv_bgt(:,nPhi) = or4(nR)*orho1(nR)  *      uphi_bg(:,nPhi) * &
                &                 (   two*cosn_theta_E2(:)*this%vpc(:,nPhi) - &
-               &                     this%dvtdpc(:,nPhi) )
+               &                     this%dvtdpc(:,nPhi)  )
 
                Adv_bgp(:,nPhi) = or4(nR)*orho1(nR) *  (                      &
                &                           -this%vrc(:,nPhi)*dupdr(:,nPhi) - &
