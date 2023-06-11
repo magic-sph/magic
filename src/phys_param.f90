@@ -112,4 +112,10 @@ module physical_parameters
    real(cp) :: bgExp          ! Exponent while choosing shellular background flow profile
    real(cp) :: omega_bg       ! Amplitude of background rotation profile
 
+   real(cp) :: ellipticity_cmb    ! Ellipticity of CMB, used for libration
+   real(cp) :: ellipticity_icb    ! Ellipticity of ICB, used for libration
+   real(cp) :: ellip_fac_cmb      ! d/d\phi (Y22) * d/dt exp(i\omega t) at CMB
+   real(cp) :: ellip_fac_icb      ! d/d\phi (Y22) * d/dt exp(i\omega t) at ICB
+
+   real(cp) :: ampForce           ! Amplitude of external body force
 end module physical_parameters

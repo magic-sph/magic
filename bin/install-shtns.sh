@@ -1,19 +1,20 @@
-#!/bin/sh
+#!/bin/bash
 
-ver="3.4.5"
+ver="3.5.2"
 
 if test ! -d $HOME/local; then
     mkdir $HOME/local
 fi
 
-#if command -v hg; then
-#  hg clone https://bitbucket.org/nschaeff/shtns
-#else
-  wget https://bitbucket.org/nschaeff/shtns/downloads/shtns-$ver.tar.gz
-  tar -xvf shtns-$ver.tar.gz
-  rm shtns-$ver.tar.gz
-  mv shtns-$ver shtns
-#fi
+wget https://bitbucket.org/nschaeff/shtns/downloads/shtns-$ver.tar.gz
+tar -xvf shtns-$ver.tar.gz
+rm shtns-$ver.tar.gz
+
+if [ -d "shtns-$ver" ]
+then
+    mv shtns-$ver shtns
+fi
+
 cd shtns
 
 shtns_version=`grep configure -e "PACKAGE_VERSION=" | sed -e "s/.*=//" -e "s/'//g"`
@@ -53,11 +54,23 @@ fi
 
 # Compile without OpenMP
 ./configure $opts
+
+if [ `echo $CC` ]
+then
+    sed -i "s/shtcc=gcc/shtcc=${CC}/" Makefile
+fi
+
 make -j
 make install -j
 
 # Compile with OpenMP
 ./configure --enable-openmp $opts
+
+if [ `echo $CC` ]
+then
+    sed -i "s/shtcc=gcc/shtcc=${CC}/" Makefile
+fi
+
 make -j
 make install -j
 

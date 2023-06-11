@@ -20,6 +20,7 @@ module truncation
    character(len=72) :: radial_scheme ! radial scheme (either Cheybev of FD)
    real(cp) :: fd_stretch    ! regular intervals over irregular intervals
    real(cp) :: fd_ratio      ! drMin over drMax (only when FD are used)
+   real(cp) :: rcut_l        ! Cut-off radius when degree varies with radius
    integer :: fd_order       ! Finite difference order (for now only 2 and 4 are safe)
    integer :: fd_order_bound ! Finite difference order on the  boundaries
  
@@ -33,7 +34,6 @@ module truncation
    integer :: m_max       ! max order of Plms
    integer :: n_m_max     ! max number of ms (different oders)
    integer :: lm_max      ! number of l/m combinations
-   integer :: lmP_max     ! number of l/m combination if l runs to l_max+1
    integer :: n_r_tot     ! total number of radial grid points
  
    !--- Now quantities for magnetic fields:
@@ -50,7 +50,6 @@ module truncation
    integer :: lm_max_dtB     ! Number of l/m combinations for movie output
    integer :: n_r_max_dtB    ! Number of radial points for movie output
    integer :: n_r_ic_max_dtB ! Number of IC radial points for movie output
-   integer :: lmP_max_dtB    ! Number of l/m combinations for movie output if l runs to l_max+1
  
    !--- Memory control for stress output:
    integer :: lStressMem     ! Memory for stress output
@@ -63,8 +62,8 @@ contains
    subroutine initialize_truncation
 
       integer :: n_r_maxML,n_r_ic_maxML,n_r_totML,l_maxML,lm_maxML
-      integer :: lm_max_dL,lmP_max_dL,n_r_max_dL,n_r_ic_max_dL
-      integer :: n_r_maxSL,n_theta_maxSL,n_phi_maxSL, delta, l, m
+      integer :: lm_max_dL,n_r_max_dL,n_r_ic_max_dL
+      integer :: n_r_maxSL,n_theta_maxSL,n_phi_maxSL, l, m
 
       if ( .not. l_axi ) then
          if ( l_max == 0 ) then
@@ -112,12 +111,6 @@ contains
       ! max number of ms (different oders)
       n_m_max=m_max/minc+1
 
-      if ( m_min == 0 ) then
-         delta = 0
-      else
-         delta = m_min
-      end if
-
       ! number of l/m combinations
       lm_max=0
       do m=m_min,m_max,minc
@@ -125,9 +118,6 @@ contains
             lm_max = lm_max+1
          end do
       end do
-
-      ! number of l/m combination if l runs to l_max+1
-      lmP_max=lm_max+(m_max/minc-m_min/minc+1)
 
       ! total number of radial grid points
       n_r_tot = n_r_max
@@ -148,11 +138,9 @@ contains
 
       !-- Movie memory control:
       lm_max_dL    =ldtBMem*lm_max
-      lmP_max_dL   =ldtBMem*lmP_max
       n_r_max_dL   =ldtBMem*n_r_max
       n_r_ic_max_dL=ldtBMem*n_r_ic_max
       lm_max_dtB    =max(lm_max_DL,1) 
-      lmP_max_dtB   =max(lmP_max_DL,1)
       n_r_max_dtB   =max(n_r_max_DL,1)
       n_r_ic_max_dtB=max(n_r_ic_max_DL,1)
 

@@ -8,9 +8,9 @@ module init_fields
    use parallel_mod
    use mpi_ptop_mod, only: type_mpiptop
    use mpi_transp_mod, only: type_mpitransp
-   use truncation, only: n_r_max, n_r_maxMag,n_r_ic_max,lmP_max, m_min, &
-       &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max,     &
-       &                 minc,n_cheb_ic_max,lm_max, nlat_padded
+   use truncation, only: n_r_max, n_r_maxMag, n_r_ic_max, m_min, l_max, &
+       &                 n_phi_max, n_theta_max, n_r_tot, m_max,        &
+       &                 minc, n_cheb_ic_max, lm_max, nlat_padded
    use mem_alloc, only: bytes_allocated
    use blocking, only: lo_map, st_map, llm, ulm, llmMag, ulmMag
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, &
@@ -38,7 +38,7 @@ module init_fields
        &                          impXi, n_impXi_max, n_impXi, phiXi,     &
        &                          thetaXi, peakXi, widthXi, osc, epscxi,  &
        &                          kbotxi, ktopxi, BuoFac, ktopp, oek,     &
-       &                          epsPhase
+       &                          epsPhase, ampForce
    use algebra, only: prepare_mat, solve_mat
    use cosine_transform_odd
    use dense_matrices
@@ -100,7 +100,7 @@ module init_fields
    real(cp), public :: scale_b
    real(cp), public :: tipdipole       ! adding to symetric field
 
-   public :: initialize_init_fields, initV, initS, initB, initPhi, ps_cond, &
+   public :: initialize_init_fields, initV, initS, initB, initPhi, initF, ps_cond, &
    &         pt_cond, initXi, xi_cond, finalize_init_fields
 
 contains
@@ -153,14 +153,14 @@ contains
 
       !-- Local variables
       complex(cp) :: z_Rloc(lm_max,nRstart:nRstop)
-      integer :: lm,l,m,st_lmP,l1m0
+      integer :: lm,l,m,l1m0
       integer :: nR,nTheta,nPhi
       real(cp) :: ra1,ra2,c_r,c_i
       real(cp) :: amp_r,rExp
       real(cp) :: rDep(n_r_max)
       class(type_mpitransp), pointer :: r2lo_initv, lo2r_initv
       real(cp) :: ss,ome(nlat_padded,n_phi_max)
-      complex(cp) :: omeLM(lmP_max)
+      complex(cp) :: omeLM(lm_max)
 
       allocate( type_mpiptop :: r2lo_initv )
       allocate( type_mpiptop :: lo2r_initv )
@@ -197,16 +197,16 @@ contains
             do lm=2,lm_max
                l   =st_map%lm2l(lm)
                m   =st_map%lm2m(lm)
-               st_lmP=st_map%lm2lmP(lm)
-               if ( l > m ) then
+               if ( l < l_max .and. l > m ) then
                   z_Rloc(lm,nR)=z_Rloc(lm,nR) + r(nR)**2/dLh(lm) * ( &
-                  &    dTheta1S(lm)*omeLM(st_map%lmP2lmPS(st_lmP))   &
-                  &   -dTheta1A(lm)*omeLM(st_map%lmP2lmPA(st_lmP)) )
-               else if ( l == m ) then
-                  if ( dLh(lm) /= 0.0_cp ) then
-                     z_Rloc(lm,nR)=z_Rloc(lm,nR) - r(nR)**2/dLh(lm) *  &
-                     &    dTheta1A(lm)*omeLM(st_map%lmP2lmPA(st_lmP))
-                  end if
+                  &          dTheta1S(lm)*omeLM(st_map%lm2lmS(lm))   &
+                  &         -dTheta1A(lm)*omeLM(st_map%lm2lmA(lm)) )
+               else if ( l < l_max .and. l == m ) then
+                  z_Rloc(lm,nR)=z_Rloc(lm,nR) - r(nR)**2/dLh(lm) *  &
+                  &          dTheta1A(lm)*omeLM(st_map%lm2lmA(lm))
+               else if ( l == l_max .and. m < l ) then
+                  z_Rloc(lm,nR)=z_Rloc(lm,nR) + r(nR)**2/dLh(lm) *  &
+                  &          dTheta1S(lm)*omeLM(st_map%lm2lmS(lm))
                end if
             end do
 
@@ -245,17 +245,16 @@ contains
             do lm=2,lm_max
                l   =st_map%lm2l(lm)
                m   =st_map%lm2m(lm)
-               st_lmP=st_map%lm2lmP(st_map%lm2(l,m))
-               if ( l > m ) then
-                  z_Rloc(lm,nR)=z_Rloc(lm,nR) + &
-                  &    r(nR)**2/dLh(lm) * ( &
-                  &    dTheta1S(lm)*omeLM(st_map%lmP2lmPS(st_lmP)) &
-                  &    - dTheta1A(lm)*omeLM(st_map%lmP2lmPA(st_lmP)) )
-               else if ( l == m ) then
-                  if ( dLh(lm) /= 0.0_cp ) then
-                      z_Rloc(lm,nR)=z_Rloc(lm,nR) - r(nR)**2/dLh(lm) * &
-                      &    dTheta1A(lm)*omeLM(st_map%lmP2lmPA(st_lmP))
-                  end if
+               if ( l < l_max .and. l > m ) then
+                  z_Rloc(lm,nR)=z_Rloc(lm,nR) + r(nR)**2/dLh(lm) * ( &
+                  &            dTheta1S(lm)*omeLM(st_map%lm2lmS(lm)) &
+                  &          - dTheta1A(lm)*omeLM(st_map%lm2lmA(lm)) )
+               else if ( l < l_max .and. l == m ) then
+                   z_Rloc(lm,nR)=z_Rloc(lm,nR) - r(nR)**2/dLh(lm) * &
+                   &           dTheta1A(lm)*omeLM(st_map%lm2lmA(lm))
+               else if ( l == l_max  .and. m < l) then
+                  z_Rloc(lm,nR)=z_Rloc(lm,nR) + r(nR)**2/dLh(lm) *   &
+                  &            dTheta1S(lm)*omeLM(st_map%lm2lmS(lm))
                end if
             end do
 
@@ -382,8 +381,8 @@ contains
          end if
 #endif
       else
-         if ( nRotIc == 2 ) omega_ic=omega_ic1 
-         if ( nRotMa == 2 ) omega_ma=omega_ma1 
+         if ( nRotIc == 2 ) omega_ic=omega_ic1
+         if ( nRotMa == 2 ) omega_ma=omega_ma1
       end if
 
    end subroutine initV
@@ -432,7 +431,7 @@ contains
       real(cp) :: xS(n_impS_max),yS(n_impS_max)
       real(cp) :: zS(n_impS_max),sFac(n_impS_max)
       real(cp) :: sCMB(nlat_padded,n_phi_max)
-      complex(cp) :: sLM(lmP_max)
+      complex(cp) :: sLM(lm_max)
       integer :: info,i,j,filehandle
       logical :: rank_has_l0m0
 
@@ -628,9 +627,9 @@ contains
          end do
          call scal_to_SH(sCMB, sLM, l_max)
 
-      !--- sFac describes the linear dependence of the (l=0,m=0) mode
-      !    on the amplitude peakS, SQRT(4*pi) is a normalisation factor
-      !    according to the spherical harmonic function form chosen here.
+         !--- sFac describes the linear dependence of the (l=0,m=0) mode
+         !    on the amplitude peakS, SQRT(4*pi) is a normalisation factor
+         !    according to the spherical harmonic function form chosen here.
          sFac(nS)=real(sLM(st_map%lm2(0,0)))*osq4pi
 
       end do ! Loop over peak
@@ -697,11 +696,10 @@ contains
       !    in comparison to the (l=0,m=0) contribution when impS<0:
       !    Note that the (l=0,m=0) has to be determined by other means
       !    for example by setting: s_top= 0 0 -1 0
-      do m=0,l_max,minc
-         do l=m,l_max
-            lm=st_map%lmP2(l,m)
-            if ( l <= l_max .and. l > 0 ) tops(l,m)=tops(l,m)+sLM(lm)
-         end do
+      do lm=1,lm_max
+         l = st_map%lm2l(l)
+         m = st_map%lm2m(m)
+         if ( l <= l_max .and. l > 0 ) tops(l,m)=tops(l,m)+sLM(lm)
       end do
 
    end subroutine initS
@@ -749,7 +747,7 @@ contains
       real(cp) :: xXi(n_impXi_max),yXi(n_impXi_max)
       real(cp) :: zXi(n_impXi_max),xiFac(n_impXi_max)
       real(cp) :: xiCMB(nlat_padded,n_phi_max)
-      complex(cp) :: xiLM(lmP_max)
+      complex(cp) :: xiLM(lm_max)
       integer :: info,i,j,fileHandle
 
       lm00=lo_map%lm2(0,0)
@@ -916,9 +914,9 @@ contains
          end do
          call scal_to_SH(xiCMB, xiLM, l_max)
 
-      !--- xiFac describes the linear dependence of the (l=0,m=0) mode
-      !    on the amplitude peakXi, sqrt(4*pi) is a normalisation factor
-      !    according to the spherical harmonic function form chosen here.
+         !--- xiFac describes the linear dependence of the (l=0,m=0) mode
+         !    on the amplitude peakXi, sqrt(4*pi) is a normalisation factor
+         !    according to the spherical harmonic function form chosen here.
          xiFac(nXi)=real(xiLM(st_map%lm2(0,0)))*osq4pi
 
       end do ! Loop over peak
@@ -984,11 +982,10 @@ contains
       !    in comparison to the (l=0,m=0) contribution when impS<0:
       !    Note that the (l=0,m=0) has to be determined by other means
       !    for example by setting: s_top= 0 0 -1 0
-      do m=0,l_max,minc
-         do l=m,l_max
-            lm=st_map%lmP2(l,m)
-            if ( l <= l_max .and. l > 0 ) topxi(l,m)=topxi(l,m)+xiLM(lm)
-         end do
+      do lm=1,lm_max
+         l = st_map%lm2l(l)
+         m = st_map%lm2m(m)
+         if ( l <= l_max .and. l > 0 ) topxi(l,m)=topxi(l,m)+xiLM(lm)
       end do
 
    end subroutine initXi
@@ -1499,6 +1496,77 @@ contains
       end if
 
    end subroutine initPhi
+!-----------------------------------------------------------------------
+   subroutine initF(bodyForce)
+      !
+      ! This subroutine is used to initialize a toroidal body force
+      ! of the form (-a s + b s^2) \vec{e}_\phi in lm space. This can easily
+      ! be extended to other forms of body forces prescribed in physical space.
+      !
+
+      !-- In/out variables
+      complex(cp), intent(inout) :: bodyForce(llm:ulm,n_r_max)
+
+      !-- Local variables
+      complex(cp) :: bf_Rloc(lm_max,nRstart:nRstop), bfLM(lm_max)
+      integer :: lm,l,m,st_lmP, nR,nTheta,nPhi
+      class(type_mpitransp), pointer :: r2lo_initf, lo2r_initf
+      real(cp) :: bf_spat(nlat_padded,n_phi_max)
+      real(cp) :: eta_fac, a_force, b_force
+
+      allocate( type_mpiptop :: r2lo_initf )
+      allocate( type_mpiptop :: lo2r_initf )
+
+      call r2lo_initf%create_comm(1)
+      call lo2r_initf%create_comm(1)
+
+      call lo2r_initf%transp_lm2r(bodyForce, bf_Rloc)
+
+      eta_fac = 15.0_cp*pi/64.0_cp * (1.0_cp - radratio**6)/(1.0_cp-radratio**5)
+      a_force = eta_fac / (r_cmb * (1.0_cp - eta_fac))
+      b_force = 1.0_cp / (r_cmb**2 * ( 1.0_cp - eta_fac ))
+
+      do nR = nRstart,nRstop
+         do nPhi=1,n_phi_max
+            do nTheta=1,n_theta_max
+               ! This is F_{\phi}/sin(\theta) for toroidal equation
+               ! where F = ( -a s + b s^2 ) \vec{e}_\phi
+               ! Use F_r for poloidal equation
+               bf_spat(nTheta,nPhi) = ampForce   *               &
+               &                      (- a_force * r(nR)         &
+               &                       + b_force * r(nR) * r(nR) &
+               &                       * sinTheta(nTheta) )
+            end do
+         end do
+
+         call scal_to_SH(bf_spat,bfLM,l_max)
+
+         !------- body force is now in spherical harmonic space,
+         !        For toroidal equation, get radial component of
+         !        curl by applying operator
+         !        dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
+         !        comment out for poloidal equation
+         do lm=2,lm_max
+            l=st_map%lm2l(lm)
+            m=st_map%lm2m(lm)
+            if ( l < l_max .and. l > m ) then
+               bf_Rloc(lm,nR)=dTheta1S(lm)*bfLM(st_map%lm2lmS(lm))   &
+               &             -dTheta1A(lm)*bfLM(st_map%lm2lmA(lm))
+            else if ( l < l_max .and. l == m ) then
+               bf_Rloc(lm,nR)=dTheta1A(lm)*bfLM(st_map%lm2lmA(lm))
+            else if ( l == l_max .and. m < l ) then
+               bf_Rloc(lm,nR)=dTheta1S(lm)*bfLM(st_map%lm2lmS(lm))
+            end if
+         end do
+
+      end do ! close loop over radial points
+
+      call r2lo_initf%transp_r2lm(bf_Rloc,bodyForce)
+
+      call r2lo_initf%destroy_comm()
+      call lo2r_initf%destroy_comm()
+
+   end subroutine initF
 !-----------------------------------------------------------------------
    subroutine j_cond(lm0, aj0, aj0_ic)
       !

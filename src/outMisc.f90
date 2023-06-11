@@ -376,21 +376,18 @@ contains
       logical,     intent(in) :: l_stop_time
 
       !-- Input of scalar fields:
-      complex(cp), intent(in) :: s(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: ds(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: p(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: xi(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: dxi(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: s(llm:ulm,n_r_max) ! Entropy/temperature
+      complex(cp), intent(in) :: ds(llm:ulm,n_r_max) ! Radial derivative of entropy/temp
+      complex(cp), intent(in) :: p(llm:ulm,n_r_max) ! Pressure
+      complex(cp), intent(in) :: xi(llm:ulm,n_r_max) ! Chemical composition
+      complex(cp), intent(in) :: dxi(llm:ulm,n_r_max) ! Radial derivative of xi
 
       !-- Local stuff:
       real(cp) :: tmp(n_r_max), dp(n_r_max)
       real(cp) :: topnuss,botnuss,deltanuss
       real(cp) :: topsherwood,botsherwood,deltasherwood
-      real(cp) :: toptemp,bottemp
-      real(cp) :: topxi,botxi
-      real(cp) :: toppres,botpres,mass
-      real(cp) :: topentropy, botentropy
-      real(cp) :: topflux,botflux
+      real(cp) :: toptemp,bottemp,topxi,botxi,topflux,botflux
+      real(cp) :: toppres,botpres,mass,topentropy,botentropy
       character(len=76) :: filename
       integer :: n_r, filehandle
 
@@ -409,10 +406,9 @@ contains
                call XiMeanR%compute(osq4pi*real(xi(1,:)),n_calls,timePassed,timeNorm)
             endif
             call PMeanR%compute(osq4pi*real(p(1,:)),n_calls,timePassed,timeNorm)
-            tmp(:) = osq4pi*ThExpNb*alpha0(:)*( -rho0(:)*    &
-               &     real(s(1,:))+ViscHeatFac*(ThExpNb*      &
-               &     alpha0(:)*temp0(:)+ogrun(:))*           &
-               &     real(p(1,:)) )
+            tmp(:) = osq4pi*ThExpNb*alpha0(:)*( -rho0(:)*real(s(1,:)) +  &
+            &        ViscHeatFac*(ThExpNb*alpha0(:)*temp0(:)+ogrun(:))*  &
+            &        real(p(1,:)) )
             call RhoMeanR%compute(tmp(:),n_calls,timePassed,timeNorm)
          else
             if ( l_heat ) then
@@ -425,133 +421,167 @@ contains
                call XiMeanR%compute(osq4pi*real(xi(1,:)),n_calls,timePassed,timeNorm)
             endif
             call PMeanR%compute(osq4pi*real(p(1,:)),n_calls,timePassed,timeNorm)
-            tmp(:) = osq4pi*ThExpNb*alpha0(:)*( -rho0(:)* &
-               &     temp0(:)*real(s(1,:))+ViscHeatFac*   &
-               &     ogrun(:)*real(p(1,:)) )
+            tmp(:) = osq4pi*ThExpNb*alpha0(:)*( -rho0(:)*temp0(:)*real(s(1,:)) + &
+            &        ViscHeatFac*ogrun(:)*real(p(1,:)) )
             call RhoMeanR%compute(tmp(:),n_calls,timePassed,timeNorm)
          end if
 
          !-- Evaluate nusselt numbers (boundary heat flux density):
          toppres=osq4pi*real(p(1,n_r_cmb))
          botpres=osq4pi*real(p(1,n_r_icb))
-         if ( topcond /= 0.0_cp ) then
+         if ( l_anelastic_liquid ) then
 
-            if ( l_anelastic_liquid ) then
+            bottemp=osq4pi*real(s(1,n_r_icb))
+            toptemp=osq4pi*real(s(1,n_r_cmb))
 
-               bottemp=osq4pi*real(s(1,n_r_icb))
-               toptemp=osq4pi*real(s(1,n_r_cmb))
+            botentropy=otemp1(n_r_icb)*bottemp-ViscHeatFac*ThExpNb*   &
+            &          orho1(n_r_icb)*alpha0(n_r_icb)*botpres
+            topentropy=otemp1(n_r_cmb)*toptemp-ViscHeatFac*ThExpNb*   &
+            &          orho1(n_r_cmb)*alpha0(n_r_cmb)*toppres
 
-               botentropy=otemp1(n_r_icb)*bottemp-ViscHeatFac*ThExpNb*   &
-               &          orho1(n_r_icb)*alpha0(n_r_icb)*botpres
-               topentropy=otemp1(n_r_cmb)*toptemp-ViscHeatFac*ThExpNb*   &
-               &          orho1(n_r_cmb)*alpha0(n_r_cmb)*toppres
+            if ( l_temperature_diff ) then
 
-               if ( l_temperature_diff ) then
-
+               if ( abs(botcond) >= 1e-10_cp ) then
                   botnuss=-osq4pi/botcond*real(ds(1,n_r_icb))/lScale
-                  topnuss=-osq4pi/topcond*real(ds(1,n_r_cmb))/lScale
-                  botflux=-rho0(n_r_max)*real(ds(1,n_r_max))*osq4pi &
-                  &        *r_icb**2*four*pi*kappa(n_r_max)
-                  topflux=-rho0(1)*real(ds(1,1))*osq4pi &
-                  &        *r_cmb**2*four*pi*kappa(1)
-
-                  deltanuss = deltacond/(bottemp-toptemp)
-
                else
+                  botnuss=one
+               end if
+               if ( abs(topcond) >= 1e-10_cp ) then
+                  topnuss=-osq4pi/topcond*real(ds(1,n_r_cmb))/lScale
+               else
+                  topnuss=one
+               end if
+               botflux=-rho0(n_r_max)*real(ds(1,n_r_max))*osq4pi &
+               &        *r_icb**2*four*pi*kappa(n_r_max)
+               topflux=-rho0(1)*real(ds(1,1))*osq4pi &
+               &        *r_cmb**2*four*pi*kappa(1)
 
+               if ( bottemp /= toptemp ) then
+                  deltanuss=deltacond/(bottemp-toptemp)
+               else
+                  deltanuss=one
+               end if
+
+            else
+
+               if ( abs(botcond) >= 1e-10_cp ) then
                   botnuss=-osq4pi/botcond*(otemp1(n_r_icb)*( -dLtemp0(n_r_icb)* &
                   &        real(s(1,n_r_icb)) + real(ds(1,n_r_icb))) -          &
                   &        ViscHeatFac*ThExpNb*alpha0(n_r_icb)*orho1(n_r_icb)*( &
                   &         ( dLalpha0(n_r_icb)-beta(n_r_icb) )*                &
                   &        real(p(1,n_r_icb)) + dp(n_r_icb) ) ) / lScale
+               else
+                  botnuss=one
+               end if
+               if ( abs(topcond) >= 1e-10_cp ) then
                   topnuss=-osq4pi/topcond*(otemp1(n_r_cmb)*( -dLtemp0(n_r_cmb)* &
                   &        real(s(1,n_r_cmb)) + real(ds(1,n_r_cmb))) -          &
                   &        ViscHeatFac*ThExpNb*alpha0(n_r_cmb)*orho1(n_r_cmb)*( &
                   &         ( dLalpha0(n_r_cmb)-beta(n_r_cmb) )*                &
                   &        real(p(1,n_r_cmb)) + dp(n_r_cmb) ) ) / lScale
-
-                  botflux=four*pi*r_icb**2*kappa(n_r_icb)*rho0(n_r_icb) *      &
-                  &       botnuss*botcond*lScale*temp0(n_r_icb)
-                  topflux=four*pi*r_cmb**2*kappa(n_r_cmb)*rho0(n_r_cmb) *      &
-                  &       topnuss*topcond*lScale*temp0(n_r_cmb)
-
-                  deltanuss = deltacond/(botentropy-topentropy)
-
+               else
+                  topnuss=one
                end if
 
-            else ! s corresponds to entropy
+               botflux=four*pi*r_icb**2*kappa(n_r_icb)*rho0(n_r_icb) *      &
+               &       botnuss*botcond*lScale*temp0(n_r_icb)
+               topflux=four*pi*r_cmb**2*kappa(n_r_cmb)*rho0(n_r_cmb) *      &
+               &       topnuss*topcond*lScale*temp0(n_r_cmb)
 
-               botentropy=osq4pi*real(s(1,n_r_icb))
-               topentropy=osq4pi*real(s(1,n_r_cmb))
+               if ( botentropy /= topentropy ) then
+                  deltanuss=deltacond/(botentropy-topentropy)
+               else
+                  deltanuss=one
+               end if
 
-               bottemp   =temp0(n_r_icb)*botentropy+ViscHeatFac*ThExpNb*   &
-               &          orho1(n_r_icb)*temp0(n_r_icb)*alpha0(n_r_icb)*   &
-               &          botpres
-               toptemp   =temp0(n_r_cmb)*topentropy+ViscHeatFac*ThExpNb*   &
-               &          orho1(n_r_cmb)*temp0(n_r_cmb)*alpha0(n_r_cmb)*   &
-               &          toppres
+            end if
 
-               if ( l_temperature_diff ) then
+         else ! s corresponds to entropy
 
+            botentropy=osq4pi*real(s(1,n_r_icb))
+            topentropy=osq4pi*real(s(1,n_r_cmb))
+
+            bottemp=temp0(n_r_icb)*botentropy+ViscHeatFac*ThExpNb*   &
+            &       orho1(n_r_icb)*temp0(n_r_icb)*alpha0(n_r_icb)*   &
+            &       botpres
+            toptemp=temp0(n_r_cmb)*topentropy+ViscHeatFac*ThExpNb*   &
+            &       orho1(n_r_cmb)*temp0(n_r_cmb)*alpha0(n_r_cmb)*   &
+            &       toppres
+
+            if ( l_temperature_diff ) then
+
+               if ( abs(botcond) >= 1e-10_cp ) then
                   botnuss=-osq4pi/botcond*temp0(n_r_icb)*( dLtemp0(n_r_icb)*   &
                   &        real(s(1,n_r_icb)) + real(ds(1,n_r_icb)) +          &
                   &        ViscHeatFac*ThExpNb*alpha0(n_r_icb)*orho1(n_r_icb)*(&
                   &     ( dLalpha0(n_r_icb)+dLtemp0(n_r_icb)-beta(n_r_icb) )*  &
                   &        real(p(1,n_r_icb)) + dp(n_r_icb) ) ) / lScale
+               else
+                  botnuss=one
+               end if
+               if ( abs(topcond) >= 1e-10_cp ) then
                   topnuss=-osq4pi/topcond*temp0(n_r_cmb)*( dLtemp0(n_r_cmb)*   &
                   &        real(s(1,n_r_cmb)) + real(ds(1,n_r_cmb)) +          &
                   &        ViscHeatFac*ThExpNb*alpha0(n_r_cmb)*orho1(n_r_cmb)*(&
                   &     ( dLalpha0(n_r_cmb)+dLtemp0(n_r_cmb)-beta(n_r_cmb) )*  &
                   &        real(p(1,n_r_cmb)) + dp(n_r_cmb) ) ) / lScale
-
-                  botflux=four*pi*r_icb**2*kappa(n_r_icb)*rho0(n_r_icb) *      &
-                  &       botnuss*botcond*lScale
-                  topflux=four*pi*r_cmb**2*kappa(n_r_cmb)*rho0(n_r_cmb) *      &
-                  &       topnuss*topcond*lScale
-
-                  deltanuss = deltacond/(bottemp-toptemp)
-
                else
+                  topnuss=one
+               end if
 
+               botflux=four*pi*r_icb**2*kappa(n_r_icb)*rho0(n_r_icb) *      &
+               &       botnuss*botcond*lScale
+               topflux=four*pi*r_cmb**2*kappa(n_r_cmb)*rho0(n_r_cmb) *      &
+               &       topnuss*topcond*lScale
+
+               if ( bottemp /= toptemp ) then
+                  deltanuss=deltacond/(bottemp-toptemp)
+               else
+                  deltanuss=one
+               end if
+
+            else
+
+               if ( abs(botcond) >= 1e-10_cp ) then
                   botnuss=-osq4pi/botcond*real(ds(1,n_r_icb))/lScale
+               else
+                  botnuss=one
+               end if
+               if ( abs(topcond) >= 1e-10_cp ) then
                   topnuss=-osq4pi/topcond*real(ds(1,n_r_cmb))/lScale
-                  botflux=-rho0(n_r_max)*temp0(n_r_max)*real(ds(1,n_r_max))* &
-                  &        r_icb**2*sq4pi*kappa(n_r_max)/lScale
-                  topflux=-rho0(1)*temp0(1)*real(ds(1,1))/lScale*r_cmb**2* &
-                  &        sq4pi*kappa(1)
-                  if ( botentropy /= topentropy ) then
-                     deltanuss = deltacond/(botentropy-topentropy)
-                  else
-                     deltanuss = one
-                  end if
-
+               else
+                  topnuss=one
+               end if
+               botflux=-rho0(n_r_max)*temp0(n_r_max)*real(ds(1,n_r_max))* &
+               &        r_icb**2*sq4pi*kappa(n_r_max)/lScale
+               topflux=-rho0(1)*temp0(1)*real(ds(1,1))/lScale*r_cmb**2* &
+               &        sq4pi*kappa(1)
+               if ( botentropy /= topentropy ) then
+                  deltanuss=deltacond/(botentropy-topentropy)
+               else
+                  deltanuss=one
                end if
 
             end if
-         else
-            botnuss   =one
-            topnuss   =one
-            botflux   =0.0_cp
-            topflux   =0.0_cp
-            bottemp   =0.0_cp
-            toptemp   =0.0_cp
-            botentropy=0.0_cp
-            topentropy=0.0_cp
-            deltanuss =one
+
          end if
 
          if ( l_chemical_conv ) then
-            if ( topxicond/=0.0_cp ) then
-               topxi=osq4pi*real(xi(1,n_r_cmb))
-               botxi=osq4pi*real(xi(1,n_r_icb))
+            topxi=osq4pi*real(xi(1,n_r_cmb))
+            botxi=osq4pi*real(xi(1,n_r_icb))
+            if ( abs(botxicond) >= 1e-10_cp ) then
                botsherwood=-osq4pi/botxicond*real(dxi(1,n_r_icb))/lScale
-               topsherwood=-osq4pi/topxicond*real(dxi(1,n_r_cmb))/lScale
-               deltasherwood = deltaxicond/(botxi-topxi)
             else
-               topxi=0.0_cp
-               botxi=0.0_cp
                botsherwood=one
+            end if
+            if ( abs(topxicond) >= 1e-10_cp ) then
+               topsherwood=-osq4pi/topxicond*real(dxi(1,n_r_cmb))/lScale
+            else
                topsherwood=one
+            end if
+            if ( botxi /= topxi ) then
+               deltasherwood=deltaxicond/(botxi-topxi)
+            else
                deltasherwood=one
             end if
          else

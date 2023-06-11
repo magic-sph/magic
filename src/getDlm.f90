@@ -1,6 +1,8 @@
 module getDlm_mod
    !
-   ! This module is used to calculate the lengthscales
+   ! This module is used to calculate the lengthscales. It computes both
+   ! the integral lengthscale and the peak of the poloidal energy. It also
+   ! stores the radial profiles of these lengthscales.
    !
 
    use parallel_mod
@@ -9,8 +11,7 @@ module getDlm_mod
    use truncation, only: minc, m_max, l_max, n_r_max
    use radial_functions, only: or2, r, rscheme_oc, orho1
    use num_param, only: eScale
-   use blocking, only: lo_map, st_map, llm, ulm
-   use horizontal_data, only: dLh
+   use blocking, only: lo_map, llm, ulm
    use constants, only: pi, half
    use useful, only: cc2real, cc22real
    use integration, only: rInt_R
@@ -41,36 +42,28 @@ contains
 
       !-- Local variables:
       integer :: nR,lm,l,m,lFirst,lpeak(1)
-      real(cp) :: e_p,e_t,e_m,e_l
-      real(cp) :: fac
+      real(cp) :: e_p,e_t,e_m,e_l,fac
       real(cp) :: e_lr(n_r_max,0:l_max),e_lr_c(n_r_max,0:l_max),e_pol_lr(n_r_max,0:l_max)
       real(cp) :: e_lr_global(n_r_max,0:l_max),e_lr_c_global(n_r_max,0:l_max)
       real(cp) :: e_pol_lr_global(n_r_max,0:l_max), e_pol_l(l_max)
-      real(cp) :: e_mr(n_r_max,0:l_max)
-      real(cp) :: e_mr_global(n_r_max,0:l_max)
-      real(cp) :: ER(n_r_max),ELR(n_r_max)
-      real(cp) :: E,EL,EM
-      real(cp) :: ERc(n_r_max),ELRc(n_r_max)
-      real(cp) :: Ec,ELc
+      real(cp) :: e_mr(n_r_max,0:l_max), e_mr_global(n_r_max,0:l_max)
+      real(cp) :: ER(n_r_max),ELR(n_r_max),ERc(n_r_max),ELRc(n_r_max)
+      real(cp) :: E,EL,EM,Ec,ELc
       real(cp) :: O_rho ! 1/rho (anelastic)
 
+      e_lr(:,:)    =0.0_cp
+      e_lr_c(:,:)  =0.0_cp
+      e_pol_lr(:,:)=0.0_cp
+      e_mr(:,:)    =0.0_cp
       if ( switch == 'B' ) then
          do nR=1,n_r_max
-            e_mr(nR,0) = 0.0_cp
-            do l=0,l_max
-               e_lr(nR,l)    =0.0_cp
-               e_lr_c(nR,l)  =0.0_cp
-               e_pol_lr(nR,l)=0.0_cp
-               e_mr(nR,l)    =0.0_cp
-            end do
             do lm=llm,ulm
                l =lo_map%lm2l(lm)
                m =lo_map%lm2m(lm)
 
-               e_p= dLh(st_map%lm2(l,m)) *  (                         &
-               &    dLh(st_map%lm2(l,m))*or2(nR)*cc2real( w(lm,nR),m) &
-               &                               + cc2real(dw(lm,nR),m) )
-               e_t=dLh(st_map%lm2(l,m))*cc2real(z(lm,nR),m)
+               e_p= real(l*(l+1),cp)*(real(l*(l+1),cp)*or2(nR)*cc2real(w(lm,nR),m) &
+               &                      +cc2real(dw(lm,nR),m))
+               e_t=real(l*(l+1),cp)*cc2real(z(lm,nR),m)
 
                e_lr(nR,l)    =e_lr(nR,l) + e_p+e_t
                e_lr_c(nR,l)  =0.0_cp
@@ -85,32 +78,19 @@ contains
       else if ( switch == 'V' ) then
          do nR=1,n_r_max
             O_rho =orho1(nR)
-            e_mr(nR,0) = 0.0_cp
-            do l=0,l_max
-               e_lr(nR,l)    =0.0_cp
-               e_lr_c(nR,l)  =0.0_cp
-               e_pol_lr(nR,l)=0.0_cp
-               e_mr(nR,l)    =0.0_cp
-            end do
             do lm=llm,ulm
                l =lo_map%lm2l(lm)
                m =lo_map%lm2m(lm)
 
-               e_p= O_rho * dLh(st_map%lm2(l,m)) *  (                 &
-               &    dLh(st_map%lm2(l,m))*or2(nR)*cc2real( w(lm,nR),m) &
-               &                               + cc2real(dw(lm,nR),m) )
-               e_t=O_rho*dLh(st_map%lm2(l,m))*cc2real(z(lm,nR),m)
+               e_p=O_rho*real(l*(l+1),cp)*(real(l*(l+1),cp)*or2(nR)*cc2real(w(lm,nR),m) &
+               &                           +cc2real(dw(lm,nR),m) )
+               e_t=O_rho*real(l*(l+1),cp)*cc2real(z(lm,nR),m)
                if ( m /= 0 ) then
                   e_lr_c(nR,l)=e_lr_c(nR,l) + e_p+e_t
                end if
                e_lr(nR,l)    =e_lr(nR,l) + e_p+e_t
                e_pol_lr(nR,l)=e_pol_lr(nR,l)+e_p
                e_mr(nR,m)    =e_mr(nR,m) + e_p+e_t
-               !if (nR == n_r_icb) then
-               !   write(*,"(A,3I4,10ES20.12)") "e_lr,e_mr,e_p,e_t = ",nR,l,m,&
-               !        &e_lr(nR,l),e_mr(nR,m),&
-               !        &e_p,e_t,w(lm,nR),dw(lm,nR),z(lm,nR)
-               !end if
             end do ! do loop over lms in block
          end do    ! radial grid points
          lFirst=1
@@ -136,7 +116,6 @@ contains
          do l=lFirst,l_max
             e_l=0.0_cp
             e_l=fac*rInt_R(e_lr_global(:,l),r,rscheme_oc)
-            !write(*,"(A,I5,ES20.12)") "getDlm: l,e_l = ",l,e_l
             E =E+e_l
             EL=EL+real(l,cp)*e_l
             e_l=0.0_cp
@@ -150,7 +129,6 @@ contains
          lpeak(1) = maxloc(e_pol_l, dim=1)
          dlPolPeak = pi/real(lpeak(1),cp)
          if ( EL /= 0.0_cp ) then
-            !write(*,"(A,2ES20.12)") "getDlm: E,EL = ",E,EL
             dl=pi*E/EL
          else
             dl=0.0_cp
@@ -168,7 +146,11 @@ contains
             if ( switch == 'V') then
                e_pol_l(:) = e_pol_lr_global(nR,1:l_max)
                lpeak(1) = maxloc(e_pol_l, dim=1)
-               dlPolPeakR(nR)=pi/real(lpeak(1),cp)
+               if ( maxval(e_pol_l) > 10.0_cp*epsilon(0.0_cp) ) then
+                  dlPolPeakR(nR)=pi/real(lpeak(1),cp)
+               else
+                  dlPolPeakR(nR)=0.0_cp
+               end if
             end if
             ER(nR)  =0.0_cp
             ELR(nR) =0.0_cp
@@ -185,17 +167,16 @@ contains
                end if
             end do
             if ( switch == 'V' ) then
-               if ( ELR(nR) /= 0.0_cp ) then
+               if ( ELR(nR) > 10.0_cp*epsilon(0.0_cp) ) then
                   dlR(nR)=pi*ER(nR)/ELR(nR)
                else
                   dlR(nR)=0.0_cp
                end if
-               if ( ELRc(nR) /= 0.0_cp ) then
+               if ( ELRc(nR) > 10.0_cp*epsilon(0.0_cp) ) then
                   dlRc(nR)=pi*ERc(nR)/ELRc(nR)
                else
                   dlRc(nR)=0.0_cp
                end if
-               !write(*,"(I3,A,2ES20.12)") nR,": dlRc,dlR = ",dlRc(nR),dlR(nR)
             else if ( switch == 'B' ) then
                dlR(nR)=0.0_cp
                dlRc(nR)=0.0_cp

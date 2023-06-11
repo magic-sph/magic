@@ -31,10 +31,10 @@ class Movie2Vtk:
     >>> # current working directory
     """
 
-    def __init__(self, file=None, step=1, lastvar=None, nvar='all',
-                 fluct=False, normRad=False, precision=np.float32,
-                 deminc=True, ifield=0, dir='movie2vts', store_idx=0,
-                 rmin=-1., rmax=-1., closePoles=False):
+    def __init__(self, file=None, step=1, lastvar=None, nvar='all', fluct=False,
+                 normRad=False, precision=np.float32, deminc=True, ifield=0,
+                 dir='movie2vts', store_idx=0, datadir='.', rmin=-1., rmax=-1.,
+                 closePoles=False):
         """
         :param file: the name of the movie file one wants to load
         :type file: str
@@ -69,13 +69,15 @@ class Movie2Vtk:
                            a linspace between 0 and pi, this allows to close
                            the little holes at the poles in paraview
         :type closePoles: bool
+        :param datadir: working directory
+        :type datadir : str
         """
 
         self.rmin = rmin
         self.rmax = rmax
 
         if file is None:
-            dat = glob.glob('*[Mm]ov.*')
+            dat = glob.glob(os.path.join(datadir, '*[Mm]ov.*'))
             str1 = 'Which movie do you want ?\n'
             for k, movie in enumerate(dat):
                 str1 += ' {}) {}\n'.format(k+1, movie)
@@ -88,7 +90,7 @@ class Movie2Vtk:
         else:
             filename = file
         mot = re.compile(r'.*[Mm]ov\.(.*)')
-        end = mot.findall(filename)[0]
+        end = mot.findall(os.path.join(datadir, filename))[0]
 
         fieldName = filename.split('_')[0]
 
@@ -111,7 +113,7 @@ class Movie2Vtk:
                 self.thetaCut = float(a+'.'+b)
 
         # Read the movie file
-        infile = npfile(filename, endian='B')
+        infile = npfile(os.path.join(datadir, filename), endian='B')
         # Header
         version = infile.fort_read('|S64')
         n_type, n_surface, const, n_fields = infile.fort_read(precision)
@@ -156,20 +158,20 @@ class Movie2Vtk:
         self.phi = infile.fort_read(precision)
 
         # Determine the number of lines by reading the log.TAG file
-        logfile = open('log.{}'.format(end), 'r')
-        mot = re.compile(r'  ! WRITING MOVIE FRAME NO\s*(\d*).*')
-        mot2 = re.compile(r' ! WRITING TO MOVIE FRAME NO\s*(\d*).*')
-        nlines = 0
-        for line in logfile.readlines():
-            if mot.match(line):
-                nlines = int(mot.findall(line)[0])
-            elif mot2.match(line):
-                nlines = int(mot2.findall(line)[0])
-        logfile.close()
+        with open(os.path.join(datadir, 'log.{}'.format(end)), 'r') as logfile:
+            mot = re.compile(r'  ! WRITING MOVIE FRAME NO\s*(\d*).*')
+            mot2 = re.compile(r' ! WRITING TO MOVIE FRAME NO\s*(\d*).*')
+            nlines = 0
+            for line in logfile.readlines():
+                if mot.match(line):
+                    nlines = int(mot.findall(line)[0])
+                elif mot2.match(line):
+                    nlines = int(mot2.findall(line)[0])
 
         # In case no 'nlines' can be determined from the log file:
         if nlines == 0:
-            nlines = getNlines(filename, endian='B', precision=precision)
+            nlines = getNlines(os.path.join(datadir, filename),
+                               endian='B', precision=precision)
             nlines -= 8  # Remove 8 lines of header
             nlines = nlines // (self.n_fields+1)
 
@@ -207,10 +209,10 @@ class Movie2Vtk:
             elif self.movtype in [8, 9]:
                 shape = (n_r_mov_tot+2, self.n_theta_max)
                 self.n_theta_plot = self.n_theta_max
-            elif self.movtype in [4, 5, 6, 7, 16, 17, 18, 47, 54]:
+            elif self.movtype in [4, 5, 6, 7, 15, 16, 17, 18, 47, 54, 109, 112]:
                 shape = (self.n_r_max, self.n_theta_max)
                 self.n_theta_plot = 2*self.n_theta_max
-            elif self.movtype in [10, 11, 12, 19, 92, 94, 95]:
+            elif self.movtype in [10, 11, 12, 19, 92, 94, 95, 110, 111, 114, 115, 116]:
                 shape = (self.n_r_max, self.n_theta_max)
                 self.n_theta_plot = self.n_theta_max
 
@@ -275,7 +277,8 @@ class Movie2Vtk:
                         #                                       self.n_theta_max)
                         # datic1 = datic[len(datic)/2:].reshape(self.n_r_ic_max+2,
                         #                                       self.n_theta_max)
-                    elif self.movtype in [4, 5, 6, 7, 16, 17, 18, 47, 54, 91]:
+                    elif self.movtype in [4, 5, 6, 7, 15, 16, 17, 18, 47, 54, 91,
+                                          109, 112]:
                         dat0 = dat[:len(dat)//2].reshape(shape)
                         dat1 = dat[len(dat)//2:].reshape(shape)
                         fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,

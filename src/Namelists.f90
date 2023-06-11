@@ -57,11 +57,11 @@ contains
       integer :: inputHandle, cacheblock_size_in_B
       character(len=100) :: input_filename, errmess
 
-      !-- Name lists:
+      !-- Namelists:
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
       &     n_r_ic_max,n_cheb_ic_max,minc,nalias,l_axi,       &
       &     fd_order,fd_order_bound,fd_ratio,fd_stretch,      &
-      &     l_var_l,m_min,m_max,l_max
+      &     l_var_l,rcut_l,m_min,m_max,l_max
 
       namelist/control/                                     &
       &    mode,tag,n_time_steps,n_cour_step,               &
@@ -87,7 +87,8 @@ contains
       &    nVarDiff,nVarVisc,difExp,nVarEps,interior_model,    &
       &    nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,   &
       &    dilution_fac,stef,tmelt,phaseDiffFac,penaltyFac,    &
-      &    epsPhase,ktopphi,kbotphi,omega_bg,bgExp,n_bgflow
+      &    epsPhase,ktopphi,kbotphi,omega_bg,bgExp,n_bgflow,   &
+      &    ampForce
 
       namelist/B_external/                                     &
       &    rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,         &
@@ -133,12 +134,14 @@ contains
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
       &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
       &    omega_ma2,omegaOsz_ma2,tShift_ma2,             &
-      &    amp_RiMa,omega_RiMa,m_RiMa,RiSymmMa
+      &    amp_mode_ma,omega_mode_ma,m_mode_ma,           &
+      &    mode_symm_ma,ellipticity_cmb
 
       namelist/inner_core/sigma_ratio,nRotIc,rho_ratio_ic, &
       &    omega_ic1,omegaOsz_ic1,tShift_ic1,              &
       &    omega_ic2,omegaOsz_ic2,tShift_ic2,BIC,          &
-      &    amp_RiIc,omega_RiIc,m_RiIc,RiSymmIc
+      &    amp_mode_ic,omega_mode_ic,m_mode_ic,            &
+      &    mode_symm_ic,ellipticity_icb
 
 
       do n=1,4*n_impS_max
@@ -568,6 +571,15 @@ contains
          l_phase_field = .true.
       end if
 
+      if ( l_phase_field ) then
+         if ( ktopphi /= 1 ) then
+            phi_top=0.0_cp ! Neumann
+         else
+            phi_top=sq4pi ! Dirichlet
+         end if
+         phi_bot=0.0_cp
+      end if
+
       if ( l_centrifuge .and. .not.  &
       &    (l_anel .and. .not. l_isothermal .and. (index(interior_model, "NONE")/=0)) )  then
          call abortRun("This case is not implemented.")
@@ -857,7 +869,7 @@ contains
       integer :: length
 
 
-      !-- Output of name lists:
+      !-- Output of namelists:
 
       write(n_out,*) " "
       write(n_out,*) "&grid"
@@ -875,6 +887,7 @@ contains
       write(n_out,'(''  fd_order        ='',i5,'','')') fd_order
       write(n_out,'(''  fd_order_bound  ='',i5,'','')') fd_order_bound
       write(n_out,'(''  l_var_l         ='',l3,'','')') l_var_l
+      write(n_out,'(''  rcut_l          ='',ES14.6,'','')') rcut_l
       write(n_out,*) "/"
 
       write(n_out,*) "&control"
@@ -938,6 +951,7 @@ contains
       write(n_out,'(''  tmelt           ='',ES14.6,'','')') tmelt
       write(n_out,'(''  prec_angle      ='',ES14.6,'','')') prec_angle
       write(n_out,'(''  dilution_fac    ='',ES14.6,'','')') dilution_fac
+      write(n_out,'(''  ampForce        ='',ES14.6,'','')') ampForce
       write(n_out,'(''  epsc0           ='',ES14.6,'','')') epsc0/sq4pi
       write(n_out,'(''  epscxi0         ='',ES14.6,'','')') epscxi0/sq4pi
       write(n_out,'(''  Bn              ='',ES14.6,'','')') Bn
@@ -1033,13 +1047,8 @@ contains
          end do
       end if
 
+      !-- Phase field related diagnostics
       if ( l_phase_field ) then
-         if ( ktopphi /= 1 ) then
-            phi_top=0.0_cp ! Neumann
-         else
-            phi_top=sq4pi ! Dirichlet
-         end if
-         phi_bot=0.0_cp
          write(n_out,'(''  ktopphi         ='',i3,'','')') ktopphi
          write(n_out,'(''  kbotphi         ='',i3,'','')') kbotphi
          write(n_out,'(''  phi_top         ='',ES14.6,'','')') phi_top/sq4pi
@@ -1234,10 +1243,11 @@ contains
       write(n_out,'(''  omega_ma2       ='',ES14.6,'','')') omega_ma2
       write(n_out,'(''  omegaOsz_ma2    ='',ES14.6,'','')') omegaOsz_ma2
       write(n_out,'(''  tShift_ma2      ='',ES14.6,'','')') tShift_ma2
-      write(n_out,'(''  amp_RiMa        ='',ES14.6,'','')') amp_RiMa
-      write(n_out,'(''  omega_RiMa      ='',ES14.6,'','')') omega_RiMa
-      write(n_out,'(''  m_RiMa          ='',i4,'','')')  m_RiMa
-      write(n_out,'(''  RiSymmMa        ='',i4,'','')')  RiSymmMa
+      write(n_out,'(''  amp_mode_ma     ='',ES14.6,'','')') amp_mode_ma
+      write(n_out,'(''  omega_mode_ma   ='',ES14.6,'','')') omega_mode_ma
+      write(n_out,'(''  m_mode_ma       ='',i4,'','')')  m_mode_ma
+      write(n_out,'(''  mode_symm_ma    ='',i4,'','')')  mode_symm_ma
+      write(n_out,'(''  ellipticity_cmb ='',ES14.6,'','')') ellipticity_cmb
       write(n_out,*) "/"
 
       write(n_out,*) "&inner_core"
@@ -1251,10 +1261,11 @@ contains
       write(n_out,'(''  omegaOsz_ic2    ='',ES14.6,'','')') omegaOsz_ic2
       write(n_out,'(''  tShift_ic2      ='',ES14.6,'','')') tShift_ic2
       write(n_out,'(''  BIC             ='',ES14.6,'','')') BIC
-      write(n_out,'(''  amp_RiIc        ='',ES14.6,'','')') amp_RiIc
-      write(n_out,'(''  omega_RiIc      ='',ES14.6,'','')') omega_RiIc
-      write(n_out,'(''  m_RiIc          ='',i4,'','')') m_RiIc
-      write(n_out,'(''  RiSymmIc        ='',i4,'','')')  RiSymmIc
+      write(n_out,'(''  amp_mode_ic     ='',ES14.6,'','')') amp_mode_ic
+      write(n_out,'(''  omega_mode_ic   ='',ES14.6,'','')') omega_mode_ic
+      write(n_out,'(''  m_mode_ic       ='',i4,'','')') m_mode_ic
+      write(n_out,'(''  mode_symm_ic    ='',i4,'','')')  mode_symm_ic
+      write(n_out,'(''  ellipticity_icb ='',ES14.6,'','')') ellipticity_icb
       write(n_out,*) "/"
       write(n_out,*) " "
 
@@ -1297,6 +1308,7 @@ contains
       nalias        =20
       l_axi         =.false.
       l_var_l       =.false. ! l is a function of radius
+      rcut_l        =0.1_cp
 
       !-- Finite differences
       fd_order      =2
@@ -1351,7 +1363,7 @@ contains
       ldifexp       =-1
 
       !-- In case one wants to treat the advection term as u \curl{u}
-      l_adv_curl=.false.
+      l_adv_curl=.true.
 
       !----- Namelist phys_param:
       ra          =0.0_cp
@@ -1367,6 +1379,7 @@ contains
       Bn          =1.0_cp
       radratio    =0.35_cp
       dilution_fac=0.0_cp    ! centrifugal acceleration
+      ampForce    =0.0_cp    ! External body force amplitude
 
       !-- Phase field
       tmelt       =0.0_cp    ! Melting temperature
@@ -1662,36 +1675,38 @@ contains
       rDea          =0.0_cp  ! Controls dealiazing in  RMS calculation
       ! rDea=0.1 means that highest 10% of cheb modes are set to zero
 
-      !----- Mantle name list:
-      conductance_ma=0.0_cp    ! insulation mantle is default
-      nRotMa        =0         ! non rotating mantle is default
-      rho_ratio_ma  =one       ! same density as outer core
-      omega_ma1     =0.0_cp    ! prescribed rotation rate
-      omegaOsz_ma1  =0.0_cp    ! oscillation frequency of mantle rotation rate
-      tShift_ma1    =0.0_cp    ! time shift
-      omega_ma2     =0.0_cp    ! second mantle rotation rate
-      omegaOsz_ma2  =0.0_cp    ! oscillation frequency of second mantle rotation
-      tShift_ma2    =0.0_cp    ! time shift for second rotation
-      amp_RiMa      =0.0_cp    ! amplitude of Rieutord forcing
-      omega_RiMa    =0.0_cp    ! frequency of Rieutord forcing
-      m_RiMa        =0         ! default forcing -> axisymmetric
-      RiSymmMa      =0         ! default symmetry -> eq antisymmetric
+      !----- Mantle namelist:
+      conductance_ma =0.0_cp    ! insulation mantle is default
+      nRotMa         =0         ! non rotating mantle is default
+      rho_ratio_ma   =one       ! same density as outer core
+      omega_ma1      =0.0_cp    ! prescribed rotation rate
+      omegaOsz_ma1   =0.0_cp    ! oscillation frequency of mantle rotation rate
+      tShift_ma1     =0.0_cp    ! time shift
+      omega_ma2      =0.0_cp    ! second mantle rotation rate
+      omegaOsz_ma2   =0.0_cp    ! oscillation frequency of second mantle rotation
+      tShift_ma2     =0.0_cp    ! time shift for second rotation
+      amp_mode_ma    =0.0_cp    ! amplitude of Rieutord forcing
+      omega_mode_ma  =0.0_cp    ! frequency of Rieutord forcing
+      m_mode_ma      =0         ! default forcing -> axisymmetric
+      mode_symm_ma   =0         ! default symmetry -> eq antisymmetric
+      ellipticity_cmb=0.0_cp    ! default is sphere
 
-      !----- Inner core name list:
-      sigma_ratio   =0.0_cp    ! no conducting inner core is default
-      nRotIc        =0         ! non rotating inner core is default
-      rho_ratio_ic  =one       ! same density as outer core
-      omega_ic1     =0.0_cp    ! prescribed rotation rate, added to first one
-      omegaOsz_ic1  =0.0_cp    ! oscillation frequency of IC rotation rate
-      tShift_ic1    =0.0_cp    ! time shift
-      omega_ic2     =0.0_cp    ! second prescribed rotation rate
-      omegaOsz_ic2  =0.0_cp    ! oscillation frequency of second IC rotation rate
-      tShift_ic2    =0.0_cp    ! tims shift for second IC rotation
-      BIC           =0.0_cp    ! Imposed dipole field strength at ICB
-      amp_RiIc      =0.0_cp    ! amplitude of Rieutord forcing
-      omega_RiIc    =0.0_cp    ! frequency of Rieutord forcing
-      m_RiIc        =0         ! default forcing -> axisymmetric
-      RiSymmIc      =0         ! default symmetry -> eq antisymmetric
+      !----- Inner core namelist:
+      sigma_ratio    =0.0_cp    ! no conducting inner core is default
+      nRotIc         =0         ! non rotating inner core is default
+      rho_ratio_ic   =one       ! same density as outer core
+      omega_ic1      =0.0_cp    ! prescribed rotation rate, added to first one
+      omegaOsz_ic1   =0.0_cp    ! oscillation frequency of IC rotation rate
+      tShift_ic1     =0.0_cp    ! time shift
+      omega_ic2      =0.0_cp    ! second prescribed rotation rate
+      omegaOsz_ic2   =0.0_cp    ! oscillation frequency of second IC rotation rate
+      tShift_ic2     =0.0_cp    ! tims shift for second IC rotation
+      BIC            =0.0_cp    ! Imposed dipole field strength at ICB
+      amp_mode_ic    =0.0_cp    ! amplitude of Rieutord forcing
+      omega_mode_ic  =0.0_cp    ! frequency of Rieutord forcing
+      m_mode_ic      =0         ! default forcing -> axisymmetric
+      mode_symm_ic   =0         ! default symmetry -> eq antisymmetric
+      ellipticity_icb=0.0_cp    ! default is sphere
 
    end subroutine defaultNamelists
 !------------------------------------------------------------------------------

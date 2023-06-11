@@ -71,7 +71,7 @@ endif()
 # Matrix preconditioning
 if (USE_PRECOND MATCHES yes)
    add_definitions(-DWITH_PRECOND_S -DWITH_PRECOND_Z -DWITH_PRECOND_BJ
-                   -DWITH_PRECOND_S0 -DWITH_PRECOND_Z10)
+                   -DWITH_PRECOND_Z10)
 endif()
 
 # Git version
@@ -271,7 +271,9 @@ if(APPLE)
     include_directories(/usr/local/include)
 endif()
 
-include_directories(/usr/include)  #For Ubuntu-like systems
+if (EXISTS /usr/include)
+    include_directories(/usr/include)  #For Ubuntu-like systems
+endif()
 
 # Detect SHTNS
 if(USE_SHTNS MATCHES yes)

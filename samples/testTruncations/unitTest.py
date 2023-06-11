@@ -98,9 +98,9 @@ class TestTruncations(unittest.TestCase):
                 os.remove(f)
 
         # Restore initial values in the namelist
-        cmd = "sed -i 's/tag.*/tag         ="+'"test96"'+",/g' input.nml"
+        cmd = "sed -i 's/tag.*/tag         ="+'"test288"'+",/g' input.nml"
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
-        cmd = "sed -i 's/n_phi_tot.*/n_phi_tot   =96,/g' input.nml"
+        cmd = "sed -i 's/n_phi_tot.*/n_phi_tot   =288,/g' input.nml"
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
         cmd = "sed -i 's/minc.*/minc        =1,/g' input.nml"
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
@@ -114,8 +114,11 @@ class TestTruncations(unittest.TestCase):
         print('Time used   :                            %s' % st)
 
         if hasattr(self, '_outcome'): # python 3.4+
-            result = self.defaultTestResult()
-            self._feedErrorsToResult(result, self._outcome.errors)
+            if hasattr(self._outcome, 'errors'):  # python 3.4-3.10
+                result = self.defaultTestResult()
+                self._feedErrorsToResult(result, self._outcome.errors)
+            else:  # python 3.11+
+                result = self._outcome.result
         else:  # python 2.7-3.3
             result = getattr(self, '_outcomeForDoCleanups', 
                              self._resultForDoCleanups)

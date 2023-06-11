@@ -35,12 +35,9 @@ module updatePhi_mod
    !-- Local variables
    real(cp), allocatable :: rhs1(:,:,:)
    integer :: maxThreads
-   class(type_realmat), pointer :: phiMat(:), phi0Mat
+   class(type_realmat), pointer :: phiMat(:)
 #ifdef WITH_PRECOND_S
    real(cp), allocatable :: phiMat_fac(:,:)
-#endif
-#ifdef WITH_PRECOND_S0
-   real(cp), allocatable :: phi0Mat_fac(:)
 #endif
    logical, public, allocatable :: lPhimat(:)
    type(type_tri_par), public :: phiMat_FD
@@ -62,7 +59,6 @@ contains
 
          if ( l_finite_diff ) then
             allocate( type_bandmat :: phiMat(nLMBs2(1+rank)) )
-            allocate( type_bandmat :: phi0Mat )
 
             if ( rscheme_oc%order == 2 .and. rscheme_oc%order_boundary <= 2 ) then ! Dirichelt BCs
                n_bands = rscheme_oc%order+1
@@ -70,15 +66,12 @@ contains
                n_bands = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
             end if
 
-            call phi0Mat%initialize(n_bands,n_r_max,l_pivot=.true.)
             do ll=1,nLMBs2(1+rank)
                call phiMat(ll)%initialize(n_bands,n_r_max,l_pivot=.true.)
             end do
          else
             allocate( type_densemat :: phiMat(nLMBs2(1+rank)) )
-            allocate( type_densemat :: phi0Mat )
 
-            call phi0Mat%initialize(n_r_max,n_r_max,l_pivot=.true.)
             do ll=1,nLMBs2(1+rank)
                call phiMat(ll)%initialize(n_r_max,n_r_max,l_pivot=.true.)
             end do
@@ -87,10 +80,6 @@ contains
 #ifdef WITH_PRECOND_S
          allocate(phiMat_fac(n_r_max,nLMBs2(1+rank)))
          bytes_allocated = bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
-#endif
-#ifdef WITH_PRECOND_S0
-         allocate(phi0Mat_fac(n_r_max))
-         bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
 #endif
 
 #ifdef WITHOMP
@@ -134,13 +123,9 @@ contains
          do ll=1,nLMBs2(1+rank)
             call phiMat(ll)%finalize()
          end do
-         call phi0Mat%finalize()
 
 #ifdef WITH_PRECOND_S
          deallocate(phiMat_fac)
-#endif
-#ifdef WITH_PRECOND_S0
-         deallocate(phi0Mat_fac)
 #endif
          deallocate( rhs1 )
       else
@@ -162,12 +147,11 @@ contains
       type(type_tarray), intent(inout) :: dphidt
 
       !-- Local variables:
-      integer :: l1,m1              ! degree and order
-      integer :: lm1,lmB,lm         ! position of (l,m) in array
+      integer :: l1,m1          ! degree and order
+      integer :: lm1,lm         ! position of (l,m) in array
       integer :: nLMB2,nLMB
-      integer :: nR                 ! counts radial grid points
-      integer :: n_r_out            ! counts cheb modes
-      real(cp) ::  rhs(n_r_max) ! real RHS for l=m=0
+      integer :: nR             ! counts radial grid points
+      integer :: n_r_out        ! counts cheb modes
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -201,7 +185,7 @@ contains
          ! l value
          !$omp task default(shared) &
          !$omp firstprivate(nLMB2) &
-         !$omp private(lm,lm1,l1,m1,lmB,threadid) &
+         !$omp private(lm,lm1,l1,m1,threadid) &
          !$omp private(nChunks,size_of_last_chunk,iChunk)
          nChunks = (sizeLMB2(nLMB2,nLMB)+chunksize-1)/chunksize
          size_of_last_chunk = chunksize + (sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
@@ -209,30 +193,19 @@ contains
          ! This task treats one l given by l1
          l1=lm22l(1,nLMB2,nLMB)
 
-         if ( l1 == 0 ) then
-            if ( .not. lPhimat(l1) ) then
-#ifdef WITH_PRECOND_S0
-               call get_phi0Mat(tscheme,phi0Mat,phi0Mat_fac)
-#else
-               call get_phi0Mat(tscheme,phi0Mat)
-#endif
-               lPhimat(l1)=.true.
-            end if
-         else
-            if ( .not. lPhimat(l1) ) then
+         if ( .not. lPhimat(l1) ) then
 #ifdef WITH_PRECOND_S
-               call get_phiMat(tscheme,l1,phiMat(nLMB2),phiMat_fac(:,nLMB2))
+            call get_phiMat(tscheme,l1,phiMat(nLMB2),phiMat_fac(:,nLMB2))
 #else
-               call get_phiMat(tscheme,l1,phiMat(nLMB2))
+            call get_phiMat(tscheme,l1,phiMat(nLMB2))
 #endif
-                lPhimat(l1)=.true.
-            end if
+             lPhimat(l1)=.true.
          end if
 
          do iChunk=1,nChunks
             !$omp task default(shared) &
             !$omp firstprivate(iChunk) &
-            !$omp private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
+            !$omp private(lmB0,lm,lm1,m1,nR,n_r_out) &
             !$omp private(threadid)
 #ifdef WITHOMP
             threadid = omp_get_thread_num()
@@ -240,71 +213,50 @@ contains
             threadid = 0
 #endif
             lmB0=(iChunk-1)*chunksize
-            lmB=lmB0
 
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
 
                if ( l1 == 0 ) then
-                  rhs(1)      =phi_top
-                  rhs(n_r_max)=phi_bot
-                  do nR=2,n_r_max-1
-                     rhs(nR)=real(work_LMloc(lm1,nR))
-                  end do
-
-#ifdef WITH_PRECOND_S0
-                  rhs(:) = phi0Mat_fac(:)*rhs(:)
-#endif
-
-                  call phi0Mat%solve(rhs)
-
-               else ! l1  /=  0
-                  lmB=lmB+1
-
-                  rhs1(1,2*lmB-1,threadid)      =0.0_cp
-                  rhs1(1,2*lmB,threadid)        =0.0_cp
-                  rhs1(n_r_max,2*lmB-1,threadid)=0.0_cp
-                  rhs1(n_r_max,2*lmB,threadid)  =0.0_cp
-                  do nR=2,n_r_max-1
-                     rhs1(nR,2*lmB-1,threadid)= real(work_LMloc(lm1,nR))
-                     rhs1(nR,2*lmB,threadid)  =aimag(work_LMloc(lm1,nR))
-                  end do
+                  rhs1(1,2*lm-1,threadid)      =phi_top
+                  rhs1(1,2*lm,threadid)        =0.0_cp
+                  rhs1(n_r_max,2*lm-1,threadid)=phi_bot
+                  rhs1(n_r_max,2*lm,threadid)  =0.0_cp
+               else
+                  rhs1(1,2*lm-1,threadid)      =0.0_cp
+                  rhs1(1,2*lm,threadid)        =0.0_cp
+                  rhs1(n_r_max,2*lm-1,threadid)=0.0_cp
+                  rhs1(n_r_max,2*lm,threadid)  =0.0_cp
+               end if
+               do nR=2,n_r_max-1
+                  rhs1(nR,2*lm-1,threadid)= real(work_LMloc(lm1,nR))
+                  rhs1(nR,2*lm,threadid)  =aimag(work_LMloc(lm1,nR))
+               end do
 
 #ifdef WITH_PRECOND_S
-                  rhs1(:,2*lmB-1,threadid)=phiMat_fac(:,nLMB2)*rhs1(:,2*lmB-1,threadid)
-                  rhs1(:,2*lmB,threadid)  =phiMat_fac(:,nLMB2)*rhs1(:,2*lmB,threadid)
+               rhs1(:,2*lm-1,threadid)=phiMat_fac(:,nLMB2)*rhs1(:,2*lm-1,threadid)
+               rhs1(:,2*lm,threadid)  =phiMat_fac(:,nLMB2)*rhs1(:,2*lm,threadid)
 #endif
 
-               end if
             end do
 
-            if ( lmB  >  lmB0 ) then
-               call phiMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*lmB,threadid), &
-                    &                   2*(lmB-lmB0))
-            end if
+            call phiMat(nLMB2)%solve(rhs1(:,2*(lmB0+1)-1:2*(lm-1),threadid), &
+                 &                   2*(lm-1-lmB0))
 
-            lmB=lmB0
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
-               if ( l1 == 0 ) then
+               if ( m1 > 0 ) then
                   do n_r_out=1,rscheme_oc%n_max
-                     phi(lm1,n_r_out)=rhs(n_r_out)
+                     phi(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lm-1,threadid), &
+                     &                      rhs1(n_r_out,2*lm,threadid),kind=cp)
                   end do
                else
-                  lmB=lmB+1
-                  if ( m1 > 0 ) then
-                     do n_r_out=1,rscheme_oc%n_max
-                        phi(lm1,n_r_out)=cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
-                        &                      rhs1(n_r_out,2*lmB,threadid),kind=cp)
-                     end do
-                  else
-                     do n_r_out=1,rscheme_oc%n_max
-                        phi(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lmB-1,threadid), &
-                        &                       0.0_cp,kind=cp)
-                     end do
-                  end if
+                  do n_r_out=1,rscheme_oc%n_max
+                     phi(lm1,n_r_out)= cmplx(rhs1(n_r_out,2*lm-1,threadid), &
+                     &                       0.0_cp,kind=cp)
+                  end do
                end if
             end do
             !$omp end task
@@ -396,7 +348,7 @@ contains
             l = st_map%lm2l(lm)
 
             if ( l_full_sphere ) then
-               if ( l == 1 ) then
+               if ( l > 0 ) then
                   phi_ghost(lm,nR)=0.0_cp
                end if
             else
@@ -412,6 +364,7 @@ contains
          end do
       end if
       !$omp end parallel
+
 
    end subroutine preparePhase_FD
 !------------------------------------------------------------------------------
@@ -452,14 +405,10 @@ contains
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
             if ( l_full_sphere ) then
-               if ( l == 1 ) then
-                  phig(lm,nRstop+1)=two*phig(lm,nRstop)-phig(lm,nRstop-1)
+               if ( l == 0 ) then
+                  phig(lm,nRstop+1)=phig(lm,nRstop-1)
                else
-                  if ( l == 0 ) then
-                     phig(lm,nRstop+1)=phig(lm,nRstop-1)+two*dr*phi_bot
-                  else
-                     phig(lm,nRstop+1)=phig(lm,nRstop-1)
-                  end if
+                  phig(lm,nRstop+1)=two*phig(lm,nRstop)-phig(lm,nRstop-1)
                end if
             else ! Not a full sphere
                if ( kbotphi == 1 ) then
@@ -695,18 +644,13 @@ contains
             !$omp do private(lm,l)
             do lm=llm,ulm
                l = lm2l(lm)
-               if ( l == 1 ) then
+               if ( l == 0 ) then
+                  call rscheme_oc%robin_bc(0.0_cp, one, cmplx(phi_top,0.0_cp,cp), &
+                       &                   one, 0.0_cp, cmplx(phi_bot,0.0_cp,cp), &
+                       &                   phi(lm,:))
+               else
                   call rscheme_oc%robin_bc(0.0_cp, one, zero, 0.0_cp, one, &
                        &                   zero, phi(lm,:))
-               else
-                  if ( l == 0 ) then
-                     call rscheme_oc%robin_bc(0.0_cp, one, cmplx(phi_top,0.0_cp,cp), &
-                          &                   one, 0.0_cp, cmplx(phi_bot,0.0_cp,cp), &
-                          &                   phi(lm,:))
-                  else
-                     call rscheme_oc%robin_bc(0.0_cp, one, zero, one, 0.0_cp, &
-                          &                   zero, phi(lm,:))
-                  end if
                end if
             end do
             !$omp end do
@@ -714,11 +658,11 @@ contains
             !$omp do private(lm,l)
             do lm=llm,ulm
                l = lm2l(lm)
-               if ( l == 1 ) then
-                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, 0.0_cp, one, &
+               if ( l == 0 ) then
+                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, one, 0.0_cp, &
                        &                   zero, phi(lm,:))
                else
-                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, one, 0.0_cp, &
+                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, 0.0_cp, one, &
                        &                   zero, phi(lm,:))
                end if
             end do
@@ -854,93 +798,6 @@ contains
 
    end subroutine assemble_phase_Rloc
 !------------------------------------------------------------------------------
-#ifdef WITH_PRECOND_S0
-   subroutine get_phi0Mat(tscheme,phiMat,phiMat_fac)
-#else
-   subroutine get_phi0Mat(tscheme,phiMat)
-#endif
-      !
-      !  Purpose of this subroutine is to contruct the time step matrix
-      !  phiMat0
-      !
-
-      !-- Input variables
-      class(type_tscheme), intent(in) :: tscheme        ! time step
-
-      !-- Output variables
-      class(type_realmat), intent(inout) :: phiMat
-#ifdef WITH_PRECOND_S0
-      real(cp), intent(out) :: phiMat_fac(n_r_max)
-#endif
-
-      !-- Local variables:
-      real(cp) :: dat(n_r_max,n_r_max)
-      integer :: info, nR_out, nR
-
-      !----- Boundary condition:
-      if ( ktopphi == 1 ) then
-         !--------- Constant phase field at CMB:
-         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
-      else
-         !--------- dphi/dr=0 at CMB:
-         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
-      end if
-
-      if ( l_full_sphere ) then
-         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-      else
-         if ( kbotphi == 1 ) then
-            !--------- Constant phase field at ICB:
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-         else
-            !--------- dphi/dr=0 at ICB
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-         end if
-      end if
-
-      if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
-         do nR_out=rscheme_oc%n_max+1,n_r_max
-            dat(1,nR_out)      =0.0_cp
-            dat(n_r_max,nR_out)=0.0_cp
-         end do
-      end if
-
-      !-- Fill bulk points
-      do nR_out=1,n_r_max
-         do nR=2,n_r_max-1
-            dat(nR,nR_out)= rscheme_oc%rnorm * (                                   &
-            &                 5.0_cp/6.0_cp*stef*pr*  rscheme_oc%rMat(nR,nR_out) - &
-            &  tscheme%wimp_lin(1)*phaseDiffFac*(   rscheme_oc%d2rMat(nR,nR_out) + &
-            &                         two*or1(nR)*   rscheme_oc%drMat(nR,nR_out) ) )
-         end do
-      end do
-
-      !----- Factors for highest and lowest cheb mode:
-      do nR=1,n_r_max
-         dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
-         dat(nR,n_r_max)=rscheme_oc%boundary_fac*dat(nR,n_r_max)
-      end do
-
-#ifdef WITH_PRECOND_S0
-      ! compute the linesum of each line
-      do nR=1,n_r_max
-         phiMat_fac(nR)=one/maxval(abs(dat(nR,:)))
-      end do
-      ! now divide each line by the linesum to regularize the matrix
-      do nr=1,n_r_max
-         dat(nR,:) = dat(nR,:)*phiMat_fac(nR)
-      end do
-#endif
-
-      !-- Array copy
-      call phiMat%set_data(dat)
-
-      !---- LU decomposition:
-      call phiMat%prepare(info)
-      if ( info /= 0 ) call abortRun('! Singular matrix phiMat0!')
-
-   end subroutine get_phi0Mat
-!-----------------------------------------------------------------------------
 #ifdef WITH_PRECOND_S
    subroutine get_phiMat(tscheme,l,phiMat,phiMat_fac)
 #else
@@ -977,10 +834,10 @@ contains
 
       if ( l_full_sphere ) then
          !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-         if ( l == 1 ) then
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-         else
+         if ( l == 0 ) then
             dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
+         else
+            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
          end if
       else
          if ( kbotphi == 1 ) then ! Dirichlet
@@ -1085,12 +942,12 @@ contains
 
          if ( l_full_sphere ) then
             !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-            if ( l == 1 ) then
+            if ( l == 0 ) then
+               phiMat%low(l,n_r_max)=phiMat%up(l,n_r_max)+phiMat%low(l,n_r_max)
+            else
                phiMat%diag(l,n_r_max)=one
                phiMat%up(l,n_r_max)  =0.0_cp
                phiMat%low(l,n_r_max) =0.0_cp
-            else
-               phiMat%low(l,n_r_max)=phiMat%up(l,n_r_max)+phiMat%low(l,n_r_max)
                !fd_fac_bot(l)=two*(r(n_r_max-1)-r(n_r_max))*phiMat%up(l,n_r_max)
             end if
          else

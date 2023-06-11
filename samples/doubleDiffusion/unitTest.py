@@ -12,6 +12,8 @@ def cleanDir(dir):
         os.remove('%s/pscond.dat' % dir)
     if os.path.exists('%s/scond.dat' % dir):
         os.remove('%s/scond.dat' % dir)
+    if os.path.exists('%s/xicond.dat' % dir):
+        os.remove('%s/xicond.dat' % dir)
     if os.path.exists('%s/run_magic.sh' % dir):
         os.remove('%s/run_magic.sh' % dir)
     if os.path.exists('%s/run_magic_mpi.sh' % dir):
@@ -75,8 +77,11 @@ class DoubleDiffusion(unittest.TestCase):
         print('Time used   :                            %s' % st)
 
         if hasattr(self, '_outcome'): # python 3.4+
-            result = self.defaultTestResult()
-            self._feedErrorsToResult(result, self._outcome.errors)
+            if hasattr(self._outcome, 'errors'):  # python 3.4-3.10
+                result = self.defaultTestResult()
+                self._feedErrorsToResult(result, self._outcome.errors)
+            else:  # python 3.11+
+                result = self._outcome.result
         else:  # python 2.7-3.3
             result = getattr(self, '_outcomeForDoCleanups', 
                              self._resultForDoCleanups)

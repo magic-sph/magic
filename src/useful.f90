@@ -314,7 +314,7 @@ contains
 
    end subroutine abortRun
 !----------------------------------------------------------------------------
-   real(cp) function round_off(param, ref)
+   real(cp) function round_off(param, ref, cut)
       !
       ! This function rounds off tiny numbers. This is only used for some
       ! outputs.
@@ -323,8 +323,18 @@ contains
       !-- Input variable
       real(cp), intent(in) :: param   ! parameter to be checked
       real(cp), intent(in) :: ref     ! reference value
+      real(cp), optional, intent(in) :: cut ! cutoff factor compared to machine epsilon
 
-      if ( abs(param) < 1.0e3_cp*epsilon(one)*abs(ref) ) then
+      !-- Local variables
+      real(cp) :: fac
+
+      if (present(cut)) then
+         fac = cut
+      else
+         fac = 1e3_cp
+      end if
+
+      if ( abs(param) < fac*epsilon(one)*abs(ref) ) then
          round_off = 0.0_cp
       else
          round_off = param

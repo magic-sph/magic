@@ -66,7 +66,7 @@ class RadialOutputTest(unittest.TestCase):
         cmd = '%s %s/input.nml' % (self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
-        cmd = "awk '{print $1, $2, $3, $4, $5}' bLayersR.start > bLayersRcut.start"
+        cmd = "awk '{print $1, $2, $3, $4, $5, $6}' bLayersR.start > bLayersRcut.start"
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
         cmd = "awk '{print $1, $2, $3, $4, $5, $6, $7}' parR.start > parRcut.start"
@@ -96,8 +96,11 @@ class RadialOutputTest(unittest.TestCase):
         print('Time used   :                            %s' % st)
 
         if hasattr(self, '_outcome'): # python 3.4+
-            result = self.defaultTestResult()
-            self._feedErrorsToResult(result, self._outcome.errors)
+            if hasattr(self._outcome, 'errors'):  # python 3.4-3.10
+                result = self.defaultTestResult()
+                self._feedErrorsToResult(result, self._outcome.errors)
+            else:  # python 3.11+
+                result = self._outcome.result
         else:  # python 2.7-3.3
             result = getattr(self, '_outcomeForDoCleanups', 
                              self._resultForDoCleanups)

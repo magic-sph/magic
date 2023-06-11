@@ -14,7 +14,6 @@ n_cheb_ic_max=15,
  dtmax       =1.0D-4,
  runHours    =12,
  runMinutes  =00,
- l_adv_curl  =.true.,
  time_scheme ='BPR353',
  radial_scheme='FD',
 /

@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 from magic import npfile, scanDir, MagicSetup, hammer2cart, symmetrize, progressbar
+from scipy.interpolate import interp1d
+from scipy import signal
+from scipy.version import version
 import os, re
 import numpy as np
 import matplotlib.pyplot as plt
@@ -650,8 +653,8 @@ class MagicCoeffR(MagicSetup):
     >>> plot(cr.time, cr.epolLM[:, cr.idx[10, 10]])
     """
 
-    def __init__(self, tag, ratio_cmb_surface=1, scale_b=1, iplot=True,
-                 field='B', r=1, precision=np.float64, lCut=None, quiet=False):
+    def __init__(self, tag, datadir='.', ratio_cmb_surface=1, scale_b=1, iplot=True,
+                 field='B', r=1, precision=np.float64, lCut=None, quiet=False, step=1):
         """
         :param tag: if you specify a pattern, it tries to read the corresponding files
         :type tag: str
@@ -671,9 +674,15 @@ class MagicCoeffR(MagicSetup):
         :type lCut: int
         :param quiet: verbose when toggled to True (default is True)
         :type quiet: bool
+        :param datadir: working directory
+        :type datadir: str
+        :param step: step>1 allows to down sample the data
+        :type step: int
         """
 
-        logFiles = scanDir('log.*')
+        pattern = os.path.join(datadir, 'log.*')
+        logFiles = scanDir(pattern)
+
         if len(logFiles) != 0:
             MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
         else:
@@ -683,7 +692,8 @@ class MagicCoeffR(MagicSetup):
         self.rcmb = 1./(1.-self.radratio)
         ricb = self.radratio/(1.-self.radratio)
 
-        files = scanDir('{}_coeff_r{}.{}'.format(field,r,tag))
+        pattern = os.path.join(datadir,  '{}_coeff_r{}.{}'.format(field,r,tag))
+        files = scanDir(pattern)
 
         # Read the B_coeff files (by stacking the different tags)
         data = []
@@ -737,13 +747,18 @@ class MagicCoeffR(MagicSetup):
         # wlm
         if field == 'T' or field == 'Xi': #T or Xi contains l = m = 0
             self.wlm[:, 0:self.l_max_r+1] = data[:, 1:self.l_max_r+2]
+            k = self.l_max_r+2
         else:
             self.wlm[:, 1:self.l_max_r+1] = data[:, 1:self.l_max_r+1]
-        k = self.l_max_r+1
+            k = self.l_max_r+1
+
         for m in range(self.minc, self.l_max_r+1, self.minc):
             for l in range(m, self.l_max_r+1):
                 self.wlm[:, self.idx[l, m]] = data[:, k]+1j*data[:, k+1]
                 k += 2
+
+        if step > 1:
+            self.wlm = self.wlm[::step, :]
 
         if field == 'V' or field == 'B':
             # dwlm
@@ -761,6 +776,10 @@ class MagicCoeffR(MagicSetup):
                     self.zlm[:, self.idx[l, m]] = data[:, k]+1j*data[:, k+1]
                     k += 2
 
+            if step > 1:
+                self.dwlm = self.dwlm[::step, :]
+                self.zlm = self.dwlm[::step, :]
+
         # ddw in case B is stored
         if field == 'B':
             self.ddwlm = np.zeros((self.nstep, self.lm_max_r), np.complex128)
@@ -771,10 +790,17 @@ class MagicCoeffR(MagicSetup):
                     self.ddwlm[:, self.idx[l, m]] = data[:, k]+1j*data[:, k+1]
                     k += 2
 
+            if step > 1:
+                self.ddwlm = self.ddwlm[::step, :]
+
         # Truncate!
         if lCut is not None:
             if lCut < self.l_max_r:
                 self.truncate(lCut, field=field)
+
+        if step > 1:
+            self.time = self.time[::step]
+            self.nstep = len(self.time)
 
         if field == 'V' or field == 'B':
             self.e_pol_axi_l = np.zeros((self.nstep, self.l_max_r+1), precision)
@@ -1066,26 +1092,125 @@ class MagicCoeffR(MagicSetup):
 
     def fft(self):
         """
-        Fourier transform of the poloidal energy
+        Fourier transform of the poloidal potential
         """
-        w2 = np.fft.fft(self.e_pol_l, axis=0)
-        w2 = abs(w2[1:self.nstep//2+1,1:])
-        dw = 2.*np.pi/(self.time[-1]-self.time[0])
+
+        dt = np.diff(self.time)
+        # If the data is not regularly sampled, use splines to resample them
+        if dt.min() != dt.max():
+            time = np.linspace(self.time[0], self.time[-1], self.nstep)
+            it = interp1d(self.time, self.wlm, axis=0)
+            wlm = it(time)
+        else:
+            time = self.time
+            wlm = self.wlm
+
+        wlm_hat = np.fft.fft(wlm, axis=0)
+        ek = np.zeros((self.nstep//2, self.l_max_r+1), np.float64)
+        for l in range(1, self.l_max_r+1):
+            ek[:, l] = 0.
+            for m in range(0, l+1, self.minc):
+                lm = self.idx[l, m]
+
+                if m == 0:
+                    epol = 0.5 * abs(wlm_hat[:, lm])**2
+                else:
+                    epol = abs(wlm_hat[:, lm])**2
+
+                ek[:, l] += epol[1:self.nstep//2+1]
+        ek = ek[:, 1:] # remove l=0
+        self.ek_omega = ek
+        dw = 2.*np.pi/(time[-1]-time[0])
         omega = dw*np.arange(self.nstep)
-        omega = omega[1:self.nstep//2+1]
+        self.omega = omega[1:self.nstep//2+1]
         ls = np.arange(self.l_max_r+1)
         ls = ls[1:]
 
-        dat = np.log10(w2)
-        vmax = dat.max()-1
-        vmin = dat.min()+2
-        levs = np.linspace(vmin, vmax, 65)
+        dat = np.log10(ek)
+        vmax = dat.max()-0.5
+        #vmin = vmax - 7
+        vmin = max(vmax-10, dat.min()+2)
+        levs = np.linspace(vmin, vmax, 129)
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        im = ax.contourf(ls, omega, np.log10(w2), levs, cmap=plt.get_cmap('jet'),
+        im = ax.contourf(ls, self.omega, dat, levs, cmap=plt.get_cmap('turbo'),
                          extend='both')
 
+        ax.set_yscale('log')
         cbar = fig.colorbar(im)
 
-        ax.set_xlabel(r'Spherical harmonic degree')
-        ax.set_ylabel(r'Frequency')
+        ax.set_xlabel('Spherical harmonic degree')
+        ax.set_ylabel('Frequency')
+
+        fig.tight_layout()
+
+    def cwt(self, ell, w0=20, nfreq=256, fmin_fac=8):
+        """
+        Build a time-frequency spectrum at a given degree :math:`\ell` using
+        a continuous wavelet transform with morlet wavelets.
+
+        :param w0: a parameter to normalize the width of the wavelet
+        :type w0: float
+        :param fmin_fac: a factor to adjust the minimum frequency considered
+                         in the time-frequency domain. Minimum frequency is
+                         given by fmin=1/(time[-1]-time[0]), such that
+                         the minimum frequency retained is fmin_fac*fmin
+        :type fmin_fac: float
+        :param ell: spherical harmonic degree at which ones want to build
+                    the time frequency diagram
+        :type ell: int
+        :param nfreq: number of frequency bins
+        :type nfreq: int
+        """
+        assert version > '1.4.0'
+
+        dt = np.diff(self.time)
+        # If the data is not regularly sampled, use splines to resample them
+        if dt.min() != dt.max():
+            time = np.linspace(self.time[0], self.time[-1], self.nstep)
+            it = interp1d(self.time, self.wlm, axis=0)
+            wlm = it(time)
+        else:
+            time = self.time
+            wlm = self.wlm
+
+        dt = time[1]-time[0]
+        fcut = 1./dt # Maximum sampling
+        fmin = 1./(time[-1]-time[0]) # Minimum frequency
+
+        #self.omega = 2.*np.pi*np.linspace(fmin*fmin_fac, fcut/2, 100)
+        self.omega = np.logspace(np.log10(fmin*fmin_fac), np.log10(fcut/2), nfreq)
+        self.omega *= 2.*np.pi
+        # Define the widths of the wavelets (related to their frequency)
+        widths = w0*fcut/self.omega
+
+        #widths = np.arange(1, len(self.time)//8)
+        self.ek_time_omega = np.zeros((len(widths), self.nstep), np.float64)
+        for m in range(0, ell+1, self.minc):
+            print(m)
+            lm = self.idx[ell, m]
+            out = signal.cwt(wlm[:, lm], signal.morlet2, widths, w=w0)
+
+            if m == 0:
+                tmp = 0.5*abs(out)**2
+            else:
+                tmp = abs(out)**2
+
+            self.ek_time_omega += tmp
+
+        dat = np.log10(self.ek_time_omega)
+        vmax = dat.max()#-0.5
+        vmin = max(vmax-10, dat.min()+2)
+        levs = np.linspace(vmin, vmax, 129)
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        im = ax.contourf(time, self.omega, dat, levs, cmap=plt.get_cmap('turbo'),
+                         extend='both')
+
+        ax.set_yscale('log')
+        cbar = fig.colorbar(im)
+
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Frequency')
+
+        fig.tight_layout()

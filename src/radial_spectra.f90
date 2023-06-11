@@ -3,12 +3,11 @@ module radial_spectra
    use precision_mod
    use parallel_mod
    use communications, only: reduce_radial
-   use truncation, only: lm_max, n_r_max, n_r_ic_max, l_max, n_r_ic_max
+   use truncation, only: n_r_max, n_r_ic_max
    use radial_data, only: n_r_icb
    use radial_functions, only: or2, r_icb, r_ic
    use num_param, only: eScale
-   use blocking, only: st_map, llm, ulm
-   use horizontal_data, only: dLh
+   use blocking, only: llm, ulm
    use logic, only: l_cond_ic
    use output_data, only: tag
    use useful, only: cc2real
@@ -42,8 +41,7 @@ contains
       !-- Local:
       character(len=72) :: specFile
       integer :: n_r,lm,l,m,n_r_tot
-      real(cp) :: fac,O_r_icb_E_2,rRatio,amp
-      real(cp) :: e_p_temp
+      real(cp) :: fac,O_r_icb_E_2,rRatio,amp,e_p_temp
       logical :: lAS
 
 
@@ -53,12 +51,12 @@ contains
       e_p_AS(:,:)=0.0_cp
 
       do n_r=1,n_r_max
-         do lm=max(2,llm),ulm
+         do lm=llm,ulm
             l=map%lm2l(lm)
-            if ( l <= 6 ) then
+            if ( l > 0 .and. l <= 6 ) then
                m=map%lm2m(lm)
                amp=real(Pol(lm,n_r))
-               e_p_temp=dLh(st_map%lm2(l,m))**2 *or2(n_r)*cc2real(Pol(lm,n_r),m)
+               e_p_temp=real(l*(l+1),cp)**2 *or2(n_r)*cc2real(Pol(lm,n_r),m)
                if ( m == 0 ) then
                   if ( abs(amp)/=0.0_cp ) then
                      e_p_AS(l,n_r)=fac*amp/abs(amp)*e_p_temp
@@ -83,19 +81,19 @@ contains
                e_p(l,n_r_max-1+n_r)=0.0_cp
                e_p_AS(l,n_r_max-1+n_r)=0.0_cp
             end do
-            do lm=max(2,llm),ulm
+            do lm=llm,ulm
                l=map%lm2l(lm)
-               if ( l <= 6 ) then
+               if ( l > 0 .and. l <= 6 ) then
                   m=map%lm2m(lm)
                   if ( m /= 0 .or. lAS ) then
                      if ( l_cond_ic ) then
-                        e_p_temp=dLh(st_map%lm2(l,m))*rRatio**(2*l) * &
-                        &        dLh(st_map%lm2(l,m))*O_r_icb_E_2*    &
+                        e_p_temp=real(l*(l+1),cp)*rRatio**(2*l) * &
+                        &        real(l*(l+1),cp)*O_r_icb_E_2*    &
                         &        cc2real(PolIC(lm,n_r),m)
                         amp=real(PolIC(lm,n_r))
                      else
-                        e_p_temp=dLh(st_map%lm2(l,m))*O_r_icb_E_2*rRatio**(2*l) * &
-                        &        dLh(st_map%lm2(l,m))*cc2real(Pol(lm,n_r_icb),m)
+                        e_p_temp=real(l*(l+1),cp)*O_r_icb_E_2*rRatio**(2*l) * &
+                        &        real(l*(l+1),cp)*cc2real(Pol(lm,n_r_icb),m)
                         amp=real(Pol(lm,n_r_icb))
                      end if
                      if ( m == 0 ) then
@@ -169,9 +167,8 @@ contains
       !-- Local:
       character(len=72) :: specFile
       integer :: n_r,lm,l,m,n_r_tot
-      real(cp) :: fac,rRatio,amp
-      real(cp) :: e_t_temp
-      LOGICAl :: lAS
+      real(cp) :: fac,rRatio,amp,e_t_temp
+      logical :: lAS
 
       fac=half*eScale/(four*pi)
       n_r_tot=n_r_max+n_r_ic_max
@@ -179,12 +176,12 @@ contains
       e_t_AS(:,:)=0.0_cp
 
       do n_r=1,n_r_max
-         do lm=max(2,llm),ulm
+         do lm=llm,ulm
             l=map%lm2l(lm)
-            if ( l <= 6 ) then
+            if ( l > 0 .and. l <= 6 ) then
                m=map%lm2m(lm)
                amp=real(Tor(lm,n_r))
-               e_t_temp=dLh(st_map%lm2(l,m))*cc2real(Tor(lm,n_r),m)
+               e_t_temp=real(l*(l+1),cp)*cc2real(Tor(lm,n_r),m)
                if ( abs(amp)/=0.0_cp ) then
                   if ( m == 0 ) e_t_AS(l,n_r)=fac*amp/abs(amp)*e_t_temp
                end if
@@ -207,17 +204,16 @@ contains
 
          do n_r=2,n_r_ic_max
             rRatio=r_ic(n_r)/r_ic(1)
-            do lm=max(2,llm),ulm
+            do lm=llm,ulm
                l=map%lm2l(lm)
-               if ( l <= 6 ) then
+               if ( l > 0 .and. l <= 6 ) then
                   m=map%lm2m(lm)
                   if ( m /= 0 .or. lAS ) then
-                     e_t_temp= dLh(st_map%lm2(l,m))*rRatio**(2*l+2) &
-                          &    * cc2real(TorIC(lm,n_r),m)
+                     e_t_temp=real(l*(l+1),cp)*rRatio**(2*l+2) &
+                     &        * cc2real(TorIC(lm,n_r),m)
                      amp=real(TorIC(lm,n_r))
                      if ( abs(amp)/=0.0_cp ) then
-                        if ( m == 0 ) e_t_AS(l,n_r_max-1+n_r)= &
-                             fac*amp/abs(amp)*e_t_temp
+                        if ( m == 0 ) e_t_AS(l,n_r_max-1+n_r)=fac*amp/abs(amp)*e_t_temp
                      end if
                      e_t(l,n_r_max-1+n_r)=e_t(l,n_r_max-1+n_r)+fac*e_t_temp
                   end if

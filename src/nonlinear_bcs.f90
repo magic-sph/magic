@@ -2,13 +2,13 @@ module nonlinear_bcs
 
    use iso_fortran_env, only: output_unit
    use precision_mod
-   use truncation, only: lmP_max, n_phi_max, l_max, n_theta_max, nlat_padded
+   use blocking, only: lm2
+   use truncation, only: n_phi_max, l_max, n_theta_max, nlat_padded, lm_max
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: r_cmb, r_icb, rho0
-   use blocking, only: lm2lmP
    use physical_parameters, only: sigma_ratio, conductance_ma, prmag, oek
-   use horizontal_data, only: cosTheta, sinTheta_E2
-   use constants, only: two
+   use horizontal_data, only: cosTheta, sinTheta_E2, phi, sinTheta
+   use constants, only: two, y10_norm, y11_norm
    use useful, only: abortRun
    use sht, only: spat_to_sphertor
 
@@ -16,7 +16,7 @@ module nonlinear_bcs
 
    private
 
-   public :: get_br_v_bcs, get_b_nl_bcs, v_rigid_boundary
+   public :: get_br_v_bcs, get_b_nl_bcs, v_rigid_boundary, v_center_sphere
 
 contains
 
@@ -48,9 +48,9 @@ contains
 
       !-- Output variables:
       ! br*vt/(sin(theta)**2*r**2)
-      complex(cp), intent(inout) :: br_vt_lm(lmP_max)
+      complex(cp), intent(inout) :: br_vt_lm(lm_max)
       ! br*(vp/(sin(theta)**2*r**2)-omega_ma)
-      complex(cp), intent(inout) :: br_vp_lm(lmP_max)
+      complex(cp), intent(inout) :: br_vp_lm(lm_max)
 
       !-- Local variables:
       integer :: n_theta, n_phi
@@ -89,8 +89,8 @@ contains
       !-- Input variables:
       character(len=3), intent(in) :: bc                 ! Distinguishes 'CMB' and 'ICB'
       integer,          intent(in) :: lm_min_b,lm_max_b  ! limits of lm-block
-      complex(cp),      intent(in) :: br_vt_lm(lmP_max)  ! :math:`B_r u_\theta/(r^2\sin^2\theta)`
-      complex(cp),      intent(in) :: br_vp_lm(lmP_max)  ! :math:`B_r u_\phi/(r^2\sin^2\theta)`
+      complex(cp),      intent(in) :: br_vt_lm(lm_max)  ! :math:`B_r u_\theta/(r^2\sin^2\theta)`
+      complex(cp),      intent(in) :: br_vp_lm(lm_max)  ! :math:`B_r u_\phi/(r^2\sin^2\theta)`
 
       !-- Output variables:
       complex(cp), intent(out) :: b_nl_bc(lm_min_b:lm_max_b)  ! nonlinear bc for b
@@ -98,27 +98,24 @@ contains
 
       !-- Local variables:
       integer :: lm        ! position of degree and order
-      integer :: lmP       ! same as lm but for l running to l_max+1
       real(cp) :: fac
 
       if ( bc == 'CMB' ) then
 
          fac=conductance_ma*prmag
-         !$omp parallel do default(shared) private(lmP)
+         !$omp parallel do default(shared)
          do lm=lm_min_b,lm_max_b
-            lmP =lm2lmP(lm)
-            b_nl_bc(lm) =-fac * br_vt_lm(lmP)
-            aj_nl_bc(lm)=-fac * br_vp_lm(lmP)
+            b_nl_bc(lm) =-fac * br_vt_lm(lm)
+            aj_nl_bc(lm)=-fac * br_vp_lm(lm)
          end do
          !$omp end parallel do
 
       else if ( bc == 'ICB' ) then
 
          fac=sigma_ratio*prmag
-         !$omp parallel do default(shared) private(lmP)
+         !$omp parallel do default(shared) private(lm)
          do lm=lm_min_b,lm_max_b
-            lmP =lm2lmP(lm)
-            aj_nl_bc(lm)=-fac * br_vp_lm(lmP)
+            aj_nl_bc(lm)=-fac * br_vp_lm(lm)
          end do
          !$omp end parallel do
 
@@ -183,5 +180,46 @@ contains
       !$omp end parallel do
 
    end subroutine v_rigid_boundary
+!-------------------------------------------------------------------------
+   subroutine v_center_sphere(ddw, vrr, vtr, vpr)
+      !
+      ! This routine is only called for full sphere computations to construct
+      ! a vector field at the center of the the sphere. At the center, we have
+      ! wlm \propto r^{l+1} and so vr = d2wlm/dr2 for l=1, 0 otherwise
+      ! vtheta, vphi = sht(1/l*ddwlm, 0) for l=1, 0 otherwise
+      !
+
+      !-- Input variable
+      complex(cp), intent(in) :: ddw(lm_max)
+
+      !-- Output variables:
+      real(cp), intent(out) :: vrr(:,:), vtr(:,:), vpr(:,:)
+
+      !-- Local variables:
+      integer :: nTheta, nPhi, lm10, lm11
+
+      lm10=lm2(1,0)
+      lm11=lm2(1,1)
+
+      !$omp parallel do default(shared) private(nPhi,nTheta)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            vrr(nTheta,nPhi)=y10_norm*real(ddw(lm10))*cosTheta(nTheta)  +&
+            &                two*y11_norm*sinTheta(nTheta)*(             &
+            &                        real(ddw(lm11))*cos(phi(nPhi))-     &
+            &                       aimag(ddw(lm11))*sin(phi(nPhi)) )
+            vtr(nTheta,nPhi)=sinTheta(nTheta)*(                          &
+            &                -y10_norm*real(ddw(lm10))*sinTheta(nTheta) +&
+            &                two*y11_norm*cosTheta(nTheta)*(             &
+            &                        real(ddw(lm11))*cos(phi(nPhi))-     &
+            &                       aimag(ddw(lm11))*sin(phi(nPhi)) ) )
+            vpr(nTheta,nPhi)=-two*y11_norm*sinTheta(nTheta)*(            &
+            &                        real(ddw(lm11))*sin(phi(nPhi))+     &
+            &                       aimag(ddw(lm11))*cos(phi(nPhi)) )
+         end do
+      end do
+      !$omp end parallel do
+
+   end subroutine v_center_sphere
 !-------------------------------------------------------------------------
 end module nonlinear_bcs

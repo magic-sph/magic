@@ -412,6 +412,35 @@ class AvgStack:
 
         self.simple_namespace()
 
+    def __add__(self, new):
+        """
+        This routine is used to add two AvgStack objects.
+
+        :param new: the lookup table which needs to be added
+        :type new: AvgStack
+        """
+        keys = ['phys_params', 'num_params', 'time_series']
+        for key in keys:
+            if key in new.lut.keys() and key in self.lut.keys():
+                for key1 in self.lut[key].keys():
+                    if key1 in new.lut[key].keys():
+                        arr = np.atleast_1d(self.lut[key][key1])
+                        arr1 = np.atleast_1d(new.lut[key][key1])
+                        self.lut[key][key1] = np.concatenate((arr, arr1))
+
+        keys = ['spectra', 'radial_profiles']
+        for key in keys:
+            if key in new.lut.keys() and key in self.lut.keys():
+                for key1 in self.lut[key].keys():
+                    if key1 in new.lut[key].keys():
+                        for lst in new.lut[key][key1]:
+                            arr1 = np.atleast_1d(lst)
+                            self.lut[key][key1].append(arr1)
+
+        self.simple_namespace()
+
+        return self
+
     def simple_namespace(self):
         """
         This routine creates a simpler namespace from the lookup table

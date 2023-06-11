@@ -51,9 +51,15 @@ Outer Core
 * **l_var_l** (default :f:var:`l_var_l=.false. <l_var_l>`) is a logical. The spherical harmonic degree is a function of radius, when set to true. This practically reduces the number of spherical harmonic transforms in parts of the fluid domain but it comes at the price of an MPI inbalance. This feature is useful when computing full sphere geometry to avoid a too severe time step limitation close to the center. Right now the form of the radial dependence follows:
 
   .. math::
-     \ell(r) = 1+(\ell_{\hbox{max}}-1)\sqrt{\frac{r}{r_o}}
+     \ell(r) = \max \left(1+\ell_{\hbox{max}}\sqrt{\frac{r}{\alpha_r r_o}},\ell_{\hbox{max}}\right)
 
   ..
+
+In the above equation the parameter :math:`\alpha_r` is set to control the radius above which the truncation reaches :math:`\ell_{\hbox{max}}`. In the case of full spheres with :math:`r_o=1`, one directly has :math:`\ell(r)=\ell_{\hbox{max}}` for :math:`r>\alpha_r`.
+
+This parameter can be directly controlled by the following entry in the input namelist:
+
+* **rcut_l** (default :f:var:`rcut_l=0.1 <rcut_l>`) is a real. This corresponds to :math:`\alpha_r` in the above equation.
 
 
 Inner Core

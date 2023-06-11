@@ -125,7 +125,7 @@ contains
       if ( l_conv ) then
          call prepareZ_FD(0.0_cp, tscheme, dummy, omega_ma, omega_ic, dum_scal, &
               &           dum_scal)
-         call prepareW_FD(tscheme, dummy, .false.)
+         call prepareW_FD(0.0_cp, tscheme, dummy, .false.)
       end if
       if ( l_mag_par_solve ) call prepareB_FD(0.0_cp, tscheme, dummy, dummy)
 
@@ -240,16 +240,18 @@ contains
                z10(:)=real(z_LMloc(lo_map%lm2(1,0),:))
             end if
 #ifdef WITH_MPI
-            call MPI_Bcast(z10,n_r_max,MPI_DEF_REAL,rank_with_l1m0, &
-                 &         MPI_COMM_WORLD,ierr)
+            if ( rank_with_l1m0 >= 0 ) then ! This is -1 if m_min > 0
+               call MPI_Bcast(z10,n_r_max,MPI_DEF_REAL,rank_with_l1m0, &
+                    &         MPI_COMM_WORLD,ierr)
+            end if
 #endif
-            call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
-                 &          p_LMloc, dp_LMloc, dpdt, s_LMloc, ds_LMloc, &
+            call updateWPS( time, w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt, &
+                 &          p_LMloc, dp_LMloc, dpdt, s_LMloc, ds_LMloc,    &
                  &          dsdt, tscheme, lRmsNext )
          else
             PERFON('up_WP')
-            call updateWP( s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc, ddw_LMloc, &
-                 &         dwdt, p_LMloc, dp_LMloc, dpdt, tscheme,          &
+            call updateWP( time, s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc,       &
+                 &         ddw_LMloc,dwdt, p_LMloc, dp_LMloc, dpdt, tscheme, &
                  &         lRmsNext, lPressNext )
             PERFOFF
          end if
@@ -326,7 +328,7 @@ contains
          call prepareZ_FD(time, tscheme, dzdt, omega_ma, omega_ic, domega_ma_dt, &
               &           domega_ic_dt)
          if ( l_z10mat ) call z10Mat_FD%solver_single(z10_ghost, nRstart, nRstop)
-         call prepareW_FD(tscheme, dwdt, lPress)
+         call prepareW_FD(time, tscheme, dwdt, lPress)
          if ( lPress ) call p0Mat_FD%solver_single(p0_ghost, nRstart, nRstop)
       end if
       if ( l_mag_par_solve ) call prepareB_FD(time, tscheme, dbdt, djdt)
@@ -583,7 +585,7 @@ contains
 
       if ( l_phase_field )  call assemble_phase_Rloc(phi_Rloc, dphidt, tscheme)
       if ( l_chemical_conv )  call assemble_comp_Rloc(xi_Rloc, dxidt, tscheme)
-      if ( l_heat )  call assemble_entropy_Rloc(s_Rloc, ds_Rloc, dsdt, phi_ghost, tscheme)
+      if ( l_heat )  call assemble_entropy_Rloc(s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
 
       call assemble_pol_Rloc(block_sze, nblocks, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, &
            &                 dp_Rloc, dwdt, dpdt%expl(:,:,1), tscheme, lPressNext,  &
