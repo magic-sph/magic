@@ -313,7 +313,7 @@ class Movie2Vtk:
         :param name: name of the physical field stored in the vts file
         :type name: str
         """
-        if self.rmin > 0 and self.rmax > 0:
+        if self.rmin >= 0 and self.rmax > 0:
             mask = np.where(abs(self.radius-self.rmin)==abs(self.radius-self.rmin).min(), 1, 0)
             idx2 = np.nonzero(mask)[0][0]
             mask = np.where(abs(self.radius-self.rmax)==abs(self.radius-self.rmax).min(), 1, 0)
@@ -386,7 +386,7 @@ class Movie2Vtk:
         :param name: name of the physical field stored in the vts file
         :type name: str
         """
-        if self.rmin > 0 and self.rmax > 0:
+        if self.rmin >= 0 and self.rmax > 0:
             mask = np.where(abs(self.radius-self.rmin)==abs(self.radius-self.rmin).min(), 1, 0)
             idx2 = np.nonzero(mask)[0][0]
             mask = np.where(abs(self.radius-self.rmax)==abs(self.radius-self.rmax).min(), 1, 0)
@@ -427,7 +427,7 @@ class Movie2Vtk:
         :param name: name of the physical field stored in the vts file
         :type name: str
         """
-        if self.rmin > 0 and self.rmax > 0:
+        if self.rmin >= 0 and self.rmax > 0:
             mask = np.where(abs(self.radius-self.rmin)==abs(self.radius-self.rmin).min(), 1, 0)
             idx2 = np.nonzero(mask)[0][0]
             mask = np.where(abs(self.radius-self.rmax)==abs(self.radius-self.rmax).min(), 1, 0)
