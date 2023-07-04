@@ -327,17 +327,17 @@ contains
          if ( time >= tEND .and. tEND /= 0.0_cp ) l_stop_time=.true.
 
          !-- Checking logic for output:
-         l_graph= l_correct_step(n_time_step-1,time,timeLast,n_time_steps,       &
-         &                       n_graph_step,n_graphs,n_t_graph,t_graph,0) .or. &
+         l_graph= l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
+         &                       n_graph_step,n_graphs,n_t_graph,t_graph) .or. &
          &                  n_graph_signal == 1
          n_graph_signal=0   ! reset interrupt signal !
          l_spectrum=                                                             &
          &              l_correct_step(n_time_step-1,time,timeLast,n_time_steps, &
-         &                n_spec_step,n_specs,n_t_spec,t_spec,0) .or.            &
+         &                n_spec_step,n_specs,n_t_spec,t_spec) .or.              &
          &                n_spec_signal == 1
          l_frame= l_movie .and. (                                                &
          &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-         &             n_movie_step,n_movie_frames,n_t_movie,t_movie,0) .or.     &
+         &             n_movie_step,n_movie_frames,n_t_movie,t_movie) .or.       &
          &                   n_time_steps_go == 1 )
          if ( l_mag .or. l_mag_LF ) then
             l_dtB=( l_frame .and. l_dtBmovie ) .or. ( l_log .and. l_DTrMagSpec )
@@ -345,54 +345,54 @@ contains
 
          lTOframe=l_TOmovie .and.                                                &
          &          l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
-         &          n_TOmovie_step,n_TOmovie_frames,n_t_TOmovie,t_TOmovie,0)
+         &          n_TOmovie_step,n_TOmovie_frames,n_t_TOmovie,t_TOmovie)
 
          l_probe_out=l_probe .and.                                               &
          &          l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
-         &          n_probe_step,n_probe_out,n_t_probe,t_probe,0)
+         &          n_probe_step,n_probe_out,n_t_probe,t_probe)
 
          !-- Potential files
          l_pot= l_correct_step(n_time_step-1,time,timeLast,n_time_steps, &
-         &                       n_pot_step,n_pots,n_t_pot,t_pot,0) .or. &
+         &                       n_pot_step,n_pots,n_t_pot,t_pot) .or.   &
          &                  n_pot_signal == 1
          n_pot_signal=0   ! reset interrupt signal !
 
          l_new_rst_file=                                                         &
          &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-         &                            n_rst_step,n_rsts,n_t_rst,t_rst,0) .or.    &
+         &                            n_rst_step,n_rsts,n_t_rst,t_rst) .or.      &
          &             n_rst_signal == 1
          n_rst_signal=0
          l_store= l_new_rst_file .or.                                            &
          &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-         &                            0,n_stores,0,t_rst,0)
+         &                            0,n_stores,0,t_rst)
 
          l_log= l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-         &                            n_log_step,n_logs,n_t_log,t_log,0)
+         &                            n_log_step,n_logs,n_t_log,t_log)
          l_cmb= l_cmb_field .and.                                                &
          &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-         &                            n_cmb_step,n_cmbs,n_t_cmb,t_cmb,0)
+         &                            n_cmb_step,n_cmbs,n_t_cmb,t_cmb)
          l_r= l_r_field .and.                                                    &
          &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
          &                            n_r_field_step,n_r_fields,n_t_r_field,     &
-         &                            t_r_field,0)
+         &                            t_r_field)
          l_logNext=.false.
          if ( n_time_step+1 <= n_time_steps+1 )                                  &
          &             l_logNext=                                                &
          &             l_correct_step(n_time_step,time+tscheme%dt(1),timeLast,   &
-         &                   n_time_steps,n_log_step,n_logs,n_t_log,t_log,0)
+         &                   n_time_steps,n_log_step,n_logs,n_t_log,t_log)
          lTOCalc= n_time_step > 2 .and. l_TO .and.                   &
          &               l_correct_step(n_time_step-1,time,timeLast, &
-         &               n_time_steps,n_TO_step,n_TOs,n_t_TO,t_TO,0)
+         &               n_time_steps,n_TO_step,n_TOs,n_t_TO,t_TO)
          lTOnext     =.false.
          lTOframeNext=.false.
          if ( n_time_step+1 <= n_time_steps+1 ) then
             lTONext= l_TO .and.                                            &
             &                l_correct_step(n_time_step,time+tscheme%dt(1),&
-            &                timeLast,n_time_steps,n_TO_step,n_TOs,n_t_TO,t_TO,0)
+            &                timeLast,n_time_steps,n_TO_step,n_TOs,n_t_TO,t_TO)
             lTOframeNext= l_TOmovie .and.                                   &
             &                l_correct_step(n_time_step,time+tscheme%dt(1), &
             &                timeLast,n_time_steps,n_TOmovie_step,          &
-            &                n_TOmovie_frames,n_t_TOmovie,t_TOmovie,0)
+            &                n_TOmovie_frames,n_t_TOmovie,t_TOmovie)
          end if
          lTONext      =lTOnext.or.lTOframeNext
          lTONext2     =.false.
@@ -401,11 +401,11 @@ contains
             lTONext2= l_TO .and.                                                 &
             &                l_correct_step(n_time_step+1,time+2*tscheme%dt(1),  &
             &                                timeLast,n_time_steps,n_TO_step,    &
-            &                                            n_TOs,n_t_TO,t_TO,0)
+            &                                            n_TOs,n_t_TO,t_TO)
             lTOframeNext2= l_TOmovie .and.                                      &
             &                l_correct_step(n_time_step+1,time+2*tscheme%dt(1), &
             &                             timeLast,n_time_steps,n_TOmovie_step, &
-            &                       n_TOmovie_frames,n_t_TOmovie,t_TOmovie,0)
+            &                       n_TOmovie_frames,n_t_TOmovie,t_TOmovie)
          end if
          lTONext2=lTOnext2.or.lTOframeNext2
 

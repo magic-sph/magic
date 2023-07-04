@@ -1842,7 +1842,7 @@ contains
 #endif
       if ( info /= 0 ) call abortRun('Singular matrix sMat!')
 
-   end subroutine get_Smat
+   end subroutine get_sMat
 !-----------------------------------------------------------------------------
    subroutine get_sMat_Rdist(tscheme,hdif,sMat)
       !
