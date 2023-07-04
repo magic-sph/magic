@@ -118,7 +118,8 @@ program magic
    use fields_average_mod
    use geos, only: initialize_geos, finalize_geos
    use spectra, only: initialize_spectra, finalize_spectra
-   use output_data, only: tag, log_file, n_log_file
+   use output_data, only: tag, log_file, n_log_file, initialize_output_data, &
+       &                  finalize_output_data
    use output_mod, only: initialize_output, finalize_output
    use outTO_mod,only: initialize_outTO_mod, finalize_outTO_mod
    use parallel_mod
@@ -235,6 +236,9 @@ program magic
       write(output_unit, '(A,A)') ' !  Start date:  ', date
    end if
 
+   !-- Allocate time arrays:
+   call initialize_output_data()
+
    !--- Read input parameters:
    call readNamelists(tscheme)  ! includes sent to other procs !
 
@@ -304,7 +308,7 @@ program magic
       if ( l_save_out ) close(n_log_file)
    end if
 
-   call initialize_memory_counter()
+   call initialize_memory_counter(tag)
 
    !-- Blocking/radial/horizontal
    call initialize_blocking()
@@ -388,7 +392,7 @@ program magic
    call initialize_courant(time, tscheme%dt(1), tag)
 
    !--- Second pre-calculation:
-   call preCalcTimes(time,n_time_step)
+   call preCalcTimes(time, tEND, tscheme%dt(1), n_time_step, n_time_steps)
 
    !--- Write info to STDOUT and log-file:
    if ( rank == 0 ) then
@@ -513,6 +517,7 @@ program magic
 
    call tscheme%finalize()
    call finalize_output()
+   call finalize_output_data()
 
    if ( rank == 0 .and. (.not. l_save_out) )  close(n_log_file)
 
