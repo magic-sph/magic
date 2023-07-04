@@ -908,7 +908,6 @@ contains
                &                vt(n_theta_cal,n_phi)*vt(n_theta_cal,n_phi) + &
                &     O_sin_theta_E2(n_theta_cal)*                             &
                &                vp(n_theta_cal,n_phi)*vp(n_theta_cal,n_phi) )
-               &
             end do
             frames(n_0+n_theta) =phi_norm*fl(1)
          end do
