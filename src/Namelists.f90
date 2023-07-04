@@ -1618,21 +1618,6 @@ contains
       t_TOmovie_stop  =0.0_cp
       dt_TOmovie      =0.0_cp
 
-      !----- Times for different output:
-      do n=1,n_time_hits
-         t_graph(n)  =-one
-         t_rst(n)    =-one
-         t_log(n)    =-one
-         t_spec(n)   =-one
-         t_cmb(n)    =-one
-         t_r_field(n)=-one
-         t_movie(n)  =-one
-         t_pot(n)    =-one
-         t_TO(n)     =-one
-         t_TOmovie(n)=-one
-         t_probe     =-one
-      end do
-
       !----- Magnetic spectra for different depths
       !      at times of log output or movie frames:
       l_rMagSpec    =.false.
