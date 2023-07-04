@@ -6,7 +6,6 @@ module mem_alloc
 
    use parallel_mod
    use precision_mod, only: lip, cp
-   use output_data, only: tag
 
    implicit none
 
@@ -22,8 +21,12 @@ module mem_alloc
 
 contains
 
-   subroutine initialize_memory_counter
+   subroutine initialize_memory_counter(tag)
 
+      !-- Input variable
+      character(len=*), intent(in) :: tag
+
+      !-- Local variable
       integer :: iproc
 
       bytes_allocated = 0 !
