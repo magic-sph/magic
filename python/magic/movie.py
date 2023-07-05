@@ -6,7 +6,7 @@ import copy
 import numpy as np
 from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
-from .npfile import *
+from .npfile import npfile
 from magic.libmagic import symmetrize, chebgrid
 from magic.plotlib import hammer2cart
 
@@ -202,7 +202,7 @@ class Movie:
         # Overwrite radius to ensure double-precision of the
         # grid (useful for Cheb der)
         rout = 1./(1.-self.radratio)
-        rin = self.radratio/(1.-self.radratio)
+        # rin = self.radratio/(1.-self.radratio)
         self.radius *= rout
         self.radius_ic *= rout
         # self.radius = chebgrid(self.n_r_max-1, rout, rin)
@@ -240,9 +240,9 @@ class Movie:
         if n_surface == 0:
             self.surftype = '3d volume'
             if self.movtype in [1, 2, 3]:
-                shape = (n_r_mov_tot+2, self.n_theta_max, self.n_phi_tot)
+                shape = (self.n_phi_tot, self.n_theta_max, n_r_mov_tot+2)
             else:
-                shape = (self.n_r_max, self.n_theta_max, self.n_phi_tot)
+                shape = (self.n_phi_tot, self.n_theta_max, self.n_r_max)
             self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
                                   self.n_theta_max, self.n_r_max), precision)
             self.data_ic = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
@@ -250,45 +250,46 @@ class Movie:
                                     precision)
         elif n_surface == 1 or n_surface == -1:
             self.surftype = 'r_constant'
-            shape = (self.n_theta_max, self.n_phi_tot)
+            shape = (self.n_phi_tot, self.n_theta_max)
             self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
                                   self.n_theta_max), precision)
         elif n_surface == 2:
             self.surftype = 'theta_constant'
             if self.movtype in [1, 2, 3, 14]:  # read inner core
-                shape = (n_r_mov_tot+2, self.n_phi_tot)
+                shape = (self.n_phi_tot, n_r_mov_tot+2)
             else:
-                shape = (self.n_r_max, self.n_phi_tot)
+                shape = (self.n_phi_tot, self.n_r_max)
             self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
                                   self.n_r_max), precision)
             self.data_ic = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
-                                    self.n_r_ic_max+2), precision)
+                                     self.n_r_ic_max+2), precision)
         elif n_surface == -2:
             self.surftype = 'theta_constant'
-            shape = (self.n_s_max, self.n_phi_tot)
+            shape = (self.n_phi_tot, self.n_s_max)
             self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
                                   self.n_s_max), precision)
         elif n_surface == 3:
             self.surftype = 'phi_constant'
             if self.movtype in [1, 2, 3, 14]:  # read inner core
-                shape = (n_r_mov_tot+2, self.n_theta_max)
+                shape = (self.n_theta_max, 2*(n_r_mov_tot+2))
                 self.n_theta_plot = 2*self.n_theta_max
             elif self.movtype in [8, 9]:
-                shape = (n_r_mov_tot+2, self.n_theta_max)
+                shape = (self.n_theta_max, n_r_mov_tot+2)
                 self.n_theta_plot = self.n_theta_max
-            elif self.movtype in [4, 5, 6, 7, 15, 16, 17, 18, 47, 54, 109, 112]:
-                shape = (self.n_r_max, self.n_theta_max)
+            elif self.movtype in [4, 5, 6, 7, 15, 16, 17, 18, 47, 54,
+                                  109, 112]:
+                shape = (self.n_theta_max, self.n_r_max, 2)
                 self.n_theta_plot = 2*self.n_theta_max
             elif self.movtype in [10, 11, 12, 19, 92, 94, 95, 110, 111, 114,
                                   115, 116]:
-                shape = (self.n_r_max, self.n_theta_max)
+                shape = (self.n_theta_max, self.n_r_max)
                 self.n_theta_plot = self.n_theta_max
             # Inner core is not stored here
             self.data = np.zeros((self.n_fields, self.nvar, self.n_theta_plot,
                                   self.n_r_max), precision)
             self.data_ic = np.zeros((self.n_fields, self.nvar,
                                      self.n_theta_plot, self.n_r_ic_max+2),
-                                     precision)
+                                    precision)
 
         self.time = np.zeros(self.nvar, precision)
 
@@ -300,7 +301,7 @@ class Movie:
                 movieDipLon, movieDipStrength, movieDipStrengthGeo = \
                 infile.fort_read(precision)
             for ll in range(self.n_fields):
-                dat = infile.fort_read(precision)
+                dat = infile.fort_read(precision, shape=shape, order='F')
         # then read the remaining requested nvar lines
         for k in range(self.nvar):
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
@@ -308,65 +309,42 @@ class Movie:
                 infile.fort_read(precision)
             self.time[k] = t_movieS
             for ll in range(self.n_fields):
-                dat = infile.fort_read(precision)
+                dat = infile.fort_read(precision, shape=shape, order='F')
                 if n_surface == 0:
-                    dat = dat.reshape(shape)
                     if self.movtype in [1, 2, 3]:
-                        datic = dat[self.n_r_max:, ...].T
-                        dat = dat[:self.n_r_max, ...].T
-                        self.data[ll, k, ...] = dat
-                        self.data_ic[ll, k, ...] = datic
+                        self.data[ll, k, ...] = dat[:, :, :self.n_r_max]
+                        self.data_ic[ll, k, ...] = dat[:, :, self.n_r_max:]
                     else:
-                        self.data[ll, k, ...] = dat.T
+                        self.data[ll, k, ...] = dat
                 elif n_surface == 2:
-                    dat = dat.reshape(shape)
                     if self.movtype in [1, 2, 3, 14]:
-                        datic = dat[self.n_r_max:, :].T
-                        dat = dat[:self.n_r_max, :].T
-                        self.data[ll, k, ...] = dat
-                        self.data_ic[ll, k, ...] = datic
+                        self.data[ll, k, ...] = dat[:, :self.n_r_max]
+                        self.data_ic[ll, k, ...] = dat[:, self.n_r_max:]
                     else:
-                        self.data[ll, k, ...] = dat.T
+                        self.data[ll, k, ...] = dat
                 elif n_surface == -2:
-                    dat = dat.reshape(shape)
-                    self.data[ll, k, ...] = dat.T
+                    self.data[ll, k, ...] = dat
                 elif n_surface == 3:
                     if self.movtype in [1, 2, 3, 14]:
-                        len1 = (self.n_r_max*self.n_theta_max*2)
-                        datoc = dat[:len1]
-                        datic = dat[len1:]
-                        datoc0 = datoc[:len(datoc)//2].reshape(self.n_r_max,
-                                                               self.n_theta_max)
-                        datoc1 = datoc[len(datoc)//2:].reshape(self.n_r_max,
-                                                               self.n_theta_max)
-                        dat = np.hstack((datoc0, datoc1))
-                        datic0 = datic[:len(datic)//2].reshape(self.n_r_ic_max+2,
-                                                               self.n_theta_max)
-                        datic1 = datic[len(datic)//2:].reshape(self.n_r_ic_max+2,
-                                                               self.n_theta_max)
-                        dat = np.hstack((datoc0, datoc1))
-                        datic = np.hstack((datic0, datic1))
-                        self.data[ll, k, ...] = dat.T
-                        self.data_ic[ll, k, ...] = datic.T
+                        datoc0 = dat[:, :self.n_r_max]
+                        datoc1 = dat[:, self.n_r_max:2*self.n_r_max]
+                        datic0 = dat[:, 2*self.n_r_max:2*self.n_r_max+self.n_r_ic_max+2]
+                        datic1 = dat[:, 2*self.n_r_max+self.n_r_ic_max+2:]
+                        self.data[ll, k, ...] = np.vstack((datoc0, datoc1))
+                        self.data_ic[ll, k, ...] = np.vstack((datic0, datic1))
                     elif self.movtype in [8, 9]:
-                        dat = dat.reshape(shape)
-                        datic = dat[self.n_r_max:, :].T
-                        dat = dat[:self.n_r_max, :].T
-                        self.data_ic[ll, k, ...] = datic
-                        self.data[ll, k, ...] = dat
+                        self.data_ic[ll, k, ...] = dat[:, self.n_r_max:]
+                        self.data[ll, k, ...] = dat[:, :self.n_r_max]
                     elif self.movtype in [4, 5, 6, 7, 15, 16, 17, 18, 47, 54, 91,
                                           109, 112]:
-                        dat0 = dat[:len(dat)//2].reshape(shape)
-                        dat1 = dat[len(dat)//2:].reshape(shape)
-                        dat = np.hstack((dat0, dat1))
-                        self.data[ll, k, ...] = dat.T
+                        dat0 = dat[..., 0]
+                        dat1 = dat[..., 1]
+                        self.data[ll, k, ...] = np.vstack((dat0, dat1))
                     elif self.movtype in [10, 11, 12, 19, 92, 94, 95, 110, 111,
                                           114, 115, 116]:
-                        dat = dat.reshape(shape)
-                        self.data[ll, k, ...] = dat.T
+                        self.data[ll, k, ...] = dat
                 else:
-                    dat = dat.reshape(shape)
-                    self.data[ll, k, ...] = dat.T
+                    self.data[ll, k, ...] = dat
                 if fluct:
                     self.data[ll, k, ...] -= self.data[ll, k, ...].mean(axis=0)
 
@@ -538,7 +516,7 @@ class Movie:
                 th = np.concatenate((th0, th1))
                 fig = plt.figure(figsize=(6.5, 6))
                 # Plotting trick using th0
-                th0 = np.linspace(np.pi/2, np.pi/2+2.*np.pi, 2*self.n_theta_max)
+                th0 = np.linspace(np.pi/2, np.pi/2+2.*np.pi, self.n_theta_plot)
             rr, tth = np.meshgrid(self.radius, th)
             xx = rr * np.cos(tth)
             yy = rr * np.sin(tth)
