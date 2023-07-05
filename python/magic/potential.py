@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 from magic import MagicSetup, scanDir
-from .setup import labTex, defaultCm, defaultLevels, labTex, buildSo
-from .libmagic import *
+from .setup import defaultCm, defaultLevels, labTex, buildSo
+from .libmagic import chebgrid, rderavg, symmetrize
 from .spectralTransforms import SpectralTransforms
 from .plotlib import radialContour, merContour, equatContour
 import os, re, time
 import numpy as np
 import matplotlib.pyplot as plt
-from .npfile import *
+from .npfile import npfile
 
 if buildSo:
     import magic.lmrreader_single as Psngl
@@ -161,18 +161,19 @@ class MagicPotential(MagicSetup):
             self.version = 1  # This will be over-written later
 
         t1 = time.time()
-        self.read(filename, field, endian, record_marker, ic, precision=precision)
+        self.read(filename, field, endian, record_marker, ic,
+                  precision=precision)
         t2 = time.time()
         if verbose:
             print('Time to read {}: {:.2e}'.format(filename, t2-t1))
 
-        self.n_theta_max = max(int(3*self.l_max/2),128)
-        self.n_theta_max += self.n_theta_max%2
+        self.n_theta_max = max(int(3*self.l_max/2), 128)
+        self.n_theta_max += self.n_theta_max % 2
         self.n_phi_max = int(2*self.n_theta_max/self.minc)
-        lm_max = ( self.m_max*(self.l_max+1)/self.minc
-                  -self.m_max*(self.m_max-self.minc)/(2*self.minc)
-                  +(self.l_max+1-self.m_max) )
-        self.lm_max = max(self.lm_max,lm_max)
+        lm_max = (self.m_max*(self.l_max+1)/self.minc
+                  - self.m_max*(self.m_max-self.minc)/(2*self.minc)
+                  + (self.l_max+1-self.m_max))
+        self.lm_max = max(self.lm_max, lm_max)
         t1 = time.time()
 
         self.sh = SpectralTransforms(l_max=self.l_max, minc=self.minc,
@@ -187,34 +188,33 @@ class MagicPotential(MagicSetup):
 
         self.idx = self.sh.idx
         self.ell = self.sh.ell
-        self.m   = self.sh.m
+        self.m = self.sh.m
 
         if self.version == 2 and self.m_min > 0:
             mask = self.m >= self.m_min
 
-            pol = np.zeros([int(self.lm_max),int(self.n_r_max)],
-                            dtype=np.dtype(self.pol[0,0]))
-            pol[mask,:] = self.pol
+            pol = np.zeros([int(self.lm_max), int(self.n_r_max)],
+                           dtype=np.dtype(self.pol[0, 0]))
+            pol[mask, :] = self.pol
             self.pol = pol
 
             if (field != 'T' and field != 'Xi'):
-                tor = np.zeros([int(self.lm_max),int(self.n_r_max)],
-                                dtype=np.dtype(self.pol[0,0]))
-                tor[mask,:] = self.tor
+                tor = np.zeros([int(self.lm_max), int(self.n_r_max)],
+                               dtype=np.dtype(self.pol[0, 0]))
+                tor[mask, :] = self.tor
                 self.tor = tor
 
-            if ic: # Repeat for ic
-                pol_ic = np.zeros([int(self.lm_max),int(self.n_r_ic_max)],
-                                    dtype=np.dtype(self.pol_ic[0,0]))
-                tor_ic = np.zeros([int(self.lm_max),int(self.n_r_ic_max)],
-                                    dtype=np.dtype(self.pol_ic[0,0]))
+            if ic:  # Repeat for ic
+                pol_ic = np.zeros([int(self.lm_max), int(self.n_r_ic_max)],
+                                  dtype=np.dtype(self.pol_ic[0, 0]))
+                tor_ic = np.zeros([int(self.lm_max), int(self.n_r_ic_max)],
+                                  dtype=np.dtype(self.pol_ic[0, 0]))
 
-                pol_ic[mask,:] = self.pol_ic
-                tor_ic[mask,:] = self.tor_ic
+                pol_ic[mask, :] = self.pol_ic
+                tor_ic[mask, :] = self.tor_ic
 
                 self.pol_ic = pol_ic
                 self.tor_ic = tor_ic
-
 
     def read(self, filename, field, endian, record_marker, ic=False,
              precision=np.float32):
@@ -259,23 +259,21 @@ class MagicPotential(MagicSetup):
                 self.radius = dat[:self.n_r_max]
                 self.rho0 = dat[self.n_r_max:]
 
-                # Read field in the outer core
-                self.pol = infile.fort_read(np.complex64)
-                self.pol = self.pol.reshape((self.n_r_max, self.lm_max))
-                self.pol = self.pol.T
+                # Read fields in the outer core
+                shape = (self.lm_max, self.n_r_max)
+                self.pol = infile.fort_read(np.complex64, shape=shape,
+                                            order='F')
                 if (field != 'T' and field != 'Xi'):
-                    self.tor = infile.fort_read(np.complex64)
-                    self.tor = self.tor.reshape((self.n_r_max, self.lm_max))
-                    self.tor = self.tor.T
+                    self.tor = infile.fort_read(np.complex64, shape=shape,
+                                                order='F')
 
-                # Read inner core
+                # Read fields in the inner core
                 if ic:
-                    self.pol_ic = infile.fort_read(np.complex64)
-                    self.pol_ic = self.pol_ic.reshape((self.n_r_ic_max, self.lm_max))
-                    self.pol_ic = self.pol_ic.T
-                    self.tor_ic = infile.fort_read(np.complex64)
-                    self.tor_ic = self.tor_ic.reshape((self.n_r_ic_max, self.lm_max))
-                    self.tor_ic = self.tor_ic.T
+                    shape = (self.lm_max, self.n_r_ic_max)
+                    self.pol_ic = infile.fort_read(np.complex64, shape=shape,
+                                                   order='F')
+                    self.tor_ic = infile.fort_read(np.complex64, shape=shape,
+                                                   order='F')
 
                 infile.close()
 
@@ -298,7 +296,8 @@ class MagicPotential(MagicSetup):
                     self.lm_max = np.fromfile(f, dtype=dt, count=1)[0]
                 if self.version == 2:
                     dt = np.dtype('{}2i4'.format(prefix))
-                    self.m_min, self.m_max = np.fromfile(f, dtype=dt, count=1)[0]
+                    self.m_min, self.m_max = np.fromfile(f, dtype=dt,
+                                                         count=1)[0]
                 dt = np.dtype('{}2f4'.format(prefix))
                 self.omega_ic, self.omega_ma = \
                     np.fromfile(f, dtype=dt, count=1)[0]
@@ -321,7 +320,6 @@ class MagicPotential(MagicSetup):
                     self.pol_ic = self.pol_ic.T
                     self.tor_ic = np.fromfile(f, dtype=dt, count=1)[0]
                     self.tor_ic = self.tor_ic.T
-
 
                 f.close()
 
@@ -713,8 +711,8 @@ class MagicPotential(MagicSetup):
                      'b2', 'nrj'):
             normed = False
 
-        fig = radialContour(rprof, rad, label, proj, lon_0, vmax, vmin,
-                            lat_0, levels, cm, normed, cbar, tit, lines)
+        radialContour(rprof, rad, label, proj, lon_0, vmax, vmin,
+                      lat_0, levels, cm, normed, cbar, tit, lines)
 
 
 if __name__ == '__main__':
