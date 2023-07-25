@@ -65,11 +65,11 @@ class Movie:
     >>> m = Movie(file='AB_mov.test', png=True, nvar=100, lastvar=380)
     """
 
-    def __init__(self, file=None, iplot=True, step=1, png=False,
+    def __init__(self, file=None, iplot=True, nstep=1, png=False,
                  lastvar=None, nvar='all', levels=12, cm='RdYlBu_r', cut=0.5,
                  bgcolor=None, fluct=False, normed=False, avg=False,
                  std=False, dpi=80, normRad=False, precision=np.float32,
-                 deminc=True, ifield=0, centeredCm=True, datadir='.'):
+                 deminc=True, ifield=0, centeredCm=None, datadir='.'):
         """
         :param nvar: the number of timesteps of the movie file we want to plot
                      starting from the last line
@@ -80,8 +80,8 @@ class Movie:
         :type iplot: bool
         :param lastvar: the number of the last timesteps to be read
         :type lastvar: int
-        :param step: the stepping between two timesteps
-        :type step: int
+        :param nstep: the stepping between two timesteps
+        :type nstep: int
         :param levels: the number of contour levels
         :type levels: int
         :param cm: the name of the color map
@@ -94,7 +94,8 @@ class Movie:
         :param avg: if avg=True, time-average is displayed
         :type avg: bool
         :param centeredCm: when set to True, the colormap is centered between
-                           -vmax and vmax
+                           -vmax and vmax. By default, this is None, it
+                           tries to guess by itself.
         :type centeredCm: bool
         :param std: if std=True, standard deviation is displayed
         :type std: bool
@@ -151,7 +152,8 @@ class Movie:
             try:
                 filename = datSorted[index-1]
             except IndexError:
-                print('Non valid index: {} has been chosen instead'.format(datSorted[0]))
+                print('Non valid index: {} has been chosen instead'.format(
+                      datSorted[0]))
                 filename = datSorted[0]
 
         else:
@@ -356,10 +358,18 @@ class Movie:
                 norm = norm.mean(axis=0)
                 self.data[ll, :, :, norm != 0.] /= norm[norm != 0.]
 
+        if nstep != 1:
+            self.time = self.time[::nstep]
+            self.data = self.data[:, ::nstep, ...]
+            if hasattr(self, 'data_ic'):
+                self.data_ic = self.data_ic[:, ::nstep, ...]
+            self.nvar = self.data.shape[1]
+            self.var2 = self.nvar
+
         if iplot:
             cmap = plt.get_cmap(cm)
-            self.plot(ifield, cut, centeredCm, levels, cmap, png, step, normed, dpi,
-                      bgcolor, deminc)
+            self.plot(ifield, cut, centeredCm, levels, cmap, png, nstep=1,
+                      normed=normed, dpi=dpi, bgcolor=bgcolor, deminc=deminc)
         if avg or std:
             cmap = plt.get_cmap(cm)
             self.avgStd(ifield, std, cut, centeredCm, levels, cmap)
@@ -367,7 +377,7 @@ class Movie:
     def __add__(self, new):
         """
         Built-in function to sum two movies. In case, the spatial grid have been
-        changed an interpolation onto the new grid is used.
+        changed a spline interpolation onto the new grid is used.
 
         :param new: the new movie file to be added
         :type new: magic.Movie
@@ -467,7 +477,7 @@ class Movie:
 
         return out
 
-    def avgStd(self, ifield=0, std=False, cut=0.5, centeredCm=True,
+    def avgStd(self, ifield=0, std=False, cut=0.5, centeredCm=None,
                levels=12, cmap='RdYlBu_r', ic=False):
         """
         Plot time-average or standard deviation
@@ -496,6 +506,11 @@ class Movie:
             avg = self.data[ifield, ...].mean(axis=0)
             if ic:
                 avg_ic = self.data_ic[ifield, ...].mean(axis=0)
+        if centeredCm is None:
+            if avg.min() < 0 and avg.max() > 0:
+                centeredCm = True
+            else:
+                centeredCm = False
         if centeredCm:
             vmin = - max(abs(avg.max()), abs(avg.min()))
             vmin = cut * vmin
@@ -565,8 +580,8 @@ class Movie:
         ax.plot(xxin, yyin, 'k-', lw=1.5)
         ax.axis('off')
 
-    def plot(self, ifield=0, cut=0.5, centeredCm=True, levels=12,
-             cmap='RdYlBu_r', png=False, step=1, normed=False, dpi=80,
+    def plot(self, ifield=0, cut=0.5, centeredCm=None, levels=12,
+             cmap='RdYlBu_r', png=False, nstep=1, normed=False, dpi=80,
              bgcolor=None, deminc=True, ic=False):
         """
         Plotting function (it can also write the png files)
@@ -590,13 +605,14 @@ class Movie:
         :param normed: the colormap is rescaled every timestep when set to True,
                        otherwise it is calculated from the global extrema
         :type normed: bool
-        :param step: the stepping between two timesteps
-        :type step: int
+        :param nstep: the stepping between two timesteps
+        :type nstep: int
         :param deminc: a logical to indicate if one wants do get rid of the
                        possible azimuthal symmetry
         :type deminc: bool
         :param centeredCm: when set to True, the colormap is centered between
-                           -vmax and vmax
+                           -vmax and vmax. By default, it tries to guess by
+                           itself.
         :type centeredCm: bool
         """
 
@@ -606,6 +622,12 @@ class Movie:
                 os.mkdir('movie')
         else:
             plt.ion()
+
+        if centeredCm is None:
+            if self.data[ifield, ...].min() < 0 and self.data[ifield, ...].max() > 0:
+                centeredCm = True
+            else:
+                centeredCm = False
 
         if not normed:
             if centeredCm:
@@ -724,7 +746,7 @@ class Movie:
                 ax.axis('off')
                 man = plt.get_current_fig_manager()
                 man.canvas.draw()
-            if k != 0 and k % step == 0:
+            if k != 0 and k % nstep == 0:
                 if not png:
                     print(k+self.var2-self.nvar)
                 plt.cla()
@@ -832,13 +854,13 @@ class Movie:
         ax.set_xlabel('Longitude')
         ax.set_ylabel('Time')
 
-        m_max = self.n_phi_tot/3
+        m_max = self.n_phi_tot//3
         w2 = np.fft.fft2(dat)
-        w2 = abs(w2[1:self.nvar/2+1, 0:m_max+1])
+        w2 = abs(w2[1:self.nvar//2+1, 0:m_max+1])
 
         dw = 2.*np.pi/(self.time[-1]-self.time[0])
         omega = dw*np.arange(self.nvar)
-        omega = omega[1:self.nvar/2+1]
+        omega = omega[1:self.nvar//2+1]
         ms = np.arange(m_max+1)
 
         fig1 = plt.figure()
@@ -850,5 +872,5 @@ class Movie:
 
 
 if __name__ == '__main__':
-    Movie(step=1)
+    Movie(nstep=1)
     plt.show()
