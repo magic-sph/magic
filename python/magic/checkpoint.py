@@ -192,6 +192,7 @@ class MagicCheckpoint:
             self.ra, self.pr, self.raxi, self.sc, self.prmag, self.ek, \
                      self.radratio, self.sigma_ratio = \
                      np.fromfile(file, dtype=np.float64, count=8)
+            self.stef = 0.
         else:
             self.ra, self.pr, self.raxi, self.sc, self.prmag, self.ek, \
                      self.stef, self.radratio, self.sigma_ratio = \
@@ -340,7 +341,7 @@ class MagicCheckpoint:
         file = open(filename, 'wb')
 
         # Header
-        version = np.array([2], np.int32)
+        version = np.array([4], np.int32)
         version.tofile(file)
         time = np.array([self.time], np.float64)
         time.tofile(file)
@@ -361,7 +362,8 @@ class MagicCheckpoint:
         # Control parameters
         if hasattr(self, 'ra') and hasattr(self, 'sc') and hasattr(self, 'prmag'):
             x = np.array([self.ra, self.pr, self.raxi, self.sc, self.prmag,
-                          self.ek, self.radratio, self.sigma_ratio], np.float64)
+                          self.ek, self.stef, self.radratio, self.sigma_ratio],
+                         np.float64)
         else:
             x = np.array([1e5, 1.0,  0.0, 1.0, 5.0, 1.0e-3, self.radratio, 1.0],
                          np.float64)
@@ -370,6 +372,8 @@ class MagicCheckpoint:
         # Truncation
         x = np.array([self.n_r_max, self.n_theta_max,  self.n_phi_tot, self.minc,
                       self.nalias, self.n_r_ic_max], np.int32)
+        x.tofile(file)
+        x = np.array([self.l_max, self.m_min, self.m_max], np.int32)
         x.tofile(file)
 
         # Radial scheme
@@ -395,7 +399,7 @@ class MagicCheckpoint:
         dumm.tofile(file)
 
         # Logicals
-        flags = np.array([self.l_heat, self.l_chem, self.l_mag, False,
+        flags = np.array([self.l_heat, self.l_chem, self.l_phase, self.l_mag, False,
                           self.l_cond_ic], np.int32)
         flags.tofile(file)
 
@@ -406,6 +410,8 @@ class MagicCheckpoint:
             self.entropy.tofile(file)
         if self.l_chem:
             self.xi.tofile(file)
+        if self.l_phase:
+            self.phase.tofile(file)
         if self.l_mag:
             self.bpol.tofile(file)
             self.btor.tofile(file)
@@ -443,6 +449,9 @@ class MagicCheckpoint:
         if self.l_chem:
             tmp = interp_one_field(self.xi, self.radius, rnew)
             self.xi = tmp
+        if self.l_phase:
+            tmp = interp_one_field(self.phase, self.radius, rnew)
+            self.phase = tmp
         if self.l_mag:
             tmp = interp_one_field(self.bpol, self.radius, rnew)
             self.bpol = tmp
@@ -478,6 +487,9 @@ class MagicCheckpoint:
         if self.l_chem:
             tmp = interp_one_field(self.xi, self.radius, rnew)
             self.xi = tmp
+        if self.l_phase:
+            tmp = interp_one_field(self.phase, self.radius, rnew)
+            self.phase = tmp
         if self.l_mag:
             tmp = interp_one_field(self.bpol, self.radius, rnew)
             self.bpol = tmp
@@ -522,6 +534,7 @@ class MagicCheckpoint:
             self.l_mag = True
         self.l_press = False
         self.l_chem = False
+        self.l_phase = False
         # Right now don't know where it is stored
         self.l_cond_ic = False
 
@@ -573,7 +586,8 @@ class MagicCheckpoint:
             self.entropy = interp_one_field(field_xsh, rr_xsh, self.radius)
 
             if cond_state == 'deltaT':
-                temp0 = -ri**2/(ri**2+ro**2)
+                #temp0 = -ri**2/(ri**2+ro**2)
+                temp0 = 0.
                 tcond = ro*ri/(ro-ri)/self.radius+temp0-ri/(ro-ri)
             elif cond_state == 'mixed':
                 fi = 0.75

@@ -3,7 +3,7 @@ import glob
 import os
 import re
 import numpy as np
-from .npfile import *
+from .npfile import npfile
 from magic.movie import getNlines
 from magic.libmagic import symmetrize
 
@@ -189,31 +189,33 @@ class Movie2Vtk:
         if n_surface == 0:
             self.surftype = '3d volume'
             if self.movtype in [1, 2, 3]:
-                shape = (n_r_mov_tot+2, self.n_theta_max, self.n_phi_tot)
+                shape = (self.n_phi_tot, self.n_theta_max, n_r_mov_tot+2)
             else:
-                shape = (self.n_r_max, self.n_theta_max, self.n_phi_tot)
+                shape = (self.n_phi_tot, self.n_theta_max, self.n_r_max)
         elif n_surface == 1:
             self.surftype = 'r_constant'
-            shape = (self.n_theta_max, self.n_phi_tot)
+            shape = (self.n_phi_tot, self.n_theta_max)
         elif n_surface == 2:
             self.surftype = 'theta_constant'
             if self.movtype in [1, 2, 3, 14]:  # read inner core
-                shape = (n_r_mov_tot+2, self.n_phi_tot)
+                shape = (self.n_phi_tot, n_r_mov_tot+2)
             else:
-                shape = (self.n_r_max, self.n_phi_tot)
+                shape = (self.n_phi_tot, self.n_r_max)
         elif n_surface == 3:
             self.surftype = 'phi_constant'
             if self.movtype in [1, 2, 3, 14]:  # read inner core
-                shape = (n_r_mov_tot+2, self.n_theta_max)
+                shape = (self.n_theta_max, 2*(n_r_mov_tot+2))
                 self.n_theta_plot = 2*self.n_theta_max
             elif self.movtype in [8, 9]:
-                shape = (n_r_mov_tot+2, self.n_theta_max)
+                shape = (self.n_theta_max, n_r_mov_tot+2)
                 self.n_theta_plot = self.n_theta_max
-            elif self.movtype in [4, 5, 6, 7, 15, 16, 17, 18, 47, 54, 109, 112]:
-                shape = (self.n_r_max, self.n_theta_max)
+            elif self.movtype in [4, 5, 6, 7, 15, 16, 17, 18, 47, 54,
+                                  109, 112]:
+                shape = (self.n_theta_max, self.n_r_max, 2)
                 self.n_theta_plot = 2*self.n_theta_max
-            elif self.movtype in [10, 11, 12, 19, 92, 94, 95, 110, 111, 114, 115, 116]:
-                shape = (self.n_r_max, self.n_theta_max)
+            elif self.movtype in [10, 11, 12, 19, 92, 94, 95, 110, 111, 114,
+                                  115, 116]:
+                shape = (self.n_theta_max, self.n_r_max)
                 self.n_theta_plot = self.n_theta_max
 
         if not os.path.exists(dir):
@@ -227,75 +229,69 @@ class Movie2Vtk:
                 movieDipLon, movieDipStrength, movieDipStrengthGeo = \
                 infile.fort_read(precision)
             for ll in range(self.n_fields):
-                dat = infile.fort_read(precision)
+                dat = infile.fort_read(precision, shape=shape, order='F')
         # then read the remaining requested nvar lines
         for k in range(self.nvar):
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
                 movieDipLon, movieDipStrength, movieDipStrengthGeo = \
                 infile.fort_read(precision)
             for ll in range(self.n_fields):
-                dat = infile.fort_read(precision)
+                dat = infile.fort_read(precision, shape=shape, order='F')
                 if n_surface == 0:
-                    dat = dat.reshape(shape)
-                    fname = '{}{}{}_3D_{:05d}'.format(dir, os.sep, fieldName, k+1+store_idx)
+                    fname = '{}{}{}_3D_{:05d}'.format(dir, os.sep, fieldName,
+                                                      k+1+store_idx)
                     if self.movtype in [1, 2, 3]:
-                        # datic = dat[self.n_r_max:, ...].T
-                        dat = dat[:self.n_r_max, ...].T
-                        self.scal3D2vtk(fname, dat, fieldName)
-                    else:
-                        self.scal3D2vtk(fname, dat.T, fieldName)
+                        dat = dat[:, :, :self.n_r_max]
+                    self.scal3D2vtk(fname, dat, fieldName)
                 elif n_surface == 2:
-                    fname = '{}{}{}_eq_{:05d}'.format(dir, os.sep, fieldName, k+1+store_idx)
-                    dat = dat.reshape(shape)
+                    fname = '{}{}{}_eq_{:05d}'.format(dir, os.sep, fieldName,
+                                                      k+1+store_idx)
                     if self.movtype in [1, 2, 3, 14]:
-                        # datic = dat[self.n_r_max:, :].T
-                        dat = dat[:self.n_r_max, :].T
-                        self.equat2vtk(fname, dat, fieldName)
-                    else:
-                        self.equat2vtk(fname, dat.T, fieldName)
+                        dat = dat[:, :self.n_r_max]
+                    self.equat2vtk(fname, dat, fieldName)
                 elif n_surface == 3:
                     if self.movtype in [1, 2, 3, 14]:
-                        len1 = (self.n_r_max*self.n_theta_max*2)
-                        datoc = dat[:len1]
-                        # datic = dat[len1:]
+                        datoc0 = dat[:, :self.n_r_max]
+                        datoc1 = dat[:, self.n_r_max:2*self.n_r_max]
 
-                        datoc0 = datoc[:len(datoc)//2].reshape(self.n_r_max,
-                                                               self.n_theta_max)
-                        datoc1 = datoc[len(datoc)//2:].reshape(self.n_r_max,
-                                                               self.n_theta_max)
-                        fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
-                                                              str(self.phiCut), k+1+store_idx)
-                        self.mer2vtk(fname, datoc0.T, self.phiCut, fieldName)
+                        fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep,
+                                                              fieldName,
+                                                              str(self.phiCut),
+                                                              k+1+store_idx)
+                        self.mer2vtk(fname, datoc0, self.phiCut, fieldName)
                         name = str(self.phiCut+np.pi)
                         if len(name) > 8:
                             name = name[:8]
-                        fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
-                                                              name, k+1, k+1+store_idx)
-                        self.mer2vtk(fname, datoc1.T, self.phiCut+np.pi,
+                        fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep,
+                                                              fieldName,
+                                                              name, k+1,
+                                                              k+1+store_idx)
+                        self.mer2vtk(fname, datoc1, self.phiCut+np.pi,
                                      fieldName)
-                        # datic0 = datic[:len(datic)/2].reshape(self.n_r_ic_max+2,
-                        #                                       self.n_theta_max)
-                        # datic1 = datic[len(datic)/2:].reshape(self.n_r_ic_max+2,
-                        #                                       self.n_theta_max)
-                    elif self.movtype in [4, 5, 6, 7, 15, 16, 17, 18, 47, 54, 91,
-                                          109, 112]:
-                        dat0 = dat[:len(dat)//2].reshape(shape)
-                        dat1 = dat[len(dat)//2:].reshape(shape)
-                        fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
-                                                              str(self.phiCut), k+1+store_idx)
-                        self.mer2vtk(fname, dat0.T, self.phiCut, fieldName)
+                    elif self.movtype in [4, 5, 6, 7, 15, 16, 17, 18, 47, 54,
+                                          91, 109, 112]:
+                        dat0 = dat[..., 0]
+                        dat1 = dat[..., 1]
+                        fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep,
+                                                              fieldName,
+                                                              str(self.phiCut),
+                                                              k+1+store_idx)
+                        self.mer2vtk(fname, dat0, self.phiCut, fieldName)
                         name = str(self.phiCut+np.pi)
                         if len(name) > 8:
                             name = name[:8]
-                        fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep, fieldName,
-                                                              name, k+1+store_idx)
-                        self.mer2vtk(fname, dat1.T, self.phiCut+np.pi,
+                        fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep,
+                                                              fieldName,
+                                                              name,
+                                                              k+1+store_idx)
+                        self.mer2vtk(fname, dat1, self.phiCut+np.pi,
                                      fieldName)
                 else:
-                    fname = '{}{}{}_rcut{}_{:05d}'.format(dir, os.sep, fieldName,
-                                                          str(self.rCut), k+1+store_idx)
-                    dat = dat.reshape(shape)
-                    self.rcut2vtk(fname, dat.T, self.rCut, fieldName)
+                    fname = '{}{}{}_rcut{}_{:05d}'.format(dir, os.sep,
+                                                          fieldName,
+                                                          str(self.rCut),
+                                                          k+1+store_idx)
+                    self.rcut2vtk(fname, dat, self.rCut, fieldName)
 
         infile.close()
 
@@ -313,7 +309,7 @@ class Movie2Vtk:
         :param name: name of the physical field stored in the vts file
         :type name: str
         """
-        if self.rmin > 0 and self.rmax > 0:
+        if self.rmin >= 0 and self.rmax > 0:
             mask = np.where(abs(self.radius-self.rmin)==abs(self.radius-self.rmin).min(), 1, 0)
             idx2 = np.nonzero(mask)[0][0]
             mask = np.where(abs(self.radius-self.rmax)==abs(self.radius-self.rmax).min(), 1, 0)
@@ -386,7 +382,7 @@ class Movie2Vtk:
         :param name: name of the physical field stored in the vts file
         :type name: str
         """
-        if self.rmin > 0 and self.rmax > 0:
+        if self.rmin >= 0 and self.rmax > 0:
             mask = np.where(abs(self.radius-self.rmin)==abs(self.radius-self.rmin).min(), 1, 0)
             idx2 = np.nonzero(mask)[0][0]
             mask = np.where(abs(self.radius-self.rmax)==abs(self.radius-self.rmax).min(), 1, 0)
@@ -427,7 +423,7 @@ class Movie2Vtk:
         :param name: name of the physical field stored in the vts file
         :type name: str
         """
-        if self.rmin > 0 and self.rmax > 0:
+        if self.rmin >= 0 and self.rmax > 0:
             mask = np.where(abs(self.radius-self.rmin)==abs(self.radius-self.rmin).min(), 1, 0)
             idx2 = np.nonzero(mask)[0][0]
             mask = np.where(abs(self.radius-self.rmax)==abs(self.radius-self.rmax).min(), 1, 0)

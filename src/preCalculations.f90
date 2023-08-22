@@ -777,17 +777,20 @@ contains
 
    end subroutine preCalc
 !-------------------------------------------------------------------------------
-   subroutine preCalcTimes(time,n_time_step)
+   subroutine preCalcTimes(time,tEND,dt,n_time_step,n_time_steps)
       !
       !  Precalc. after time, time and dt has been read from startfile.
       !
 
       !-- Output variables
-      real(cp), intent(out) ::  time
-      integer,  intent(out) :: n_time_step
+      real(cp), intent(inout) :: time ! Current time
+      real(cp), intent(in) :: tEND ! Final requested time
+      real(cp), intent(in) :: dt ! Time step size
+      integer,  intent(inout) :: n_time_step ! Index of time loop
+      integer,  intent(in) :: n_time_steps ! Number of iterations
 
       !-- Local variables:
-      logical :: l_time
+      real(cp) :: time_span
 
       !----- Set time step:
       if ( l_reset_t ) then
@@ -795,102 +798,102 @@ contains
          n_time_step=0
       end if
 
+      if ( tEND > 0.0_cp ) then
+         time_span = tEND-time
+      else
+         time_span = dt*n_time_steps
+      end if
+
       tmagcon=tmagcon+time
 
       !-- Get output times:
-      call get_hit_times(t_graph,n_time_hits,n_t_graph,l_time, &
-           &             t_graph_start,t_graph_stop,dt_graph,  &
-           &             n_graphs,n_graph_step,'graph',time,tScale)
+      call get_hit_times(t_graph,n_t_graph,t_graph_start,t_graph_stop,dt_graph,  &
+           &             n_graphs,n_graph_step,'graph',time,time_span,tScale)
 
-      call get_hit_times(t_pot,n_time_hits,n_t_pot,l_time, &
-           &             t_pot_start,t_pot_stop,dt_pot,    &
-           &             n_pots,n_pot_step,'pot',time,tScale)
+      call get_hit_times(t_pot,n_t_pot,t_pot_start,t_pot_stop,dt_pot,    &
+           &             n_pots,n_pot_step,'pot',time,time_span,tScale)
 
-      call get_hit_times(t_rst,n_time_hits,n_t_rst,l_time, &
-           &             t_rst_start,t_rst_stop,dt_rst,    &
-           &             n_rsts,n_rst_step,'rst',time,tScale)
+      call get_hit_times(t_rst,n_t_rst,t_rst_start,t_rst_stop,dt_rst,    &
+           &             n_rsts,n_rst_step,'rst',time,time_span,tScale)
 
-      call get_hit_times(t_log,n_time_hits,n_t_log,l_time, &
-           &             t_log_start,t_log_stop,dt_log,    &
-           &             n_logs,n_log_step,'log',time,tScale)
+      call get_hit_times(t_log,n_t_log,t_log_start,t_log_stop,dt_log,    &
+           &             n_logs,n_log_step,'log',time,time_span,tScale)
 
-      call get_hit_times(t_spec,n_time_hits,n_t_spec,l_time, &
-           &             t_spec_start,t_spec_stop,dt_spec,   &
-           &             n_specs,n_spec_step,'spec',time,tScale)
+      call get_hit_times(t_spec,n_t_spec,t_spec_start,t_spec_stop,dt_spec,  &
+           &             n_specs,n_spec_step,'spec',time,time_span,tScale)
 
       if ( l_probe ) then
          l_probe=.false.
-         call get_hit_times(t_probe,n_time_hits,n_t_probe,l_time, &
-              &             t_probe_start,t_probe_stop,dt_probe,  &
-              &             n_probe_out,n_probe_step,'probe',time,tScale)
-         if ( n_probe_out > 0 .or. n_probe_step > 0 .or. l_time ) l_probe= .true.
+         call get_hit_times(t_probe,n_t_probe,t_probe_start,t_probe_stop,dt_probe, &
+              &             n_probe_out,n_probe_step,'probe',time,time_span,tScale)
+         if ( n_probe_out > 0 .or. n_probe_step > 0 ) l_probe= .true.
       end if
 
       if ( l_cmb_field ) then
          l_cmb_field=.false.
-         call get_hit_times(t_cmb,n_time_hits,n_t_cmb,l_time,t_cmb_start, &
-              &             t_cmb_stop,dt_cmb,n_cmbs,n_cmb_step,'cmb',time,tScale)
-         if ( n_cmbs > 0 .or. n_cmb_step > 0 .or. l_time ) l_cmb_field= .true.
+         call get_hit_times(t_cmb,n_t_cmb,t_cmb_start,t_cmb_stop,dt_cmb,n_cmbs,&
+              &             n_cmb_step,'cmb',time,time_span,tScale)
+         if ( n_cmbs > 0 .or. n_cmb_step > 0 ) l_cmb_field= .true.
       end if
       l_dt_cmb_field=l_dt_cmb_field .and. l_cmb_field
 
       if ( l_r_field ) then
          l_r_field=.false.
-         call get_hit_times(t_r_field,n_time_hits,n_t_r_field,l_time,    &
-              &             t_r_field_start,t_r_field_stop,dt_r_field,   &
-              &             n_r_fields,n_r_field_step,'r_field',time,tScale)
-         if ( n_r_fields > 0 .or. n_r_field_step > 0 .or. l_time ) l_r_field= .true.
+         call get_hit_times(t_r_field,n_t_r_field,t_r_field_start,t_r_field_stop,&
+              &             dt_r_field,n_r_fields,n_r_field_step,'r_field',time, &
+              &             time_span,tScale)
+         if ( n_r_fields > 0 .or. n_r_field_step > 0 ) l_r_field= .true.
       end iF
 
       if ( l_movie ) then
-         call get_hit_times(t_movie,n_time_hits,n_t_movie,l_time,t_movie_start, &
-              &             t_movie_stop,dt_movie,n_movie_frames,n_movie_step,  &
-              &             'movie',time,tScale)
+         call get_hit_times(t_movie,n_t_movie,t_movie_start,t_movie_stop,dt_movie,&
+              &             n_movie_frames,n_movie_step,'movie',time,time_span,tScale)
       end if
 
       if ( l_TO ) then
          if ( n_TOs == 0 .and. n_t_TO == 0 ) n_TO_step=max(3,n_TO_step)
-         call get_hit_times(t_TO,n_time_hits,n_t_TO,l_time,t_TO_start,t_TO_stop, &
-              &             dt_TO,n_TOs,n_TO_step,'TO',time,tScale)
+         call get_hit_times(t_TO,n_t_TO,t_TO_start,t_TO_stop,dt_TO,n_TOs, &
+              &             n_TO_step,'TO',time,time_span,tScale)
       end if
 
       if ( l_TOmovie ) then
-         call get_hit_times(t_TOmovie,n_time_hits,n_t_TOmovie,l_time,t_TOmovie_start, &
-              &             t_TOmovie_stop,dt_TOmovie,n_TOmovie_frames,n_TOmovie_step,&
-              &             'TOmovie',time,tScale)
+         call get_hit_times(t_TOmovie,n_t_TOmovie,t_TOmovie_start,t_TOmovie_stop,&
+              &             dt_TOmovie,n_TOmovie_frames,n_TOmovie_step,'TOmovie',&
+              &             time,time_span,tScale)
       end if
 
    end subroutine preCalcTimes
 !-------------------------------------------------------------------------------
-   subroutine get_hit_times(t,n_t_max,n_t,l_t,t_start,t_stop,dt, &
-              &             n_tot,n_step,string,time,tScale)
+   subroutine get_hit_times(t,n_t,t_start,t_stop,dt,n_tot,n_step,string,time,&
+              &             time_span,tScale)
       !
       ! This subroutine checks whether any specific times t(*) are given
       ! on input. If so, it returns their number n_r and sets l_t to true.
-      ! If not, t(*) may also be defined by giving a time step dt or a
+      ! If not, t(:) may also be defined by giving a time step dt or a
       ! number n_tot of desired output times and ``t_stop>t_start``.
       !
 
       !-- Input variables:
-      integer,          intent(in) :: n_t_max    ! Dimension of t(*)
       real(cp),         intent(in) :: time       ! Time of start file
       real(cp),         intent(in) :: tScale     ! Scale unit for time
+      real(cp),         intent(in) :: time_span  ! Time interval
       character(len=*), intent(in) :: string
-      integer,  intent(inout) :: n_tot       ! No. of output (times) if no times defined
-      integer,  intent(inout) :: n_step      ! Ouput step in no. of time steps
-      real(cp), intent(inout) :: t(n_t_max)  ! Times for output
-      real(cp), intent(inout) :: t_start     ! Starting time for output
-      real(cp), intent(inout) :: t_stop      ! Stop time for output
-      real(cp), intent(inout) :: dt          ! Time step for output
+      integer,               intent(inout) :: n_tot   ! Number of output (times) if no times defined
+      integer,               intent(inout) :: n_step  ! Ouput step in no. of time steps
+      real(cp), allocatable, intent(inout) :: t(:)    ! Times for output
+      real(cp),              intent(inout) :: t_start ! Starting time for output
+      real(cp),              intent(inout) :: t_stop  ! Stop time for output
+      real(cp),              intent(inout) :: dt      ! Time step for output
 
       !-- Output variables
-      integer, intent(out) :: n_t        ! No. of output times
-      logical, intent(out) :: l_t        ! =.true. if output times are defined
+      integer,               intent(out) :: n_t  ! No. of output times
 
       !-- Local variables:
-      integer :: n         ! Counter
+      logical :: l_t
+      real(cp) :: tmp(size(t))
+      integer :: n, n_t_max
 
-
+      n_t_max = size(t)
       t_start=t_start/tScale
       t_stop =t_stop/tScale
       dt     =dt/tScale
@@ -906,37 +909,40 @@ contains
          end if
       end do
 
+      !-- Properly reallocate at the right size
+      if ( l_t ) then
+         tmp(:)=t(:)
+         deallocate(t)
+         allocate(t(n_t))
+         t(:)=tmp(1:n_t)
+      end if
+
       !-- Check times should be constructed:
       if ( t_start < time ) t_start=time
       if ( .not. l_t .and. ( dt > 0.0_cp .or. ( n_tot > 0 .and. t_stop > t_start ) ) ) then
-
          if ( n_tot > 0 .and. dt > 0.0_cp ) then
             n_t  =n_tot
             n_tot=0
          else if ( dt > 0.0_cp ) then
             if ( t_stop > t_start ) then
                n_t=int((t_stop-t_start)/dt)+1
-            else
-               n_t=n_t_max
+            else ! In case t_start, t_stop are not provided guess a max number
+               n_t=int(time_span/dt)+1
             end if
          else if ( n_tot > 0 ) then
             n_t=n_tot
             n_tot=0
             dt=(t_stop-t_start)/real(n_t-1,kind=cp)
          end if
-         if ( n_t > n_t_max ) then
-            write(output_unit,*) '! Sorry, maximum no. of times for'
-            write(output_unit,*) '! output ',string
-            write(output_unit,*) '! is:',n_t_max
-            write(output_unit,*) '! Increase n_time_hits in c_output.f!'
-            call abortRun('Stop run in get_hit_times')
-         end if
-
          l_t=.true.
+
+         deallocate(t) ! Deallocate to get the proper size
          if ( t_start == time ) then
             n_t=n_t-1
+            allocate(t(n_t))
             t(1)=t_start+dt
          else
+            allocate(t(n_t))
             t(1)=t_start
          end if
 
@@ -946,8 +952,7 @@ contains
 
       end if
 
-
-      if ( n_tot /= 0 .AND. n_step /= 0 ) then
+      if ( n_tot /= 0 .and. n_step /= 0 ) then
          write(output_unit,*)
          write(output_unit,*) '! You have to either provide the total'
          write(output_unit,*) '! number or the step for output:'
@@ -959,7 +964,15 @@ contains
       if ( l_t ) then
          t_start=t(1)
          t_stop =t(n_t)
-         dt     =t(2)-t(1)
+         if ( n_t >= 2 ) then
+            dt=t(2)-t(1)
+         else
+            dt=0.0_cp
+         end if
+      else  ! If this is still filled with -1, reduce the size to one element
+         deallocate(t)
+         allocate(t(1))
+         t(:)=-one
       end if
 
    end subroutine get_hit_times

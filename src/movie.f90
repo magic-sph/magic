@@ -978,8 +978,6 @@ contains
             n_field_type(1)=112
          else if ( index(string,'HEATTCONV') /= 0 ) then
             if ( index(string,'AX') /= 0 ) then
-
-               print*, 'Am I reaching here ...................?'
                n_type=124
                typeStr='axisymmetric convective heat transport '
                file_name='AHT_'
