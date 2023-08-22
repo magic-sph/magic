@@ -330,6 +330,8 @@ contains
             end if
 
             if ( l_bgflow ) then
+               ! Solve for perturbations around a background flow. Background
+               ! flow is assumed to be axisymmetric.
                if ( n_bgflow == 1 ) then
                   ! Shellular rotation, omega = omega0 * (r/R)**n
                   ! bgExp > -2 for Rayleigh stable flow
