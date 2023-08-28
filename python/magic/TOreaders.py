@@ -5,7 +5,7 @@ import os
 import copy
 import numpy as np
 import matplotlib.pyplot as plt
-from .npfile import *
+from .npfile import npfile
 from .log import MagicSetup
 from .libmagic import scanDir
 
@@ -97,8 +97,7 @@ class TOMovie:
         self.theta = infile.fort_read(precision)
         self.phi = infile.fort_read(precision)
 
-        surftype = 'phi_constant'
-        shape = (self.n_r_max, self.n_theta_max)
+        shape = (self.n_theta_max, self.n_r_max)
 
         self.time = np.zeros(self.nvar, precision)
         self.asVphi = np.zeros((self.nvar, self.n_theta_max, self.n_r_max),
@@ -116,13 +115,20 @@ class TOMovie:
                 movieDipLon, movieDipStrength, movieDipStrengthGeo \
                 = infile.fort_read(precision)
             self.time[k] = t_movieS
-            self.asVphi[k, ...] = infile.fort_read(precision, shape=shape).T
-            self.rey[k, ...] = infile.fort_read(precision, shape=shape).T
-            self.adv[k, ...] = infile.fort_read(precision, shape=shape).T
-            self.visc[k, ...] = infile.fort_read(precision, shape=shape).T
-            self.lorentz[k, ...] = infile.fort_read(precision, shape=shape).T
-            self.coriolis[k, ...] = infile.fort_read(precision, shape=shape).T
-            self.dtVp[k, ...] = infile.fort_read(precision, shape=shape).T
+            self.asVphi[k, ...] = infile.fort_read(precision, shape=shape,
+                                                   order='F')
+            self.rey[k, ...] = infile.fort_read(precision, shape=shape,
+                                                order='F')
+            self.adv[k, ...] = infile.fort_read(precision, shape=shape,
+                                                order='F')
+            self.visc[k, ...] = infile.fort_read(precision, shape=shape,
+                                                 order='F')
+            self.lorentz[k, ...] = infile.fort_read(precision, shape=shape,
+                                                    order='F')
+            self.coriolis[k, ...] = infile.fort_read(precision, shape=shape,
+                                                     order='F')
+            self.dtVp[k, ...] = infile.fort_read(precision, shape=shape,
+                                                 order='F')
 
         if iplot:
             cmap = plt.get_cmap(cm)
@@ -132,8 +138,8 @@ class TOMovie:
         """
         Built-in function to sum two TO movies
 
-        .. note:: So far this function only works for two TO movies with the same
-                  grid sizes. At some point, we might introduce grid
+        .. note:: So far this function only works for two TO movies with the
+                  same grid sizes. At some point, we might introduce grid
                   extrapolation to allow any summation.
         """
 
@@ -141,11 +147,13 @@ class TOMovie:
 
         if new.time[0] == self.time[-1]:
             out.time = np.concatenate((self.time, new.time[1:]), axis=0)
-            out.asVphi = np.concatenate((self.asVphi, new.asVphi[1:, ...]), axis=0)
+            out.asVphi = np.concatenate((self.asVphi, new.asVphi[1:, ...]),
+                                        axis=0)
             out.rey = np.concatenate((self.rey, new.rey[1:, ...]), axis=0)
             out.adv = np.concatenate((self.adv, new.adv[1:, ...]), axis=0)
             out.visc = np.concatenate((self.visc, new.visc[1:, ...]), axis=0)
-            out.lorentz = np.concatenate((self.lorentz, new.lorentz[1:, ...]), axis=0)
+            out.lorentz = np.concatenate((self.lorentz, new.lorentz[1:, ...]),
+                                         axis=0)
             out.coriolis = np.concatenate((self.coriolis, new.coriolis[1:, ...]),
                                           axis=0)
             out.dtVp = np.concatenate((self.dtVp, new.dtVp[1:, ...]), axis=0)
@@ -156,7 +164,8 @@ class TOMovie:
             out.adv = np.concatenate((self.adv, new.adv), axis=0)
             out.visc = np.concatenate((self.visc, new.visc), axis=0)
             out.lorentz = np.concatenate((self.lorentz, new.lorentz), axis=0)
-            out.coriolis = np.concatenate((self.coriolis, new.coriolis), axis=0)
+            out.coriolis = np.concatenate((self.coriolis, new.coriolis),
+                                          axis=0)
             out.dtVp = np.concatenate((self.dtVp, new.dtVp), axis=0)
 
         return out
