@@ -586,7 +586,8 @@ class MagicCheckpoint:
             self.entropy = interp_one_field(field_xsh, rr_xsh, self.radius)
 
             if cond_state == 'deltaT':
-                temp0 = -ri**2/(ri**2+ro**2)
+                #temp0 = -ri**2/(ri**2+ro**2)
+                temp0 = 0.
                 tcond = ro*ri/(ro-ri)/self.radius+temp0-ri/(ro-ri)
             elif cond_state == 'mixed':
                 fi = 0.75
