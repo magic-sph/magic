@@ -1,6 +1,6 @@
 ![alt tag](https://raw.github.com/magic-sph/magic/master/doc/sphinx/.themes/magic/static/logo.png)
 
-<!---[![Build Status](https://app.travis-ci.com/magic-sph/magic.svg?branch=master)](https://app.travis-ci.com/magic-sph/magic)--->
+[![Language](https://img.shields.io/badge/-Fortran-734f96?logo=fortran&logoColor=white)](https://github.com/topics/fortran)
 [![Build workflow](https://github.com/magic-sph/magic/actions/workflows/main.yml/badge.svg)](https://github.com/magic-sph/magic/actions/workflows/main.yml)
 [![Documentation](https://img.shields.io/badge/documentation-magic.github.io-yellow)](https://magic-sph.github.io/)
 [![DOI](https://zenodo.org/badge/22163/magic-sph/magic.svg)](https://zenodo.org/badge/latestdoi/22163/magic-sph/magic)
