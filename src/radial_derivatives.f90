@@ -940,7 +940,7 @@ contains
    subroutine get_ddddr_ghost(f_Rloc, df_Rloc, ddf_Rloc, dddf_Rloc, ddddf_Rloc, &
               &               lm_max, start_lm, stop_lm, nRstart, nRstop, r_scheme)
       !
-      ! Purpose of this subroutine is to take the first and second
+      ! Purpose of this subroutine is to take the first, second, third and fourth
       ! radial derivatives of an input complex array distributed over radius that
       ! has the ghost zones properly filled.
       !
