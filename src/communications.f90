@@ -608,8 +608,8 @@ contains
       integer :: st(MPI_STATUS_SIZE),request
 #endif
 
-      sr_tag = 17931
       lm_pair = lo_map%lm2(l,m)
+      sr_tag = 17931+lm_pair
       if ( llm <= lm_pair .and. ulm >= lm_pair ) then
          blm0(:) = b(lm_pair,:)
          if ( rank == 0 ) then
@@ -652,8 +652,8 @@ contains
       integer :: st(MPI_STATUS_SIZE),request
 #endif
 
-      sr_tag = 17952
       lm_pair = lo_map%lm2(l,m)
+      sr_tag = 17952+lm_pair
       if ( llm <= lm_pair .and. ulm >= lm_pair ) then
          blm0 = real(b(lm_pair))
          if ( rank == 0 ) then
@@ -695,8 +695,8 @@ contains
 #ifdef WITH_MPI
       integer :: st(MPI_STATUS_SIZE),request
 #endif
-      sr_tag = 18963
       lm_pair = lo_map%lm2(l,m)
+      sr_tag = 18963+lm_pair
       if ( llm <= lm_pair .and. ulm >= lm_pair ) then
          blm0 = b(lm_pair)
          if ( rank == 0 ) then
@@ -736,8 +736,8 @@ contains
       integer :: st(MPI_STATUS_SIZE),request
 #endif
 
-      sr_tag = 17963
       lm_pair = lo_map%lm2(l,m)
+      sr_tag = 17963+lm_pair
       if ( llm <= lm_pair .and. ulm >= lm_pair ) then
          if ( rank == 0 ) then
             return ! Exit if rank==0 already has the data
