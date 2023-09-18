@@ -895,7 +895,7 @@ def zderavg(data, rad, colat=None, exclude=False):
     z derivative of an input array
 
     >>> gr = MagiGraph()
-    >>> dvrdz = zderavg(gr.vr, eta=gr.radratio, colat=gr.colatitude)
+    >>> dvrdz = zderavg(gr.vr, gr.radius, colat=gr.colatitude)
 
     :param data: input array
     :type data: numpy.ndarray
@@ -939,7 +939,7 @@ def sderavg(data, rad, colat=None, exclude=False):
     s derivative of an input array
 
     >>> gr = MagiGraph()
-    >>> dvpds = sderavg(gr.vphi, eta=gr.radratio, colat=gr.colatitude)
+    >>> dvpds = sderavg(gr.vphi, gr.radius, colat=gr.colatitude)
 
     :param data: input array
     :type data: numpy.ndarray
@@ -953,16 +953,28 @@ def sderavg(data, rad, colat=None, exclude=False):
     :returns: the s derivative of the input array
     :rtype: numpy.ndarray
     """
-    ntheta = data.shape[0]
+    if len(data.shape) == 3:  # 3-D
+        ntheta = data.shape[1]
+    elif len(data.shape) == 2:  # 2-D
+        ntheta = data.shape[0]
     nr = data.shape[-1]
     if colat is not None:
         th = colat
     else:
         th = np.linspace(0., np.pi, ntheta)
-    rr2D, th2D = np.meshgrid(rad, th)
+
+    if len(data.shape) == 3:  # 3-D
+        thmD = np.zeros_like(data)
+        for i in range(ntheta):
+            thmD[:,i,:] = th[i]
+    elif len(data.shape) == 2:  # 2-D
+        thmD = np.zeros((ntheta, nr), np.float64)
+        for i in range(ntheta):
+            thmD[i, :] = th[i]
+
     dtheta = thetaderavg(data)
     dr = rderavg(data, rad, exclude)
-    ds = np.sin(th2D)*dr + np.cos(th2D)/rr2D*dtheta
+    ds = np.sin(thmD)*dr + np.cos(thmD)/rad*dtheta
 
     return ds
 
