@@ -240,34 +240,36 @@ domain.
   +-----------------------+-----------------------------------------------------------------------------------------------------------+
   | map_function='TAN'    | Use a tangent mapping  (see `Bayliss and Turkel 1992 <https://doi.org/10.1016/0021-9991(92)90012-N>`_)    |
   +-----------------------+-----------------------------------------------------------------------------------------------------------+
-  | map_function='ARCSIN' | Use finite differences (see `Kosloff and Tal-Ezer 1993 <https://doi.org/10.1006/jcph.1993.1044>`_)        |
+  | map_function='ARCSIN' | Use an arcsin mapping  (see `Kosloff and Tal-Ezer 1993 <https://doi.org/10.1006/jcph.1993.1044>`_)        |
+  +-----------------------+-----------------------------------------------------------------------------------------------------------+
+  | map_function='JAFARI' | Use the mapping by `Jafari-Varzaneh and Hosseini 2014 <https://doi.org/10.1007/s11075-014-9883-3>`_       |
   +-----------------------+-----------------------------------------------------------------------------------------------------------+
 
 If the tangent mapping is used, the function that re-distributes the collocation 
 points is expressed by
 
 .. math::
-   r=\frac{1}{2}\left(\alpha_2+\frac{\textrm{tan}\left[\lambda(r_{cheb}-x_0)\right]}{\alpha_1}\right) + \frac{r_i+r_o}{2} \textrm{ ,}
+   r=\frac{1}{2}\left(\alpha_2+\frac{\textrm{tan}\left[\lambda(x_{cheb}-x_0)\right]}{\alpha_1}\right) + \frac{r_i+r_o}{2} \textrm{ ,}
 
 where the Gauss-Lobatto collocation points are
 
 .. math::
-   r_{cheb}=\textrm{cos}\left( \frac{\pi(k-1)}{N_r} \right) \textrm{ , }\;\; k=1,2,...,n_r \textrm{ , }\; n_r=n\_r\_max
+   x_{cheb}=\textrm{cos}\left( \frac{\pi(k-1)}{N_r} \right) \textrm{ , }\;\; k=1,2,...,n_r \textrm{ , }\; n_r=n\_r\_max
 
-and :math:`r\!\in\![r_i,r_o]`, :math:`r_{cheb}\!\in\![-1.0,1.0]`. The parameters to calculate :math:`r` are
+and :math:`r\!\in\![r_i,r_o]`, :math:`x_{cheb}\!\in\![-1.0,1.0]`. The parameters to calculate :math:`r` are
 
 .. math::
    \lambda&=\frac{\textrm{tan}^{-1}\left(\alpha_1(1-\alpha_2)\right)}{1-x_0} \\
    x_0&=\frac{K-1}{K+1} \\
    K&=\frac{\textrm{tan}^{-1}\left(\alpha_1(1+\alpha_2)\right)}{\textrm{tan}^{-1}\left(\alpha_1(1-\alpha_2)\right)} \textrm{ .}
 
-The coefficient :math:`\alpha_1` determines the degree of concentration/dispersion of the grid points around :math:`r_{cheb}\!=\!\alpha_2`. If :math:`\alpha_1` is too high, the :math:`r` function becomes nearly discontinuous. To avoid numerical problems, :math:`\alpha_1` should remain close to unity.
+The coefficient :math:`\alpha_1` determines the degree of concentration/dispersion of the grid points around :math:`x_{cheb}\!=\!\alpha_2`. If :math:`\alpha_1` is too high, the :math:`r` function becomes nearly discontinuous. To avoid numerical problems, :math:`\alpha_1` should remain close to unity.
 
 If the arcsin mapping is used, the function that re-distributes the collocation points
 is given by
 
 .. math::
-   r=\frac{1}{2}\left[ \frac{\textrm{arcin}\left(\alpha_1 r_{cheb}\right)}{\textrm{arcsin} \alpha_1} \right]+\frac{r_i+r_o}{2} \textrm{ ,}
+   r=\frac{1}{2}\left[ \frac{\textrm{arcin}\left(\alpha_1 x_{cheb}\right)}{\textrm{arcsin} \alpha_1} \right]+\frac{r_i+r_o}{2} \textrm{ ,}
 
 In the Kosloff and Tal-Ezer mapping, :math:`\alpha_1` transforms the Gauss-Lobatto
 grid into a more regularly-spaced grid. When :math:`\alpha_1 \rightarrow 0` one 
@@ -280,10 +282,12 @@ regular grid.
 
 ..
 
+If the Jafari-Varzaneh and Hosseini mapping is employed, similarly to the tangent mapping, :math:`\alpha_1` determines the degree of concentration of the grid points around :math:`x_{cheb}\!=\!\alpha_2`. This is expected to do a better job than the tangent mapping, both in terms of matrix conditioning and in terms of reducing the Gibbs phenomenon around a steep change (Allen-Cahn type of equations involved in the phase field model comes to mind).
+
 
 * **alph1** (default :f:var:`alph1=0.8 <alph1>`) is a real. This is a control parameter of the mapping function.
 
-* **alph2** (default :f:var:`alph2=0.0 <alph2>`) is a real. This is a control parameter of the mapping function.
+* **alph2** (default :f:var:`alph2=0.0 <alph2>`) is a real. This is a control parameter of the mapping function. The default value of :math:`0` corresponds to the center of the grid.
 
 
 Miscellaneous
