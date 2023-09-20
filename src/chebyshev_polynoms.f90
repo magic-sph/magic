@@ -94,11 +94,15 @@ contains
       real(cp), intent(out) :: y(*) ! grid points in interval :math:`[-1,1]`
 
       !-- Local variables:
-      real(cp) :: bpa,bma
+      real(cp) :: bpa,bma,AJ,BJ
       integer :: k
 
       bma=half*(b-a)
       bpa=half*(a+b)
+      if ( index(map_function, 'JAFARI') /= 0 ) then
+         AJ=half*(asinh((one-a2)*a1)+asinh((one+a2)*a1))
+         BJ=asinh((one-a2)*a1)
+      end if
 
       do k=1,n+1
          y(k)=cos( pi*real(k-1,cp)/real(n,cp) )
@@ -109,6 +113,8 @@ contains
             else if ( index(map_function, 'ARCSIN') /= 0 .or. &
             &         index(map_function, 'KTL') /= 0 ) then
                x(k)=bma*asin(a1*y(k))/asin(a1)+bpa
+            else if ( index(map_function, 'JAFARI') /= 0 ) then
+               x(k)=bma*(a2+sinh(AJ*(tan(y(k)*atan(x0))/x0-one)+BJ)/a1)+bpa
             end if
          else
             x(k)=bma * y(k) + bpa
