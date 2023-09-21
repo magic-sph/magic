@@ -125,6 +125,11 @@ contains
             B = asinh((one-this%alpha2)*this%alpha1)
             paraK=abs(aimag((half*ci*pi-B)/A+one))
             paraX0=one/(paraK+0.4_cp)
+         else if ( index(map_function, 'TT') /= 0 .or.  &
+         &         index(map_function, 'TEE') /= 0 ) then
+            A = half*(asinh((one-this%alpha2)*this%alpha1) + &
+            &         asinh((one+this%alpha2)*this%alpha1))
+            B = asinh((one-this%alpha2)*this%alpha1)
          end if
       else
          this%alpha1=0.0_cp
@@ -161,6 +166,18 @@ contains
             &              (rcmb-ricb)**2
             this%dddrx(:)=-8.0_cp*asin(this%alpha1)**3*sqrt(one-this%alpha1**2* &
             &             this%x_cheb(:)**2)/this%alpha1/(rcmb-ricb)**3
+
+         !-- sinh mapping from Tee & Trefethen, 2006
+         else if ( index(map_function, 'TT') /= 0 .or.  &
+         &         index(map_function, 'TEE') /= 0 ) then
+            this%drx(:)  =two*this%alpha1/(A*(rcmb-ricb)*cosh( &
+            &             A*(this%x_cheb(:)-one)+B))
+            this%ddrx(:) =-four*this%alpha1**2*sinh(A*this%x_cheb(:)-A+B) / &
+            &              (A*(ricb-rcmb)**2*cosh(A*this%x_cheb(:)-A+B)**3)
+            this%dddrx(:)=-this%alpha1**3*(32.0_cp*cosh(two*A*this%x_cheb(:)&
+            &             -two*A+two*B)-64.0_cp)/(A*(ricb-rcmb)**3*(        &
+            &             cosh(two*A*this%x_cheb(:)-two*A+two*B)+one)**2*   &
+            &             cosh(A*this%x_cheb(:)-A+B))
 
          !-- Jafari-Varzaneh and Hosseini, 2014
          else if ( index(map_function, 'JAFARI') /= 0 ) then
