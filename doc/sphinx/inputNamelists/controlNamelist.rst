@@ -242,6 +242,8 @@ domain.
   +-----------------------+-----------------------------------------------------------------------------------------------------------+
   | map_function='ARCSIN' | Use an arcsin mapping  (see `Kosloff and Tal-Ezer 1993 <https://doi.org/10.1006/jcph.1993.1044>`_)        |
   +-----------------------+-----------------------------------------------------------------------------------------------------------+
+  | map_function='TT'     | Use the mapping by `Tee and Trefethen 2006 <https://doi.org/10.1137/050641296>`_                          |
+  +-----------------------+-----------------------------------------------------------------------------------------------------------+
   | map_function='JAFARI' | Use the mapping by `Jafari-Varzaneh and Hosseini 2014 <https://doi.org/10.1007/s11075-014-9883-3>`_       |
   +-----------------------+-----------------------------------------------------------------------------------------------------------+
 
@@ -281,6 +283,19 @@ regular grid.
 	     as :math:`\epsilon=\left(\frac{1-\sqrt{1-\alpha_1^2}}{\alpha_1}\right)^{N_r}`.
 
 ..
+
+If the Tee and Trefethen sinh mapping is employed, the grid points are redistributed in the following manner
+
+.. math::
+   r=\frac{1}{2}\left(\alpha_2+\frac{\textrm{sinh}\left[A(x_{cheb}-1)+B\right]}{\alpha_1}\right) + \frac{r_i+r_o}{2} \textrm{ ,}
+
+where
+
+.. math::
+   A=\frac{1}{2}\left[\textrm{sinh}(\alpha_1(1-\alpha_2))+\textrm{sinh}(\alpha_1(1+\alpha_2)) \right], \quad B = \textrm{sinh}(\alpha_1(1-\alpha_2))
+
+With this mapping, :math:`\alpha_1` is directly related to the stiffness of the transition.
+
 
 If the Jafari-Varzaneh and Hosseini mapping is employed, similarly to the tangent mapping, :math:`\alpha_1` determines the degree of concentration of the grid points around :math:`x_{cheb}\!=\!\alpha_2`. This is expected to do a better job than the tangent mapping, both in terms of matrix conditioning and in terms of reducing the Gibbs phenomenon around a steep change (Allen-Cahn type of equations involved in the phase field model comes to mind).
 
