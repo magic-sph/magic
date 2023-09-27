@@ -113,10 +113,10 @@ contains
       ni = 2*n_r_max+2
       nd = 2*n_r_max+5
 
-      call this%chebt_oc%initialize(n_r_max, ni, nd)
-      if(loc_gpu_dct) then
+      call this%chebt_oc%initialize(n_r_max, this%n_max, nd)
+      if (loc_gpu_dct) then
 #ifdef WITH_OMP_GPU
-         call this%gpu_chebt_oc%initialize(this%nRmax, 1, 1)
+         call this%gpu_chebt_oc%initialize(this%nRmax, this%n_max, 1)
 #endif
       end if
 

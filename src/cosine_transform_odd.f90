@@ -31,7 +31,7 @@ module cosine_transform_odd
 
 contains
 
-   subroutine initialize(this, n, ni, nd)
+   subroutine initialize(this, n, n_cheb_max, nd)
       !
       !  Purpose of this subroutine is to calculate and store several
       !  values that will be needed for a fast cosine transform of the
@@ -43,21 +43,19 @@ contains
 
       !-- Input variables:
       integer, intent(in) :: n   ! Number of points
-      integer, intent(in) :: ni
+      integer, intent(in) :: n_cheb_max ! Max number of Chebyshev coeff
       integer, intent(in) :: nd
 
       !-- Local variables:
       integer :: j,k,n_facs,fac(20),n_factors,factor(40)
       real(cp) :: theta,wr,wi,wpr,wpi,wtemp
 
-      allocate( this%d_costf_init(nd), this%i_costf_init(ni) )
-      bytes_allocated = bytes_allocated+nd*SIZEOF_DEF_REAL+ni*SIZEOF_INTEGER
+      allocate( this%d_costf_init(nd), this%i_costf_init(2*n+2) )
+      bytes_allocated = bytes_allocated+(2*n+5)*SIZEOF_DEF_REAL+(2*n+2)*SIZEOF_INTEGER
 
       !-- Checking number of datapoints:
       if ( n <= 3 ) call abortRun('! More than 3 radial grid points are needed')
       if ( mod(n-1,4) /= 0 ) call abortRun('! n_r-1 has to be a multiple of 4')
-      if ( nd < 2*n+5 ) call abortRun('! d_costf_init size should be at larger')
-      if ( ni < n+1 ) call abortRun('! i_costf_init size should be larger')
 
       !-- first information stored in i_costf_init is the dimension:
       this%i_costf_init(1)=n
@@ -83,13 +81,6 @@ contains
       call factorise((n-1)/2,n_facs,fac,n_factors,factor)
 
       !-- third info stored in i_costf_init:
-      if ( ni <= n+2+n_factors ) then
-         write(output_unit,*) '! Message from subroutine init_costf1:'
-         write(output_unit,*) '! Increase dimension of array i_costf_init'
-         write(output_unit,*) '! in calling routine.'
-         write(output_unit,*) '! Should be at least:',n+1+n_factors
-         call abortRun('Stop in cost_odd')
-      end if
       this%i_costf_init(n+2)=n_factors
       do j=1,n_factors
          this%i_costf_init(n+2+j)=factor(j)

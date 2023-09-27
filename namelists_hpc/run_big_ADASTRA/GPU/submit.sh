@@ -23,6 +23,7 @@ module list
 export LDFLAGS=""
 export LDFLAGS+="-L/opt/cray/pe/fftw/3.3.10.3/x86_trento/lib/"
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/cray/pe/fftw/3.3.10.3/x86_trento/lib/
+
 export KMP_STACKSIZE=1g
 
 ulimit -s unlimited

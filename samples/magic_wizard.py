@@ -54,7 +54,7 @@ def getParser():
     parser.add_argument('--use-openmp', action='store_true', dest='use_openmp', 
                         default=True, help='Use the hybrid version')
     parser.add_argument('--use-gpu-openmpOffload', action='store_true', dest='use_gpu_openmpOffload',
-                        default=False, help='Use the hybrid version') ### Set to True if compiling for GPU
+                        default=True, help='Use the hybrid version') ### Set to True if compiling for GPU
     parser.add_argument('--use-mkl', action='store_true', dest='use_mkl', 
                         default=True, 
                         help='Use the MKL for FFTs and Lapack calls')
@@ -69,8 +69,10 @@ def getParser():
                         default=1,
                         help='Specify the number of threads (hybrid version)')
     parser.add_argument('--mpicmd', action='store', dest='mpicmd', type=str,
-                        default='srun -l --nodes=1 --time=00:30:00 --exclusive --constraint=GENOA -A cpa --reservation=eolen_cpu --mpi=cray_shasta  -c 48 --cpu-bind=verbose,core ', ### Slurm options for ADASTRA Genoa CPUs
-                        #default='srun -l --exclusive --time=00:30:00 --constraint=MI250 --gpus-per-task=1 -A cpa --mpi=cray_shasta -c 32 --cpu-bind=verbose,cores --gpu-bind=verbose,closest ', ### Slurm options for ADASTRA MI250x GPUs (hosted in Trento CPUs)
+                        #default='srun -l --nodes=1 --time=00:30:00 --exclusive --constraint=GENOA -A cpa --reservation=eolen_cpu --mpi=cray_shasta  -c 48 --cpu-bind=verbose,core ', 
+                        ### Slurm options for ADASTRA Genoa CPUs
+                        default='env MAP_VERBOSE=1 srun -l --exclusive --time=00:30:00 --constraint=MI250 --gres=gpu:4 -A cpa -c 32 --cpu-bind=none --mem-bind=none -- ../adastra_acc_binding.sh ',
+                        ### Slurm options for ADASTRA MI250x GPUs (hosted in Trento CPUs)
                         #default='srun '
                         help='Specify the mpi executable')
 
