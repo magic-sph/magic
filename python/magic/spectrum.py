@@ -81,6 +81,12 @@ class MagicSpectrum(MagicSetup):
                 self.name = 'Xi_spec_ave'
             else:
                 self.name = 'Xi_spec_'
+        elif field in ('phase', 'Phase'):
+            if self.ave:
+                self.name = 'Phase_spec_ave'
+            else:
+                self.name = 'Phase_spec_'
+
         elif field == 'combined':
             self.__init__(datadir=datadir, field='e_kin', iplot=False, ispec=ispec,
                           ave=ave, normalize=normalize, tag=tag, tags=tags,
@@ -616,6 +622,38 @@ class MagicSpectrum(MagicSetup):
             ax.set_xlim(1, self.index[-1]+1)
             fig.tight_layout()
 
+        elif self.name == 'Phase_spec_' or self.name == 'Phase_spec_ave':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index+1, self.Phase_l[0:], label='Phase')
+            if self.ave:
+                ax.fill_between(self.index+1, self.Phase_l-self.Phase_l_SD,
+                                self.Phase_l+self.Phase_l_SD, alpha=0.2)
+            if labTex:
+                ax.set_xlabel('$\ell+1$')
+            else:
+                ax.set_xlabel('l+1')
+            ax.set_ylabel('Phase field')
+            ax.set_xlim(1, self.index[-1]+1)
+            ax.legend(loc='best', frameon=False)
+            fig.tight_layout()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index[::self.minc]+1, self.Phase_m[::self.minc])
+            if self.ave:
+                ax.fill_between(self.index[::self.minc]+1,
+                                self.Phase_m[::self.minc]-self.Phase_m_SD[::self.minc],
+                                self.Phase_m[::self.minc]+self.Phase_m_SD[::self.minc],
+                                alpha=0.2)
+            if labTex:
+                ax.set_xlabel('Order $m+1$')
+            else:
+                ax.set_xlabel('m+1')
+            ax.set_ylabel('Phase field')
+            ax.set_xlim(1, self.index[-1]+1)
+            fig.tight_layout()
+
 class SpecLookUpTable:
     """
     The purpose of this class is to create a lookup table between the numpy
@@ -877,6 +915,14 @@ class SpecLookUpTable:
             self.Xi_icb_m_SD = data[:, 10]
             self.dXi_icb_l_SD = data[:, 11]
             self.dXi_icb_m_SD = data[:, 12]
+        elif self.name == 'Phase_spec_':
+            self.Phase_l = data[:, 1]
+            self.Phase_m = data[:, 2]
+        elif self.name == 'Phase_spec_ave':
+            self.Phase_l = data[:, 1]
+            self.Phase_m = data[:, 2]
+            self.Phase_l_SD = data[:, 3]
+            self.Phase_m_SD = data[:, 4]
 
     def __add__(self, new):
         """

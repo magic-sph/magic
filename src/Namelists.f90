@@ -646,6 +646,12 @@ contains
          elseif ( l_newmap .and. (alph1 < 0.0_cp) ) then
             alph1=abs(alph1)
          end if
+      !-- Tee & Trefethen or Jafari-Varzadeh mappings
+      else if ( index(map_function, 'TT') /= 0 .or. index(map_function, 'TEE') /= 0 &
+      &         .or. index(map_function, 'JAFARI') /= 0 ) then
+         if ( (alph2 < -one) .or. (alph2 > one) ) then
+            call abortRun('! Chebyshev mapping parameter is not correct !')
+         end if
       !-- This is the case of the Kosloff & Tal-Ezer mapping (1993)
       else if ( index(map_function, 'ARCSIN') /= 0 .or. &
       &         index(map_function, 'KTL') /= 0 ) then
