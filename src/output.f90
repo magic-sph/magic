@@ -349,10 +349,10 @@ contains
          end if
 
          if ( l_spec_avg ) then
-            call spectrum(-1,time,.true.,nLogs,l_stop_time,timePassedLog,          &
-                 &        timeNormLog,s_LMloc,ds_LMloc,xi_LMloc,dxi_LMloc,w_LMloc, &
-                 &        dw_LMloc,z_LMloc,b_LMloc,db_LMloc,aj_LMloc,b_ic_LMloc,   &
-                 &        db_ic_LMloc,aj_ic_LMloc)
+            call spectrum(-1,time,.true.,nLogs,l_stop_time,timePassedLog,      &
+                 &        timeNormLog,s_LMloc,ds_LMloc,xi_LMloc,dxi_LMloc,     &
+                 &        phi_LMloc,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,db_LMloc, &
+                 &        aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
          end if
 
 !          if ( l_average ) then !--TODO: If uncomment boussBenchSat & varProps fail
@@ -460,10 +460,10 @@ contains
 
       if ( l_spectrum ) then
          n_spec=n_spec+1
-         call spectrum(n_spec,time,.false.,nLogs,l_stop_time,timePassedLog,     &
-              &        timeNormLog,s_LMloc,ds_LMloc,xi_LMloc,dxi_LMloc,w_LMloc, &
-              &        dw_LMloc,z_LMloc,b_LMloc,db_LMloc,aj_LMloc,b_ic_LMloc,   &
-              &        db_ic_LMloc,aj_ic_LMloc)
+         call spectrum(n_spec,time,.false.,nLogs,l_stop_time,timePassedLog, &
+              &        timeNormLog,s_LMloc,ds_LMloc,xi_LMloc,dxi_LMloc,     &
+              &        phi_LMloc,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,db_LMloc, &
+              &        aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
          if ( rank == 0 ) then
             write(output_unit,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
             &    " ! Storing spectra:",                            &
