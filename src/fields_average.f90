@@ -286,9 +286,9 @@ contains
          !      Note: average spectra will be in file no 0
          call spectrum(0,time,.false.,nAve,l_stop_time,time_passed,        &
               &        time_norm,s_ave_LMloc,ds_ave_LMloc,xi_ave_LMloc,    &
-              &        dxi_ave_LMloc,w_ave_LMloc,dw_ave_LMloc,z_ave_LMloc, &
-              &        b_ave_LMloc,db_ave_LMloc,aj_ave_LMloc,b_ic_ave,     &
-              &        db_ic_ave,aj_ic_ave)
+              &        dxi_ave_LMloc,phi_ave_LMloc,w_ave_LMloc,            &
+              &        dw_ave_LMloc,z_ave_LMloc,b_ave_LMloc,db_ave_LMloc,  &
+              &        aj_ave_LMloc,b_ic_ave,db_ic_ave,aj_ic_ave)
 
          if ( rank==0 .and. l_save_out ) then
             open(newunit=n_log_file, file=log_file, status='unknown', &
