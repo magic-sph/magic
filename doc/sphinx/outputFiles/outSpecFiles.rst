@@ -177,8 +177,32 @@ square of chemical composition. It is written by the subroutine
 
 This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with the following options:
 
-   >>> # To read the file ``Xi_spec_ave.test``:
-   >>> sp = MagicSpectrum(field='Xi', ave=True, tag='test')
+   >>> # To read the file ``Xi_spec_3.test``:
+   >>> sp = MagicSpectrum(field='Xi', ispec=3, tag='test')
+
+.. _secPhaseSpecFile:
+
+``Phase_spec_#.TAG``
+--------------------
+
+This file contains the phase field spectra, those are defined by taking the
+square of phase field. It is written by the subroutine
+:f:subr:`spectrum <spectra/spectrum()>`.
+
+   +---------------+-----------------------------------------------------------+
+   | No. of column | Contents                                                  |
+   +===============+===========================================================+
+   | 1             | degree / order                                            |
+   +---------------+-----------------------------------------------------------+
+   | 2             | Square of the phase field as a function of degree         |
+   +---------------+-----------------------------------------------------------+
+   | 3             | Square of the phase field as a function of order          |
+   +---------------+-----------------------------------------------------------+
+
+This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with the following options:
+
+   >>> # To read the file ``Phase_spec_3.cheb``:
+   >>> sp = MagicSpectrum(field='phase', ispec=3, tag='cheb')
 
 .. _sec2DSpectra:
 
@@ -397,7 +421,7 @@ This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with
 .. note:: This file is **only** written when :ref:`l_spec_avg=.true. <varl_spec_avg>`
 
 This file contains the time-averaged temperature/entropy spectra and their standard
-deviation. It is written by the subroutine :f:subr:`spectrum_temp_average <spectra/spectrum_temp_average()>`.
+deviation. It is written by the subroutine :f:subr:`spectrum <spectra/spectrum()>`.
 
    +---------------+-----------------------------------------------------------+
    | No. of column | Contents                                                  |
@@ -438,6 +462,97 @@ deviation. It is written by the subroutine :f:subr:`spectrum_temp_average <spect
    | 13            | Standard deviation of the temperature/entropy gradient    |
    |               | at the ICB  versus order                                  |
    +---------------+-----------------------------------------------------------+
+
+This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with the following options:
+
+   >>> # To read the file ``T_spec_ave.test``:
+   >>> sp = MagicSpectrum(field='T', ave=True, tag='test')
+
+.. _secXipecAveFile:
+
+``Xi_spec_ave.TAG``
+-------------------
+
+.. note:: This file is **only** written when :ref:`l_spec_avg=.true. <varl_spec_avg>`
+
+This file contains the time-averaged composition spectra and their standard
+deviation. It is written by the subroutine :f:subr:`spectrum <spectra/spectrum()>`.
+
+   +---------------+-----------------------------------------------------------+
+   | No. of column | Contents                                                  |
+   +===============+===========================================================+
+   | 1             | Spherical harmonic degree/order                           |
+   +---------------+-----------------------------------------------------------+
+   | 2             | Time-averaged squared composition versus degree           |
+   +---------------+-----------------------------------------------------------+
+   | 3             | Time-averaged squared composition versus order            |
+   +---------------+-----------------------------------------------------------+
+   | 4             | Time-averaged squared composition at the ICB versus       |
+   |               | degree                                                    |
+   +---------------+-----------------------------------------------------------+
+   | 5             | Time-averaged squared composition at the ICB versus       |
+   |               | order                                                     |
+   +---------------+-----------------------------------------------------------+
+   | 6             | Time-averaged squared composition gradient at the ICB     |
+   |               | versus degree                                             |
+   +---------------+-----------------------------------------------------------+
+   | 7             | Time-averaged squared composition gradient at the ICB     |
+   |               | versus order                                              |
+   +---------------+-----------------------------------------------------------+
+   | 8             | Standard deviation of the squared composition versus      |
+   |               | degree                                                    |
+   +---------------+-----------------------------------------------------------+
+   | 9             | Standard deviation of the squared composition versus      |
+   |               | order                                                     |
+   +---------------+-----------------------------------------------------------+
+   | 10            | Standard deviation of the squared composition at the ICB  |
+   |               | versus degree                                             |
+   +---------------+-----------------------------------------------------------+
+   | 11            | Standard deviation of the squared composition at the ICB  |
+   |               | versus order                                              |
+   +---------------+-----------------------------------------------------------+
+   | 12            | Standard deviation of the squared composition gradient    |
+   |               | at the ICB  versus degree                                 |
+   +---------------+-----------------------------------------------------------+
+   | 13            | Standard deviation of the squared composition gradient    |
+   |               | at the ICB  versus order                                  |
+   +---------------+-----------------------------------------------------------+
+
+This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with the following options:
+
+   >>> # To read the file ``Xi_spec_ave.cheb``:
+   >>> sp = MagicSpectrum(field='Xi', ave=True, tag='cheb')
+
+.. _secPhaseSpecAveFile:
+
+``Phase_spec_ave.TAG``
+-----------------------
+
+.. note:: This file is **only** written when :ref:`l_spec_avg=.true. <varl_spec_avg>`
+
+This file contains the time-averaged phase field spectra and their standard
+deviation. It is written by the subroutine :f:subr:`spectrum <spectra/spectrum()>`.
+
+   +---------------+-----------------------------------------------------------+
+   | No. of column | Contents                                                  |
+   +===============+===========================================================+
+   | 1             | Spherical harmonic degree/order                           |
+   +---------------+-----------------------------------------------------------+
+   | 2             | Time-averaged square phase field versus degree            |
+   +---------------+-----------------------------------------------------------+
+   | 3             | Time-averaged square phase field versus order             |
+   +---------------+-----------------------------------------------------------+
+   | 4             | Standard deviation of the squared phase field field       |
+   |               | versus degree                                             |
+   +---------------+-----------------------------------------------------------+
+   | 5             | Standard deviation of the squared phase field field       |
+   |               | versus order                                              |
+   +---------------+-----------------------------------------------------------+
+
+This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with the following options:
+
+   >>> # To read the file ``Phase_spec_ave.test``:
+   >>> sp = MagicSpectrum(field='phase', ave=True, tag='test')
 
 
 .. _secRMSSpectra:
