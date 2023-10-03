@@ -112,21 +112,22 @@ class ThetaHeat(MagicSetup):
                 self.fluxstd = rderavg(self.tempstd, m.radius, exclude=False)
 
             # Pickle saving
-            f = open(pickleName, 'wb')
-            pickle.dump([self.colat, self.tempmean, self.tempstd,\
-                         self.fluxmean, self.fluxstd], f)
-            f.close()
+            try:
+                with open(pickleName, 'wb') as f:
+                    pickle.dump([self.colat, self.tempmean, self.tempstd,
+                                 self.fluxmean, self.fluxstd], f)
+            except PermissionError:
+                print('No write access in the current directory')
         else:
-            f = open(pickleName, 'rb')
-            dat = pickle.load(f)
-            if len(dat) == 5:
-                self.colat, self.tempmean, self.tempstd, \
-                            self.fluxmean, self.fluxstd = dat
-            else:
-                self.colat, self.tempmean, self.fluxmean = dat
-                self.fluxstd = np.zeros_like(self.fluxmean)
-                self.tempstd = np.zeros_like(self.fluxmean)
-            f.close()
+            with open(pickleName, 'rb') as f:
+                dat = pickle.load(f)
+                if len(dat) == 5:
+                    self.colat, self.tempmean, self.tempstd, \
+                                self.fluxmean, self.fluxstd = dat
+                else:
+                    self.colat, self.tempmean, self.fluxmean = dat
+                    self.fluxstd = np.zeros_like(self.fluxmean)
+                    self.tempstd = np.zeros_like(self.fluxmean)
 
         self.ri = self.radratio/(1.-self.radratio)
         self.ro = 1./(1.-self.radratio)
