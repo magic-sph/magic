@@ -42,16 +42,16 @@ def get_map(lm_max, lmax, mmin, mmax, minc):
     :returns: returns a list of three look-up tables: idx, lm2l, lm2m
     :rtype: list
     """
-    idx = np.zeros((lmax+1, mmax+1), np.int8)
-    lm2l = np.zeros(lm_max, np.int8)
-    lm2m = np.zeros(lm_max, np.int8)
+    idx = np.zeros((lmax+1, mmax+1), np.int32)
+    lm2l = np.zeros(lm_max, np.int16)
+    lm2m = np.zeros(lm_max, np.int16)
     k = 0
     for m in range(mmin, mmax+1, minc):
         for l in range(m, lmax+1):
             idx[l, m] = k
             lm2l[k] = l
             lm2m[k] = m
-            k +=1
+            k += 1
 
     return idx, lm2l, lm2m
 
