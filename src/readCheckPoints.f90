@@ -1634,7 +1634,7 @@ contains
       character(len=10) :: tscheme_family_old
       real(cp) :: r_icb_old, r_cmb_old
       integer :: n_in, n_in_2, version, info, fh, nRStart_old, nRStop_old, n_o
-      integer :: nR_per_rank_old, datatype, l1m0
+      integer :: nR_per_rank_old, datatype, l1m0, itest
       integer :: istat(MPI_STATUS_SIZE)
       integer :: nimp_old, nexp_old, nold_old
       logical :: l_press_store_old, l_transp
@@ -1887,20 +1887,31 @@ contains
       end if
 
       !-- Read logical to know how many fields are stored
-      call MPI_File_Read(fh, l_heat_old, 1, MPI_LOGICAL, istat, ierr)
-      call MPI_File_Read(fh, l_chemical_conv_old, 1, MPI_LOGICAL, istat, ierr)
+      !-- It is safer to read MPI_INTEGER instead of MPI_LOGICAL
+      !-- in case a binary was produced by intel and read by gfortran
+      !-- This comes from the intel convenction to define .false.=-1
+      !-- which can be wrongly interpreted by some gfortran versions
+      !-- with the debug flags
+      call MPI_File_Read(fh, itest, 1, MPI_INTEGER, istat, ierr)
+      l_heat_old = itest /= 0
+      call MPI_File_Read(fh, itest, 1, MPI_INTEGER, istat, ierr)
+      l_chemical_conv_old = itest /= 0
       if ( version > 2 ) then
-         call MPI_File_Read(fh, l_phase_field_old, 1, MPI_LOGICAL, istat, ierr)
+         call MPI_File_Read(fh, itest, 1, MPI_INTEGER, istat, ierr)
+         l_phase_field_old = itest /= 0
       else
          l_phase_field_old = .false.
       end if
-      call MPI_File_Read(fh, l_mag_old, 1, MPI_LOGICAL, istat, ierr)
+      call MPI_File_Read(fh, itest, 1, MPI_INTEGER, istat, ierr)
+      l_mag_old = itest /= 0
       if ( version > 1 ) then
-         call MPI_File_Read(fh, l_press_store_old, 1, MPI_LOGICAL, istat, ierr)
+         call MPI_File_Read(fh, itest, 1, MPI_INTEGER, istat, ierr)
+         l_press_store_old = itest /= 0
       else
          l_press_store_old = .true.
       end if
-      call MPI_File_Read(fh, l_cond_ic_old, 1, MPI_LOGICAL, istat, ierr)
+      call MPI_File_Read(fh, itest, 1, MPI_INTEGER, istat, ierr)
+      l_cond_ic_old = itest /= 0
 
       !-- Measure offset 
       call MPI_File_get_position(fh, offset, ierr)
