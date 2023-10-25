@@ -234,8 +234,9 @@ class MagicCheckpoint:
         if self.tscheme_family.startswith('MULTISTEP'):
             domega_ic = np.fromfile(file, dtype=np.float64, count=(nexp+nimp+nold-3))
             domega_ma = np.fromfile(file, dtype=np.float64, count=(nexp+nimp+nold-3))
-            lotorque_ic = np.fromfile(file, dtype=np.float64, count=(nexp+nimp+nold-3))
-            lotorque_ma = np.fromfile(file, dtype=np.float64, count=(nexp+nimp+nold-3))
+            if self.version < 5:
+                lotorque_ic = np.fromfile(file, dtype=np.float64, count=(nexp+nimp+nold-3))
+                lotorque_ma = np.fromfile(file, dtype=np.float64, count=(nexp+nimp+nold-3))
 
         om = np.fromfile(file, dtype=np.float64, count=12)
         self.omega_ic = om[0]
