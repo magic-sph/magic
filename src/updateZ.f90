@@ -188,20 +188,17 @@ contains
    end subroutine finalize_updateZ
 !-------------------------------------------------------------------------------
    subroutine updateZ(time,timeNext,z,dz,dzdt,omega_ma,omega_ic,domega_ma_dt,  &
-              &       domega_ic_dt,lorentz_torque_ma_dt, lorentz_torque_ic_dt, &
-              &       tscheme,lRmsNext)
+              &       domega_ic_dt,tscheme,lRmsNext)
       !
       !  Updates the toroidal potential z and its radial derivative dz
       !
 
       !-- Input/output of scalar fields:
       class(type_tscheme), intent(in) :: tscheme
-      complex(cp), intent(inout) :: z(llm:ulm,n_r_max)  ! Toroidal velocity potential z
+      complex(cp),         intent(inout) :: z(llm:ulm,n_r_max)  ! Toroidal velocity potential z
       type(type_tarray),  intent(inout) :: dzdt
       type(type_tscalar), intent(inout) :: domega_ic_dt
       type(type_tscalar), intent(inout) :: domega_ma_dt
-      type(type_tscalar), intent(inout) :: lorentz_torque_ic_dt
-      type(type_tscalar), intent(inout) :: lorentz_torque_ma_dt
 
       !-- Input of other variables:
       real(cp),           intent(in) :: time       ! Current stage time
@@ -220,7 +217,7 @@ contains
       integer :: nR                 ! counts radial grid points
       integer :: n_r_out            ! counts cheb modes
       real(cp) :: prec_fac
-      real(cp) :: dom_ma, dom_ic, lo_ma, lo_ic
+      real(cp) :: dom_ma, dom_ic
       integer :: l1m0          ! position of (l=1,m=0) and (l=1,m=1) in lm.
       integer :: nLMB
 
@@ -250,19 +247,11 @@ contains
       l1m0       =lm2(1,0)
 
       if ( l_rot_ma  .and. (.not. l_SRMA) ) then
-         if ( ktopv == 1 ) then
-            call tscheme%set_imex_rhs_scalar(lo_ma, lorentz_torque_ma_dt)
-         else
-            call tscheme%set_imex_rhs_scalar(dom_ma, domega_ma_dt)
-         end if
+         call tscheme%set_imex_rhs_scalar(dom_ma, domega_ma_dt)
       end if
 
       if ( l_rot_ic .and. (.not. l_SRIC) ) then
-         if ( kbotv == 1 ) then
-            call tscheme%set_imex_rhs_scalar(lo_ic, lorentz_torque_ic_dt)
-         else
-            call tscheme%set_imex_rhs_scalar(dom_ic, domega_ic_dt)
-         end if
+         call tscheme%set_imex_rhs_scalar(dom_ic, domega_ic_dt)
       end if
 
       !-- Now assemble the right hand side and store it in work_LMloc
@@ -478,25 +467,19 @@ contains
       call tscheme%rotate_imex(dzdt)
       call tscheme%rotate_imex_scalar(domega_ma_dt)
       call tscheme%rotate_imex_scalar(domega_ic_dt)
-      call tscheme%rotate_imex_scalar(lorentz_torque_ma_dt)
-      call tscheme%rotate_imex_scalar(lorentz_torque_ic_dt)
 
       !-- Calculation of the implicit part
       if (  tscheme%istage == tscheme%nstages ) then
          !-- First update rot rates for possible AM correction in a second step
-         call update_rot_rates(z, lo_ma, lo_ic, lorentz_torque_ma_dt,    &
-              &                lorentz_torque_ic_dt, omega_ma,           &
-              &                omega_ma1, omega_ic, omega_ic1, 1,        &
-              &                l_in_cheb_space=.true.)
+         call update_rot_rates(z, dom_ma, dom_ic, omega_ma, omega_ma1, omega_ic, &
+              &                omega_ic1, l_in_cheb_space=.true.)
          call get_tor_rhs_imp(timeNext, z, dz, dzdt, domega_ma_dt, domega_ic_dt, &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, &
               &               1, tscheme%l_imp_calc_rhs(1), lRmsNext,            &
               &               l_in_cheb_space=.true.)
       else
-         call update_rot_rates(z, lo_ma, lo_ic, lorentz_torque_ma_dt,            &
-              &                lorentz_torque_ic_dt, omega_ma,                   &
-              &                omega_ma1, omega_ic, omega_ic1, tscheme%istage+1, &
-              &                l_in_cheb_space=.true.)
+         call update_rot_rates(z, dom_ma, dom_ic, omega_ma, omega_ma1, omega_ic, &
+              &                omega_ic1, l_in_cheb_space=.true.)
          call get_tor_rhs_imp(time, z, dz, dzdt, domega_ma_dt, domega_ic_dt,     &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, &
               &               tscheme%istage+1, tscheme%l_imp_calc_rhs(          &
@@ -506,7 +489,7 @@ contains
    end subroutine updateZ
 !------------------------------------------------------------------------------
    subroutine prepareZ_FD(time, tscheme, dzdt, omega_ma, omega_ic, domega_ma_dt, &
-              &           domega_ic_dt)
+              &           domega_ic_dt, dom_ma, dom_ic)
 
       !-- Input of variables:
       real(cp),            intent(in) :: time
@@ -518,9 +501,10 @@ contains
       type(type_tscalar), intent(inout) :: domega_ic_dt
       type(type_tscalar), intent(inout) :: domega_ma_dt
       type(type_tarray),  intent(inout) :: dzdt
+      real(cp),           intent(out) :: dom_ic, dom_ma
 
       !-- Local variables
-      real(cp) :: dom_ma, dom_ic, prec_fac
+      real(cp) :: prec_fac
       integer :: nR, lm_start, lm_stop, lm, l, m, l1m1, l1m0
 
       if ( .not. l_update_v ) return
@@ -540,19 +524,15 @@ contains
             lZ10mat=.true.
          end if
       end if
-
+      dom_ma=0.0_cp
+      dom_ic=0.0_cp
       if ( l_rot_ma  .and. (.not. l_SRMA) ) then
-         if ( ktopv /= 1 ) then ! Not stress-free
-            call tscheme%set_imex_rhs_scalar(dom_ma, domega_ma_dt)
-         end if
+         call tscheme%set_imex_rhs_scalar(dom_ma, domega_ma_dt)
       end if
 
       if ( l_rot_ic .and. (.not. l_SRIC) ) then
-         if ( kbotv /= 1 ) then ! Not stress-free
-            call tscheme%set_imex_rhs_scalar(dom_ic, domega_ic_dt)
-         end if
+         call tscheme%set_imex_rhs_scalar(dom_ic, domega_ic_dt)
       end if
-
 
       !$omp parallel default(shared) private(lm_start,lm_stop,nR, l, m, lm)
       lm_start=1; lm_stop=lm_max
@@ -719,15 +699,15 @@ contains
 
    end subroutine fill_ghosts_Z
 !------------------------------------------------------------------------------
-   subroutine updateZ_FD(time, timeNext, z, dz, dzdt, omega_ma, omega_ic,         &
-              &          domega_ma_dt, domega_ic_dt, lorentz_torque_ma_dt,        &
-              &          lorentz_torque_ic_dt, tscheme,lRmsNext)
+   subroutine updateZ_FD(time, timeNext, dom_ma, dom_ic, z, dz, dzdt, omega_ma, &
+              &          omega_ic, domega_ma_dt, domega_ic_dt, tscheme,lRmsNext)
 
       !-- Input of variables:
       real(cp),            intent(in) :: time       ! Current stage time
       real(cp),            intent(in) :: timeNext   ! Next time
       class(type_tscheme), intent(in) :: tscheme
       logical,             intent(in) :: lRmsNext   ! Logical for storing update if (l_RMS.and.l_logNext)
+      real(cp),            intent(in) :: dom_ic, dom_ma
 
       !-- Input/output of scalar fields:
       type(type_tarray), intent(inout) :: dzdt
@@ -739,43 +719,28 @@ contains
       real(cp),           intent(inout) :: omega_ic        ! Calculated IC rotation
       type(type_tscalar), intent(inout) :: domega_ic_dt
       type(type_tscalar), intent(inout) :: domega_ma_dt
-      type(type_tscalar), intent(inout) :: lorentz_torque_ic_dt
-      type(type_tscalar), intent(inout) :: lorentz_torque_ma_dt
 
       !-- Local variables
-      real(cp) :: lo_ma, lo_ic
       integer :: lm_start, lm_stop, lm, nR, l
 
       if ( .not. l_update_v ) return
-
-      if ( l_rot_ma  .and. (.not. l_SRMA) .and. ktopv == 1) then
-         call tscheme%set_imex_rhs_scalar(lo_ma, lorentz_torque_ma_dt)
-      end if
-
-      if ( l_rot_ic .and. (.not. l_SRIC) .and. kbotv == 1 ) then
-         call tscheme%set_imex_rhs_scalar(lo_ic, lorentz_torque_ic_dt)
-      end if
 
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dzdt)
       call tscheme%rotate_imex_scalar(domega_ma_dt)
       call tscheme%rotate_imex_scalar(domega_ic_dt)
-      call tscheme%rotate_imex_scalar(lorentz_torque_ma_dt)
-      call tscheme%rotate_imex_scalar(lorentz_torque_ic_dt)
 
       !-- Calculation of the implicit part
       if (  tscheme%istage == tscheme%nstages ) then
-         call update_rot_rates_Rloc(z_ghost, lo_ma, lo_ic, lorentz_torque_ma_dt,   &
-              &                     lorentz_torque_ic_dt, omega_ma,                &
-              &                     omega_ma1, omega_ic, omega_ic1, 1)
+         call update_rot_rates_Rloc(z_ghost, dom_ma, dom_ic, omega_ma, omega_ma1, &
+              &                     omega_ic, omega_ic1)
          call get_tor_rhs_imp_ghost(timeNext, z_ghost, dz, dzdt, domega_ma_dt,       &
               &                     domega_ic_dt, omega_ic, omega_ma, omega_ic1,     &
               &                     omega_ma1, tscheme, 1, tscheme%l_imp_calc_rhs(1),&
               &                     lRmsNext)
       else
-         call update_rot_rates_Rloc(z_ghost, lo_ma, lo_ic, lorentz_torque_ma_dt,    &
-              &                     lorentz_torque_ic_dt, omega_ma,                 &
-              &                     omega_ma1, omega_ic, omega_ic1, tscheme%istage+1)
+         call update_rot_rates_Rloc(z_ghost, dom_ma, dom_ic, omega_ma, omega_ma1, &
+              &                     omega_ic, omega_ic1)
          call get_tor_rhs_imp_ghost(time, z_ghost, dz, dzdt, domega_ma_dt,        &
               &                     domega_ic_dt, omega_ic, omega_ma, omega_ic1,  &
               &                     omega_ma1, tscheme, tscheme%istage+1,         &
@@ -1007,22 +972,31 @@ contains
          !$omp end do
 
       end if
-
       !$omp end parallel
 
-      if ( ( llm <= l1m0 .and. ulm >= l1m0 ) .and. l_z10mat ) then
+      if ( ( llm <= l1m0 .and. ulm >= l1m0 ) ) then
          !----- NOTE opposite sign of viscous torque on ICB and CMB:
-         if ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ) then
-            domega_ma_dt%impl(istage)=visc(1)*( (two*or1(1)+beta(1))* &
-            &                         real(z(l1m0,1))-real(dz(l1m0,1)) )
-            if ( istage == 1 ) domega_ma_dt%old(istage)=c_dt_z10_ma*real(z(l1m0,1))
+         if ( .not. l_SRMA .and. l_rot_ma ) then
+            if ( ktopv == 1 ) then ! Stress-free
+               domega_ma_dt%impl(istage)=0.0_cp
+               if ( istage == 1 ) domega_ma_dt%old(istage)=c_moi_ma*c_lorentz_ma*omega_ma
+            else
+               domega_ma_dt%impl(istage)=visc(1)*( (two*or1(1)+beta(1))* &
+               &                         real(z(l1m0,1))-real(dz(l1m0,1)) )
+               if ( istage == 1 ) domega_ma_dt%old(istage)=c_dt_z10_ma*real(z(l1m0,1))
+            end if
          end if
-         if ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ) then
-            domega_ic_dt%impl(istage)=-visc(n_r_max)* ( (two*or1(n_r_max)+   &
-            &                          beta(n_r_max))*real(z(l1m0,n_r_max))- &
-            &                          real(dz(l1m0,n_r_max)) )
-            if ( istage == 1 ) domega_ic_dt%old(istage)=c_dt_z10_ic* &
-            &                                           real(z(l1m0,n_r_max))
+         if ( .not. l_SRIC .and. l_rot_ic ) then
+            if ( kbotv == 1 ) then
+               domega_ic_dt%impl(istage)=0.0_cp
+               if ( istage == 1 ) domega_ic_dt%old(istage)=c_moi_ic*c_lorentz_ic*omega_ic
+            else
+               domega_ic_dt%impl(istage)=-visc(n_r_max)* ( (two*or1(n_r_max)+   &
+               &                          beta(n_r_max))*real(z(l1m0,n_r_max))- &
+               &                          real(dz(l1m0,n_r_max)) )
+               if ( istage == 1 ) domega_ic_dt%old(istage)=c_dt_z10_ic* &
+               &                                           real(z(l1m0,n_r_max))
+            end if
          end if
       end if
 
@@ -1255,17 +1229,27 @@ contains
 
       if ( l_z10mat ) then
          !----- NOTE opposite sign of viscous torque on ICB and CMB:
-         if ( .not. l_SRMA .and. ktopv==2 .and. l_rot_ma .and. nRstart==n_r_cmb ) then
-            domega_ma_dt%impl(istage)=visc(1)*( (two*or1(1)+beta(1))* &
-            &                         real(zg(l1m0,1))-real(dz(l1m0,1)) )
-            if ( istage == 1 ) domega_ma_dt%old(istage)=c_dt_z10_ma*real(zg(l1m0,1))
+         if ( .not. l_SRMA .and. l_rot_ma .and. nRstart==n_r_cmb ) then
+            if ( ktopv == 1 ) then ! Stress-free
+               domega_ma_dt%impl(istage)=0.0_cp
+               if ( istage == 1) domega_ma_dt%old(istage)=c_moi_ma*c_lorentz_ma*omega_ma
+            else
+               domega_ma_dt%impl(istage)=visc(1)*( (two*or1(1)+beta(1))* &
+               &                         real(zg(l1m0,1))-real(dz(l1m0,1)) )
+               if ( istage == 1 ) domega_ma_dt%old(istage)=c_dt_z10_ma*real(zg(l1m0,1))
+            end if
          end if
-         if ( .not. l_SRIC .and. kbotv==2 .and. l_rot_ic .and. nRstop==n_r_icb ) then
-            domega_ic_dt%impl(istage)=-visc(n_r_max)* ( (two*or1(n_r_max)+   &
-            &                          beta(n_r_max))*real(zg(l1m0,n_r_max))- &
-            &                          real(dz(l1m0,n_r_max)) )
-            if ( istage == 1 ) domega_ic_dt%old(istage)=c_dt_z10_ic* &
-            &                                           real(zg(l1m0,n_r_max))
+         if ( .not. l_SRIC .and. l_rot_ic .and. nRstop==n_r_icb ) then
+            if ( kbotv == 1 ) then ! Stress-free
+               domega_ic_dt%impl(istage)=0.0_cp
+               if ( istage == 1) domega_ic_dt%old(istage)=c_moi_ic*c_lorentz_ic*omega_ic
+            else
+               domega_ic_dt%impl(istage)=-visc(n_r_max)* ( (two*or1(n_r_max)+    &
+               &                          beta(n_r_max))*real(zg(l1m0,n_r_max))- &
+               &                          real(dz(l1m0,n_r_max)) )
+               if ( istage == 1 ) domega_ic_dt%old(istage)=c_dt_z10_ic* &
+               &                                           real(zg(l1m0,n_r_max))
+            end if
          end if
       end if
 
@@ -1281,9 +1265,8 @@ contains
 
    end subroutine get_tor_rhs_imp_ghost
 !------------------------------------------------------------------------------
-   subroutine assemble_tor(time, z, dz, dzdt, domega_ic_dt, domega_ma_dt,        &
-              &            lorentz_torque_ic_dt, lorentz_torque_ma_dt, omega_ic, &
-              &            omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
+   subroutine assemble_tor(time, z, dz, dzdt, domega_ic_dt, domega_ma_dt,      &
+              &            omega_ic, omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
       !
       ! This subroutine is used to assemble the toroidal flow potential when an IMEX
       ! RK time scheme with an assembly stage is employed (LM-distributed version).
@@ -1300,8 +1283,6 @@ contains
       type(type_tarray),  intent(inout) :: dzdt
       type(type_tscalar), intent(inout) :: domega_ic_dt
       type(type_tscalar), intent(inout) :: domega_ma_dt
-      type(type_tscalar), intent(inout) :: lorentz_torque_ic_dt
-      type(type_tscalar), intent(inout) :: lorentz_torque_ma_dt
       real(cp),           intent(inout) :: omega_ic
       real(cp),           intent(inout) :: omega_ma
       real(cp),           intent(inout) :: omega_ic1
@@ -1310,7 +1291,7 @@ contains
       !-- Local variables
       complex(cp) :: top_val(llm:ulm), bot_val(llm:ulm)
       integer :: n_r, lm, l1, m1, lmStart_00, l1m0
-      real(cp) :: fac_top, fac_bot, dom_ma, dom_ic, lo_ma, lo_ic
+      real(cp) :: fac_top, fac_bot, dom_ma, dom_ic
       integer, pointer :: lm2l(:),lm2(:,:), lm2m(:)
       real(cp) :: dL
 
@@ -1329,19 +1310,11 @@ contains
       end if
 
       if ( l_rot_ma  .and. (.not. l_SRMA) ) then
-         if ( ktopv == 1 ) then
-            call tscheme%assemble_imex_scalar(lo_ma, lorentz_torque_ma_dt)
-         else
-            call tscheme%assemble_imex_scalar(dom_ma, domega_ma_dt)
-         end if
+         call tscheme%assemble_imex_scalar(dom_ma, domega_ma_dt)
       end if
 
       if ( l_rot_ic .and. (.not. l_SRIC) ) then
-         if ( kbotv == 1 ) then
-            call tscheme%assemble_imex_scalar(lo_ic, lorentz_torque_ic_dt)
-         else
-            call tscheme%assemble_imex_scalar(dom_ic, domega_ic_dt)
-         end if
+         call tscheme%assemble_imex_scalar(dom_ic, domega_ic_dt)
       end if
 
       !-- Store the assembled quantity in work_LMloc
@@ -1448,9 +1421,8 @@ contains
       end if
       !$omp end parallel
 
-      call update_rot_rates(z, lo_ma, lo_ic, lorentz_torque_ma_dt,    &
-           &                lorentz_torque_ic_dt, omega_ma,           &
-           &                omega_ma1, omega_ic, omega_ic1, 1)
+      call update_rot_rates(z, dom_ma, dom_ic, omega_ma, omega_ma1, omega_ic, &
+           &                omega_ic1)
       call get_tor_rhs_imp(time, z, dz, dzdt, domega_ma_dt, domega_ic_dt, &
            &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
            &               tscheme, 1, tscheme%l_imp_calc_rhs(1),         &
@@ -1458,9 +1430,9 @@ contains
 
    end subroutine assemble_tor
 !------------------------------------------------------------------------------
-   subroutine assemble_tor_Rloc(time, z, dz, dzdt, domega_ic_dt, domega_ma_dt,        &
-              &                 lorentz_torque_ic_dt, lorentz_torque_ma_dt, omega_ic, &
-              &                 omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
+   subroutine assemble_tor_Rloc(time, z, dz, dzdt, domega_ic_dt, domega_ma_dt, &
+              &                 omega_ic, omega_ma, omega_ic1, omega_ma1,      &
+              &                 lRmsNext, tscheme)
       !
       ! This subroutine is used when a IMEX Runge-Kutta scheme with an assembly
       ! stage is employed (R-distributed version)
@@ -1477,8 +1449,6 @@ contains
       type(type_tarray),  intent(inout) :: dzdt
       type(type_tscalar), intent(inout) :: domega_ic_dt
       type(type_tscalar), intent(inout) :: domega_ma_dt
-      type(type_tscalar), intent(inout) :: lorentz_torque_ic_dt
-      type(type_tscalar), intent(inout) :: lorentz_torque_ma_dt
       real(cp),           intent(inout) :: omega_ic
       real(cp),           intent(inout) :: omega_ma
       real(cp),           intent(inout) :: omega_ic1
@@ -1487,7 +1457,7 @@ contains
       !-- Local variables
       complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
       integer :: start_lm, stop_lm, lm, n_r, l, m
-      real(cp) :: dLh, lo_ic, lo_ma, dom_ma, dom_ic, r2
+      real(cp) :: dLh, dom_ma, dom_ic, r2
 
       call tscheme%assemble_imex(work_Rloc, dzdt)
       if ( amp_mode_ic /= 0.0_cp .or. amp_mode_ma /= 0.0_cp ) then
@@ -1495,19 +1465,11 @@ contains
       end if
 
       if ( l_rot_ma  .and. (.not. l_SRMA) ) then
-         if ( ktopv == 1 ) then
-            call tscheme%assemble_imex_scalar(lo_ma, lorentz_torque_ma_dt)
-         else
-            call tscheme%assemble_imex_scalar(dom_ma, domega_ma_dt)
-         end if
+         call tscheme%assemble_imex_scalar(dom_ma, domega_ma_dt)
       end if
 
       if ( l_rot_ic .and. (.not. l_SRIC) ) then
-         if ( kbotv == 1 ) then
-            call tscheme%assemble_imex_scalar(lo_ic, lorentz_torque_ic_dt)
-         else
-            call tscheme%assemble_imex_scalar(dom_ic, domega_ic_dt)
-         end if
+         call tscheme%assemble_imex_scalar(dom_ic, domega_ic_dt)
       end if
 
       !$omp parallel default(shared) private(start_lm, stop_lm, l, m, dLh, n_r, r2)
@@ -1591,9 +1553,8 @@ contains
 
       !-- Finally call the construction of the implicit terms for the first stage
       !-- of next iteration
-      call update_rot_rates_Rloc(z_ghost, lo_ma, lo_ic, lorentz_torque_ma_dt,   &
-           &                     lorentz_torque_ic_dt, omega_ma,                &
-           &                     omega_ma1, omega_ic, omega_ic1, 1)
+      call update_rot_rates_Rloc(z_ghost, dom_ma, dom_ic, omega_ma, omega_ma1, &
+           &                     omega_ic, omega_ic1)
       call get_tor_rhs_imp_ghost(time, z_ghost, dz, dzdt, domega_ma_dt,           &
            &                     domega_ic_dt, omega_ic, omega_ma, omega_ic1,     &
            &                     omega_ma1, tscheme, 1, tscheme%l_imp_calc_rhs(1),&
@@ -1601,24 +1562,20 @@ contains
 
    end subroutine assemble_tor_Rloc
 !------------------------------------------------------------------------------
-   subroutine update_rot_rates(z, lo_ma, lo_ic, lorentz_torque_ma_dt,       &
-              &                lorentz_torque_ic_dt, omega_ma, omega_ma1,   &
-              &                omega_ic, omega_ic1, istage, l_in_cheb_space)
+   subroutine update_rot_rates(z, dom_ma, dom_ic, omega_ma, omega_ma1,   &
+              &                omega_ic, omega_ic1, l_in_cheb_space)
       !
       ! This subroutine updates the rotation rate of inner core and mantle.
       !
 
       !-- Input variables
       complex(cp),       intent(in) :: z(llm:ulm,n_r_max)
-      real(cp),          intent(in) :: lo_ma, lo_ic   ! RHS when stress-free BCs are used
-      integer,           intent(in) :: istage
+      real(cp),          intent(in) :: dom_ma, dom_ic  ! RHS when stress-free BCs are used
       logical, optional, intent(in) :: l_in_cheb_space ! Is z in Cheb space or not?
 
       !-- Output variables
-      type(type_tscalar), intent(inout) :: lorentz_torque_ma_dt
-      type(type_tscalar), intent(inout) :: lorentz_torque_ic_dt
-      real(cp),           intent(out) :: omega_ma, omega_ma1
-      real(cp),           intent(out) :: omega_ic, omega_ic1
+      real(cp), intent(out) :: omega_ma, omega_ma1
+      real(cp), intent(out) :: omega_ic, omega_ic1
 
       !-- Local variables
       real(cp) :: z10(n_r_max)
@@ -1637,8 +1594,7 @@ contains
       if ( llm <= l1m0 .and. ulm >= l1m0 )then
          if ( l_rot_ma .and. .not. l_SRMA ) then
             if ( ktopv == 1 ) then  ! free slip, explicit time stepping of omega !
-               omega_ma=lo_ma
-               if ( istage == 1 ) lorentz_torque_ma_dt%old(istage)=omega_ma
+               omega_ma=dom_ma/c_moi_ma/c_lorentz_ma
             else if ( ktopv == 2 ) then ! no slip, omega given by z10
                z10(:)=real(z(l1m0,:))
                if ( l_in_loc ) call rscheme_oc%costf1(z10)
@@ -1648,8 +1604,7 @@ contains
          end if
          if ( l_rot_ic .and. .not. l_SRIC ) then
             if ( kbotv == 1 ) then  ! free slip, explicit time stepping of omega !
-               omega_ic=lo_ic
-               if ( istage == 1 ) lorentz_torque_ic_dt%old(istage)=omega_ic
+               omega_ic=dom_ic/c_moi_ic/c_lorentz_ic
             else if ( kbotv == 2 ) then ! no slip, omega given by z10
                z10(:)=real(z(l1m0,:))
                if ( l_in_loc ) call rscheme_oc%costf1(z10)
@@ -1662,20 +1617,16 @@ contains
 
    end subroutine update_rot_rates
 !------------------------------------------------------------------------------
-   subroutine update_rot_rates_Rloc(z, lo_ma, lo_ic, lorentz_torque_ma_dt,       &
-              &                     lorentz_torque_ic_dt, omega_ma, omega_ma1,   &
-              &                     omega_ic, omega_ic1, istage)
+   subroutine update_rot_rates_Rloc(z, dom_ma, dom_ic, omega_ma, omega_ma1,  &
+              &                     omega_ic, omega_ic1)
 
       !-- Input variables
       complex(cp), intent(in) :: z(lm_max,nRstart-1:nRstop+1)
-      real(cp),    intent(in) :: lo_ma, lo_ic   ! RHS when stress-free BCs are used
-      integer,     intent(in) :: istage
+      real(cp),    intent(in) :: dom_ma, dom_ic   ! RHS when stress-free BCs are used
 
       !-- Output variables
-      type(type_tscalar), intent(inout) :: lorentz_torque_ma_dt
-      type(type_tscalar), intent(inout) :: lorentz_torque_ic_dt
-      real(cp),           intent(out) :: omega_ma, omega_ma1
-      real(cp),           intent(out) :: omega_ic, omega_ic1
+      real(cp), intent(out) :: omega_ma, omega_ma1
+      real(cp), intent(out) :: omega_ic, omega_ic1
 
       !-- Local variables
       integer :: l1m0
@@ -1686,8 +1637,7 @@ contains
       !$omp single
       if ( l_rot_ma .and. .not. l_SRMA .and. (nRstart==n_r_cmb) ) then
          if ( ktopv == 1 ) then  ! free slip, explicit time stepping of omega !
-            omega_ma=lo_ma
-            if ( istage==1 ) lorentz_torque_ma_dt%old(istage)=omega_ma
+            omega_ma=dom_ma/c_moi_ma/c_lorentz_ma
          else if ( ktopv == 2 ) then ! no slip, omega given by z10
             omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
          end if
@@ -1695,8 +1645,7 @@ contains
       end if
       if ( l_rot_ic .and. .not. l_SRIC .and. (nRstop==n_r_icb) ) then
          if ( kbotv == 1 ) then  ! free slip, explicit time stepping of omega !
-            omega_ic=lo_ic
-            if ( istage==1 ) lorentz_torque_ic_dt%old(istage)=omega_ic
+            omega_ic=dom_ic/c_moi_ic/c_lorentz_ic
          else if ( kbotv == 2 ) then ! no slip, omega given by z10
             omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
          end if
@@ -1707,7 +1656,7 @@ contains
    end subroutine update_rot_rates_Rloc
 !------------------------------------------------------------------------------
    subroutine finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic, domega_ma_dt_exp, &
-              &              domega_ic_dt_exp, lorentz_ma_exp, lorentz_ic_exp)
+              &              domega_ic_dt_exp)
 
       !-- Input variables
       real(cp), intent(in) :: lorentz_torque_ma  ! Lorentz torque (for OC rotation)
@@ -1716,28 +1665,16 @@ contains
       !-- Output variables
       real(cp), intent(out) :: domega_ic_dt_exp
       real(cp), intent(out) :: domega_ma_dt_exp
-      real(cp), intent(out) :: lorentz_ic_exp
-      real(cp), intent(out) :: lorentz_ma_exp
 
       domega_ic_dt_exp=0.0_cp
       domega_ma_dt_exp=0.0_cp
-      lorentz_ic_exp  =0.0_cp
-      lorentz_ma_exp  =0.0_cp
 
       if ( l_rot_ma  .and. (.not. l_SRMA) ) then
-         if ( ktopv == 1 ) then !-- Stress-free
-            lorentz_ma_exp=lorentz_torque_ma/c_moi_ma
-         else
-            domega_ma_dt_exp=c_lorentz_ma*lorentz_torque_ma
-         end if
+         domega_ma_dt_exp=c_lorentz_ma*lorentz_torque_ma
       end if
 
       if ( l_rot_ic .and. (.not. l_SRIC) ) then
-         if ( kbotv == 1 ) then !-- Stress-free
-            lorentz_ic_exp=lorentz_torque_ic/c_moi_ic
-         else
-            domega_ic_dt_exp=c_lorentz_ic*lorentz_torque_ic
-         end if
+         domega_ic_dt_exp=c_lorentz_ic*lorentz_torque_ic
       end if
 
    end subroutine finish_exp_tor

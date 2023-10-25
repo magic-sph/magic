@@ -70,8 +70,7 @@ contains
    subroutine readStartFields_old(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,phi,   &
               &                   dphidt,b,dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,   &
               &                   djdt_ic,omega_ic,omega_ma,domega_ic_dt,     &
-              &                   domega_ma_dt,lorentz_torque_ic_dt,          &
-              &                   lorentz_torque_ma_dt,time,tscheme,n_time_step)
+              &                   domega_ma_dt,time,tscheme,n_time_step)
       !
       ! This subroutine is used to read the old restart files produced
       ! by MagIC. This is now deprecated with the change of the file format.
@@ -94,7 +93,6 @@ contains
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt, dphidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ma_dt, domega_ic_dt
-      type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt,lorentz_torque_ic_dt
 
       !-- Local:
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
@@ -742,22 +740,12 @@ contains
 
       deallocate ( dt_array_old )
 
-      !-- Put the torques correctly in the time step array
-      if ( tscheme%family == 'MULTISTEP' .and. tscheme%nexp >=2 ) then
-         lorentz_torque_ic_dt%expl(2) = dom_ic*LFfac/c_moi_ic
-         lorentz_torque_ma_dt%expl(2) = dom_ma*LFfac/c_moi_ma
-      end if
-
       !-- Finish computation to restart
       call finish_start_fields(time, minc_old, l_mag_old, omega_ic1Old, &
            &                   omega_ma1Old, z, s, xi, b, omega_ic, omega_ma)
 
       !----- Get changes in mantle and ic rotation rate:
       if ( tscheme%family == 'MULTISTEP' .and. tscheme%nexp >=2 ) then
-         if ( .not. l_mag_LF ) then
-            lorentz_torque_ic_dt%expl(2)=0.0_cp
-            lorentz_torque_ma_dt%expl(2)=0.0_cp
-         end if
          if ( l_z10mat ) then
             l1m0=lo_map%lm2(1,0)
             if ( ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ).and.&
@@ -779,8 +767,7 @@ contains
    subroutine readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,phi,    &
               &               dphidt,b,dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,    &
               &               djdt_ic,omega_ic,omega_ma,domega_ic_dt,      &
-              &               domega_ma_dt,lorentz_torque_ic_dt,           &
-              &               lorentz_torque_ma_dt,time,tscheme,n_time_step)
+              &               domega_ma_dt,time,tscheme,n_time_step)
       !
       ! This subroutine is used to read the restart files produced
       ! by MagIC.
@@ -803,9 +790,9 @@ contains
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt, dphidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ma_dt, domega_ic_dt
-      type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt,lorentz_torque_ic_dt
 
       !-- Local:
+      type(type_tscalar) :: lorentz_torque_ma_dt, lorentz_torque_ic_dt
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
       integer :: l_max_old,n_r_max_old,n_r_ic_max_old, io_status,lm,nR
       real(cp) :: pr_old,ra_old,pm_old,raxi_old,sc_old,stef_old
@@ -981,6 +968,9 @@ contains
               &         m_max,m_max_old,minc,minc_old,lm_max,lm_max_old,lm2lmo)
          n_r_maxL = max(n_r_max,n_r_max_old)
 
+         call lorentz_torque_ma_dt%initialize(tscheme%nold, tscheme%nexp, tscheme%nimp)
+         call lorentz_torque_ic_dt%initialize(tscheme%nold, tscheme%nexp, tscheme%nimp)
+
          !-- Read Lorentz torques and rotation rates:
          if ( version == 1 ) then
 
@@ -1001,12 +991,14 @@ contains
                  &                   nold_old, tscheme_family_old, domega_ic_dt)
             call read_map_one_scalar(n_start_file, tscheme, nexp_old, nimp_old, &
                  &                   nold_old, tscheme_family_old, domega_ma_dt)
-            call read_map_one_scalar(n_start_file, tscheme, nexp_old,       &
-                 &                   nimp_old, nold_old, tscheme_family_old,&
-                 &                   lorentz_torque_ic_dt)
-            call read_map_one_scalar(n_start_file, tscheme, nexp_old,       &
-                 &                   nimp_old, nold_old, tscheme_family_old,&
-                 &                   lorentz_torque_ma_dt)
+            if ( version < 5 ) then
+               call read_map_one_scalar(n_start_file, tscheme, nexp_old,       &
+                    &                   nimp_old, nold_old, tscheme_family_old,&
+                    &                   lorentz_torque_ic_dt)
+               call read_map_one_scalar(n_start_file, tscheme, nexp_old,       &
+                    &                   nimp_old, nold_old, tscheme_family_old,&
+                    &                   lorentz_torque_ma_dt)
+            end if
 
             read(n_start_file) omega_ic1Old,omegaOsz_ic1Old,tOmega_ic1, &
             &                  omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2, &
@@ -1101,18 +1093,6 @@ contains
            &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(domega_ma_dt%old, tscheme%nold, MPI_DEF_REAL, 0, &
            &         MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(lorentz_torque_ic_dt%expl, tscheme%nexp, MPI_DEF_REAL, &
-           &         0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(lorentz_torque_ic_dt%impl, tscheme%nimp, &
-           &         MPI_DEF_REAL, 0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(lorentz_torque_ic_dt%old, tscheme%nold, MPI_DEF_REAL, &
-           &         0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(lorentz_torque_ma_dt%expl, tscheme%nexp, MPI_DEF_REAL, &
-           &         0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(lorentz_torque_ma_dt%impl, tscheme%nimp, &
-           &         MPI_DEF_REAL, 0, MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(lorentz_torque_ma_dt%old, tscheme%nold, MPI_DEF_REAL, &
-           &         0, MPI_COMM_WORLD, ierr)
 #endif
 
       !-- Fill the time step array
@@ -1470,6 +1450,9 @@ contains
 
       end if
 
+      call lorentz_torque_ic_dt%finalize()
+      call lorentz_torque_ma_dt%finalize()
+
    end subroutine readStartFields
 !------------------------------------------------------------------------------
    subroutine read_map_one_scalar(fh, tscheme, nexp_old, nimp_old, nold_old,&
@@ -1609,9 +1592,7 @@ contains
    subroutine readStartFields_mpi(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,phi, &
               &                   dphidt,b,dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic, &
               &                   djdt_ic,omega_ic,omega_ma,domega_ic_dt,   &
-              &                   domega_ma_dt,lorentz_torque_ic_dt,        &
-              &                   lorentz_torque_ma_dt,time,tscheme,        &
-              &                   n_time_step)   
+              &                   domega_ma_dt,time,tscheme,n_time_step)   
       !
       ! This subroutine is used to read the restart files produced
       ! by MagIC using MPI-IO
@@ -1633,9 +1614,9 @@ contains
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt, dphidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ma_dt, domega_ic_dt
-      type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt,lorentz_torque_ic_dt
 
       !-- Local:
+      type(type_tscalar) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
       integer :: l_max_old,n_r_max_old,lm,nR,n_r_ic_max_old
       integer :: m_max_old, m_min_old
@@ -1653,7 +1634,7 @@ contains
       character(len=10) :: tscheme_family_old
       real(cp) :: r_icb_old, r_cmb_old
       integer :: n_in, n_in_2, version, info, fh, nRStart_old, nRStop_old, n_o
-      integer :: nR_per_rank_old, datatype, l1m0
+      integer :: nR_per_rank_old, datatype, l1m0, itest
       integer :: istat(MPI_STATUS_SIZE)
       integer :: nimp_old, nexp_old, nold_old
       logical :: l_press_store_old, l_transp
@@ -1702,8 +1683,7 @@ contains
          call readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,phi,    &
               &               dphidt,b,dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,    &
               &               djdt_ic,omega_ic,omega_ma,domega_ic_dt,      &
-              &               domega_ma_dt,lorentz_torque_ic_dt,           &
-              &               lorentz_torque_ma_dt,time,tscheme,n_time_step)
+              &               domega_ma_dt,time,tscheme,n_time_step)
          return
       end if
       call MPI_File_Read(fh, time, 1, MPI_DEF_REAL, istat, ierr)
@@ -1825,11 +1805,15 @@ contains
               &                       tscheme_family_old, domega_ma_dt)
       end if
 
-      call read_map_one_scalar_mpi(fh, tscheme, nexp_old, nimp_old, nold_old,  &
-           &                       tscheme_family_old, lorentz_torque_ic_dt)
+      call lorentz_torque_ma_dt%initialize(tscheme%nold, tscheme%nexp, tscheme%nimp)
+      call lorentz_torque_ic_dt%initialize(tscheme%nold, tscheme%nexp, tscheme%nimp)
 
-      call read_map_one_scalar_mpi(fh, tscheme, nexp_old, nimp_old, nold_old,  &
-           &                       tscheme_family_old, lorentz_torque_ma_dt)
+      if ( version < 5 ) then
+         call read_map_one_scalar_mpi(fh, tscheme, nexp_old, nimp_old, nold_old,  &
+              &                       tscheme_family_old, lorentz_torque_ic_dt)
+         call read_map_one_scalar_mpi(fh, tscheme, nexp_old, nimp_old, nold_old,  &
+              &                       tscheme_family_old, lorentz_torque_ma_dt)
+      end if
 
       call MPI_File_Read(fh, omega_ic1Old, 1, MPI_DEF_REAL, istat, ierr)
       call MPI_File_Read(fh, omegaOsz_ic1Old, 1, MPI_DEF_REAL, istat, ierr)
@@ -1903,20 +1887,31 @@ contains
       end if
 
       !-- Read logical to know how many fields are stored
-      call MPI_File_Read(fh, l_heat_old, 1, MPI_LOGICAL, istat, ierr)
-      call MPI_File_Read(fh, l_chemical_conv_old, 1, MPI_LOGICAL, istat, ierr)
+      !-- It is safer to read MPI_INTEGER instead of MPI_LOGICAL
+      !-- in case a binary was produced by intel and read by gfortran
+      !-- This comes from the intel convenction to define .false.=-1
+      !-- which can be wrongly interpreted by some gfortran versions
+      !-- with the debug flags
+      call MPI_File_Read(fh, itest, 1, MPI_INTEGER, istat, ierr)
+      l_heat_old = itest /= 0
+      call MPI_File_Read(fh, itest, 1, MPI_INTEGER, istat, ierr)
+      l_chemical_conv_old = itest /= 0
       if ( version > 2 ) then
-         call MPI_File_Read(fh, l_phase_field_old, 1, MPI_LOGICAL, istat, ierr)
+         call MPI_File_Read(fh, itest, 1, MPI_INTEGER, istat, ierr)
+         l_phase_field_old = itest /= 0
       else
          l_phase_field_old = .false.
       end if
-      call MPI_File_Read(fh, l_mag_old, 1, MPI_LOGICAL, istat, ierr)
+      call MPI_File_Read(fh, itest, 1, MPI_INTEGER, istat, ierr)
+      l_mag_old = itest /= 0
       if ( version > 1 ) then
-         call MPI_File_Read(fh, l_press_store_old, 1, MPI_LOGICAL, istat, ierr)
+         call MPI_File_Read(fh, itest, 1, MPI_INTEGER, istat, ierr)
+         l_press_store_old = itest /= 0
       else
          l_press_store_old = .true.
       end if
-      call MPI_File_Read(fh, l_cond_ic_old, 1, MPI_LOGICAL, istat, ierr)
+      call MPI_File_Read(fh, itest, 1, MPI_INTEGER, istat, ierr)
+      l_cond_ic_old = itest /= 0
 
       !-- Measure offset 
       call MPI_File_get_position(fh, offset, ierr)
@@ -2295,6 +2290,9 @@ contains
          end if
 
       end if
+
+      call lorentz_torque_ma_dt%finalize()
+      call lorentz_torque_ic_dt%finalize()
 
       !-- Finish computation to restart
       call finish_start_fields(time, minc_old, l_mag_old, omega_ic1Old, &
