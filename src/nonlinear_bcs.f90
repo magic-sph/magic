@@ -201,24 +201,37 @@ contains
       lm10=lm2(1,0)
       lm11=lm2(1,1)
 
-      !$omp parallel do default(shared) private(nPhi,nTheta)
-      do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            vrr(nTheta,nPhi)=y10_norm*real(ddw(lm10))*cosTheta(nTheta)  +&
-            &                two*y11_norm*sinTheta(nTheta)*(             &
-            &                        real(ddw(lm11))*cos(phi(nPhi))-     &
-            &                       aimag(ddw(lm11))*sin(phi(nPhi)) )
-            vtr(nTheta,nPhi)=sinTheta(nTheta)*(                          &
-            &                -y10_norm*real(ddw(lm10))*sinTheta(nTheta) +&
-            &                two*y11_norm*cosTheta(nTheta)*(             &
-            &                        real(ddw(lm11))*cos(phi(nPhi))-     &
-            &                       aimag(ddw(lm11))*sin(phi(nPhi)) ) )
-            vpr(nTheta,nPhi)=-two*y11_norm*sinTheta(nTheta)*(            &
-            &                        real(ddw(lm11))*sin(phi(nPhi))+     &
-            &                       aimag(ddw(lm11))*cos(phi(nPhi)) )
+      if ( lm11 > 0 ) then ! minc = 1
+         !$omp parallel do default(shared) private(nPhi,nTheta)
+         do nPhi=1,n_phi_max
+            do nTheta=1,n_theta_max
+               vrr(nTheta,nPhi)=y10_norm*real(ddw(lm10))*cosTheta(nTheta)  +&
+               &                two*y11_norm*sinTheta(nTheta)*(             &
+               &                        real(ddw(lm11))*cos(phi(nPhi))-     &
+               &                       aimag(ddw(lm11))*sin(phi(nPhi)) )
+               vtr(nTheta,nPhi)=sinTheta(nTheta)*(                          &
+               &                -y10_norm*real(ddw(lm10))*sinTheta(nTheta) +&
+               &                two*y11_norm*cosTheta(nTheta)*(             &
+               &                        real(ddw(lm11))*cos(phi(nPhi))-     &
+               &                       aimag(ddw(lm11))*sin(phi(nPhi)) ) )
+               vpr(nTheta,nPhi)=-two*y11_norm*sinTheta(nTheta)*(            &
+               &                        real(ddw(lm11))*sin(phi(nPhi))+     &
+               &                       aimag(ddw(lm11))*cos(phi(nPhi)) )
+            end do
          end do
-      end do
-      !$omp end parallel do
+         !$omp end parallel do
+      else ! minc /= 1
+         !$omp parallel do default(shared) private(nPhi,nTheta)
+         do nPhi=1,n_phi_max
+            do nTheta=1,n_theta_max
+               vrr(nTheta,nPhi)=y10_norm*real(ddw(lm10))*cosTheta(nTheta)
+               vtr(nTheta,nPhi)=-sinTheta(nTheta)*y10_norm*real(ddw(lm10))* &
+               &                 sinTheta(nTheta)
+               vpr(nTheta,nPhi)=0.0_cp
+            end do
+         end do
+         !$omp end parallel do
+      end if
 
    end subroutine v_center_sphere
 !-------------------------------------------------------------------------

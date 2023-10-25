@@ -168,7 +168,8 @@ class AvgField:
         for k, key in enumerate(params['time_series'].keys()):
             ts = MagicTs(field=key, datadir=datadir, all=True, tag=tag, iplot=False)
             # Number of columns has been possibly modified for those files
-            if key == 'par' or key == 'geos' or key == 'heat' or key == 'dtVrms':
+            if key == 'par' or key == 'geos' or key == 'heat' or key == 'dtVrms' \
+               or key == 'phase':
                 fix = True
             else:
                 fix = False
