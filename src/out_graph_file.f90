@@ -661,7 +661,11 @@ contains
       if ( present(n_graph_handle) ) then
          n_graph_loc = n_graph_handle
       else
+#ifdef WITH_MPI
          n_graph_loc = graph_mpi_fh
+#else
+         n_graph_loc = n_graph_file
+#endif
       end if
 
 #ifdef WITH_MPI

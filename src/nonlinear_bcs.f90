@@ -346,32 +346,53 @@ contains
       lm10=lm2(1,0)
       lm11=lm2(1,1)
 
+      if ( lm11 > 0 ) then ! minc = 1
 #ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do
+         !$omp target teams distribute parallel do
 #else
-      !$omp parallel do default(shared) private(nPhi,nTheta)
+         !$omp parallel do default(shared) private(nPhi,nTheta)
 #endif
-      do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            vrr(nTheta,nPhi)=y10_norm*real(ddw(lm10))*cosTheta(nTheta)  +&
-            &                two*y11_norm*sinTheta(nTheta)*(             &
-            &                        real(ddw(lm11))*cos(phi(nPhi))-     &
-            &                       aimag(ddw(lm11))*sin(phi(nPhi)) )
-            vtr(nTheta,nPhi)=sinTheta(nTheta)*(                          &
-            &                -y10_norm*real(ddw(lm10))*sinTheta(nTheta) +&
-            &                two*y11_norm*cosTheta(nTheta)*(             &
-            &                        real(ddw(lm11))*cos(phi(nPhi))-     &
-            &                       aimag(ddw(lm11))*sin(phi(nPhi)) ) )
-            vpr(nTheta,nPhi)=-two*y11_norm*sinTheta(nTheta)*(            &
-            &                        real(ddw(lm11))*sin(phi(nPhi))+     &
-            &                       aimag(ddw(lm11))*cos(phi(nPhi)) )
+         do nPhi=1,n_phi_max
+            do nTheta=1,n_theta_max
+               vrr(nTheta,nPhi)=y10_norm*real(ddw(lm10))*cosTheta(nTheta)  +&
+               &                two*y11_norm*sinTheta(nTheta)*(             &
+               &                        real(ddw(lm11))*cos(phi(nPhi))-     &
+               &                       aimag(ddw(lm11))*sin(phi(nPhi)) )
+               vtr(nTheta,nPhi)=sinTheta(nTheta)*(                          &
+               &                -y10_norm*real(ddw(lm10))*sinTheta(nTheta) +&
+               &                two*y11_norm*cosTheta(nTheta)*(             &
+               &                        real(ddw(lm11))*cos(phi(nPhi))-     &
+               &                       aimag(ddw(lm11))*sin(phi(nPhi)) ) )
+               vpr(nTheta,nPhi)=-two*y11_norm*sinTheta(nTheta)*(            &
+               &                        real(ddw(lm11))*sin(phi(nPhi))+     &
+               &                       aimag(ddw(lm11))*cos(phi(nPhi)) )
+            end do
          end do
-      end do
 #ifdef WITH_OMP_GPU
-      !$omp end target teams distribute parallel do
+         !$omp end target teams distribute parallel do
 #else
-      !$omp end parallel do
+         !$omp end parallel do
 #endif
+      else ! minc /= 1
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+#else
+         !$omp parallel do default(shared) private(nPhi,nTheta)
+#endif
+         do nPhi=1,n_phi_max
+            do nTheta=1,n_theta_max
+               vrr(nTheta,nPhi)=y10_norm*real(ddw(lm10))*cosTheta(nTheta)
+               vtr(nTheta,nPhi)=-sinTheta(nTheta)*y10_norm*real(ddw(lm10))* &
+               &                 sinTheta(nTheta)
+               vpr(nTheta,nPhi)=0.0_cp
+            end do
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
+         !$omp end parallel do
+#endif
+      end if
 
    end subroutine v_center_sphere
 !-------------------------------------------------------------------------
@@ -396,32 +417,54 @@ contains
       lm11=lm2(1,1)
       nR=n_r_icb
 
+      if ( lm11 > 0 ) then ! minc = 1
 #ifdef WITH_OMP_GPU
-      !$omp target teams distribute parallel do
+         !$omp target teams distribute parallel do
 #else
-      !$omp parallel do default(shared) private(nPhi,nTheta)
+         !$omp parallel do default(shared) private(nPhi,nTheta)
 #endif
-      do nPhi=1,n_phi_max
-         do nTheta=1,n_theta_max
-            vrr(nTheta,nR,nPhi)=y10_norm*real(ddw(lm10))*cosTheta(nTheta)  +&
-            &                   two*y11_norm*sinTheta(nTheta)*(             &
-            &                           real(ddw(lm11))*cos(phi(nPhi))-     &
-            &                          aimag(ddw(lm11))*sin(phi(nPhi)) )
-            vtr(nTheta,nR,nPhi)=sinTheta(nTheta)*(                          &
-            &                   -y10_norm*real(ddw(lm10))*sinTheta(nTheta) +&
-            &                   two*y11_norm*cosTheta(nTheta)*(             &
-            &                           real(ddw(lm11))*cos(phi(nPhi))-     &
-            &                          aimag(ddw(lm11))*sin(phi(nPhi)) ) )
-            vpr(nTheta,nR,nPhi)=-two*y11_norm*sinTheta(nTheta)*(            &
-            &                           real(ddw(lm11))*sin(phi(nPhi))+     &
-            &                          aimag(ddw(lm11))*cos(phi(nPhi)) )
+         do nPhi=1,n_phi_max
+            do nTheta=1,n_theta_max
+               vrr(nTheta,nR,nPhi)=y10_norm*real(ddw(lm10))*cosTheta(nTheta)  +&
+               &                   two*y11_norm*sinTheta(nTheta)*(             &
+               &                           real(ddw(lm11))*cos(phi(nPhi))-     &
+               &                          aimag(ddw(lm11))*sin(phi(nPhi)) )
+               vtr(nTheta,nR,nPhi)=sinTheta(nTheta)*(                          &
+               &                   -y10_norm*real(ddw(lm10))*sinTheta(nTheta) +&
+               &                   two*y11_norm*cosTheta(nTheta)*(             &
+               &                           real(ddw(lm11))*cos(phi(nPhi))-     &
+               &                          aimag(ddw(lm11))*sin(phi(nPhi)) ) )
+               vpr(nTheta,nR,nPhi)=-two*y11_norm*sinTheta(nTheta)*(            &
+               &                           real(ddw(lm11))*sin(phi(nPhi))+     &
+               &                          aimag(ddw(lm11))*cos(phi(nPhi)) )
+            end do
          end do
-      end do
 #ifdef WITH_OMP_GPU
-      !$omp end target teams distribute parallel do
+         !$omp end target teams distribute parallel do
 #else
-      !$omp end parallel do
+         !$omp end parallel do
 #endif
+      else ! minc /= 1
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+#else
+         !$omp parallel do default(shared) private(nPhi,nTheta)
+#endif
+         do nPhi=1,n_phi_max
+            do nTheta=1,n_theta_max
+               vrr(nTheta,nR,nPhi)=y10_norm*real(ddw(lm10))*cosTheta(nTheta)
+               vtr(nTheta,nR,nPhi)=-sinTheta(nTheta)*y10_norm*real(ddw(lm10))* &
+               &                    sinTheta(nTheta)
+               vpr(nTheta,nR,nPhi)=0.0_cp
+            end do
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
+         !$omp end parallel do
+#endif
+
+      end if
 
    end subroutine v_center_sphere_batch
 !-------------------------------------------------------------------------

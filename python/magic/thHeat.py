@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import matplotlib.pyplot as plt
 import numpy as np
-from magic import scanDir, MagicSetup, Movie, matder, chebgrid, rderavg, AvgField
+from magic import scanDir, MagicSetup, Movie, chebgrid, rderavg, AvgField
 import os, pickle
 from scipy.integrate import simps, trapz
 
@@ -112,27 +112,30 @@ class ThetaHeat(MagicSetup):
                 self.fluxstd = rderavg(self.tempstd, m.radius, exclude=False)
 
             # Pickle saving
-            f = open(pickleName, 'wb')
-            pickle.dump([self.colat, self.tempmean, self.tempstd,\
-                         self.fluxmean, self.fluxstd], f)
-            f.close()
+            try:
+                with open(pickleName, 'wb') as f:
+                    pickle.dump([self.colat, self.tempmean, self.tempstd,
+                                 self.fluxmean, self.fluxstd], f)
+            except PermissionError:
+                print('No write access in the current directory')
         else:
-            f = open(pickleName, 'rb')
-            dat = pickle.load(f)
-            if len(dat) == 5:
-                self.colat, self.tempmean, self.tempstd, \
-                            self.fluxmean, self.fluxstd = dat
-            else:
-                self.colat, self.tempmean, self.fluxmean = dat
-                self.fluxstd = np.zeros_like(self.fluxmean)
-                self.tempstd = np.zeros_like(self.fluxmean)
-            f.close()
+            with open(pickleName, 'rb') as f:
+                dat = pickle.load(f)
+                if len(dat) == 5:
+                    self.colat, self.tempmean, self.tempstd, \
+                                self.fluxmean, self.fluxstd = dat
+                else:
+                    self.colat, self.tempmean, self.fluxmean = dat
+                    self.fluxstd = np.zeros_like(self.fluxmean)
+                    self.tempstd = np.zeros_like(self.fluxmean)
 
         self.ri = self.radratio/(1.-self.radratio)
         self.ro = 1./(1.-self.radratio)
 
         self.ntheta, self.nr = self.tempmean.shape
-        if not hasattr(self, 'radial_scheme') or (self.radial_scheme=='CHEB' and self.l_newmap==False): # Redefine to get double precision
+        if not hasattr(self, 'radial_scheme') or \
+           (self.radial_scheme=='CHEB' and self.l_newmap==False):
+            # Redefine to get double precision
             self.radius = chebgrid(self.nr-1, self.ro, self.ri)
         else:
             self.radius = m.radius
@@ -145,12 +148,22 @@ class ThetaHeat(MagicSetup):
         self.temprmmean = 0.5*simps(self.tempmean*np.sin(th2D), th2D, axis=0)
         self.temprmstd = 0.5*simps(self.tempstd*np.sin(th2D), th2D, axis=0)
         sinTh = np.sin(self.colat)
-        if not hasattr(self, 'radial_scheme') or (self.radial_scheme=='CHEB' and self.l_newmap==False):
-            d1 = matder(self.nr-1, self.ro, self.ri)
 
         # Conducting temperature profile (Boussinesq only!)
-        self.tcond = self.ri*self.ro/self.radius-self.ri+self.temprmmean[0]
-        self.fcond = -self.ri*self.ro/self.radius**2
+        if self.ktops == 1 and self.kbots == 1:
+            self.tcond = self.ri*self.ro/self.radius-self.ri+self.temprmmean[0]
+            self.fcond = -self.ri*self.ro/self.radius**2
+        elif self.ktops == 1 and self.kbots != 1:
+            qbot = -1.
+            ttop = self.temprmmean[0]
+            self.fcond = -self.ri**2 / self.radius**2
+            self.tcond = self.ri**2/self.radius - self.ri**2/self.ro + ttop
+        else:
+            if os.path.exists('pscond.dat'):
+                dat = np.loadtxt('pscond.dat')
+                self.tcond = dat[:, 1]
+                self.fcond = rderavg(self.tcond, self.radius)
+
         self.nusstopmean = self.fluxmean[:, 0] / self.fcond[0]
         self.nussbotmean = self.fluxmean[:, -1] / self.fcond[-1]
         self.nusstopstd = self.fluxstd[:, 0] / self.fcond[0]
@@ -173,11 +186,7 @@ class ThetaHeat(MagicSetup):
         tempC[~mask2D] = 0.
         self.tempEqstd = fac*simps(tempC*np.sin(th2D), th2D, axis=0)
 
-
-        if not hasattr(self, 'radial_scheme') or (self.radial_scheme=='CHEB' and self.l_newmap==False):
-            dtempEq = np.dot(d1, self.tempEqmean)
-        else:
-            dtempEq = np.diff(self.tempEqmean)/np.diff(self.radius)
+        dtempEq = rderavg(self.tempEqmean, self.radius)
         self.betaEq = dtempEq[len(dtempEq)//2]
 
         # 45\deg inclination
@@ -209,10 +218,7 @@ class ThetaHeat(MagicSetup):
         self.nussBot45 = 0.5*(nussBot45NH+nussBot45SH)
         self.temp45 = 0.5*(temp45NH+temp45SH)
 
-        if not hasattr(self, 'radial_scheme') or (self.radial_scheme=='CHEB' and self.l_newmap==False):
-            dtemp45 = np.dot(d1, self.temp45)
-        else:
-            dtemp45 = np.diff(self.temp45)/np.diff(self.radius)
+        dtemp45 = rderavg(self.temp45, self.radius)
         self.beta45 = dtemp45[len(dtemp45)//2]
 
         # Polar regions
@@ -251,12 +257,8 @@ class ThetaHeat(MagicSetup):
         self.tempPolmean = 0.5*(tempPolNHmean+tempPolSHmean)
         self.tempPolstd= 0.5*(tempPolNHstd+tempPolSHstd)
 
-        if not hasattr(self, 'radial_scheme') or (self.radial_scheme=='CHEB' and self.l_newmap==False):
-            dtempPol = np.dot(d1, self.tempPolmean)
-        else:
-            dtempPol = np.diff(self.tempPolmean) / np.diff(self.radius)
+        dtempPol = rderavg(self.tempPolmean, self.radius)
         self.betaPol = dtempPol[len(dtempPol)//2]
-
 
         # Inside and outside TC
         angleTC = np.arcsin(self.ri/self.ro)

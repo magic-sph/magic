@@ -132,6 +132,7 @@ contains
       class(type_tscheme), intent(in) :: tscheme ! time scheme
 
       !-- Local variable
+      real(cp) :: dum1, dum2
       type(type_tarray) :: dummy
       type(type_tscalar) :: dum_scal
 
@@ -181,7 +182,7 @@ contains
          !$omp target update to(z10_ghost, z_ghost)
 #endif
          call prepareZ_FD(0.0_cp, tscheme, dummy, omega_ma, omega_ic, dum_scal, &
-              &           dum_scal)
+              &           dum_scal, dum1, dum2)
 #ifdef WITH_OMP_GPU
          !$omp target update from(dummy)
          !$omp target update from(z10_ghost, z_ghost)
@@ -254,7 +255,6 @@ contains
    subroutine LMLoop(time,timeNext,tscheme,lMat,lRmsNext,lPressNext,     &
               &      dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,dbdt_ic, &
               &      djdt_ic,domega_ma_dt,domega_ic_dt,                  &
-              &      lorentz_torque_ma_dt,lorentz_torque_ic_dt,          &
               &      b_nl_cmb,aj_nl_cmb,aj_nl_icb)
       !
       !  This subroutine performs the actual time-stepping. It calls succesively
@@ -276,7 +276,6 @@ contains
       type(type_tarray),  intent(inout) :: dsdt, dxidt, dwdt, dpdt, dzdt, dphidt
       type(type_tarray),  intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar), intent(inout) :: domega_ic_dt, domega_ma_dt
-      type(type_tscalar), intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
       !integer,     intent(in) :: n_time_step
 
       !--- Inner core rotation from last time step
@@ -325,8 +324,7 @@ contains
          PERFON('up_Z')
          call upZ_counter%start_count()
          call updateZ( time, timeNext, z_LMloc, dz_LMloc, dzdt, omega_ma,  &
-              &        omega_ic, domega_ma_dt,domega_ic_dt,                &
-              &        lorentz_torque_ma_dt,lorentz_torque_ic_dt, tscheme, &
+              &        omega_ic, domega_ma_dt,domega_ic_dt, tscheme,       &
               &        lRmsNext)
          call upZ_counter%stop_count()
          PERFOFF
@@ -383,7 +381,6 @@ contains
    subroutine LMLoop_Rdist(time,timeNext,tscheme,lMat,lRmsNext,lPressNext,    &
               &            lP00Next,dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,    &
               &            djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,    &
-              &            lorentz_torque_ma_dt,lorentz_torque_ic_dt,         &
               &            b_nl_cmb,aj_nl_cmb,aj_nl_icb)
       !
       !  This subroutine performs the actual time-stepping. It calls succesively
@@ -406,9 +403,9 @@ contains
       type(type_tarray),  intent(inout) :: dsdt, dxidt, dwdt, dpdt, dzdt, dphidt
       type(type_tarray),  intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar), intent(inout) :: domega_ic_dt, domega_ma_dt
-      type(type_tscalar), intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
-      !-- Local variable
+      !-- Local variables
+      real(cp) :: dom_ic, dom_ma
       logical :: lPress
 
       lPress = lPressNext .or. lP00Next
@@ -478,7 +475,7 @@ contains
          !$omp target update to(z10_ghost, z_ghost)
 #endif
          call prepareZ_FD(time, tscheme, dzdt, omega_ma, omega_ic, domega_ma_dt, &
-              &           domega_ic_dt)
+              &           domega_ic_dt, dom_ma, dom_ic)
 #ifdef WITH_OMP_GPU
          !$omp target update from(dzdt)
          !$omp target update from(z10_ghost, z_ghost)
@@ -590,9 +587,9 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target update to(z_Rloc, z_ghost, dz_Rloc, dzdt)
 #endif
-      call updateZ_FD(time, timeNext, z_Rloc, dz_Rloc, dzdt, omega_ma, omega_ic, &
-           &          domega_ma_dt, domega_ic_dt, lorentz_torque_ma_dt,          &
-           &          lorentz_torque_ic_dt, tscheme, lRmsNext)
+      call updateZ_FD(time, timeNext, dom_ma, dom_ic, z_Rloc, dz_Rloc, dzdt,   &
+           &          omega_ma, omega_ic, domega_ma_dt, domega_ic_dt, tscheme, &
+           &          lRmsNext)
 #ifdef WITH_OMP_GPU
       !$omp target update from(z_Rloc, z_ghost, dz_Rloc, dzdt)
 #endif
@@ -656,7 +653,6 @@ contains
               &                        lorentz_torque_ma, lorentz_torque_ic,      &
               &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,          &
               &                        djdt_ic, domega_ma_dt, domega_ic_dt,       &
-              &                        lorentz_torque_ma_dt, lorentz_torque_ic_dt,&
               &                        tscheme)
       !
       ! This subroutine is used to finish the computation of the explicit terms.
@@ -681,7 +677,6 @@ contains
       type(type_tarray),   intent(inout) :: dsdt, dxidt, djdt, dwdt
       type(type_tarray),   intent(inout) :: dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
-      type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
       !--
 #ifdef WITH_OMP_GPU
@@ -784,9 +779,7 @@ contains
       if ( .not. l_onset ) then
          call finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic,     &
               &              domega_ma_dt%expl(tscheme%istage),        &
-              &              domega_ic_dt%expl(tscheme%istage),        &
-              &              lorentz_torque_ma_dt%expl(tscheme%istage),&
-              &              lorentz_torque_ic_dt%expl(tscheme%istage))
+              &              domega_ic_dt%expl(tscheme%istage))
       end if
 
       if ( l_mag ) then
@@ -825,8 +818,7 @@ contains
               &                        lorentz_torque_ma, lorentz_torque_ic,      &
               &                        dsdt_Rloc, dxidt_Rloc, dwdt_Rloc,          &
               &                        djdt_Rloc, dbdt_ic, djdt_ic, domega_ma_dt, &
-              &                        domega_ic_dt, lorentz_torque_ma_dt,        &
-              &                        lorentz_torque_ic_dt,tscheme)
+              &                        domega_ic_dt, tscheme)
       !
       ! This subroutine is used to finish the computation of the explicit terms.
       ! This is the version that handles R-distributed arrays used when FD are
@@ -853,7 +845,6 @@ contains
       complex(cp),         intent(inout) :: djdt_Rloc(lm_max,nRstart:nRstop)
       type(type_tarray),   intent(inout) :: dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
-      type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
       if ( l_chemical_conv ) then
          call finish_exp_comp_Rdist(w, dVXir_Rloc, dxidt_Rloc)
@@ -873,9 +864,7 @@ contains
       if ( .not. l_onset ) then
          call finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic,     &
               &              domega_ma_dt%expl(tscheme%istage),        &
-              &              domega_ic_dt%expl(tscheme%istage),        &
-              &              lorentz_torque_ma_dt%expl(tscheme%istage),&
-              &              lorentz_torque_ic_dt%expl(tscheme%istage))
+              &              domega_ic_dt%expl(tscheme%istage))
       end if
 
       if ( l_mag ) then
@@ -893,8 +882,7 @@ contains
    subroutine assemble_stage(time, omega_ic, omega_ic1, omega_ma, omega_ma1,        &
               &              dwdt, dzdt, dpdt, dsdt, dxidt, dphidt, dbdt, djdt,     &
               &              dbdt_ic, djdt_ic, domega_ic_dt, domega_ma_dt,          &
-              &              lorentz_torque_ic_dt, lorentz_torque_ma_dt, lPressNext,&
-              &              lRmsNext, tscheme)
+              &              lPressNext, lRmsNext, tscheme)
       !
       ! This routine is used to call the different assembly stage of the different
       ! equations. This is only used for a special subset of IMEX-RK schemes that
@@ -909,8 +897,6 @@ contains
 
       !-- Output variables
       type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
-      type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt
-      type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt
       real(cp),            intent(inout) :: omega_ic, omega_ma, omega_ic1, omega_ma1
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt, dphidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
@@ -978,8 +964,7 @@ contains
       !$omp target update to(z_LMloc, dz_LMloc, dzdt)
 #endif
       call assemble_tor(time, z_LMloc, dz_LMloc, dzdt, domega_ic_dt, domega_ma_dt, &
-           &            lorentz_torque_ic_dt, lorentz_torque_ma_dt, omega_ic,      &
-           &            omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
+           &            omega_ic, omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
 #ifdef WITH_OMP_GPU
       !$omp target update from(z_LMloc, dz_LMloc, dzdt)
 #endif
@@ -1014,7 +999,6 @@ contains
    subroutine assemble_stage_Rdist(time, omega_ic, omega_ic1, omega_ma, omega_ma1,    &
               &                    dwdt, dzdt, dpdt, dsdt, dxidt, dphidt, dbdt,       &
               &                    djdt, dbdt_ic, djdt_ic, domega_ic_dt, domega_ma_dt,&
-              &                    lorentz_torque_ic_dt, lorentz_torque_ma_dt,        &
               &                    lPressNext, lRmsNext, tscheme)
       !
       ! This routine is used to call the different assembly stage of the different
@@ -1030,8 +1014,6 @@ contains
 
       !-- Output variables
       type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
-      type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt
-      type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt
       real(cp),            intent(inout) :: omega_ic, omega_ma, omega_ic1, omega_ma1
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dsdt, dxidt, dpdt, dphidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
@@ -1087,8 +1069,7 @@ contains
       !$omp target update to(z_ghost, z_Rloc, dz_Rloc, dzdt)
 #endif
       call assemble_tor_Rloc(time, z_Rloc, dz_Rloc, dzdt, domega_ic_dt, domega_ma_dt, &
-           &                 lorentz_torque_ic_dt, lorentz_torque_ma_dt, omega_ic,    &
-           &                 omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
+           &                 omega_ic, omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
 #ifdef WITH_OMP_GPU
       !$omp target update from(z_ghost, z_Rloc, dz_Rloc, dzdt)
 #endif
