@@ -17,6 +17,7 @@ from .thHeat import *
 from .coeff import *
 from .radialSpectra import *
 from .checkpoint import *
+from .libmelt import *
 if buildSo:
     try:
         from .potExtra import *

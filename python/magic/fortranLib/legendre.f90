@@ -11,6 +11,7 @@ module legendre
    real(kind=8), allocatable :: dPlm(:,:)
    real(kind=8), allocatable :: dPhi(:,:)
    real(kind=8), allocatable :: sinTh(:)
+   real(kind=8), allocatable ::  gauss(:)
    integer, allocatable :: lStart(:)
    integer, allocatable :: lStop(:)
    logical, allocatable :: lmOdd(:)
@@ -30,7 +31,6 @@ contains
       integer ::  lm, l, m
       integer :: n_theta
       real(kind=8) :: colat, dpi
-      real(kind=8), allocatable ::  gauss(:)
       real(kind=8), allocatable :: plma(:),dtheta_plma(:)
 
       dpi=4.d0*atan(1.d0)

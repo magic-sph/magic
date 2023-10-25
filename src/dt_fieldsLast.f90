@@ -28,7 +28,6 @@ module fieldsLast
    type(type_tarray), public :: dsdt, dwdt, dpdt, dzdt, dxidt
    type(type_tarray), public :: dbdt, djdt, dbdt_ic, djdt_ic, dphidt
    type(type_tscalar), public :: domega_ma_dt, domega_ic_dt
-   type(type_tscalar), public :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
    !DIR$ ATTRIBUTES ALIGN:64 :: dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dsdt_Rloc,dVSrLM_Rloc,dVXirLM_Rloc
    complex(cp), public, allocatable, target  :: dflowdt_Rloc_container(:,:,:)
@@ -74,14 +73,9 @@ contains
       call domega_ma_dt%initialize(nold, nexp, nimp)
       call domega_ic_dt%initialize(nold, nexp, nimp)
 
-      call lorentz_torque_ic_dt%initialize(nold, nexp, nimp)
-      call lorentz_torque_ma_dt%initialize(nold, nexp, nimp)
-
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: domega_ma_dt, domega_ic_dt)
       !$omp target update to(domega_ma_dt, domega_ic_dt)
-      !$omp target enter data map(alloc: lorentz_torque_ic_dt, lorentz_torque_ma_dt)
-      !$omp target update to(lorentz_torque_ic_dt, lorentz_torque_ma_dt)
 #endif
 
       if ( l_parallel_solve ) then
@@ -662,14 +656,10 @@ contains
       end if
 
 #ifdef WITH_OMP_GPU
-         !$omp target exit data map(release: lorentz_torque_ma_dt)
-         !$omp target exit data map(release: lorentz_torque_ic_dt)
          !$omp target exit data map(release: domega_ma_dt)
          !$omp target exit data map(release: domega_ic_dt)
 !         !$omp target exit data map(release: dzdt) !-- TODO: Error when releasing %expl (for case where expl pointes to *_contennair)
 #endif
-      call lorentz_torque_ma_dt%finalize()
-      call lorentz_torque_ic_dt%finalize()
       call domega_ma_dt%finalize()
       call domega_ic_dt%finalize()
       call dzdt%finalize()
