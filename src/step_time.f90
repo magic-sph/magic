@@ -568,9 +568,7 @@ contains
                           &                      dwdt%expl(:,:,tscheme%istage),        &
                           &                      djdt%expl(:,:,tscheme%istage),        &
                           &                      dbdt_ic, djdt_ic,                     &
-                          &                      domega_ma_dt, domega_ic_dt,           &
-                          &                      lorentz_torque_ma_dt,                 &
-                          &                      lorentz_torque_ic_dt, tscheme)
+                          &                      domega_ma_dt, domega_ic_dt, tscheme)
                      else
                      call finish_explicit_assembly_Rdist(omega_ic,w_Rloc,b_ic_LMloc,   &
                           &                      aj_ic_LMloc,dVSrLM_RLoc,dVXirLM_RLoc, &
@@ -580,9 +578,7 @@ contains
                           &                      dxidt%expl(:,:,tscheme%istage),       &
                           &                      dwdt%expl(:,:,tscheme%istage),        &
                           &                      djdt_Rloc, dbdt_ic, djdt_ic,          &
-                          &                      domega_ma_dt, domega_ic_dt,           &
-                          &                      lorentz_torque_ma_dt,                 &
-                          &                      lorentz_torque_ic_dt, tscheme)
+                          &                      domega_ma_dt, domega_ic_dt, tscheme)
                      end if
                   else
                      call finish_explicit_assembly_Rdist(omega_ic,w_Rloc,b_ic_LMloc,   &
@@ -591,9 +587,7 @@ contains
                           &                      lorentz_torque_ma,lorentz_torque_ic,  &
                           &                      dsdt_Rloc, dxidt_Rloc, dwdt_Rloc,     &
                           &                      djdt_Rloc, dbdt_ic, djdt_ic,          &
-                          &                      domega_ma_dt, domega_ic_dt,           &
-                          &                      lorentz_torque_ma_dt,                 &
-                          &                      lorentz_torque_ic_dt, tscheme)
+                          &                      domega_ma_dt, domega_ic_dt, tscheme)
                   end if
                   call f_exp_counter%stop_count()
                end if
@@ -650,8 +644,7 @@ contains
                        &                        lorentz_torque_ma,lorentz_torque_ic, &
                        &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,    &
                        &                        djdt_ic, domega_ma_dt, domega_ic_dt, &
-                       &                        lorentz_torque_ma_dt,                &
-                       &                        lorentz_torque_ic_dt, tscheme)
+                       &                        tscheme)
                   call f_exp_counter%stop_count()
                end if
                call lmLoop_counter%stop_count(l_increment=.false.)
@@ -748,13 +741,11 @@ contains
                   call LMLoop_Rdist(timeStage,time,tscheme,lMat,lRmsNext,lPressNext, &
                        &            lP00Next,dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,  &
                        &            djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,  &
-                       &            lorentz_torque_ma_dt,lorentz_torque_ic_dt,       &
                        &            b_nl_cmb,aj_nl_cmb,aj_nl_icb)
                else
                   call LMLoop(timeStage,time,tscheme,lMat,lRmsNext,lPressNext,dsdt,  &
                        &      dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,dbdt_ic,djdt_ic, &
-                       &      domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt,        &
-                       &      lorentz_torque_ic_dt,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
+                       &      domega_ma_dt,domega_ic_dt,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
                end if
 
                if ( lVerbose ) write(output_unit,*) '! lm-loop finished!'
@@ -778,14 +769,11 @@ contains
                call assemble_stage_Rdist(time, omega_ic, omega_ic1, omega_ma, omega_ma1,&
                     &                    dwdt, dzdt, dpdt, dsdt, dxidt, dphidt, dbdt,   &
                     &                    djdt, dbdt_ic, djdt_ic, domega_ic_dt,          &
-                    &                    domega_ma_dt, lorentz_torque_ic_dt,            &
-                    &                    lorentz_torque_ma_dt, lPressNext, lRmsNext,    &
-                    &                    tscheme)
+                    &                    domega_ma_dt, lPressNext, lRmsNext, tscheme)
             else
                call assemble_stage(time, omega_ic, omega_ic1, omega_ma, omega_ma1,     &
                     &              dwdt, dzdt, dpdt, dsdt, dxidt, dphidt, dbdt, djdt,  &
                     &              dbdt_ic, djdt_ic, domega_ic_dt, domega_ma_dt,       &
-                    &              lorentz_torque_ic_dt, lorentz_torque_ma_dt,         &
                     &              lPressNext, lRmsNext, tscheme)
             end if
          end if
@@ -933,9 +921,6 @@ contains
                end if
             end if
          end if
-
-         lorentz_torque_ma_dt%old(1)=omega_ma
-         lorentz_torque_ic_dt%old(1)=omega_ic
 
          if ( l_parallel_solve ) then
             call bulk_to_ghost(z_Rloc, z_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)

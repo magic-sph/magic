@@ -216,7 +216,6 @@ contains
                  &                    dphidt,b_LMloc,dbdt,aj_LMloc,djdt,           &
                  &                    b_ic_LMloc,dbdt_ic,aj_ic_LMloc,djdt_ic,      &
                  &                    omega_ic,omega_ma,domega_ic_dt,domega_ma_dt, &
-                 &                    lorentz_torque_ic_dt,lorentz_torque_ma_dt,   &
                  &                    time,tscheme,n_time_step )
          else
 #ifdef WITH_MPI
@@ -225,18 +224,16 @@ contains
                  &                    dphidt,b_LMloc,dbdt,aj_LMloc,djdt,        &
                  &                    b_ic_LMloc,dbdt_ic,aj_ic_LMloc,djdt_ic,   &
                  &                    omega_ic,omega_ma,domega_ic_dt,           &
-                 &                    domega_ma_dt,lorentz_torque_ic_dt,        &
-                 &                    lorentz_torque_ma_dt,time,tscheme,        &
-                 &                    n_time_step )
+                 &                    domega_ma_dt,time,tscheme,n_time_step )
 #else
             call readStartFields( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt,s_LMloc,&
                  &                dsdt,xi_LMloc,dxidt,phi_LMloc,dphidt,b_LMloc,  &
                  &                dbdt,aj_LMloc,djdt,b_ic_LMloc,dbdt_ic,         &
                  &                aj_ic_LMloc,djdt_ic,omega_ic,omega_ma,         &
-                 &                domega_ic_dt,domega_ma_dt,lorentz_torque_ic_dt,&
-                 &                lorentz_torque_ma_dt,time,tscheme,n_time_step )
+                 &                domega_ic_dt,domega_ma_dt,time,tscheme,n_time_step )
 #endif
          end if
+
          call t_reader%stop_count()
          if ( rank == 0 .and. l_save_out ) then
             open(newunit=n_log_file, file=log_file, status='unknown', &
@@ -400,8 +397,6 @@ contains
                  &               .false., .false., work_LMloc)
          end if
       end if
-      lorentz_torque_ma_dt%old(1)=omega_ma
-      lorentz_torque_ic_dt%old(1)=omega_ic
       if ( l_parallel_solve ) then
          call bulk_to_ghost(z_Rloc, z_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
          call exch_ghosts(z_ghost, lm_max, nRstart, nRstop, 1)

@@ -24,7 +24,6 @@ module fieldsLast
    type(type_tarray), public :: dsdt, dwdt, dpdt, dzdt, dxidt
    type(type_tarray), public :: dbdt, djdt, dbdt_ic, djdt_ic, dphidt
    type(type_tscalar), public :: domega_ma_dt, domega_ic_dt
-   type(type_tscalar), public :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
    !DIR$ ATTRIBUTES ALIGN:64 :: dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dsdt_Rloc,dVSrLM_Rloc,dVXirLM_Rloc
    complex(cp), public, allocatable, target  :: dflowdt_Rloc_container(:,:,:)
@@ -69,9 +68,6 @@ contains
 
       call domega_ma_dt%initialize(nold, nexp, nimp)
       call domega_ic_dt%initialize(nold, nexp, nimp)
-
-      call lorentz_torque_ic_dt%initialize(nold, nexp, nimp)
-      call lorentz_torque_ma_dt%initialize(nold, nexp, nimp)
 
       if ( l_parallel_solve ) then
          if ( l_heat ) call dsdt%initialize(1, lm_max, nRstart, nRstop, nold, nexp, &
@@ -361,8 +357,6 @@ contains
 
       if ( l_phase_field ) deallocate( dphidt_Rloc )
 
-      call lorentz_torque_ma_dt%finalize()
-      call lorentz_torque_ic_dt%finalize()
       call domega_ma_dt%finalize()
       call domega_ic_dt%finalize()
       call dzdt%finalize()

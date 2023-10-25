@@ -37,8 +37,7 @@ module fields_average_mod
    use radial_der_even, only: get_drNS_even, get_ddrNS_even
    use radial_der, only: get_dr
    use fieldsLast, only: dwdt, dpdt, dzdt, dsdt, dxidt, dbdt, djdt, dbdt_ic, &
-       &                 djdt_ic, domega_ma_dt, domega_ic_dt, dphidt,        &
-       &                 lorentz_torque_ic_dt, lorentz_torque_ma_dt
+       &                 djdt_ic, domega_ma_dt, domega_ic_dt, dphidt
    use storeCheckPoints
    use time_schemes, only: type_tscheme
 
@@ -490,15 +489,13 @@ contains
               &         w_ave_Rloc,z_ave_Rloc,p_ave_Rloc,s_ave_Rloc,          &
               &         xi_ave_Rloc,phi_ave_Rloc,b_ave_Rloc,aj_ave_Rloc,      &
               &         b_ic_ave,aj_ic_ave,dwdt,dzdt,dpdt,dsdt,dxidt,dphidt,  &
-              &         dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,  &
-              &         lorentz_torque_ma_dt,lorentz_torque_ic_dt)
+              &         dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt)
 #else
          call store(simtime,tscheme,-1,l_stop_time,.false.,.true.,        &
               &     w_ave_LMloc,z_ave_LMloc,p_ave_LMloc,s_ave_LMloc,      &
               &     xi_ave_LMloc,phi_ave_LMloc,b_ave_LMloc,aj_ave_LMloc,  &
               &     b_ic_ave,aj_ic_ave,dwdt,dzdt,dpdt,dsdt,dxidt,dphidt,  &
-              &     dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,  &
-              &     lorentz_torque_ma_dt,lorentz_torque_ic_dt)
+              &     dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt)
 #endif
 
          ! now correct the stored average fields by the factor which has been
