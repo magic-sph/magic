@@ -727,6 +727,11 @@ class TsLookUpTable:
             self.omega_ma = data[:, 4]
             self.lorentz_torque_ma = data[:, 5]
             self.viscous_torque_ma = data[:, 6]
+            if data.shape[-1] == 8:
+                self.gravi_torque_ic = data[:, 7]
+            else:
+                self.gravi_torque_ic = np.zeros_like(self.omega_ic)
+            self.gravi_torque_ma = -self.gravi_torque_ic
         elif self.field == 'Tay':
             self.time = data[:, 0]
             self.ekin_tora_rel = data[:, 1]
