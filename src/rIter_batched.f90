@@ -141,8 +141,8 @@ contains
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,       &
               &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,         &
               &          lFluxProfCalc,lPerpParCalc,lGeosCalc,lHemiCalc,     &
-              &          l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,  &
-              &          djdt,dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,                &
+              &          lPhaseCalc,l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,   &
+              &          dphidt,dbdt,djdt,dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,    &
               &          lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,   &
               &          br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,dtrkc,dthkc)
       !
@@ -157,7 +157,7 @@ contains
       !--- Input of variables:
       logical,             intent(in) :: l_graph,l_frame
       logical,             intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc
-      logical,             intent(in) :: lPowerCalc,lHemiCalc
+      logical,             intent(in) :: lPowerCalc,lHemiCalc,lPhaseCalc
       logical,             intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
       logical,             intent(in) :: lRmsCalc,lGeosCalc
       logical,             intent(in) :: l_probe_out
@@ -277,9 +277,9 @@ contains
       end if
 
       !-- Kinetic energy in the solid and liquid phases
-      if ( l_phase_field ) then
-         call get_ekin_solid_liquid_batch(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
-              &                           this%gsa%phic)
+      if ( lPhaseCalc ) then
+         call get_ekin_solid_liquid_batch(this%gsa%sc,this%gsa%vrc,this%gsa%vtc, &
+              &                           this%gsa%vpc,this%gsa%phic)
       end if
 
       !-- North/South hemisphere differences

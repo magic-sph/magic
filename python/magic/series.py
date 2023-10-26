@@ -159,7 +159,7 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Ekin')
             ax.set_yscale('log')
-            ax.set_xlim(self.time[0], self.time[-1])
+            ax.set_xlim(self.time.min(), self.time.max())
             fig.tight_layout()
         elif self.field == 'e_mag_oc':
             fig = plt.figure()
@@ -359,8 +359,14 @@ class MagicTs(MagicSetup):
             fig = plt.figure()
             ax = fig.add_subplot(111)
             ax1 = ax.twinx()
-            ax.plot(self.time, self.rmelt, label='r melt', color='C0')
-            ax1.plot(self.time, self.trmelt, label='T(r melt)', color='C1')
+            mask = (self.rmelt > 0)
+            ax.plot(self.time[mask], self.rmelt[mask], label='r melt', color='C0')
+            ax.plot(self.time, self.rmelt_mean, label='r melt', color='C0', ls=':')
+            #ax.plot(self.time, self.rmelt_min, ls='--', color='C0', alpha=0.5)
+            #ax.plot(self.time, self.rmelt_max, ls='--', color='C0', alpha=0.5)
+            ax1.plot(self.time[mask], self.trmelt[mask], label='T(r melt)', color='C1')
+            ax1.plot(self.time, self.trmelt_mean, label='T(r melt)', color='C1',
+                     ls=':')
             ax.set_xlim(self.time[0], self.time[-1])
             ax.set_xlabel('Time')
             ax.set_ylabel('r melt')
@@ -864,14 +870,38 @@ class TsLookUpTable:
             self.ekin_tot = self.eperp+self.epar
         elif self.field == 'phase':
             self.time = data[:, 0]
-            self.rmelt = data[:, 1]
-            self.trmelt = data[:, 2]
-            self.volS = data[:, 3]
-            self.ekinS = data[:, 4]
-            self.ekinL = data[:, 5]
-            self.flux_cmb = data[:, 6]
-            self.flux_icb = data[:, 7]
-            self.dEnthdt = data[:, 8]
+            self.rmelt_mean = data[:, 1]
+            self.trmelt_mean = data[:, 2]
+            if data.shape[1] == 9:
+                self.trmelt = np.zeros_like(self.trmelt_mean)
+                self.rmelt = np.zeros_like(self.rmelt_mean)
+                self.rmelt_min = np.zeros_like(self.rmelt)
+                self.rmelt_max = np.zeros_like(self.rmelt)
+                self.volS = data[:, 3]
+                self.ekinS = data[:, 4]
+                self.ekinL = data[:, 5]
+                self.flux_cmb = data[:, 6]
+                self.flux_icb = data[:, 7]
+                self.dEnthdt = data[:, 8]
+                self.phase_min = np.zeros_like(self.rmelt)
+                self.phase_max = np.zeros_like(self.rmelt)
+            else:
+                self.rmelt = data[:, 3]
+                self.trmelt = data[:, 4]
+                self.rmelt_min = data[:, 5]
+                self.rmelt_max = data[:, 6]
+                self.volS = data[:, 7]
+                self.ekinS = data[:, 8]
+                self.ekinL = data[:, 9]
+                self.flux_cmb = data[:, 10]
+                self.flux_icb = data[:, 11]
+                self.dEnthdt = data[:, 12]
+                if data.shape[1] == 15:
+                    self.phase_min = data[:, 13]
+                    self.phase_max = data[:, 14]
+                else:
+                    self.phase_min = np.zeros_like(self.rmelt)
+                    self.phase_max = np.zeros_like(self.rmelt)
         elif self.field == 'hemi':
             self.time = data[:, 0]
             self.hemi_vr = data[:, 1]
