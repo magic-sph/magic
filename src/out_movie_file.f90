@@ -3,6 +3,7 @@ module out_movie
    use precision_mod
    use parallel_mod, only: rank
    use geos, only: cyl, n_s_max, write_geos_frame
+   use outMisc_mod, only: write_rmelt_frame
    use communications, only: gt_OC, gather_all_from_lo_to_rank0
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, l_max,    &
        &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,  &
@@ -198,8 +199,9 @@ contains
 
       do n_movie=1,n_movies
          n_type=n_movie_type(n_movie)
-         if ( (.not. lStoreMov(n_movie)) .and. n_type /= 99 .and. &
-         &     n_type /= 130 .and. n_type /= 131 .and. n_type /= 132 ) then
+         if ( (.not. lStoreMov(n_movie)) .and. n_type /= 99 .and.          &
+         &     n_type /= 130 .and. n_type /= 131 .and. n_type /= 132 .and. &
+         &     n_type /= 126 ) then
             l_dtB_frame=.true.
          end if
       end do
@@ -301,6 +303,8 @@ contains
                call abortRun('! Use TO output for Lorentz force!')
             else if ( n_type==130 .or. n_type==131 .or. n_type==132 ) then
                call write_geos_frame(n_movie)
+            else if ( n_type==126 ) then ! Melting radius
+               call write_rmelt_frame(n_movie)
             else
                if ( rank == 0 ) then
                   call write_dtB_frame(n_movie,b,db,aj,dj,b_ic,db_ic,aj_ic,dj_ic)

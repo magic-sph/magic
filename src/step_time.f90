@@ -34,7 +34,7 @@ module step_time_mod
        &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix,  &
        &            l_packed_transp, l_rot_ic, l_rot_ma, l_cond_ma,    &
        &            l_parallel_solve, l_mag_par_solve, l_phase_field,  &
-       &            l_onset, l_geosMovie
+       &            l_onset, l_geosMovie, l_phaseMovie
    use init_fields, only: omega_ic1, omega_ma1
    use radialLoop, only: radialLoopG
    use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage, &
@@ -133,6 +133,7 @@ contains
       logical :: lFluxProfCalc    ! Calculate radial flux components
       logical :: lPerpParCalc     ! Calculate perpendicular and parallel Ekin
       logical :: lGeosCalc        ! Calculate geos.TAG outputs
+      logical :: lPhaseCalc       ! Calculate outputs for phase field
       logical :: lTOCalc          ! Calculate TO stuff
       logical :: lTONext,lTONext2 ! TO stuff for next steps
       logical :: lTOframeNext,lTOframeNext2
@@ -440,6 +441,7 @@ contains
          lPowerCalc   =l_power      .and. l_log
          lPerpParCalc =l_perpPar    .and. l_log
          lGeosCalc    =(l_par .and. l_log) .or. ( l_frame .and. l_geosMovie )
+         lPhaseCalc   =(l_phase_field .and. l_log) .or. ( l_frame .and. l_phaseMovie )
          lFluxProfCalc=l_FluxProfs  .and. l_log
          lViscBcCalc  =l_ViscBcCalc .and. l_log
          lOnsetCalc   =l_onset      .and. (l_log .or. l_logNext)
@@ -501,6 +503,7 @@ contains
             lFluxProfCalc = lFluxProfCalc .and. (tscheme%istage==1) .and. (.not. l_onset)
             lPerpParCalc  = lPerpParCalc  .and. (tscheme%istage==1) .and. (.not. l_onset)
             lGeosCalc     = lGeosCalc     .and. (tscheme%istage==1) .and. (.not. l_onset)
+            lPhaseCalc    = lPhaseCalc    .and. (tscheme%istage==1) .and. (.not. l_onset)
             l_probe_out   = l_probe_out   .and. (tscheme%istage==1) .and. (.not. l_onset)
 
             if ( tscheme%l_exp_calc(n_stage) ) then
@@ -769,49 +772,52 @@ contains
                call rLoop_counter%start_count()
                if ( l_parallel_solve ) then
                   if ( l_mag_par_solve ) then
-                  call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,            &
-                       &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,           &
-                       &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,          &
-                       &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,   &
-                       &           lHemiCalc,l_probe_out,dsdt%expl(:,:,tscheme%istage),&
-                       &           dwdt%expl(:,:,tscheme%istage),                      &
-                       &           dzdt%expl(:,:,tscheme%istage),                      &
-                       &           dpdt%expl(:,:,tscheme%istage),                      &
-                       &           dxidt%expl(:,:,tscheme%istage),                     &
-                       &           dphidt%expl(:,:,tscheme%istage),                    &
-                       &           dbdt%expl(:,:,tscheme%istage),                      &
-                       &           djdt%expl(:,:,tscheme%istage),dVxVhLM_Rloc,         &
-                       &           dVxBhLM_Rloc,dVSrLM_Rloc,dVXirLM_Rloc,              &
-                       &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,   &
-                       &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,dtrkc_Rloc,  &
+                  call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,           &
+                       &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
+                       &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,         &
+                       &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,  &
+                       &           lHemiCalc,lPhaseCalc,l_probe_out,                  &
+                       &           dsdt%expl(:,:,tscheme%istage),                     &
+                       &           dwdt%expl(:,:,tscheme%istage),                     &
+                       &           dzdt%expl(:,:,tscheme%istage),                     &
+                       &           dpdt%expl(:,:,tscheme%istage),                     &
+                       &           dxidt%expl(:,:,tscheme%istage),                    &
+                       &           dphidt%expl(:,:,tscheme%istage),                   &
+                       &           dbdt%expl(:,:,tscheme%istage),                     &
+                       &           djdt%expl(:,:,tscheme%istage),dVxVhLM_Rloc,        &
+                       &           dVxBhLM_Rloc,dVSrLM_Rloc,dVXirLM_Rloc,             &
+                       &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,  &
+                       &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,dtrkc_Rloc, &
                        &           dthkc_Rloc)
                   else
-                  call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,            &
-                       &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,           &
-                       &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,          &
-                       &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,   &
-                       &           lHemiCalc,l_probe_out,dsdt%expl(:,:,tscheme%istage),&
-                       &           dwdt%expl(:,:,tscheme%istage),                      &
-                       &           dzdt%expl(:,:,tscheme%istage),                      &
-                       &           dpdt%expl(:,:,tscheme%istage),                      &
-                       &           dxidt%expl(:,:,tscheme%istage),                     &
-                       &           dphidt%expl(:,:,tscheme%istage),                    &
-                       &           dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,                   &
-                       &           dVxBhLM_Rloc,dVSrLM_Rloc,dVXirLM_Rloc,              &
-                       &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,   &
-                       &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,dtrkc_Rloc,  &
+                  call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,           &
+                       &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
+                       &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,         &
+                       &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,  &
+                       &           lHemiCalc,lPhaseCalc,l_probe_out,                  &
+                       &           dsdt%expl(:,:,tscheme%istage),                     &
+                       &           dwdt%expl(:,:,tscheme%istage),                     &
+                       &           dzdt%expl(:,:,tscheme%istage),                     &
+                       &           dpdt%expl(:,:,tscheme%istage),                     &
+                       &           dxidt%expl(:,:,tscheme%istage),                    &
+                       &           dphidt%expl(:,:,tscheme%istage),                   &
+                       &           dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,                  &
+                       &           dVxBhLM_Rloc,dVSrLM_Rloc,dVXirLM_Rloc,             &
+                       &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,  &
+                       &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,dtrkc_Rloc, &
                        &           dthkc_Rloc)
                   end if
                else
-                  call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,             &
-                       &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,            &
-                       &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,           &
-                       &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,    &
-                       &           lHemiCalc,l_probe_out,dsdt_Rloc,dwdt_Rloc,dzdt_Rloc, &
-                       &           dpdt_Rloc,dxidt_Rloc,dphidt_Rloc,dbdt_Rloc,djdt_Rloc,&
-                       &           dVxVhLM_Rloc,dVxBhLM_Rloc,dVSrLM_Rloc,dVXirLM_Rloc,  &
-                       &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,    &
-                       &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,dtrkc_Rloc,   &
+                  call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,           &
+                       &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
+                       &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,         &
+                       &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,  &
+                       &           lHemiCalc,lPhaseCalc,l_probe_out,dsdt_Rloc,        &
+                       &           dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,          &
+                       &           dphidt_Rloc,dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,      &
+                       &           dVxBhLM_Rloc,dVSrLM_Rloc,dVXirLM_Rloc,             &
+                       &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,  &
+                       &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,dtrkc_Rloc, &
                        &           dthkc_Rloc)
                end if
                call rLoop_counter%stop_count()

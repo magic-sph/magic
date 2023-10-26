@@ -102,5 +102,6 @@ module logic
    logical :: l_onset ! A flag to turn MagIC into a linear stability analysis code
    logical :: l_scramble_theta ! A flag to set theta scrambling
    logical :: l_geosMovie ! A flag to trigger the production of geos movies
+   logical :: l_phaseMovie ! A flag to trigger the production of a movie for the melting radius
 
 end module logic
