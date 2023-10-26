@@ -700,21 +700,6 @@ contains
          radratio =half
       end if
 
-      if ( l_rot_ma ) then
-         if ( rank == 0 ) then
-            write(output_unit,*)
-            write(output_unit,*) '! I ALLOW FOR ROTATING MANTLE.'
-         end if
-         if ( ktopv == 1 .and. .not. l_cond_ma ) then
-            if ( rank == 0 ) then
-               write(output_unit,*)
-               write(output_unit,*) '! No torques on mantle!'
-               write(output_unit,*) '! I dont update mantle rotation omega_ma.'
-            end if
-            l_rot_ma=.false.
-         end if
-      end if
-
       if ( .not. l_mag ) then
          l_cmb_field   =.false.
          l_dt_cmb_field=.false.
