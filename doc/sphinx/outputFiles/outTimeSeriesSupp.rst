@@ -666,20 +666,37 @@ by MagIC. This file is calculated by the subroutine
    +===============+=================================================================+
    | 1             | time                                                            |
    +---------------+-----------------------------------------------------------------+
-   | 2             | Mean spherically-symmetric radius of the solidus                |
+   | 2             | Average radius of the solidus                                   |
    +---------------+-----------------------------------------------------------------+
-   | 3             | Mean temperature of the solidification front                    |
+   | 3             | Average temperature at the solidus (should be close to tmelt)   |
    +---------------+-----------------------------------------------------------------+
-   | 4             | Volume of the solid phase                                       |
+   | 4             | Mean spherically-symmetric radius of the solidus                |
    +---------------+-----------------------------------------------------------------+
-   | 5             | Kinetic energy of the solid phase                               |
+   | 5             | Mean spherically-symmetric temperature at the mean spherically  |
+   |               | symmetric radius of the solidus                                 |
    +---------------+-----------------------------------------------------------------+
-   | 6             | Kinetic energy of the liquid phase                              |
+   | 6             | Minimum radius of the solidus                                   |
    +---------------+-----------------------------------------------------------------+
-   | 7             | Heat flux at the inner core boundary                            |
+   | 7             | Maximum radius of the solidus                                   |
    +---------------+-----------------------------------------------------------------+
-   | 8             | Time variation of of temperature and phase field:               |
+   | 8             | Volume of the solid phase                                       |
+   +---------------+-----------------------------------------------------------------+
+   | 9             | Kinetic energy of the solid phase (should be small)             |
+   +---------------+-----------------------------------------------------------------+
+   | 10            | Kinetic energy of the liquid phase                              |
+   +---------------+-----------------------------------------------------------------+
+   | 11            | Heat flux at the outer core boundary                            |
+   +---------------+-----------------------------------------------------------------+
+   | 12            | Heat flux at the inner core boundary                            |
+   +---------------+-----------------------------------------------------------------+
+   | 13            | Time variation of of temperature and phase field:               |
    |               | :math:`\frac{\partial}{\partial t}(T-St\Phi)`                   |
+   +---------------+-----------------------------------------------------------------+
+   | 14            | Maximum value of phase field (should not exceed one by much,    |
+   |               | otherwise, Gibbs phenomenon is likely occurring)                |
+   +---------------+-----------------------------------------------------------------+
+   | 15            | Minimum value of phase field (should be close to zero,          |
+   |               | otherwise, Gibbs phenomenon is likely occurring)                |
    +---------------+-----------------------------------------------------------------+
 
    >>> # To stack all the phase.TAG files of the current directory

@@ -102,8 +102,8 @@ contains
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,        &
               &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,          &
               &          lFluxProfCalc,lPerpParCalc,lGeosCalc,lHemiCalc,      &
-              &          l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,   &
-              &          djdt,dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,                 &
+              &          lPhaseCalc,l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,    &
+              &          dphidt,dbdt,djdt,dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,     &
               &          lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,    &
               &          br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,dtrkc,dthkc)
       !
@@ -120,7 +120,7 @@ contains
       logical,             intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc
       logical,             intent(in) :: lPowerCalc,lHemiCalc
       logical,             intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
-      logical,             intent(in) :: lRmsCalc,lGeosCalc
+      logical,             intent(in) :: lRmsCalc,lGeosCalc,lPhaseCalc
       logical,             intent(in) :: l_probe_out
       logical,             intent(in) :: lPressCalc
       logical,             intent(in) :: lPressNext
@@ -365,9 +365,9 @@ contains
          end if
 
          !-- Kinetic energy in the solid and liquid phases
-         if ( l_phase_field ) then
-            call get_ekin_solid_liquid(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
-                 &                     this%gsa%phic,nR)
+         if ( lPhaseCalc ) then
+            call get_ekin_solid_liquid(this%gsa%sc,this%gsa%vrc,this%gsa%vtc, &
+                 &                     this%gsa%vpc,this%gsa%phic,nR)
          end if
 
          !-- Kinetic energy parallel and perpendicular to rotation axis

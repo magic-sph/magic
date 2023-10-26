@@ -171,7 +171,7 @@ def cut(dat, vmax=None, vmin=None):
 
 
 def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
-                 cm=defaultCm, normed=True, vmax=None, vmin=None, cbar=True,
+                 cm=defaultCm, normed=None, vmax=None, vmin=None, cbar=True,
                  tit=True, normRad=False, deminc=True, bounds=True):
     """
     Plot the equatorial cut of a given field
@@ -201,7 +201,7 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
     :param vmin: minimum value of the contour levels
     :type vmin: float
     :param normed: when set to True, the colormap is centered around zero.
-                   Default is True, except for entropy/temperature plots.
+                   Default is None, it tries to find it by itself.
     :type normed: bool
     :param deminc: a logical to indicate if one wants do get rid of the
                    possible azimuthal symmetry
@@ -240,6 +240,18 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
         else:
             fig = plt.figure(figsize=(5, 5))
             ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
+
+    if normed is None:
+        if abs(data.min()) < 1e-8:
+            normed = False
+        else:
+            if data.max() > 0 and data.min() < 0:
+                normed = True
+            else:
+                normed = False
+
+        if cm == defaultCm and not normed:
+            cm = 'viridis'
 
     cmap = plt.get_cmap(cm)
     if vmax is not None or vmin is not None:
@@ -303,7 +315,7 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
 
 
 def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
-               normed=True, vmax=None, vmin=None, cbar=True, tit=True,
+               normed=None, vmax=None, vmin=None, cbar=True, tit=True,
                fig=None, ax=None, bounds=True, lines=False):
     """
     Plot a meridional cut of a given field
@@ -328,7 +340,7 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
     :param vmin: minimum value of the contour levels
     :type vmin: float
     :param normed: when set to True, the colormap is centered around zero.
-                   Default is True, except for entropy/temperature plots.
+                   Default is None, it tries to guess by itself.
     :type normed: bool
     :param bounds: a boolean to determine if one wants to plot the limits
                    of the domain (True by default)
@@ -370,6 +382,18 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
 
     if tit and label is not None:
         ax.set_title(label, fontsize=24)
+
+    if normed is None:
+        if abs(data.min()) < 1e-8:
+            normed = False
+        else:
+            if data.max() > 0 and data.min() < 0:
+                normed = True
+            else:
+                normed = False
+
+        if cm == defaultCm and not normed:
+            cm = 'viridis'
 
     cmap = plt.get_cmap(cm)
     if vmax is not None and vmin is not None:
@@ -432,7 +456,7 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
 
 def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None,
                   vmin=None, lat_0=30., levels=defaultLevels, cm=defaultCm,
-                  normed=True, cbar=True, tit=True, lines=False, fig=None,
+                  normed=None, cbar=True, tit=True, lines=False, fig=None,
                   ax=None):
     """
     Plot the radial cut of a given field
@@ -464,7 +488,7 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
     :param vmin: minimum value of the contour levels
     :type vmin: float
     :param normed: when set to True, the colormap is centered around zero.
-                   Default is True, except for entropy/temperature plots.
+                   Default is None, it tries to find it by itself.
     :type normed: bool
     :param fig: a pre-existing figure (if needed)
     :type fig: matplotlib.figure.Figure
@@ -553,6 +577,18 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
         ax.plot(xxin, yyin, 'k-')
         ax.plot(xxout, yyout, 'k-')
         ax.axis('off')
+
+    if normed is None:
+        if abs(data.min()) < 1e-8:
+            normed = False
+        else:
+            if data.max() > 0 and data.min() < 0:
+                normed = True
+            else:
+                normed = False
+
+        if cm == defaultCm and not normed:
+            cm = 'viridis'
 
     cmap = plt.get_cmap(cm)
 
