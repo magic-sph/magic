@@ -14,7 +14,8 @@ module updateZ_mod
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: visc, or1, or2, rscheme_oc, dLvisc, beta, &
        &                       rho0, r_icb, r_cmb, r, beta, dbeta
-   use physical_parameters, only: kbotv, ktopv, prec_angle, po, oek, ampForce
+   use physical_parameters, only: kbotv, ktopv, prec_angle, po, oek, ampForce, &
+       &                          gammatau_gravi
    use num_param, only: AMstart, dct_counter, solve_counter
    use torsional_oscillations, only: ddzASL
    use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
@@ -978,22 +979,27 @@ contains
          !----- NOTE opposite sign of viscous torque on ICB and CMB:
          if ( .not. l_SRMA .and. l_rot_ma ) then
             if ( ktopv == 1 ) then ! Stress-free
-               domega_ma_dt%impl(istage)=0.0_cp
+               domega_ma_dt%impl(istage)=gammatau_gravi*c_lorentz_ma*(        &
+               &                         omega_ic-omega_ma)
                if ( istage == 1 ) domega_ma_dt%old(istage)=c_moi_ma*c_lorentz_ma*omega_ma
             else
-               domega_ma_dt%impl(istage)=visc(1)*( (two*or1(1)+beta(1))* &
-               &                         real(z(l1m0,1))-real(dz(l1m0,1)) )
+               domega_ma_dt%impl(istage)=visc(1)*( (two*or1(1)+beta(1))*         &
+               &                         real(z(l1m0,1))-real(dz(l1m0,1)) ) +    &
+               &                         gammatau_gravi*c_lorentz_ma*(           &
+               &                         omega_ic-omega_ma)
                if ( istage == 1 ) domega_ma_dt%old(istage)=c_dt_z10_ma*real(z(l1m0,1))
             end if
          end if
          if ( .not. l_SRIC .and. l_rot_ic ) then
             if ( kbotv == 1 ) then
-               domega_ic_dt%impl(istage)=0.0_cp
+               domega_ic_dt%impl(istage)=-gammatau_gravi*c_lorentz_ic*(     &
+               &                          omega_ic-omega_ma)
                if ( istage == 1 ) domega_ic_dt%old(istage)=c_moi_ic*c_lorentz_ic*omega_ic
             else
-               domega_ic_dt%impl(istage)=-visc(n_r_max)* ( (two*or1(n_r_max)+   &
-               &                          beta(n_r_max))*real(z(l1m0,n_r_max))- &
-               &                          real(dz(l1m0,n_r_max)) )
+               domega_ic_dt%impl(istage)=-visc(n_r_max)* ( (two*or1(n_r_max)+         &
+               &                          beta(n_r_max))*real(z(l1m0,n_r_max))-       &
+               &                          real(dz(l1m0,n_r_max)) ) - gammatau_gravi*  &
+               &                          c_lorentz_ic*(omega_ic-omega_ma)
                if ( istage == 1 ) domega_ic_dt%old(istage)=c_dt_z10_ic* &
                &                                           real(z(l1m0,n_r_max))
             end if
@@ -1724,11 +1730,14 @@ contains
             dat(1,:)= rscheme_oc%rnorm * c_z10_omega_ma* &
             &               rscheme_oc%rMat(1,:)
          else if ( l_rot_ma ) then
-            dat(1,:)= rscheme_oc%rnorm *               (        &
-            &                c_dt_z10_ma*rscheme_oc%rMat(1,:) - &
-            &       tscheme%wimp_lin(1)*visc(1)*(               &
-            &       (two*or1(1)+beta(1))*rscheme_oc%rMat(1,:) - &
-            &                           rscheme_oc%drMat(1,:) ) )
+            dat(1,:)= rscheme_oc%rnorm *               (           &
+            &                c_dt_z10_ma*rscheme_oc%rMat(1,:) -    &
+            &       tscheme%wimp_lin(1)*(visc(1)*(                 &
+            &       (two*or1(1)+beta(1))*rscheme_oc%rMat(1,:) -    &
+            &                           rscheme_oc%drMat(1,:) )+   &
+            &        gammatau_gravi*c_lorentz_ma*(                 &
+            &        c_z10_omega_ic*rscheme_oc%rMat(n_r_max,:)-    &
+            &        c_z10_omega_ma*rscheme_oc%rMat(1,:)) ))
          else
             dat(1,:)= rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
          end if
@@ -1750,10 +1759,13 @@ contains
             else if ( l_rot_ic ) then     !  time integration of z10
                dat(n_r_max,:)= rscheme_oc%rnorm *             (          &
                &                c_dt_z10_ic*rscheme_oc%rMat(n_r_max,:) + &
-               &       tscheme%wimp_lin(1)*visc(n_r_max)*(               &
+               &       tscheme%wimp_lin(1)*(visc(n_r_max)*(              &
                &           (two*or1(n_r_max)+beta(n_r_max))*             &
                &                            rscheme_oc%rMat(n_r_max,:) - &
-               &                           rscheme_oc%drMat(n_r_max,:) ) )
+               &                           rscheme_oc%drMat(n_r_max,:) )+&
+               &        gammatau_gravi*c_lorentz_ic*(                    &
+               &        c_z10_omega_ic*rscheme_oc%rMat(n_r_max,:) -      &
+               &        c_z10_omega_ma*rscheme_oc%rMat(1,:)) ))
             else
                dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
             end if
