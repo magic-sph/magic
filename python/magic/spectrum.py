@@ -541,20 +541,23 @@ class MagicSpectrum(MagicSetup):
         elif self.name == 'T_spec_' or self.name == 'T_spec_ave':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.loglog(self.index+1, self.T_l[0:], label='T')
+            ax.loglog(self.index+1, np.sqrt(self.T_l[0:]), label='T')
             if self.ave:
-                ax.fill_between(self.index+1, self.T_l-self.T_l_SD,
-                                self.T_l+self.T_l_SD, alpha=0.2)
+                std = 0.5 * self.T_l_SD / np.sqrt(self.T_l)
+                ax.fill_between(self.index+1, np.sqrt(self.T_l)-std,
+                                np.sqrt(self.T_l)+std, alpha=0.2)
             if self.kbots != 1:
                 ax.loglog(self.index+1, self.T_icb_l, label='T(ri)')
                 if self.ave:
-                    ax.fill_between(self.index+1, self.T_icb_l-self.T_icb_l_SD,
-                                    self.T_icb_l+self.T_icb_l_SD, alpha=0.2)
+                    std = 0.5 * self.T_icb_l_SD / np.sqrt(self.T_icb_l)
+                    ax.fill_between(self.index+1, np.sqrt(self.T_icb_l)-std,
+                                    np.sqrt(self.T_icb_l)+std, alpha=0.2)
             else:
-                ax.loglog(self.index+1, self.dT_icb_l, label='dT/dr(ri)')
+                ax.loglog(self.index+1, np.sqrt(self.dT_icb_l), label='dT/dr(ri)')
                 if self.ave:
-                    ax.fill_between(self.index+1, self.dT_icb_l-self.dT_icb_l_SD,
-                                    self.dT_icb_l+self.dT_icb_l_SD, alpha=0.2)
+                    std = 0.5 * self.dT_icb_l_SD / np.sqrt(self.dT_icb_l)
+                    ax.fill_between(self.index+1, np.sqrt(self.dT_icb_l)-std,
+                                    np.sqrt(self.dT_icb_l)+std, alpha=0.2)
             if labTex:
                 ax.set_xlabel('$\ell+1$')
             else:
@@ -566,11 +569,12 @@ class MagicSpectrum(MagicSetup):
 
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.loglog(self.index[::self.minc]+1, self.T_m[::self.minc])
+            ax.loglog(self.index[::self.minc]+1, np.sqrt(self.T_m[::self.minc]))
             if self.ave:
+                std = 0.5 * self.T_m_SD[::self.minc] / np.sqrt(self.T_m[::self.minc])
                 ax.fill_between(self.index[::self.minc]+1,
-                                self.T_m[::self.minc]-self.T_m_SD[::self.minc],
-                                self.T_m[::self.minc]+self.T_m_SD[::self.minc],
+                                np.sqrt(self.T_m[::self.minc])-std,
+                                np.sqrt(self.T_m[::self.minc])+std,
                                 alpha=0.2)
             if labTex:
                 ax.set_xlabel('Order $m+1$')
@@ -583,20 +587,23 @@ class MagicSpectrum(MagicSetup):
         elif self.name == 'Xi_spec_' or self.name == 'Xi_spec_ave':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.loglog(self.index+1, self.Xi_l[0:], label='Xi')
+            ax.loglog(self.index+1, np.sqrt(self.Xi_l), label='Xi')
             if self.ave:
-                ax.fill_between(self.index+1, self.Xi_l-self.Xi_l_SD,
-                                self.Xi_l+self.Xi_l_SD, alpha=0.2)
+                std = 0.5 * self.Xi_l_SD / np.sqrt(self.Xi_l)
+                ax.fill_between(self.index+1, np.sqrt(self.Xi_l)-std,
+                                np.sqrt(self.Xi_l)+std, alpha=0.2)
             if self.kbots != 1:
-                ax.loglog(self.index+1, self.Xi_icb_l, label='Xi(ri)')
+                ax.loglog(self.index+1, np.sqrt(self.Xi_icb_l), label='Xi(ri)')
                 if self.ave:
-                    ax.fill_between(self.index+1, self.Xi_icb_l-self.Xi_icb_l_SD,
-                                    self.Xi_icb_l+self.Xi_icb_l_SD, alpha=0.2)
+                    std = 0.5 * self.Xi_icb_l_SD / np.sqrt(self.Xi_icb_l)
+                    ax.fill_between(self.index+1, np.sqrt(self.Xi_icb_l)-std,
+                                    np.sqrt(self.Xi_icb_l)+std, alpha=0.2)
             else:
-                ax.loglog(self.index+1, self.dXi_icb_l, label='dXi/dr(ri)')
+                ax.loglog(self.index+1, np.sqrt(self.dXi_icb_l), label='dXi/dr(ri)')
                 if self.ave:
-                    ax.fill_between(self.index+1, self.dXi_icb_l-self.dXi_icb_l_SD,
-                                    self.dXi_icb_l+self.dXi_icb_l_SD, alpha=0.2)
+                    std = 0.5 * self.dXi_icb_l_SD / np.sqrt(self.dXi_icb_l)
+                    ax.fill_between(self.index+1, np.sqrt(self.dXi_icb_l)-std,
+                                    np.sqrt(self.dXi_icb_l)+std, alpha=0.2)
             if labTex:
                 ax.set_xlabel('$\ell+1$')
             else:
@@ -608,11 +615,12 @@ class MagicSpectrum(MagicSetup):
 
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.loglog(self.index[::self.minc]+1, self.Xi_m[::self.minc])
+            ax.loglog(self.index[::self.minc]+1, np.sqrt(self.Xi_m[::self.minc]))
             if self.ave:
+                std = 0.5 * self.Xi_m_SD[::self.minc] / np.sqrt(self.Xi_m[::self.minc])
                 ax.fill_between(self.index[::self.minc]+1,
-                                self.Xi_m[::self.minc]-self.Xi_m_SD[::self.minc],
-                                self.Xi_m[::self.minc]+self.Xi_m_SD[::self.minc],
+                                np.sqrt(self.Xi_m[::self.minc])-std,
+                                np.sqrt(self.Xi_m[::self.minc])+std,
                                 alpha=0.2)
             if labTex:
                 ax.set_xlabel('Order $m+1$')
@@ -625,26 +633,28 @@ class MagicSpectrum(MagicSetup):
         elif self.name == 'Phase_spec_' or self.name == 'Phase_spec_ave':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.loglog(self.index+1, self.Phase_l[0:], label='Phase')
+            ax.loglog(self.index+1, np.sqrt(self.Phase_l[0:]), label='Phase')
             if self.ave:
-                ax.fill_between(self.index+1, self.Phase_l-self.Phase_l_SD,
-                                self.Phase_l+self.Phase_l_SD, alpha=0.2)
+                std = 0.5 * self.Phase_l_SD / np.sqrt(self.Phase_l)
+                ax.fill_between(self.index+1, np.sqrt(self.Phase_l)-std,
+                                np.sqrt(self.Phase_l)+std, alpha=0.2)
             if labTex:
                 ax.set_xlabel('$\ell+1$')
             else:
                 ax.set_xlabel('l+1')
             ax.set_ylabel('Phase field')
             ax.set_xlim(1, self.index[-1]+1)
-            ax.legend(loc='best', frameon=False)
             fig.tight_layout()
 
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.loglog(self.index[::self.minc]+1, self.Phase_m[::self.minc])
+            ax.loglog(self.index[::self.minc]+1, np.sqrt(self.Phase_m[::self.minc]))
             if self.ave:
+                std = 0.5 * self.Phase_m_SD[::self.minc] / \
+                      np.sqrt(self.Phase_m[::self.minc])
                 ax.fill_between(self.index[::self.minc]+1,
-                                self.Phase_m[::self.minc]-self.Phase_m_SD[::self.minc],
-                                self.Phase_m[::self.minc]+self.Phase_m_SD[::self.minc],
+                                np.sqrt(self.Phase_m[::self.minc])-std,
+                                np.sqrt(self.Phase_m[::self.minc])+std,
                                 alpha=0.2)
             if labTex:
                 ax.set_xlabel('Order $m+1$')
