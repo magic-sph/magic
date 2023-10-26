@@ -850,9 +850,9 @@ contains
                &    position='append')
             end if
 
-            write(n_phase_file,'(1P,ES20.12,11ES16.8,ES13.5,2ES16.8)') &
-            &     time, rphase, tphase, rmelt_mean, tmelt_mean,        &
-            &     rmelt_min, rmelt_max, volS, ekinS, ekinL, fcmb,      &
+            write(n_phase_file,'(1P,ES20.12,11ES16.8,3ES13.5)')    &
+            &     time, rphase, tphase, rmelt_mean, tmelt_mean,    &
+            &     rmelt_min, rmelt_max, volS, ekinS, ekinL, fcmb,  &
             &     ficb, dtTPhi, phase_min, phase_max
 
             if ( l_save_out ) close(n_phase_file)
