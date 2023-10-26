@@ -9,6 +9,7 @@ from .series import MagicTs
 from .log import MagicSetup
 from .spectrum import MagicSpectrum
 from .radial import MagicRadial
+from .libmelt import MagicMelt
 
 if 'MAGIC_HOME' in os.environ:
     default_model = os.path.join(os.environ['MAGIC_HOME'], 'python/magic/model.json')
@@ -271,6 +272,33 @@ class AvgField:
                         self.lut['radial_profiles'][field+'_sd'] = -1 * np.ones(33)
                         setattr(self, field+'R_sd', rr.__dict__[field+'_SD'])
 
+        # Handle theta profiles
+        self.lut['theta_profiles'] = {}
+        if 'theta_profiles' in params.keys():
+            for key in params['theta_profiles']:
+
+                if key == 'rmelt_theta':
+                    rm = MagicMelt(all=True, datadir=datadir, iplot=False)
+                    if hasattr(rm, 'colatitude'):
+                        self.lut['theta_profiles']['colatitude'] = rm.colatitude
+                        mask = np.where(abs(rm.time-tstart) == min(abs(rm.time-tstart)),
+                                        1, 0)
+                        ind = np.nonzero(mask)[0][0]
+
+                        if std:
+                            xmean, xstd = avgField(rm.time[ind:],
+                                                   rm.rmelt[ind:],
+                                                   std=True)
+                            self.lut['theta_profiles']['rmelt_theta_av'] = xmean
+                            self.lut['theta_profiles']['rmelt_theta_sd'] = xstd
+                            setattr(self, 'rmelt_theta_av', xmean)
+                            setattr(self, 'rmelt_theta_sd', xstd)
+                        else:
+                            xmean, xstd = avgField(rm.time[ind:],
+                                                   rm.rmelt[ind:])
+                            self.lut['theta_profiles']['rmelt_theta_av'] = xmean
+                            setattr(self, 'rmelt_theta_av', xmean)
+
         # Write a json file
         if write:
             self.write_json(datadir)
@@ -397,7 +425,7 @@ class AvgStack:
                         a = AvgField(model=model, std=std)
                     if not hasattr(self, 'lut'):
                         self.lut = self.load()
-                        keys = ['spectra', 'radial_profiles']
+                        keys = ['spectra', 'radial_profiles', 'theta_profiles']
                         for key in keys:
                             for key1 in self.lut[key].keys():
                                 self.lut[key][key1] = [np.atleast_1d(self.lut[key][key1])]
@@ -429,7 +457,7 @@ class AvgStack:
                         arr1 = np.atleast_1d(new.lut[key][key1])
                         self.lut[key][key1] = np.concatenate((arr, arr1))
 
-        keys = ['spectra', 'radial_profiles']
+        keys = ['spectra', 'radial_profiles', 'theta_profiles']
         for key in keys:
             if key in new.lut.keys() and key in self.lut.keys():
                 for key1 in self.lut[key].keys():
@@ -452,7 +480,7 @@ class AvgStack:
                 for key1 in self.lut[key].keys():
                     setattr(self, key1, np.atleast_1d(self.lut[key][key1]))
 
-        keys = ['spectra', 'radial_profiles']
+        keys = ['spectra', 'radial_profiles', 'theta_profiles']
         for key in keys:
             if key in self.lut.keys():
                 for key1 in self.lut[key].keys():
@@ -477,7 +505,7 @@ class AvgStack:
                         arr1 = np.atleast_1d(newlut[key][key1])
                         self.lut[key][key1] = np.concatenate((arr, arr1))
 
-        keys = ['spectra', 'radial_profiles']
+        keys = ['spectra', 'radial_profiles', 'theta_profiles']
         for key in keys:
             if key in newlut.keys() and key in self.lut.keys():
                 for key1 in self.lut[key].keys():
