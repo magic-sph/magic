@@ -140,7 +140,7 @@ contains
       &    omega_ic1,omegaOsz_ic1,tShift_ic1,              &
       &    omega_ic2,omegaOsz_ic2,tShift_ic2,BIC,          &
       &    amp_mode_ic,omega_mode_ic,m_mode_ic,            &
-      &    mode_symm_ic,ellipticity_icb
+      &    mode_symm_ic,ellipticity_icb,gammatau_gravi
 
 
       do n=1,4*n_impS_max
@@ -414,7 +414,7 @@ contains
          l_SRIC  =.true.
       end if
 
-      if ( nRotMa > 1 ) then
+      if ( nRotMa > 0 ) then
          l_rot_ma=.true.
       else if ( nRotMa == 0 ) then
          l_rot_ma=.false.
@@ -1257,6 +1257,7 @@ contains
       write(n_out,'(''  m_mode_ic       ='',i4,'','')') m_mode_ic
       write(n_out,'(''  mode_symm_ic    ='',i4,'','')')  mode_symm_ic
       write(n_out,'(''  ellipticity_icb ='',ES14.6,'','')') ellipticity_icb
+      write(n_out,'(''  gammatau_gravi  ='',ES14.6,'','')') gammatau_gravi
       write(n_out,*) "/"
       write(n_out,*) " "
 
@@ -1678,6 +1679,7 @@ contains
       m_mode_ic      =0         ! default forcing -> axisymmetric
       mode_symm_ic   =0         ! default symmetry -> eq antisymmetric
       ellipticity_icb=0.0_cp    ! default is sphere
+      gammatau_gravi =0.0_cp    ! default is no gravitationnal coupling
 
    end subroutine defaultNamelists
 !------------------------------------------------------------------------------
