@@ -15,7 +15,7 @@ module useful
    private
 
    public :: l_correct_step, factorise, cc2real, cc22real, round_off, &
-   &         logWrite, polynomial_interpolation, abortRun
+   &         logWrite, polynomial_interpolation, abortRun, lagrange_interp
 
 contains
 
@@ -129,7 +129,7 @@ contains
 
    end subroutine factorise
 !----------------------------------------------------------------------------
-   real(cp)  function cc2real(c,m)
+   real(cp) function cc2real(c,m)
       !
       ! This function computes the norm of complex number, depending on the
       ! azimuthal wavenumber.
@@ -328,5 +328,32 @@ contains
       end if
 
    end function round_off
+!----------------------------------------------------------------------------
+   real(cp) function lagrange_interp(xp, x, yp)
+      !
+      ! This function performs a Lagrange interpolation around the point
+      ! x. The order depends on the size of the input arrays x and y
+      !
+
+      !-- Input variables
+      real(cp), intent(in) :: xp(:) ! Grid points where the quantity is known
+      real(cp), intent(in) :: x ! Point where the quantity is interpolated
+      real(cp), intent(in) :: yp(:) ! value
+
+      !-- Local variables
+      real(cp) :: lag_i ! Lagrange polynomial of order n
+      integer :: i, j, n
+
+      n = size(xp) ! Degree of the Lagrange interpolant
+      lagrange_interp=0.0_cp
+      do i=1,n
+         lag_i=one
+         do j=1,n
+            if (i /= j) lag_i = lag_i*(x - xp(j))/(xp(i) - xp(j))
+         end do
+         lagrange_interp=lagrange_interp+lag_i*yp(i)
+      end do
+
+   end function lagrange_interp
 !----------------------------------------------------------------------------
 end module useful
