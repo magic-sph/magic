@@ -329,7 +329,7 @@ contains
       c_moi_oc=8.0_cp*third*pi*rInt_R(mom,r,rscheme_oc)
 
       !----- Mantle normalized moment of inertia:
-      c_moi_ma=8.0_cp*pi/15.0_cp*(r_surface**5-r_cmb**5)*rho_ratio_ma
+      c_moi_ma=8.0_cp*pi/15.0_cp*(r_surface**5-r_cmb**5)*rho_ratio_ma*rho0(1)
 
       !----- IC normalised moment of inertia / r_icb**4 * 3/(8 pi)
       c_dt_z10_ic=0.2_cp*r_icb*rho_ratio_ic*rho0(n_r_max)
