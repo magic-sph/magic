@@ -559,35 +559,43 @@ contains
                   call f_exp_counter%start_count()
                   if ( l_parallel_solve ) then
                      if ( l_mag_par_solve ) then
-                     call finish_explicit_assembly_Rdist(omega_ic,w_Rloc,b_ic_LMloc,   &
-                          &                      aj_ic_LMloc,dVSrLM_RLoc,dVXirLM_RLoc, &
-                          &                      dVxVhLM_Rloc,dVxBhLM_Rloc,            &
-                          &                      lorentz_torque_ma,lorentz_torque_ic,  &
-                          &                      dsdt%expl(:,:,tscheme%istage),        &
-                          &                      dxidt%expl(:,:,tscheme%istage),       &
-                          &                      dwdt%expl(:,:,tscheme%istage),        &
-                          &                      djdt%expl(:,:,tscheme%istage),        &
-                          &                      dbdt_ic, djdt_ic,                     &
-                          &                      domega_ma_dt, domega_ic_dt, tscheme)
+                     call finish_explicit_assembly_Rdist(omega_ma,omega_ic,w_Rloc,      &
+                          &                              b_ic_LMloc,aj_ic_LMloc,        &
+                          &                              dVSrLM_RLoc,dVXirLM_RLoc,      &
+                          &                              dVxVhLM_Rloc,dVxBhLM_Rloc,     &
+                          &                              lorentz_torque_ma,             &
+                          &                              lorentz_torque_ic,             &
+                          &                              dsdt%expl(:,:,tscheme%istage), &
+                          &                              dxidt%expl(:,:,tscheme%istage),&
+                          &                              dwdt%expl(:,:,tscheme%istage), &
+                          &                              djdt%expl(:,:,tscheme%istage), &
+                          &                              dbdt_ic, djdt_ic, domega_ma_dt,&
+                          &                              domega_ic_dt, tscheme)
                      else
-                     call finish_explicit_assembly_Rdist(omega_ic,w_Rloc,b_ic_LMloc,   &
-                          &                      aj_ic_LMloc,dVSrLM_RLoc,dVXirLM_RLoc, &
-                          &                      dVxVhLM_Rloc,dVxBhLM_Rloc,            &
-                          &                      lorentz_torque_ma,lorentz_torque_ic,  &
-                          &                      dsdt%expl(:,:,tscheme%istage),        &
-                          &                      dxidt%expl(:,:,tscheme%istage),       &
-                          &                      dwdt%expl(:,:,tscheme%istage),        &
-                          &                      djdt_Rloc, dbdt_ic, djdt_ic,          &
-                          &                      domega_ma_dt, domega_ic_dt, tscheme)
+                     call finish_explicit_assembly_Rdist(omega_ma,omega_ic,w_Rloc,      &
+                          &                              b_ic_LMloc,aj_ic_LMloc,        &
+                          &                              dVSrLM_RLoc,dVXirLM_RLoc,      &
+                          &                              dVxVhLM_Rloc,dVxBhLM_Rloc,     &
+                          &                              lorentz_torque_ma,             &
+                          &                              lorentz_torque_ic,             &
+                          &                              dsdt%expl(:,:,tscheme%istage), &
+                          &                              dxidt%expl(:,:,tscheme%istage),&
+                          &                              dwdt%expl(:,:,tscheme%istage), &
+                          &                              djdt_Rloc, dbdt_ic, djdt_ic,   &
+                          &                              domega_ma_dt, domega_ic_dt,    &
+                          &                              tscheme)
                      end if
                   else
-                     call finish_explicit_assembly_Rdist(omega_ic,w_Rloc,b_ic_LMloc,   &
-                          &                      aj_ic_LMloc,dVSrLM_RLoc,dVXirLM_RLoc, &
-                          &                      dVxVhLM_Rloc,dVxBhLM_Rloc,            &
-                          &                      lorentz_torque_ma,lorentz_torque_ic,  &
-                          &                      dsdt_Rloc, dxidt_Rloc, dwdt_Rloc,     &
-                          &                      djdt_Rloc, dbdt_ic, djdt_ic,          &
-                          &                      domega_ma_dt, domega_ic_dt, tscheme)
+                     call finish_explicit_assembly_Rdist(omega_ma,omega_ic,w_Rloc,      &
+                          &                              b_ic_LMloc,aj_ic_LMloc,        &
+                          &                              dVSrLM_RLoc,dVXirLM_RLoc,      &
+                          &                              dVxVhLM_Rloc,dVxBhLM_Rloc,     &
+                          &                              lorentz_torque_ma,             &
+                          &                              lorentz_torque_ic,             &
+                          &                              dsdt_Rloc,dxidt_Rloc,dwdt_Rloc,&
+                          &                              djdt_Rloc,dbdt_ic,djdt_ic,     &
+                          &                              domega_ma_dt,domega_ic_dt,     &
+                          &                              tscheme)
                   end if
                   call f_exp_counter%stop_count()
                end if
@@ -635,8 +643,8 @@ contains
                call lmLoop_counter%start_count()
                if ( (.not. l_finish_exp_early) ) then
                   call f_exp_counter%start_count()
-                  call finish_explicit_assembly(omega_ic,w_LMloc,b_ic_LMloc,         &
-                       &                        aj_ic_LMloc,                         &
+                  call finish_explicit_assembly(omega_ma, omega_ic, w_LMloc,         &
+                       &                        b_ic_LMloc, aj_ic_LMloc,             &
                        &                        dVSrLM_LMLoc(:,:,tscheme%istage),    &
                        &                        dVXirLM_LMLoc(:,:,tscheme%istage),   &
                        &                        dVxVhLM_LMloc(:,:,tscheme%istage),   &

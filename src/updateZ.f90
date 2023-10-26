@@ -1233,29 +1233,29 @@ contains
          !$omp end parallel
       end if
 
-      if ( l_z10mat ) then
-         !----- NOTE opposite sign of viscous torque on ICB and CMB:
-         if ( .not. l_SRMA .and. l_rot_ma .and. nRstart==n_r_cmb ) then
-            if ( ktopv == 1 ) then ! Stress-free
-               domega_ma_dt%impl(istage)=0.0_cp
-               if ( istage == 1) domega_ma_dt%old(istage)=c_moi_ma*c_lorentz_ma*omega_ma
-            else
-               domega_ma_dt%impl(istage)=visc(1)*( (two*or1(1)+beta(1))* &
-               &                         real(zg(l1m0,1))-real(dz(l1m0,1)) )
-               if ( istage == 1 ) domega_ma_dt%old(istage)=c_dt_z10_ma*real(zg(l1m0,1))
-            end if
+      !----- NOTE opposite sign of viscous torque on ICB and CMB:
+      if ( .not. l_SRMA .and. l_rot_ma .and. nRstart==n_r_cmb ) then
+         if ( ktopv == 1 ) then ! Stress-free
+            domega_ma_dt%impl(istage)=-gammatau_gravi*c_lorentz_ma*omega_ma
+            if ( istage == 1) domega_ma_dt%old(istage)=c_moi_ma*c_lorentz_ma*omega_ma
+         else
+            domega_ma_dt%impl(istage)=visc(1)*( (two*or1(1)+beta(1))*        &
+            &                         real(zg(l1m0,1))-real(dz(l1m0,1)) ) -  &
+            &                         gammatau_gravi*c_lorentz_ma*omega_ma
+            if ( istage == 1 ) domega_ma_dt%old(istage)=c_dt_z10_ma*real(zg(l1m0,1))
          end if
-         if ( .not. l_SRIC .and. l_rot_ic .and. nRstop==n_r_icb ) then
-            if ( kbotv == 1 ) then ! Stress-free
-               domega_ic_dt%impl(istage)=0.0_cp
-               if ( istage == 1) domega_ic_dt%old(istage)=c_moi_ic*c_lorentz_ic*omega_ic
-            else
-               domega_ic_dt%impl(istage)=-visc(n_r_max)* ( (two*or1(n_r_max)+    &
-               &                          beta(n_r_max))*real(zg(l1m0,n_r_max))- &
-               &                          real(dz(l1m0,n_r_max)) )
-               if ( istage == 1 ) domega_ic_dt%old(istage)=c_dt_z10_ic* &
-               &                                           real(zg(l1m0,n_r_max))
-            end if
+      end if
+      if ( .not. l_SRIC .and. l_rot_ic .and. nRstop==n_r_icb ) then
+         if ( kbotv == 1 ) then ! Stress-free
+            domega_ic_dt%impl(istage)=-gammatau_gravi*c_lorentz_ic*omega_ic
+            if ( istage == 1) domega_ic_dt%old(istage)=c_moi_ic*c_lorentz_ic*omega_ic
+         else
+            domega_ic_dt%impl(istage)=-visc(n_r_max)* ( (two*or1(n_r_max)+        &
+            &                          beta(n_r_max))*real(zg(l1m0,n_r_max))-     &
+            &                          real(dz(l1m0,n_r_max)) ) - gammatau_gravi* &
+            &                          c_lorentz_ic*omega_ic
+            if ( istage == 1 ) domega_ic_dt%old(istage)=c_dt_z10_ic* &
+            &                                           real(zg(l1m0,n_r_max))
          end if
       end if
 
@@ -1661,10 +1661,17 @@ contains
 
    end subroutine update_rot_rates_Rloc
 !------------------------------------------------------------------------------
-   subroutine finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic, domega_ma_dt_exp, &
-              &              domega_ic_dt_exp)
+   subroutine finish_exp_tor(omega_ma, omega_ic, lorentz_torque_ma, &
+              &              lorentz_torque_ic, domega_ma_dt_exp, domega_ic_dt_exp)
+      !
+      ! This subroutine adds the explicit terms (Lorentz torque and part of the
+      ! gravitationnal torque) to the time evolution of the inner core and mantle
+      ! rotations.
+      !
 
       !-- Input variables
+      real(cp), intent(in) :: omega_ma ! rotation rate of the mantle
+      real(cp), intent(in) :: omega_ic ! rotation rate of the inner core
       real(cp), intent(in) :: lorentz_torque_ma  ! Lorentz torque (for OC rotation)
       real(cp), intent(in) :: lorentz_torque_ic  ! Lorentz torque (for IC rotation)
 
@@ -1677,10 +1684,18 @@ contains
 
       if ( l_rot_ma  .and. (.not. l_SRMA) ) then
          domega_ma_dt_exp=c_lorentz_ma*lorentz_torque_ma
+         !-- In case of F.D., part of the gravitationnal torque has to be treated explicitly
+         if ( l_parallel_solve ) then
+            domega_ma_dt_exp=domega_ma_dt_exp+gammatau_gravi*c_lorentz_ma*omega_ic
+         end if
       end if
 
       if ( l_rot_ic .and. (.not. l_SRIC) ) then
          domega_ic_dt_exp=c_lorentz_ic*lorentz_torque_ic
+         !-- In case of F.D., part of the gravitationnal torque has to be treated explicitly
+         if ( l_parallel_solve ) then
+            domega_ic_dt_exp=domega_ic_dt_exp+gammatau_gravi*c_lorentz_ic*omega_ma
+         end if
       end if
 
    end subroutine finish_exp_tor
@@ -2016,12 +2031,11 @@ contains
             !-- Using a three point stencil would be possible but this would
             !-- yield a pentadiagonal matrix here.
             dr = one/(r(2)-r(1))
-            zMat%diag(l,1)=c_dt_z10_ma-tscheme%wimp_lin(1)*visc(1)*( &
-            &              (two*or1(1)+beta(1))-dr )
+            zMat%diag(l,1)=c_dt_z10_ma-tscheme%wimp_lin(1)*(visc(1)*( &
+            &              (two*or1(1)+beta(1))+dr) - gammatau_gravi* &
+            &              c_lorentz_ma*c_z10_omega_ma)
             zMat%up(l,1)  =tscheme%wimp_lin(1)*visc(1)*dr
             zMat%low(l,1) =0.0_cp
-            !TBD now this is not in place
-            call abortRun('in update Z: not implemented yet')
          else
             zMat%diag(l,1)=one
             zMat%low(l,1) =0.0_cp
@@ -2048,8 +2062,9 @@ contains
                !-- Right now local first order: don't know how to handle it
                !-- otherwise
                dr = one/(r(n_r_max)-r(n_r_max-1))
-               zMat%diag(l,n_r_max)=c_dt_z10_ic+tscheme%wimp_lin(1)*visc(n_r_max)*( &
-               &                    two*or1(n_r_max)+beta(n_r_max)-dr)
+               zMat%diag(l,n_r_max)=c_dt_z10_ic+tscheme%wimp_lin(1)*(visc(n_r_max)*( &
+               &                    two*or1(n_r_max)+beta(n_r_max)-dr) +             &
+               &                    gammatau_gravi*c_lorentz_ic*c_z10_omega_ic)
                zMat%low(l,n_r_max) =tscheme%wimp_lin(1)*visc(n_r_max)*dr
                zMat%up(l,n_r_max)  =0.0_cp
             else
