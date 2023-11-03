@@ -217,6 +217,9 @@ contains
          if ( l_double_curl ) dVxVhLM(:,n_r_icb)=zero
       end if
 
+      lorentz_torque_ma = 0.0_cp
+      lorentz_torque_ic = 0.0_cp
+
       !------ Having to calculate non-linear boundary terms?
       lMagNlBc=.false.
       if ( ( l_mag_nl .or. l_mag_kin ) .and.                          &
@@ -262,9 +265,6 @@ contains
          if ( lTOnext .or. lTOnext2 .or. lTOCalc ) then
             call prep_TO_axi(z_Rloc(:,nR), dz_Rloc(:,nR))
          end if
-
-         lorentz_torque_ma = 0.0_cp
-         lorentz_torque_ic = 0.0_cp
 
          call this%nl_lm%set_zero()
 

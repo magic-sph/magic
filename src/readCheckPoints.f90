@@ -899,6 +899,9 @@ contains
          ratio2 = fd_ratio
       end if
 
+      call lorentz_torque_ma_dt%initialize(tscheme%nold, tscheme%nexp, tscheme%nimp)
+      call lorentz_torque_ic_dt%initialize(tscheme%nold, tscheme%nexp, tscheme%nimp)
+
       if ( rank == 0 ) then
          inquire(file=start_file, exist=startfile_does_exist)
 
@@ -1039,9 +1042,6 @@ contains
               &         m_max,m_max_old,minc,minc_old,lm_max,lm_max_old,lm2lmo)
          n_r_maxL = max(n_r_max,n_r_max_old)
 
-         call lorentz_torque_ma_dt%initialize(tscheme%nold, tscheme%nexp, tscheme%nimp)
-         call lorentz_torque_ic_dt%initialize(tscheme%nold, tscheme%nexp, tscheme%nimp)
-
          !-- Read Lorentz torques and rotation rates:
          if ( version == 1 ) then
 
@@ -1163,6 +1163,18 @@ contains
       call MPI_Bcast(domega_ma_dt%impl, tscheme%nimp, MPI_DEF_REAL, 0, &
            &         MPI_COMM_WORLD, ierr)
       call MPI_Bcast(domega_ma_dt%old, tscheme%nold, MPI_DEF_REAL, 0, &
+           &         MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(lorentz_torque_ic_dt%expl, tscheme%nexp, MPI_DEF_REAL, 0, &
+           &         MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(lorentz_torque_ic_dt%impl, tscheme%nimp, MPI_DEF_REAL, 0, &
+           &         MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(lorentz_torque_ic_dt%old, tscheme%nold, MPI_DEF_REAL, 0, &
+           &         MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(lorentz_torque_ma_dt%expl, tscheme%nexp, MPI_DEF_REAL, 0, &
+           &         MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(lorentz_torque_ma_dt%impl, tscheme%nimp, MPI_DEF_REAL, 0, &
+           &         MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(lorentz_torque_ma_dt%old, tscheme%nold, MPI_DEF_REAL, 0, &
            &         MPI_COMM_WORLD, ierr)
 #endif
 
