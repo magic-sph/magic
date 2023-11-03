@@ -20,11 +20,10 @@ module start_fields
    use output_data, only: log_file, n_log_file
    use blocking, only: lo_map, llm, ulm, ulmMag, llmMag
    use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
-       &            l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat,             &
-       &            l_rot_ma, l_temperature_diff, l_single_matrix,       &
+       &            l_mag_kin, l_mag_LF, l_temperature_diff, l_onset,    &
        &            l_chemical_conv, l_anelastic_liquid, l_save_out,     &
        &            l_parallel_solve, l_mag_par_solve, l_phase_field,    &
-       &            l_onset, l_non_adia
+       &            l_single_matrix, l_non_adia
    use init_fields, only: l_start_file, init_s1, init_b1, tops, pt_cond,  &
        &                  initV, initS, initB, initXi, ps_cond,           &
        &                  start_file, init_xi1, topxi, xi_cond, omega_ic1,&

@@ -114,4 +114,6 @@ module physical_parameters
    real(cp) :: ellip_fac_icb      ! d/d\phi (Y22) * d/dt exp(i\omega t) at ICB
 
    real(cp) :: ampForce           ! Amplitude of external body force
+   real(cp) :: gammatau_gravi     ! Constant in front of the core/mantle gravitationnal torque (see Aubert et al. 2013)
+
 end module physical_parameters
