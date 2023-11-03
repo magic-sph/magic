@@ -14,7 +14,8 @@ module updateZ_mod
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: visc, or1, or2, rscheme_oc, dLvisc, beta, &
        &                       rho0, r_icb, r_cmb, r, beta, dbeta
-   use physical_parameters, only: kbotv, ktopv, prec_angle, po, oek, ampForce
+   use physical_parameters, only: kbotv, ktopv, prec_angle, po, oek, ampForce, &
+       &                          gammatau_gravi
    use num_param, only: AMstart, dct_counter, solve_counter
    use torsional_oscillations, only: ddzASL
    use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
@@ -472,14 +473,14 @@ contains
       if (  tscheme%istage == tscheme%nstages ) then
          !-- First update rot rates for possible AM correction in a second step
          call update_rot_rates(z, dom_ma, dom_ic, omega_ma, omega_ma1, omega_ic, &
-              &                omega_ic1, l_in_cheb_space=.true.)
+              &                omega_ic1, tscheme, l_in_cheb_space=.true.)
          call get_tor_rhs_imp(timeNext, z, dz, dzdt, domega_ma_dt, domega_ic_dt, &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, &
               &               1, tscheme%l_imp_calc_rhs(1), lRmsNext,            &
               &               l_in_cheb_space=.true.)
       else
          call update_rot_rates(z, dom_ma, dom_ic, omega_ma, omega_ma1, omega_ic, &
-              &                omega_ic1, l_in_cheb_space=.true.)
+              &                omega_ic1, tscheme, l_in_cheb_space=.true.)
          call get_tor_rhs_imp(time, z, dz, dzdt, domega_ma_dt, domega_ic_dt,     &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, &
               &               tscheme%istage+1, tscheme%l_imp_calc_rhs(          &
@@ -847,7 +848,7 @@ contains
       !    vanish and the angular moment about the (planetary) rotation axis
       !    is kept constant.
       !$omp single
-      if ( l_correct_AMz .and.  l1m0 > 0 .and. lmStart_00 <= l1m0 .and. &
+      if ( l_correct_AMz .and. l1m0 > 0 .and. lmStart_00 <= l1m0 .and. &
       &    ulm >= l1m0 ) then
 
          z10(:)=z(l1m0,:)
@@ -872,11 +873,10 @@ contains
          end if
          corr_l1m0=cmplx(angular_moment(3)-AMstart,0.0_cp,kind=cp)/nomi
 
-         !-------- Correct z(2,n_r) and z(l_max+2,n_r) plus the respective
-         !         derivatives:
+         !-- Correct z10(n_r) and the respective derivatives:
          do n_r=1,n_r_max
             r_E_2=r(n_r)*r(n_r)
-            z(l1m0,n_r)  =z(l1m0,n_r)  - rho0(n_r)*r_E_2*corr_l1m0
+            z(l1m0,n_r)  =z(l1m0,n_r) - rho0(n_r)*r_E_2*corr_l1m0
             dz(l1m0,n_r) =dz(l1m0,n_r) - rho0(n_r)*(          &
             &            two*r(n_r)+r_E_2*beta(n_r))*corr_l1m0
             work_LMloc(l1m0,n_r)=work_LMloc(l1m0,n_r)-rho0(n_r)*( &
@@ -894,8 +894,8 @@ contains
 
       end if ! l=1,m=0 contained in lm-block ?
 
-      if ( l_correct_AMe .and.  l1m1 > 0 .and. &
-      &    lmStart_00 <= l1m1 .and. ulm >= l1m1 ) then
+      if ( l_correct_AMe .and. l1m1 > 0 .and. lmStart_00 <= l1m1 .and. &
+      &    ulm >= l1m1 ) then
 
          z10(:)=zero
          z11(:)=z(l1m1,:)
@@ -913,8 +913,8 @@ contains
          !         derivatives:
          do n_r=1,n_r_max
             r_E_2=r(n_r)*r(n_r)
-            z(l1m1,n_r)  =z(l1m1,n_r)  -  rho0(n_r)*r_E_2*corr_l1m1
-            dz(l1m1,n_r) =dz(l1m1,n_r) -  rho0(n_r)*(            &
+            z(l1m1,n_r)  =z(l1m1,n_r)  - rho0(n_r)*r_E_2*corr_l1m1
+            dz(l1m1,n_r) =dz(l1m1,n_r) - rho0(n_r)*(            &
             &            two*r(n_r)+r_E_2*beta(n_r))*corr_l1m1
             work_LMloc(l1m1,n_r)=work_LMloc(l1m1,n_r)-rho0(n_r)*(    &
             &              two+four*beta(n_r)*r(n_r) +               &
@@ -978,22 +978,24 @@ contains
          !----- NOTE opposite sign of viscous torque on ICB and CMB:
          if ( .not. l_SRMA .and. l_rot_ma ) then
             if ( ktopv == 1 ) then ! Stress-free
-               domega_ma_dt%impl(istage)=0.0_cp
+               domega_ma_dt%impl(istage)=-gammatau_gravi*c_lorentz_ma*omega_ma
                if ( istage == 1 ) domega_ma_dt%old(istage)=c_moi_ma*c_lorentz_ma*omega_ma
             else
-               domega_ma_dt%impl(istage)=visc(1)*( (two*or1(1)+beta(1))* &
-               &                         real(z(l1m0,1))-real(dz(l1m0,1)) )
+               domega_ma_dt%impl(istage)=visc(1)*( (two*or1(1)+beta(1))*         &
+               &                         real(z(l1m0,1))-real(dz(l1m0,1)) ) -    &
+               &                         gammatau_gravi*c_lorentz_ma*omega_ma
                if ( istage == 1 ) domega_ma_dt%old(istage)=c_dt_z10_ma*real(z(l1m0,1))
             end if
          end if
          if ( .not. l_SRIC .and. l_rot_ic ) then
             if ( kbotv == 1 ) then
-               domega_ic_dt%impl(istage)=0.0_cp
+               domega_ic_dt%impl(istage)=-gammatau_gravi*c_lorentz_ic*omega_ic
                if ( istage == 1 ) domega_ic_dt%old(istage)=c_moi_ic*c_lorentz_ic*omega_ic
             else
-               domega_ic_dt%impl(istage)=-visc(n_r_max)* ( (two*or1(n_r_max)+   &
-               &                          beta(n_r_max))*real(z(l1m0,n_r_max))- &
-               &                          real(dz(l1m0,n_r_max)) )
+               domega_ic_dt%impl(istage)=-visc(n_r_max)* ( (two*or1(n_r_max)+         &
+               &                          beta(n_r_max))*real(z(l1m0,n_r_max))-       &
+               &                          real(dz(l1m0,n_r_max)) ) - gammatau_gravi*  &
+               &                          c_lorentz_ic*omega_ic
                if ( istage == 1 ) domega_ic_dt%old(istage)=c_dt_z10_ic* &
                &                                           real(z(l1m0,n_r_max))
             end if
@@ -1227,29 +1229,29 @@ contains
          !$omp end parallel
       end if
 
-      if ( l_z10mat ) then
-         !----- NOTE opposite sign of viscous torque on ICB and CMB:
-         if ( .not. l_SRMA .and. l_rot_ma .and. nRstart==n_r_cmb ) then
-            if ( ktopv == 1 ) then ! Stress-free
-               domega_ma_dt%impl(istage)=0.0_cp
-               if ( istage == 1) domega_ma_dt%old(istage)=c_moi_ma*c_lorentz_ma*omega_ma
-            else
-               domega_ma_dt%impl(istage)=visc(1)*( (two*or1(1)+beta(1))* &
-               &                         real(zg(l1m0,1))-real(dz(l1m0,1)) )
-               if ( istage == 1 ) domega_ma_dt%old(istage)=c_dt_z10_ma*real(zg(l1m0,1))
-            end if
+      !----- NOTE opposite sign of viscous torque on ICB and CMB:
+      if ( .not. l_SRMA .and. l_rot_ma .and. nRstart==n_r_cmb ) then
+         if ( ktopv == 1 ) then ! Stress-free
+            domega_ma_dt%impl(istage)=-gammatau_gravi*c_lorentz_ma*omega_ma
+            if ( istage == 1) domega_ma_dt%old(istage)=c_moi_ma*c_lorentz_ma*omega_ma
+         else
+            domega_ma_dt%impl(istage)=visc(1)*( (two*or1(1)+beta(1))*        &
+            &                         real(zg(l1m0,1))-real(dz(l1m0,1)) ) -  &
+            &                         gammatau_gravi*c_lorentz_ma*omega_ma
+            if ( istage == 1 ) domega_ma_dt%old(istage)=c_dt_z10_ma*real(zg(l1m0,1))
          end if
-         if ( .not. l_SRIC .and. l_rot_ic .and. nRstop==n_r_icb ) then
-            if ( kbotv == 1 ) then ! Stress-free
-               domega_ic_dt%impl(istage)=0.0_cp
-               if ( istage == 1) domega_ic_dt%old(istage)=c_moi_ic*c_lorentz_ic*omega_ic
-            else
-               domega_ic_dt%impl(istage)=-visc(n_r_max)* ( (two*or1(n_r_max)+    &
-               &                          beta(n_r_max))*real(zg(l1m0,n_r_max))- &
-               &                          real(dz(l1m0,n_r_max)) )
-               if ( istage == 1 ) domega_ic_dt%old(istage)=c_dt_z10_ic* &
-               &                                           real(zg(l1m0,n_r_max))
-            end if
+      end if
+      if ( .not. l_SRIC .and. l_rot_ic .and. nRstop==n_r_icb ) then
+         if ( kbotv == 1 ) then ! Stress-free
+            domega_ic_dt%impl(istage)=-gammatau_gravi*c_lorentz_ic*omega_ic
+            if ( istage == 1) domega_ic_dt%old(istage)=c_moi_ic*c_lorentz_ic*omega_ic
+         else
+            domega_ic_dt%impl(istage)=-visc(n_r_max)* ( (two*or1(n_r_max)+        &
+            &                          beta(n_r_max))*real(zg(l1m0,n_r_max))-     &
+            &                          real(dz(l1m0,n_r_max)) ) - gammatau_gravi* &
+            &                          c_lorentz_ic*omega_ic
+            if ( istage == 1 ) domega_ic_dt%old(istage)=c_dt_z10_ic* &
+            &                                           real(zg(l1m0,n_r_max))
          end if
       end if
 
@@ -1422,7 +1424,7 @@ contains
       !$omp end parallel
 
       call update_rot_rates(z, dom_ma, dom_ic, omega_ma, omega_ma1, omega_ic, &
-           &                omega_ic1)
+           &                omega_ic1, tscheme)
       call get_tor_rhs_imp(time, z, dz, dzdt, domega_ma_dt, domega_ic_dt, &
            &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
            &               tscheme, 1, tscheme%l_imp_calc_rhs(1),         &
@@ -1563,12 +1565,13 @@ contains
    end subroutine assemble_tor_Rloc
 !------------------------------------------------------------------------------
    subroutine update_rot_rates(z, dom_ma, dom_ic, omega_ma, omega_ma1,   &
-              &                omega_ic, omega_ic1, l_in_cheb_space)
+              &                omega_ic, omega_ic1, tscheme, l_in_cheb_space)
       !
       ! This subroutine updates the rotation rate of inner core and mantle.
       !
 
       !-- Input variables
+      class(type_tscheme), intent(in) :: tscheme
       complex(cp),       intent(in) :: z(llm:ulm,n_r_max)
       real(cp),          intent(in) :: dom_ma, dom_ic  ! RHS when stress-free BCs are used
       logical, optional, intent(in) :: l_in_cheb_space ! Is z in Cheb space or not?
@@ -1594,7 +1597,8 @@ contains
       if ( llm <= l1m0 .and. ulm >= l1m0 )then
          if ( l_rot_ma .and. .not. l_SRMA ) then
             if ( ktopv == 1 ) then  ! free slip, explicit time stepping of omega !
-               omega_ma=dom_ma/c_moi_ma/c_lorentz_ma
+               omega_ma=dom_ma/(c_lorentz_ma*(c_moi_ma+tscheme%wimp_lin(1)* &
+               &        gammatau_gravi))
             else if ( ktopv == 2 ) then ! no slip, omega given by z10
                z10(:)=real(z(l1m0,:))
                if ( l_in_loc ) call rscheme_oc%costf1(z10)
@@ -1604,7 +1608,8 @@ contains
          end if
          if ( l_rot_ic .and. .not. l_SRIC ) then
             if ( kbotv == 1 ) then  ! free slip, explicit time stepping of omega !
-               omega_ic=dom_ic/c_moi_ic/c_lorentz_ic
+               omega_ic=dom_ic/(c_lorentz_ic*(c_moi_ic+tscheme%wimp_lin(1)* &
+               &        gammatau_gravi))
             else if ( kbotv == 2 ) then ! no slip, omega given by z10
                z10(:)=real(z(l1m0,:))
                if ( l_in_loc ) call rscheme_oc%costf1(z10)
@@ -1655,10 +1660,17 @@ contains
 
    end subroutine update_rot_rates_Rloc
 !------------------------------------------------------------------------------
-   subroutine finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic, domega_ma_dt_exp, &
-              &              domega_ic_dt_exp)
+   subroutine finish_exp_tor(omega_ma, omega_ic, lorentz_torque_ma, &
+              &              lorentz_torque_ic, domega_ma_dt_exp, domega_ic_dt_exp)
+      !
+      ! This subroutine adds the explicit terms (Lorentz torque and part of the
+      ! gravitationnal torque) to the time evolution of the inner core and mantle
+      ! rotations.
+      !
 
       !-- Input variables
+      real(cp), intent(in) :: omega_ma ! rotation rate of the mantle
+      real(cp), intent(in) :: omega_ic ! rotation rate of the inner core
       real(cp), intent(in) :: lorentz_torque_ma  ! Lorentz torque (for OC rotation)
       real(cp), intent(in) :: lorentz_torque_ic  ! Lorentz torque (for IC rotation)
 
@@ -1670,11 +1682,11 @@ contains
       domega_ma_dt_exp=0.0_cp
 
       if ( l_rot_ma  .and. (.not. l_SRMA) ) then
-         domega_ma_dt_exp=c_lorentz_ma*lorentz_torque_ma
+         domega_ma_dt_exp=c_lorentz_ma*(lorentz_torque_ma+gammatau_gravi*omega_ic)
       end if
 
       if ( l_rot_ic .and. (.not. l_SRIC) ) then
-         domega_ic_dt_exp=c_lorentz_ic*lorentz_torque_ic
+         domega_ic_dt_exp=c_lorentz_ic*(lorentz_torque_ic+gammatau_gravi*omega_ma)
       end if
 
    end subroutine finish_exp_tor
@@ -1724,11 +1736,13 @@ contains
             dat(1,:)= rscheme_oc%rnorm * c_z10_omega_ma* &
             &               rscheme_oc%rMat(1,:)
          else if ( l_rot_ma ) then
-            dat(1,:)= rscheme_oc%rnorm *               (        &
-            &                c_dt_z10_ma*rscheme_oc%rMat(1,:) - &
-            &       tscheme%wimp_lin(1)*visc(1)*(               &
-            &       (two*or1(1)+beta(1))*rscheme_oc%rMat(1,:) - &
-            &                           rscheme_oc%drMat(1,:) ) )
+            dat(1,:)= rscheme_oc%rnorm *               (           &
+            &                c_dt_z10_ma*rscheme_oc%rMat(1,:) -    &
+            &       tscheme%wimp_lin(1)*(visc(1)*(                 &
+            &       (two*or1(1)+beta(1))*rscheme_oc%rMat(1,:) -    &
+            &                           rscheme_oc%drMat(1,:) )-   &
+            &        gammatau_gravi*c_lorentz_ma*                  &
+            &        c_z10_omega_ma*rscheme_oc%rMat(1,:)) )
          else
             dat(1,:)= rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
          end if
@@ -1750,10 +1764,12 @@ contains
             else if ( l_rot_ic ) then     !  time integration of z10
                dat(n_r_max,:)= rscheme_oc%rnorm *             (          &
                &                c_dt_z10_ic*rscheme_oc%rMat(n_r_max,:) + &
-               &       tscheme%wimp_lin(1)*visc(n_r_max)*(               &
+               &       tscheme%wimp_lin(1)*(visc(n_r_max)*(              &
                &           (two*or1(n_r_max)+beta(n_r_max))*             &
                &                            rscheme_oc%rMat(n_r_max,:) - &
-               &                           rscheme_oc%drMat(n_r_max,:) ) )
+               &                           rscheme_oc%drMat(n_r_max,:) )+&
+               &        gammatau_gravi*c_lorentz_ic*                     &
+               &        c_z10_omega_ic*rscheme_oc%rMat(n_r_max,:) ))
             else
                dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
             end if
@@ -2004,12 +2020,11 @@ contains
             !-- Using a three point stencil would be possible but this would
             !-- yield a pentadiagonal matrix here.
             dr = one/(r(2)-r(1))
-            zMat%diag(l,1)=c_dt_z10_ma-tscheme%wimp_lin(1)*visc(1)*( &
-            &              (two*or1(1)+beta(1))-dr )
+            zMat%diag(l,1)=c_dt_z10_ma-tscheme%wimp_lin(1)*(visc(1)*( &
+            &              (two*or1(1)+beta(1))+dr) - gammatau_gravi* &
+            &              c_lorentz_ma*c_z10_omega_ma)
             zMat%up(l,1)  =tscheme%wimp_lin(1)*visc(1)*dr
             zMat%low(l,1) =0.0_cp
-            !TBD now this is not in place
-            call abortRun('in update Z: not implemented yet')
          else
             zMat%diag(l,1)=one
             zMat%low(l,1) =0.0_cp
@@ -2036,8 +2051,9 @@ contains
                !-- Right now local first order: don't know how to handle it
                !-- otherwise
                dr = one/(r(n_r_max)-r(n_r_max-1))
-               zMat%diag(l,n_r_max)=c_dt_z10_ic+tscheme%wimp_lin(1)*visc(n_r_max)*( &
-               &                    two*or1(n_r_max)+beta(n_r_max)-dr)
+               zMat%diag(l,n_r_max)=c_dt_z10_ic+tscheme%wimp_lin(1)*(visc(n_r_max)*( &
+               &                    two*or1(n_r_max)+beta(n_r_max)-dr) +             &
+               &                    gammatau_gravi*c_lorentz_ic*c_z10_omega_ic)
                zMat%low(l,n_r_max) =tscheme%wimp_lin(1)*visc(n_r_max)*dr
                zMat%up(l,n_r_max)  =0.0_cp
             else

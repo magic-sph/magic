@@ -9,7 +9,7 @@ Mantle Namelist
 
 This namelist defines mantle properties
 
-* **conductance_ma** (default :f:var:`conductance_ma=0.0 <conductance_ma>`) is a real that defines the conductance (dimensionless) of the mantle.
+* **conductance_ma** (default :f:var:`conductance_ma=0.0 <conductance_ma>`) is a real that defines the conductance (dimensionless) of the mantle in the limit of a thin conductinglayer.
 
 .. _varnRotMa:
 
@@ -73,6 +73,10 @@ This namelist defines properties of the inner core
 * **nRotIc** (default :f:var:`nRotIc=0 <nrotic>`) is an integer that defines the rotation of the inner core. Behaves the same way as :f:var:`nRotMa <nrotma>` (above).
 
 * **rho_ratio_ic** (default :f:var:`rho_ratio_ic=1.0 <rho_ratio_ic>`) is a real which defines the density of the inner core in terms of that of the outer core.
+
+* **gammatau_gravi** (default :f:var:`gammatau_gravi=0.0 <gammatau_gravi>`) is a real. It defines the amplitude of the gravitational torque between the mantle and the inner core
+following :math:`\Gamma_g = -\Gamma\tau(\omega_{ic}-\omega_{ma})`. When this is non zero
+the torque with the opposite sign is exerted on the mantle side.
 
 * **BIC** (default :f:var:`BIC=0.0 <bic>`) is a real which gives the imposed dipole field strength at the Inner Core Boundary. Having ``BIC > 0`` implies that the inner core acts as a dipole magnet - as implemented in the DTS experiment at Grenoble, France.
 
