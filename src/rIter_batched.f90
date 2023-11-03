@@ -212,6 +212,9 @@ contains
          dthkc(n_r_icb)=1.e10_cp
       end if
 
+      lorentz_torque_ma = 0.0_cp
+      lorentz_torque_ic = 0.0_cp
+
       !------ Having to calculate non-linear boundary terms?
       lMagNlBc=.false.
       if ( ( l_mag_nl .or. l_mag_kin ) .and.                          &
@@ -333,9 +336,6 @@ contains
          if ( lTOnext .or. lTOnext2 .or. lTOCalc ) then
             call prep_TO_axi(z_Rloc(:,nR), dz_Rloc(:,nR))
          end if
-
-         lorentz_torque_ma = 0.0_cp
-         lorentz_torque_ic = 0.0_cp
 
          !---- Calculation of nonlinear products needed for conducting mantle or
          !     conducting inner core if free stress BCs are applied:

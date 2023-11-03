@@ -834,7 +834,7 @@ The general differential equation in time can be written in the form
 where :math:`\mathcal{I}` denotes the terms treated in an implicit time step 
 and :math:`\mathcal{E}` the terms treated explicitly, i.e. the nonlinear and Coriolis contributions.  In MagIC, two families of time-stepping schemes are supported: IMEX multistep and IMEX multistage methods.
 
-First of all, the IMEX multistep methods correpond to time schemes where the solution results from the combination of several previous steps (such as for instance the Crank-Nicolson/Adams-Bashforth scheme). In this case, a general :math:`k`-step IMEX multistep scheme reads
+First of all, the IMEX multistep methods correspond to time schemes where the solution results from the combination of several previous steps (such as for instance the Crank-Nicolson/Adams-Bashforth scheme). In this case, a general :math:`k`-step IMEX multistep scheme reads
 
 .. math:: \left(I-b_o^{\mathcal I} \delta t\,\mathcal{I}\right)y_{n+1}=\sum_{j=1}^k a_j y_{n+1-j}+\delta t\sum_{j=1}^k \left(b_j^\mathcal{E} \mathcal{E}_{n+1-j}+b_{j}^\mathcal{I}\mathcal{I}_{n+1-j}\right)\,,
 
@@ -857,7 +857,7 @@ and for each radial grid point :math:`r_k`.
 Because non-linear terms and the Coriolis force are treated explicitly, 
 the equations decouple for all spherical harmonic modes.
 The different radial grid points, however, couple via the 
-Chebychev modes and form a linear algebraic system of equations that can 
+Chebyshev modes and form a linear algebraic system of equations that can 
 be solved with standard methods for the different spectral contributions. 
 
 For example the respective system of equations for the poloidal magnetic potential :math:`g` time advanced with a CNAB2 reads
@@ -881,8 +881,8 @@ and :math:`{\cal C}_{nk}={\cal C}_n(r_k)`.
 :math:`\mathcal{A}_{kn}` is a matrix that converts the poloidal field modes :math:`g_{\ell mn}` 
 to the radial magnetic field :math:`B_r(r_k,\ell,m)` for a given spherical harmonic contribution.
 
-Here :math:`k` and :math:`n` number the radial grid points and the Chebychev coefficients, respectively. 
-Note that the Einstein sum convention is used for Chebychev modes :math:`n`.
+Here :math:`k` and :math:`n` number the radial grid points and the Chebyshev coefficients, respectively. 
+Note that the Einstein sum convention is used for Chebyshev modes :math:`n`.
 
 :math:`\mathcal{I}_{kn}` is the matrix describing the implicit contribution which is purely diffusive here. 
 Neither  :math:`\mathcal{A}_{kn}` nor :math:`\mathcal{I}_{kn}` depend on time but the former 
@@ -1501,12 +1501,12 @@ angular momentum replaces condition :eq:`eqBcRigid3` for the mode
 :math:`(\ell =1,m=0)`:
 
 .. math::
-   \mathsf{I} \dfrac{\partial\omega}{\partial t}= \Gamma_L+\Gamma_\nu\,.
+   \mathsf{I} \dfrac{\partial\omega}{\partial t}= \Gamma_L+\Gamma_\nu+\Gamma_g\,.
 
-The tensor :math:`\mathsf{I}` denotes the moment of inertia of inner core or mantle,
+The tensor :math:`\mathsf{I}` denotes the moment of inertia of the inner core or the mantle,
 respectively, :math:`\omega` is the mantle or inner-core rotation rate relative
-to that of the reference frame, and :math:`\Gamma_{L,\nu}` are the respective torques
-associated with Lorentz or viscous forces. The torques are expressed by
+to that of the reference frame, and :math:`\Gamma_{L,\nu,g}` are the respective torques
+associated with Lorentz, viscous or gravity forces. The torques are expressed by
 
 .. math::
    \Gamma_L = \dfrac{1}{E\,Pm}\oint B_r B_\phi\,r\sin\theta\,\mathrm{d}S\,,
@@ -1515,6 +1515,11 @@ and
 
 .. math::
    \Gamma_\nu = \oint \tilde{\rho} \tilde{\nu} r\dfrac{\partial}{\partial r}\left(\dfrac{u_\phi}{r}\right) r\sin\theta\,\mathrm{d}S\,,
+
+and
+
+.. math::
+   \Gamma_g = -\Gamma\tau(\omega_{ic}-\omega_{ma})\,,
 
 where :math:`\mathrm{d}S = r^2\sin\theta \mathrm{d}\theta\mathrm{d}\phi` and :math:`r\in[r_i,r_o]` in the above expressions. Using the following equality
 
@@ -1545,7 +1550,7 @@ We show the derivation for the somewhat simpler Boussinesq approximation which y
 .. math::
    \dfrac{\partial}{\partial r} \dfrac{\vec{u}_H}{r} = 0
    
-where the index H denotes the horizonal flow components. 
+where the index H denotes the horizontal flow components. 
 In terms of poloidal and toroidal components this implies 
 
 .. math::

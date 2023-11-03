@@ -12,7 +12,7 @@ module outRot
    use grid_blocking, only: radlatlon2spat
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: r_icb, r_cmb, r, rscheme_oc, beta, visc
-   use physical_parameters, only: kbotv, ktopv, LFfac
+   use physical_parameters, only: kbotv, ktopv, LFfac, gammatau_gravi
    use num_param, only: lScale, tScale, vScale
    use blocking, only: lo_map, lm_balance, llm, ulm, llmMag, ulmMag
    use logic, only: l_AM, l_save_out, l_iner, l_SRIC, l_rot_ic, &
@@ -143,7 +143,7 @@ contains
       real(cp), parameter :: tolerance=10.0_cp*epsilon(0.0_cp)
       real(cp) :: eKinOC
       integer :: n_r1,n_r2,n_r3,l1m0
-      real(cp) :: viscous_torque_ic,viscous_torque_ma
+      real(cp) :: viscous_torque_ic,viscous_torque_ma,gravi_torque_ic
       real(cp) :: AMz,eKinAMz
       real(cp) :: angular_moment_oc(3)
       real(cp) :: angular_moment_ic(3)
@@ -160,6 +160,8 @@ contains
 
       lm2(0:,0:) => lo_map%lm2
       l1m0=lm2(1,0)
+
+      gravi_torque_ic=-gammatau_gravi*(omega_ic-omega_ma)
 
       if ( llm <= l1m0 .and. ulm >= l1m0 ) then
          !-- Calculating viscous torques:
@@ -183,8 +185,8 @@ contains
 
       if ( rank == 0 ) then
          if ( l_SRIC ) then
-            powerLor=lorentz_torque_ic*omega_IC
-            powerVis=viscous_torque_ic*omega_IC
+            powerLor=lorentz_torque_ic*omega_ic
+            powerVis=viscous_torque_ic*omega_ic
             if ( l_save_out ) then
                open(newunit=n_SRIC_file, file=SRIC_file, status='unknown', &
                &    position='append')
@@ -288,13 +290,14 @@ contains
                open(newunit=n_rot_file, file=rot_file, status='unknown', &
                &    position='append')
             end if
-            write(n_rot_file,'(1P,2X,ES20.12,6ES16.8)')  &
+            write(n_rot_file,'(1P,2X,ES20.12,7ES16.8)')  &
             &     time*tScale, omega_ic/tScale,          &
             &     lScale**2*vScale*lorentz_torque_ic,    &
             &     lScale**2*vScale*viscous_torque_ic,    &
             &     omega_ma/tScale,                       &
             &     lScale**2*vScale*lorentz_torque_ma,    &
-            &     -lScale**2*vScale*viscous_torque_ma
+            &     -lScale**2*vScale*viscous_torque_ma,   &
+            &     lScale**2*vScale*gravi_torque_ic
             if ( l_save_out ) close(n_rot_file)
          end if
       end if

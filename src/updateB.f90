@@ -22,14 +22,14 @@ module updateB_mod
        &                       or1, cheb_ic, dcheb_ic, rscheme_oc, dr_top_ic, l_R
    use radial_data, only: n_r_cmb, n_r_icb, nRstartMag, nRstopMag
    use physical_parameters, only: n_r_LCR, opm, O_sr, kbotb, imagcon, tmagcon, &
-       &                         sigma_ratio, conductance_ma, ktopb
+       &                         sigma_ratio, conductance_ma, ktopb, ktopv
    use init_fields, only: bpeaktop, bpeakbot
    use num_param, only: solve_counter, dct_counter
    use blocking, only: st_map, lo_map, st_sub_map, lo_sub_map, llmMag, ulmMag
    use horizontal_data, only: hdif_B
    use logic, only: l_cond_ic, l_LCR, l_rot_ic, l_mag_nl, l_b_nl_icb, &
        &            l_b_nl_cmb, l_update_b, l_RMS, l_finite_diff,     &
-       &            l_full_sphere, l_mag_par_solve
+       &            l_full_sphere, l_mag_par_solve, l_cond_ma
    use RMS, only: dtBPolLMr, dtBPol2hInt, dtBTor2hInt
    use constants, only: pi, zero, one, two, three, half
    use special, only: n_imp, l_imp, amp_imp, expo_imp, bmax_imp, rrMP, l_curr, &
@@ -114,7 +114,7 @@ contains
                allocate( type_bandmat :: bMat(nLMBs2(1+rank)) )
             end if
 
-            if ( kbotb == 2 .or. ktopb == 2 .or. conductance_ma /= 0 .or. &
+            if ( kbotb == 2 .or. ktopb == 2 .or. l_cond_ma .or. &
             &    rscheme_oc%order  > 2 .or. rscheme_oc%order_boundary > 2 ) then
                !-- Perfect conductor or conducting mantle
                n_bandsJ = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
@@ -122,9 +122,13 @@ contains
                n_bandsJ = rscheme_oc%order+1
             end if
 
-            if ( conductance_ma /= 0 ) then
-               !-- Second derivative on the boundary
-               n_bandsB = max(2*rscheme_oc%order_boundary+3,rscheme_oc%order+1)
+            if ( l_cond_ma ) then
+               if ( ktopv == 1 ) then
+                  n_bandsB = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
+               else
+                  !-- Second derivative on the boundary
+                  n_bandsB = max(2*rscheme_oc%order_boundary+3,rscheme_oc%order+1)
+               end if
             else
                n_bandsB = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
             end if
@@ -780,11 +784,14 @@ contains
                   !l1 =lm22l(lm,nLMB2,nLMB)
                   m1 =lm22m(lm,nLMB2,nLMB)
                   !-------- Magnetic boundary conditions, outer core:
-                  !         Note: the CMB condition is not correct if we assume free slip
-                  !         and a conducting mantle (conductance_ma>0).
                   if ( l_b_nl_cmb ) then ! finitely conducting mantle
-                     rhs1(1,2*lm-1,threadid) =  real(b_nl_cmb(st_map%lm2(l1,m1)))
-                     rhs1(1,2*lm,threadid)   = aimag(b_nl_cmb(st_map%lm2(l1,m1)))
+                     if ( ktopv == 1 ) then ! Stress-free
+                        rhs1(1,2*lm-1,threadid) = 0.0_cp
+                        rhs1(1,2*lm,threadid)   = 0.0_cp
+                     else
+                        rhs1(1,2*lm-1,threadid) =  real(b_nl_cmb(st_map%lm2(l1,m1)))
+                        rhs1(1,2*lm,threadid)   = aimag(b_nl_cmb(st_map%lm2(l1,m1)))
+                     end if
                      rhs2(1,2*lm-1,threadid) =  real(aj_nl_cmb(st_map%lm2(l1,m1)))
                      rhs2(1,2*lm,threadid)   = aimag(aj_nl_cmb(st_map%lm2(l1,m1)))
                   else
@@ -1940,7 +1947,7 @@ contains
 
       !-- Now handle boundary conditions !
       if ( imagcon /= 0 ) call abortRun('imagcon/=0 not implemented with assembly stage!')
-      if ( conductance_ma /=0 ) call abortRun('conducting ma not implemented here!')
+      if ( l_cond_ma ) call abortRun('conducting ma not implemented here!')
 
       !-- If conducting inner core then the solution at ICB should already be fine
       if ( l_full_sphere ) then
@@ -2179,7 +2186,7 @@ contains
          call abortRun('Non linear magnetic BCs not implemented at assembly stage!')
       end if
       if ( imagcon /= 0 ) call abortRun('imagcon/=0 not implemented with assembly stage!')
-      if ( conductance_ma /=0 ) call abortRun('conducting ma not implemented here!')
+      if ( l_cond_ma ) call abortRun('conducting ma not implemented here!')
 
       !-- Assemble IMEX using ddb and ddj as a work array
       call tscheme%assemble_imex(ddb, dbdt)
@@ -2743,12 +2750,18 @@ contains
          !         field (matrix bmat) and the toroidal field has to
          !         vanish (matrix ajmat).
 
-         datBmat(1,1:n_r_max)=    rscheme_oc%rnorm * (   &
-         &                      rscheme_oc%drMat(1,:) +  &
-         &     real(l,cp)*or1(1)*rscheme_oc%rMat(1,:) +  &
-         &                     conductance_ma* (         &
-         &                     rscheme_oc%d2rMat(1,:) -  &
-         &            dLh*or2(1)*rscheme_oc%rMat(1,:) ) )
+         if ( ktopv == 1 ) then
+            datBmat(1,1:n_r_max)=    rscheme_oc%rnorm * (   &
+            &                      rscheme_oc%drMat(1,:) +  &
+            &     real(l,cp)*or1(1)*rscheme_oc%rMat(1,:) )
+         else
+            datBmat(1,1:n_r_max)=    rscheme_oc%rnorm * (   &
+            &                      rscheme_oc%drMat(1,:) +  &
+            &     real(l,cp)*or1(1)*rscheme_oc%rMat(1,:) +  &
+            &                     conductance_ma* (         &
+            &                     rscheme_oc%d2rMat(1,:) -  &
+            &            dLh*or2(1)*rscheme_oc%rMat(1,:) ) )
+         end if
 
          datJmat(1,1:n_r_max)=    rscheme_oc%rnorm * (   &
          &                       rscheme_oc%rMat(1,:) +  &

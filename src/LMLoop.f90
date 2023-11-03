@@ -648,12 +648,12 @@ contains
 
    end subroutine LMLoop_Rdist
 !--------------------------------------------------------------------------------
-   subroutine finish_explicit_assembly(omega_ic, w, b_ic, aj_ic, dVSr_LMloc,      &
-              &                        dVXir_LMloc, dVxVh_LMloc, dVxBh_LMloc,     &
-              &                        lorentz_torque_ma, lorentz_torque_ic,      &
-              &                        dsdt, dxidt, dwdt, djdt, dbdt_ic,          &
-              &                        djdt_ic, domega_ma_dt, domega_ic_dt,       &
-              &                        tscheme)
+   subroutine finish_explicit_assembly(omega_ma, omega_ic, w, b_ic, aj_ic,        &
+              &                        dVSr_LMloc, dVXir_LMloc, dVxVh_LMloc,      &
+              &                        dVxBh_LMloc, lorentz_torque_ma,            &
+              &                        lorentz_torque_ic, dsdt, dxidt, dwdt, djdt,&
+              &                        dbdt_ic, djdt_ic, domega_ma_dt,            &
+              &                        domega_ic_dt, tscheme)
       !
       ! This subroutine is used to finish the computation of the explicit terms.
       ! This is only possible in a LM-distributed space since it mainly involves
@@ -663,6 +663,7 @@ contains
       !-- Input variables
       class(type_tscheme), intent(in) :: tscheme
       real(cp),            intent(in) :: omega_ic
+      real(cp),            intent(in) :: omega_ma
       real(cp),            intent(in) :: lorentz_torque_ic
       real(cp),            intent(in) :: lorentz_torque_ma
       complex(cp),         intent(in) :: w(llm:ulm,n_r_max)
@@ -777,7 +778,8 @@ contains
       end if
 
       if ( .not. l_onset ) then
-         call finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic,     &
+         call finish_exp_tor(omega_ma, omega_ic,                       &
+              &              lorentz_torque_ma, lorentz_torque_ic,     &
               &              domega_ma_dt%expl(tscheme%istage),        &
               &              domega_ic_dt%expl(tscheme%istage))
       end if
@@ -813,12 +815,13 @@ contains
 
    end subroutine finish_explicit_assembly
 !--------------------------------------------------------------------------------
-   subroutine finish_explicit_assembly_Rdist(omega_ic, w, b_ic, aj_ic, dVSr_Rloc, &
-              &                        dVXir_Rloc, dVxVh_Rloc, dVxBh_Rloc,        &
-              &                        lorentz_torque_ma, lorentz_torque_ic,      &
-              &                        dsdt_Rloc, dxidt_Rloc, dwdt_Rloc,          &
-              &                        djdt_Rloc, dbdt_ic, djdt_ic, domega_ma_dt, &
-              &                        domega_ic_dt, tscheme)
+   subroutine finish_explicit_assembly_Rdist(omega_ma, omega_ic, w, b_ic, aj_ic,  &
+              &                              dVSr_Rloc, dVXir_Rloc, dVxVh_Rloc,   &
+              &                              dVxBh_Rloc, lorentz_torque_ma,       &
+              &                              lorentz_torque_ic, dsdt_Rloc,        &
+              &                              dxidt_Rloc, dwdt_Rloc, djdt_Rloc,    &
+              &                              dbdt_ic, djdt_ic, domega_ma_dt,      &
+              &                              domega_ic_dt, tscheme)
       !
       ! This subroutine is used to finish the computation of the explicit terms.
       ! This is the version that handles R-distributed arrays used when FD are
@@ -827,6 +830,7 @@ contains
 
       !-- Input variables
       class(type_tscheme), intent(in) :: tscheme
+      real(cp),            intent(in) :: omega_ma
       real(cp),            intent(in) :: omega_ic
       real(cp),            intent(in) :: lorentz_torque_ic
       real(cp),            intent(in) :: lorentz_torque_ma
@@ -862,8 +866,8 @@ contains
       end if
 
       if ( .not. l_onset ) then
-         call finish_exp_tor(lorentz_torque_ma, lorentz_torque_ic,     &
-              &              domega_ma_dt%expl(tscheme%istage),        &
+         call finish_exp_tor(omega_ma, omega_ic, lorentz_torque_ma,                &
+              &              lorentz_torque_ic, domega_ma_dt%expl(tscheme%istage), &
               &              domega_ic_dt%expl(tscheme%istage))
       end if
 

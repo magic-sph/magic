@@ -208,25 +208,52 @@ class MagicTs(MagicSetup):
             fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.time, self.omega_ic, ls='-', label='Omega IC')
+            if abs(self.omega_ma).max() > 0.:
+                ax.plot(self.time, self.omega_ma, ls='-', label='Omega MA')
             ax.set_xlabel('Time')
-            ax.set_ylabel('Rotation inner core')
+            ax.set_ylabel('Rotation')
             ax.legend(loc='best', frameon=False)
             ax.set_xlim(self.time[0], self.time[-1])
             fig.tight_layout()
             
             fig1 = plt.figure()
             ax1 = fig1.add_subplot(111)
-            ax1.plot(self.time, self.lorentz_torque_ic, ls='-', c='C0',
-                     label='Lorentz torque on IC')
-            ax1.plot(self.time,self.viscous_torque_ic, ls='-', c='C1',
-                     label='Viscous torque on IC')
+            if abs(self.lorentz_torque_ic).max() > 0.:
+                ax1.plot(self.time, self.lorentz_torque_ic, ls='-',
+                         label='Lorentz torque on IC')
+            if abs(self.viscous_torque_ic).max() > 0.:
+                ax1.plot(self.time, self.viscous_torque_ic, ls='-',
+                         label='Viscous torque on IC')
+            if abs(self.gravi_torque_ic).max() > 0.:
+                ax1.plot(self.time, self.gravi_torque_ic, ls='-',
+                         label='Gravitationnal torque on IC')
             ax1.legend(loc='best', frameon=False)
             ax1.set_xlabel('Time')
-            ax1.set_ylabel('Torque on IC')
+            ax1.set_ylabel('Torques on IC')
             ax1.set_xlim(self.time[0], self.time[-1])
             ax1.ticklabel_format(axis='y', style='sci', scilimits=(0,0))
             ax1.axhline(0., color='0.5', ls='--', lw=1)
             fig1.tight_layout()
+
+            if abs(self.omega_ma).max() > 0.:
+                fig2 = plt.figure()
+                ax2 = fig2.add_subplot(111)
+                if abs(self.lorentz_torque_ma).max() > 0.:
+                    ax2.plot(self.time, self.lorentz_torque_ma, ls='-',
+                             label='Lorentz torque on mantle')
+                if abs(self.viscous_torque_ma).max() > 0.:
+                    ax2.plot(self.time, self.viscous_torque_ma, ls='-',
+                             label='Viscous torque on mantle')
+                if abs(self.gravi_torque_ma).max() > 0.:
+                    ax2.plot(self.time, self.gravi_torque_ma, ls='-',
+                             label='Gravitationnal torque on mantle')
+                ax2.legend(loc='best', frameon=False)
+                ax2.set_xlabel('Time')
+                ax2.set_ylabel('Torques on mantle')
+                ax2.set_xlim(self.time[0], self.time[-1])
+                ax2.ticklabel_format(axis='y', style='sci', scilimits=(0,0))
+                ax2.axhline(0., color='0.5', ls='--', lw=1)
+                fig2.tight_layout()
         elif self.field == 'timestep':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -273,18 +300,15 @@ class MagicTs(MagicSetup):
             fig.tight_layout()
         elif self.field == 'AM':
             fig = plt.figure()
-            ax = fig.add_subplot(211)
+            ax = fig.add_subplot(111)
             ax.plot(self.time, self.am_oc_z, label='Outer core')
-            ax.plot(self.time, self.am_ic, label='Inner core')
+            if abs(self.am_ic).max() > 0.:
+                ax.plot(self.time, self.am_ic, label='Inner core')
+            if abs(self.am_ma).max() > 0.:
+                ax.plot(self.time, self.am_ma, label='Mantle')
             ax.plot(self.time, self.amz, ls='-', c='0.25', label='Total')
             ax.set_xlim(self.time[0], self.time[-1])
             ax.legend(loc='best', frameon=False)
-            ax.set_ylabel('AM')
-            ax = fig.add_subplot(212)
-            ax.semilogy(self.time[1:], np.abs(self.damzdt[1:]))
-            ax.set_xlabel('Time')
-            ax.set_ylabel('dAmz / dt')
-            ax.set_xlim(self.time[1], self.time[-1])
             fig.tight_layout()
         elif self.field == 'par':
             fig = plt.figure()
@@ -733,6 +757,11 @@ class TsLookUpTable:
             self.omega_ma = data[:, 4]
             self.lorentz_torque_ma = data[:, 5]
             self.viscous_torque_ma = data[:, 6]
+            if data.shape[-1] == 8:
+                self.gravi_torque_ic = data[:, 7]
+            else:
+                self.gravi_torque_ic = np.zeros_like(self.omega_ic)
+            self.gravi_torque_ma = -self.gravi_torque_ic
         elif self.field == 'Tay':
             self.time = data[:, 0]
             self.ekin_tora_rel = data[:, 1]
