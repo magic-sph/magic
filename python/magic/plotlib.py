@@ -172,7 +172,7 @@ def cut(dat, vmax=None, vmin=None):
 
 def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
                  cm=defaultCm, normed=None, vmax=None, vmin=None, cbar=True,
-                 tit=True, normRad=False, deminc=True, bounds=True,
+                 title=True, normRad=False, deminc=True, bounds=True,
                  lines=False, linewidths=0.5, pcolor=False, rasterized=False):
     """
     Plot the equatorial cut of a given field
@@ -193,8 +193,8 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
     :type levels: int
     :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
     :type cm: str
-    :param tit: display the title of the figure when set to True
-    :type tit: bool
+    :param title: display the title of the figure when set to True
+    :type title: bool
     :param cbar: display the colorbar when set to True
     :type cbar: bool
     :param vmax: maximum value of the contour levels
@@ -236,7 +236,7 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
         maxS = np.sqrt(np.mean(data**2, axis=0))
         data[:, maxS!=0.] /= maxS[maxS!=0.]
 
-    if tit and label is not None:
+    if title and label is not None:
         if cbar:
             fig = plt.figure(figsize=(6.5,5.5))
             ax = fig.add_axes([0.01, 0.01, 0.76, 0.9])
@@ -331,7 +331,7 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
     pos = ax.get_position()
     l, b, w, h = pos.bounds
     if cbar:
-        if tit and label is not None:
+        if title and label is not None:
             cax = fig.add_axes([0.85, 0.46-0.7*h/2., 0.03, 0.7*h])
         else:
             cax = fig.add_axes([0.85, 0.5-0.7*h/2., 0.03, 0.7*h])
@@ -348,7 +348,7 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
 
 
 def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
-               normed=None, vmax=None, vmin=None, cbar=True, tit=True,
+               normed=None, vmax=None, vmin=None, cbar=True, title=True,
                fig=None, ax=None, bounds=True, lines=False, pcolor=False,
                linewidths=0.5, rasterized=False):
     """
@@ -365,8 +365,8 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
     :type levels: int
     :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
     :type cm: str
-    :param tit: display the title of the figure when set to True
-    :type tit: bool
+    :param title: display the title of the figure when set to True
+    :type title: bool
     :param cbar: display the colorbar when set to True
     :type cbar: bool
     :param vmax: maximum value of the contour levels
@@ -401,7 +401,7 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
     xx = rr * np.sin(tth)
     yy = rr * np.cos(tth)
 
-    if tit and label is not None:
+    if title and label is not None:
         if cbar:
             fsize = (5, 7.5)
             bb = [0.01, 0.01, 0.69, 0.91]
@@ -421,7 +421,7 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
         if ax is None:
             ax = fig.add_axes(bb)
 
-    if tit and label is not None:
+    if title and label is not None:
         ax.set_title(label, fontsize=24)
 
     if normed is None:
@@ -502,7 +502,7 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
     pos = ax.get_position()
     l, b, w, h = pos.bounds
     if cbar:
-        if tit and label is not None:
+        if title and label is not None:
             cax = fig.add_axes([0.82, 0.46-0.7*h/2., 0.04, 0.7*h])
         else:
             cax = fig.add_axes([0.82, 0.5-0.7*h/2., 0.04, 0.7*h])
@@ -513,8 +513,9 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
 
 def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None,
                   vmin=None, lat_0=30., levels=defaultLevels, cm=defaultCm,
-                  normed=None, cbar=True, tit=True, lines=False, fig=None,
-                  ax=None, linewidths=0.5, pcolor=False, rasterized=False):
+                  normed=None, cbar=True, title=True, lines=False, fig=None,
+                  ax=None, linewidths=0.5, pcolor=False, rasterized=False,
+                  gridLineStyle=':', gridColor='k', gridLineWidth=0.7):
     """
     Plot the radial cut of a given field
 
@@ -533,8 +534,8 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
     :type levels: int
     :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
     :type cm: str
-    :param tit: display the title of the figure when set to True
-    :type tit: bool
+    :param title: display the title of the figure when set to True
+    :type title: bool
     :param cbar: display the colorbar when set to True
     :type cbar: bool
     :param lines: when set to True, over-plot solid lines to highlight
@@ -558,6 +559,14 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
     :param rasterized: when set to True, the rasterization for vector graphics
                        is turned on
     :type rasterized: bool
+    :param gridColor: this is used to set the color of the grid
+    :type gridColor: str
+    :param gridLineStyle: this allows to set the line style of the grid 
+                          (':', '-', '--')
+    :type gridLineStyle: str
+    :param gridLineWidth: this is used to tune the thickness of the lines used
+                          in the grid
+    :type gridLineWidth: float
     """
 
     nphi, ntheta = data.shape
@@ -574,7 +583,7 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
 
     if fig is None and ax is None:
         if proj == 'moll' or proj == 'hammer':
-            if tit and label is not None:
+            if title and label is not None:
                 if cbar:
                     fig = plt.figure(figsize=(9.1, 4.5))
                     ax = fig.add_axes([0.01, 0.01, 0.87, 0.87])
@@ -596,7 +605,7 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
                       #verticalalignment='center',
                       #transform = ax.transAxes)
         else:
-            if tit and label is not None:
+            if title and label is not None:
                 if cbar:
                     fig = plt.figure(figsize=(6,5.5))
                     ax = fig.add_axes([0.01, 0.01, 0.82, 0.9])
@@ -622,20 +631,27 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
         from mpl_toolkits.basemap import Basemap
         map = Basemap(projection=proj, lon_0=lon_0, lat_0=lat_0,
                       resolution='c')
-        map.drawparallels([0.], dashes=[2, 3], linewidth=0.5)
-        map.drawparallels(circles, dashes=[2,3], linewidth=0.5)
-        map.drawmeridians(meridians, dashes=[2,3], linewidth=0.5)
-        map.drawmeridians([-180], dashes=[20,0], linewidth=0.5)
-        map.drawmeridians([180], dashes=[20,0], linewidth=0.5)
+        map.drawparallels([0.], dashes=[2, 3], linewidth=gridLineWidth,
+                          color=gridColor)
+        map.drawparallels(circles, dashes=[2,3], linewidth=gridLineWidth,
+                          color=gridColor)
+        map.drawmeridians(meridians, dashes=[2,3], linewidth=gridLineWidth,
+                          color=gridColor)
+        map.drawmeridians([-180], dashes=[20,0], linewidth=gridLineWidth,
+                          color=gridColor)
+        map.drawmeridians([180], dashes=[20,0], linewidth=gridLineWidth,
+                          color=gridColor)
         x, y = list(map(lon2, lat2))
     else:
         x, y = hammer2cart(ttheta, pphi)
         for lat0 in circles:
             x0, y0 = hammer2cart(lat0*np.pi/180., phi)
-            ax.plot(x0, y0, 'k:', linewidth=0.7)
+            ax.plot(x0, y0, ls=gridLineStyle, color=gridColor,
+                    linewidth=gridLineWidth)
         for lon0 in meridians:
             x0, y0 = hammer2cart(theta, lon0*np.pi/180.)
-            ax.plot(x0, y0, 'k:', linewidth=0.7)
+            ax.plot(x0, y0, ls=gridLineStyle, color=gridColor,
+                    linewidth=gridLineWidth)
         xxout, yyout  = hammer2cart(theta, -np.pi)#-1e-3)
         xxin, yyin  = hammer2cart(theta, np.pi)#+1e-3)
         ax.plot(xxin, yyin, 'k-')
@@ -704,7 +720,7 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
     pos = ax.get_position()
     l, b, w, h = pos.bounds
     if cbar:
-        if tit and label is not None:
+        if title and label is not None:
             cax = fig.add_axes([0.9, 0.46-0.7*h/2., 0.03, 0.7*h])
         else:
             cax = fig.add_axes([0.9, 0.51-0.7*h/2., 0.03, 0.7*h])
