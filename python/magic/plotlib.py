@@ -173,7 +173,7 @@ def cut(dat, vmax=None, vmin=None):
 def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
                  cm=defaultCm, normed=None, vmax=None, vmin=None, cbar=True,
                  tit=True, normRad=False, deminc=True, bounds=True,
-                 lines=False, linewidths=0.5, pcolor=False):
+                 lines=False, linewidths=0.5, pcolor=False, rasterized=False):
     """
     Plot the equatorial cut of a given field
 
@@ -217,6 +217,9 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
     :type linewidths: float
     :param pcolor: when set to True, use pcolormesh instead of contourf
     :type pcolor: bool
+    :param rasterized: when set to True, the rasterization for vector graphics
+                       is turned on
+    :type rasterized: bool
     """
 
     nphi, ntheta = data.shape
@@ -267,7 +270,8 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
         cs = np.linspace(vmin, vmax, levels)
         if pcolor:
             im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True,
-                               shading='gouraud', vmax=vmax, vmin=vmin)
+                               shading='gouraud', vmax=vmax, vmin=vmin,
+                               rasterized=rasterized)
         else:
             im = ax.contourf(xx, yy, data, cs, cmap=cmap, extend='both')
         if lines:
@@ -283,10 +287,11 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
         if pcolor:
             if normed:
                 im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True,
-                                   shading='gouraud', vmax=vmax, vmin=vmin)
+                                   shading='gouraud', vmax=vmax, vmin=vmin,
+                                   rasterized=rasterized)
             else:
                 im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True,
-                                   shading='gouraud')
+                                   shading='gouraud', rasterized=rasterized)
         else:
             im = ax.contourf(xx, yy, data, cs, cmap=cmap)
         if lines:
@@ -335,7 +340,9 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
     #To avoid white lines on pdfs
     if not pcolor:
         for c in im.collections:
-            c.set_edgecolor("face")
+            c.set_edgecolor('face')
+            if rasterized:
+                c.set_rasterized(True)
 
     return fig, xx, yy
 
@@ -343,7 +350,7 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
 def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
                normed=None, vmax=None, vmin=None, cbar=True, tit=True,
                fig=None, ax=None, bounds=True, lines=False, pcolor=False,
-               linewidths=0.5):
+               linewidths=0.5, rasterized=False):
     """
     Plot a meridional cut of a given field
 
@@ -383,6 +390,9 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
     :type linewidths: float
     :param pcolor: when set to True, use pcolormesh instead of contourf
     :type pcolor: bool
+    :param rasterized: when set to True, the rasterization for vector graphics
+                       is turned on
+    :type rasterized: bool
     """
     ntheta, nr = data.shape
 
@@ -432,7 +442,8 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
         cs = np.linspace(vmin, vmax, levels)
         if pcolor:
             im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True,
-                               shading='gouraud', vmax=vmax, vmin=vmin)
+                               shading='gouraud', vmax=vmax, vmin=vmin,
+                               rasterized=rasterized)
         else:
             im = ax.contourf(xx, yy, data, cs, cmap=cmap, extend='both')
         if lines:
@@ -448,10 +459,11 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
         if pcolor:
             if normed:
                 im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True,
-                                   shading='gouraud', vmax=vmax, vmin=vmin)
+                                   shading='gouraud', vmax=vmax, vmin=vmin,
+                                   rasterized=rasterized)
             else:
                 im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True,
-                                   shading='gouraud')
+                                   shading='gouraud', rasterized=rasterized)
         else:
             im = ax.contourf(xx, yy, data, cs, cmap=cmap)
         if lines:
@@ -461,7 +473,9 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
     # To avoid white lines on pdfs
     if not pcolor:
         for c in im.collections:
-            c.set_edgecolor("face")
+            c.set_edgecolor('face')
+            if rasterized:
+                c.set_rasterized(True)
 
     if bounds:
         ax.plot((radius[0])*np.sin(th), (radius[0])*np.cos(th), 'k-')
@@ -500,7 +514,7 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
 def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None,
                   vmin=None, lat_0=30., levels=defaultLevels, cm=defaultCm,
                   normed=None, cbar=True, tit=True, lines=False, fig=None,
-                  ax=None, linewidths=0.5, pcolor=False):
+                  ax=None, linewidths=0.5, pcolor=False, rasterized=False):
     """
     Plot the radial cut of a given field
 
@@ -541,6 +555,9 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
     :type ax: matplotlib.axes._subplots.AxesSubplot
     :param pcolor: when set to True, use pcolormesh instead of contourf
     :type pcolor: bool
+    :param rasterized: when set to True, the rasterization for vector graphics
+                       is turned on
+    :type rasterized: bool
     """
 
     nphi, ntheta = data.shape
@@ -619,8 +636,8 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
         for lon0 in meridians:
             x0, y0 = hammer2cart(theta, lon0*np.pi/180.)
             ax.plot(x0, y0, 'k:', linewidth=0.7)
-        xxout, yyout  = hammer2cart(theta, -np.pi-1e-3)
-        xxin, yyin  = hammer2cart(theta, np.pi+1e-3)
+        xxout, yyout  = hammer2cart(theta, -np.pi)#-1e-3)
+        xxin, yyin  = hammer2cart(theta, np.pi)#+1e-3)
         ax.plot(xxin, yyin, 'k-')
         ax.plot(xxout, yyout, 'k-')
         ax.axis('off')
@@ -652,9 +669,11 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
             cs = np.linspace(vmin, vmax, levels)
             if pcolor:
                 im = ax.pcolormesh(x, y, data, cmap=cmap, antialiased=True,
-                                   shading='gouraud', vmax=vmax, vmin=vmin)
+                                   shading='gouraud', vmax=vmax, vmin=vmin,
+                                   rasterized=rasterized)
             else:
-                im = ax.contourf(x, y, data, cs, cmap=cmap, extend='both')
+                im = ax.contourf(x, y, data, cs, cmap=cmap, extend='both',
+                                 rasterized=rasterized)
             if lines:
                 ax.contour(x, y, data, cs, colors=['k'], linewidths=linewidths,
                            extend='both', linestyles=['-'])
@@ -669,10 +688,11 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
             if pcolor:
                 if normed:
                     im = ax.pcolormesh(x, y, data, cmap=cmap, antialiased=True,
-                                       shading='gouraud', vmax=vmax, vmin=vmin)
+                                       shading='gouraud', vmax=vmax, vmin=vmin,
+                                       rasterized=rasterized)
                 else:
                     im = ax.pcolormesh(x, y, data, cmap=cmap, antialiased=True,
-                                       shading='gouraud')
+                                       shading='gouraud', rasterized=rasterized)
             else:
                 im = ax.contourf(x, y, data, cs, cmap=cmap)
             if lines:
@@ -693,6 +713,8 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
     # To avoid white lines on pdfs
     if not pcolor:
         for c in im.collections:
-            c.set_edgecolor("face")
+            c.set_edgecolor('face')
+            if rasterized:
+                c.set_rasterized(True)
 
     return fig
