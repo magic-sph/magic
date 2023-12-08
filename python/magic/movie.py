@@ -211,15 +211,20 @@ class Movie:
         self.theta = infile.fort_read(precision)
         self.phi = infile.fort_read(precision)
 
+        if filename.split('.')[-2].endswith('TO_mov'):
+            l_TOmov = True
+        else:
+            l_TOmov = False
+
         # Determine the number of lines by reading the log.TAG file
         logfile = open(os.path.join(datadir, 'log.{}'.format(end)), 'r')
         mot = re.compile(r'  ! WRITING MOVIE FRAME NO\s*(\d*).*')
         mot2 = re.compile(r' ! WRITING TO MOVIE FRAME NO\s*(\d*).*')
         nlines = 0
         for line in logfile.readlines():
-            if mot.match(line):
+            if not l_TOmov and mot.match(line):
                 nlines = int(mot.findall(line)[0])
-            elif mot2.match(line):
+            elif l_TOmov and mot2.match(line):
                 nlines = int(mot2.findall(line)[0])
         logfile.close()
 
