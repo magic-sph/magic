@@ -10,12 +10,12 @@ module torsional_oscillations
        &                 nlat_padded
    use radial_data, only: n_r_cmb, nRstart, nRstop
    use radial_functions, only: r, or1, or2, or3, or4, beta, orho1, dbeta
-   use physical_parameters, only: CorFac, kbotv, ktopv
+   use physical_parameters, only: CorFac, kbotv, ktopv, epsPhase, penaltyFac
    use blocking, only: lm2, llmMag, ulmMag, lo_map, lm2l, lm2m
    use horizontal_data, only: sinTheta, cosTheta, hdif_V, dTheta1A, dTheta1S, dLh, &
        &                      n_theta_cal2ord, O_sin_theta
    use constants, only: one, two
-   use logic, only: lVerbose, l_mag, l_parallel_solve
+   use logic, only: lVerbose, l_mag, l_parallel_solve, l_phase_field
    use sht, only: toraxi_to_spat
 
    implicit none
@@ -34,7 +34,7 @@ module torsional_oscillations
    real(cp), public, allocatable :: BszAS_Rloc(:,:),BspAS_Rloc(:,:)
    real(cp), public, allocatable :: BpzAS_Rloc(:,:),BspdAS_Rloc(:,:)
    real(cp), public, allocatable :: BpsdAS_Rloc(:,:),BzpdAS_Rloc(:,:)
-   real(cp), public, allocatable :: BpzdAS_Rloc(:,:)
+   real(cp), public, allocatable :: BpzdAS_Rloc(:,:),dzPenAS_Rloc(:,:)
 
    real(cp), allocatable :: BsLast(:,:,:), BpLast(:,:,:), BzLast(:,:,:)
 
@@ -56,6 +56,12 @@ contains
       allocate( dzddVpAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
       bytes_allocated = bytes_allocated+7*(nRstop-nRstart+1)*n_theta_maxStr* &
       &                 SIZEOF_DEF_REAL
+      if ( l_phase_field ) then
+         allocate( dzPenAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+         bytes_allocated = bytes_allocated+(nRstop-nRstart+1)*n_theta_maxStr* &
+         &                 SIZEOF_DEF_REAL
+      end if
+
       allocate( dzdVpLMr(l_max+1,nRstart:nRstop), dzddVpLMr(l_max+1,nRstart:nRstop) )
       dzdVpLMr(:,:) =0.0_cp
       dzddVpLMr(:,:)=0.0_cp
@@ -103,6 +109,7 @@ contains
       deallocate( ddzASL, BpzdAS_Rloc, BzpdAS_Rloc, BpsdAS_Rloc, BspdAS_Rloc )
       deallocate( BpzAS_Rloc, BspAS_Rloc, BszAS_Rloc, Bs2AS_Rloc, V2AS_Rloc )
       deallocate( dzddVpAS_Rloc, dzdVpAS_Rloc, dzLFAS_Rloc, dzCorAS_Rloc )
+      if ( l_phase_field ) deallocate(dzPenAS_Rloc)
       deallocate( dzAStrAS_Rloc, dzRstrAS_Rloc, dzStrAS_Rloc )
       deallocate( zASL, dzASL, BsLast, BpLast, BzLast, VAS_Rloc )
       deallocate( dzddVpLMr, dzdVpLMr )
@@ -126,7 +133,7 @@ contains
 
    end subroutine prep_TO_axi
 !-----------------------------------------------------------------------------
-   subroutine getTO(vr,vt,vp,cvr,dvpdr,br,bt,bp,cbr,cbt,dtLast,nR)
+   subroutine getTO(vr,vt,vp,cvr,dvpdr,br,bt,bp,cbr,cbt,phase,dtLast,nR)
       !
       !  This program calculates various axisymmetric linear
       !  and nonlinear variables for a radial grid point nR and
@@ -139,13 +146,6 @@ contains
       !  non-axisymmetric flow components and the respective squares:
       !  Vsp=Vs*Vp,Vzp,Vsz,VspC,VzpC,VszC. These are used to calulcate
       !  the respective correlations and Reynolds stress.
-      !  In addition three output field are given in (lm,r) space:
-      !  dzRstrLMr,dzAstrLMr,dzCorLM,dzLFLM.
-      !
-      !  These are used to calculate the total Reynolds stress,
-      !  advection and viscous stress later. Their calculation
-      !  retraces the calculations done in the time-stepping part
-      !  of the code.
       !
 
       !-- Input of variables
@@ -154,14 +154,14 @@ contains
       real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
       real(cp), intent(in) :: cvr(:,:),dvpdr(:,:)
       real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
-      real(cp), intent(in) :: cbr(:,:),cbt(:,:)
+      real(cp), intent(in) :: cbr(:,:),cbt(:,:),phase(:,:)
 
       !-- Local variables:
       integer :: nTheta,nPhi,nTheta1
       real(cp) :: VrMean,VtMean,VpMean,Vr2Mean,Vt2Mean,Vp2Mean
       real(cp) :: LFmean,cvrMean,dvpdrMean,VrdVpdrMean,VtcVrMean
       real(cp) :: Bs2Mean,BszMean,BspMean,BpzMean,BspdMean,BpsdMean
-      real(cp) :: BzpdMean,BpzdMean
+      real(cp) :: BzpdMean,BpzdMean,VpPhiMean
       real(cp) :: sinT,Osin,Osin2,cosT,phiNorm
       real(cp) :: BsL,BzL,BpL,Bs2F1,Bs2F2,Bs2F3,BspF1,BspF2
       real(cp) :: BpzF1,BpzF2,BszF1,BszF2,BszF3
@@ -173,10 +173,11 @@ contains
 
       !-- Set values to zero before filling it
       do nTheta=1,n_theta_maxStr
-         dzCorAS_Rloc(:,nR) =0.0_cp
-         dzLFAS_Rloc(:,nR)  =0.0_cp
-         dzRstrAS_Rloc(:,nR)=0.0_cp
-         dzAstrAS_Rloc(:,nR)=0.0_cp
+         dzCorAS_Rloc(nTheta,nR) =0.0_cp
+         dzLFAS_Rloc(nTheta,nR)  =0.0_cp
+         dzRstrAS_Rloc(nTheta,nR)=0.0_cp
+         dzAstrAS_Rloc(nTheta,nR)=0.0_cp
+         if ( l_phase_field ) dzPenAS_Rloc(nTheta,nR)=0.0_cp
       end do
 
       !-- Big loop over thetas in block:
@@ -222,6 +223,7 @@ contains
          BpsdMean   =0.0_cp
          BzpdMean   =0.0_cp
          BpzdMean   =0.0_cp
+         VpPhiMean  =0.0_cp
          do nPhi=1,n_phi_maxStr
             VrMean =VrMean +vr(nTheta,nPhi)
             VtMean =VtMean +vt(nTheta,nPhi)
@@ -237,6 +239,7 @@ contains
             &                -beta(nR)*vp(nTheta,nPhi))
             VtcVrMean=VtcVrMean    + orho1(nR)*  &  ! rho * vt * cvr
             &         vt(nTheta,nPhi)*cvr(nTheta,nPhi)
+            if ( l_phase_field ) VpPhiMean=VpPhiMean+phase(nTheta,nPhi)*vp(nTheta,nPhi)
             if ( l_mag ) then
                LFmean=LFmean + cbr(nTheta,nPhi)*bt(nTheta,nPhi) - &
                &               cbt(nTheta,nPhi)*br(nTheta,nPhi)
@@ -286,11 +289,15 @@ contains
          V2AS_Rloc(nTheta1,nR)=Vr2Mean+Vt2Mean+Vp2Mean
          VpMean =phiNorm*or1(nR)*Osin*VpMean
          VAS_Rloc(nTheta1,nR)=orho1(nR)*VpMean
-         !--- This is Coriolis force / r*sin(theta)
+         !--- This is Coriolis force = 2\Omega u_s
          dzCorAS_Rloc(nTheta1,nR)=-phiNorm*two*CorFac *  &
          &                 (or2(nR)*sinT*VrMean+or1(nR)*cosT*Osin*VtMean)
+         if ( l_phase_field ) then
+            dzPenAS_Rloc(nTheta1,nR)=-phiNorm*VpPhiMean*or1(nR)*Osin/ &
+            &                         epsPhase**2/penaltyFac**2
+         end if
          if ( l_mag ) then
-            !--- This is Lorentz force/ r*sin(theta)
+            !--- This is the Lorentz force
             dzLFAS_Rloc(nTheta1,nR)=phiNorm*or3(nR)*Osin*LFmean
             Bs2AS_Rloc(nTheta1,nR) =phiNorm*Bs2Mean
             BspAS_Rloc(nTheta1,nR) =phiNorm*BspMean

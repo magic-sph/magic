@@ -410,7 +410,7 @@ contains
          if ( lTOCalc ) then
             call getTO(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc,   &
                  &     this%gsa%dvpdrc,this%gsa%brc,this%gsa%btc,this%gsa%bpc, &
-                 &     this%gsa%cbrc,this%gsa%cbtc,dtLast,nR)
+                 &     this%gsa%cbrc,this%gsa%cbtc,this%gsa%phic,dtLast,nR)
          end if
 
          !-- Partial calculation of time derivatives (horizontal parts):

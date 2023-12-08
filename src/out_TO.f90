@@ -16,14 +16,14 @@ module outTO_mod
    use radial_data, only: radial_balance, nRstart, nRstop
    use radial_functions, only: r_ICB, r_CMB, r
    use horizontal_data, only: theta_ord, phi
-   use logic, only: l_save_out, l_TOmovie, l_full_sphere
+   use logic, only: l_save_out, l_TOmovie, l_full_sphere, l_phase_field
    use physical_parameters, only: ra, ek, pr,prmag, radratio, LFfac
    use torsional_oscillations, only: dzCorAS_Rloc, dzdVpAS_Rloc, dzddVpAS_Rloc,  &
        &                             dzRstrAS_Rloc, dzAstrAS_Rloc, dzStrAS_Rloc, &
        &                             dzLFAS_Rloc, V2AS_Rloc, Bs2AS_Rloc,         &
        &                             BspdAS_Rloc, BpsdAS_Rloc, BzpdAS_Rloc,      &
        &                             BpzdAS_Rloc, BpzAS_Rloc, BspAS_Rloc,        &
-       &                             BszAS_Rloc, VAS_Rloc
+       &                             BszAS_Rloc, VAS_Rloc, dzPenAS_Rloc
    use useful, only: logWrite
    use integration, only: cylmean_otc, cylmean_itc, simps
 
@@ -38,6 +38,7 @@ module outTO_mod
    real(cp), allocatable :: dzRstrAS(:,:), dzAstrAS(:,:), dzStrAS(:,:), BpzAS(:,:)
    real(cp), allocatable :: dzLFAS(:,:), V2AS(:,:), Bs2AS(:,:), BspAS(:,:), VAS(:,:)
    real(cp), allocatable :: BspdAS(:,:), BpsdAS(:,:), BzpdAS(:,:), BpzdAS(:,:)
+   real(cp), allocatable :: dzPenAS(:,:)
    integer :: n_s_otc, n_s_max, n_NHS_file, n_SHS_file, n_TOmov_file, n_TO_file
    real(cp) :: volcyl_oc
    character(len=64) :: movFile, TOFile
@@ -70,11 +71,16 @@ contains
          allocate( BzpdAS(n_theta_max,n_r_max), BpzdAS(n_theta_max,n_r_max) )
          allocate( VAS(n_theta_max,n_r_max) )
          bytes_allocated=bytes_allocated+17*n_theta_max*n_r_max*SIZEOF_DEF_REAL
+         if ( l_phase_field ) then
+            allocate(dzPenAS(n_theta_max,n_r_max))
+            bytes_allocated=bytes_allocated+n_theta_max*n_r_max*SIZEOF_DEF_REAL
+         end if
       else
          allocate( dzCorAS(1,1), dzdVpAS(1,1), dzddVpAS(1,1), dzRstrAS(1,1) )
          allocate( dzAstrAS(1,1), dzStrAS(1,1), dzLFAS(1,1), V2AS(1,1) )
          allocate( BspAS(1,1), BpzAS(1,1), BszAS(1,1), Bs2AS(1,1), VAS(1,1) )
          allocate( BspdAS(1,1), BpsdAS(1,1), BzpdAS(1,1), BpzdAS(1,1) )
+         if ( l_phase_field ) allocate(dzPenAS(1,1))
       end if
 
       !-- Cylindrical radius
@@ -149,6 +155,7 @@ contains
             &    form='unformatted', position='append')
 
             nFields=7
+            if ( l_phase_field ) nFields=nFields+1
             version='JW_Movie_Version_2'
             write(n_TOmov_file) version
             dumm(1)=102           ! type of input
@@ -204,6 +211,7 @@ contains
       !-- Deallocate arrays
       deallocate(cyl, h, Oh, VAS)
       deallocate(dzCorAS, dzdVpAS, dzddVpAS, dzRstrAS, dzAstrAS, dzStrAS, dzLFAS)
+      if ( l_phase_field ) deallocate(dzPenAS)
       deallocate(V2AS, BspAS, BpzAS, BszAS, Bs2AS, BspdAS, BpsdAS, BzpdAS, BpzdAS )
 
    end subroutine finalize_outTO_mod
@@ -248,6 +256,7 @@ contains
 
       !-- Gather R-distributed arrays on rank == 0
       call gather_from_Rloc_to_rank0(dzCorAS_Rloc, dzCorAS)
+      if ( l_phase_field ) call gather_from_Rloc_to_rank0(dzPenAS_Rloc, dzPenAS)
       call gather_from_Rloc_to_rank0(dzdVpAS_Rloc, dzdVpAS)
       call gather_from_Rloc_to_rank0(dzddVpAS_Rloc, dzddVpAS)
       call gather_from_Rloc_to_rank0(dzRstrAS_Rloc, dzRstrAS)
@@ -531,6 +540,7 @@ contains
             write(n_TOmov_file) real(LFfac*dzLFAS,kind=outp)
             write(n_TOmov_file) real(dzCorAS,kind=outp)
             write(n_TOmov_file) real(dzdVpAS,kind=outp)
+            if ( l_phase_field ) write(n_TOmov_file) real(dzPenAS,kind=outp)
          end if
 
          if ( l_save_out ) then
