@@ -27,7 +27,6 @@ module rIter_mod
    use constants, only: zero
    use nonlinear_lm_mod, only: nonlinear_lm_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
-   use TO_arrays_mod, only: TO_arrays_t
    use dtB_arrays_mod, only: dtB_arrays_t
    use torsional_oscillations, only: prep_TO_axi, getTO, getTOnext, getTOfinish
 #ifdef WITH_MPI
@@ -63,7 +62,6 @@ module rIter_mod
 
    type, public, extends(rIter_t) :: rIter_single_t
       type(grid_space_arrays_t) :: gsa
-      type(TO_arrays_t) :: TO_arrays
       type(dtB_arrays_t) :: dtB_arrays
       type(nonlinear_lm_t) :: nl_lm
    contains
@@ -81,7 +79,6 @@ contains
       class(rIter_single_t) :: this
 
       call this%gsa%initialize()
-      if ( l_TO ) call this%TO_arrays%initialize()
       call this%dtB_arrays%initialize()
       call this%nl_lm%initialize(lm_max)
 
@@ -92,7 +89,6 @@ contains
       class(rIter_single_t) :: this
 
       call this%gsa%finalize()
-      if ( l_TO ) call this%TO_arrays%finalize()
       call this%dtB_arrays%finalize()
       call this%nl_lm%finalize()
 
@@ -223,8 +219,6 @@ contains
 
          dtrkc(nR)=1e10_cp
          dthkc(nR)=1e10_cp
-
-         if ( lTOCalc ) call this%TO_arrays%set_zero()
 
          if ( lTOnext .or. lTOnext2 .or. lTOCalc ) then
             call prep_TO_axi(z_Rloc(:,nR), dz_Rloc(:,nR))
@@ -416,9 +410,7 @@ contains
          if ( lTOCalc ) then
             call getTO(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc,   &
                  &     this%gsa%dvpdrc,this%gsa%brc,this%gsa%btc,this%gsa%bpc, &
-                 &     this%gsa%cbrc,this%gsa%cbtc,this%TO_arrays%dzRstrLM,    &
-                 &     this%TO_arrays%dzAstrLM,this%TO_arrays%dzCorLM,         &
-                 &     this%TO_arrays%dzLFLM,dtLast,nR)
+                 &     this%gsa%cbrc,this%gsa%cbtc,dtLast,nR)
          end if
 
          !-- Partial calculation of time derivatives (horizontal parts):
@@ -442,11 +434,7 @@ contains
          end if
 
          !-- Finish calculation of TO variables:
-         if ( lTOcalc ) then
-            call getTOfinish(nR, dtLast, this%TO_arrays%dzRstrLM,             &
-                 &           this%TO_arrays%dzAstrLM, this%TO_arrays%dzCorLM, &
-                 &           this%TO_arrays%dzLFLM)
-         end if
+         if ( lTOcalc ) call getTOfinish(nR, dtLast)
 
          !--- Form partial horizontal derivaties of magnetic production and
          !    advection terms:
