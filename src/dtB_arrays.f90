@@ -45,7 +45,7 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: this)
-      gpu_bytes_allocated = gpu_bytes_allocated+ 11*lm_max_dtB*SIZEOF_DEF_COMPLEX
+      gpu_bytes_allocated = gpu_bytes_allocated+ 11*lm_max*SIZEOF_DEF_COMPLEX
 #endif
 
       !--
