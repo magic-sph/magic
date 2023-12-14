@@ -21,10 +21,11 @@ module rIter_batched_mod
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
        &            l_cond_ma, l_dtB, l_store_frame, l_movie_oc,     &
-       &            l_TO, l_chemical_conv, l_probe, l_full_sphere,   &
+       &            l_chemical_conv, l_probe, l_full_sphere,         &
        &            l_precession, l_centrifuge, l_adv_curl,          &
        &            l_double_curl, l_parallel_solve, l_single_matrix,&
-       &            l_temperature_diff, l_RMS, l_phase_field, l_onset
+       &            l_temperature_diff, l_RMS, l_phase_field,        &
+       &            l_onset, l_DTrMagSpec
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop, nRstartMag, &
        &                  nRstopMag
    use radial_functions, only: or2, orho1, l_R
@@ -32,7 +33,6 @@ module rIter_batched_mod
    use nonlinear_lm_mod, only: nonlinear_lm_t
    use nonlinear_lm_2d_mod, only: nonlinear_lm_2d_t
    use grid_space_arrays_3d_mod, only: grid_space_arrays_3d_t
-   use TO_arrays_mod, only: TO_arrays_t
    use dtB_arrays_mod, only: dtB_arrays_t
    use torsional_oscillations, only: prep_TO_axi, getTO, getTOnext, getTOfinish
 #ifdef WITH_MPI
@@ -76,7 +76,6 @@ module rIter_batched_mod
 
    type, public, extends(rIter_t) :: rIter_batched_t
       type(grid_space_arrays_3d_t) :: gsa
-      type(TO_arrays_t) :: TO_arrays
       type(dtB_arrays_t) :: dtB_arrays
       type(nonlinear_lm_2d_t) :: nl_lm
    contains
@@ -101,8 +100,7 @@ contains
 #endif
 
       call this%gsa%initialize(nRstart,nRstop)
-      if ( l_TO ) call this%TO_arrays%initialize()
-      call this%dtB_arrays%initialize()
+      if ( l_RMS .or. l_DTrMagSpec ) call this%dtB_arrays%initialize()
       call this%nl_lm%initialize(lm_max,nRstart,nRstop)
 
       allocate(dLw(lm_max,nRstart:nRstop), dLz(lm_max,nRstart:nRstop))
@@ -126,8 +124,7 @@ contains
       class(rIter_batched_t) :: this
 
       call this%gsa%finalize()
-      if ( l_TO ) call this%TO_arrays%finalize()
-      call this%dtB_arrays%finalize()
+      if ( l_RMS .or. l_DTrMagSpec ) call this%dtB_arrays%finalize()
       call this%nl_lm%finalize()
 
 #ifdef WITH_OMP_GPU
@@ -331,8 +328,6 @@ contains
             nBc=0
          end if
 
-         if ( lTOCalc ) call this%TO_arrays%set_zero()
-
          if ( lTOnext .or. lTOnext2 .or. lTOCalc ) then
             call prep_TO_axi(z_Rloc(:,nR), dz_Rloc(:,nR))
          end if
@@ -439,9 +434,7 @@ contains
          if ( lTOCalc ) then
             call getTO(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc,   &
                  &     this%gsa%dvpdrc,this%gsa%brc,this%gsa%btc,this%gsa%bpc, &
-                 &     this%gsa%cbrc,this%gsa%cbtc,this%TO_arrays%dzRstrLM,    &
-                 &     this%TO_arrays%dzAstrLM,this%TO_arrays%dzCorLM,         &
-                 &     this%TO_arrays%dzLFLM,dtLast,nR) !-- Keep on CPU
+                 &     this%gsa%cbrc,this%gsa%cbtc,this%gsa%phic,dtLase,nR)
          end if
 
          !-- Partial calculation of time derivatives (horizontal parts):
@@ -471,11 +464,7 @@ contains
          end if
 
          !-- Finish calculation of TO variables:
-         if ( lTOcalc ) then
-            call getTOfinish(nR, dtLast, this%TO_arrays%dzRstrLM,             &
-                 &           this%TO_arrays%dzAstrLM, this%TO_arrays%dzCorLM, &
-                 &           this%TO_arrays%dzLFLM) !-- Keep on CPU
-         end if
+         if ( lTOcalc ) call getTOfinish(nR, dtLast)
 
          !--- Form partial horizontal derivaties of magnetic production and
          !    advection terms:

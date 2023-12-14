@@ -16,14 +16,14 @@ module outTO_mod
    use radial_data, only: radial_balance, nRstart, nRstop
    use radial_functions, only: r_ICB, r_CMB, r
    use horizontal_data, only: theta_ord, phi
-   use logic, only: l_save_out, l_TOmovie, l_full_sphere
+   use logic, only: l_save_out, l_TOmovie, l_full_sphere, l_phase_field, l_mag
    use physical_parameters, only: ra, ek, pr,prmag, radratio, LFfac
    use torsional_oscillations, only: dzCorAS_Rloc, dzdVpAS_Rloc, dzddVpAS_Rloc,  &
        &                             dzRstrAS_Rloc, dzAstrAS_Rloc, dzStrAS_Rloc, &
        &                             dzLFAS_Rloc, V2AS_Rloc, Bs2AS_Rloc,         &
        &                             BspdAS_Rloc, BpsdAS_Rloc, BzpdAS_Rloc,      &
        &                             BpzdAS_Rloc, BpzAS_Rloc, BspAS_Rloc,        &
-       &                             BszAS_Rloc, VAS_Rloc
+       &                             BszAS_Rloc, VAS_Rloc, dzPenAS_Rloc
    use useful, only: logWrite
    use integration, only: cylmean_otc, cylmean_itc, simps
 
@@ -38,6 +38,7 @@ module outTO_mod
    real(cp), allocatable :: dzRstrAS(:,:), dzAstrAS(:,:), dzStrAS(:,:), BpzAS(:,:)
    real(cp), allocatable :: dzLFAS(:,:), V2AS(:,:), Bs2AS(:,:), BspAS(:,:), VAS(:,:)
    real(cp), allocatable :: BspdAS(:,:), BpsdAS(:,:), BzpdAS(:,:), BpzdAS(:,:)
+   real(cp), allocatable :: dzPenAS(:,:)
    integer :: n_s_otc, n_s_max, n_NHS_file, n_SHS_file, n_TOmov_file, n_TO_file
    real(cp) :: volcyl_oc
    character(len=64) :: movFile, TOFile
@@ -63,18 +64,28 @@ contains
          allocate( dzCorAS(n_theta_max,n_r_max), dzdVpAS(n_theta_max,n_r_max) )
          allocate( dzddVpAS(n_theta_max,n_r_max), dzRstrAS(n_theta_max,n_r_max) )
          allocate( dzAstrAS(n_theta_max,n_r_max), dzStrAS(n_theta_max,n_r_max) )
-         allocate( dzLFAS(n_theta_max,n_r_max), V2AS(n_theta_max,n_r_max) )
-         allocate( Bs2AS(n_theta_max,n_r_max), BspAS(n_theta_max,n_r_max) )
-         allocate( BszAS(n_theta_max,n_r_max), BpzAS(n_theta_max,n_r_max) )
-         allocate( BspdAS(n_theta_max,n_r_max), BpsdAS(n_theta_max,n_r_max) )
-         allocate( BzpdAS(n_theta_max,n_r_max), BpzdAS(n_theta_max,n_r_max) )
-         allocate( VAS(n_theta_max,n_r_max) )
-         bytes_allocated=bytes_allocated+17*n_theta_max*n_r_max*SIZEOF_DEF_REAL
+         allocate( V2AS(n_theta_max,n_r_max), VAS(n_theta_max,n_r_max) )
+         bytes_allocated=bytes_allocated+8*n_theta_max*n_r_max*SIZEOF_DEF_REAL
+         if ( l_mag ) then
+            allocate( dzLFAS(n_theta_max,n_r_max) )
+            allocate( Bs2AS(n_theta_max,n_r_max), BspAS(n_theta_max,n_r_max) )
+            allocate( BszAS(n_theta_max,n_r_max), BpzAS(n_theta_max,n_r_max) )
+            allocate( BspdAS(n_theta_max,n_r_max), BpsdAS(n_theta_max,n_r_max) )
+            allocate( BzpdAS(n_theta_max,n_r_max), BpzdAS(n_theta_max,n_r_max) )
+            bytes_allocated=bytes_allocated+9*n_theta_max*n_r_max*SIZEOF_DEF_REAL
+         end if
+         if ( l_phase_field ) then
+            allocate(dzPenAS(n_theta_max,n_r_max))
+            bytes_allocated=bytes_allocated+n_theta_max*n_r_max*SIZEOF_DEF_REAL
+         end if
       else
          allocate( dzCorAS(1,1), dzdVpAS(1,1), dzddVpAS(1,1), dzRstrAS(1,1) )
-         allocate( dzAstrAS(1,1), dzStrAS(1,1), dzLFAS(1,1), V2AS(1,1) )
-         allocate( BspAS(1,1), BpzAS(1,1), BszAS(1,1), Bs2AS(1,1), VAS(1,1) )
-         allocate( BspdAS(1,1), BpsdAS(1,1), BzpdAS(1,1), BpzdAS(1,1) )
+         allocate( dzAstrAS(1,1), dzStrAS(1,1), VAS(1,1), V2AS(1,1) )
+         if ( l_mag ) then
+            allocate( BspAS(1,1), BpzAS(1,1), BszAS(1,1), Bs2AS(1,1), dzLFAS(1,1) )
+            allocate( BspdAS(1,1), BpsdAS(1,1), BzpdAS(1,1), BpzdAS(1,1) )
+         end if
+         if ( l_phase_field ) allocate(dzPenAS(1,1))
       end if
 
       !-- Cylindrical radius
@@ -149,6 +160,7 @@ contains
             &    form='unformatted', position='append')
 
             nFields=7
+            if ( l_phase_field ) nFields=nFields+1
             version='JW_Movie_Version_2'
             write(n_TOmov_file) version
             dumm(1)=102           ! type of input
@@ -203,8 +215,12 @@ contains
 
       !-- Deallocate arrays
       deallocate(cyl, h, Oh, VAS)
-      deallocate(dzCorAS, dzdVpAS, dzddVpAS, dzRstrAS, dzAstrAS, dzStrAS, dzLFAS)
-      deallocate(V2AS, BspAS, BpzAS, BszAS, Bs2AS, BspdAS, BpsdAS, BzpdAS, BpzdAS )
+      deallocate(dzCorAS, dzdVpAS, dzddVpAS, dzRstrAS, dzAstrAS, dzStrAS, V2AS)
+      if ( l_mag ) then
+         deallocate(dzLFAS, BspAS, BpzAS, BszAS, Bs2AS, BspdAS)
+         deallocate(BpsdAS, BzpdAS, BpzdAS)
+      end if
+      if ( l_phase_field ) deallocate(dzPenAS)
 
    end subroutine finalize_outTO_mod
 !------------------------------------------------------------------------------
@@ -248,23 +264,27 @@ contains
 
       !-- Gather R-distributed arrays on rank == 0
       call gather_from_Rloc_to_rank0(dzCorAS_Rloc, dzCorAS)
+      if ( l_phase_field ) call gather_from_Rloc_to_rank0(dzPenAS_Rloc, dzPenAS)
       call gather_from_Rloc_to_rank0(dzdVpAS_Rloc, dzdVpAS)
       call gather_from_Rloc_to_rank0(dzddVpAS_Rloc, dzddVpAS)
       call gather_from_Rloc_to_rank0(dzRstrAS_Rloc, dzRstrAS)
       call gather_from_Rloc_to_rank0(dzAstrAS_Rloc, dzAstrAS)
       call gather_from_Rloc_to_rank0(dzStrAS_Rloc, dzStrAS)
-      call gather_from_Rloc_to_rank0(dzLFAS_Rloc, dzLFAS)
 
       call gather_from_Rloc_to_rank0(VAS_Rloc, VAS)
       call gather_from_Rloc_to_rank0(V2AS_Rloc, V2AS)
-      call gather_from_Rloc_to_rank0(Bs2AS_Rloc, Bs2AS)
-      call gather_from_Rloc_to_rank0(BszAS_Rloc, BszAS)
-      call gather_from_Rloc_to_rank0(BspAS_Rloc, BspAS)
-      call gather_from_Rloc_to_rank0(BpzAS_Rloc, BpzAS)
-      call gather_from_Rloc_to_rank0(BspdAS_Rloc, BspdAS)
-      call gather_from_Rloc_to_rank0(BpsdAS_Rloc, BpsdAS)
-      call gather_from_Rloc_to_rank0(BzpdAS_Rloc, BzpdAS)
-      call gather_from_Rloc_to_rank0(BpzdAS_Rloc, BpzdAS)
+
+      if ( l_mag ) then
+         call gather_from_Rloc_to_rank0(dzLFAS_Rloc, dzLFAS)
+         call gather_from_Rloc_to_rank0(Bs2AS_Rloc, Bs2AS)
+         call gather_from_Rloc_to_rank0(BszAS_Rloc, BszAS)
+         call gather_from_Rloc_to_rank0(BspAS_Rloc, BspAS)
+         call gather_from_Rloc_to_rank0(BpzAS_Rloc, BpzAS)
+         call gather_from_Rloc_to_rank0(BspdAS_Rloc, BspdAS)
+         call gather_from_Rloc_to_rank0(BpsdAS_Rloc, BpsdAS)
+         call gather_from_Rloc_to_rank0(BzpdAS_Rloc, BzpdAS)
+         call gather_from_Rloc_to_rank0(BpzdAS_Rloc, BpzdAS)
+      end if
 
       !-- Starting from here only rank=0 will do the cylindrical integration
       if ( rank == 0 ) then
@@ -272,18 +292,39 @@ contains
          call cylmean(VAS, VpIntN, VpIntS)
          call cylmean(dzdVpAS, dVpIntN, dVpIntS)
          call cylmean(dzddVpAS, ddVpIntN, ddVpIntS)
-         call cylmean(dzLFAS, LFIntN, LFIntS)
-         call cylmean(abs(dzLFAS), TayIntN, TayIntS)
          call cylmean(abs(dzRstrAS), TayRIntN, TayRIntS)
          call cylmean(abs(dzStrAS), TayVIntN, TayVIntS)
          call cylmean(dzRstrAS, RstrIntN, RstrIntS)
          call cylmean(dzAstrAS, AstrIntN, AstrIntS)
          call cylmean(dzStrAS, StrIntN, StrIntS)
          call cylmean(V2AS, V2IntN, V2IntS)
-         call cylmean(Bs2AS, Bs2IntN, Bs2IntS)
-         call cylmean(BspAS, BspIntN, BspIntS)
-         call cylmean(BspdAS, BspdIntN, BspdIntS)
-         call cylmean(BpsdAS, BpsdIntN, BpsdIntS)
+         if ( l_mag ) then
+            call cylmean(dzLFAS, LFIntN, LFIntS)
+            call cylmean(abs(dzLFAS), TayIntN, TayIntS)
+            call cylmean(Bs2AS, Bs2IntN, Bs2IntS)
+            call cylmean(BspAS, BspIntN, BspIntS)
+            call cylmean(BspdAS, BspdIntN, BspdIntS)
+            call cylmean(BpsdAS, BpsdIntN, BpsdIntS)
+         else
+            LFIntN(:)  =0.0_cp
+            LFIntS(:)  =0.0_cp
+            TayIntN(:) =0.0_cp
+            TayIntS(:) =0.0_cp
+            Bs2IntN(:) =0.0_cp
+            Bs2IntS(:) =0.0_cp
+            BspIntN(:) =0.0_cp
+            BspIntS(:) =0.0_cp
+            BspdIntN(:)=0.0_cp
+            BspdIntS(:)=0.0_cp
+            BpsdIntN(:)=0.0_cp
+            BpsdIntS(:)=0.0_cp
+            TauBN(:)   =0.0_cp
+            TauBS(:)   =0.0_cp
+            dTauBN(:)  =0.0_cp
+            dTauBS(:)  =0.0_cp
+            dTTauBN(:) =0.0_cp
+            dTTauBS(:) =0.0_cp
+         end if
 
          do n_s=1,n_s_max
             if ( cyl(n_s) < r_ICB ) then
@@ -322,91 +363,98 @@ contains
             end if
 
             !-- Boundary Values:
-            if ( lTC ) then ! Inside TC
-               zMax = sqrt(r_CMB*r_CMB-cyl(n_s)*cyl(n_s))
-               zMin = -zMax
-               call interp_theta(BspAS(:,1),BspB,r_CMB,cyl(n_s),theta_ord)
-               call interp_theta(BspdAS(:,1),BspdB,r_CMB,cyl(n_s),theta_ord)
-               call interp_theta(BpsdAS(:,1),BpsdB,r_CMB,cyl(n_s),theta_ord)
-               call interp_theta(Bs2AS(:,1),Bs2B,r_CMB,cyl(n_s),theta_ord)
-               call interp_theta(BszAS(:,1),BszB,r_CMB,cyl(n_s),theta_ord)
-               call interp_theta(BpzAS(:,1),BpzB,r_CMB,cyl(n_s),theta_ord)
-               call interp_theta(BzpdAS(:,1),BzpdB,r_CMB,cyl(n_s),theta_ord)
-               call interp_theta(BpzdAS(:,1),BpzdB,r_CMB,cyl(n_s),theta_ord)
+            if ( l_mag ) then
+               if ( lTC ) then ! Inside TC
+                  zMax = sqrt(r_CMB*r_CMB-cyl(n_s)*cyl(n_s))
+                  zMin = -zMax
+                  call interp_theta(BspAS(:,1),BspB,r_CMB,cyl(n_s),theta_ord)
+                  call interp_theta(BspdAS(:,1),BspdB,r_CMB,cyl(n_s),theta_ord)
+                  call interp_theta(BpsdAS(:,1),BpsdB,r_CMB,cyl(n_s),theta_ord)
+                  call interp_theta(Bs2AS(:,1),Bs2B,r_CMB,cyl(n_s),theta_ord)
+                  call interp_theta(BszAS(:,1),BszB,r_CMB,cyl(n_s),theta_ord)
+                  call interp_theta(BpzAS(:,1),BpzB,r_CMB,cyl(n_s),theta_ord)
+                  call interp_theta(BzpdAS(:,1),BzpdB,r_CMB,cyl(n_s),theta_ord)
+                  call interp_theta(BpzdAS(:,1),BpzdB,r_CMB,cyl(n_s),theta_ord)
 
-               TauBS(n_s)  =-(BpzB(2)+cyl(n_s)/zMin*BspB(2))
-               dTauBS(n_s) =-(BpzdB(2)+BzpdB(2) + cyl(n_s)/zMin*(BspdB(2)+BpsdB(2)))
-               dTTauBS(n_s)=-(BszB(2)+cyl(n_s)/zMin*Bs2B(2))
-               TauBN(n_s)  =  BpzB(1)+cyl(n_s)/zMax*BspB(1)
-               dTauBN(n_s) =  BpzdB(1)+BzpdB(1) + cyl(n_s)/zMax*(BspdB(1)+BpsdB(1))
-               dTTauBN(n_s)=  BszB(1)+cyl(n_s)/zMax*Bs2B(1)
+                  TauBS(n_s)  =-(BpzB(2)+cyl(n_s)/zMin*BspB(2))
+                  dTauBS(n_s) =-(BpzdB(2)+BzpdB(2) + cyl(n_s)/zMin*(BspdB(2)+BpsdB(2)))
+                  dTTauBS(n_s)=-(BszB(2)+cyl(n_s)/zMin*Bs2B(2))
+                  TauBN(n_s)  =  BpzB(1)+cyl(n_s)/zMax*BspB(1)
+                  dTauBN(n_s) =  BpzdB(1)+BzpdB(1) + cyl(n_s)/zMax*(BspdB(1)+BpsdB(1))
+                  dTTauBN(n_s)=  BszB(1)+cyl(n_s)/zMax*Bs2B(1)
 
-               zMax = sqrt(r_ICB*r_ICB-cyl(n_s)*cyl(n_s))
-               zMin = -zMax
-               call interp_theta(BspAS(:,n_r_max),BspB,r_ICB,cyl(n_s),theta_ord)
-               call interp_theta(BspdAS(:,n_r_max),BspdB,r_ICB,cyl(n_s),theta_ord)
-               call interp_theta(BpsdAS(:,n_r_max),BpsdB,r_ICB,cyl(n_s),theta_ord)
-               call interp_theta(Bs2AS(:,n_r_max),Bs2B,r_ICB,cyl(n_s),theta_ord)
-               call interp_theta(BszAS(:,n_r_max),BszB,r_ICB,cyl(n_s),theta_ord)
-               call interp_theta(BpzAS(:,n_r_max),BpzB,r_ICB,cyl(n_s),theta_ord)
-               call interp_theta(BzpdAS(:,n_r_max),BzpdB,r_ICB,cyl(n_s),theta_ord)
-               call interp_theta(BpzdAS(:,n_r_max),BpzdB,r_ICB,cyl(n_s),theta_ord)
+                  zMax = sqrt(r_ICB*r_ICB-cyl(n_s)*cyl(n_s))
+                  zMin = -zMax
+                  call interp_theta(BspAS(:,n_r_max),BspB,r_ICB,cyl(n_s),theta_ord)
+                  call interp_theta(BspdAS(:,n_r_max),BspdB,r_ICB,cyl(n_s),theta_ord)
+                  call interp_theta(BpsdAS(:,n_r_max),BpsdB,r_ICB,cyl(n_s),theta_ord)
+                  call interp_theta(Bs2AS(:,n_r_max),Bs2B,r_ICB,cyl(n_s),theta_ord)
+                  call interp_theta(BszAS(:,n_r_max),BszB,r_ICB,cyl(n_s),theta_ord)
+                  call interp_theta(BpzAS(:,n_r_max),BpzB,r_ICB,cyl(n_s),theta_ord)
+                  call interp_theta(BzpdAS(:,n_r_max),BzpdB,r_ICB,cyl(n_s),theta_ord)
+                  call interp_theta(BpzdAS(:,n_r_max),BpzdB,r_ICB,cyl(n_s),theta_ord)
 
-               if ( n_s > 1 ) then
-                  TauBS(n_s)  =TauBS(n_s)  +(BpzB(2)+cyl(n_s)/zMin*BspB(2))
-                  dTauBS(n_s) =dTauBS(n_s) +(BpzdB(2)+BzpdB(2) +              &
-                  &                         cyl(n_s)/zMin*(BspdB(2)+BpsdB(2)))
-                  dTTauBS(n_s)=dTTauBS(n_s)+(BszB(2)+cyl(n_s)/zMin*Bs2B(2))
-                  TauBN(n_s)  =TauBN(n_s)  -(BpzB(1) +cyl(n_s)/zMax*BspB(1))
-                  dTauBN(n_s) =dTauBN(n_s) -(BpzdB(1)+BzpdB(1) +              &
-                  &                         cyl(n_s)/zMax*(BspdB(1)+BpsdB(1)))
-                  dTTauBN(n_s)=dTTauBN(n_s)-(BszB(1)+cyl(n_s)/zMax*Bs2B(1))
-               else ! n_s=1
-                  TauBS(n_s)  =0.0_cp
-                  dTauBS(n_s) =0.0_cp
-                  dTTauBS(n_s)=0.0_cp
-                  TauBN(n_s)  =0.0_cp
-                  dTauBN(n_s) =0.0_cp
-                  dTTauBN(n_s)=0.0_cp
-               end if
-            else
-               zMax = sqrt(r_CMB*r_CMB-cyl(n_s)*cyl(n_s))
-               zMin = -zMax
-               call interp_theta(BspAS(:,1),BspB,r_CMB,cyl(n_s),theta_ord)
-               call interp_theta(BspdAS(:,1),BspdB,r_CMB,cyl(n_s),theta_ord)
-               call interp_theta(BpsdAS(:,1),BpsdB,r_CMB,cyl(n_s),theta_ord)
-               call interp_theta(Bs2AS(:,1),Bs2B,r_CMB,cyl(n_s),theta_ord)
-               call interp_theta(BszAS(:,1),BszB,r_CMB,cyl(n_s),theta_ord)
-               call interp_theta(BpzAS(:,1),BpzB,r_CMB,cyl(n_s),theta_ord)
-               call interp_theta(BzpdAS(:,1),BzpdB,r_CMB,cyl(n_s),theta_ord)
-               call interp_theta(BpzdAS(:,1),BpzdB,r_CMB,cyl(n_s),theta_ord)
+                  if ( n_s > 1 ) then
+                     TauBS(n_s)  =TauBS(n_s)  +(BpzB(2)+cyl(n_s)/zMin*BspB(2))
+                     dTauBS(n_s) =dTauBS(n_s) +(BpzdB(2)+BzpdB(2) +              &
+                     &                         cyl(n_s)/zMin*(BspdB(2)+BpsdB(2)))
+                     dTTauBS(n_s)=dTTauBS(n_s)+(BszB(2)+cyl(n_s)/zMin*Bs2B(2))
+                     TauBN(n_s)  =TauBN(n_s)  -(BpzB(1) +cyl(n_s)/zMax*BspB(1))
+                     dTauBN(n_s) =dTauBN(n_s) -(BpzdB(1)+BzpdB(1) +              &
+                     &                         cyl(n_s)/zMax*(BspdB(1)+BpsdB(1)))
+                     dTTauBN(n_s)=dTTauBN(n_s)-(BszB(1)+cyl(n_s)/zMax*Bs2B(1))
+                  else ! n_s=1
+                     TauBS(n_s)  =0.0_cp
+                     dTauBS(n_s) =0.0_cp
+                     dTTauBS(n_s)=0.0_cp
+                     TauBN(n_s)  =0.0_cp
+                     dTauBN(n_s) =0.0_cp
+                     dTTauBN(n_s)=0.0_cp
+                  end if
+               else
+                  zMax = sqrt(r_CMB*r_CMB-cyl(n_s)*cyl(n_s))
+                  zMin = -zMax
 
-               if ( n_s > 1 ) then
-                  TauBS(n_s)  =BpzB(1)+cyl(n_s)/zMax*BspB(1) - BpzB(2)-cyl(n_s)/zMin*BspB(2)
-                  dTauBS(n_s) =BpzdB(1)+BzpdB(1) + cyl(n_s)/zMax*(BspdB(1)+BpsdB(1)) - &
-                  &            BpzdB(2)-BzpdB(2) - cyl(n_s)/zMin*(BspdB(2)+BpsdB(2))
-                  dTTauBS(n_s)=BszB(1)+cyl(n_s)/zMax*Bs2B(1) - BszB(2)-cyl(n_s)/zMin*Bs2B(2)
-                  TauBN(n_s)  =TauBS(n_s)
-                  dTauBN(n_s) =dTauBS(n_s)
-                  dTTauBN(n_s)=dTTauBS(n_s)
-               else ! n_s=1
-                  TauBS(n_s)  =0.0_cp
-                  dTauBS(n_s) =0.0_cp
-                  dTTauBS(n_s)=0.0_cp
-                  TauBN(n_s)  =0.0_cp
-                  dTauBN(n_s) =0.0_cp
-                  dTTauBN(n_s)=0.0_cp
+                  call interp_theta(BspAS(:,1),BspB,r_CMB,cyl(n_s),theta_ord)
+                  call interp_theta(BspdAS(:,1),BspdB,r_CMB,cyl(n_s),theta_ord)
+                  call interp_theta(BpsdAS(:,1),BpsdB,r_CMB,cyl(n_s),theta_ord)
+                  call interp_theta(Bs2AS(:,1),Bs2B,r_CMB,cyl(n_s),theta_ord)
+                  call interp_theta(BszAS(:,1),BszB,r_CMB,cyl(n_s),theta_ord)
+                  call interp_theta(BpzAS(:,1),BpzB,r_CMB,cyl(n_s),theta_ord)
+                  call interp_theta(BzpdAS(:,1),BzpdB,r_CMB,cyl(n_s),theta_ord)
+                  call interp_theta(BpzdAS(:,1),BpzdB,r_CMB,cyl(n_s),theta_ord)
+
+                  if ( n_s > 1 ) then
+                     TauBS(n_s)  =BpzB(1)+cyl(n_s)/zMax*BspB(1) - &
+                     &            BpzB(2)-cyl(n_s)/zMin*BspB(2)
+                     dTauBS(n_s) =BpzdB(1)+BzpdB(1) + cyl(n_s)/zMax*(BspdB(1)+BpsdB(1)) - &
+                     &            BpzdB(2)-BzpdB(2) - cyl(n_s)/zMin*(BspdB(2)+BpsdB(2))
+                     dTTauBS(n_s)=BszB(1)+cyl(n_s)/zMax*Bs2B(1) - &
+                     &            BszB(2)-cyl(n_s)/zMin*Bs2B(2)
+                     TauBN(n_s)  =TauBS(n_s)
+                     dTauBN(n_s) =dTauBS(n_s)
+                     dTTauBN(n_s)=dTTauBS(n_s)
+                  else ! n_s=1
+                     TauBS(n_s)  =0.0_cp
+                     dTauBS(n_s) =0.0_cp
+                     dTTauBS(n_s)=0.0_cp
+                     TauBN(n_s)  =0.0_cp
+                     dTauBN(n_s) =0.0_cp
+                     dTTauBN(n_s)=0.0_cp
+                  end if
                end if
             end if
 
             !-- s-derivatives:
             !-- Create arrays to be differentiated:
             SVpIntN(n_s) =VpIntN(n_s)/cyl(n_s)
-            SBspIntN(n_s)=h(n_s)*cyl(n_s)*cyl(n_s)*BspIntN(n_s)
-            SBs2IntN(n_s)=h(n_s)*cyl(n_s)**3*Bs2IntN(n_s)
             SVpIntS(n_s) =VpIntS(n_s)/cyl(n_s)
-            SBspIntS(n_s)=h(n_s)*cyl(n_s)*cyl(n_s)*BspIntS(n_s)
-            SBs2IntS(n_s)=h(n_s)*cyl(n_s)**3*Bs2IntS(n_s)
+            if ( l_mag ) then
+               SBspIntN(n_s)=h(n_s)*cyl(n_s)*cyl(n_s)*BspIntN(n_s)
+               SBs2IntN(n_s)=h(n_s)*cyl(n_s)**3*Bs2IntN(n_s)
+               SBspIntS(n_s)=h(n_s)*cyl(n_s)*cyl(n_s)*BspIntS(n_s)
+               SBs2IntS(n_s)=h(n_s)*cyl(n_s)**3*Bs2IntS(n_s)
+            end if
          end do
 
          !-- Calculate s-derivatives
@@ -414,19 +462,30 @@ contains
          call get_dds(SVpIntN, d2SVpIntN, cyl)
          call get_ds(SVpIntS, dSVpIntS, cyl)
          call get_dds(SVpIntS, d2SVpIntS, cyl)
-         call get_ds(SBspIntN, dSBspIntN, cyl)
-         call get_ds(SBspIntS, dSBspIntS, cyl)
-         call get_ds(SBs2IntN, dSBs2IntN, cyl)
-         call get_ds(SBs2IntS, dSBs2IntS, cyl)
+         if ( l_mag ) then
+            call get_ds(SBspIntN, dSBspIntN, cyl)
+            call get_ds(SBspIntS, dSBspIntS, cyl)
+            call get_ds(SBs2IntN, dSBs2IntN, cyl)
+            call get_ds(SBs2IntS, dSBs2IntS, cyl)
 
-         TauN(:)=Oh(:)*(dSBspIntN(:)/cyl(:)**2+TauBN(:))
-         dTTauN(:)=cyl(:)*d2SVpIntN(:)*Bs2IntN(:) +                       &
-         &                    Oh(:)*(dSVpIntN(:)*dSBs2IntN(:)/cyl(:)**2 + &
-         &                             cyl(:)*dSVpIntN(:)*dTTauBN(:) )
-         TauS(:)=Oh(:)*(dSBspIntS(:)/cyl(:)**2+TauBS(:))
-         dTTauS(:)=cyl(:)*d2SVpIntS(:)*Bs2IntS(:) +                       &
-         &                    Oh(:)*(dSVpIntS(:)*dSBs2IntS(:)/cyl(:)**2 + &
-         &                             cyl(:)*dSVpIntS(:)*dTTauBS(:) )
+            TauN(:)=Oh(:)*(dSBspIntN(:)/cyl(:)**2+TauBN(:))
+            dTTauN(:)=cyl(:)*d2SVpIntN(:)*Bs2IntN(:) +                       &
+            &                    Oh(:)*(dSVpIntN(:)*dSBs2IntN(:)/cyl(:)**2 + &
+            &                             cyl(:)*dSVpIntN(:)*dTTauBN(:) )
+            TauS(:)=Oh(:)*(dSBspIntS(:)/cyl(:)**2+TauBS(:))
+            dTTauS(:)=cyl(:)*d2SVpIntS(:)*Bs2IntS(:) +                       &
+            &                    Oh(:)*(dSVpIntS(:)*dSBs2IntS(:)/cyl(:)**2 + &
+            &                             cyl(:)*dSVpIntS(:)*dTTauBS(:) )
+         else
+            dSBspIntN(:)=0.0_cp
+            dSBspIntS(:)=0.0_cp
+            dSBs2IntN(:)=0.0_cp
+            dSBs2IntS(:)=0.0_cp
+            TauN(:)     =0.0_cp
+            TauS(:)     =0.0_cp
+            dTTauN(:)   =0.0_cp
+            dTTauS(:)   =0.0_cp
+         end if
 
          !--- Output of z-integral:
          write(n_NHS_file)  real(time,kind=outp),                          &! 3
@@ -528,9 +587,14 @@ contains
             write(n_TOmov_file) real(dzRstrAS,kind=outp)
             write(n_TOmov_file) real(dzAstrAS,kind=outp)
             write(n_TOmov_file) real(dzStrAS,kind=outp)
-            write(n_TOmov_file) real(LFfac*dzLFAS,kind=outp)
+            if ( l_mag ) then
+               write(n_TOmov_file) real(LFfac*dzLFAS,kind=outp)
+            else
+               write(n_TOmov_file) real(0.0_cp*VAS,kind=outp)
+            end if
             write(n_TOmov_file) real(dzCorAS,kind=outp)
             write(n_TOmov_file) real(dzdVpAS,kind=outp)
+            if ( l_phase_field ) write(n_TOmov_file) real(dzPenAS,kind=outp)
          end if
 
          if ( l_save_out ) then

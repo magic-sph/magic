@@ -31,7 +31,7 @@ module shtransforms
    public :: initialize_transforms, finalize_transforms, native_qst_to_spat,   &
    &         native_sphtor_to_spat, native_sph_to_spat, native_spat_to_sph,    &
    &         native_spat_to_sph_tor, native_sph_to_grad_spat,                  &
-   &         native_toraxi_to_spat, native_spat_to_SH_axi, native_axi_to_spat
+   &         native_toraxi_to_spat, native_axi_to_spat
 
 contains
 
@@ -866,51 +866,5 @@ contains
       end do
 
    end subroutine native_spat_to_sph_tor
-!------------------------------------------------------------------------------
-   subroutine native_spat_to_SH_axi(ft1,flm1,lmMax)
-      !
-      !  Legendre transform for an axisymmetric field
-      !
-
-      !-- Input variables:
-      integer,  intent(in) :: lmMax          ! Number of modes to be processed
-      real(cp), intent(in) :: ft1(*)
-
-      !-- Output: transformed arrays anlc1,anlc2
-      real(cp), intent(out) :: flm1(*)
-
-      !-- Local variables:
-      integer :: nThetaN,nThetaS,nThetaNHS,nTheta1,nTheta2,lm1,lm2
-      real(cp) :: f1p(n_theta_max/2),f1m(n_theta_max/2)
-      
-      flm1(1:lmMax)=0.0_cp
-
-      !-- Prepare arrays of sums and differences:
-      nThetaNHS=0
-      do nThetaN=1,n_theta_max,2 ! thetas in NHS
-         nThetaS=nThetaN+1         ! thetas in SHS
-         nThetaNHS=nThetaNHS+1      ! thetas in one HS
-         f1p(nThetaNHS)=ft1(nThetaN)+ft1(nThetaS) ! Symm
-         f1m(nThetaNHS)=ft1(nThetaN)-ft1(nThetaS) ! ASymm
-      end do
-
-      do nTheta1=1,n_theta_max/2,2
-         nTheta2=nTheta1+1
-
-         do lm1=1,lmMax-1,2
-            lm2=lm1+1
-            flm1(lm1)=flm1(lm1) + f1p(nTheta1)*wPlm(lm1,nTheta1) + &
-            &                     f1p(nTheta2)*wPlm(lm1,nTheta2)
-            flm1(lm2)=flm1(lm2) + f1m(nTheta1)*wPlm(lm2,nTheta1) + &
-            &                     f1m(nTheta2)*wPlm(lm2,nTheta2)
-         end do
-         if ( lm2 < lmMax ) then
-            lm1=lmMax
-            flm1(lm1)=flm1(lm1) + f1p(nTheta1)*wPlm(lm1,nTheta1) + &
-            &                     f1p(nTheta2)*wPlm(lm1,nTheta2)
-         end if
-      end do
-
-   end subroutine native_spat_to_SH_axi
 !------------------------------------------------------------------------------
 end module shtransforms

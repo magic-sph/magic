@@ -365,7 +365,7 @@ program magic
    if ( l_TO ) call initialize_outTO_mod() ! Needs to be called after preCalc, r_icb needed
    if ( l_movie ) call initialize_movie_data() !Needs to be called after preCalc to get correct coordinate values
    call initialize_geos(l_par, l_SRIC, l_geosMovie) ! Needs to be called after preCalc, l_geosMovie defined in movie
-   if ( ldtBmem == 1 ) call initialize_dtB_mod() ! Needs to be called after movie to make sure l_dtBmovie has been set
+   if ( l_RMS .or. l_DTrMagSpec ) call initialize_dtB_mod() ! Needs to be called after movie to make sure l_dtBmovie has been set
    if (l_probe) call initialize_probes()       !Needs to be called after preCalc to get correct coordinate values
    if ( l_RMS ) call initialize_RMS()
    local_bytes_used=bytes_allocated-local_bytes_used
@@ -487,7 +487,7 @@ program magic
    if ( l_TO ) call finalize_outTO_mod()
    if ( l_TO ) call finalize_TO()
    call finalize_geos(l_par, l_SRIC, l_geosMovie)
-   if ( ldtBmem == 1 ) call finalize_dtB_mod
+   if ( l_RMS .or. l_DTrMagSpec ) call finalize_dtB_mod()
    call finalize_fields_average_mod()
    if ( l_power ) call finalize_output_power()
    call finalize_outRot()

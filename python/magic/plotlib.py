@@ -172,7 +172,8 @@ def cut(dat, vmax=None, vmin=None):
 
 def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
                  cm=defaultCm, normed=None, vmax=None, vmin=None, cbar=True,
-                 tit=True, normRad=False, deminc=True, bounds=True):
+                 title=True, normRad=False, deminc=True, bounds=True,
+                 lines=False, linewidths=0.5, pcolor=False, rasterized=False):
     """
     Plot the equatorial cut of a given field
 
@@ -192,8 +193,8 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
     :type levels: int
     :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
     :type cm: str
-    :param tit: display the title of the figure when set to True
-    :type tit: bool
+    :param title: display the title of the figure when set to True
+    :type title: bool
     :param cbar: display the colorbar when set to True
     :type cbar: bool
     :param vmax: maximum value of the contour levels
@@ -209,6 +210,16 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
     :param bounds: a boolean to determine if one wants to plot the limits
                    of the domain (True by default)
     :type bounds: bool
+    :param lines: when set to True, over-plot solid lines to highlight
+                  the limits between two adjacent contour levels
+    :type lines: bool
+    :param linewidths: the thickness of the solid lines, whenever plotted
+    :type linewidths: float
+    :param pcolor: when set to True, use pcolormesh instead of contourf
+    :type pcolor: bool
+    :param rasterized: when set to True, the rasterization for vector graphics
+                       is turned on
+    :type rasterized: bool
     """
 
     nphi, ntheta = data.shape
@@ -225,7 +236,7 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
         maxS = np.sqrt(np.mean(data**2, axis=0))
         data[:, maxS!=0.] /= maxS[maxS!=0.]
 
-    if tit and label is not None:
+    if title and label is not None:
         if cbar:
             fig = plt.figure(figsize=(6.5,5.5))
             ax = fig.add_axes([0.01, 0.01, 0.76, 0.9])
@@ -257,7 +268,15 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
     if vmax is not None or vmin is not None:
         normed = False
         cs = np.linspace(vmin, vmax, levels)
-        im = ax.contourf(xx, yy, data, cs, cmap=cmap, extend='both')
+        if pcolor:
+            im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True,
+                               shading='gouraud', vmax=vmax, vmin=vmin,
+                               rasterized=rasterized)
+        else:
+            im = ax.contourf(xx, yy, data, cs, cmap=cmap, extend='both')
+        if lines:
+            ax.contour(xx, yy, data, cs, colors=['k'], linewidths=linewidths,
+                       extend='both', linestyles=['-'])
     else:
         if not normed:
             cs = levels
@@ -265,8 +284,19 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
             vmax = max(abs(data.max()), abs(data.min()))
             vmin = -vmax
             cs = np.linspace(vmin, vmax, levels)
-        im = ax.contourf(xx, yy, data, cs, cmap=cmap)
-        #im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True)
+        if pcolor:
+            if normed:
+                im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True,
+                                   shading='gouraud', vmax=vmax, vmin=vmin,
+                                   rasterized=rasterized)
+            else:
+                im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True,
+                                   shading='gouraud', rasterized=rasterized)
+        else:
+            im = ax.contourf(xx, yy, data, cs, cmap=cmap)
+        if lines:
+            ax.contour(xx, yy, data, cs, colors=['k'], linewidths=linewidths,
+                       linestyles=['-'])
 
     if bounds:
         ax.plot(radius[0]*np.cos(phi), radius[0]*np.sin(phi), 'k-', lw=1.5)
@@ -301,22 +331,26 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
     pos = ax.get_position()
     l, b, w, h = pos.bounds
     if cbar:
-        if tit and label is not None:
+        if title and label is not None:
             cax = fig.add_axes([0.85, 0.46-0.7*h/2., 0.03, 0.7*h])
         else:
             cax = fig.add_axes([0.85, 0.5-0.7*h/2., 0.03, 0.7*h])
         mir = fig.colorbar(im, cax=cax)
 
     #To avoid white lines on pdfs
-    for c in im.collections:
-        c.set_edgecolor("face")
+    if not pcolor:
+        for c in im.collections:
+            c.set_edgecolor('face')
+            if rasterized:
+                c.set_rasterized(True)
 
     return fig, xx, yy
 
 
 def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
-               normed=None, vmax=None, vmin=None, cbar=True, tit=True,
-               fig=None, ax=None, bounds=True, lines=False):
+               normed=None, vmax=None, vmin=None, cbar=True, title=True,
+               fig=None, ax=None, bounds=True, lines=False, pcolor=False,
+               linewidths=0.5, rasterized=False):
     """
     Plot a meridional cut of a given field
 
@@ -331,8 +365,8 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
     :type levels: int
     :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
     :type cm: str
-    :param tit: display the title of the figure when set to True
-    :type tit: bool
+    :param title: display the title of the figure when set to True
+    :type title: bool
     :param cbar: display the colorbar when set to True
     :type cbar: bool
     :param vmax: maximum value of the contour levels
@@ -352,6 +386,13 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
     :param lines: when set to True, over-plot solid lines to highlight
                   the limits between two adjacent contour levels
     :type lines: bool
+    :param linewidths: the thickness of the solid lines, whenever plotted
+    :type linewidths: float
+    :param pcolor: when set to True, use pcolormesh instead of contourf
+    :type pcolor: bool
+    :param rasterized: when set to True, the rasterization for vector graphics
+                       is turned on
+    :type rasterized: bool
     """
     ntheta, nr = data.shape
 
@@ -360,7 +401,7 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
     xx = rr * np.sin(tth)
     yy = rr * np.cos(tth)
 
-    if tit and label is not None:
+    if title and label is not None:
         if cbar:
             fsize = (5, 7.5)
             bb = [0.01, 0.01, 0.69, 0.91]
@@ -380,7 +421,7 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
         if ax is None:
             ax = fig.add_axes(bb)
 
-    if tit and label is not None:
+    if title and label is not None:
         ax.set_title(label, fontsize=24)
 
     if normed is None:
@@ -399,9 +440,14 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
     if vmax is not None and vmin is not None:
         normed = False
         cs = np.linspace(vmin, vmax, levels)
-        im = ax.contourf(xx, yy, data, cs, cmap=cmap, extend='both')
+        if pcolor:
+            im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True,
+                               shading='gouraud', vmax=vmax, vmin=vmin,
+                               rasterized=rasterized)
+        else:
+            im = ax.contourf(xx, yy, data, cs, cmap=cmap, extend='both')
         if lines:
-            ax.contour(xx, yy, data, cs, colors=['k'], linewidths=0.5,
+            ax.contour(xx, yy, data, cs, colors=['k'], linewidths=linewidths,
                        extend='both', linestyles=['-'])
     else:
         if not normed:
@@ -410,15 +456,26 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
             vmax = max(abs(data.max()), abs(data.min()))
             vmin = -vmax
             cs = np.linspace(vmin, vmax, levels)
-        im = ax.contourf(xx, yy, data, cs, cmap=cmap)
+        if pcolor:
+            if normed:
+                im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True,
+                                   shading='gouraud', vmax=vmax, vmin=vmin,
+                                   rasterized=rasterized)
+            else:
+                im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True,
+                                   shading='gouraud', rasterized=rasterized)
+        else:
+            im = ax.contourf(xx, yy, data, cs, cmap=cmap)
         if lines:
-            ax.contour(xx, yy, data, cs, colors=['k'], linewidths=0.5,
+            ax.contour(xx, yy, data, cs, colors=['k'], linewidths=linewidths,
                        linestyles=['-'])
-        #im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True)
 
     # To avoid white lines on pdfs
-    for c in im.collections:
-        c.set_edgecolor("face")
+    if not pcolor:
+        for c in im.collections:
+            c.set_edgecolor('face')
+            if rasterized:
+                c.set_rasterized(True)
 
     if bounds:
         ax.plot((radius[0])*np.sin(th), (radius[0])*np.cos(th), 'k-')
@@ -445,7 +502,7 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
     pos = ax.get_position()
     l, b, w, h = pos.bounds
     if cbar:
-        if tit and label is not None:
+        if title and label is not None:
             cax = fig.add_axes([0.82, 0.46-0.7*h/2., 0.04, 0.7*h])
         else:
             cax = fig.add_axes([0.82, 0.5-0.7*h/2., 0.04, 0.7*h])
@@ -456,8 +513,9 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
 
 def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None,
                   vmin=None, lat_0=30., levels=defaultLevels, cm=defaultCm,
-                  normed=None, cbar=True, tit=True, lines=False, fig=None,
-                  ax=None):
+                  normed=None, cbar=True, title=True, lines=False, fig=None,
+                  ax=None, linewidths=0.5, pcolor=False, rasterized=False,
+                  gridLineStyle=':', gridColor='k', gridLineWidth=0.7):
     """
     Plot the radial cut of a given field
 
@@ -476,13 +534,15 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
     :type levels: int
     :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
     :type cm: str
-    :param tit: display the title of the figure when set to True
-    :type tit: bool
+    :param title: display the title of the figure when set to True
+    :type title: bool
     :param cbar: display the colorbar when set to True
     :type cbar: bool
     :param lines: when set to True, over-plot solid lines to highlight
                   the limits between two adjacent contour levels
     :type lines: bool
+    :param linewidths: the thickness of the solid lines, whenever plotted
+    :type linewidths: float
     :param vmax: maximum value of the contour levels
     :type vmax: float
     :param vmin: minimum value of the contour levels
@@ -494,6 +554,19 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
     :type fig: matplotlib.figure.Figure
     :param ax: a pre-existing axis
     :type ax: matplotlib.axes._subplots.AxesSubplot
+    :param pcolor: when set to True, use pcolormesh instead of contourf
+    :type pcolor: bool
+    :param rasterized: when set to True, the rasterization for vector graphics
+                       is turned on
+    :type rasterized: bool
+    :param gridColor: this is used to set the color of the grid
+    :type gridColor: str
+    :param gridLineStyle: this allows to set the line style of the grid 
+                          (':', '-', '--')
+    :type gridLineStyle: str
+    :param gridLineWidth: this is used to tune the thickness of the lines used
+                          in the grid
+    :type gridLineWidth: float
     """
 
     nphi, ntheta = data.shape
@@ -510,21 +583,21 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
 
     if fig is None and ax is None:
         if proj == 'moll' or proj == 'hammer':
-            if tit and label is not None:
+            if title and label is not None:
                 if cbar:
-                    fig = plt.figure(figsize=(9,4.5))
+                    fig = plt.figure(figsize=(9.1, 4.5))
                     ax = fig.add_axes([0.01, 0.01, 0.87, 0.87])
                 else:
-                    fig = plt.figure(figsize=(8,4.5))
+                    fig = plt.figure(figsize=(8, 4.5))
                     ax = fig.add_axes([0.01, 0.01, 0.98, 0.87])
                 ax.set_title('{}: r/ro = {:.3f}'.format(label, rad),
                              fontsize=24)
             else:
                 if cbar:
-                    fig = plt.figure(figsize=(9,4))
+                    fig = plt.figure(figsize=(9.1, 4))
                     ax = fig.add_axes([0.01, 0.01, 0.87, 0.98])
                 else:
-                    fig = plt.figure(figsize=(8,4))
+                    fig = plt.figure(figsize=(8., 4))
                     ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
                 #tit1 = r'{:.2f} Ro'.format(rad)
                 #ax.text(0.12, 0.9, tit1, fontsize=16,
@@ -532,7 +605,7 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
                       #verticalalignment='center',
                       #transform = ax.transAxes)
         else:
-            if tit and label is not None:
+            if title and label is not None:
                 if cbar:
                     fig = plt.figure(figsize=(6,5.5))
                     ax = fig.add_axes([0.01, 0.01, 0.82, 0.9])
@@ -558,25 +631,34 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
         from mpl_toolkits.basemap import Basemap
         map = Basemap(projection=proj, lon_0=lon_0, lat_0=lat_0,
                       resolution='c')
-        map.drawparallels([0.], dashes=[2, 3], linewidth=0.5)
-        map.drawparallels(circles, dashes=[2,3], linewidth=0.5)
-        map.drawmeridians(meridians, dashes=[2,3], linewidth=0.5)
-        map.drawmeridians([-180], dashes=[20,0], linewidth=0.5)
-        map.drawmeridians([180], dashes=[20,0], linewidth=0.5)
+        map.drawparallels([0.], dashes=[2, 3], linewidth=gridLineWidth,
+                          color=gridColor)
+        map.drawparallels(circles, dashes=[2,3], linewidth=gridLineWidth,
+                          color=gridColor)
+        map.drawmeridians(meridians, dashes=[2,3], linewidth=gridLineWidth,
+                          color=gridColor)
+        map.drawmeridians([-180], dashes=[20,0], linewidth=gridLineWidth,
+                          color=gridColor)
+        map.drawmeridians([180], dashes=[20,0], linewidth=gridLineWidth,
+                          color=gridColor)
         x, y = list(map(lon2, lat2))
     else:
         x, y = hammer2cart(ttheta, pphi)
         for lat0 in circles:
             x0, y0 = hammer2cart(lat0*np.pi/180., phi)
-            ax.plot(x0, y0, 'k:', linewidth=0.7)
+            ax.plot(x0, y0, ls=gridLineStyle, color=gridColor,
+                    linewidth=gridLineWidth)
         for lon0 in meridians:
             x0, y0 = hammer2cart(theta, lon0*np.pi/180.)
-            ax.plot(x0, y0, 'k:', linewidth=0.7)
-        xxout, yyout  = hammer2cart(theta, -np.pi-1e-3)
-        xxin, yyin  = hammer2cart(theta, np.pi+1e-3)
+            ax.plot(x0, y0, ls=gridLineStyle, color=gridColor,
+                    linewidth=gridLineWidth)
+        xxout, yyout  = hammer2cart(theta, -np.pi)#-1e-3)
+        xxin, yyin  = hammer2cart(theta, np.pi)#+1e-3)
         ax.plot(xxin, yyin, 'k-')
         ax.plot(xxout, yyout, 'k-')
         ax.axis('off')
+        ax.set_ylim(-1.01*np.sqrt(2.), 1.01*np.sqrt(2.))
+        ax.set_xlim(-2.02*np.sqrt(2.), 2.02*np.sqrt(2.))
 
     if normed is None:
         if abs(data.min()) < 1e-8:
@@ -601,12 +683,17 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
         if vmax is not None or vmin is not None:
             normed = False
             cs = np.linspace(vmin, vmax, levels)
-            im = ax.contourf(x, y, data, cs, cmap=cmap, extend='both')
+            if pcolor:
+                im = ax.pcolormesh(x, y, data, cmap=cmap, antialiased=True,
+                                   shading='gouraud', vmax=vmax, vmin=vmin,
+                                   rasterized=rasterized)
+            else:
+                im = ax.contourf(x, y, data, cs, cmap=cmap, extend='both',
+                                 rasterized=rasterized)
             if lines:
-                ax.contour(x, y, data, cs, colors=['k'], linewidths=0.5,
+                ax.contour(x, y, data, cs, colors=['k'], linewidths=linewidths,
                            extend='both', linestyles=['-'])
                 #ax.contour(x, y, data, 1, colors=['k'])
-            #im = ax.pcolormesh(x, y, data, cmap=cmap, antialiased=True)
         else:
             if not normed:
                 cs = levels
@@ -614,25 +701,36 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
                 vmax = max(abs(data.max()), abs(data.min()))
                 vmin = -vmax
                 cs = np.linspace(vmin, vmax, levels)
-            im = ax.contourf(x, y, data, cs, cmap=cmap)
+            if pcolor:
+                if normed:
+                    im = ax.pcolormesh(x, y, data, cmap=cmap, antialiased=True,
+                                       shading='gouraud', vmax=vmax, vmin=vmin,
+                                       rasterized=rasterized)
+                else:
+                    im = ax.pcolormesh(x, y, data, cmap=cmap, antialiased=True,
+                                       shading='gouraud', rasterized=rasterized)
+            else:
+                im = ax.contourf(x, y, data, cs, cmap=cmap)
             if lines:
-                ax.contour(x, y, data, cs, colors=['k'], linewidths=0.5,
+                ax.contour(x, y, data, cs, colors=['k'], linewidths=linewidths,
                            linestyles=['-'])
-            #im = ax.pcolormesh(x, y, data, cmap=cmap, antialiased=True)
 
 
     # Add the colorbar at the right place
     pos = ax.get_position()
     l, b, w, h = pos.bounds
     if cbar:
-        if tit and label is not None:
+        if title and label is not None:
             cax = fig.add_axes([0.9, 0.46-0.7*h/2., 0.03, 0.7*h])
         else:
             cax = fig.add_axes([0.9, 0.51-0.7*h/2., 0.03, 0.7*h])
         mir = fig.colorbar(im, cax=cax)
 
     # To avoid white lines on pdfs
-    for c in im.collections:
-        c.set_edgecolor("face")
+    if not pcolor:
+        for c in im.collections:
+            c.set_edgecolor('face')
+            if rasterized:
+                c.set_rasterized(True)
 
     return fig
