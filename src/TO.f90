@@ -51,10 +51,11 @@ contains
       allocate( dzRstrAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
       allocate( dzAStrAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
       allocate( dzCorAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( dzLFAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
       allocate( dzdVpAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
       allocate( dzddVpAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      bytes_allocated = bytes_allocated+7*(nRstop-nRstart+1)*n_theta_maxStr* &
+      allocate( VAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+      allocate( V2AS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+      bytes_allocated = bytes_allocated+8*(nRstop-nRstart+1)*n_theta_maxStr* &
       &                 SIZEOF_DEF_REAL
       if ( l_phase_field ) then
          allocate( dzPenAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
@@ -66,19 +67,6 @@ contains
       dzdVpLMr(:,:) =0.0_cp
       dzddVpLMr(:,:)=0.0_cp
       bytes_allocated = bytes_allocated+2*(l_max+1)*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
-
-      allocate( VAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( V2AS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( Bs2AS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( BszAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( BspAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( BpzAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( BspdAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( BpsdAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( BzpdAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( BpzdAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      bytes_allocated = bytes_allocated+10*(nRstop-nRstart+1)*n_theta_maxStr* &
-      &                 SIZEOF_DEF_REAL
 
       if ( l_parallel_solve ) then
          allocate( ddzASL(l_max+1,nRstart:nRstop) )
@@ -93,11 +81,25 @@ contains
       dzASL(:)   =0.0_cp
       zASL(:)    =0.0_cp
 
-      allocate( BsLast(n_theta_maxStr,n_phi_maxStr,nRstart:nRstop) )
-      allocate( BpLast(n_theta_maxStr,n_phi_maxStr,nRstart:nRstop) )
-      allocate( BzLast(n_theta_maxStr,n_phi_maxStr,nRstart:nRstop) )
-      bytes_allocated = bytes_allocated+3*n_phi_maxStr*n_theta_maxStr* &
-      &                 (nRstop-nRstart+1)*SIZEOF_DEF_REAL
+      if ( l_mag ) then
+         allocate( dzLFAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+         allocate( Bs2AS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+         allocate( BszAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+         allocate( BspAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+         allocate( BpzAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+         allocate( BspdAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+         allocate( BpsdAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+         allocate( BzpdAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+         allocate( BpzdAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
+         bytes_allocated = bytes_allocated+9*(nRstop-nRstart+1)*n_theta_maxStr* &
+         &                 SIZEOF_DEF_REAL
+
+         allocate( BsLast(n_theta_maxStr,n_phi_maxStr,nRstart:nRstop) )
+         allocate( BpLast(n_theta_maxStr,n_phi_maxStr,nRstart:nRstop) )
+         allocate( BzLast(n_theta_maxStr,n_phi_maxStr,nRstart:nRstop) )
+         bytes_allocated = bytes_allocated+3*n_phi_maxStr*n_theta_maxStr* &
+         &                 (nRstop-nRstart+1)*SIZEOF_DEF_REAL
+      end if
 
    end subroutine initialize_TO
 !-----------------------------------------------------------------------------
@@ -106,12 +108,15 @@ contains
       ! Deallocate the memory
       !
 
-      deallocate( ddzASL, BpzdAS_Rloc, BzpdAS_Rloc, BpsdAS_Rloc, BspdAS_Rloc )
-      deallocate( BpzAS_Rloc, BspAS_Rloc, BszAS_Rloc, Bs2AS_Rloc, V2AS_Rloc )
-      deallocate( dzddVpAS_Rloc, dzdVpAS_Rloc, dzLFAS_Rloc, dzCorAS_Rloc )
+      deallocate( dzddVpAS_Rloc, dzdVpAS_Rloc, dzCorAS_Rloc )
       if ( l_phase_field ) deallocate(dzPenAS_Rloc)
+      if ( l_mag ) then
+         deallocate( BsLast, BpLast, BzLast, dzLFAS_Rloc )
+         deallocate( BpzdAS_Rloc, BzpdAS_Rloc, BpsdAS_Rloc, BspdAS_Rloc )
+         deallocate( BpzAS_Rloc, BspAS_Rloc, BszAS_Rloc, Bs2AS_Rloc )
+      end if
       deallocate( dzAStrAS_Rloc, dzRstrAS_Rloc, dzStrAS_Rloc )
-      deallocate( zASL, dzASL, BsLast, BpLast, BzLast, VAS_Rloc )
+      deallocate( zASL, dzASL, ddzASL, VAS_Rloc, V2AS_Rloc )
       deallocate( dzddVpLMr, dzdVpLMr )
 
    end subroutine finalize_TO
@@ -163,9 +168,8 @@ contains
       real(cp) :: Bs2Mean,BszMean,BspMean,BpzMean,BspdMean,BpsdMean
       real(cp) :: BzpdMean,BpzdMean,VpPhiMean
       real(cp) :: sinT,Osin,Osin2,cosT,phiNorm
-      real(cp) :: BsL,BzL,BpL,Bs2F1,Bs2F2,Bs2F3,BspF1,BspF2
+      real(cp) :: BsL,BzL,BpL,Bs2F1,Bs2F2,Bs2F3,BspF2
       real(cp) :: BpzF1,BpzF2,BszF1,BszF2,BszF3
-      real(cp) :: BsF1,BsF2,BpF1,BzF1,BzF2
 
       if ( lVerbose ) write(output_unit,*) '! Starting getTO!'
 
@@ -174,9 +178,9 @@ contains
       !-- Set values to zero before filling it
       do nTheta=1,n_theta_maxStr
          dzCorAS_Rloc(nTheta,nR) =0.0_cp
-         dzLFAS_Rloc(nTheta,nR)  =0.0_cp
          dzRstrAS_Rloc(nTheta,nR)=0.0_cp
          dzAstrAS_Rloc(nTheta,nR)=0.0_cp
+         if ( l_mag ) dzLFAS_Rloc(nTheta,nR)=0.0_cp
          if ( l_phase_field ) dzPenAS_Rloc(nTheta,nR)=0.0_cp
       end do
 
@@ -187,21 +191,17 @@ contains
          cosT =cosTheta(nTheta)
          Osin =one/sinT
          Osin2=Osin*Osin
-         Bs2F1=sinT*sinT*or4(nR)
-         Bs2F2=cosT*cosT*Osin2*or2(nR)
-         Bs2F3=two*cosT*or3(nR)
-         BspF1=or3(nR)
-         BspF2=cosT*Osin2*or2(nR)
-         BpzF1=cosT*Osin*or3(nR)
-         BpzF2=or2(nR)*Osin
-         BszF1=sinT*cosT*or4(nR)
-         BszF2=(two*cosT*cosT-one)*Osin*or3(nR)
-         BszF3=cosT*Osin*or2(nR)
-         BsF1 =sinT*or2(nR)
-         BsF2 =cosT*Osin*or1(nR)
-         BpF1 =Osin*or1(nR)
-         BzF1 =cosT*or2(nR)
-         BzF2 =or1(nR)
+         if ( l_mag ) then
+            Bs2F1=sinT*sinT*or4(nR)
+            Bs2F2=cosT*cosT*Osin2*or2(nR)
+            Bs2F3=two*cosT*or3(nR)
+            BspF2=cosT*Osin2*or2(nR)
+            BpzF1=cosT*Osin*or3(nR)
+            BpzF2=or2(nR)*Osin
+            BszF1=sinT*cosT*or4(nR)
+            BszF2=(two*cosT*cosT-one)*Osin*or3(nR)
+            BszF3=cosT*Osin*or2(nR)
+         end if
 
          !--- Get zonal means of velocity and derivatives:
          VrMean     =0.0_cp
@@ -214,16 +214,18 @@ contains
          cVrMean    =0.0_cp
          VrdVpdrMean=0.0_cp
          VtcVrMean  =0.0_cp
-         LFmean     =0.0_cp
-         Bs2Mean    =0.0_cp
-         BspMean    =0.0_cp
-         BpzMean    =0.0_cp
-         BszMean    =0.0_cp
-         BspdMean   =0.0_cp
-         BpsdMean   =0.0_cp
-         BzpdMean   =0.0_cp
-         BpzdMean   =0.0_cp
          VpPhiMean  =0.0_cp
+         if ( l_mag ) then
+            LFmean     =0.0_cp
+            Bs2Mean    =0.0_cp
+            BspMean    =0.0_cp
+            BpzMean    =0.0_cp
+            BszMean    =0.0_cp
+            BspdMean   =0.0_cp
+            BpsdMean   =0.0_cp
+            BzpdMean   =0.0_cp
+            BpzdMean   =0.0_cp
+         end if
          do nPhi=1,n_phi_maxStr
             VrMean =VrMean +vr(nTheta,nPhi)
             VtMean =VtMean +vt(nTheta,nPhi)
@@ -246,16 +248,16 @@ contains
                Bs2Mean=Bs2Mean + Bs2F1*br(nTheta,nPhi)*br(nTheta,nPhi) + &
                &                 Bs2F2*bt(nTheta,nPhi)*bt(nTheta,nPhi) + &
                &                 Bs2F3*br(nTheta,nPhi)*bt(nTheta,nPhi)
-               BspMean=BspMean + BspF1*br(nTheta,nPhi)*bp(nTheta,nPhi) + &
-               &                 BspF2*bt(nTheta,nPhi)*bp(nTheta,nPhi)
+               BspMean=BspMean + or3(nR)*br(nTheta,nPhi)*bp(nTheta,nPhi) + &
+               &                 BspF2  *bt(nTheta,nPhi)*bp(nTheta,nPhi)
                BpzMean=BpzMean + BpzF1*br(nTheta,nPhi)*bp(nTheta,nPhi) - &
                &                 BpzF2*bt(nTheta,nPhi)*bp(nTheta,nPhi)
                BszMean=BszMean + BszF1*br(nTheta,nPhi)*br(nTheta,nPhi) + &
                &                 BszF2*br(nTheta,nPhi)*bt(nTheta,nPhi) - &
                &                 BszF3*bt(nTheta,nPhi)*bt(nTheta,nPhi)
-               BsL=BsF1*br(nTheta,nPhi) + BsF2*bt(nTheta,nPhi)
-               BpL=BpF1*bp(nTheta,nPhi)
-               BzL=BzF1*br(nTheta,nPhi) - BzF2*bt(nTheta,nPhi)
+               BsL=sinT*or2(nR)*br(nTheta,nPhi) + cosT*Osin*or1(nR)*bt(nTheta,nPhi)
+               BpL=Osin*or1(nR)*bp(nTheta,nPhi)
+               BzL=cosT*or2(nR)*br(nTheta,nPhi) - or1(nR)*bt(nTheta,nPhi)
                BspdMean=BspdMean+BsL*(BpL-BpLast(nTheta,nPhi,nR))
                BpsdMean=BpsdMean+BpL*(BsL-BsLast(nTheta,nPhi,nR))
                BzpdMean=BzpdMean+BzL*(BpL-BpLast(nTheta,nPhi,nR))
