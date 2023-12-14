@@ -6,7 +6,7 @@ module torsional_oscillations
    use iso_fortran_env, only: output_unit
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_phi_maxStr, n_r_maxStr, l_max, n_theta_maxStr, lm_max, &
+   use truncation, only: n_phi_max, n_r_max, l_max, n_theta_max, lm_max, &
        &                 nlat_padded
    use radial_data, only: nRstart, nRstop
    use radial_functions, only: or1, or2, or3, or4, beta, orho1, dbeta
@@ -47,19 +47,19 @@ contains
       ! Allocate the memory needed
       !
 
-      allocate( dzStrAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( dzRstrAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( dzAStrAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( dzCorAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( dzdVpAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( dzddVpAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( VAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( V2AS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      bytes_allocated = bytes_allocated+8*(nRstop-nRstart+1)*n_theta_maxStr* &
+      allocate( dzStrAS_Rloc(n_theta_max,nRstart:nRstop) )
+      allocate( dzRstrAS_Rloc(n_theta_max,nRstart:nRstop) )
+      allocate( dzAStrAS_Rloc(n_theta_max,nRstart:nRstop) )
+      allocate( dzCorAS_Rloc(n_theta_max,nRstart:nRstop) )
+      allocate( dzdVpAS_Rloc(n_theta_max,nRstart:nRstop) )
+      allocate( dzddVpAS_Rloc(n_theta_max,nRstart:nRstop) )
+      allocate( VAS_Rloc(n_theta_max,nRstart:nRstop) )
+      allocate( V2AS_Rloc(n_theta_max,nRstart:nRstop) )
+      bytes_allocated = bytes_allocated+8*(nRstop-nRstart+1)*n_theta_max* &
       &                 SIZEOF_DEF_REAL
       if ( l_phase_field ) then
-         allocate( dzPenAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-         bytes_allocated = bytes_allocated+(nRstop-nRstart+1)*n_theta_maxStr* &
+         allocate( dzPenAS_Rloc(n_theta_max,nRstart:nRstop) )
+         bytes_allocated = bytes_allocated+(nRstop-nRstart+1)*n_theta_max* &
          &                 SIZEOF_DEF_REAL
       end if
 
@@ -72,8 +72,8 @@ contains
          allocate( ddzASL(l_max+1,nRstart:nRstop) )
          bytes_allocated = bytes_allocated+(l_max+1)*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
       else
-         allocate( ddzASL(l_max+1,n_r_maxStr) )
-         bytes_allocated = bytes_allocated+(l_max+1)*n_r_maxStr*SIZEOF_DEF_REAL
+         allocate( ddzASL(l_max+1,n_r_max) )
+         bytes_allocated = bytes_allocated+(l_max+1)*n_r_max*SIZEOF_DEF_REAL
       end if
       allocate( zASL(l_max+1), dzASL(l_max+1) )
       bytes_allocated = bytes_allocated+2*(l_max+1)*SIZEOF_DEF_REAL
@@ -82,22 +82,22 @@ contains
       zASL(:)    =0.0_cp
 
       if ( l_mag ) then
-         allocate( dzLFAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-         allocate( Bs2AS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-         allocate( BszAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-         allocate( BspAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-         allocate( BpzAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-         allocate( BspdAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-         allocate( BpsdAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-         allocate( BzpdAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-         allocate( BpzdAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-         bytes_allocated = bytes_allocated+9*(nRstop-nRstart+1)*n_theta_maxStr* &
+         allocate( dzLFAS_Rloc(n_theta_max,nRstart:nRstop) )
+         allocate( Bs2AS_Rloc(n_theta_max,nRstart:nRstop) )
+         allocate( BszAS_Rloc(n_theta_max,nRstart:nRstop) )
+         allocate( BspAS_Rloc(n_theta_max,nRstart:nRstop) )
+         allocate( BpzAS_Rloc(n_theta_max,nRstart:nRstop) )
+         allocate( BspdAS_Rloc(n_theta_max,nRstart:nRstop) )
+         allocate( BpsdAS_Rloc(n_theta_max,nRstart:nRstop) )
+         allocate( BzpdAS_Rloc(n_theta_max,nRstart:nRstop) )
+         allocate( BpzdAS_Rloc(n_theta_max,nRstart:nRstop) )
+         bytes_allocated = bytes_allocated+9*(nRstop-nRstart+1)*n_theta_max* &
          &                 SIZEOF_DEF_REAL
 
-         allocate( BsLast(n_theta_maxStr,n_phi_maxStr,nRstart:nRstop) )
-         allocate( BpLast(n_theta_maxStr,n_phi_maxStr,nRstart:nRstop) )
-         allocate( BzLast(n_theta_maxStr,n_phi_maxStr,nRstart:nRstop) )
-         bytes_allocated = bytes_allocated+3*n_phi_maxStr*n_theta_maxStr* &
+         allocate( BsLast(n_theta_max,n_phi_max,nRstart:nRstop) )
+         allocate( BpLast(n_theta_max,n_phi_max,nRstart:nRstop) )
+         allocate( BzLast(n_theta_max,n_phi_max,nRstart:nRstop) )
+         bytes_allocated = bytes_allocated+3*n_phi_max*n_theta_max* &
          &                 (nRstop-nRstart+1)*SIZEOF_DEF_REAL
       end if
 
@@ -173,10 +173,10 @@ contains
 
       if ( lVerbose ) write(output_unit,*) '! Starting getTO!'
 
-      phiNorm=one/real(n_phi_maxStr, kind=cp)
+      phiNorm=one/real(n_phi_max, kind=cp)
 
       !-- Set values to zero before filling it
-      do nTheta=1,n_theta_maxStr
+      do nTheta=1,n_theta_max
          dzCorAS_Rloc(nTheta,nR) =0.0_cp
          dzRstrAS_Rloc(nTheta,nR)=0.0_cp
          dzAstrAS_Rloc(nTheta,nR)=0.0_cp
@@ -185,7 +185,7 @@ contains
       end do
 
       !-- Big loop over thetas in block:
-      do nTheta=1,n_theta_maxStr
+      do nTheta=1,n_theta_max
          nTheta1=n_theta_cal2ord(nTheta)
          sinT =sinTheta(nTheta)
          cosT =cosTheta(nTheta)
@@ -226,7 +226,7 @@ contains
             BzpdMean   =0.0_cp
             BpzdMean   =0.0_cp
          end if
-         do nPhi=1,n_phi_maxStr
+         do nPhi=1,n_phi_max
             VrMean =VrMean +vr(nTheta,nPhi)
             VtMean =VtMean +vt(nTheta,nPhi)
             VpMean =VpMean +vp(nTheta,nPhi)
@@ -335,8 +335,8 @@ contains
          if ( l_mag ) then
             !$omp parallel do default(shared)    &
             !$omp& private(nPhi, nTh)
-            do nPhi=1,n_phi_maxStr
-               do nTh=1,n_theta_maxStr
+            do nPhi=1,n_phi_max
+               do nTh=1,n_theta_max
                   BsLast(nTh,nPhi,nR)=or2(nR)*sinTheta(nTh)*br(nTh,nPhi) + &
                   &                   or1(nR)*cosTheta(nTh)*O_sin_theta(nTh)*bt(nTh,nPhi)
                   BpLast(nTh,nPhi,nR)=or1(nR)*bp(nTh,nPhi)*O_sin_theta(nTh)
@@ -419,7 +419,7 @@ contains
       call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:))
 
       !-- Unscramble theta
-      do nTheta=1,n_theta_maxStr
+      do nTheta=1,n_theta_max
          nTheta1=n_theta_cal2ord(nTheta)
          Bp(nTheta1)=O_sin_theta(nTheta)*tmpp(nTheta)*or1(nR)
       end do
