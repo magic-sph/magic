@@ -8,11 +8,11 @@ module torsional_oscillations
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_phi_maxStr, n_r_maxStr, l_max, n_theta_maxStr, lm_max, &
        &                 nlat_padded
-   use radial_data, only: n_r_cmb, nRstart, nRstop
-   use radial_functions, only: r, or1, or2, or3, or4, beta, orho1, dbeta
+   use radial_data, only: nRstart, nRstop
+   use radial_functions, only: or1, or2, or3, or4, beta, orho1, dbeta
    use physical_parameters, only: CorFac, kbotv, ktopv, epsPhase, penaltyFac
-   use blocking, only: lm2, llmMag, ulmMag, lo_map, lm2l, lm2m
-   use horizontal_data, only: sinTheta, cosTheta, hdif_V, dTheta1A, dTheta1S, dLh, &
+   use blocking, only: lm2
+   use horizontal_data, only: sinTheta, cosTheta, hdif_V, dLh, &
        &                      n_theta_cal2ord, O_sin_theta
    use constants, only: one, two
    use logic, only: lVerbose, l_mag, l_parallel_solve, l_phase_field
@@ -268,26 +268,7 @@ contains
          Vr2Mean=phiNorm*or4(nR)*Vr2Mean
          Vt2Mean=phiNorm*or2(nR)*Osin2*Vt2Mean
          Vp2Mean=phiNorm*or2(nR)*Osin2*Vp2Mean
-         if ( nR == n_r_cmb ) then
-            VrMean =0.0_cp
-            Vr2Mean=0.0_cp
-            if ( ktopv == 2 ) then
-               VtMean =0.0_cp
-               Vt2Mean=0.0_cp
-               VpMean =0.0_cp
-               Vp2Mean=0.0_cp
-            end if
-         end if
-         if ( nR == n_r_cmb ) then
-            VrMean =0.0_cp
-            Vr2Mean=0.0_cp
-            if ( kbotv == 2 ) then
-               VtMean =0.0_cp
-               Vt2Mean=0.0_cp
-               VpMean =0.0_cp
-               Vp2Mean=0.0_cp
-            end if
-         end if
+
          V2AS_Rloc(nTheta1,nR)=Vr2Mean+Vt2Mean+Vp2Mean
          VpMean =phiNorm*or1(nR)*Osin*VpMean
          VAS_Rloc(nTheta1,nR)=orho1(nR)*VpMean
