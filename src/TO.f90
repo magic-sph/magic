@@ -132,8 +132,8 @@ contains
 
       do l=0,l_max
          lm=lm2(l,0)
-         zASL(l+1)=real(z(lm))
-         dzASL(l+1) =real(dz(lm))
+         zASL(l+1) =real(z(lm))
+         dzASL(l+1)=real(dz(lm))
       end do
 
    end subroutine prep_TO_axi
@@ -373,7 +373,7 @@ contains
       integer :: l,lm
 
       !------ When all thetas are done calculate viscous stress in LM space:
-      dzStrLMr(1) =0.0_cp
+      dzStrLMr(1)    =0.0_cp
       dzdVpLMr(1,nR) =0.0_cp
       dzddVpLMr(1,nR)=0.0_cp
       do l=1,l_max
