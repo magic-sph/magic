@@ -20,7 +20,8 @@ module rIter_mod
        &            l_TO, l_chemical_conv, l_probe, l_full_sphere,   &
        &            l_precession, l_centrifuge, l_adv_curl,          &
        &            l_double_curl, l_parallel_solve, l_single_matrix,&
-       &            l_temperature_diff, l_RMS, l_phase_field, l_onset
+       &            l_temperature_diff, l_RMS, l_phase_field,        &
+       &            l_onset, l_DTrMagSpec
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop, nRstartMag, &
        &                  nRstopMag
    use radial_functions, only: or2, orho1, l_R
@@ -79,7 +80,7 @@ contains
       class(rIter_single_t) :: this
 
       call this%gsa%initialize()
-      call this%dtB_arrays%initialize()
+      if ( l_RMS .or. l_DTrMagSpec ) call this%dtB_arrays%initialize()
       call this%nl_lm%initialize(lm_max)
 
    end subroutine initialize
@@ -89,7 +90,7 @@ contains
       class(rIter_single_t) :: this
 
       call this%gsa%finalize()
-      call this%dtB_arrays%finalize()
+      if ( l_RMS .or. l_DTrMagSpec ) call this%dtB_arrays%finalize()
       call this%nl_lm%finalize()
 
    end subroutine finalize

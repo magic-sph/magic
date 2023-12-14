@@ -45,12 +45,6 @@ module truncation
    integer :: l_maxMag      ! Max. degree for magnetic field calculation
    integer :: lm_maxMag     ! Max. number of l/m combinations for magnetic field calculation
  
-   !-- Movie memory control:
-   integer :: ldtBMem        ! Memory for movie output
-   integer :: lm_max_dtB     ! Number of l/m combinations for movie output
-   integer :: n_r_max_dtB    ! Number of radial points for movie output
-   integer :: n_r_ic_max_dtB ! Number of IC radial points for movie output
- 
 contains
 
    subroutine initialize_truncation
@@ -129,14 +123,6 @@ contains
       n_r_totMag    = max(1,n_r_totML)
       l_maxMag      = max(1,l_maxML)
       lm_maxMag     = max(1,lm_maxML)
-
-      !-- Movie memory control:
-      lm_max_dL    =ldtBMem*lm_max
-      n_r_max_dL   =ldtBMem*n_r_max
-      n_r_ic_max_dL=ldtBMem*n_r_ic_max
-      lm_max_dtB    =max(lm_max_DL,1) 
-      n_r_max_dtB   =max(n_r_max_DL,1)
-      n_r_ic_max_dtB=max(n_r_ic_max_DL,1)
 
    end subroutine initialize_truncation
 !--------------------------------------------------------------------------------

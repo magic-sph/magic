@@ -1,6 +1,8 @@
 module out_dtB_frame
 
-   use truncation
+   use truncation, only: n_r_max, lm_max, n_r_ic_max, lm_maxMag, n_r_maxMag, &
+       &                 n_r_ic_maxMag, l_max, m_max, minc, n_theta_max,     &
+       &                 n_r_tot, nlat_padded, n_phi_max, n_cheb_ic_max
    use precision_mod
    use radial_functions, only: r, or1, chebt_ic, r_ic, rscheme_oc, r_icb, &
        &                       dr_fac_ic, chebt_ic_even
@@ -66,8 +68,8 @@ contains
       real(cp) :: dtBrframe(n_r_tot*n_phi_max*n_theta_max)
       real(cp) :: const,rMov
     
-      complex(cp) :: workA(lm_max_dtB,n_r_max_dtB)
-      complex(cp) :: workB(lm_max_dtB,n_r_ic_max_dtB)
+      complex(cp) :: workA(lm_max,n_r_max)
+      complex(cp) :: workB(lm_max,n_r_ic_max)
     
       logical :: l_loop
     

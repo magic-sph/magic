@@ -1,6 +1,6 @@
 module dtB_arrays_mod
 
-   use truncation, only: lm_max_dtB
+   use truncation, only: lm_max
    use mem_alloc, only: bytes_allocated
    use precision_mod
    use constants, only: zero
@@ -27,13 +27,13 @@ contains
 
       class(dtB_arrays_t) :: this
 
-      allocate( this%BtVrLM(lm_max_dtB), this%BpVrLM(lm_max_dtB) )
-      allocate( this%BrVtLM(lm_max_dtB), this%BrVpLM(lm_max_dtB) )
-      allocate( this%BtVpLM(lm_max_dtB), this%BpVtLM(lm_max_dtB) )
-      allocate( this%BpVtBtVpCotLM(lm_max_dtB), this%BpVtBtVpSn2LM(lm_max_dtB) )
-      allocate( this%BrVZLM(lm_max_dtB), this%BtVZLM(lm_max_dtB) )
-      allocate( this%BtVZsn2LM(lm_max_dtB) )
-      bytes_allocated = bytes_allocated+ 11*lm_max_dtB*SIZEOF_DEF_COMPLEX
+      allocate( this%BtVrLM(lm_max), this%BpVrLM(lm_max) )
+      allocate( this%BrVtLM(lm_max), this%BrVpLM(lm_max) )
+      allocate( this%BtVpLM(lm_max), this%BpVtLM(lm_max) )
+      allocate( this%BpVtBtVpCotLM(lm_max), this%BpVtBtVpSn2LM(lm_max) )
+      allocate( this%BrVZLM(lm_max), this%BtVZLM(lm_max) )
+      allocate( this%BtVZsn2LM(lm_max) )
+      bytes_allocated = bytes_allocated+ 11*lm_max*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize
 !----------------------------------------------------------------------------
