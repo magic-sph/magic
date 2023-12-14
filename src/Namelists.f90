@@ -314,8 +314,6 @@ contains
 
       !-- Determine what has to be calculated depending on mode:
       lMagMem  =1
-      ldtBMem  =0
-      lStressMem=0
       l_conv   =.true.
       l_conv_nl=.true.
       l_mag    =.true.
@@ -744,10 +742,6 @@ contains
       l_z10mat=.false.
       if ( ( l_rot_ma .and. ktopv == 2 ) .or. &
       &    ( l_rot_ic .and. kbotv == 2 )      ) l_z10mat= .true.
-
-      !-- Check whether memory has been reserved:
-      if ( l_TO ) lStressMem=1
-      if ( l_RMS .or. l_DTrMagSpec ) ldtBMem=1
 
       !-- Output of angular moment?
       l_AM=l_AM .or. l_correct_AMe .or. l_correct_AMz

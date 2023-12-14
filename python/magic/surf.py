@@ -70,7 +70,8 @@ class Surf:
 
     def surf(self, field='Bphi', proj='hammer', lon_0=0., r=0.85, vmax=None,
              vmin=None, lat_0=30., levels=defaultLevels, cm=None, ic=False,
-             lon_shift=0, normed=None, cbar=True, tit=True, lines=False):
+             lon_shift=0, normed=None, cbar=True, title=True, lines=False,
+             pcolor=False):
         """
         Plot the surface distribution of an input field at a given
         input radius (normalised by the outer boundary radius).
@@ -80,7 +81,7 @@ class Surf:
            >>> s.surf(field='vr', r=0.95, levels=65, cm='seismic')
 
            >>> # Minimal plot (no cbar, not title)
-           >>> s.surf(field='entropyfluct', r=0.6, tit=False, cbar=False)
+           >>> s.surf(field='entropyfluct', r=0.6, title=False, cbar=False)
 
            >>> # Control the limit of the colormap from -1e3 to 1e3
            >>> s.surf(field='vp', r=1., vmin=-1e3, vmax=1e3, levels=33)
@@ -107,9 +108,9 @@ class Surf:
         :type lon_0: float
         :param lat_0: central latitude (only used with Basemap)
         :type lat_0: float
-        :param tit: display the title of the figure when set to True
-        :param tit: display the title of the figure when set to True
-        :type tit: bool
+        :param title: display the title of the figure when set to True
+        :param title: display the title of the figure when set to True
+        :type title: bool
         :param cbar: display the colorbar when set to True
         :type cbar: bool
         :param lines: when set to True, over-plot solid lines to highlight
@@ -125,6 +126,8 @@ class Surf:
         :param lines: when set to True, over-plot solid lines to highlight
                       the limits between two adjacent contour levels
         :type lines: bool
+        :param pcolor: when set to True, use pcolormesh instead of contourf
+        :type pcolor: bool
         """
 
         if proj != 'ortho':
@@ -374,11 +377,12 @@ class Surf:
         rprof = symmetrize(rprof, self.gr.minc)
 
         radialContour(rprof, rad, label, proj, lon_0, vmax, vmin,
-                      lat_0, levels, cm, normed, cbar, tit, lines)
+                      lat_0, levels, cm, normed, cbar, title, lines,
+                      pcolor=pcolor)
 
     def equat(self, field='vr', levels=defaultLevels, cm=None,
-              normed=None, vmax=None, vmin=None, cbar=True, tit=True,
-              avg=False, normRad=False, ic=False):
+              normed=None, vmax=None, vmin=None, cbar=True, title=True,
+              avg=False, normRad=False, ic=False, pcolor=False):
         """
         Plot the equatorial cut of a given field
 
@@ -387,7 +391,7 @@ class Surf:
            >>> s.equat(field='vortz', levels=65, cm='seismic')
 
            >>> # Minimal plot (no cbar, not title)
-           >>> s.equat(field='bphi', tit=False, cbar=False)
+           >>> s.equat(field='bphi', title=False, cbar=False)
 
            >>> # Control the limit of the colormap from -1e3 to 1e3
            >>> s.equat(field='vr', vmin=-1e3, vmax=1e3, levels=33)
@@ -409,8 +413,8 @@ class Surf:
         :type levels: int
         :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
         :type cm: str
-        :param tit: display the title of the figure when set to True
-        :type tit: bool
+        :param title: display the title of the figure when set to True
+        :type title: bool
         :param cbar: display the colorbar when set to True
         :type cbar: bool
         :param vmax: maximum value of the contour levels
@@ -423,6 +427,8 @@ class Surf:
         :param ic: when set to True, also display the contour levels in
                    the inner core
         :type ic: bool
+        :param pcolor: when set to True, use pcolormesh instead of contourf
+        :type pcolor: bool
         """
         phi = np.linspace(0., 2.*np.pi, self.gr.nphi)
         rr, pphi = np.meshgrid(self.gr.radius, phi)
@@ -522,7 +528,7 @@ class Surf:
 
         fig, xx, yy = equatContour(equator, self.gr.radius, self.gr.minc,
                                    label, levels, cm, normed, vmax, vmin,
-                                   cbar, tit, normRad)
+                                   cbar, title, normRad, pcolor=pcolor)
         ax = fig.get_axes()[0]
 
         if ic and data_ic is not None:
@@ -539,7 +545,15 @@ class Surf:
                     vmax = max(abs(equator.max()), abs(equator.min()))
                     vmin = -vmax
                     cs = np.linspace(vmin, vmax, levels)
-            ax.contourf(xx_ic, yy_ic, equator_ic, cs, cmap=cm, extend='both')
+            if pcolor:
+                if normed:
+                    ax.pcolormesh(xx_ic, yy_ic, equator_ic, cmap=cm, antialiased=True,
+                                  shading='gouraud', vmax=vmax, vmin=vmin)
+                else:
+                    ax.pcolormesh(xx_ic, yy_ic, equator_ic, cmap=cm, antialiased=True,
+                                  shading='gouraud')
+            else:
+                ax.contourf(xx_ic, yy_ic, equator_ic, cs, cmap=cm, extend='both')
 
         # Variable conductivity: add a dashed line
         if hasattr(self.gr, 'nVarCond'):
@@ -558,9 +572,9 @@ class Surf:
             ax1.set_xlim(self.gr.radius.min(), self.gr.radius.max())
 
     def avg(self, field='vphi', levels=defaultLevels, cm=None,
-            normed=None, vmax=None, vmin=None, cbar=True, tit=True,
+            normed=None, vmax=None, vmin=None, cbar=True, title=True,
             pol=False, tor=False, mer=False, merLevels=16, polLevels=16,
-            ic=False, lines=False):
+            ic=False, lines=False, pcolor=False):
         """
         Plot the azimutal average of a given field.
 
@@ -569,7 +583,7 @@ class Surf:
            >>> s.avg(field='vp', levels=65, cm='seismic')
 
            >>> # Minimal plot (no cbar, not title)
-           >>> s.avg(field='Br', tit=False, cbar=False)
+           >>> s.avg(field='Br', title=False, cbar=False)
 
            >>> # Axisymmetric Bphi + poloidal field lines
            >>> s.avg(field='Bp', pol=True, polLevels=8)
@@ -583,8 +597,8 @@ class Surf:
         :type levels: int
         :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
         :type cm: str
-        :param tit: display the title of the figure when set to True
-        :type tit: bool
+        :param title: display the title of the figure when set to True
+        :type title: bool
         :param cbar: display the colorbar when set to True
         :type cbar: bool
         :param vmax: maximum value of the contour levels
@@ -614,6 +628,8 @@ class Surf:
         :param lines: when set to True, over-plot solid lines to highlight
                       the limits between two adjacent contour levels
         :type lines: bool
+        :param pcolor: when set to True, use pcolormesh instead of contourf
+        :type pcolor: bool
         """
         if pol:
             if ic:
@@ -1136,7 +1152,8 @@ class Surf:
             cm = default_cmap(field)
 
         fig, xx, yy, im = merContour(phiavg, self.gr.radius, label, levels, cm,
-                                     normed, vmax, vmin, cbar, tit, lines=lines)
+                                     normed, vmax, vmin, cbar, title, lines=lines,
+                                     pcolor=pcolor)
         ax = fig.get_axes()[0]
 
         if ic:
@@ -1156,8 +1173,17 @@ class Surf:
                         vmax = max(abs(phiavg.max()), abs(phiavg.min()))
                         vmin = -vmax
                         cs = np.linspace(vmin, vmax, levels)
-                ax.contourf(xx_ic, yy_ic, phiavg_ic, cs, cmap=cm,
-                            extend='both')
+                if pcolor:
+                    if normed:
+                        ax.pcolormesh(xx_ic, yy_ic, phiavg_ic, cmap=cm,
+                                      antialiased=True, shading='gouraud',
+                                      vmax=vmax, vmin=vmin)
+                    else:
+                        ax.pcolormesh(xx_ic, yy_ic, phiavg_ic, cmap=cm,
+                                      antialiased=True, shading='gouraud')
+                else:
+                    ax.contourf(xx_ic, yy_ic, phiavg_ic, cs, cmap=cm,
+                                extend='both')
                 ax.plot([0, 0], [-ri, ri], 'k-')
 
         if pol:
@@ -1187,7 +1213,7 @@ class Surf:
             ax.plot(radi*np.sin(th), radi*np.cos(th), 'k--')
 
     def slice(self, field='Bphi', lon_0=0., levels=defaultLevels, cm=None,
-              normed=None, vmin=None, vmax=None, cbar=True, tit=True,
+              normed=None, vmin=None, vmax=None, cbar=True, title=True,
               grid=False, nGridLevs=16, normRad=False, ic=False):
         """
         Plot an azimuthal slice of a given field.
@@ -1197,7 +1223,7 @@ class Surf:
            >>> s.slice(field='vp', lon_0=[0, 30, 60], levels=65, cm='seismic')
 
            >>> # Minimal plot (no cbar, not title)
-           >>> s.avg(field='vp', lon_0=32, tit=False, cbar=False)
+           >>> s.avg(field='vp', lon_0=32, title=False, cbar=False)
 
            >>> # Axisymmetric Bphi + poloidal field lines
            >>> s.avg(field='Bp', pol=True, polLevels=8)
@@ -1214,8 +1240,8 @@ class Surf:
         :type levels: int
         :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
         :type cm: str
-        :param tit: display the title of the figure when set to True
-        :type tit: bool
+        :param title: display the title of the figure when set to True
+        :type title: bool
         :param cbar: display the colorbar when set to True
         :type cbar: bool
         :param vmax: maximum value of the contour levels
@@ -1504,7 +1530,7 @@ class Surf:
                 phislice1 = data1[indPlot, ...]
                 phislice = phislice + phislice1
 
-            if tit:
+            if title:
                 if cbar:
                     fig = plt.figure(figsize=(5, 7.5))
                     ax = fig.add_axes([0.01, 0.01, 0.69, 0.91])
@@ -1564,7 +1590,7 @@ class Surf:
             pos = ax.get_position()
             l, b, w, h = pos.bounds
             if cbar:
-                if tit:
+                if title:
                     cax = fig.add_axes([0.82, 0.46-0.7*h/2., 0.04, 0.7*h])
                 else:
                     cax = fig.add_axes([0.82, 0.5-0.7*h/2., 0.04, 0.7*h])

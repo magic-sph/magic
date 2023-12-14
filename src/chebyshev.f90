@@ -116,7 +116,8 @@ contains
          this%alpha2=ratio2
          if ( index(map_function, 'TAN') /= 0 .or.      &
          &    index(map_function, 'BAY') /= 0 ) then
-            paraK=atan(this%alpha1*(one+this%alpha2))/atan(this%alpha1*(one-this%alpha2))
+            paraK=atan(this%alpha1*(one+this%alpha2)) / &
+                  atan(this%alpha1*(one-this%alpha2))
             paraX0=(paraK-one)/(paraK+one)
             lambd=atan(this%alpha1*(one-this%alpha2))/(one-paraX0)
          else if (index(map_function, 'JAFARI') /= 0 ) then

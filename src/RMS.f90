@@ -13,8 +13,8 @@ module RMS
    use chebyshev, only: type_cheb_odd
    use radial_scheme, only: type_rscheme
    use truncation, only: n_r_max, n_cheb_max, n_r_maxMag, lm_max, lm_maxMag, &
-       &                 l_max, n_phi_max, n_theta_max, minc, n_r_max_dtB,   &
-       &                 lm_max_dtB, fd_ratio, fd_stretch, nlat_padded
+       &                 l_max, n_phi_max, n_theta_max, minc, fd_ratio,      &
+       &                 fd_stretch, nlat_padded
    use physical_parameters, only: ra, ek, pr, prmag, radratio, CorFac, n_r_LCR, &
        &                          BuoFac, ChemFac, ThExpNb, ViscHeatFac
    use radial_data, only: nRstop, nRstart, radial_balance, nRstartMag, nRstopMag
@@ -1285,10 +1285,10 @@ contains
       real(cp) :: TdynRms,TdynAsRms
       real(cp) :: dummy1,dummy2,dummy3
 
-      complex(cp) :: PdynLM(llmMag:ulmMag,n_r_max_dtB)
-      complex(cp) :: drPdynLM(llmMag:ulmMag,n_r_max_dtB)
-      complex(cp) :: TdynLM(llmMag:ulmMag,n_r_max_dtB)
-      complex(cp) :: work_LMloc(llmMag:ulmMag,n_r_max_dtB)
+      complex(cp) :: PdynLM(llmMag:ulmMag,n_r_maxMag)
+      complex(cp) :: drPdynLM(llmMag:ulmMag,n_r_maxMag)
+      complex(cp) :: TdynLM(llmMag:ulmMag,n_r_maxMag)
+      complex(cp) :: work_LMloc(llmMag:ulmMag,n_r_maxMag)
       complex(cp) :: work_Rloc(lm_maxMag,nRstartMag:nRstopMag)
 
       real(cp) :: dtBP(n_r_max),dtBPAs(n_r_max)

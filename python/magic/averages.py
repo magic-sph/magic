@@ -10,6 +10,7 @@ from .log import MagicSetup
 from .spectrum import MagicSpectrum
 from .radial import MagicRadial
 from .libmelt import MagicMelt
+from .movie import Movie
 
 if 'MAGIC_HOME' in os.environ:
     default_model = os.path.join(os.environ['MAGIC_HOME'], 'python/magic/model.json')
@@ -267,10 +268,10 @@ class AvgField:
                 self.lut['radial_profiles']['radius'] = -1 * np.ones(33)
                 for field in params['radial_profiles'][key]:
                     self.lut['radial_profiles'][field+'_av'] = -1 * np.ones(33)
-                    setattr(self, field+'R_av', rr.__dict__[field])
-                    if std and hasattr(rr, field + '_SD'):
+                    #setattr(self, field+'R_av', rr.__dict__[field])
+                    if std:
                         self.lut['radial_profiles'][field+'_sd'] = -1 * np.ones(33)
-                        setattr(self, field+'R_sd', rr.__dict__[field+'_SD'])
+                        #setattr(self, field+'R_sd', rr.__dict__[field+'_SD'])
 
         # Handle theta profiles
         self.lut['theta_profiles'] = {}
@@ -278,26 +279,56 @@ class AvgField:
             for key in params['theta_profiles']:
 
                 if key == 'rmelt_theta':
-                    rm = MagicMelt(all=True, datadir=datadir, iplot=False)
-                    if hasattr(rm, 'colatitude'):
-                        self.lut['theta_profiles']['colatitude'] = rm.colatitude
-                        mask = np.where(abs(rm.time-tstart) == min(abs(rm.time-tstart)),
-                                        1, 0)
-                        ind = np.nonzero(mask)[0][0]
+                    files = scanDir(os.path.join(datadir, 'rmelt.*'))
+                    if len(files) != 0:
+                        rm = MagicMelt(all=True, datadir=datadir, iplot=False)
+                        if hasattr(rm, 'colatitude'):
+                            self.lut['theta_profiles']['colatitude'] = rm.colatitude
+                            mask = np.where(abs(rm.time-tstart) == \
+                                            min(abs(rm.time-tstart)), 1, 0)
+                            ind = np.nonzero(mask)[0][0]
 
-                        if std:
-                            xmean, xstd = avgField(rm.time[ind:],
-                                                   rm.rmelt[ind:],
-                                                   std=True)
-                            self.lut['theta_profiles']['rmelt_theta_av'] = xmean
-                            self.lut['theta_profiles']['rmelt_theta_sd'] = xstd
-                            setattr(self, 'rmelt_theta_av', xmean)
-                            setattr(self, 'rmelt_theta_sd', xstd)
-                        else:
-                            xmean, xstd = avgField(rm.time[ind:],
-                                                   rm.rmelt[ind:])
-                            self.lut['theta_profiles']['rmelt_theta_av'] = xmean
-                            setattr(self, 'rmelt_theta_av', xmean)
+                            if std:
+                                xmean, xstd = avgField(rm.time[ind:],
+                                                       rm.rmelt[ind:, :],
+                                                       std=True)
+                                self.lut['theta_profiles']['rmelt_theta_av'] = xmean
+                                self.lut['theta_profiles']['rmelt_theta_sd'] = xstd
+                                setattr(self, 'rmelt_theta_av', xmean)
+                                setattr(self, 'rmelt_theta_sd', xstd)
+                            else:
+                                xmean, xstd = avgField(rm.time[ind:],
+                                                       rm.rmelt[ind:, :])
+                                self.lut['theta_profiles']['rmelt_theta_av'] = xmean
+                                setattr(self, 'rmelt_theta_av', xmean)
+                elif key == 'heatf_theta':
+                    files = scanDir(os.path.join(datadir, 'AHF_mov.*'))
+                    if len(files) != 0:
+                        for k, file in enumerate(files):
+                            if k == 0:
+                                m = Movie(file=file, iplot=False, datadir=datadir)
+                            else:
+                                m += Movie(file=file, iplot=False, datadir=datadir)
+                        if hasattr(m, 'theta'):
+                            data = m.data[0, :, :, 0]  # dT/dr at outer boundary
+                            self.lut['theta_profiles']['colatitude'] = m.theta
+                            mask = np.where(abs(m.time-tstart) == \
+                                            min(abs(m.time-tstart)), 1, 0)
+                            ind = np.nonzero(mask)[0][0]
+
+                            if std:
+                                xmean, xstd = avgField(m.time[ind:],
+                                                       data[ind:, :],
+                                                       std=True)
+                                self.lut['theta_profiles']['heatf_theta_av'] = xmean
+                                self.lut['theta_profiles']['heatf_theta_sd'] = xstd
+                                setattr(self, 'heatf_theta_av', xmean)
+                                setattr(self, 'heatf_theta_sd', xstd)
+                            else:
+                                xmean, xstd = avgField(m.time[ind:],
+                                                       data[ind:, :])
+                                self.lut['theta_profiles']['heatf_theta_av'] = xmean
+                                setattr(self, 'heatf_theta_av', xmean)
 
         # Write a json file
         if write:

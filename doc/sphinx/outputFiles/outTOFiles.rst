@@ -70,8 +70,9 @@ special kind of :ref:`movie file <secMovieFile>` that contains seven different
 azimuthally-averaged fields in a :math:`(r,\theta)` plane : the axisymmetric
 zonal flow component , the azimuthal component of the Reynolds stresses, the
 azimuthal component of advection, the azimuthal component of viscosity, the
-azimuthal component of Lorentz force, the azimuthal component of Coriolis force
-and the azimuthal component of the time-derivative. The structure of the file
+azimuthal component of Lorentz force, the azimuthal component of Coriolis force,
+the azimuthal component of the penalty term (in case the phase field model is
+employed) and the azimuthal component of the time-derivative. The structure of the file
 is similar to a :ref:`movie file <secMovieFile>`, i.e. an unformatted fortran binary
 file with a header that describes the type of the movie file. The detailed calculations
 can be found in the subroutine :f:subr:`outTO <out_to_mod/outto()>`.
