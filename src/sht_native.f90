@@ -16,9 +16,9 @@ module sht
 
    public :: initialize_sht, scal_to_spat, scal_to_grad_spat,             &
    &         torpol_to_spat, scal_to_SH, spat_to_sphertor,                &
-   &         torpol_to_spat_IC, torpol_to_curl_spat_IC, spat_to_SH_axi,   &
+   &         torpol_to_spat_IC, torpol_to_curl_spat_IC, axi_to_spat,      &
    &         spat_to_qst, sphtor_to_spat, toraxi_to_spat, finalize_sht,   &
-   &         axi_to_spat, torpol_to_spat_single
+   &         torpol_to_spat_single
 
    type(c_ptr), public :: sht_l, sht_lP, sht_l_single, sht_lP_single
 
@@ -291,17 +291,5 @@ contains
       call native_toraxi_to_spat(fl_ax, ft, fp)
 
    end subroutine toraxi_to_spat
-!------------------------------------------------------------------------------
-   subroutine spat_to_SH_axi(f, fLM)
-
-      !-- Input array
-      real(cp), intent(in) :: f(n_theta_max)
-
-      !-- Output array
-      real(cp), intent(out) :: fLM(:)
-
-      call native_spat_to_SH_axi(f, fLM, l_max+1)
-
-   end subroutine spat_to_SH_axi
 !------------------------------------------------------------------------------
 end module sht

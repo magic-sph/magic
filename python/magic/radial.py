@@ -167,22 +167,24 @@ class MagicRadial(MagicSetup):
                 filename = os.path.join(datadir, file)
                 if not quiet:
                     print('reading {}'.format(filename))
-                if self.name == 'varCond' or self.name == 'varVisc' or \
-                   self.name == 'varDiff' or self.name == 'anel':
-                    data = fast_read(filename, skiplines=1)
-                else:
-                    data = fast_read(filename, skiplines=0)
+                if os.path.exists(filename):
+                    if self.name == 'varCond' or self.name == 'varVisc' or \
+                       self.name == 'varDiff' or self.name == 'anel':
+                        data = fast_read(filename, skiplines=1)
+                    else:
+                        data = fast_read(filename, skiplines=0)
 
-                if k == 0:
-                    radlut = RadLookUpTable(data, self.name, nml.start_time,
-                                            nml.stop_time)
-                else:
-                    radlut += RadLookUpTable(data, self.name, nml.start_time,
-                                             nml.stop_time)
+                    if k == 0:
+                        radlut = RadLookUpTable(data, self.name, nml.start_time,
+                                                nml.stop_time)
+                    else:
+                        radlut += RadLookUpTable(data, self.name, nml.start_time,
+                                                 nml.stop_time)
 
         # Copy look-up table arguments into MagicRadial object
-        for attr in radlut.__dict__:
-            setattr(self, attr, radlut.__dict__[attr])
+        if 'radlut' in locals():
+            for attr in radlut.__dict__:
+                setattr(self, attr, radlut.__dict__[attr])
 
         # Plotting function
         if iplot:
@@ -806,7 +808,7 @@ class RadLookUpTable:
         n_r_new = len(new.radius)
         n_r_old = len(self.radius)
 
-        if n_r_new == n_r_old:
+        if n_r_new == n_r_old and abs(self.radius[10]-new.radius[10]) <= 1e-8:
             for attr in new.__dict__.keys():
                 if attr not in ['radius', 'name', 'start_time', 'stop_time']:
                     # Only stack if both new and old have the attribute available

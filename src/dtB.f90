@@ -7,9 +7,8 @@ module dtB_mod
    use precision_mod
    use parallel_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_r_maxMag, n_r_ic_maxMag, n_r_max, lm_max_dtB,   &
-       &                 n_r_max_dtB, n_r_ic_max_dtB, lm_max, n_cheb_max,  &
-       &                 n_r_ic_max, l_max, n_phi_max, ldtBmem,            &
+   use truncation, only: n_r_maxMag, n_r_ic_maxMag, n_r_max, lm_max,   &
+       &                 n_cheb_max, n_r_ic_max, l_max, n_phi_max,     &
        &                 n_theta_max, nlat_padded
    use grid_blocking, only: radlatlon2spat
    use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC
@@ -83,73 +82,59 @@ contains
 
       if ( l_dtBmovie ) then
          if ( rank == 0 ) then
-            allocate( PstrLM(lm_max_dtB,n_r_max_dtB) )
-            allocate( PadvLM(lm_max_dtB,n_r_max_dtB) )
-            allocate( TstrLM(lm_max_dtB,n_r_max_dtB) )
-            allocate( TadvLM(lm_max_dtB,n_r_max_dtB) )
-            allocate( TomeLM(lm_max_dtB,n_r_max_dtB) )
-            allocate( PdifLM(lm_max_dtB,n_r_max_dtB) )
-            allocate( TdifLM(lm_max_dtB,n_r_max_dtB) )
-            bytes_allocated = bytes_allocated+ &
-            &                 7*lm_max_dtB*n_r_max_dtB*SIZEOF_DEF_COMPLEX
+            allocate( PstrLM(lm_max,n_r_max), PadvLM(lm_max,n_r_max) )
+            allocate( TstrLM(lm_max,n_r_max), TadvLM(lm_max,n_r_max) )
+            allocate( TomeLM(lm_max,n_r_max), PdifLM(lm_max,n_r_max) )
+            allocate( TdifLM(lm_max,n_r_max) )
+            bytes_allocated = bytes_allocated+7*lm_max*n_r_max*SIZEOF_DEF_COMPLEX
          else
-            allocate( PstrLM(1,1) )
-            allocate( PadvLM(1,1) )
-            allocate( PdifLM(1,1) )
-            allocate( TdifLM(1,1) )
-            allocate( TstrLM(1,1) )
-            allocate( TadvLM(1,1) )
-            allocate( TomeLM(1,1) )
+            allocate( PstrLM(1,1), PadvLM(1,1), PdifLM(1,1), TdifLM(1,1) )
+            allocate( TstrLM(1,1), TadvLM(1,1), TomeLM(1,1) )
          end if
 
          if ( rank == 0 ) then
-            allocate( PadvLMIC(lm_max_dtB,n_r_ic_max_dtB) )
-            allocate( PdifLMIC(lm_max_dtB,n_r_ic_max_dtB) )
-            allocate( TadvLMIC(lm_max_dtB,n_r_ic_max_dtB) )
-            allocate( TdifLMIC(lm_max_dtB,n_r_ic_max_dtB) )
-            bytes_allocated = bytes_allocated+ &
-            &                 4*lm_max_dtB*n_r_ic_max_dtB*SIZEOF_DEF_COMPLEX
+            allocate( PadvLMIC(lm_max,n_r_ic_max), PdifLMIC(lm_max,n_r_ic_max) )
+            allocate( TadvLMIC(lm_max,n_r_ic_max), TdifLMIC(lm_max,n_r_ic_max) )
+            bytes_allocated = bytes_allocated+4*lm_max*n_r_ic_max*SIZEOF_DEF_COMPLEX
          else
-            allocate( PadvLMIC(1,1) )
-            allocate( PdifLMIC(1,1) )
-            allocate( TadvLMIC(1,1) )
+            allocate( PadvLMIC(1,1), PdifLMIC(1,1), TadvLMIC(1,1) )
             allocate( TdifLMIC(1,1) )
          end if
       end if
 
-      allocate( PdifLM_LMloc(llmMag:ulmMag,n_r_max_dtB) )
-      allocate( TdifLM_LMloc(llmMag:ulmMag,n_r_max_dtB) )
+      allocate( PdifLM_LMloc(llmMag:ulmMag,n_r_max) )
+      allocate( TdifLM_LMloc(llmMag:ulmMag,n_r_max) )
       bytes_allocated = bytes_allocated+ &
-      &                 2*(ulmMag-llmMag+1)*n_r_max_dtB*SIZEOF_DEF_COMPLEX
-      allocate( PadvLMIC_LMloc(llmMag:ulmMag,n_r_ic_max_dtB) )
-      allocate( PdifLMIC_LMloc(llmMag:ulmMag,n_r_ic_max_dtB) )
-      allocate( TadvLMIC_LMloc(llmMag:ulmMag,n_r_ic_max_dtB) )
-      allocate( TdifLMIC_LMloc(llmMag:ulmMag,n_r_ic_max_dtB) )
+      &                 2*(ulmMag-llmMag+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      allocate( PadvLMIC_LMloc(llmMag:ulmMag,n_r_ic_max) )
+      allocate( PdifLMIC_LMloc(llmMag:ulmMag,n_r_ic_max) )
+      allocate( TadvLMIC_LMloc(llmMag:ulmMag,n_r_ic_max) )
+      allocate( TdifLMIC_LMloc(llmMag:ulmMag,n_r_ic_max) )
       bytes_allocated = bytes_allocated+ &
-      &                 4*(ulmMag-llmMag+1)*n_r_ic_max_dtB*SIZEOF_DEF_COMPLEX
+      &                 4*(ulmMag-llmMag+1)*n_r_ic_max*SIZEOF_DEF_COMPLEX
 
-      allocate( dtB_Rloc_container(lm_max_dtB,nRstart:nRstop,8) )
-      TomeLM_Rloc(1:,nRstart:) => dtB_Rloc_container(1:lm_max_dtB,nRstart:nRstop,1)
-      TomeRLM_Rloc(1:,nRstart:) => dtB_Rloc_container(1:lm_max_dtB,nRstart:nRstop,2)
-      TstrLM_Rloc(1:,nRstart:) => dtB_Rloc_container(1:lm_max_dtB,nRstart:nRstop,3)
-      TstrRLM_Rloc(1:,nRstart:) => dtB_Rloc_container(1:lm_max_dtB,nRstart:nRstop,4)
-      TadvLM_Rloc(1:,nRstart:) => dtB_Rloc_container(1:lm_max_dtB,nRstart:nRstop,5)
-      TadvRLM_Rloc(1:,nRstart:) => dtB_Rloc_container(1:lm_max_dtB,nRstart:nRstop,6)
-      PstrLM_Rloc(1:,nRstart:) => dtB_Rloc_container(1:lm_max_dtB,nRstart:nRstop,7)
-      PadvLM_Rloc(1:,nRstart:) => dtB_Rloc_container(1:lm_max_dtB,nRstart:nRstop,8)
-      bytes_allocated = bytes_allocated+8*(nRstop-nRstart+1)*lm_max_dtB* &
+      allocate( dtB_Rloc_container(lm_max,nRstart:nRstop,8) )
+      TomeLM_Rloc(1:,nRstart:) => dtB_Rloc_container(1:lm_max,nRstart:nRstop,1)
+      TomeRLM_Rloc(1:,nRstart:) => dtB_Rloc_container(1:lm_max,nRstart:nRstop,2)
+      TstrLM_Rloc(1:,nRstart:) => dtB_Rloc_container(1:lm_max,nRstart:nRstop,3)
+      TstrRLM_Rloc(1:,nRstart:) => dtB_Rloc_container(1:lm_max,nRstart:nRstop,4)
+      TadvLM_Rloc(1:,nRstart:) => dtB_Rloc_container(1:lm_max,nRstart:nRstop,5)
+      TadvRLM_Rloc(1:,nRstart:) => dtB_Rloc_container(1:lm_max,nRstart:nRstop,6)
+      PstrLM_Rloc(1:,nRstart:) => dtB_Rloc_container(1:lm_max,nRstart:nRstop,7)
+      PadvLM_Rloc(1:,nRstart:) => dtB_Rloc_container(1:lm_max,nRstart:nRstop,8)
+      bytes_allocated = bytes_allocated+8*(nRstop-nRstart+1)*lm_max* &
       &                 SIZEOF_DEF_COMPLEX
 
-      allocate( dtB_LMloc_container(llmMag:ulmMag,n_r_max_dtB,8) )
-      TomeLM_LMloc(llmMag:,1:) => dtB_LMloc_container(llmMag:ulmMag,1:n_r_max_dtB,1)
-      TomeRLM_LMloc(llmMag:,1:) => dtB_LMloc_container(llmMag:ulmMag,1:n_r_max_dtB,2)
-      TstrLM_LMloc(llmMag:,1:) => dtB_LMloc_container(llmMag:ulmMag,1:n_r_max_dtB,3)
-      TstrRLM_LMloc(llmMag:,1:) => dtB_LMloc_container(llmMag:ulmMag,1:n_r_max_dtB,4)
-      TadvLM_LMloc(llmMag:,1:) => dtB_LMloc_container(llmMag:ulmMag,1:n_r_max_dtB,5)
-      TadvRLM_LMloc(llmMag:,1:) => dtB_LMloc_container(llmMag:ulmMag,1:n_r_max_dtB,6)
-      PstrLM_LMloc(llmMag:,1:) => dtB_LMloc_container(llmMag:ulmMag,1:n_r_max_dtB,7)
-      PadvLM_LMloc(llmMag:,1:) => dtB_LMloc_container(llmMag:ulmMag,1:n_r_max_dtB,8)
-      bytes_allocated = bytes_allocated+8*(ulmMag-llmMag+1)*n_r_max_dtB* &
+      allocate( dtB_LMloc_container(llmMag:ulmMag,n_r_max,8) )
+      TomeLM_LMloc(llmMag:,1:) => dtB_LMloc_container(llmMag:ulmMag,1:n_r_max,1)
+      TomeRLM_LMloc(llmMag:,1:) => dtB_LMloc_container(llmMag:ulmMag,1:n_r_max,2)
+      TstrLM_LMloc(llmMag:,1:) => dtB_LMloc_container(llmMag:ulmMag,1:n_r_max,3)
+      TstrRLM_LMloc(llmMag:,1:) => dtB_LMloc_container(llmMag:ulmMag,1:n_r_max,4)
+      TadvLM_LMloc(llmMag:,1:) => dtB_LMloc_container(llmMag:ulmMag,1:n_r_max,5)
+      TadvRLM_LMloc(llmMag:,1:) => dtB_LMloc_container(llmMag:ulmMag,1:n_r_max,6)
+      PstrLM_LMloc(llmMag:,1:) => dtB_LMloc_container(llmMag:ulmMag,1:n_r_max,7)
+      PadvLM_LMloc(llmMag:,1:) => dtB_LMloc_container(llmMag:ulmMag,1:n_r_max,8)
+      bytes_allocated = bytes_allocated+8*(ulmMag-llmMag+1)*n_r_max* &
       &                 SIZEOF_DEF_COMPLEX
 
       allocate ( type_mpiptop :: r2lo_dtB )

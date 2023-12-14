@@ -349,7 +349,6 @@ mem_alloc.o           : parallel.o precision_mod.o output_data.o
 out_TO.o              : truncation.o horizontal.o num_param.o logic.o\
                         phys_param.o radial.o parallel.o integration.o\
                         constants.o output_data.o TO.o useful.o mem_alloc.o
-TO_arrays.o           : truncation.o precision_mod.o mem_alloc.o
 dtB_arrays.o          : truncation.o precision_mod.o constants.o\
                         mem_alloc.o
 courant.o             : truncation.o blocking.o num_param.o\
