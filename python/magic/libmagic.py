@@ -274,7 +274,7 @@ def avgField(time, field, tstart=None, std=False, fix_missing_series=False):
     # Now suppose data were not stored in the first part of the run
     # then the time series could look like 0,0,0,...,data,data,data
     # In that case starting index needs to be overwritten
-    if field[ind] == 0 and fix_missing_series:
+    if fix_missing_series and len(field.shape) == 1  and field[ind] == 0:
         mask = np.where(field != 0, 1, 0)
         mask = np.nonzero(mask)[0]
         if len(mask) > 0:
@@ -283,18 +283,26 @@ def avgField(time, field, tstart=None, std=False, fix_missing_series=False):
                 ind = ind1
 
     if time[ind:].shape[0] == 1: # Only one entry in the array
-        avgField = field[ind]
-        stdField = 0.
+        if len(field.shape) > 1:
+            avgField = field[ind, ...]
+            stdField = np.zeros_like(avgField)
+        else:
+            avgField = field[ind]
+            stdField = 0
     else:
         if time[-1] == time[ind]: # Same time: this can happen for timestep.TAG
-            avgField = field[-1]
-            stdField = 0.
+            if len(field.shape) > 1:
+                avgField = field[-1, ...]
+                stdField = np.zeros_like(avgField)
+            else:
+                avgField = field[-1]
+                stdField = 0
         else:
             fac = 1./(time[-1]-time[ind])
-            avgField = fac*np.trapz(field[ind:], time[ind:])
+            avgField = fac*np.trapz(field[ind:, ...], time[ind:], axis=0)
             if std:
-                stdField = np.sqrt(fac*np.trapz((field[ind:]-avgField)**2,
-                                   time[ind:]))
+                stdField = np.sqrt(fac*np.trapz((field[ind:, ...]-avgField)**2,
+                                   time[ind:], axis=0))
 
     if std:
         return avgField, stdField
@@ -827,7 +835,9 @@ def rderavg(data, rad, exclude=False):
                     data[j, i, -1] = fnew[0]
     if spectral:
         d1 = matder(nr-1, r1, r2)
-        if len(data.shape) == 2:
+        if len(data.shape) == 1:
+            der = np.dot(d1, data)
+        elif len(data.shape) == 2:
             der = np.tensordot(data, d1, axes=[1, 1])
         else:
             der = np.tensordot(data, d1, axes=[2, 1])
@@ -997,7 +1007,7 @@ def cylSder(radius, data, order=4):
     :rtype: numpy.ndarray
     """
     ns = data.shape[-1]
-    ds = (radius.max()-radius.min())/(ns-1.)
+    ds = (radius[-1]-radius[0])/(ns-1.)
     if order == 2:
         der = (np.roll(data, -1,  axis=-1)-np.roll(data, 1, axis=-1))/(2.*ds)
         der[..., 0] = (data[..., 1]-data[..., 0])/ds
@@ -1030,10 +1040,11 @@ def cylZder(z, data):
     :rtype: numpy.ndarray
     """
     nz = data.shape[1]
-    dz = (z.max()-z.min())/(nz-1.)
+    dz = (z[-1]-z[0])/(nz-1.)
     der = (np.roll(data, -1,  axis=1)-np.roll(data, 1, axis=1))/(2.*dz)
     der[:, 0, :] = (data[:, 1, :]-data[:, 0, :])/dz
     der[:, -1, :] = (data[:, -1, :]-data[:, -2, :])/dz
+
     return der
 
 def getCpuTime(file):

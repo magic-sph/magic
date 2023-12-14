@@ -6,17 +6,17 @@ module torsional_oscillations
    use iso_fortran_env, only: output_unit
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_phi_maxStr, n_r_maxStr, l_max, n_theta_maxStr, lm_max, &
+   use truncation, only: n_phi_max, n_r_max, l_max, n_theta_max, lm_max, &
        &                 nlat_padded
-   use radial_data, only: n_r_cmb, nRstart, nRstop
-   use radial_functions, only: r, or1, or2, or3, or4, beta, orho1, dbeta
-   use physical_parameters, only: CorFac, kbotv, ktopv
-   use blocking, only: lm2, llmMag, ulmMag, lo_map, lm2l, lm2m
-   use horizontal_data, only: sinTheta, cosTheta, hdif_V, dTheta1A, dTheta1S, dLh, &
+   use radial_data, only: nRstart, nRstop
+   use radial_functions, only: or1, or2, or3, or4, beta, orho1, dbeta
+   use physical_parameters, only: CorFac, kbotv, ktopv, epsPhase, penaltyFac
+   use blocking, only: lm2
+   use horizontal_data, only: sinTheta, cosTheta, hdif_V, dLh, &
        &                      n_theta_cal2ord, O_sin_theta
    use constants, only: one, two
-   use logic, only: lVerbose, l_mag, l_parallel_solve
-   use sht, only: spat_to_SH_axi, toraxi_to_spat
+   use logic, only: lVerbose, l_mag, l_parallel_solve, l_phase_field
+   use sht, only: toraxi_to_spat
 
    implicit none
 
@@ -34,7 +34,7 @@ module torsional_oscillations
    real(cp), public, allocatable :: BszAS_Rloc(:,:),BspAS_Rloc(:,:)
    real(cp), public, allocatable :: BpzAS_Rloc(:,:),BspdAS_Rloc(:,:)
    real(cp), public, allocatable :: BpsdAS_Rloc(:,:),BzpdAS_Rloc(:,:)
-   real(cp), public, allocatable :: BpzdAS_Rloc(:,:)
+   real(cp), public, allocatable :: BpzdAS_Rloc(:,:),dzPenAS_Rloc(:,:)
 
    real(cp), allocatable :: BsLast(:,:,:), BpLast(:,:,:), BzLast(:,:,:)
 
@@ -47,39 +47,33 @@ contains
       ! Allocate the memory needed
       !
 
-      allocate( dzStrAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( dzRstrAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( dzAStrAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( dzCorAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( dzLFAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( dzdVpAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( dzddVpAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      bytes_allocated = bytes_allocated+7*(nRstop-nRstart+1)*n_theta_maxStr* &
+      allocate( dzStrAS_Rloc(n_theta_max,nRstart:nRstop) )
+      allocate( dzRstrAS_Rloc(n_theta_max,nRstart:nRstop) )
+      allocate( dzAStrAS_Rloc(n_theta_max,nRstart:nRstop) )
+      allocate( dzCorAS_Rloc(n_theta_max,nRstart:nRstop) )
+      allocate( dzdVpAS_Rloc(n_theta_max,nRstart:nRstop) )
+      allocate( dzddVpAS_Rloc(n_theta_max,nRstart:nRstop) )
+      allocate( VAS_Rloc(n_theta_max,nRstart:nRstop) )
+      allocate( V2AS_Rloc(n_theta_max,nRstart:nRstop) )
+      bytes_allocated = bytes_allocated+8*(nRstop-nRstart+1)*n_theta_max* &
       &                 SIZEOF_DEF_REAL
+      if ( l_phase_field ) then
+         allocate( dzPenAS_Rloc(n_theta_max,nRstart:nRstop) )
+         bytes_allocated = bytes_allocated+(nRstop-nRstart+1)*n_theta_max* &
+         &                 SIZEOF_DEF_REAL
+      end if
+
       allocate( dzdVpLMr(l_max+1,nRstart:nRstop), dzddVpLMr(l_max+1,nRstart:nRstop) )
       dzdVpLMr(:,:) =0.0_cp
       dzddVpLMr(:,:)=0.0_cp
       bytes_allocated = bytes_allocated+2*(l_max+1)*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
 
-      allocate( VAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( V2AS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( Bs2AS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( BszAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( BspAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( BpzAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( BspdAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( BpsdAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( BzpdAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      allocate( BpzdAS_Rloc(n_theta_maxStr,nRstart:nRstop) )
-      bytes_allocated = bytes_allocated+10*(nRstop-nRstart+1)*n_theta_maxStr* &
-      &                 SIZEOF_DEF_REAL
-
       if ( l_parallel_solve ) then
          allocate( ddzASL(l_max+1,nRstart:nRstop) )
          bytes_allocated = bytes_allocated+(l_max+1)*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
       else
-         allocate( ddzASL(l_max+1,n_r_maxStr) )
-         bytes_allocated = bytes_allocated+(l_max+1)*n_r_maxStr*SIZEOF_DEF_REAL
+         allocate( ddzASL(l_max+1,n_r_max) )
+         bytes_allocated = bytes_allocated+(l_max+1)*n_r_max*SIZEOF_DEF_REAL
       end if
       allocate( zASL(l_max+1), dzASL(l_max+1) )
       bytes_allocated = bytes_allocated+2*(l_max+1)*SIZEOF_DEF_REAL
@@ -87,11 +81,25 @@ contains
       dzASL(:)   =0.0_cp
       zASL(:)    =0.0_cp
 
-      allocate( BsLast(n_theta_maxStr,n_phi_maxStr,nRstart:nRstop) )
-      allocate( BpLast(n_theta_maxStr,n_phi_maxStr,nRstart:nRstop) )
-      allocate( BzLast(n_theta_maxStr,n_phi_maxStr,nRstart:nRstop) )
-      bytes_allocated = bytes_allocated+3*n_phi_maxStr*n_theta_maxStr* &
-      &                 (nRstop-nRstart+1)*SIZEOF_DEF_REAL
+      if ( l_mag ) then
+         allocate( dzLFAS_Rloc(n_theta_max,nRstart:nRstop) )
+         allocate( Bs2AS_Rloc(n_theta_max,nRstart:nRstop) )
+         allocate( BszAS_Rloc(n_theta_max,nRstart:nRstop) )
+         allocate( BspAS_Rloc(n_theta_max,nRstart:nRstop) )
+         allocate( BpzAS_Rloc(n_theta_max,nRstart:nRstop) )
+         allocate( BspdAS_Rloc(n_theta_max,nRstart:nRstop) )
+         allocate( BpsdAS_Rloc(n_theta_max,nRstart:nRstop) )
+         allocate( BzpdAS_Rloc(n_theta_max,nRstart:nRstop) )
+         allocate( BpzdAS_Rloc(n_theta_max,nRstart:nRstop) )
+         bytes_allocated = bytes_allocated+9*(nRstop-nRstart+1)*n_theta_max* &
+         &                 SIZEOF_DEF_REAL
+
+         allocate( BsLast(n_theta_max,n_phi_max,nRstart:nRstop) )
+         allocate( BpLast(n_theta_max,n_phi_max,nRstart:nRstop) )
+         allocate( BzLast(n_theta_max,n_phi_max,nRstart:nRstop) )
+         bytes_allocated = bytes_allocated+3*n_phi_max*n_theta_max* &
+         &                 (nRstop-nRstart+1)*SIZEOF_DEF_REAL
+      end if
 
    end subroutine initialize_TO
 !-----------------------------------------------------------------------------
@@ -100,11 +108,15 @@ contains
       ! Deallocate the memory
       !
 
-      deallocate( ddzASL, BpzdAS_Rloc, BzpdAS_Rloc, BpsdAS_Rloc, BspdAS_Rloc )
-      deallocate( BpzAS_Rloc, BspAS_Rloc, BszAS_Rloc, Bs2AS_Rloc, V2AS_Rloc )
-      deallocate( dzddVpAS_Rloc, dzdVpAS_Rloc, dzLFAS_Rloc, dzCorAS_Rloc )
+      deallocate( dzddVpAS_Rloc, dzdVpAS_Rloc, dzCorAS_Rloc )
+      if ( l_phase_field ) deallocate(dzPenAS_Rloc)
+      if ( l_mag ) then
+         deallocate( BsLast, BpLast, BzLast, dzLFAS_Rloc )
+         deallocate( BpzdAS_Rloc, BzpdAS_Rloc, BpsdAS_Rloc, BspdAS_Rloc )
+         deallocate( BpzAS_Rloc, BspAS_Rloc, BszAS_Rloc, Bs2AS_Rloc )
+      end if
       deallocate( dzAStrAS_Rloc, dzRstrAS_Rloc, dzStrAS_Rloc )
-      deallocate( zASL, dzASL, BsLast, BpLast, BzLast, VAS_Rloc )
+      deallocate( zASL, dzASL, ddzASL, VAS_Rloc, V2AS_Rloc )
       deallocate( dzddVpLMr, dzdVpLMr )
 
    end subroutine finalize_TO
@@ -120,14 +132,13 @@ contains
 
       do l=0,l_max
          lm=lm2(l,0)
-         zASL(l+1)=real(z(lm))
-         dzASL(l+1) =real(dz(lm))
+         zASL(l+1) =real(z(lm))
+         dzASL(l+1)=real(dz(lm))
       end do
 
    end subroutine prep_TO_axi
 !-----------------------------------------------------------------------------
-   subroutine getTO(vr,vt,vp,cvr,dvpdr,br,bt,bp,cbr,cbt, &
-              &     dzRstrLM,dzAstrLM,dzCorLM,dzLFLM,dtLast,nR)
+   subroutine getTO(vr,vt,vp,cvr,dvpdr,br,bt,bp,cbr,cbt,phase,dtLast,nR)
       !
       !  This program calculates various axisymmetric linear
       !  and nonlinear variables for a radial grid point nR and
@@ -140,13 +151,6 @@ contains
       !  non-axisymmetric flow components and the respective squares:
       !  Vsp=Vs*Vp,Vzp,Vsz,VspC,VzpC,VszC. These are used to calulcate
       !  the respective correlations and Reynolds stress.
-      !  In addition three output field are given in (lm,r) space:
-      !  dzRstrLMr,dzAstrLMr,dzCorLM,dzLFLM.
-      !
-      !  These are used to calculate the total Reynolds stress,
-      !  advection and viscous stress later. Their calculation
-      !  retraces the calculations done in the time-stepping part
-      !  of the code.
       !
 
       !-- Input of variables
@@ -155,52 +159,49 @@ contains
       real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
       real(cp), intent(in) :: cvr(:,:),dvpdr(:,:)
       real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
-      real(cp), intent(in) :: cbr(:,:),cbt(:,:)
-
-      !-- Output of arrays needing further treatment in s_getTOfinish.f:
-      real(cp), intent(out) :: dzRstrLM(l_max+1),dzAstrLM(l_max+1)
-      real(cp), intent(out) :: dzCorLM(l_max+1),dzLFLM(l_max+1)
+      real(cp), intent(in) :: cbr(:,:),cbt(:,:),phase(:,:)
 
       !-- Local variables:
       integer :: nTheta,nPhi,nTheta1
       real(cp) :: VrMean,VtMean,VpMean,Vr2Mean,Vt2Mean,Vp2Mean
       real(cp) :: LFmean,cvrMean,dvpdrMean,VrdVpdrMean,VtcVrMean
       real(cp) :: Bs2Mean,BszMean,BspMean,BpzMean,BspdMean,BpsdMean
-      real(cp) :: BzpdMean,BpzdMean
-      real(cp) :: Rmean(nlat_padded),Amean(nlat_padded)
-      real(cp) :: dzCorMean(nlat_padded),dzLFmean(nlat_padded)
-      real(cp) :: sinT,Osin,Osin2,cosT,cosOsin2,phiNorm
-      real(cp) :: BsL,BzL,BpL,Bs2F1,Bs2F2,Bs2F3,BspF1,BspF2
+      real(cp) :: BzpdMean,BpzdMean,VpPhiMean
+      real(cp) :: sinT,Osin,Osin2,cosT,phiNorm
+      real(cp) :: BsL,BzL,BpL,Bs2F1,Bs2F2,Bs2F3,BspF2
       real(cp) :: BpzF1,BpzF2,BszF1,BszF2,BszF3
-      real(cp) :: BsF1,BsF2,BpF1,BzF1,BzF2
 
       if ( lVerbose ) write(output_unit,*) '! Starting getTO!'
 
-      phiNorm=one/real(n_phi_maxStr, kind=cp)
+      phiNorm=one/real(n_phi_max, kind=cp)
+
+      !-- Set values to zero before filling it
+      do nTheta=1,n_theta_max
+         dzCorAS_Rloc(nTheta,nR) =0.0_cp
+         dzRstrAS_Rloc(nTheta,nR)=0.0_cp
+         dzAstrAS_Rloc(nTheta,nR)=0.0_cp
+         if ( l_mag ) dzLFAS_Rloc(nTheta,nR)=0.0_cp
+         if ( l_phase_field ) dzPenAS_Rloc(nTheta,nR)=0.0_cp
+      end do
 
       !-- Big loop over thetas in block:
-      do nTheta=1,n_theta_maxStr
+      do nTheta=1,n_theta_max
          nTheta1=n_theta_cal2ord(nTheta)
          sinT =sinTheta(nTheta)
          cosT =cosTheta(nTheta)
          Osin =one/sinT
          Osin2=Osin*Osin
-         cosOsin2=cosT*Osin2
-         Bs2F1=sinT*sinT*or4(nR)
-         Bs2F2=cosT*cosT*Osin2*or2(nR)
-         Bs2F3=two*cosT*or3(nR)
-         BspF1=or3(nR)
-         BspF2=cosT*Osin2*or2(nR)
-         BpzF1=cosT*Osin*or3(nR)
-         BpzF2=or2(nR)*Osin
-         BszF1=sinT*cosT*or4(nR)
-         BszF2=(two*cosT*cosT-one)*Osin*or3(nR)
-         BszF3=cosT*Osin*or2(nR)
-         BsF1 =sinT*or2(nR)
-         BsF2 =cosT*Osin*or1(nR)
-         BpF1 =Osin*or1(nR)
-         BzF1 =cosT*or2(nR)
-         BzF2 =or1(nR)
+         if ( l_mag ) then
+            Bs2F1=sinT*sinT*or4(nR)
+            Bs2F2=cosT*cosT*Osin2*or2(nR)
+            Bs2F3=two*cosT*or3(nR)
+            BspF2=cosT*Osin2*or2(nR)
+            BpzF1=cosT*Osin*or3(nR)
+            BpzF2=or2(nR)*Osin
+            BszF1=sinT*cosT*or4(nR)
+            BszF2=(two*cosT*cosT-one)*Osin*or3(nR)
+            BszF3=cosT*Osin*or2(nR)
+         end if
 
          !--- Get zonal means of velocity and derivatives:
          VrMean     =0.0_cp
@@ -213,16 +214,19 @@ contains
          cVrMean    =0.0_cp
          VrdVpdrMean=0.0_cp
          VtcVrMean  =0.0_cp
-         LFmean     =0.0_cp
-         Bs2Mean    =0.0_cp
-         BspMean    =0.0_cp
-         BpzMean    =0.0_cp
-         BszMean    =0.0_cp
-         BspdMean   =0.0_cp
-         BpsdMean   =0.0_cp
-         BzpdMean   =0.0_cp
-         BpzdMean   =0.0_cp
-         do nPhi=1,n_phi_maxStr
+         VpPhiMean  =0.0_cp
+         if ( l_mag ) then
+            LFmean     =0.0_cp
+            Bs2Mean    =0.0_cp
+            BspMean    =0.0_cp
+            BpzMean    =0.0_cp
+            BszMean    =0.0_cp
+            BspdMean   =0.0_cp
+            BpsdMean   =0.0_cp
+            BzpdMean   =0.0_cp
+            BpzdMean   =0.0_cp
+         end if
+         do nPhi=1,n_phi_max
             VrMean =VrMean +vr(nTheta,nPhi)
             VtMean =VtMean +vt(nTheta,nPhi)
             VpMean =VpMean +vp(nTheta,nPhi)
@@ -237,22 +241,23 @@ contains
             &                -beta(nR)*vp(nTheta,nPhi))
             VtcVrMean=VtcVrMean    + orho1(nR)*  &  ! rho * vt * cvr
             &         vt(nTheta,nPhi)*cvr(nTheta,nPhi)
+            if ( l_phase_field ) VpPhiMean=VpPhiMean+phase(nTheta,nPhi)*vp(nTheta,nPhi)
             if ( l_mag ) then
                LFmean=LFmean + cbr(nTheta,nPhi)*bt(nTheta,nPhi) - &
                &               cbt(nTheta,nPhi)*br(nTheta,nPhi)
                Bs2Mean=Bs2Mean + Bs2F1*br(nTheta,nPhi)*br(nTheta,nPhi) + &
                &                 Bs2F2*bt(nTheta,nPhi)*bt(nTheta,nPhi) + &
                &                 Bs2F3*br(nTheta,nPhi)*bt(nTheta,nPhi)
-               BspMean=BspMean + BspF1*br(nTheta,nPhi)*bp(nTheta,nPhi) + &
-               &                 BspF2*bt(nTheta,nPhi)*bp(nTheta,nPhi)
+               BspMean=BspMean + or3(nR)*br(nTheta,nPhi)*bp(nTheta,nPhi) + &
+               &                 BspF2  *bt(nTheta,nPhi)*bp(nTheta,nPhi)
                BpzMean=BpzMean + BpzF1*br(nTheta,nPhi)*bp(nTheta,nPhi) - &
                &                 BpzF2*bt(nTheta,nPhi)*bp(nTheta,nPhi)
                BszMean=BszMean + BszF1*br(nTheta,nPhi)*br(nTheta,nPhi) + &
                &                 BszF2*br(nTheta,nPhi)*bt(nTheta,nPhi) - &
                &                 BszF3*bt(nTheta,nPhi)*bt(nTheta,nPhi)
-               BsL=BsF1*br(nTheta,nPhi) + BsF2*bt(nTheta,nPhi)
-               BpL=BpF1*bp(nTheta,nPhi)
-               BzL=BzF1*br(nTheta,nPhi) - BzF2*bt(nTheta,nPhi)
+               BsL=sinT*or2(nR)*br(nTheta,nPhi) + cosT*Osin*or1(nR)*bt(nTheta,nPhi)
+               BpL=Osin*or1(nR)*bp(nTheta,nPhi)
+               BzL=cosT*or2(nR)*br(nTheta,nPhi) - or1(nR)*bt(nTheta,nPhi)
                BspdMean=BspdMean+BsL*(BpL-BpLast(nTheta,nPhi,nR))
                BpsdMean=BpsdMean+BpL*(BsL-BsLast(nTheta,nPhi,nR))
                BzpdMean=BzpdMean+BzL*(BpL-BpLast(nTheta,nPhi,nR))
@@ -263,35 +268,20 @@ contains
          Vr2Mean=phiNorm*or4(nR)*Vr2Mean
          Vt2Mean=phiNorm*or2(nR)*Osin2*Vt2Mean
          Vp2Mean=phiNorm*or2(nR)*Osin2*Vp2Mean
-         if ( nR == n_r_cmb ) then
-            VrMean =0.0_cp
-            Vr2Mean=0.0_cp
-            if ( ktopv == 2 ) then
-               VtMean =0.0_cp
-               Vt2Mean=0.0_cp
-               VpMean =0.0_cp
-               Vp2Mean=0.0_cp
-            end if
-         end if
-         if ( nR == n_r_cmb ) then
-            VrMean =0.0_cp
-            Vr2Mean=0.0_cp
-            if ( kbotv == 2 ) then
-               VtMean =0.0_cp
-               Vt2Mean=0.0_cp
-               VpMean =0.0_cp
-               Vp2Mean=0.0_cp
-            end if
-         end if
+
          V2AS_Rloc(nTheta1,nR)=Vr2Mean+Vt2Mean+Vp2Mean
          VpMean =phiNorm*or1(nR)*Osin*VpMean
          VAS_Rloc(nTheta1,nR)=orho1(nR)*VpMean
-         !--- This is Coriolis force / r*sin(theta)
-         dzCorMean(nTheta)=phiNorm*two*CorFac * &
-         &                 (or3(nR)*VrMean+or2(nR)*cosOsin2*VtMean)
+         !--- This is Coriolis force = 2\Omega u_s
+         dzCorAS_Rloc(nTheta1,nR)=-phiNorm*two*CorFac *  &
+         &                 (or2(nR)*sinT*VrMean+or1(nR)*cosT*Osin*VtMean)
+         if ( l_phase_field ) then
+            dzPenAS_Rloc(nTheta1,nR)=-phiNorm*VpPhiMean*or1(nR)*Osin/ &
+            &                         epsPhase**2/penaltyFac**2
+         end if
          if ( l_mag ) then
-            !--- This is Lorentz force/ r*sin(theta)
-            dzLFmean(nTheta)       =phiNorm*or4(nR)*Osin2*LFmean
+            !--- This is the Lorentz force
+            dzLFAS_Rloc(nTheta1,nR)=phiNorm*or3(nR)*Osin*LFmean
             Bs2AS_Rloc(nTheta1,nR) =phiNorm*Bs2Mean
             BspAS_Rloc(nTheta1,nR) =phiNorm*BspMean
             BpzAS_Rloc(nTheta1,nR) =phiNorm*BpzMean
@@ -303,24 +293,16 @@ contains
          end if
 
          ! dVpdrMean, VtcVrMean and VrdVpdrMean are already divided by rho
-         Rmean(nTheta)=                                       &
-         &            phiNorm * or4(nR)*Osin2* (VrdVpdrMean - &
+         dzRstrAS_Rloc(nTheta1,nR)=                           &
+         &           -phiNorm * or3(nR)*Osin*  (VrdVpdrMean - &
          &                         phiNorm*VrMean*dVpdrMean + &
          &                                        VtcVrMean - &
          &                  orho1(nR)*phiNorm*VtMean*cVrMean )
-         Amean(nTheta)=                                       &
-         &  phiNorm*or4(nR)*Osin2*phiNorm*(VrMean*dVpdrMean + &
+         dzAstrAS_Rloc(nTheta1,nR)=                           &
+         &  -phiNorm*or3(nR)*Osin*phiNorm*(VrMean*dVpdrMean + &
          &                         orho1(nR)*VtMean*cVrMean )
 
       end do ! Loop over thetas
-
-      !--- Transform and Add to LM-Space:
-      !------ Add contribution from thetas in block:
-      !       note legtfAS2 returns modes l=0 -- l=l_max+1
-      call spat_to_SH_axi(Rmean,dzRstrLM)
-      call spat_to_SH_axi(Amean,dzAstrLM)
-      call spat_to_SH_axi(dzCorMean,dzCorLM)
-      call spat_to_SH_axi(dZLFmean,dzLFLM)
 
       if ( lVerbose ) write(output_unit,*) '! End of getTO!'
 
@@ -353,8 +335,8 @@ contains
          if ( l_mag ) then
             !$omp parallel do default(shared)    &
             !$omp& private(nPhi, nTh)
-            do nPhi=1,n_phi_maxStr
-               do nTh=1,n_theta_maxStr
+            do nPhi=1,n_phi_max
+               do nTh=1,n_theta_max
                   BsLast(nTh,nPhi,nR)=or2(nR)*sinTheta(nTh)*br(nTh,nPhi) + &
                   &                   or1(nR)*cosTheta(nTh)*O_sin_theta(nTh)*bt(nTh,nPhi)
                   BpLast(nTh,nPhi,nR)=or1(nR)*bp(nTh,nPhi)*O_sin_theta(nTh)
@@ -375,64 +357,35 @@ contains
 
    end subroutine getTOnext
 !-----------------------------------------------------------------------------
-   subroutine getTOfinish(nR,dtLast,dzRstrLM,dzAstrLM,dzCorLM,dzLFLM)
+   subroutine getTOfinish(nR,dtLast)
       !
-      !  This program was previously part of getTO(...)
-      !  It has now been separated to get it out of the theta-block loop.
+      ! This handles the computation of the axisymmetric viscous stress
+      ! in spectral space using z and its radial derivatives, and then
+      ! transform it to grid space using SHTs.
       !
 
       !-- Input of variables:
       integer,  intent(in) :: nR
       real(cp), intent(in) :: dtLast
-      real(cp), intent(in) :: dzRstrLM(l_max+1),dzAstrLM(l_max+1)
-      real(cp), intent(in) :: dzCorLM(l_max+1),dzLFLM(l_max+1)
 
       !-- Local variables:
-      real(cp) :: dzStrLMr(l_max+1), dzRstrLMr(l_max+1), dzAstrLMr(l_max+1)
-      real(cp) :: dzCorLMr(l_max+1), dzLFLMr(l_max+1)
-      integer :: l,lS,lA,lm
+      real(cp) :: dzStrLMr(l_max+1)
+      integer :: l,lm
 
       !------ When all thetas are done calculate viscous stress in LM space:
-      dzStrLMr(1) =0.0_cp
-      dzRstrLMr(1)=0.0_cp
-      dzAstrLMr(1)=0.0_cp
-      dzCorLMr(1) =0.0_cp
-      dzLFLMr(1)  =0.0_cp
+      dzStrLMr(1)    =0.0_cp
       dzdVpLMr(1,nR) =0.0_cp
       dzddVpLMr(1,nR)=0.0_cp
       do l=1,l_max
-         lS=(l-1)+1
-         lA=(l+1)+1
          lm=lm2(l,0)
          dzStrLMr(l+1)= hdif_V(l) * (  ddzASL(l+1,nR) -  beta(nR)* dzASL(l+1) - &
          &         (dLh(lm)*or2(nR)+dbeta(nR)+two*beta(nR)*or1(nR))*zASL(l+1) )
-         !---- -r**2/(l(l+1)) 1/sin(theta) dtheta sin(theta)**2
-         !     minus sign to bring stuff on the RHS of NS equation !
-         if ( l < l_max ) then
-            dzRstrLMr(l+1)=-r(nR)*r(nR)/dLh(lm) * ( dTheta1S(lm)*dzRstrLM(lS) - &
-            &                                       dTheta1A(lm)*dzRstrLM(lA) )
-            dzAstrLMr(l+1)=-r(nR)*r(nR)/dLh(lm) * ( dTheta1S(lm)*dzAstrLM(lS) - &
-            &                                       dTheta1A(lm)*dzAstrLM(lA) )
-            dzCorLMr(l+1) =-r(nR)*r(nR)/dLh(lm) * ( dTheta1S(lm)*dzCorLM(lS) - &
-            &                                       dTheta1A(lm)*dzCorLM(lA) )
-            dzLFLMr(l+1)  = r(nR)*r(nR)/dLh(lm) * ( dTheta1S(lm)*dzLFLM(lS) - &
-            &                                       dTheta1A(lm)*dzLFLM(lA) )
-         else
-            dzRstrLMr(l+1)=-r(nR)*r(nR)/dLh(lm) * dTheta1S(lm)*dzRstrLM(lS)
-            dzAstrLMr(l+1)=-r(nR)*r(nR)/dLh(lm) * dTheta1S(lm)*dzAstrLM(lS)
-            dzCorLMr(l+1) =-r(nR)*r(nR)/dLh(lm) * dTheta1S(lm)*dzCorLM(lS)
-            dzLFLMr(l+1)  = r(nR)*r(nR)/dLh(lm) * dTheta1S(lm)*dzLFLM(lS)
-         end if
          dzdVpLMr(l+1,nR) =(zASL(l+1)-dzdVpLMr(l+1,nR))/dtLast
          dzddVpLMr(l+1,nR)=(zASL(l+1)/dtLast+dzddVpLMr(l+1,nR))/dtLast
       end do
 
       !-- Bring back quantity to physical-space (also unscramble theta)
       call get_PAS(dzStrLMr(:), dzStrAS_Rloc(:,nR), nR)
-      call get_PAS(dzRstrLMr(:), dzRstrAS_Rloc(:,nR), nR)
-      call get_PAS(dzAstrLMr(:), dzAstrAS_Rloc(:,nR), nR)
-      call get_PAS(dzCorLMr(:), dzCorAS_Rloc(:,nR), nR)
-      call get_PAS(dzLFLMr(:), dzLFAS_Rloc(:,nR), nR)
       call get_PAS(dzdVpLMr(:,nR), dzdVpAS_Rloc(:,nR), nR)
       call get_PAS(dzddVpLMr(:,nR), dzddVpAS_Rloc(:,nR), nR)
 
@@ -466,7 +419,7 @@ contains
       call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:))
 
       !-- Unscramble theta
-      do nTheta=1,n_theta_maxStr
+      do nTheta=1,n_theta_max
          nTheta1=n_theta_cal2ord(nTheta)
          Bp(nTheta1)=O_sin_theta(nTheta)*tmpp(nTheta)*or1(nR)
       end do

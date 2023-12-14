@@ -7,7 +7,7 @@ module RMS_helpers
    use precision_mod
    use parallel_mod
    use communications, only: reduce_radial
-   use truncation, only: l_max, lm_max_dtB, n_r_max, lm_max
+   use truncation, only: l_max, n_r_max
    use radial_functions, only: or2, rscheme_oc, r
    use useful, only: cc2real
    use integration, only: rInt_R

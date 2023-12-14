@@ -78,6 +78,10 @@ class TOMovie:
         n_type, n_surface, const, n_fields = infile.fort_read(precision)
         movtype = infile.fort_read(precision)
         n_fields = int(n_fields)
+        if n_fields == 8:
+            self.l_phase = True
+        else:
+            self.l_phase = False
         self.movtype = np.asarray(movtype)
         n_surface = int(n_surface)
 
@@ -108,6 +112,8 @@ class TOMovie:
         self.lorentz = np.zeros_like(self.asVphi)
         self.coriolis = np.zeros_like(self.asVphi)
         self.dtVp = np.zeros_like(self.asVphi)
+        if self.l_phase:
+            self.penalty = np.zeros_like(self.asVphi)
 
         # READ the data
         for k in range(self.nvar):
@@ -129,6 +135,9 @@ class TOMovie:
                                                      order='F')
             self.dtVp[k, ...] = infile.fort_read(precision, shape=shape,
                                                  order='F')
+            if self.l_phase:
+                self.penalty[k, ...] = infile.fort_read(precision, shape=shape,
+                                                        order='F')
 
         if iplot:
             cmap = plt.get_cmap(cm)
@@ -157,6 +166,9 @@ class TOMovie:
             out.coriolis = np.concatenate((self.coriolis, new.coriolis[1:, ...]),
                                           axis=0)
             out.dtVp = np.concatenate((self.dtVp, new.dtVp[1:, ...]), axis=0)
+            if self.l_phase:
+                out.penalty = np.concatenate((self.penalty, new.penalty[1:, ...]),
+                                             axis=0)
         else:
             out.time = np.concatenate((self.time, new.time), axis=0)
             out.asVphi = np.concatenate((self.asVphi, new.asVphi), axis=0)
@@ -167,6 +179,8 @@ class TOMovie:
             out.coriolis = np.concatenate((self.coriolis, new.coriolis),
                                           axis=0)
             out.dtVp = np.concatenate((self.dtVp, new.dtVp), axis=0)
+            if self.l_phase:
+                out.penalty = np.concatenate((self.penalty, new.penalty), axis=0)
 
         return out
 
@@ -202,6 +216,8 @@ class TOMovie:
             adv = self.adv.mean(axis=0)
             lor = self.lorentz.mean(axis=0)
             vis = self.visc.mean(axis=0)
+            if self.l_phase:
+                pen = self.penalty.mean(axis=0)
             dt = self.dtVp[:-1].mean(axis=0)
 
             vmin = - max(abs(cor.max()), abs(cor.min()))
@@ -259,6 +275,8 @@ class TOMovie:
             ax = fig.add_subplot(187)
             ax.axis('off')
             balance = adv+cor+vis+lor+rey
+            if self.l_phase:
+                balance += pen
             im = ax.contourf(xx, yy, balance, cs, cmap=cmap, extend='both')
             ax.plot(xxout, yyout, 'k-', lw=1.5)
             ax.plot(xxin, yyin, 'k-', lw=1.5)

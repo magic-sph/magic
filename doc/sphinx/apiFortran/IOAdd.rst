@@ -34,12 +34,6 @@ IO: RMS force balance, torsional oscillations, misc
 
 .. f:automodule:: torsional_oscillations
 
-``TO_arrays.f90``
------------------
-
-.. f:automodule:: to_arrays_mod
-
-
 ``out_TO.f90``
 --------------
 
