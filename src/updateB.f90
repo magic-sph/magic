@@ -29,8 +29,8 @@ module updateB_mod
    use blocking, only: st_map, lo_map, st_sub_map, lo_sub_map, llmMag, ulmMag
    use horizontal_data, only: hdif_B
    use logic, only: l_cond_ic, l_LCR, l_rot_ic, l_mag_nl, l_b_nl_icb, &
-       &            l_b_nl_cmb, l_update_b, l_RMS, l_finite_diff,     &
-       &            l_full_sphere, l_mag_par_solve, l_cond_ma
+       &            l_b_nl_cmb, l_cond_ma, l_RMS, l_finite_diff,      &
+       &            l_full_sphere, l_mag_par_solve
    use RMS, only: dtBPolLMr, dtBPol2hInt, dtBTor2hInt
    use constants, only: pi, zero, one, two, three, half
    use special, only: n_imp, l_imp, amp_imp, expo_imp, bmax_imp, rrMP, l_curr, &
@@ -388,8 +388,6 @@ contains
       integer :: n_max_rSchemeOc
       n_max_rSchemeOc = rscheme_oc%n_max
 #endif
-
-      if ( .not. l_update_b ) return
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
@@ -1438,8 +1436,6 @@ contains
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm, l, m
 
-      if ( .not. l_update_b ) return
-
       if ( l_curr .or. n_imp > 1 ) then ! Current-carrying loop or imposed field
          call abortRun('in updateB: not implemented yet in this configuration')
       end if
@@ -1572,8 +1568,6 @@ contains
       integer :: lm, lm_start, lm_stop, l
       real(cp) :: dr
 
-      if ( .not. l_update_b ) return
-
 #ifdef WITH_OMP_GPU
       lm_start=1; lm_stop=lm_max
 #else
@@ -1703,8 +1697,6 @@ contains
 
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm, l
-
-      if ( .not. l_update_b ) return
 
       if ( lRmsNext .and. tscheme%istage == 1) then
 #ifdef WITH_OMP_GPU

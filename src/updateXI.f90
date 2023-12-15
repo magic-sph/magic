@@ -15,8 +15,7 @@ module updateXi_mod
    use init_fields, only: topxi, botxi
    use blocking, only: lo_map, lo_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_Xi
-   use logic, only: l_update_xi, l_finite_diff, l_full_sphere, l_parallel_solve, &
-       &            l_onset
+   use logic, only: l_finite_diff, l_full_sphere, l_parallel_solve, l_onset
    use parallel_mod, only: rank, chunksize, n_procs, get_openmp_blocks
    use radial_der, only: get_ddr, get_dr, get_dr_Rloc, get_ddr_ghost, exch_ghosts,&
        &                 bulk_to_ghost
@@ -261,8 +260,6 @@ contains
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
       integer :: threadid,iChunk,nChunks,size_of_last_chunk,lmB0
-
-      if ( .not. l_update_xi ) return
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
@@ -511,8 +508,6 @@ contains
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm, l, m
 
-      if ( .not. l_update_xi ) return
-
       !-- LU factorisation of the matrix if needed
       if ( .not. lXimat(0) ) then
          call get_xiMat_Rdist(tscheme,hdif_Xi,xiMat_FD)
@@ -601,8 +596,6 @@ contains
       integer :: lm, l, m, lm_start, lm_stop
       real(cp) :: dr
 
-      if ( .not. l_update_xi ) return
-
 #ifdef WITH_OMP_GPU
       lm_start=1; lm_stop=lm_max
 #else
@@ -681,8 +674,6 @@ contains
 
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm
-
-      if ( .not. l_update_xi ) return
 
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dxidt)

@@ -26,8 +26,8 @@ module updateZ_mod
    use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V
    use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, l_precession, &
-       &            l_correct_AMe, l_correct_AMz, l_update_v, l_TO,             &
-       &            l_finite_diff, l_full_sphere, l_parallel_solve
+       &            l_correct_AMe, l_correct_AMz, l_parallel_solve, l_TO,       &
+       &            l_finite_diff, l_full_sphere
    use constants, only: c_lorentz_ma, c_lorentz_ic, c_dt_z10_ma, c_dt_z10_ic, &
        &                c_moi_ma, c_moi_ic, c_z10_omega_ma, c_z10_omega_ic,   &
        &                c_moi_oc, y10_norm, y11_norm, zero, one, two, four,   &
@@ -340,8 +340,6 @@ contains
       else
          prec_fac = 0.0_cp
       end if
-
-      if ( .not. l_update_v ) return
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
@@ -999,8 +997,6 @@ contains
       real(cp) :: wimp_lin
       wimp_lin = tscheme%wimp_lin(1)
 
-      if ( .not. l_update_v ) return
-
       if ( l_precession ) then
          prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
       else
@@ -1191,8 +1187,6 @@ contains
       integer :: lm, lm_start, lm_stop
       real(cp) :: dr
 
-      if ( .not. l_update_v ) return
-
 #ifdef WITH_OMP_GPU
       lm_start=1; lm_stop=lm_max
 #else
@@ -1280,8 +1274,6 @@ contains
 
       !-- Local variables
       integer :: lm_start, lm_stop, lm, nR, l
-
-      if ( .not. l_update_v ) return
 
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dzdt)

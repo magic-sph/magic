@@ -9,6 +9,7 @@ module logic
    logical :: l_update_b     ! Switch off magnetic field update
    logical :: l_update_s     ! Switch off entropy update
    logical :: l_update_xi    ! Switch off update of chemical composition
+   logical :: l_update_phi   ! Switch off update of phase field
    logical :: l_mag          ! Switch off magnetic terms calculation
    logical :: l_conv         ! Switch off convection
    logical :: l_mag_kin      ! Switch related for kinematic dynamo
