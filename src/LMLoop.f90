@@ -19,8 +19,10 @@ module LMLoop_mod
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag
    use blocking, only: lo_map, llm, ulm, llmMag, ulmMag, st_map
    use logic, only: l_mag, l_conv, l_heat, l_single_matrix, l_double_curl, &
-       &            l_chemical_conv, l_cond_ic, l_update_s, l_z10mat,      &
-       &            l_parallel_solve, l_mag_par_solve, l_phase_field, l_onset
+       &            l_chemical_conv, l_cond_ic, l_z10mat,                  &
+       &            l_parallel_solve, l_mag_par_solve, l_phase_field,      &
+       &            l_onset, l_update_s, l_update_xi, l_update_phi,        &
+       &            l_update_v, l_update_b
    use time_array, only: type_tarray, type_tscalar
    use time_schemes, only: type_tscheme
    use timing, only: timer_type
@@ -304,23 +306,23 @@ contains
 
       call upS_counter%start_count()
 
-      if ( l_phase_field ) then
+      if ( l_phase_field .and. l_update_phi ) then
          call updatePhi(phi_LMloc, dphidt, tscheme)
       end if
 
-      if ( l_heat .and. .not. l_single_matrix ) then
+      if ( l_heat .and. .not. l_single_matrix .and. l_update_s ) then
          PERFON('up_S')
          call updateS( s_LMloc, ds_LMloc, dsdt, phi_LMloc, tscheme )
          PERFOFF
       end if
 
-      if ( l_chemical_conv ) then
+      if ( l_chemical_conv .and. l_update_xi ) then
          call updateXi(xi_LMloc, dxi_LMloc, dxidt, tscheme)
       end if
 
       call upS_counter%stop_count()
 
-      if ( l_conv ) then
+      if ( l_conv .and. l_update_v ) then
          PERFON('up_Z')
          call upZ_counter%start_count()
          call updateZ( time, timeNext, z_LMloc, dz_LMloc, dzdt, omega_ma,  &
@@ -363,7 +365,7 @@ contains
             PERFOFF
          end if
       end if
-      if ( l_mag ) then ! dwdt,dpdt used as work arrays
+      if ( l_mag .and. l_update_b ) then ! dwdt,dpdt used as work arrays
          PERFON('up_B')
          call upB_counter%start_count()
          call updateB( b_LMloc,db_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,ddj_LMloc, &
@@ -422,7 +424,7 @@ contains
 
       !-- Phase field needs to be computed first on its own to allow a proper
       !-- advance of temperature afterwards
-      if ( l_phase_field ) then
+      if ( l_phase_field .and. l_update_phi ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(dphidt)
 #endif
@@ -447,7 +449,7 @@ contains
       end if
 
       !-- Mainly assemble the r.h.s. and rebuild the matrices if required
-      if ( l_heat ) then
+      if ( l_heat .and. l_update_s ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(dsdt)
          if(l_phase_field) then
@@ -460,7 +462,7 @@ contains
          !$omp target update from(s_ghost)
 #endif
       end if
-      if ( l_chemical_conv ) then
+      if ( l_chemical_conv .and. l_update_xi ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(dxidt)
 #endif
@@ -469,7 +471,7 @@ contains
          !$omp target update from(xi_ghost)
 #endif
       end if
-      if ( l_conv ) then
+      if ( l_conv .and. l_update_v ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(dzdt)
          !$omp target update to(z10_ghost, z_ghost)
@@ -493,7 +495,7 @@ contains
 #endif
          if ( lPress ) call p0Mat_FD%solver_single(p0_ghost, nRstart, nRstop)
       end if
-      if ( l_mag_par_solve ) then
+      if ( l_mag_par_solve .and. l_update_b ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(dbdt, djdt)
 #endif
@@ -515,7 +517,7 @@ contains
       if ( l_z10Mat ) z_ghost(st_map%lm2(1,0),:)=cmplx(real(z10_ghost(:)),0.0_cp,cp)
 
       !-- Now simply fill the ghost zones to ensure the boundary conditions
-      if ( l_heat ) then
+      if ( l_heat .and. l_update_s ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(s_ghost)
 #endif
@@ -524,7 +526,7 @@ contains
          !$omp target update from(s_ghost)
 #endif
       end if
-      if ( l_chemical_conv ) then
+      if ( l_chemical_conv .and. l_update_xi ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(xi_ghost)
 #endif
@@ -533,7 +535,7 @@ contains
          !$omp target update from(xi_ghost)
 #endif
       end if
-      if ( l_conv ) then
+      if ( l_conv .and. l_update_v ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(z_ghost)
 #endif
@@ -549,7 +551,7 @@ contains
          !$omp target update from(w_ghost)
 #endif
       end if
-      if ( l_mag_par_solve ) then
+      if ( l_mag_par_solve .and. l_update_b ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(b_ghost, aj_ghost)
 #endif
@@ -560,7 +562,7 @@ contains
       end if
 
       !-- Finally build the radial derivatives and the arrays for next iteration
-      if ( l_heat ) then
+      if ( l_heat .and. l_update_s ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(s_Rloc, dsdt)
          !$omp target update to(s_ghost)
@@ -573,7 +575,7 @@ contains
          !$omp target update from(s_Rloc, ds_Rloc, dsdt)
 #endif
       end if
-      if ( l_chemical_conv ) then
+      if ( l_chemical_conv .and. l_update_xi ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(xi_Rloc, dxidt)
          !$omp target update to(xi_ghost)
@@ -584,66 +586,69 @@ contains
 #endif
       end if
 
+      if ( l_update_v ) then
 #ifdef WITH_OMP_GPU
-      !$omp target update to(z_Rloc, z_ghost, dz_Rloc, dzdt)
+         !$omp target update to(z_Rloc, z_ghost, dz_Rloc, dzdt)
 #endif
-      call updateZ_FD(time, timeNext, dom_ma, dom_ic, z_Rloc, dz_Rloc, dzdt,   &
-           &          omega_ma, omega_ic, domega_ma_dt, domega_ic_dt, tscheme, &
-           &          lRmsNext)
+         call updateZ_FD(time, timeNext, dom_ma, dom_ic, z_Rloc, dz_Rloc, dzdt,   &
+              &          omega_ma, omega_ic, domega_ma_dt, domega_ic_dt, tscheme, &
+              &          lRmsNext)
 #ifdef WITH_OMP_GPU
-      !$omp target update from(z_Rloc, z_ghost, dz_Rloc, dzdt)
+         !$omp target update from(z_Rloc, z_ghost, dz_Rloc, dzdt)
 #endif
 #ifdef WITH_OMP_GPU
-      !$omp target update to(dwdt, w_Rloc, dw_Rloc, p_Rloc)
-      !$omp target update to(dpdt)
-      !$omp target update to(ddw_Rloc, dp_Rloc)
-      !$omp target update to(w_ghost)
+         !$omp target update to(dwdt, w_Rloc, dw_Rloc, p_Rloc)
+         !$omp target update to(dpdt)
+         !$omp target update to(ddw_Rloc, dp_Rloc)
+         !$omp target update to(w_ghost)
 #endif
-      call updateW_FD(w_Rloc, dw_Rloc, ddw_Rloc, dwdt, p_Rloc, dp_Rloc, dpdt, tscheme, &
-           &          lRmsNext, lPressNext, lP00Next)
+         call updateW_FD(w_Rloc, dw_Rloc, ddw_Rloc, dwdt, p_Rloc, dp_Rloc, dpdt, tscheme, &
+              &          lRmsNext, lPressNext, lP00Next)
 #ifdef WITH_OMP_GPU
-      !$omp target update from(dwdt, w_Rloc, dw_Rloc, p_Rloc)
-      !$omp target update from(ddw_Rloc, dp_Rloc)
-#endif
-
-      if ( l_mag_par_solve ) then
-#ifdef WITH_OMP_GPU
-         !$omp target update to(dbdt, djdt)
-         !$omp target update to(b_Rloc, aj_Rloc)
-         !$omp target update to(b_ghost, aj_ghost)
-#endif
-         call updateB_FD(b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc, dj_Rloc, ddj_Rloc, dbdt, &
-              &          djdt, tscheme, lRmsNext)
-#ifdef WITH_OMP_GPU
-         !$omp target update from(dbdt, djdt)
-         !$omp target update from(b_Rloc, aj_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, ddj_Rloc)
+         !$omp target update from(dwdt, w_Rloc, dw_Rloc, p_Rloc)
+         !$omp target update from(ddw_Rloc, dp_Rloc)
 #endif
       end if
 
-      if ( l_mag .and. (.not. l_mag_par_solve) ) then ! dwdt,dpdt used as work arrays
+      if ( l_mag .and. l_update_b ) then
+         if ( l_mag_par_solve ) then
 #ifdef WITH_OMP_GPU
-         !$omp target update to(dbdt, djdt)
-         !$omp target update to(b_LMloc, aj_LMloc)
-         if ( l_cond_ic ) then
-            !$omp target update to(dbdt_ic, djdt_ic)
-            !$omp target update to(b_ic_LMloc, aj_ic_LMloc)
-         end if
+            !$omp target update to(dbdt, djdt)
+            !$omp target update to(b_Rloc, aj_Rloc)
+            !$omp target update to(b_ghost, aj_ghost)
 #endif
-         call updateB( b_LMloc,db_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,ddj_LMloc, &
-              &        dbdt, djdt, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,      &
-              &        aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,        &
-              &        djdt_ic, b_nl_cmb, aj_nl_cmb, aj_nl_icb, time, tscheme, &
-              &        lRmsNext )
+            call updateB_FD(b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc, dj_Rloc, ddj_Rloc, dbdt, &
+                 &          djdt, tscheme, lRmsNext)
 #ifdef WITH_OMP_GPU
-         !$omp target update from(dbdt, djdt)
-         !$omp target update from(b_LMloc, aj_LMloc)
-         !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
-         if ( l_cond_ic ) then
-            !$omp target update from(dbdt_ic, djdt_ic)
-            !$omp target update from(b_ic_LMloc, aj_ic_LMloc)
-            !$omp target update from(db_ic_LMloc, dj_ic_LMloc, ddb_ic_LMloc, ddj_ic_LMloc)
-         end if
+            !$omp target update from(dbdt, djdt)
+            !$omp target update from(b_Rloc, aj_Rloc, db_Rloc, ddb_Rloc, dj_Rloc, ddj_Rloc)
 #endif
+
+         else
+#ifdef WITH_OMP_GPU
+            !$omp target update to(dbdt, djdt)
+            !$omp target update to(b_LMloc, aj_LMloc)
+            if ( l_cond_ic ) then
+               !$omp target update to(dbdt_ic, djdt_ic)
+               !$omp target update to(b_ic_LMloc, aj_ic_LMloc)
+            end if
+#endif
+            call updateB( b_LMloc,db_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,ddj_LMloc, &
+                 &        dbdt, djdt, b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,      &
+                 &        aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,        &
+                 &        djdt_ic, b_nl_cmb, aj_nl_cmb, aj_nl_icb, time, tscheme, &
+                 &        lRmsNext )
+#ifdef WITH_OMP_GPU
+            !$omp target update from(dbdt, djdt)
+            !$omp target update from(b_LMloc, aj_LMloc)
+            !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
+            if ( l_cond_ic ) then
+               !$omp target update from(dbdt_ic, djdt_ic)
+               !$omp target update from(b_ic_LMloc, aj_ic_LMloc)
+               !$omp target update from(db_ic_LMloc, dj_ic_LMloc, ddb_ic_LMloc, ddj_ic_LMloc)
+            end if
+#endif
+         end if
       end if
 
    end subroutine LMLoop_Rdist
@@ -905,7 +910,7 @@ contains
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt, dphidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
 
-      if ( l_chemical_conv )  then
+      if ( l_chemical_conv .and. l_update_xi )  then
 #ifdef WITH_OMP_GPU
          !$omp target update to(xi_LMloc,dxidt)
          !$omp target update to(dxi_LMloc)
@@ -916,7 +921,7 @@ contains
 #endif
       end if
 
-      if ( l_phase_field ) then
+      if ( l_phase_field .and. l_update_phi ) then
 #ifdef WITH_OMP_GPU
       !$omp target update to(phi_LMloc, dphidt)
 #endif
@@ -939,7 +944,7 @@ contains
          !$omp target update from(ds_LMloc, dw_LMloc, ddw_LMloc)
 #endif
       else
-         if ( l_heat )  then
+         if ( l_heat .and. l_update_s)  then
 #ifdef WITH_OMP_GPU
             !$omp target update to(s_LMloc, ds_LMloc, dsdt)
             if(l_phase_field) then
@@ -952,28 +957,33 @@ contains
             !$omp target update from(s_LMloc, ds_LMloc, dsdt)
 #endif
          end if
+
+         if ( l_update_v ) then
 #ifdef WITH_OMP_GPU
-         !$omp target update to(s_LMloc, xi_LMLoc)
-         !$omp target update to(dwdt, dpdt, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc)
+            !$omp target update to(s_LMloc, xi_LMLoc)
+            !$omp target update to(dwdt, dpdt, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc)
 #endif
-         call assemble_pol(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, &
-              &            dp_LMloc, dwdt, dpdt, dpdt%expl(:,:,1), tscheme,          &
-              &            lPressNext, lRmsNext)
+            call assemble_pol(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, &
+                 &            dp_LMloc, dwdt, dpdt, dpdt%expl(:,:,1), tscheme,          &
+                 &            lPressNext, lRmsNext)
 #ifdef WITH_OMP_GPU
-         !$omp target update from(dwdt, dpdt, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc)
+            !$omp target update from(dwdt, dpdt, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc)
+#endif
+         end if
+      end if
+
+      if ( l_update_v ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(z_LMloc, dz_LMloc, dzdt)
+#endif
+         call assemble_tor(time, z_LMloc, dz_LMloc, dzdt, domega_ic_dt, domega_ma_dt, &
+              &            omega_ic, omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(z_LMloc, dz_LMloc, dzdt)
 #endif
       end if
 
-#ifdef WITH_OMP_GPU
-      !$omp target update to(z_LMloc, dz_LMloc, dzdt)
-#endif
-      call assemble_tor(time, z_LMloc, dz_LMloc, dzdt, domega_ic_dt, domega_ma_dt, &
-           &            omega_ic, omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(z_LMloc, dz_LMloc, dzdt)
-#endif
-
-      if ( l_mag ) then
+      if ( l_mag .and. l_update_b ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(dbdt, djdt)
          !$omp target update to(b_LMloc, aj_LMloc)
@@ -1022,7 +1032,7 @@ contains
       type(type_tarray),   intent(inout) :: dwdt, dzdt, dsdt, dxidt, dpdt, dphidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
 
-      if ( l_phase_field ) then
+      if ( l_phase_field .and. l_update_phi ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(phi_ghost)
          !$omp target update to(phi_Rloc, dphidt)
@@ -1033,7 +1043,7 @@ contains
          !$omp target update from(phi_Rloc, dphidt)
 #endif
       end if
-      if ( l_chemical_conv )  then
+      if ( l_chemical_conv .and. l_update_xi )  then
 #ifdef WITH_OMP_GPU
          !$omp target update to(xi_Rloc, dxidt)
          !$omp target update to(xi_ghost)
@@ -1044,7 +1054,7 @@ contains
          !$omp target update from(xi_ghost)
 #endif
       end if
-      if ( l_heat )  then
+      if ( l_heat .and. l_update_s )  then
 #ifdef WITH_OMP_GPU
          !$omp target update to(s_Rloc, ds_Rloc, dsdt, s_ghost)
          if(l_phase_field) then
@@ -1058,27 +1068,29 @@ contains
 #endif
       end if
 
+      if ( l_update_v ) then
 #ifdef WITH_OMP_GPU
-      !$omp target update to(dwdt, dpdt, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc)
+         !$omp target update to(dwdt, dpdt, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc)
 #endif
-      call assemble_pol_Rloc(block_sze, nblocks, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, &
-           &                 dp_Rloc, dwdt, dpdt%expl(:,:,1), tscheme, lPressNext,  &
-           &                 lRmsNext)
+         call assemble_pol_Rloc(block_sze, nblocks, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, &
+              &                 dp_Rloc, dwdt, dpdt%expl(:,:,1), tscheme, lPressNext,  &
+              &                 lRmsNext)
 #ifdef WITH_OMP_GPU
-      !$omp target update from(w_ghost)
-      !$omp target update from(dwdt, dpdt, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc)
-#endif
-
-#ifdef WITH_OMP_GPU
-      !$omp target update to(z_ghost, z_Rloc, dz_Rloc, dzdt)
-#endif
-      call assemble_tor_Rloc(time, z_Rloc, dz_Rloc, dzdt, domega_ic_dt, domega_ma_dt, &
-           &                 omega_ic, omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
-#ifdef WITH_OMP_GPU
-      !$omp target update from(z_ghost, z_Rloc, dz_Rloc, dzdt)
+         !$omp target update from(w_ghost)
+         !$omp target update from(dwdt, dpdt, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc)
 #endif
 
-      if ( l_mag ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(z_ghost, z_Rloc, dz_Rloc, dzdt)
+#endif
+         call assemble_tor_Rloc(time, z_Rloc, dz_Rloc, dzdt, domega_ic_dt, domega_ma_dt, &
+              &                 omega_ic, omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
+#ifdef WITH_OMP_GPU
+         !$omp target update from(z_ghost, z_Rloc, dz_Rloc, dzdt)
+#endif
+      end if
+
+      if ( l_mag .and. l_update_b ) then
          if ( l_mag_par_solve ) then
 #ifdef WITH_OMP_GPU
             !$omp target update to(dbdt, djdt)

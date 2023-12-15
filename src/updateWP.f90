@@ -24,7 +24,7 @@ module updateWP_mod
    use init_fields, only: omegaOsz_ma1, tShift_ma1, omegaOsz_ic1, tShift_ic1
    use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V
-   use logic, only: l_update_v, l_chemical_conv, l_RMS, l_double_curl, &
+   use logic, only: l_chemical_conv, l_RMS, l_double_curl,             &
        &            l_fluxProfs, l_finite_diff, l_full_sphere, l_heat, &
        &            l_parallel_solve
    use RMS, only: DifPol2hInt, DifPolLMr
@@ -434,8 +434,6 @@ contains
       end if
       n_max_rSchemeOc = rscheme_oc%n_max
 #endif
-
-      if ( .not. l_update_v ) return
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
@@ -1027,8 +1025,6 @@ contains
       integer :: loc_istage
       loc_istage = tscheme%istage
 
-      if ( .not. l_update_v ) return
-
       !-- LU factorisation of the matrix if needed
       if ( .not. lWPmat(1) ) then
          call get_wMat_Rdist(tscheme, hdif_V, wMat_FD)
@@ -1157,8 +1153,6 @@ contains
       integer :: lm, l, lm_start, lm_stop
       real(cp) :: dr
 
-      if ( .not. l_update_v ) return
-
       if ( lPressNext ) then
          if ( nRstart == n_r_cmb ) then
             p0g(nRstart-1)=two*p0g(nRstart)-p0g(nRstart+1)
@@ -1260,8 +1254,6 @@ contains
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm, l
 
-      if ( .not. l_update_v ) return
-
       if ( lPressNext .and. tscheme%istage == 1) then
          ! Store old dw
 #ifdef WITH_OMP_GPU
@@ -1349,8 +1341,6 @@ contains
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
-
-      if ( .not. l_update_v ) return
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
