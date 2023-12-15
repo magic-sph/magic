@@ -14,10 +14,10 @@ module LMLoop_mod
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag
    use blocking, only: lo_map, llm, ulm, llmMag, ulmMag, st_map
    use logic, only: l_mag, l_conv, l_heat, l_single_matrix, l_double_curl, &
-       &            l_chemical_conv, l_cond_ic, l_update_s, l_z10mat,      &
+       &            l_chemical_conv, l_cond_ic, l_onset, l_z10mat,         &
        &            l_parallel_solve, l_mag_par_solve, l_phase_field,      &
-       &            l_onset, l_update_s, l_update_xi, l_update_phi,        &
-       &            l_update_v, l_update_b
+       &            l_update_s, l_update_xi, l_update_phi, l_update_v,     &
+       &            l_update_b
    use time_array, only: type_tarray, type_tscalar
    use time_schemes, only: type_tscheme
    use timing, only: timer_type
