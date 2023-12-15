@@ -84,6 +84,8 @@ Update control
 
 * **l_update_xi** (default :f:var:`l_update_xi=.true. <l_update_xi>`) is a logical that specifies whether the chemical composition should be time-stepped or not.
 
+* **l_update_phi** (default :f:var:`l_update_phi=.true. <l_update_phi>`) is a logical that specifies whether the phase field should be time-stepped or not.
+
 
 Time step control
 -----------------
