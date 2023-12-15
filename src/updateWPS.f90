@@ -25,7 +25,7 @@ module updateWPS_mod
        &                  omegaOsz_ic1, tShift_ic1
    use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V, hdif_S
-   use logic, only: l_update_v, l_temperature_diff, l_RMS, l_full_sphere
+   use logic, only: l_temperature_diff, l_RMS, l_full_sphere
    use RMS, only: DifPol2hInt, DifPolLMr
    use algebra, only: prepare_mat, solve_mat
    use communications, only: get_global_sum
@@ -142,8 +142,6 @@ contains
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
-
-      if ( .not. l_update_v ) return
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2

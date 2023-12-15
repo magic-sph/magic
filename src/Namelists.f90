@@ -67,7 +67,7 @@ contains
       &    mode,tag,n_time_steps,n_cour_step,               &
       &    n_tScale,n_lScale,alpha,enscale,                 &
       &    l_update_v,l_update_b,l_update_s,l_update_xi,    &
-      &    dtMax,courfac,alffac,intfac,                     &
+      &    l_update_phi,dtMax,courfac,alffac,intfac,        &
       &    difnu,difeta,difkap,difchem,ldif,ldifexp,        &
       &    l_correct_AMe,l_correct_AMz,tEND,l_non_rot,      &
       &    l_newmap,alph1,alph2,l_cour_alf_damp,            &
@@ -889,6 +889,7 @@ contains
       write(n_out,'(''  l_update_b      ='',l3,'','')') l_update_b
       write(n_out,'(''  l_update_s      ='',l3,'','')') l_update_s
       write(n_out,'(''  l_update_xi     ='',l3,'','')') l_update_xi
+      write(n_out,'(''  l_update_phi    ='',l3,'','')') l_update_phi
       write(n_out,'(''  l_newmap        ='',l3,'','')') l_newmap
       length=len_trim(map_function)
       write(n_out,*) " map_function    = """,map_function(1:length),""","
@@ -1321,6 +1322,7 @@ contains
       l_update_b    =.true.
       l_update_s    =.true.
       l_update_xi   =.true.
+      l_update_phi  =.true.
       l_correct_AMe =.false.  ! Correct equatorial AM
       l_correct_AMz =.false.  ! Correct axial AM
       l_non_rot     =.false.  ! No Coriolis force !
