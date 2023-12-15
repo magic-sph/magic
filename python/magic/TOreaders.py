@@ -98,6 +98,9 @@ class TOMovie:
         # GRID
         self.radius = infile.fort_read(precision)
         self.radius = self.radius[:self.n_r_max]  # remove inner core
+        rout = 1./(1.-self.radratio)
+        # rin = self.radratio/(1.-self.radratio)
+        self.radius *= rout
         self.theta = infile.fort_read(precision)
         self.phi = infile.fort_read(precision)
 
