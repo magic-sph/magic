@@ -272,7 +272,7 @@ else:
 def sph2cyl(g, ns=None, nz=None):
     """
     This function interpolates the three flow (or magnetic field)
-    component of a :ref:`G_#.TAG <secGraphFile>` file
+    components of a :ref:`G_#.TAG <secGraphFile>` file
     on a cylindrical grid of size (ns, nz).
 
     .. warning:: This might be really slow!

@@ -115,6 +115,26 @@ class MagicMelt(MagicSetup):
             self.time = self.time[::nstep]
             self.rmelt = self.rmelt[::nstep, :]
 
+        # Compute h and beta
+        if not self.l_non_rot:
+            ri = self.radratio/(1.-self.radratio)
+            ro = 1./(1.-self.radratio)
+            h = np.zeros_like(self.rmelt)
+            # cylindrical radius
+            cylRad = np.sin(self.colatitude) * self.rmelt
+            # h
+            h[cylRad>=ri] = np.sqrt(self.rmelt[cylRad>=ri]**2-cylRad[cylRad>=ri]**2)
+            h[cylRad<ri] = np.sqrt(self.rmelt[cylRad<ri]**2-cylRad[cylRad<ri]**2) - \
+                           np.sqrt(ri**2-cylRad[cylRad<ri]**2)
+            self.cylRad = cylRad
+            self.h = h
+
+            """
+            self.beta = np.zeros_like(self.h)
+            self.beta[:, :-1] = np.diff(self.h, axis=-1) / np.diff(cylRad, axis=-1) \
+                                / self.h[:, :-1]
+            """
+
         if iplot:
             self.plot(levels, cm)
 
@@ -269,7 +289,7 @@ def get_tmelt(rad, temp, rmelt):
 
     return tmelt
 
-def plot_rmelt(gr, levels=17, cm='viridis', order=1):
+def plot_rmelt(gr, levels=17, cm='gist_earth', order=1):
     """
     :param levels: the number of contour levels
     :type levels: int

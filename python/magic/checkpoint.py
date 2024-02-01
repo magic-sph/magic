@@ -377,6 +377,8 @@ class MagicCheckpoint:
         x = np.array([self.n_r_max, self.n_theta_max,  self.n_phi_tot, self.minc,
                       self.nalias, self.n_r_ic_max], np.int32)
         x.tofile(file)
+        if not hasattr(self,"m_min"):
+            self.m_min = 0
         x = np.array([self.l_max, self.m_min, self.m_max], np.int32)
         x.tofile(file)
 
@@ -403,6 +405,9 @@ class MagicCheckpoint:
         dumm.tofile(file)
 
         # Logicals
+        if not hasattr(self,"l_phase"):
+            self.l_phase = False
+
         flags = np.array([self.l_heat, self.l_chem, self.l_phase, self.l_mag, False,
                           self.l_cond_ic], np.int32)
         flags.tofile(file)
