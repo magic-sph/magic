@@ -29,6 +29,8 @@
 INCLUDE (${CMAKE_ROOT}/Modules/FindPackageHandleStandardArgs.cmake)
 
 SET (OpenMP_Fortran_FLAG_CANDIDATES
+     #Cray
+     "-h omp"
      #Future Intel
      "-qopenmp"
      #Gnu
