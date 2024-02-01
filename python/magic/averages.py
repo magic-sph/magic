@@ -458,8 +458,9 @@ class AvgStack:
                         self.lut = self.load()
                         keys = ['spectra', 'radial_profiles', 'theta_profiles']
                         for key in keys:
-                            for key1 in self.lut[key].keys():
-                                self.lut[key][key1] = [np.atleast_1d(self.lut[key][key1])]
+                            if key in self.lut.keys():
+                                for key1 in self.lut[key].keys():
+                                    self.lut[key][key1] = [np.atleast_1d(self.lut[key][key1])]
                     else:
                         lut = self.load()
                         self.merge(lut)
