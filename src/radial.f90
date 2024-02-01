@@ -398,25 +398,26 @@ contains
       else if ( index(interior_model,'SAT') /= 0 ) then
 
          ! the shell can't be thinner than eta=0.38947 and r_cut_model <= 0.95, because
-         ! the fits don't work beyond that. The Preising et al. 2023 model includes a region of strong
-         ! Helium concentration at the bottom which is probably stably stratified and has
+         ! the fits don't work beyond that. The Preising et al. 2023 model
+         ! includes a region of strong ! Helium concentration at the
+         ! bottom which is probably stably stratified and has
          ! been cut out from this fit.
 
          if (l_non_adia) then
             rrOcmb(:) = r(:)*r_cut_model/r_cmb
             allocate(coeffTemp(8),coeffDens(6),coeffGrav(5),coeffAlpha(8))
 
-            coeffTemp= [ -77880.376328818_cp, 1089237.928095523_cp, &
-            & -5718555.197998112_cp, 16027297.768664116_cp,         &
-            & -26159709.956658602_cp, 24913613.036177561_cp,        &
-            & -12819667.849508610_cp, 2746322.598433222_cp ]
+            coeffTemp= [ -77880.376328818_cp, 1089237.928095523_cp,    &
+            &           -5718555.197998112_cp, 16027297.768664116_cp,  &
+            &           -26159709.956658602_cp, 24913613.036177561_cp, &
+            &           -12819667.849508610_cp, 2746322.598433222_cp ]
             coeffDens= [ 8.813043492_cp, -51.578717073_cp, 145.416402036_cp, &
-            &          -211.845381533_cp, 152.131339032_cp, -42.964602602_cp]
+            &           -211.845381533_cp, 152.131339032_cp, -42.964602602_cp]
             coeffGrav= [ 115.392383256_cp, -483.892696422_cp, 935.515330783_cp,&
             &           -826.605750144_cp, 270.984339687_cp ]
-            coeffAlpha= [ -871.964023446_cp, 10634.774082757_cp, -55010.331729823_cp, &
-            & 154178.756043949_cp, -252573.849597133_cp, 241773.428704681_cp, &
-            & -125275.544905827_cp, 27136.257157590_cp ]
+            coeffAlpha= [ -871.964023446_cp, 10634.774082757_cp, -55010.331729823_cp,   &
+            &            154178.756043949_cp, -252573.849597133_cp, 241773.428704681_cp,&
+            &            -125275.544905827_cp, 27136.257157590_cp ]
 
             alpha0(:)=0.0_cp
             temp0(:) =0.0_cp
@@ -450,8 +451,9 @@ contains
             strat   =log(rho0(n_r_max)/rho0(1)) ! Just for printing
 
             !-- Radial profile for the Grüneisen parameter (from Preising et al. 2023)
-            ogrun(:) = ( -0.25_cp * (0.7_cp - 0.14_cp)*(1.+tanh(50.0_cp*(rrOcmb(:)-0.65_cp)))  &
-            &            *(1.-tanh(50.0_cp*(rrOcmb(:)-0.8_cp)))) + 0.7_cp ! Work array for fit to Gamma
+            ogrun(:) = ( -0.25_cp * (0.7_cp - 0.14_cp)*(             &
+            &             1.0_cp+tanh(50.0_cp*(rrOcmb(:)-0.65_cp)))  &
+            &           *(1.0_cp-tanh(50.0_cp*(rrOcmb(:)-0.8_cp)))) + 0.7_cp
             GrunNb = ogrun(1)
             ogrun(:) = one/ogrun(:)
             polind   = ogrun(1) ! Just for the print
@@ -475,15 +477,14 @@ contains
             rgrav(:)=rgrav(:)*alpha0(:)*temp0(:)
 
             deallocate(coeffTemp,coeffDens,coeffGrav,coeffAlpha)
-
          else
             allocate(coeffTemp(8),coeffDens(6))
-            coeffTemp= [ -77880.376328818_cp, 1089237.928095523_cp, &
-            & -5718555.197998112_cp, 16027297.768664116_cp,         &
-            & -26159709.956658602_cp, 24913613.036177561_cp,        &
-            & -12819667.849508610_cp, 2746322.598433222_cp ]
+            coeffTemp= [ -77880.376328818_cp, 1089237.928095523_cp,      &
+            &            -5718555.197998112_cp, 16027297.768664116_cp,   &
+            &            -26159709.956658602_cp, 24913613.036177561_cp,  &
+            &            -12819667.849508610_cp, 2746322.598433222_cp ]
             coeffDens= [ 8.813043492_cp, -51.578717073_cp, 145.416402036_cp, &
-            &          -211.845381533_cp, 152.131339032_cp, -42.964602602_cp]
+            &           -211.845381533_cp, 152.131339032_cp, -42.964602602_cp]
 
             call polynomialBackground(coeffDens,coeffTemp)
             deallocate( coeffDens, coeffTemp)
@@ -626,29 +627,29 @@ contains
          &         coeffDens(12) )
 
          coeffAlpha=[1.07280013e+00_cp, -7.35271452e-02_cp,  1.35373501e+00_cp,&
-                 &  -2.70033254e+01_cp,  1.34218482e+02_cp, -1.85203678e+02_cp,&
-                 &  -4.03705669e+02_cp,  1.65171816e+03_cp, -1.91235980e+03_cp,&
-                 &   4.33699991e+02_cp,  6.74102545e+02_cp, -3.67415688e+02_cp]
+         &          -2.70033254e+01_cp,  1.34218482e+02_cp, -1.85203678e+02_cp,&
+         &          -4.03705669e+02_cp,  1.65171816e+03_cp, -1.91235980e+03_cp,&
+         &           4.33699991e+02_cp,  6.74102545e+02_cp, -3.67415688e+02_cp]
 
          coeffTemp=[1.71233163e+01_cp,  2.16376708e-01_cp, -2.33617981e+01_cp, &
-              &     2.95986199e+02_cp, -3.15614535e+03_cp,  1.80265801e+04_cp, &
-              &    -5.99840212e+04_cp,  1.23788205e+05_cp, -1.61112426e+05_cp, &
-              &     1.28833197e+05_cp, -5.78439543e+04_cp,  1.11724125e+04_cp]
+         &          2.95986199e+02_cp, -3.15614535e+03_cp,  1.80265801e+04_cp, &
+         &         -5.99840212e+04_cp,  1.23788205e+05_cp, -1.61112426e+05_cp, &
+         &          1.28833197e+05_cp, -5.78439543e+04_cp,  1.11724125e+04_cp]
 
          coeffGrav=[1.31049693e+02_cp,  1.04893208e+06_cp,  1.93822208e+06_cp, &
-              &    -5.15044761e+07_cp,  4.41798276e+08_cp, -2.66511461e+09_cp, &
-              &     1.02063273e+10_cp, -2.43712757e+10_cp,  3.64094408e+10_cp, &
-              &    -3.32103850e+10_cp,  1.69572548e+10_cp, -3.72150208e+09_cp]
+         &         -5.15044761e+07_cp,  4.41798276e+08_cp, -2.66511461e+09_cp, &
+         &          1.02063273e+10_cp, -2.43712757e+10_cp,  3.64094408e+10_cp, &
+         &         -3.32103850e+10_cp,  1.69572548e+10_cp, -3.72150208e+09_cp]
 
          coeffGrun=[1.57026325e+00_cp, -4.46247381e-02_cp,  3.03734351e-01_cp, &
-              &    -8.28253239e+00_cp, -2.63234309e+01_cp,  6.05835596e+02_cp, &
-              &    -2.89779916e+03_cp,  6.90494749e+03_cp, -9.29010895e+03_cp, &
-              &     7.04974613e+03_cp, -2.73663642e+03_cp,  3.98015351e+02_cp]
+         &         -8.28253239e+00_cp, -2.63234309e+01_cp,  6.05835596e+02_cp, &
+         &         -2.89779916e+03_cp,  6.90494749e+03_cp, -9.29010895e+03_cp, &
+         &          7.04974613e+03_cp, -2.73663642e+03_cp,  3.98015351e+02_cp]
 
          coeffDens=[3.05336249e+00_cp, -2.52357616e-01_cp, -3.47786718e-01_cp, &
-              &    -3.82246141e+02_cp,  4.44024160e+03_cp, -2.80734664e+04_cp, &
-              &     1.02942741e+05_cp, -2.30659612e+05_cp,  3.22111291e+05_cp, &
-                   -2.74248402e+05_cp,  1.30456564e+05_cp, -2.66069272e+04_cp]
+         &         -3.82246141e+02_cp,  4.44024160e+03_cp, -2.80734664e+04_cp, &
+         &          1.02942741e+05_cp, -2.30659612e+05_cp,  3.22111291e+05_cp, &
+         &         -2.74248402e+05_cp,  1.30456564e+05_cp, -2.66069272e+04_cp]
 
          alpha0(:)=0.0_cp
          temp0(:) =0.0_cp
@@ -954,92 +955,90 @@ contains
       ! kinematic viscosity and thermal conductivity.
       !
 
+      integer :: n_r
       real(cp) :: a,b,c,s1,s2,r0
       real(cp) :: dsigma0
       real(cp) :: dvisc(n_r_max), dkappa(n_r_max), dsigma(n_r_max)
       !real(cp) :: condBot(n_r_max), condTop(n_r_max)
       !real(cp) :: func(n_r_max)
       real(cp) :: kcond(n_r_max)
-      real(cp) :: rrOcmb(n_r_max)
-      ! real(cp) :: a0,a1,a2,a3,a4,a5
+      real(cp) :: a0,a1,a2,a3,a4,a5,rrOcmb
       real(cp) :: ampVisc, ampKap, slopeVisc, slopeKap
-      real(cp), allocatable :: coeffKappa(:)
-      integer :: i
 
       !-- Variable conductivity:
-
       if ( imagcon == -10 ) then
          nVarCond=1
-         lambda  =r**5.0_cp
-         sigma   =one/lambda
-         dLlambda=5.0_cp/r
+         lambda(:)  =r(:)**5.0_cp
+         sigma(:)   =one/lambda(:)
+         dLlambda(:)=5.0_cp/r(:)
       else if ( l_mag ) then
-          if ( nVarCond == 0 ) then
-             lambda  =one
-             sigma   =one
-             dLlambda=0.0_cp
-          else if ( nVarCond == 1 ) then
-             b =log(three)/con_FuncWidth
-             r0=con_radratio*r_cmb
-             s1=tanh(b*(r0-r_cmb))
-             s2=tanh(b*(r0-r_icb))
-             a =(-one+con_LambdaOut)/(s1-s2)
-             c =(s1-s2*con_LambdaOut)/(s1-s2)
-             sigma   = a*tanh(b*(r0-r))+c
-             dsigma  =-a*b/cosh(b*(r0-r))
-             lambda  =one/sigma
-             dLlambda=-dsigma/sigma
-          else if ( nVarCond == 2 ) then
+         if ( nVarCond == 0 ) then
+            lambda(:)  =one
+            sigma(:)   =one
+            dLlambda(:)=0.0_cp
+         else if ( nVarCond == 1 ) then
+            b =log(three)/con_FuncWidth
+            r0=con_radratio*r_cmb
+            s1=tanh(b*(r0-r_cmb))
+            s2=tanh(b*(r0-r_icb))
+            a =(-one+con_LambdaOut)/(s1-s2)
+            c =(s1-s2*con_LambdaOut)/(s1-s2)
+            sigma(:)   = a*tanh(b*(r0-r(:)))+c
+            dsigma(:)  =-a*b/cosh(b*(r0-r(:)))
+            lambda(:)  =one/sigma(:)
+            dLlambda(:)=-dsigma(:)/sigma(:)
+         else if ( nVarCond == 2 ) then
 
-             r0=con_radratio*r_cmb
-             !------ Use grid point closest to r0:
-
-             r0 = r(minloc(abs(r0 - r),1))
-
-             dsigma0=(con_LambdaMatch-1)*con_DecRate /(r0-r_icb)
-
-             where(r < r0)
-               sigma(:) = one+(con_LambdaMatch-1)* &
-                  ( (r(:)-r_icb)/(r0-r_icb) )**con_DecRate
-               dsigma(:)  =  dsigma0 * &
-                  ( (r(:)-r_icb)/(r0-r_icb) )**(con_DecRate-1)
-             elsewhere
-               sigma(:)  =con_LambdaMatch * &
-                     exp(dsigma0/con_LambdaMatch*(r(:)-r0))
-               dsigma(:) = dsigma0* &
-                     exp(dsigma0/con_LambdaMatch*(r(:)-r0))
-             end where
-             lambda(:)  = one/sigma(:)
-             dLlambda(:)=-dsigma(:)/sigma(:)
-
-          else if ( nVarCond == 3 ) then ! Magnetic diff propto 1/rho
-             lambda=rho0(n_r_max)/rho0
-             sigma=one/lambda
-             call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
-             dLlambda=dsigma/lambda
-          else if ( nVarCond == 4 ) then ! Profile
-             lambda=(rho0/rho0(n_r_max))**difExp
-             sigma=one/lambda
-             call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
-             dLlambda=dsigma/lambda
-          end if
+            r0=con_radratio*r_cmb
+            !------ Use grid point closest to r0:
+            do n_r=1,n_r_max
+               if ( r(n_r) < r0 )then
+                  r0=r(n_r)
+                  exit
+               end if
+            end do
+            dsigma0=(con_LambdaMatch-1)*con_DecRate /(r0-r_icb)
+            do n_r=1,n_r_max
+               if ( r(n_r) < r0 ) then
+                  sigma(n_r)  = one+(con_LambdaMatch-1)* &
+                  &   ((r(n_r)-r_icb)/(r0-r_icb))**con_DecRate
+                  dsigma(n_r) = dsigma0 * &
+                  &   ((r(n_r)-r_icb)/(r0-r_icb))**(con_DecRate-1)
+               else
+                  sigma(n_r) =con_LambdaMatch*exp(dsigma0/con_LambdaMatch*(r(n_r)-r0))
+                  dsigma(n_r)=dsigma0*exp(dsigma0/con_LambdaMatch*(r(n_r)-r0))
+               end if
+               lambda(n_r)  =one/sigma(n_r)
+               dLlambda(n_r)=-dsigma(n_r)/sigma(n_r)
+            end do
+         else if ( nVarCond == 3 ) then ! Magnetic diff propto 1/rho
+            lambda(:)=rho0(n_r_max)/rho0(:)
+            sigma(:)=one/lambda(:)
+            call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
+            dLlambda(:)=dsigma(:)/lambda(:)
+         else if ( nVarCond == 4 ) then ! Profile
+            lambda=(rho0(:)/rho0(n_r_max))**difExp
+            sigma(:)=one/lambda(:)
+            call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
+            dLlambda(:)=dsigma(:)/lambda(:)
+         end if
       end if
 
       !-- Variable thermal diffusivity
       if ( l_heat ) then
 
          if ( nVarDiff == 0 ) then
-            kappa  =one
-            dLkappa=0.0_cp
+            kappa(:)  =one
+            dLkappa(:)=0.0_cp
          else if ( nVarDiff == 1 ) then ! Constant conductivity
             ! kappa(n_r)=one/rho0(n_r) Denise's version
-            kappa=rho0(n_r_max)/rho0
+            kappa(:)=rho0(n_r_max)/rho0(:)
             call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
-            dLkappa=dkappa/kappa
+            dLkappa(:)=dkappa(:)/kappa(:)
          else if ( nVarDiff == 2 ) then ! Profile
-            kappa=(rho0/rho0(n_r_max))**difExp
+            kappa(:)=(rho0(:)/rho0(n_r_max))**difExp
             call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
-            dLkappa=dkappa/kappa
+            dLkappa(:)=dkappa(:)/kappa(:)
          else if ( nVarDiff == 3 ) then ! polynomial fit to a model
             if ( radratio < 0.19_cp ) then
                write(output_unit,*) '! NOTE: with this polynomial fit     '
@@ -1048,36 +1047,21 @@ contains
                write(output_unit,*) '! to strange profiles'
                call abortRun('Stop the run in radial.f90')
             end if
-
-            ! Old code
-            ! a0 = -0.32839722_cp
-            ! a1 =  one
-            ! a2 = -1.16153274_cp
-            ! a3 =  0.63741485_cp
-            ! a4 = -0.15812944_cp
-            ! a5 =  0.01034262_cp
-            ! do n_r=1,n_r_max
-            !    rrOcmb = r(n_r)/r_cmb*r_cut_model
-            !    kappa(n_r)= a5 + a4*rrOcmb    + a3*rrOcmb**2 &
-            !    &              + a2*rrOcmb**3 + a1*rrOcmb**4 &
-            !    &                             + a0*rrOcmb**5
-            ! end do
-
-            rrOcmb = r(:)/r_cmb * r_cut_model
-
-            allocate(coeffKappa(6), source=0.0_cp)
-
-            coeffKappa = [0.01034262_cp, -0.15812944_cp, 0.63741485_cp, &
-            &             -1.16153274_cp, one, -0.32839722_cp]
-
-            do i=1,6
-               kappa(:) = kappa(:) + coeffKappa(i) * rrOcmb(:)**(i-1)
+            a0 = -0.32839722_cp
+            a1 =  one
+            a2 = -1.16153274_cp
+            a3 =  0.63741485_cp
+            a4 = -0.15812944_cp
+            a5 =  0.01034262_cp
+            do n_r=1,n_r_max
+               rrOcmb = r(n_r)/r_cmb*r_cut_model
+               kappa(n_r)= a5 + a4*rrOcmb    + a3*rrOcmb**2 &
+               &              + a2*rrOcmb**3 + a1*rrOcmb**4 &
+               &                             + a0*rrOcmb**5
             end do
-
-            kappa=kappa/kappa(1) ! normalise by the value at the top
+            kappa(:)=kappa(:)/kappa(1) ! normalise by the value at the top
             call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
-            dLkappa=dkappa/kappa
-            deallocate(coeffKappa)
+            dLkappa(:)=dkappa(:)/kappa(:)
          else if ( nVarDiff == 4) then ! Earth case
             !condTop=r_cmb**2*dtemp0(1)*or2/dtemp0
             !do n_r=2,n_r_max
@@ -1098,17 +1082,17 @@ contains
             !dLkappa=dkappa/kappa
 
             ! Alternative scenario
-            kcond=(one-0.4469_cp*(r/r_cmb)**2)/(one-0.4469_cp)
-            kcond=kcond/kcond(1)
-            kappa=kcond/rho0
+            kcond(:)=(one-0.4469_cp*(r(:)/r_cmb)**2)/(one-0.4469_cp)
+            kcond(:)=kcond(:)/kcond(1)
+            kappa(:)=kcond(:)/rho0
             call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
-            dLkappa=dkappa/kappa
+            dLkappa(:)=dkappa(:)/kappa(:)
          else if ( nVarDiff == 5 ) then ! Thermal background equilibrium
             kcond(:)=one/(r(:)*r(:)*dLtemp0(:)*temp0(:))
-            kcond=kcond/kcond(1)
-            kappa=kcond/rho0
+            kcond(:)=kcond(:)/kcond(1)
+            kappa(:)=kcond(:)/rho0(:)
             call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
-            dLkappa=dkappa/kappa
+            dLkappa(:)=dkappa(:)/kappa(:)
          else if ( nVarDiff == 6 ) then ! Jump in the stratified layer
             ampKap = 10.0_cp
             slopeKap = 100.0_cp
