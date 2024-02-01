@@ -1,6 +1,6 @@
 module integration
    !
-   ! Radial integration functions
+   ! Radial and geostrophic integration functions
    !
 
    use precision_mod
@@ -22,7 +22,7 @@ contains
       !
       !  This function performs the radial integral over a
       !  function f that is given on the appropriate nRmax
-      !  radial Chebychev grid points.
+      !  radial Chebyshev grid points.
       !
 
       !-- Input variables:
@@ -231,7 +231,7 @@ contains
             ac(n_z,n_s)=0.0_cp
             !
             !  **** Interpolate values from (theta,r)-grid onto equidistant
-            !  **** (z,rax)-grid using a fourth-order Lagrangian scheme
+            !  **** (z,s)-grid using a fourth-order Lagrangian scheme
             !
             !--  Find indices of radial grid levels that bracket rc
             n_r2=n_r_max-1
@@ -416,7 +416,7 @@ contains
             ac(n_z,n_s,2)=0.0_cp
             !
             !  **** Interpolate values from (theta,r)-grid onto equidistant
-            !  **** (z,rax)-grid using a fourth-order Lagrangian scheme
+            !  **** (z,s)-grid using a fourth-order Lagrangian scheme
             !
             !--  Find indices of radial grid levels that bracket rc
             n_r2=n_r_max-1
@@ -475,10 +475,10 @@ contains
             t31=1.0_cp/(theta(n_th3)-theta(n_th1))
             t32=1.0_cp/(theta(n_th3)-theta(n_th2))
 
-            !-- Loop over North/Sooth
+            !-- Loop over North/South
             do n_hs=1,2
 
-               !-- Loop over 4 neighboring grid angles
+               !-- Loop over 4 neighbooring grid angles
                do itr=0,3
                   n_th=n_th0+itr
 
