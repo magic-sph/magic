@@ -4,7 +4,7 @@ import os
 import re
 import numpy as np
 from .npfile import npfile
-from magic.movie import getNlines
+from magic.movie import getNlines, Movie
 from magic.libmagic import symmetrize
 
 try:
@@ -34,7 +34,7 @@ class Movie2Vtk:
     def __init__(self, file=None, step=1, lastvar=None, nvar='all', fluct=False,
                  normRad=False, precision=np.float32, deminc=True, ifield=0,
                  dir='movie2vts', store_idx=0, datadir='.', rmin=-1., rmax=-1.,
-                 closePoles=False):
+                 closePoles=False, mean_field=False):
         """
         :param file: the name of the movie file one wants to load
         :type file: str
@@ -47,6 +47,10 @@ class Movie2Vtk:
         :type step: int
         :param fluct: if fluct=True, substract the axisymmetric part
         :type fluct: bool
+        :param mean_field: if mean_field=True, only retain the axisymmetric part
+                           (this necessitates the storage of the relevant axisymmetric
+                           movie file for the phi-slices)
+        :type mean_field: bool
         :param normRad: if normRad=True, then we normalise for each radial
                         level
         :type normRad: bool
@@ -73,6 +77,11 @@ class Movie2Vtk:
         :type datadir : str
         """
 
+        if mean_field: # Cannot be both at the same time!
+            fluct = False
+        if fluct:
+            mean_field = False
+
         self.rmin = rmin
         self.rmax = rmax
 
@@ -89,12 +98,14 @@ class Movie2Vtk:
                 filename = dat[0]
         else:
             filename = file
+
         mot = re.compile(r'.*[Mm]ov\.(.*)')
         end = mot.findall(os.path.join(datadir, filename))[0]
 
         fieldName = filename.split('_')[0]
 
         ff = filename.split('_')
+        field = ff[0]
         if len(ff) > 2:
             pPattern = re.compile(r'P=([\+\-]?[0-9]+)_([0-9]+)')
             rPattern = re.compile(r'R=([\+\-]?[0-9]+)_([0-9]+)')
@@ -218,8 +229,21 @@ class Movie2Vtk:
                 shape = (self.n_theta_max, self.n_r_max)
                 self.n_theta_plot = self.n_theta_max
 
-        if not os.path.exists(dir):
-            os.mkdir(dir)
+            if fluct or mean_field:
+                if 'B' in field:
+                    prefix = 'AB_mov'
+                elif 'V' in field:
+                    prefix = 'AV_mov'
+                elif 'T' in field:
+                    prefix = 'ATmov'
+                elif 'C' in field:
+                    prefix = 'ACmov'
+                tag = filename.split('.')[-1]
+                av_mov = prefix + '.' + tag
+                mov_mean = Movie(file=av_mov, datadir=datadir, iplot=False)
+
+        if not os.path.exists(os.path.join(datadir, dir)):
+            os.mkdir(os.path.join(datadir, dir))
 
         # Read the data and store it into series of vts files
 
@@ -242,22 +266,46 @@ class Movie2Vtk:
                                                       k+1+store_idx)
                     if self.movtype in [1, 2, 3]:
                         dat = dat[:, :, :self.n_r_max]
+                    if fluct:
+                        dat -= dat.mean(axis=0)
+                    elif mean_field:
+                        tmp = dat.mean(axis=0)
+                        for ip in range(self.n_phi_tot):
+                            dat[ip, :, :] = tmp[:, :]
+                    fname = os.path.join(datadir, fname)
                     self.scal3D2vtk(fname, dat, fieldName)
                 elif n_surface == 2:
                     fname = '{}{}{}_eq_{:05d}'.format(dir, os.sep, fieldName,
                                                       k+1+store_idx)
                     if self.movtype in [1, 2, 3, 14]:
                         dat = dat[:, :self.n_r_max]
+                    if fluct:
+                        dat -= dat.mean(axis=0)
+                    elif mean_field:
+                        tmp = np.zeros_like(dat)
+                        for ip in range(self.n_phi_tot):
+                            tmp[ip, :] = dat.mean(axis=0)
+                        dat = tmp
+                    fname = os.path.join(datadir, fname)
                     self.equat2vtk(fname, dat, fieldName)
                 elif n_surface == 3:
+                    if fluct or mean_field:
+                        field_m = mov_mean.data[0, k, ...]
                     if self.movtype in [1, 2, 3, 14]:
                         datoc0 = dat[:, :self.n_r_max]
                         datoc1 = dat[:, self.n_r_max:2*self.n_r_max]
+                        if fluct:
+                            datoc0 -= field_m
+                            datoc1 -= field_m
+                        elif mean_field:
+                            datoc0 = field_m
+                            datoc1 = field_m
 
                         fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep,
                                                               fieldName,
                                                               str(self.phiCut),
                                                               k+1+store_idx)
+                        fname = os.path.join(datadir, fname)
                         self.mer2vtk(fname, datoc0, self.phiCut, fieldName)
                         name = str(self.phiCut+np.pi)
                         if len(name) > 8:
@@ -266,16 +314,24 @@ class Movie2Vtk:
                                                               fieldName,
                                                               name, k+1,
                                                               k+1+store_idx)
+                        fname = os.path.join(datadir, fname)
                         self.mer2vtk(fname, datoc1, self.phiCut+np.pi,
                                      fieldName)
                     elif self.movtype in [4, 5, 6, 7, 15, 16, 17, 18, 47, 54,
                                           91, 109, 112]:
                         dat0 = dat[..., 0]
                         dat1 = dat[..., 1]
+                        if fluct:
+                            dat0 -= field_m
+                            dat1 -= field_m
+                        elif mean_field:
+                            dat0 = field_m
+                            dat1 = field_m
                         fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep,
                                                               fieldName,
                                                               str(self.phiCut),
                                                               k+1+store_idx)
+                        fname = os.path.join(datadir, fname)
                         self.mer2vtk(fname, dat0, self.phiCut, fieldName)
                         name = str(self.phiCut+np.pi)
                         if len(name) > 8:
@@ -284,6 +340,7 @@ class Movie2Vtk:
                                                               fieldName,
                                                               name,
                                                               k+1+store_idx)
+                        fname = os.path.join(datadir, fname)
                         self.mer2vtk(fname, dat1, self.phiCut+np.pi,
                                      fieldName)
                 else:
@@ -291,6 +348,13 @@ class Movie2Vtk:
                                                           fieldName,
                                                           str(self.rCut),
                                                           k+1+store_idx)
+                    fname = os.path.join(datadir, fname)
+                    if fluct:
+                        dat -= dat.mean(axis=0)
+                    elif mean_field:
+                        tmp = dat.mean(axis=0)
+                        for ip in range(self.n_phi_tot):
+                            dat[ip, :] = tmp
                     self.rcut2vtk(fname, dat, self.rCut, fieldName)
 
         infile.close()
