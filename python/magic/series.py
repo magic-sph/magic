@@ -464,7 +464,7 @@ class MagicTs(MagicSetup):
             else:
                 ax.plot(self.time, self.topnuss, label='Top Nusselt')
                 ax.plot(self.time, self.botnuss, label='Bottom Nusselt')
-            ax.set_xlim(self.time[0], self.time[-1])
+            ax.set_xlim(self.time.min(), self.time.max())
             ax.legend(loc='lower right', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Nusselt number')
@@ -479,7 +479,7 @@ class MagicTs(MagicSetup):
                     ax.plot(self.time, self.topsherwood, label='Top Sherwood')
                     ax.plot(self.time, self.botsherwood, label='Bottom Sherwood')
                 ax.legend(loc='lower right', frameon=False)
-                ax.set_xlim(self.time[0], self.time[-1])
+                ax.set_xlim(self.time.min(), self.time.max())
                 ax.set_xlabel('Time')
                 ax.set_ylabel('Sherwood number')
                 fig.tight_layout()
