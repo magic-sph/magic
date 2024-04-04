@@ -23,3 +23,8 @@ Additional possible analyses
    :members:
    :private-members:
    :special-members:
+
+.. autoclass:: magic.libmelt
+   :members:
+   :private-members:
+   :special-members:

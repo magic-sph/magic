@@ -364,4 +364,4 @@ Miscellaneous
    | mpi_packing='single'   | Transpose each field individually                |
    +------------------------+--------------------------------------------------+
 
-* **l_adv_curl** (default :f:var:`l_adv_curl=.false. <l_adv_curl>`) is a logical. When set to True, the advection term is treated as :math:`\vec{u}\times\vec{\omega}` instead of :math:`\vec{u}\vec{\nabla}\vec{u}`. The practical consequence of that is to reduce the number of spectral/spatial Spherical Harmonic Transforms and hence to speed-up the code. Because of the treatment of the viscous heating term in the anelastic approximation, this is only an option when considering Boussinesq models.
+* **l_adv_curl** (default :f:var:`l_adv_curl=.true. <l_adv_curl>`) is a logical. When set to True, the advection term is treated as :math:`\vec{u}\times\vec{\omega}` instead of :math:`\vec{u}\vec{\nabla}\vec{u}`. The practical consequence of that is to reduce the number of spectral/spatial Spherical Harmonic Transforms and hence to speed-up the code. Because of the treatment of the viscous heating term in the anelastic approximation, this is only an option when considering Boussinesq models.
