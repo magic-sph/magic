@@ -729,8 +729,7 @@ def timeder(time,y):
     computed with central differences (numpy.gradient)
 
     >>> ts = MagicTs(field='e_kin')
-    >>> dt_ekinpol = timeder(ts,field='ekin_pol')
-
+    >>> dt_ekinpol = timeder(ts, ts.ekin_pol)
     """
     out = np.gradient(y, time, edge_order=1)
 
@@ -743,11 +742,11 @@ def secondtimeder(time,y):
     computed with central differences (numpy.gradient)
 
     >>> ts = MagicTs(field='e_kin')
-    >>> dt_ekinpol = secondtimeder(ts,field='ekin_pol')
-
+    >>> dt_ekinpol = secondtimeder(ts, ts.ekin_pol)
     """
     tmp = np.gradient(y, time, edge_order=1)
     out = np.gradient(tmp, time, edge_order=1)
+
     return out
 
 def phideravg(data, minc=1, order=4):
