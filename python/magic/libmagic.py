@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import scipy.interpolate as S
+from scipy.integrate import simps
 import numpy as np
 import glob, os, re, sys
 from .npfile import *
@@ -242,7 +243,8 @@ def selectField(obj, field, labTex=True, ic=False):
 
     return data, data_ic, label
 
-def avgField(time, field, tstart=None, std=False, fix_missing_series=False):
+def avgField(time, field, tstart=None, std=False, fix_missing_series=False,
+             tstop=None):
     """
     This subroutine computes the time-average (and the std) of a time series
 
@@ -256,6 +258,8 @@ def avgField(time, field, tstart=None, std=False, fix_missing_series=False):
     :type field: numpy.ndarray
     :param tstart: the starting time of the averaging
     :type tstart: float
+    :param tstart: the stopping time of the averaging
+    :type tstart: float
     :param std: when set to True, the standard deviation is also calculated
     :type std: bool
     :param fix_missing_series: when set to True, data equal to zero are ignored,
@@ -267,30 +271,36 @@ def avgField(time, field, tstart=None, std=False, fix_missing_series=False):
     """
     if tstart is not None:
         mask = np.where(abs(time-tstart) == min(abs(time-tstart)), 1, 0)
-        ind = np.nonzero(mask)[0][0]
+        ind1 = np.nonzero(mask)[0][0]
     else: # the whole input array is taken!
-        ind = 0
+        ind1 = 0
+
+    if tstop is not None:
+        mask = np.where(abs(time-tstop) == min(abs(time-tstop)), 1, 0)
+        ind2 = np.nonzero(mask)[0][0]
+    else: # the whole input array is taken!
+        ind2 = -1
 
     # Now suppose data were not stored in the first part of the run
     # then the time series could look like 0,0,0,...,data,data,data
     # In that case starting index needs to be overwritten
-    if fix_missing_series and len(field.shape) == 1  and field[ind] == 0:
+    if fix_missing_series and len(field.shape) == 1  and field[ind1] == 0:
         mask = np.where(field != 0, 1, 0)
         mask = np.nonzero(mask)[0]
         if len(mask) > 0:
-            ind1 = mask[0]
-            if ind1 > ind:
-                ind = ind1
+            ind_tmp = mask[0]
+            if ind_tmp > ind1:
+                ind1 = ind_tmp
 
-    if time[ind:].shape[0] == 1: # Only one entry in the array
+    if time[ind1:ind2].shape[0] == 1: # Only one entry in the array
         if len(field.shape) > 1:
-            avgField = field[ind, ...]
+            avgField = field[ind1, ...]
             stdField = np.zeros_like(avgField)
         else:
-            avgField = field[ind]
+            avgField = field[ind1]
             stdField = 0
     else:
-        if time[-1] == time[ind]: # Same time: this can happen for timestep.TAG
+        if time[ind1] == time[ind2]: # Same time: this can happen for timestep.TAG
             if len(field.shape) > 1:
                 avgField = field[-1, ...]
                 stdField = np.zeros_like(avgField)
@@ -298,11 +308,11 @@ def avgField(time, field, tstart=None, std=False, fix_missing_series=False):
                 avgField = field[-1]
                 stdField = 0
         else:
-            fac = 1./(time[-1]-time[ind])
-            avgField = fac*np.trapz(field[ind:, ...], time[ind:], axis=0)
+            fac = 1./(time[ind2]-time[ind1])
+            avgField = fac*np.trapz(field[ind1:ind2, ...], time[ind1:ind2], axis=0)
             if std:
-                stdField = np.sqrt(fac*np.trapz((field[ind:, ...]-avgField)**2,
-                                   time[ind:], axis=0))
+                stdField = np.sqrt(fac*np.trapz((field[ind1:ind2, ...]-avgField)**2,
+                                   time[ind1:ind2], axis=0))
 
     if std:
         return avgField, stdField
@@ -1160,3 +1170,30 @@ def prime_factors(n):
         factors.append(n)
 
     return factors
+
+def horizontal_mean(field, colat, std=False):
+    """
+    This function computes the horizontal mean (and the standard deviation)
+    of an input array of size (nphi,ntheta) or (nphi,ntheta,nr)
+
+    :param field: the input array
+    :type field: numpy.ndarray
+    :param colat: an array that contains the colatitudes
+    :type colat: numpy.ndarray
+    :param std: a boolean if one also wants to compute the standard deviation
+    :type std: bool
+    :returns: the average value or radial profile
+    :rtype: float
+    """
+
+    field_m = field.mean(axis=0) # Azimuthal average
+    field_mean = 0.5 * simps(field_m.T*np.sin(colat), colat, axis=-1)
+
+    if std:
+        dat = (field-field_mean)**2
+        dat_m = dat.mean(axis=0)
+        dat_mean = 0.5 * simps(dat_m.T*np.sin(colat), colat, axis=-1)
+        field_std = np.sqrt(dat_mean)
+        return field_mean, field_std
+    else:
+        return field_mean
