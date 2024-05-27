@@ -111,9 +111,10 @@ class MagicGraph(MagicSetup):
                 file = '{}{}.{}'.format(self.name, ivar, tag)
                 filename = os.path.join(datadir, file)
             else:
-                files = scanDir('{}*{}'.format(self.name, tag))
+                pattern = os.path.join(datadir, '{}*{}'.format(self.name, tag))
+                files = scanDir(pattern)
                 if len(files) != 0:
-                    filename = os.path.join(datadir, files[-1])
+                    filename = files[-1]
                 else:
                     print('No such tag... try again')
                     return
@@ -123,11 +124,13 @@ class MagicGraph(MagicSetup):
                                     nml='log.{}'.format(tag))
         else:
             if ivar is not None:
-                files = scanDir('{}{}*'.format(self.name, ivar))
-                filename = os.path.join(datadir, files[-1])
+                pattern = os.path.join(datadir, '{}{}*'.format(self.name, ivar))
+                files = scanDir(pattern)
+                filename = files[-1]
             else:
-                files = scanDir('{}*'.format(self.name))
-                filename = os.path.join(datadir, files[-1])
+                pattern = os.path.join(datadir, '{}*'.format(self.name))
+                files = scanDir(pattern)
+                filename = files[-1]
             # Determine the setup
             mask = re.compile(r'.*\.(.*)')
             ending = mask.search(files[-1]).groups(0)[0]
