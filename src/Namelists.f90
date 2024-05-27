@@ -143,14 +143,8 @@ contains
       &    mode_symm_ic,ellipticity_icb,gammatau_gravi
 
 
-      do n=1,4*n_impS_max
-         sCMB(n)=0.0_cp
-      end do
-
-      do n=1,4*n_impXi_max
-         xiCMB(n)=0.0_cp
-      end do
-
+      sCMB(:)   =0.0_cp
+      xiCMB(:)  =0.0_cp
       runHours  =0
       runMinutes=0
       runSeconds=0
@@ -1269,9 +1263,6 @@ contains
       !  for the namelists.
       !
 
-      !-- Local variable:
-      integer :: n
-
       !----- Namelist grid
       ! must be of form 4*integer+1
       ! Possible values for n_r_max:
@@ -1411,28 +1402,20 @@ contains
       ktopb      =1
       kbotb      =1
       ktopp      =1
-      do n=1,4*n_s_bounds
-         s_top(n)=0.0_cp
-         s_bot(n)=0.0_cp
-      end do
+      s_top(:)   =0.0_cp
+      s_bot(:)   =0.0_cp
       impS=0
-      do n=1,n_impS_max
-         peakS(n) =0.0_cp
-         thetaS(n)=0.0_cp
-         phiS(n)  =0.0_cp
-         widthS(n)=0.0_cp
-      end do
-      do n=1,4*n_xi_bounds
-         xi_top(n)=0.0_cp
-         xi_bot(n)=0.0_cp
-      end do
+      peakS(:)   =0.0_cp
+      thetaS(:)  =0.0_cp
+      phiS(:)    =0.0_cp
+      widthS(:)  =0.0_cp
+      xi_top(:)  =0.0_cp
+      xi_bot(:)  =0.0_cp
       impXi=0
-      do n=1,n_impXi_max
-         peakXi(n) =0.0_cp
-         thetaXi(n)=0.0_cp
-         phiXi(n)  =0.0_cp
-         widthXi(n)=0.0_cp
-      end do
+      peakXi(:)  =0.0_cp
+      thetaXi(:) =0.0_cp
+      phiXi(:)   =0.0_cp
+      widthXi(:) =0.0_cp
       ktopphi    =1
       kbotphi    =1
 
@@ -1553,9 +1536,7 @@ contains
       l_r_fieldXi   =.false.
       l_max_r       =l_max
       n_r_step      =2
-      do n=1,size(n_r_array)
-         n_r_array(n)=0
-      end do
+      n_r_array(:)  =0
       n_r_field_step =0
       n_r_fields     =0
       t_r_field_start=0.0_cp
@@ -1579,9 +1560,7 @@ contains
       t_movie_start =0.0_cp
       t_movie_stop  =0.0_cp
       dt_movie      =0.0_cp
-      do n=1,n_movies_max
-         movie(n)=' '
-      end do
+      movie(:)      =' '
       r_surface     =2.8209_cp    ! in units of (r_cmb-r_icb)
 
       !----- Output from probes:
