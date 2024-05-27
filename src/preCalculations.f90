@@ -865,26 +865,22 @@ contains
            &             n_specs,n_spec_step,'spec',time,time_span,tScale)
 
       if ( l_probe ) then
-         l_probe=.false.
          call get_hit_times(t_probe,n_t_probe,t_probe_start,t_probe_stop,dt_probe, &
               &             n_probe_out,n_probe_step,'probe',time,time_span,tScale)
-         if ( n_probe_out > 0 .or. n_probe_step > 0 ) l_probe= .true.
       end if
 
       if ( l_cmb_field ) then
          l_cmb_field=.false.
          call get_hit_times(t_cmb,n_t_cmb,t_cmb_start,t_cmb_stop,dt_cmb,n_cmbs,&
               &             n_cmb_step,'cmb',time,time_span,tScale)
-         if ( n_cmbs > 0 .or. n_cmb_step > 0 ) l_cmb_field= .true.
+         if ( n_cmbs > 0 .or. n_cmb_step > 0 .or. n_t_cmb > 0 ) l_cmb_field= .true.
       end if
       l_dt_cmb_field=l_dt_cmb_field .and. l_cmb_field
 
       if ( l_r_field ) then
-         l_r_field=.false.
          call get_hit_times(t_r_field,n_t_r_field,t_r_field_start,t_r_field_stop,&
               &             dt_r_field,n_r_fields,n_r_field_step,'r_field',time, &
               &             time_span,tScale)
-         if ( n_r_fields > 0 .or. n_r_field_step > 0 ) l_r_field= .true.
       end iF
 
       if ( l_movie ) then

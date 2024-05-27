@@ -43,7 +43,9 @@ contains
       m_max = m_max_in
       n_m_max = m_max/minc+1
 
-      if ( allocated(plma) ) deallocate( gauss, plma, dtheta_plma)
+      if ( allocated(gauss) ) deallocate( gauss )
+      if ( allocated(plma) ) deallocate( plma )
+      if ( allocated(dtheta_plma) ) deallocate( dtheta_plma )
       allocate(gauss(n_theta_max))
       allocate(plma(1:lm_max))
       allocate(dtheta_plma(1:lm_max))
