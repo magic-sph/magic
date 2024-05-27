@@ -125,6 +125,8 @@ contains
          end if
       end do
 
+      if ( a == 0.0_cp ) x(n+1)=0.0_cp
+
    end subroutine cheb_grid
 !------------------------------------------------------------------------------
 end module chebyshev_polynoms_mod
