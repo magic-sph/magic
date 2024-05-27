@@ -513,9 +513,9 @@ contains
             if ( l_anelastic_liquid ) then
                fconv=vr(nTheta,nPhi)*sr(nTheta,nPhi)
             else
-               fconv=temp0(nr)*vr(nTheta,nPhi)*sr(nTheta,nPhi)     +    &
-               &          ViscHeatFac*ThExpNb*alpha0(nr)*temp0(nr)*     &
-               &          orho1(nr)*vr(nTheta,nPhi)*pr(nTheta,nPhi)
+               fconv=temp0(nR)*vr(nTheta,nPhi)*sr(nTheta,nPhi)     +    &
+               &          ViscHeatFac*ThExpNb*alpha0(nR)*temp0(nR)*     &
+               &          orho1(nR)*vr(nTheta,nPhi)*pr(nTheta,nPhi)
             end if
 
             fkin=half*or2(nR)*orho2(nR)*(O_sin_theta_E2(nTheta)*(    &

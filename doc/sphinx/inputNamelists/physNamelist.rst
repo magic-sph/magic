@@ -178,11 +178,11 @@ Phase field
 
 * **tmelt** (default :f:var:`tmelt=0.0 <tmelt>`) is a real. This is the dimensionless melting temperature.
 
-* **epsPhase** (default :f:var:`epsPhase=0.01 <epsPhase>`) is a real. This is the dimensionless interface thickness between the solid and the liquid phase (sometimes known as the Cahn number).
+* **epsPhase** (default :f:var:`epsPhase=0.01 <epsphase>`) is a real. This is the dimensionless interface thickness between the solid and the liquid phase (sometimes known as the Cahn number).
 
-* **phaseDiffFac** (default :f:var:`phaseDiffFac=1.0 <phaseDiffFac>`) is a real. This is a coefficient that goes in front of the diffusion term in the phase field equation.
+* **phaseDiffFac** (default :f:var:`phaseDiffFac=1.0 <phasedifffac>`) is a real. This is a coefficient that goes in front of the diffusion term in the phase field equation.
 
-* **penaltyFac** (default :f:var:`penaltyFac=1.0 <penaltyFac>`) is a real. This is coefficient used for the penalisation of the velocity field in the solid phase. The smaller the coefficient, the stronger the penalisation. Since this is a nonlinear term, it is handled explicitly and the time step size should be decreased with the square of :f:var:`penaltyFac`.
+* **penaltyFac** (default :f:var:`penaltyFac=1.0 <penaltyfac>`) is a real. This is coefficient used for the penalisation of the velocity field in the solid phase. The smaller the coefficient, the stronger the penalisation. Since this is a nonlinear term, it is handled explicitly and the time step size should be decreased with the square of :f:var:`penaltyfac`.
 
 
 Transport properties
