@@ -732,27 +732,37 @@ def den(k, j, nr):
         den = 2.*den
     return den
 
-def timeder(time,y):
+def timeder(time, y):
     """
-    time derivative of an input array
-
-    computed with central differences (numpy.gradient)
+    This routine computes the time derivative of an input array
 
     >>> ts = MagicTs(field='e_kin')
-    >>> dt_ekinpol = timeder(ts, ts.ekin_pol)
+    >>> dEkdt = timeder(ts, ts.ekin_pol)
+
+    :param time: an array that contains time
+    :type time: numpy.ndarray
+    :param y: an array which contains the field to be differentiated
+    :type y: numpy.ndarray
+    :returns: an array that contains the time derivative
+    :rtype: numpy.ndarray
     """
     out = np.gradient(y, time, edge_order=1)
 
     return out
 
-def secondtimeder(time,y):
+def secondtimeder(time, y):
     """
-    second time derivative of an input array
-
-    computed with central differences (numpy.gradient)
+    This routine computes the second time derivative of an input array
 
     >>> ts = MagicTs(field='e_kin')
-    >>> dt_ekinpol = secondtimeder(ts, ts.ekin_pol)
+    >>> d2Ekdt2 = secondtimeder(ts, ts.ekin_pol)
+
+    :param time: an array that contains time
+    :type time: numpy.ndarray
+    :param y: an array which contains the field to be differentiated two times
+    :type y: numpy.ndarray
+    :returns: an array that contains the second time derivative
+    :rtype: numpy.ndarray
     """
     tmp = np.gradient(y, time, edge_order=1)
     out = np.gradient(tmp, time, edge_order=1)
