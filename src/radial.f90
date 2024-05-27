@@ -6,7 +6,7 @@ module radial_functions
 
    use iso_fortran_env, only: output_unit
    use truncation, only: n_r_max, n_cheb_max, n_r_ic_max, fd_ratio, rcut_l, &
-       &                 fd_stretch, fd_order, fd_order_bound, l_max
+       &                 fd_stretch, fd_order, fd_order_bound, l_max, n_cheb_ic_max
    use algebra, only: prepare_mat, solve_mat
    use constants, only: sq4pi, one, two, three, four, half, pi
    use physical_parameters
@@ -86,10 +86,9 @@ module radial_functions
    real(cp), public, allocatable :: dcheb_ic(:,:)        ! First radial derivative of cheb_ic
    real(cp), public, allocatable :: d2cheb_ic(:,:)       ! Second radial derivative cheb_ic
    real(cp), public, allocatable :: cheb_int_ic(:)       ! Array for integrals of cheb for IC
-   integer, public :: nDi_costf1_ic                      ! Radii for transform
-   integer, public :: nDd_costf1_ic                      ! Radii for transform
-   integer, public :: nDi_costf2_ic                      ! Radii for transform
-   integer, public :: nDd_costf2_ic                      ! Radii for transform
+   integer :: nDd_costf1_ic                      ! Radii for transform
+   integer :: nDi_costf2_ic                      ! Radii for transform
+   integer :: nDd_costf2_ic                      ! Radii for transform
 
    real(cp), public, allocatable :: lambda(:)     ! Array of magnetic diffusivity
    real(cp), public, allocatable :: dLlambda(:)   ! Derivative of magnetic diffusivity
@@ -151,7 +150,6 @@ contains
       bytes_allocated = bytes_allocated +n_r_max*SIZEOF_INTEGER
 
       if ( .not. l_full_sphere ) then
-         nDi_costf1_ic=2*n_r_ic_max+2
          nDd_costf1_ic=2*n_r_ic_max+5
          nDi_costf2_ic=2*n_r_ic_max
          nDd_costf2_ic=2*n_r_ic_max+n_r_ic_max/2+5
@@ -163,7 +161,7 @@ contains
          bytes_allocated = bytes_allocated + &
          &                 (3*n_r_ic_max*n_r_ic_max+n_r_ic_max)*SIZEOF_DEF_REAL
 
-         call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
+         call chebt_ic%initialize(n_r_ic_max,n_cheb_ic_max,nDd_costf1_ic)
 
          allocate ( dr_top_ic(n_r_ic_max) )
          bytes_allocated = bytes_allocated+n_r_ic_max*SIZEOF_DEF_REAL
@@ -1259,7 +1257,7 @@ contains
 
    end subroutine transportProperties
 !------------------------------------------------------------------------------
-   subroutine getEntropyGradient
+   subroutine getEntropyGradient()
       !
       ! This subroutine allows to calculate the background entropy gradient
       ! in case stable stratification is required
@@ -1270,20 +1268,20 @@ contains
       if ( nVarEntropyGrad == 0 ) then ! Default: isentropic
          dEntropy0(:)=0.0_cp
          l_non_adia = .false.
-      else if ( nVarEntropyGrad == 1  .or. rStrat >= r_cmb) then ! Takehiro
-         if ( rStrat <= r_icb ) then
+      else if ( nVarEntropyGrad == 1 ) then ! Takehiro
+         if ( rStrat <= r_icb .or. rStrat >= r_cmb ) then
             dentropy0(:) = ampStrat
          else
             dentropy0(:) = -half*(ampStrat+one)*(one-tanh(slopeStrat*(r(:)-rStrat)))&
             &              + ampStrat
          end if
          l_non_adia = .true.
-      else if ( nVarEntropyGrad == 2  .or. rStrat >= r_cmb) then ! Flat + linear
-         if ( rStrat <= r_icb ) then
+      else if ( nVarEntropyGrad == 2 ) then ! Flat + linear
+         if ( rStrat <= r_icb .or. rStrat >= r_cmb ) then
             dentropy0(:) = ampStrat
          else
             do n_r=1,n_r_max
-               if ( r(n_r) <= rStrat  .or. rStrat >= r_cmb) then
+               if ( r(n_r) <= rStrat .or. rStrat >= r_cmb) then
                   dentropy0(n_r)=-one
                else
                   dentropy0(n_r)=(ampStrat+one)*(r(n_r)-r_cmb)/(r_cmb-rStrat) + &
@@ -1303,15 +1301,28 @@ contains
          l_non_adia = .true.
       else if ( nVarEntropyGrad == 4 ) then ! modified Takehiro
          if ( rStrat <= r_icb .or. rStrat >= r_cmb ) then
-            dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3 -r_icb**3)*(r_icb/r(:))**2
+            dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3-r_icb**3)*(r_icb/r(:))**2
          else
-            dentropy0(:) = half*(-ampStrat+(r(:)**3-r_cmb**3)/(r_cmb**3 -r_icb**3)* &
+            dentropy0(:) = half*(-ampStrat+(r(:)**3-r_cmb**3)/(r_cmb**3-r_icb**3)* &
             &              (r_icb/r(:))**2)*(one-tanh(slopeStrat*(r(:)-rStrat))) +  &
             &              ampStrat
          end if
          l_non_adia = .true.
       else if ( nVarEntropyGrad == 5 ) then ! uniform volumic heat without strat
-         dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3 -r_icb**3)*(r_icb/r(:))**2
+         dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3-r_icb**3)*(r_icb/r(:))**2
+         l_non_adia = .true.
+      else if ( nVarEntropyGrad == 6 ) then ! Chemical heating + linear stratification
+         if ( rStrat <= r_icb .or. rStrat >= r_cmb ) then
+            dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3-r_icb**3)*(r_icb/r(:))**2
+         else
+            dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3-r_icb**3)*(r_icb/r(:))**2
+            do n_r=1,n_r_max
+               if ( r(n_r) >= rStrat ) then
+                  dentropy0(n_r) = dentropy0(n_r) + ampStrat*(r(n_r)-rStrat)/ &
+                  &                (r_cmb-rStrat)
+               end if
+            end do
+         end if
          l_non_adia = .true.
       end if
 
