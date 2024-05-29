@@ -33,7 +33,7 @@ def deriv(x, y, axis=0):
     return d
 
 def getGauss(alm, blm, ell, m, scale_b, ratio_cmb_surface, rcmb):
-    """
+    r"""
     Get the Gauss coefficients from the real and imaginary parts
     of the poloidal potential
 
@@ -41,7 +41,7 @@ def getGauss(alm, blm, ell, m, scale_b, ratio_cmb_surface, rcmb):
     :type alm: numpy.ndarray
     :param blm: imaginary part of the poloidal potential
     :type blm: numpy.ndarray
-    :param ell: spherical harmonic degree \ell
+    :param ell: spherical harmonic degree :math:`\ell`
     :type ell: numpy.ndarray
     :param scale_b: magnetic field unit (default is 1)
     :type scale_b: float
@@ -74,7 +74,7 @@ def rearangeLat(field):
 
 
 class MagicCoeffCmb(MagicSetup):
-    """
+    r"""
     This class allows to read the :ref:`B_coeff_cmb.TAG <secCoeffFiles>` files.
     It first read the poloidal potential at the CMB and then transform
     it to the Gauss coefficients :math:`g_{\ell m}` and :math:`h_{\ell m}`
@@ -640,7 +640,7 @@ class MagicCoeffCmb(MagicSetup):
 
 
 class MagicCoeffR(MagicSetup):
-    """
+    r"""
     This class allows to read the :ref:`B_coeff_r#.TAG <secBcoeffrFile>`
     and :ref:`V_coeff_r#.TAG <secVcoeffrFile>` files.
     It reads the poloidal and toroidal potentials and reconstruct the time
@@ -1155,7 +1155,7 @@ class MagicCoeffR(MagicSetup):
 
     def cwt(self, ell, w0=20, nfreq=256, fmin_fac=8, fmax_fac=0.5,
             cm='turbo', logscale=False):
-        """
+        r"""
         Build a time-frequency spectrum at a given degree :math:`\ell` using
         a continuous wavelet transform with morlet wavelets.
 
