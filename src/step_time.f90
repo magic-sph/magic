@@ -1328,7 +1328,7 @@ contains
                call lmLoop_counter%start_count()
                if ( (.not. l_finish_exp_early) ) then
                   call f_exp_counter%start_count()
-                  call finish_explicit_assembly(omega_mac, omega_ic, w_LMloc,        &
+                  call finish_explicit_assembly(omega_ma, omega_ic, w_LMloc,         &
                        &                        b_ic_LMloc, aj_ic_LMloc,             &
 #ifdef WITH_OMP_GPU
                        &                        loc_dvs, loc_dvxi, loc_dvxv, loc_dvb,&
