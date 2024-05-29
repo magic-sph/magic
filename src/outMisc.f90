@@ -14,7 +14,7 @@ module outMisc_mod
 #endif
    use communications, only: gather_from_Rloc, gather_from_lo_to_rank0
    use truncation, only: n_r_max, n_theta_max, n_r_maxMag, n_phi_max, lm_max, &
-       &                 m_min, m_max, minc
+       &                 m_min, m_max, minc, nlat_padded
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop, radial_balance
    use radial_functions, only: r_icb, rscheme_oc, kappa, r_cmb,temp0, r, rho0, &
        &                       dLtemp0, dLalpha0, beta, orho1, alpha0, otemp1, &
@@ -65,7 +65,7 @@ module outMisc_mod
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
    &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
    &         get_ekin_solid_liquid_batch, get_helicity_batch, get_hemi_batch,    &
-   &         get_onset
+   &         get_onset, write_rmelt_frame
 
 contains
 

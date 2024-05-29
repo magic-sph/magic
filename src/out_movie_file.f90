@@ -944,7 +944,6 @@ contains
                &                        or2(n_r)*   vr(nelem0)*vr(nelem0) + &
                &     O_sin_theta_E2(n_theta_cal)*   vt(nelem0)*vt(nelem0) + &
                &     O_sin_theta_E2(n_theta_cal)*   vp(nelem0)*vp(nelem0) )
-               &
             end do
             frames(n_0+n_theta) =phi_norm*fl(1)
          end do
