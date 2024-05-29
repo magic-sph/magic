@@ -7,24 +7,24 @@ import shutil
 import subprocess as sp
 
 def cleanDir(dir):
-    if os.path.exists('%s/pscond.dat' % dir):
-        os.remove('%s/pscond.dat' % dir)
-    if os.path.exists('%s/scond.dat' % dir):
-        os.remove('%s/scond.dat' % dir)
-    if os.path.exists('%s/run_magic.sh' % dir):
-        os.remove('%s/run_magic.sh' % dir)
-    if os.path.exists('%s/run_magic_mpi.sh' % dir):
-        os.remove('%s/run_magic_mpi.sh' % dir)
-    for f in glob.glob('%s/*_BIS' % dir):
+    if os.path.exists('{}/pscond.dat'.format(dir)):
+        os.remove('{}/pscond.dat'.format(dir))
+    if os.path.exists('{}/scond.dat'.format(dir)):
+        os.remove('{}/scond.dat'.format(dir))
+    if os.path.exists('{}/run_magic.sh'.format(dir)):
+        os.remove('{}/run_magic.sh'.format(dir))
+    if os.path.exists('{}/run_magic_mpi.sh'.format(dir)):
+        os.remove('{}/run_magic_mpi.sh'.format(dir))
+    for f in glob.glob('{}/*_BIS'.format(dir)):
         os.remove(f)
-    for f in glob.glob('%s/*.test' % dir):
+    for f in glob.glob('{}/*.test'.format(dir)):
         os.remove(f)
-    if os.path.exists('%s/stdout.out' % dir):
-        os.remove('%s/stdout.out' % dir)
-    for f in glob.glob('%s/*.pyc' % dir):
+    if os.path.exists('{}/stdout.out'.format(dir)):
+        os.remove('{}/stdout.out'.format(dir))
+    for f in glob.glob('{}/*.pyc'.format(dir)):
         os.remove(f)
-    if os.path.exists('%s/__pycache__' % dir):
-        shutil.rmtree('%s/__pycache__' % dir)
+    if os.path.exists('{}/__pycache__'.format(dir)):
+        shutil.rmtree('{}/__pycache__'.format(dir))
 
 
 def readStack(file):
@@ -46,71 +46,75 @@ def generateEkinFile(fileName='e_kin.test'):
 
     # Classical CMB file
     cmb = MagicCoeffCmb(tag='start', iplot=False, quiet=True)
-    st = '%.5e %.5e %.5e %.5e %.5e' % ( cmb.glm[0, cmb.idx[1, 0]],
-                                        cmb.glm[2, cmb.idx[1, 0]],
-                                        cmb.hlm[-1, cmb.idx[5, 0]],
-                                        cmb.glm[2, cmb.idx[5, 4]],
-                                        cmb.hlm[3, cmb.idx[5, 4]] )
+    st = '{:.5e} {:.5e} {:.5e} {:.5e} {:.5e}'.format( cmb.glm[0, cmb.idx[1, 0]],
+                                                      cmb.glm[2, cmb.idx[1, 0]],
+                                                      cmb.hlm[-1, cmb.idx[5, 0]],
+                                                      cmb.glm[2, cmb.idx[5, 4]],
+                                                      cmb.hlm[3, cmb.idx[5, 4]] )
     file.write(st+'\n')
 
     # Secular variation CMB file
     cmb = MagicCoeffCmb(tag='start', iplot=False, sv=True, quiet=True)
-    st = '%.5e %.5e %.5e %.5e %.5e' % ( cmb.glm[1, cmb.idx[1, 0]],
-                                        cmb.glm[2, cmb.idx[1, 0]],
-                                        cmb.hlm[-1, cmb.idx[5, 0]],
-                                        cmb.glm[2, cmb.idx[5, 4]],
-                                        cmb.hlm[3, cmb.idx[5, 4]] )
+    st = '{:.5e} {:.5e} {:.5e} {:.5e} {:.5e}'.format( cmb.glm[1, cmb.idx[1, 0]],
+                                                      cmb.glm[2, cmb.idx[1, 0]],
+                                                      cmb.hlm[-1, cmb.idx[5, 0]],
+                                                      cmb.glm[2, cmb.idx[5, 4]],
+                                                      cmb.hlm[3, cmb.idx[5, 4]] )
     file.write(st+'\n')
 
     # Time-averaged CMB file
     cmb = MagicCoeffCmb(tag='start',  iplot=False, ave=True, quiet=True)
-    st = '%.5e %.5e %.5e %.5e' % ( cmb.glm[0, cmb.idx[1, 0]],
-                                   cmb.hlm[0, cmb.idx[5, 0]],
-                                   cmb.glm[0, cmb.idx[5, 4]],
-                                   cmb.hlm[0, cmb.idx[5, 4]] )
+    st = '{:.5e} {:.5e} {:.5e} {:.5e}'.format( cmb.glm[0, cmb.idx[1, 0]],
+                                               cmb.hlm[0, cmb.idx[5, 0]],
+                                               cmb.glm[0, cmb.idx[5, 4]],
+                                               cmb.hlm[0, cmb.idx[5, 4]] )
     file.write(st+'\n')
 
     # Coeff at depth
     coeff = MagicCoeffR(tag='start',  field='V', r=1, iplot=False, quiet=True)
-    st = '%.5e %.5e %.5e %.5e' % ( coeff.wlm[0, coeff.idx[4, 4]].real,
-                                   coeff.wlm[0, coeff.idx[4, 4]].imag,
-                                   coeff.zlm[0, coeff.idx[1, 0]].real,
-                                   coeff.wlm[0, coeff.idx[2, 0]].imag )
+    st = '{:.5e} {:.5e} {:.5e} {:.5e}'.format( coeff.wlm[0, coeff.idx[4, 4]].real,
+                                               coeff.wlm[0, coeff.idx[4, 4]].imag,
+                                               coeff.zlm[0, coeff.idx[1, 0]].real,
+                                               coeff.wlm[0, coeff.idx[2, 0]].imag )
     file.write(st+'\n')
 
     coeff = MagicCoeffR(tag='start',  field='V', r=2, iplot=False, quiet=True)
-    st = '%.5e %.5e %.5e %.5e' % ( coeff.wlm[0, coeff.idx[4, 4]].real,
-                                   coeff.wlm[0, coeff.idx[4, 4]].imag,
-                                   coeff.zlm[0, coeff.idx[1, 0]].real,
-                                   coeff.wlm[0, coeff.idx[2, 0]].imag )
+    st = '{:.5e} {:.5e} {:.5e} {:.5e}'.format( coeff.wlm[0, coeff.idx[4, 4]].real,
+                                               coeff.wlm[0, coeff.idx[4, 4]].imag,
+                                               coeff.zlm[0, coeff.idx[1, 0]].real,
+                                               coeff.wlm[0, coeff.idx[2, 0]].imag )
     file.write(st+'\n')
 
     coeff = MagicCoeffR(tag='start',  field='B', r=1, iplot=False, quiet=True)
-    st = '%.5e %.5e %.5e %.5e' % ( coeff.wlm[0, coeff.idx[1, 0]].real,
-                                   coeff.wlm[0, coeff.idx[1, 0]].imag,
-                                   coeff.zlm[0, coeff.idx[5, 0]].real,
-                                   coeff.wlm[0, coeff.idx[5, 4]].imag )
+    st = '{:.5e} {:.5e} {:.5e} {:.5e}'.format( coeff.wlm[0, coeff.idx[1, 0]].real,
+                                               coeff.wlm[0, coeff.idx[1, 0]].imag,
+                                               coeff.zlm[0, coeff.idx[5, 0]].real,
+                                               coeff.wlm[0, coeff.idx[5, 4]].imag )
     file.write(st+'\n')
 
     coeff = MagicCoeffR(tag='start',  field='B', r=2, iplot=False, quiet=True)
-    st = '%.5e %.5e %.5e %.5e' % ( coeff.wlm[0, coeff.idx[1, 0]].real,
-                                   coeff.wlm[0, coeff.idx[1, 0]].imag,
-                                   coeff.zlm[0, coeff.idx[4, 0]].real,
-                                   coeff.wlm[0, coeff.idx[5, 4]].imag )
+    st = '{:.5e} {:.5e} {:.5e} {:.5e}'.format( coeff.wlm[0, coeff.idx[1, 0]].real,
+                                               coeff.wlm[0, coeff.idx[1, 0]].imag,
+                                               coeff.zlm[0, coeff.idx[4, 0]].real,
+                                               coeff.wlm[0, coeff.idx[5, 4]].imag )
     file.write(st+'\n')
 
     pot = MagicPotential(field='B', verbose=False)
-    st = '%.5e %.5e %.5e %.5e' % ( pot.pol[5, 3].real, pot.pol[127, 15].imag,
-                                   pot.tor[183, 16].real, pot.tor[121, 9].imag )
+    st = '{:.5e} {:.5e} {:.5e} {:.5e}'.format( pot.pol[5, 3].real,
+                                               pot.pol[127, 15].imag,
+                                               pot.tor[183, 16].real,
+                                               pot.tor[121, 9].imag )
     file.write(st+'\n')
 
     pot = MagicPotential(field='V', verbose=False)
-    st = '%.5e %.5e %.5e %.5e' % ( pot.pol[65, 15].real, pot.pol[125, 17].imag,
-                                   pot.tor[63, 12].real, pot.tor[184, 13].imag )
+    st = '{:.5e} {:.5e} {:.5e} {:.5e}'.format( pot.pol[65, 15].real,
+                                               pot.pol[125, 17].imag,
+                                               pot.tor[63, 12].real,
+                                               pot.tor[184, 13].imag )
     file.write(st+'\n')
 
     pot = MagicPotential(field='T', verbose=False)
-    st = '%.5e %.5e' % ( pot.pol[0, 15].real, pot.pol[65, 9].real )
+    st = '{:.5e} {:.5e}'.format( pot.pol[0, 15].real, pot.pol[65, 9].real )
     file.write(st+'\n')
 
     file.close()
@@ -131,14 +135,14 @@ class TestCoeffOutputs(unittest.TestCase):
 
     def setUp(self):
         # Cleaning when entering
-        print('\nDirectory   :           %s' % self.dir)
-        print('Description :           %s' % self.description)
+        print('\nDirectory   :           {}'.format(self.dir))
+        print('Description :           {}'.format(self.description))
         self.startTime = time.time()
         cleanDir(self.dir)
-        for f in glob.glob('%s/*.start' % self.dir):
+        for f in glob.glob('{}/*.start'.format(self.dir)):
             os.remove(f)
         os.chdir(self.dir)
-        cmd = '%s %s/input.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
@@ -146,12 +150,12 @@ class TestCoeffOutputs(unittest.TestCase):
         # Cleaning when leaving
         os.chdir(self.startDir)
         cleanDir(self.dir)
-        for f in glob.glob('%s/*.start' % self.dir):
+        for f in glob.glob('{}/*.start'.format(self.dir)):
             os.remove(f)
 
         t = time.time()-self.startTime
         st = time.strftime("%M:%S", time.gmtime(t))
-        print('Time used   :                            %s' % st)
+        print('Time used   :                            {}'.format(st))
 
         if hasattr(self, '_outcome'): # python 3.4+
             if hasattr(self._outcome, 'errors'):  # python 3.4-3.10
@@ -183,8 +187,8 @@ class TestCoeffOutputs(unittest.TestCase):
                          'MAGIC_HOME is not defined! source sourceme.sh!')
     def outputFileDiff(self):
         generateEkinFile('e_kin.test')
-        datRef = readStack('%s/reference.out' % self.dir)
-        datTmp = readStack('%s/e_kin.test' % self.dir)
+        datRef = readStack('{}/reference.out'.format(self.dir))
+        datTmp = readStack('{}/e_kin.test'.format(self.dir))
         np.testing.assert_equal(datRef, datTmp)
 
 if __name__ == '__main__':

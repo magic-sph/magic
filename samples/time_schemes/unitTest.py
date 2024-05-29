@@ -7,24 +7,24 @@ import time
 import subprocess as sp
 
 def cleanDir(dir):
-    if os.path.exists('%s/pscond.dat' % dir):
-        os.remove('%s/pscond.dat' % dir)
-    if os.path.exists('%s/scond.dat' % dir):
-        os.remove('%s/scond.dat' % dir)
-    if os.path.exists('%s/run_magic.sh' % dir):
-        os.remove('%s/run_magic.sh' % dir)
-    if os.path.exists('%s/run_magic_mpi.sh' % dir):
-        os.remove('%s/run_magic_mpi.sh' % dir)
-    for f in glob.glob('%s/*_BIS' % dir):
+    if os.path.exists('{}/pscond.dat'.format(dir)):
+        os.remove('{}/pscond.dat'.format(dir))
+    if os.path.exists('{}/scond.dat'.format(dir)):
+        os.remove('{}/scond.dat'.format(dir))
+    if os.path.exists('{}/run_magic.sh'.format(dir)):
+        os.remove('{}/run_magic.sh'.format(dir))
+    if os.path.exists('{}/run_magic_mpi.sh'.format(dir)):
+        os.remove('{}/run_magic_mpi.sh'.format(dir))
+    for f in glob.glob('{}/*_BIS'.format(dir)):
         os.remove(f)
-    for f in glob.glob('%s/*.test' % dir):
+    for f in glob.glob('{}/*.test'.format(dir)):
         os.remove(f)
-    if os.path.exists('%s/stdout.out' % dir):
-        os.remove('%s/stdout.out' % dir)
-    for f in glob.glob('%s/*.pyc' % dir):
+    if os.path.exists('{}/stdout.out'.format(dir)):
+        os.remove('{}/stdout.out'.format(dir))
+    for f in glob.glob('{}/*.pyc'.format(dir)):
         os.remove(f)
-    if os.path.exists('%s/__pycache__' % dir):
-        shutil.rmtree('%s/__pycache__' % dir)
+    if os.path.exists('{}/__pycache__'.format(dir)):
+        shutil.rmtree('{}/__pycache__'.format(dir))
 
 def readStack(file):
     f = open(file, 'r')
@@ -54,73 +54,73 @@ class TimeSchemes(unittest.TestCase):
 
     def setUp(self):
         # Cleaning when entering
-        print('\nDirectory   :           %s' % self.dir)
-        print('Description :           %s' % self.description)
+        print('\nDirectory   :           {}'.format(self.dir))
+        print('Description :           {}'.format(self.description))
         self.startTime = time.time()
         cleanDir(self.dir)
 
         os.chdir(self.dir)
-        cmd = '%s %s/input_SBDF3.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input_SBDF3.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
-        cmd = '%s %s/input_ARS222.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input_ARS222.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
-        cmd = '%s %s/input_ARS443.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input_ARS443.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
-        cmd = '%s %s/input_CNAB2.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input_CNAB2.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
-        cmd = '%s %s/input_SBDF4.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input_SBDF4.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
-        cmd = '%s %s/input_PC2.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input_PC2.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
-        cmd = '%s %s/input_SBDF2.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input_SBDF2.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
-        cmd = '%s %s/input_BPR353.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input_BPR353.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
-        cmd = '%s %s/input_MODCNAB.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input_MODCNAB.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
-        cmd = '%s %s/input_CNLF.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input_CNLF.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
-        cmd = '%s %s/input_LZ232.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input_LZ232.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
-        cmd = '%s %s/input_KC564.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input_KC564.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
-        cmd = '%s %s/input_ARS343.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input_ARS343.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
-        cmd = '%s %s/input_CB3.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input_CB3.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
-        cmd = '%s %s/input_KC564_FD.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input_KC564_FD.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
-        cmd = '%s %s/input_KC785_FD.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input_KC785_FD.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
@@ -131,42 +131,42 @@ class TimeSchemes(unittest.TestCase):
         # Cleaning when leaving
         os.chdir(self.startDir)
         cleanDir(self.dir)
-        for f in glob.glob('%s/*.cnab2' % self.dir):
+        for f in glob.glob('{}/*.cnab2'.format(self.dir)):
             os.remove(f)
-        for f in glob.glob('%s/*.sbdf2' % self.dir):
+        for f in glob.glob('{}/*.sbdf2'.format(self.dir)):
             os.remove(f)
-        for f in glob.glob('%s/*.sbdf3' % self.dir):
+        for f in glob.glob('{}/*.sbdf3'.format(self.dir)):
             os.remove(f)
-        for f in glob.glob('%s/*.sbdf4' % self.dir):
+        for f in glob.glob('{}/*.sbdf4'.format(self.dir)):
             os.remove(f)
-        for f in glob.glob('%s/*.ars222' % self.dir):
+        for f in glob.glob('{}/*.ars222'.format(self.dir)):
             os.remove(f)
-        for f in glob.glob('%s/*.ars443' % self.dir):
+        for f in glob.glob('{}/*.ars443'.format(self.dir)):
             os.remove(f)
-        for f in glob.glob('%s/*.bpr353' % self.dir):
+        for f in glob.glob('{}/*.bpr353'.format(self.dir)):
             os.remove(f)
-        for f in glob.glob('%s/*.pc2' % self.dir):
+        for f in glob.glob('{}/*.pc2'.format(self.dir)):
             os.remove(f)
-        for f in glob.glob('%s/*.modcnab' % self.dir):
+        for f in glob.glob('{}/*.modcnab'.format(self.dir)):
             os.remove(f)
-        for f in glob.glob('%s/*.cnlf' % self.dir):
+        for f in glob.glob('{}/*.cnlf'.format(self.dir)):
             os.remove(f)
-        for f in glob.glob('%s/*.lz232' % self.dir):
+        for f in glob.glob('{}/*.lz232'.format(self.dir)):
             os.remove(f)
-        for f in glob.glob('%s/*.kc564' % self.dir):
+        for f in glob.glob('{}/*.kc564'.format(self.dir)):
             os.remove(f)
-        for f in glob.glob('%s/*.ars343' % self.dir):
+        for f in glob.glob('{}/*.ars343'.format(self.dir)):
             os.remove(f)
-        for f in glob.glob('%s/*.cb3' % self.dir):
+        for f in glob.glob('{}/*.cb3'.format(self.dir)):
             os.remove(f)
-        for f in glob.glob('%s/*.kc564_fd' % self.dir):
+        for f in glob.glob('{}/*.kc564_fd'.format(self.dir)):
             os.remove(f)
-        for f in glob.glob('%s/*.kc785_fd' % self.dir):
+        for f in glob.glob('{}/*.kc785_fd'.format(self.dir)):
             os.remove(f)
 
         t = time.time()-self.startTime
         st = time.strftime("%M:%S", time.gmtime(t))
-        print('Time used   :                            %s' % st)
+        print('Time used   :                            {}'.format(st))
 
         if hasattr(self, '_outcome'): # python 3.4+
             if hasattr(self._outcome, 'errors'):  # python 3.4-3.10
@@ -195,6 +195,6 @@ class TimeSchemes(unittest.TestCase):
                 print(result.failures[-1][-1])
 
     def outputFileDiff(self):
-        datRef = readStack('%s/reference.out' % self.dir)
-        datTmp = readStack('%s/e_kin.test' % self.dir)
+        datRef = readStack('{}/reference.out'.format(self.dir))
+        datTmp = readStack('{}/e_kin.test'.format(self.dir))
         np.testing.assert_allclose(datRef, datTmp, rtol=self.precision, atol=1e-20)

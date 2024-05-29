@@ -7,24 +7,24 @@ import shutil
 import subprocess as sp
 
 def cleanDir(dir):
-    if os.path.exists('%s/pscond.dat' % dir):
-        os.remove('%s/pscond.dat' % dir)
-    if os.path.exists('%s/scond.dat' % dir):
-        os.remove('%s/scond.dat' % dir)
-    if os.path.exists('%s/run_magic.sh' % dir):
-        os.remove('%s/run_magic.sh' % dir)
-    if os.path.exists('%s/run_magic_mpi.sh' % dir):
-        os.remove('%s/run_magic_mpi.sh' % dir)
-    for f in glob.glob('%s/*_BIS' % dir):
+    if os.path.exists('{}/pscond.dat'.format(dir)):
+        os.remove('{}/pscond.dat'.format(dir))
+    if os.path.exists('{}/scond.dat'.format(dir)):
+        os.remove('{}/scond.dat'.format(dir))
+    if os.path.exists('{}/run_magic.sh'.format(dir)):
+        os.remove('{}/run_magic.sh'.format(dir))
+    if os.path.exists('{}/run_magic_mpi.sh'.format(dir)):
+        os.remove('{}/run_magic_mpi.sh'.format(dir))
+    for f in glob.glob('{}/*_BIS'.format(dir)):
         os.remove(f)
-    for f in glob.glob('%s/*.test' % dir):
+    for f in glob.glob('{}/*.test'.format(dir)):
         os.remove(f)
-    if os.path.exists('%s/stdout.out' % dir):
-        os.remove('%s/stdout.out' % dir)
-    for f in glob.glob('%s/*.pyc' % dir):
+    if os.path.exists('{}/stdout.out'.format(dir)):
+        os.remove('{}/stdout.out'.format(dir))
+    for f in glob.glob('{}/*.pyc'.format(dir)):
         os.remove(f)
-    if os.path.exists('%s/__pycache__' % dir):
-        shutil.rmtree('%s/__pycache__' % dir)
+    if os.path.exists('{}/__pycache__'.format(dir)):
+        shutil.rmtree('{}/__pycache__'.format(dir))
 
 def readStack(file):
     f = open(file, 'r')
@@ -54,20 +54,20 @@ class CouetteAxi(unittest.TestCase):
 
     def setUp(self):
         # Cleaning when entering
-        print('\nDirectory   :           %s' % self.dir)
-        print('Description :           %s' % self.description)
+        print('\nDirectory   :           {}'.format(self.dir))
+        print('Description :           {}'.format(self.description))
         self.startTime = time.time()
         cleanDir(self.dir)
-        for f in glob.glob('%s/*.start' % self.dir):
+        for f in glob.glob('{}/*.start'.format(self.dir)):
             os.remove(f)
 
         inpFile = 'input.nml'
 
         os.chdir(self.dir)
-        cmd = '%s %s/inputStart.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/inputStart.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
-        cmd = '%s %s/%s' % (self.execCmd, self.dir, inpFile)
+        cmd = '{} {}/{}'.format(self.execCmd, self.dir, inpFile)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
@@ -75,12 +75,12 @@ class CouetteAxi(unittest.TestCase):
         # Cleaning when leaving
         os.chdir(self.startDir)
         cleanDir(self.dir)
-        for f in glob.glob('%s/*.start' % self.dir):
+        for f in glob.glob('{}/*.start'.format(self.dir)):
             os.remove(f)
 
         t = time.time()-self.startTime
         st = time.strftime("%M:%S", time.gmtime(t))
-        print('Time used   :                            %s' % st)
+        print('Time used   :                            {}'.format(st))
 
         if hasattr(self, '_outcome'): # python 3.4+
             if hasattr(self._outcome, 'errors'):  # python 3.4-3.10
@@ -109,6 +109,6 @@ class CouetteAxi(unittest.TestCase):
                 print(result.failures[-1][-1])
 
     def outputFileDiff(self):
-        datRef = readStack('%s/reference.out' % self.dir)
-        datTmp = readStack('%s/e_kin.test' % self.dir)
+        datRef = readStack('{}/reference.out'.format(self.dir))
+        datTmp = readStack('{}/e_kin.test'.format(self.dir))
         np.testing.assert_allclose(datRef, datTmp, rtol=self.precision, atol=1e-20)
