@@ -6,6 +6,8 @@ module radial_der
    !
 
    use constants, only: zero, one, three
+   use chebyshev, only: type_cheb_odd
+   use finite_differences, only: type_fd
    use precision_mod
 #ifdef WITH_OMP_GPU
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
@@ -32,7 +34,7 @@ module radial_der
       module procedure get_dcheb_complex
    end interface get_dcheb
 
-   public :: get_ddr, get_dddr, get_dcheb, get_dr, initialize_der_arrays,   &
+   public :: get_ddr, get_dddr, get_dr, initialize_der_arrays,              &
    &         finalize_der_arrays, get_dr_Rloc, get_ddr_Rloc, get_ddr_ghost, &
    &         bulk_to_ghost, exch_ghosts, get_ddddr_ghost
 
@@ -40,7 +42,6 @@ module radial_der
    real(cp), allocatable :: work_1d_real(:)
 
 contains
-
 !------------------------------------------------------------------------------
    subroutine initialize_der_arrays(n_r_max,llm,ulm)
       !
@@ -80,7 +81,7 @@ contains
    end subroutine finalize_der_arrays
 !------------------------------------------------------------------------------
    subroutine get_dcheb_complex(f,df,n_f_max,n_f_start,n_f_stop, &
-              &                 n_r_max,n_cheb_max,d_fac,use_gpu)
+              &                 n_r_max,n_cheb_max,use_gpu)
       !
       !  Returns Chebyshev coeffitients of first derivative df and second  
       !  derivative ddf for a function whose cheb-coeff. are given as     
@@ -94,7 +95,6 @@ contains
       integer,     intent(in) :: n_r_max    ! second dimension of f,df,ddf
       integer,     intent(in) :: n_cheb_max ! Number of cheb modes
       complex(cp), intent(in) :: f(n_f_max,n_r_max)
-      real(cp),    intent(in) :: d_fac      ! factor for interval mapping
       logical, optional, intent(in) :: use_gpu
 
       !-- Output variables:
@@ -117,9 +117,9 @@ contains
          !-- First Coefficient
          tmp_n_cheb = n_cheb_max-1
          if ( n_r_max == n_cheb_max ) then
-            fac_cheb=d_fac*real(tmp_n_cheb,kind=cp)
+            fac_cheb=real(tmp_n_cheb,kind=cp)
          else
-            fac_cheb=d_fac*real(2*tmp_n_cheb,kind=cp)
+            fac_cheb=real(2*tmp_n_cheb,kind=cp)
          end if
 
          !-- initialize derivatives:
@@ -138,7 +138,7 @@ contains
          !----- Recursion
          !$omp target teams private(n_f,n_cheb,fac_cheb)
          do n_cheb=n_cheb_max-2,1,-1
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
             !$omp distribute parallel do
             do n_f=n_f_start,n_f_stop
                df(n_f,n_cheb)=df(n_f,n_cheb+2) + fac_cheb*f(n_f,n_cheb+1)
@@ -158,9 +158,9 @@ contains
          !-- First Coefficient
          n_cheb  =n_cheb_max-1
          if ( n_r_max == n_cheb_max ) then
-            fac_cheb=d_fac*real(n_cheb,kind=cp)
+            fac_cheb=real(n_cheb,kind=cp)
          else
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
          end if
          do n_f=n_f_start,n_f_stop
             df(n_f,n_cheb)=fac_cheb*f(n_f,n_cheb+1)
@@ -168,7 +168,7 @@ contains
 
          !----- Recursion
          do n_cheb=n_cheb_max-2,1,-1
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
             do n_f=n_f_start,n_f_stop
                df(n_f,n_cheb)=df(n_f,n_cheb+2) + fac_cheb*f(n_f,n_cheb+1)
             end do
@@ -177,13 +177,12 @@ contains
       end if
    end subroutine get_dcheb_complex
 !------------------------------------------------------------------------------
-   subroutine get_dcheb_real_1d(f,df, n_r_max,n_cheb_max,d_fac)
+   subroutine get_dcheb_real_1d(f,df, n_r_max,n_cheb_max)
 
       !-- Input variables:
       integer,  intent(in) :: n_r_max    ! Dimension of f,df,ddf
       integer,  intent(in) :: n_cheb_max ! Number of cheb modes
       real(cp), intent(in) :: f(n_r_max)
-      real(cp), intent(in) :: d_fac      ! factor for interval mapping
 
       !-- Output variables:
       real(cp), intent(out) ::  df(n_r_max)
@@ -200,22 +199,22 @@ contains
 
       !-- First coefficient
       if ( n_r_max == n_cheb_max ) then
-         fac_cheb=d_fac*real(n_cheb,kind=cp)
+         fac_cheb=real(n_cheb,kind=cp)
       else
-         fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+         fac_cheb=real(2*n_cheb,kind=cp)
       end if
       df(n_cheb)=fac_cheb*f(n_cheb+1)
 
       !----- Recursion
       do n_cheb=n_cheb_max-2,1,-1
-         fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+         fac_cheb=real(2*n_cheb,kind=cp)
          df(n_cheb)=df(n_cheb+2)+fac_cheb*f(n_cheb+1)
       end do
 
    end subroutine get_dcheb_real_1d
 !------------------------------------------------------------------------------
    subroutine get_ddcheb(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
-              &          n_r_max,n_cheb_max,d_fac,use_gpu)
+              &          n_r_max,n_cheb_max,use_gpu)
       !
       !  Returns Chebyshev coefficients of first derivative df and second  
       !  derivative ddf for a function whose cheb-coeff. are given as     
@@ -229,7 +228,6 @@ contains
       integer,     intent(in) :: n_r_max    ! second dimension of f,df,ddf
       integer,     intent(in) :: n_cheb_max ! Number of cheb modes
       complex(cp), intent(in) :: f(n_f_max,n_r_max)
-      real(cp),    intent(in) :: d_fac      ! factor for interval mapping
       logical, optional, intent(in) :: use_gpu
     
       !-- Output variables:
@@ -253,9 +251,9 @@ contains
          !-- First coefficients:
          tmp_n_cheb = n_cheb_max - 1
          if ( n_cheb_max == n_r_max ) then
-            fac_cheb=d_fac*real(tmp_n_cheb,kind=cp)
+            fac_cheb=real(tmp_n_cheb,kind=cp)
          else
-            fac_cheb=d_fac*real(2*tmp_n_cheb,kind=cp)
+            fac_cheb=real(2*tmp_n_cheb,kind=cp)
          end if
 
          !----- initialize derivatives:
@@ -276,7 +274,7 @@ contains
          !----- recursion
          !$omp target teams private(n_f,n_cheb,fac_cheb)
          do n_cheb=n_cheb_max-2,1,-1
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
             !$omp distribute parallel do
             do n_f=n_f_start,n_f_stop
                df(n_f,n_cheb) = df(n_f,n_cheb+2) + fac_cheb* f(n_f,n_cheb+1)
@@ -298,9 +296,9 @@ contains
          !-- First coefficients:
          n_cheb=n_cheb_max-1
          if ( n_cheb_max == n_r_max ) then
-            fac_cheb=d_fac*real(n_cheb,kind=cp)
+            fac_cheb=real(n_cheb,kind=cp)
          else
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
          end if
 
          do n_f=n_f_start,n_f_stop
@@ -310,7 +308,7 @@ contains
 
          !----- recursion
          do n_cheb=n_cheb_max-2,1,-1
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
             do n_f=n_f_start,n_f_stop
                df(n_f,n_cheb) = df(n_f,n_cheb+2) + fac_cheb* f(n_f,n_cheb+1)
                ddf(n_f,n_cheb)=ddf(n_f,n_cheb+2) + fac_cheb*df(n_f,n_cheb+1)
@@ -321,7 +319,7 @@ contains
       end subroutine get_ddcheb
 !------------------------------------------------------------------------------
    subroutine get_dddcheb(f,df,ddf,dddf,n_f_max,n_f_start,n_f_stop, &
-              &           n_r_max,n_cheb_max,d_fac,use_gpu)
+              &           n_r_max,n_cheb_max,use_gpu)
       !
       !  Returns chebychev coeffitiens of first derivative df and second  
       !  derivative ddf for a function whose cheb-coeff. are given as     
@@ -335,7 +333,6 @@ contains
       integer,     intent(in) :: n_r_max    ! second dimension of f,df,ddf
       integer,     intent(in) :: n_cheb_max ! Number of cheb modes
       complex(cp), intent(in) :: f(n_f_max,n_r_max)
-      real(cp),    intent(in) :: d_fac      ! factor for interval mapping
       logical, optional, intent(in) :: use_gpu
 
       !-- Output variables:
@@ -360,9 +357,9 @@ contains
          !-- First coefficients
          tmp_n_cheb=n_cheb_max-1
          if ( n_cheb_max == n_r_max ) then
-            fac_cheb=d_fac*real(tmp_n_cheb,kind=cp)
+            fac_cheb=real(tmp_n_cheb,kind=cp)
          else
-            fac_cheb=d_fac*real(2*tmp_n_cheb,kind=cp)
+            fac_cheb=real(2*tmp_n_cheb,kind=cp)
          end if
 
          !----- initialize derivatives:
@@ -385,7 +382,7 @@ contains
          !----- Recursion
          !$omp target teams private(n_f,n_cheb,fac_cheb)
          do n_cheb=n_cheb_max-2,1,-1
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
             !$omp distribute parallel do
             do n_f=n_f_start,n_f_stop
                df(n_f,n_cheb)  =  df(n_f,n_cheb+2) + fac_cheb*  f(n_f,n_cheb+1)
@@ -409,9 +406,9 @@ contains
          !-- First coefficients
          n_cheb=n_cheb_max-1
          if ( n_cheb_max == n_r_max ) then
-            fac_cheb=d_fac*real(n_cheb,kind=cp)
+            fac_cheb=real(n_cheb,kind=cp)
          else
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
          end if
          do n_f=n_f_start,n_f_stop
             df(n_f,n_cheb)  =fac_cheb*f(n_f,n_cheb+1)
@@ -421,7 +418,7 @@ contains
 
          !----- Recursion
          do n_cheb=n_cheb_max-2,1,-1
-            fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+            fac_cheb=real(2*n_cheb,kind=cp)
             do n_f=n_f_start,n_f_stop
                df(n_f,n_cheb)  =  df(n_f,n_cheb+2) + fac_cheb*  f(n_f,n_cheb+1)
                ddf(n_f,n_cheb) = ddf(n_f,n_cheb+2) + fac_cheb* df(n_f,n_cheb+1)
@@ -445,29 +442,26 @@ contains
       !-- Local:
       integer :: n_r, od
     
-    
-      if ( r_scheme%version == 'cheb' ) then
+      select type (r_scheme)
+
+      type is(type_cheb_odd)
 
          !-- Copy input functions:
-         do n_r=1,n_r_max
-            work_1d_real(n_r)=f(n_r)
-         end do
+         work_1d_real(:)=f(:)
     
          !-- Transform f to cheb space:
          call r_scheme%costf1(work_1d_real)
     
          !-- Get derivatives:
-         call get_dcheb(work_1d_real,df,n_r_max,r_scheme%n_max,one)
+         call get_dcheb(work_1d_real,df,n_r_max,r_scheme%n_max)
     
          !-- Transform back:
          call r_scheme%costf1(df)
     
          !-- New map:
-         do n_r=1,n_r_max
-            df(n_r)=r_scheme%drx(n_r)*df(n_r)
-         end do
+         df(:)=r_scheme%drx(:)*df(:)
 
-      else
+      type is(type_fd)
 
          df(:) = 0.0_cp
 
@@ -488,7 +482,7 @@ contains
             end do
          end do
 
-      end if
+      end select
 
    end subroutine get_dr_real_1d
 !------------------------------------------------------------------------------
@@ -526,7 +520,9 @@ contains
       end if
 #endif
 
-      if ( r_scheme%version == 'cheb' ) then
+      select type (r_scheme)
+
+      type is(type_cheb_odd)
 
          if ( present(l_dct_in) ) then
             l_dct_in_loc=l_dct_in
@@ -539,9 +535,22 @@ contains
          else
             copy_array=.true.
          end if
-    
+
          if ( copy_array )  then
-            if(loc_use_gpu) then
+#ifdef USE_DCT_FFT
+            if (loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+               call r_scheme%gpu_chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max,     &
+                    &                                n_f_start,n_f_stop,r_scheme%n_max,&
+                    &                                l_dct_in_loc)
+#endif
+            else
+               call r_scheme%chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max,     &
+                    &                            n_f_start,n_f_stop,r_scheme%n_max,&
+                    &                            l_dct_in_loc)
+            end if
+#else
+            if (loc_use_gpu) then
 #ifdef WITH_OMP_GPU
                !$omp target teams distribute parallel do collapse(2)
                do n_r=1,n_r_max
@@ -558,7 +567,7 @@ contains
                   end do
                end do
             end if
-       
+
             !-- Transform f to cheb space:
             if ( l_dct_in_loc ) then
                call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
@@ -566,13 +575,26 @@ contains
           
             !-- Get derivatives:
             call get_dcheb(work,df,n_f_max,n_f_start,n_f_stop,n_r_max, &
-                 &         r_scheme%n_max,one,loc_use_gpu)
+                 &         r_scheme%n_max,loc_use_gpu)
           
             !-- Transform back:
             call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
+#endif
 
          else
 
+#ifdef USE_DCT_FFT
+            if (loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+               call r_scheme%gpu_chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max,     &
+                    &                                n_f_start,n_f_stop,r_scheme%n_max,&
+                    &                                l_dct_in_loc)
+#endif
+            else
+               call r_scheme%chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max, &
+                    &                            n_f_start,n_f_stop,r_scheme%n_max,l_dct_in_loc)
+            end if
+#else
             !-- Transform f to cheb space:
             if ( l_dct_in_loc ) then
                call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
@@ -580,18 +602,19 @@ contains
           
             !-- Get derivatives:
             call get_dcheb(f,df,n_f_max,n_f_start,n_f_stop,n_r_max, &
-                 &         r_scheme%n_max,one,loc_use_gpu)
+                 &         r_scheme%n_max,loc_use_gpu)
 
             !-- Transform back:
             if ( l_dct_in_loc ) then
                call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
             end if
             call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
+#endif
 
          end if
        
          !-- New map:
-         if(loc_use_gpu) then
+         if (loc_use_gpu) then
 #ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do collapse(2)
             do n_r=1,n_r_max
@@ -609,9 +632,9 @@ contains
             end do
          end if
 
-      else
+      type is(type_fd)
 
-         if(loc_use_gpu) then
+         if (loc_use_gpu) then
 #ifdef WITH_OMP_GPU
             !-- Initialise to zero:
             !$omp target
@@ -690,7 +713,7 @@ contains
             end do
         end if
 
-      end if
+      end select
 
    end subroutine get_dr_complex
 !------------------------------------------------------------------------------
@@ -727,7 +750,9 @@ contains
       loc_use_gpu = .true.
 #endif
 
-      if ( r_scheme%version == 'cheb' ) then
+      select type (r_scheme)
+
+      type is(type_cheb_odd)
 
          if ( present(l_dct_in) ) then
             l_dct_in_loc=l_dct_in
@@ -735,6 +760,19 @@ contains
             l_dct_in_loc=.true.
          end if
     
+#ifdef USE_DCT_FFT
+         if (loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+            call r_scheme%gpu_chebt_oc%get_ddr_fft(f,df,ddf,r_scheme%x_cheb,n_f_max, &
+                 &                                 n_f_start,n_f_stop,r_scheme%n_max,&
+                 &                                 l_dct_in_loc)
+#endif
+         else
+            call r_scheme%chebt_oc%get_ddr_fft(f,df,ddf,r_scheme%x_cheb,n_f_max, &
+                 &                             n_f_start,n_f_stop,r_scheme%n_max,&
+                 &                             l_dct_in_loc)
+         end if
+#else
          !-- Copy input functions:
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
@@ -755,11 +793,12 @@ contains
     
          !-- Get derivatives:
          call get_ddcheb(work,df,ddf,n_f_max,n_f_start,n_f_stop, &
-              &          n_r_max,r_scheme%n_max,one,loc_use_gpu)
+              &          n_r_max,r_scheme%n_max,loc_use_gpu)
     
          !-- Transform back:
          call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
          call r_scheme%costf1(ddf,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
+#endif
     
          !-- New map:
 #ifdef WITH_OMP_GPU
@@ -776,7 +815,7 @@ contains
          !$omp end target teams distribute parallel do
 #endif
 
-      else
+      type is(type_fd)
 
          !-- Initialise to zero:
 #ifdef WITH_OMP_GPU
@@ -842,12 +881,12 @@ contains
          !$omp end target
 #endif
 
-      end if
+      end select
 
    end subroutine get_ddr
 !------------------------------------------------------------------------------
-   subroutine get_dddr(f,df,ddf,dddf,n_f_max,n_f_start,n_f_stop, &
-              &        n_r_max,r_scheme,l_dct_in)
+   subroutine get_dddr(f,df,ddf,dddf,n_f_max,n_f_start,n_f_stop,n_r_max,r_scheme,&
+              &        l_dct_in)
       !
       !  Returns first radial derivative df, the second radial deriv. ddf,
       !  and the third radial derivative dddf of the input function f.    
@@ -880,7 +919,9 @@ contains
       loc_use_gpu = .true.
 #endif
 
-      if ( r_scheme%version == 'cheb' ) then
+      select type (r_scheme)
+
+      type is(type_cheb_odd)
 
          if ( present(l_dct_in) ) then
             l_dct_in_loc=l_dct_in
@@ -888,6 +929,19 @@ contains
             l_dct_in_loc=.true.
          end if
 
+#ifdef USE_DCT_FFT
+         if (loc_use_gpu) then
+#ifdef WITH_OMP_GPU
+            call r_scheme%gpu_chebt_oc%get_dddr_fft(f,df,ddf,dddf,r_scheme%x_cheb,  &
+                 &                                  n_f_max,n_f_start,n_f_stop,     &
+                 &                                  r_scheme%n_max,l_dct_in_loc)
+#endif
+         else
+            call r_scheme%chebt_oc%get_dddr_fft(f,df,ddf,dddf,r_scheme%x_cheb,n_f_max, &
+                 &                              n_f_start,n_f_stop,r_scheme%n_max,     &
+                 &                              l_dct_in_loc)
+         end if
+#else
          !-- Copy input functions:
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
@@ -908,12 +962,13 @@ contains
 
          !-- Get derivatives:
          call get_dddcheb(work,df,ddf,dddf,n_f_max,n_f_start,n_f_stop,  &
-              &           n_r_max,r_scheme%n_max,one,loc_use_gpu)
+              &           n_r_max,r_scheme%n_max,loc_use_gpu)
 
          !-- Transform back:
          call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
          call r_scheme%costf1(ddf,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
          call r_scheme%costf1(dddf,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
+#endif
 
          !-- New map:
 #ifdef WITH_OMP_GPU
@@ -935,7 +990,7 @@ contains
          !$omp end target teams distribute parallel do
 #endif
 
-      else
+      type is(type_fd)
 
          !-- Initialise to zero:
 #ifdef WITH_OMP_GPU
@@ -1034,7 +1089,7 @@ contains
          !$omp end target
 #endif
 
-      end if
+      end select
 
    end subroutine get_dddr
 !------------------------------------------------------------------------------

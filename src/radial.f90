@@ -104,7 +104,6 @@ module radial_functions
    real(cp), public, allocatable :: dcheb_ic(:,:)        ! First radial derivative of cheb_ic
    real(cp), public, allocatable :: d2cheb_ic(:,:)       ! Second radial derivative cheb_ic
    real(cp), public, allocatable :: cheb_int_ic(:)       ! Array for integrals of cheb for IC
-   integer :: nDi_costf1_ic                      ! Radii for transform
    integer :: nDd_costf1_ic                      ! Radii for transform
    integer :: nDi_costf2_ic                      ! Radii for transform
    integer :: nDd_costf2_ic                      ! Radii for transform
@@ -189,7 +188,6 @@ contains
 #endif
 
       if ( .not. l_full_sphere ) then
-         nDi_costf1_ic=2*n_r_ic_max+2
          nDd_costf1_ic=2*n_r_ic_max+5
          nDi_costf2_ic=2*n_r_ic_max
          nDd_costf2_ic=2*n_r_ic_max+n_r_ic_max/2+5
@@ -206,7 +204,7 @@ contains
          &                 (3*n_r_ic_max*n_r_ic_max+n_r_ic_max)*SIZEOF_DEF_REAL
 #endif
 
-         call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
+         call chebt_ic%initialize(n_r_ic_max,n_cheb_ic_max,nDd_costf1_ic)
 
          allocate ( dr_top_ic(n_r_ic_max) )
          bytes_allocated = bytes_allocated+n_r_ic_max*SIZEOF_DEF_REAL
