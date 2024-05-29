@@ -363,7 +363,7 @@ contains
       !--- Output variables:
       integer,               intent(out) :: nS,n_r_max2,n_cheb_max2
       real(cp), allocatable, intent(out) :: r2(:)
-      class(type_rscheme),   intent(out) :: rscheme_RMS
+      class(type_rscheme),   intent(inout) :: rscheme_RMS
 
       ! Local stuff
       real(cp) :: r2C(n_r_max)
