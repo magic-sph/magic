@@ -2712,7 +2712,7 @@ contains
       &    .or. rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary         &
       &    .or. rscheme_oc%version /= rscheme_oc_old%version ) l_remap=.true.
 
-      if ( l_IC ) call chebt_ic_old%initialize(n_r_max_old, 2*n_r_maxL+2, 2*n_r_maxL+5)
+      if ( l_IC ) call chebt_ic_old%initialize(n_r_max_old, n_r_max_old, 2*n_r_maxL+5)
 
       !$omp parallel do default(shared) private(n_proc,lmStart,lmStop,lm,lmo,woR)
       do n_proc=0,n_procs-1 ! Blocking of loop over all (l,m)
@@ -2885,7 +2885,7 @@ contains
       allocate( woR(n_r_maxL),zoR(n_r_maxL) )
       allocate( poR(n_r_maxL),soR(n_r_maxL) )
       bytes_allocated = bytes_allocated + 4*n_r_maxL*SIZEOF_DEF_COMPLEX
-      if ( l_IC ) call chebt_ic_old%initialize(n_r_max_old, 2*n_r_maxL+2, 2*n_r_maxL+5)
+      if ( l_IC ) call chebt_ic_old%initialize(n_r_max_old, n_r_max_old, 2*n_r_maxL+5)
 
       !PERFON('mD_map')
       do n_proc=0,n_procs-1 ! Blocking of loop over all (l,m)
