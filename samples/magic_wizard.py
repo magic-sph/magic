@@ -149,7 +149,7 @@ def cmake(args, startdir, execDir):
 
     # Compilation
     cmd = 'cmake {}/.. {} {} {} {} {} {} {}'.format(startdir, mpi_opt, build_type,
-                                                    precond_opt, mkl_opt, omp_opt, 
+                                                    precond_opt, mkl_opt, omp_opt,
                                                     shtns_opt, gpu_opt)
     print('  '+cmd)
     print('\n')
