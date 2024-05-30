@@ -48,7 +48,7 @@ module rIter_mod
    use fields, only: s_Rloc, ds_Rloc, z_Rloc, dz_Rloc, p_Rloc,    &
        &             b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc,dj_Rloc,  &
        &             w_Rloc, dw_Rloc, ddw_Rloc, xi_Rloc, omega_ic,&
-       &             omega_ma, dp_Rloc, phi_Rloc
+       &             omega_ma, phi_Rloc
    use time_schemes, only: type_tscheme
    use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv,&
        &                          ellip_fac_cmb, ellip_fac_icb
@@ -429,9 +429,7 @@ contains
 
          !-- Finish computation of r.m.s. forces
          if ( lRmsCalc ) then
-            call compute_lm_forces(nR, w_Rloc(:,nR), dw_Rloc(:,nR), ddw_Rloc(:,nR), &
-                 &                 z_Rloc(:,nR), s_Rloc(:,nR), xi_Rloc(:,nR),       &
-                 &                 p_Rloc(:,nR), dp_Rloc(:,nR), this%nl_lm%AdvrLM)
+            call compute_lm_forces(nR, this%nl_lm%AdvrLM)
          end if
 
          !-- Finish calculation of TO variables:
