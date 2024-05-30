@@ -52,7 +52,7 @@ module rIter_mod
    use fields, only: s_Rloc, ds_Rloc, z_Rloc, dz_Rloc, p_Rloc,    &
        &             b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc,dj_Rloc,  &
        &             w_Rloc, dw_Rloc, ddw_Rloc, xi_Rloc, omega_ic,&
-       &             omega_ma, dp_Rloc, phi_Rloc
+       &             omega_ma, phi_Rloc
    use time_schemes, only: type_tscheme
    use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv,&
        &                          ellip_fac_cmb, ellip_fac_icb
@@ -175,7 +175,7 @@ contains
       complex(cp), intent(out) :: dVxBhLM(lm_maxMag,nRstartMag:nRstopMag)
 
       !---- Output of nonlinear products for nonlinear
-      !     magnetic boundary conditions (needed in s_updateB.f):
+      !     magnetic boundary conditions (needed in updateB.f90):
       complex(cp), intent(out) :: br_vt_lm_cmb(:) ! product br*vt at CMB
       complex(cp), intent(out) :: br_vp_lm_cmb(:) ! product br*vp at CMB
       complex(cp), intent(out) :: br_vt_lm_icb(:) ! product br*vt at ICB
@@ -185,7 +185,7 @@ contains
       !-- Courant citeria:
       real(cp),    intent(out) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
 
-      integer :: nR, nBc
+      integer :: nR, nBc, nR_Mag
       logical :: lMagNlBc, l_bound, lDeriv
 
       if ( l_graph ) then
@@ -253,6 +253,12 @@ contains
          end if
 
          if ( lRmsCalc ) nBc=0 ! One also needs to compute the boundaries in that case
+
+         if ( l_mag .or. l_mag_LF ) then
+             nR_Mag=nR
+         else
+             nR_Mag=1
+         end if
 
          dtrkc(nR)=1e10_cp
          dthkc(nR)=1e10_cp
@@ -465,13 +471,12 @@ contains
          !   input flm...  is in (l,m) space at radial grid points nR !
          !   Only dVxBh needed for boundaries !
          !   get_td finally calculates the d*dt terms needed for the
-         !   time step performed in s_LMLoop.f . This should be distributed
-         !   over the different models that s_LMLoop.f parallelizes over.
+         !   time step performed in LMLoop.f90 .
          call td_counter%start_count()
          call this%nl_lm%get_td(nR, nBc, lPressNext, dVSrLM(:,nR), dVXirLM(:,nR), &
-              &                 dVxVhLM(:,nR), dVxBhLM(:,nR), dwdt(:,nR),         &
+              &                 dVxVhLM(:,nR), dVxBhLM(:,nR_Mag), dwdt(:,nR),     &
               &                 dzdt(:,nR), dpdt(:,nR), dsdt(:,nR), dxidt(:,nR),  &
-              &                 dbdt(:,nR), djdt(:,nR))
+              &                 dbdt(:,nR_Mag), djdt(:,nR_Mag))
          call td_counter%stop_count(l_increment=.false.)
 
          !-- Finish computation of r.m.s. forces
@@ -481,10 +486,7 @@ contains
 #endif
             call compute_lm_forces(nR, dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, &
                  &                 Advp2LM, PFt2LM, PFp2LM, LFrLM, LFt2LM, LFp2LM, &
-                 &                 CFt2LM, CFp2LM, w_Rloc(:,nR), dw_Rloc(:,nR),    &
-                 &                 ddw_Rloc(:,nR), z_Rloc(:,nR), s_Rloc(:,nR),     &
-                 &                 xi_Rloc(:,nR), p_Rloc(:,nR), dp_Rloc(:,nR),     &
-                 &                 this%nl_lm%AdvrLM)
+                 &                 CFt2LM, CFp2LM, this%nl_lm%AdvrLM)
          end if
 
          !-- Finish calculation of TO variables:

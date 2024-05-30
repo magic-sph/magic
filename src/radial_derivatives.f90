@@ -43,7 +43,6 @@ module radial_der
    real(cp), allocatable :: work_1d_real(:)
 
 contains
-
 !------------------------------------------------------------------------------
    subroutine initialize_der_arrays(n_r_max,llm,ulm)
       !
@@ -444,13 +443,12 @@ contains
       !-- Local:
       integer :: n_r, od
     
-    
       select type (r_scheme)
 
       type is(type_cheb_odd)
 
          !-- Copy input functions:
-         work_1d_real(:)=f(:)
+         work_1d_real(1:n_r_max)=f(:)
     
          !-- Transform f to cheb space:
          call r_scheme%costf1(work_1d_real)
@@ -538,7 +536,7 @@ contains
          else
             copy_array=.true.
          end if
-    
+
          if ( copy_array )  then
 #ifdef USE_FFT
             if (loc_use_gpu) then
@@ -888,8 +886,8 @@ contains
 
    end subroutine get_ddr
 !------------------------------------------------------------------------------
-   subroutine get_dddr(f,df,ddf,dddf,n_f_max,n_f_start,n_f_stop, &
-              &        n_r_max,r_scheme,l_dct_in)
+   subroutine get_dddr(f,df,ddf,dddf,n_f_max,n_f_start,n_f_stop,n_r_max,r_scheme,&
+              &        l_dct_in)
       !
       !  Returns first radial derivative df, the second radial deriv. ddf,
       !  and the third radial derivative dddf of the input function f.    

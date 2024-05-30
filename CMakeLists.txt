@@ -217,7 +217,6 @@ if(USE_LAPACKLIB MATCHES MKL OR USE_FFTLIB MATCHES MKL)
    endif()
 endif()
 
-
 # Detect BLIS and LIBFLAME
 if(USE_LAPACKLIB MATCHES LIBFLAME)
    find_library(FLAME NAME flame
@@ -308,6 +307,10 @@ elseif( USE_FFTLIB MATCHES FFTW )
    set(USE_DCTLIB "FFTW")
 else()
    set(USE_DCTLIB "JW")
+endif()
+
+if( USE_DCTLIB MATCHES MKL OR USE_DCTLIB MATCHES FFTW )
+   add_definitions(-DUSE_DCT_FFT)
 endif()
 
 message(STATUS "Use '${USE_FFTLIB}' for the FFTs")

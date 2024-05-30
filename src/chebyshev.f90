@@ -31,6 +31,10 @@ module chebyshev
 #endif
       real(cp), allocatable :: x_cheb(:) ! Gauss-Lobatto grid
       complex(cp), pointer :: work_costf(:,:)
+      !real(cp), allocatable :: drx(:)   ! First derivative of non-linear mapping (see Bayliss and Turkel, 1990)
+      real(cp), allocatable :: ddrx(:)  ! Second derivative of non-linear mapping
+      real(cp), allocatable :: dddrx(:) ! Third derivative of non-linear mapping
+
    contains
       procedure :: initialize
       procedure :: finalize
@@ -60,7 +64,7 @@ contains
       logical, optional, intent(in) :: gpu_dct   ! compute DCT-I on GPU with hipfort_hipfft
 
       !-- Local variables:
-      integer :: ni,nd
+      integer :: nd
       logical loc_gpu_dct
       loc_gpu_dct = .false.
 #ifdef WITH_OMP_GPU
@@ -110,7 +114,6 @@ contains
       this%dr_top(:,:)=0.0_cp
       this%dr_bot(:,:)=0.0_cp
 
-      ni = 2*n_r_max+2
       nd = 2*n_r_max+5
 
       call this%chebt_oc%initialize(n_r_max, this%n_max, nd)
