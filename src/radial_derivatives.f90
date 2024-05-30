@@ -282,7 +282,7 @@ contains
       type is(type_cheb_odd)
 
          !-- Copy input functions:
-         work_1d_real(:)=f(:)
+         work_1d_real(1:n_r_max)=f(:)
     
          !-- Transform f to cheb space:
          call r_scheme%costf1(work_1d_real)
