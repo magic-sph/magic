@@ -10,6 +10,8 @@ module RMS
    use blocking, only: st_map, lo_map, lm2, lm2m, llm, ulm, llmMag, ulmMag, &
        &               lm2lmA, lm2l, lm2lmS
    use finite_differences, only: type_fd
+   use fields, only: w_Rloc, dw_Rloc, z_Rloc, s_Rloc, p_Rloc, dp_Rloc, &
+       &             xi_Rloc, ddw_Rloc
    use chebyshev, only: type_cheb_odd
    use radial_scheme, only: type_rscheme
    use truncation, only: n_r_max, n_cheb_max, n_r_maxMag, lm_max, lm_maxMag, &
@@ -363,7 +365,7 @@ contains
       !--- Output variables:
       integer,               intent(out) :: nS,n_r_max2,n_cheb_max2
       real(cp), allocatable, intent(out) :: r2(:)
-      class(type_rscheme),   intent(out) :: rscheme_RMS
+      class(type_rscheme),   intent(inout) :: rscheme_RMS
 
       ! Local stuff
       real(cp) :: r2C(n_r_max)
@@ -391,7 +393,10 @@ contains
       nS=nS-1
       n_r_max2=n_r_max-2*nS
 
-      if ( .not. l_finite_diff ) then
+      select type (rscheme_RMS)
+
+      type is(type_cheb_odd)
+
          ! Allowed number of radial grid points:
          nRs = [25, 33, 37, 41, 49, 61, 65, 73, 81, 97, 101, 109, 121,  &
          &      129, 145, 161, 181, 193, 201, 217, 241, 257, 289, 301,  &
@@ -447,7 +452,7 @@ contains
             end do
          end if
 
-      else ! finite differences
+      type is(type_fd) ! finite differences
 
          allocate( r2(n_r_max2) )
          bytes_allocated = bytes_allocated+n_r_max2*SIZEOF_DEF_REAL
@@ -465,7 +470,7 @@ contains
          call rscheme_RMS%get_grid(n_r_max, r_icb, r_cmb, ratio1, ratio2, r2C)
          call rscheme_oc%get_der_mat(n_r_max)
 
-      end if
+      end select
 
    end subroutine init_rNB
 !----------------------------------------------------------------------------
@@ -612,8 +617,7 @@ contains
 
    end subroutine transform_to_lm_RMS
 !----------------------------------------------------------------------------
-   subroutine compute_lm_forces(nR, w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, s_Rloc, &
-              &                 xi_Rloc, p_Rloc, dp_Rloc, AdvrLM)
+   subroutine compute_lm_forces(nR, AdvrLM)
       !
       ! This subroutine finalizes the computation of the r.m.s. spectra once
       ! the quantities are back in spectral space.
@@ -621,9 +625,6 @@ contains
 
       !-- Input variables
       integer,     intent(in) :: nR
-      complex(cp), intent(in) :: w_Rloc(:), dw_Rloc(:), z_Rloc(:)
-      complex(cp), intent(in) :: s_Rloc(:), p_Rloc(:), dp_Rloc(:)
-      complex(cp), intent(in) :: xi_Rloc(:), ddw_Rloc(:)
       complex(cp), intent(in) :: AdvrLM(:)
 
       !-- Local variables
@@ -646,19 +647,19 @@ contains
       end if
 
       if ( l_corr ) then
-         CorPol(lm)=two*CorFac*or1(nR)*dTheta2A(lm)*z_Rloc(lmA)
+         CorPol(lm)=two*CorFac*or1(nR)*dTheta2A(lm)*z_Rloc(lmA,nR)
       else
          CorPol(lm)=zero
       end if
 
       if (l_heat) then
-         Buo_temp(lm)=BuoFac*rgrav(nR)*rho0(nR)*s_Rloc(lm)
+         Buo_temp(lm)=BuoFac*rgrav(nR)*rho0(nR)*s_Rloc(lm,nR)
       else
          Buo_temp(lm)=0.0_cp
       end if
 
       if (l_chemical_conv) then
-         Buo_xi(lm)=ChemFac*rgrav(nR)*rho0(nR)*xi_Rloc(lm)
+         Buo_xi(lm)=ChemFac*rgrav(nR)*rho0(nR)*xi_Rloc(lm,nR)
       else
          Buo_xi(lm)=0.0_cp
       end if
@@ -671,9 +672,9 @@ contains
       if ( l_double_curl ) then
          !-- Recalculate the pressure gradient based on the poloidal
          !-- equation equilibrium
-         dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)+beta(nR)*p_Rloc(lm)+AdvPol(lm)+CorPol(lm)
+         dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)+beta(nR)*p_Rloc(lm,nR)+AdvPol(lm)+CorPol(lm)
       else
-         dpdr(lm)=dp_Rloc(lm)
+         dpdr(lm)=dp_Rloc(lm,nR)
       end if
 
       !-- Loop over the other (l,m) modes
@@ -688,26 +689,26 @@ contains
          if ( l_anelastic_liquid ) then
             if (l_heat) then
                Buo_temp(lm) =BuoFac*alpha0(nR)*rgrav(nR)*(      &
-               &       rho0(nR)*s_Rloc(lm)-ViscHeatFac*         &
+               &     rho0(nR)*s_Rloc(lm,nR)-ViscHeatFac*        &
                &     (ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*  &
-               &     p_Rloc(lm) )
+               &     p_Rloc(lm,nR) )
             else
                Buo_temp(lm)=zero
             end if
 
             if (l_chemical_conv) then
-               Buo_xi(lm)=ChemFac*alpha0(nR)*rgrav(nR)*rho0(nR)*xi_Rloc(lm)
+               Buo_xi(lm)=ChemFac*alpha0(nR)*rgrav(nR)*rho0(nR)*xi_Rloc(lm,nR)
             else
                Buo_xi(lm)=zero
             end if
          else
             if (l_heat) then
-               Buo_temp(lm)=BuoFac*rho0(nR)*rgrav(nR)*s_Rloc(lm)
+               Buo_temp(lm)=BuoFac*rho0(nR)*rgrav(nR)*s_Rloc(lm,nR)
             else
                Buo_temp(lm)=zero
             end if
             if (l_chemical_conv) then
-               Buo_xi(lm) =ChemFac*rho0(nR)*rgrav(nR)*xi_Rloc(lm)
+               Buo_xi(lm) =ChemFac*rho0(nR)*rgrav(nR)*xi_Rloc(lm,nR)
             else
                Buo_xi(lm)=zero
             end if
@@ -716,16 +717,15 @@ contains
          !-- We need to compute the Coriolis term once again
          if ( l_corr ) then
             if ( l < l_max .and. l > m ) then
-               CorPol_loc =two*CorFac*or1(nR) * (  &
-               &           dPhi(lm)*dw_Rloc(lm) +  & ! phi-deriv of dw/dr
-               &       dTheta2A(lm)*z_Rloc(lmA) -  & ! sin(theta) dtheta z
-               &       dTheta2S(lm)*z_Rloc(lmS) )
+               CorPol_loc =two*CorFac*or1(nR) * (     &
+               &           dPhi(lm)*dw_Rloc(lm,nR) +  & ! phi-deriv of dw/dr
+               &       dTheta2A(lm)*z_Rloc(lmA,nR) -  & ! sin(theta) dtheta z
+               &       dTheta2S(lm)*z_Rloc(lmS,nR) )
             else if ( l == l_max ) then
                CorPol_loc=zero
             else if ( l == m ) then
                CorPol_loc = two*CorFac*or1(nR) * (  &
-               &            dPhi(lm)*dw_Rloc(lm)  + &
-               &        dTheta2A(lm)*z_Rloc(lmA) )
+               &            dPhi(lm)*dw_Rloc(lm,nR) + dTheta2A(lm)*z_Rloc(lmA,nR) )
             end if
          else
             CorPol_loc=zero
@@ -743,14 +743,14 @@ contains
             !-- equation equilibrium
             dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)-dtVrLM(lm)+               &
             &        dLh(lm)*or2(nR)*hdif_V(l)*visc(nR)*(              &
-            &                                        ddw_Rloc(lm)+     &
-            &         (two*dLvisc(nR)-third*beta(nR))*dw_Rloc(lm)-     &
+            &                                        ddw_Rloc(lm,nR)+  &
+            &         (two*dLvisc(nR)-third*beta(nR))*dw_Rloc(lm,nR)-  &
             &         ( dLh(lm)*or2(nR)+four*third*( dbeta(nR)+        &
             &         dLvisc(nR)*beta(nR)+(three*dLvisc(nR)+beta(nR))* &
-            &         or1(nR)) )*                      w_Rloc(lm))+    &
-            &        beta(nR)*p_Rloc(lm)+AdvPol_loc+CorPol_loc
+            &         or1(nR)) )*                      w_Rloc(lm,nR))+ &
+            &         beta(nR)*p_Rloc(lm,nR)+AdvPol_loc+CorPol_loc
          else
-            dpdr(lm)=dp_Rloc(lm)
+            dpdr(lm)=dp_Rloc(lm,nR)
          end if
 
          ! We need to correct from kinetic pressure
@@ -796,12 +796,12 @@ contains
          if ( l_adv_curl ) then
             do lm=1,lm_max
                !-- Use Geo as work array
-               Geo(lm)=dpdr(lm)-beta(nR)*p_Rloc(lm)-dpkindrLM(lm)
+               Geo(lm)=dpdr(lm)-beta(nR)*p_Rloc(lm,nR)-dpkindrLM(lm)
             end do
          else
             do lm=1,lm_max
                !-- Use Geo as work array
-               Geo(lm)=dpdr(lm)-beta(nR)*p_Rloc(lm)
+               Geo(lm)=dpdr(lm)-beta(nR)*p_Rloc(lm,nR)
             end do
          end if
          call hIntRms(Geo,nR,1,lm_max,Pre2hInt(:,nR),st_map,.false.)
@@ -827,8 +827,8 @@ contains
       end if
 
       do lm=1,lm_max
-         Geo(lm)=CorPol(lm)-dpdr(lm)+beta(nR)*p_Rloc(lm)
-         PLF(lm)=LFPol(lm)-dpdr(lm)+beta(nR)*p_Rloc(lm)
+         Geo(lm)=CorPol(lm)-dpdr(lm)+beta(nR)*p_Rloc(lm,nR)
+         PLF(lm)=LFPol(lm)-dpdr(lm)+beta(nR)*p_Rloc(lm,nR)
          if ( l_adv_curl ) then
             Geo(lm)=Geo(lm)+dpkindrLM(lm)
             PLF(lm)=PLF(lm)+dpkindrLM(lm)
@@ -997,24 +997,14 @@ contains
 
       !-- Diffusion
       DifRms=0.0_cp
-      if ( rscheme_RMS%version == 'cheb' ) then
-         call get_dr(DifPolLMr(llm:ulm,:),workA(llm:ulm,:),ulm-llm+1,1, &
-              &      ulm-llm+1,n_r_max,rscheme_oc,nocopy=.true.)
-      else
-         if ( l_parallel_solve ) then
-            call get_dr_Rloc(DifPolLMr,work_Rloc,lm_max,nRstart,nRstop,n_r_max,&
-                 &           rscheme_oc)
-         else
-            call get_dr(DifPolLMr(llm:ulm,:),workA(llm:ulm,:),ulm-llm+1,1, &
-                 &      ulm-llm+1,n_r_max,rscheme_oc)
-         end if
-      end if
-
       if ( l_parallel_solve ) then
+         call get_dr_Rloc(DifPolLMr,work_Rloc,lm_max,nRstart,nRstop,n_r_max,rscheme_oc)
          do nR=nRstart,nRstop
             call hInt2dPol(work_Rloc(:,nR),1,lm_max,DifPol2hInt(:,nR),st_map)
          end do
       else
+         call get_dr(DifPolLMr(llm:ulm,:),workA(llm:ulm,:),ulm-llm+1,1, &
+              &      ulm-llm+1,n_r_max,rscheme_oc,nocopy=.true.)
          do nR=1,n_r_max
             call hInt2dPol(workA(llm:ulm,nR),llm,ulm,DifPol2hInt(:,nR),lo_map)
          end do

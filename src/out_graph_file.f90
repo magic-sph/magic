@@ -3,6 +3,7 @@ module graphOut_mod
    ! This module contains the subroutines that store the 3-D graphic files.
    !
 
+   use iso_fortran_env, only: output_unit
    use parallel_mod
    use precision_mod
    use constants, only: one
@@ -60,10 +61,10 @@ contains
          graph_file='G_'//trim(adjustl(string))//'.'//tag
 
          if ( rank == 0 ) then
-            write(*,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
-            &    " ! Storing graphic file:",             &
-            &    "             at time=",timeScaled,     &
-            &    "            step no.=",n_time_step,    &
+            write(output_unit,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)') &
+            &    " ! Storing graphic file:",                        &
+            &    "             at time=",timeScaled,                &
+            &    "            step no.=",n_time_step,               &
             &    "           into file=",graph_file
             if ( l_save_out ) then
                open(newunit=n_log_file, file=log_file, status='unknown', &

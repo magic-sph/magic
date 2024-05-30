@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from __future__ import print_function
 import argparse
 import os
 import shutil
@@ -76,23 +75,23 @@ def wizard():
     print('\n')
     print("MagIC's auto-tests suite")
     print('\n')
-    print("                      /\                ")
-    print("                     /  \               ")
-    print("                    |    |              ")
-    print("                  --:'''':--            ")
-    print("                    :'_' :              ")
-    print('                    _:"":\___           ')
-    print("     ' '      ____.' :::     '._        ")
-    print("    . *=====<<=)           \    :       ")
-    print("     .  '      '-'-'\_      /'._.'      ")
-    print('                      \====:_ ""        ')
-    print("                     .'     \\          ")
-    print("                    :       :           ")
-    print("                   /   :    \           ")
-    print("                  :   .      '.         ")
-    print("                  :  : :      :         ")
-    print("                  :__:-:__.;--'         ")
-    print("                   '-'   '-'            ")
+    print(r"                      /\                ")
+    print(r"                     /  \               ")
+    print(r"                    |    |              ")
+    print(r"                  --:'''':--            ")
+    print(r"                    :'_' :              ")
+    print(r'                    _:"":\___           ')
+    print(r"     ' '      ____.' :::     '._        ")
+    print(r"    . *=====<<=)           \    :       ")
+    print(r"     .  '      '-'-'\_      /'._.'      ")
+    print(r'                      \====:_ ""        ')
+    print(r"                     .'     \\          ")
+    print(r"                    :       :           ")
+    print(r"                   /   :    \           ")
+    print(r"                  :   .      '.         ")
+    print(r"                  :  : :      :         ")
+    print(r"                  :__:-:__.;--'         ")
+    print(r"                   '-'   '-'            ")
     print('\n')
 
 
@@ -138,12 +137,13 @@ def cmake(args, startdir, execDir):
         omp_opt = '-DUSE_OMP=no'
 
     # Compilation
-    cmd = 'cmake %s/.. %s %s %s %s %s %s' % (startdir, mpi_opt, build_type,
-                                                precond_opt, mkl_opt, omp_opt, 
-                                                shtns_opt)
+    cmd = 'cmake {}/.. {} {} {} {} {} {}'.format(startdir, mpi_opt, build_type,
+                                                 precond_opt, mkl_opt, omp_opt,
+                                                 shtns_opt)
     print('  '+cmd)
     print('\n')
-    sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
+    sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+            stderr=open(os.devnull, 'wb'))
 
 
 def compile():
@@ -170,17 +170,17 @@ def get_env(args):
     else:
         c_comp = 'CC is not defined. Default C compiler will be used!'
         
-    print('  FC        : %s' % fortran_comp)
-    print('  CC        : %s' % c_comp)
-    print('  MPI       : %r' % args.use_mpi)
+    print('  FC        : {}'.format(fortran_comp))
+    print('  CC        : {}'.format(c_comp))
+    print('  MPI       : {}'.format(args.use_mpi))
     if args.use_mpi:
-        print('  nranks    : %i' % args.nranks)
-        print('  mpi exec  : %s' % args.mpicmd)
-        print('  OPENMP    : %r' % args.use_openmp)
+        print('  nranks    : {:d}'.format(args.nranks))
+        print('  mpi exec  : {}'.format(args.mpicmd))
+        print('  OPENMP    : {}'.format(args.use_openmp))
         if args.use_openmp:
-            print('  nThreads  : %i' % args.nthreads)
-        print('  MKL       : %r' % args.use_mkl)
-        print('  SHTNS     : %r' % args.use_shtns)
+            print('  nThreads  : {:d}'.format(args.nthreads))
+        print('  MKL       : {}'.format(args.use_mkl))
+        print('  SHTNS     : {}'.format(args.use_shtns))
     print('\n')
 
 
@@ -188,7 +188,7 @@ def get_exec_cmd(args, execDir):
     """
     Determine execution command
     """
-    magicExec = '%s/magic.exe' % execDir
+    magicExec = '{}/magic.exe'.format(execDir)
 
     if args.use_mpi: # With MPI
         if args.use_openmp:
@@ -200,9 +200,9 @@ def get_exec_cmd(args, execDir):
         else:
             os.environ['I_MPI_PIN_PROCESSOR_LIST'] = 'allcores'
 
-        execCmd = '%s -n %i %s' % (args.mpicmd, args.nranks, magicExec)
+        execCmd = '{} -n {:d} {}'.format(args.mpicmd, args.nranks, magicExec)
     else: # Without MPI
-        execCmd = '%s' % magicExec
+        execCmd = '{}'.format(magicExec)
 
     return execCmd
 
@@ -223,156 +223,141 @@ def getSuite(startdir, cmd, precision, args):
     if args.test_level in [-1, 0]:
         # Initial state of the Boussinesq benchmark (non-conducting IC)
         suite.addTest(dynamo_benchmark.unitTest.DynamoBenchmark('outputFileDiff',
-                                                  '%s/dynamo_benchmark' \
-                                                  % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                          '{}/dynamo_benchmark'.format(startdir),
+                                          execCmd=cmd,
+                                          precision=precision))
         # Variable properties
         suite.addTest(varProps.unitTest.VariableProperties('outputFileDiff',
-                                                  '%s/varProps' % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                          '{}/varProps'.format(startdir),
+                                          execCmd=cmd,
+                                          precision=precision))
         # Time schemes
         suite.addTest(time_schemes.unitTest.TimeSchemes('outputFileDiff',
-                                                  '%s/time_schemes' % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                          '{}/time_schemes'.format(startdir),
+                                          execCmd=cmd,
+                                          precision=precision))
         # Finite differences
         suite.addTest(finite_differences.unitTest.FiniteDifferences('outputFileDiff',
-                                                  '%s/finite_differences' % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                          '{}/finite_differences'.format(startdir),
+                                          execCmd=cmd,
+                                          precision=precision))
 
         # Saturated state of the Boussinesq benchmark (conducting IC)
         suite.addTest(boussBenchSat.unitTest.BoussinesqBenchmarkTest(
-                                                  'outputFileDiff',
-                                                  '%s/boussBenchSat' % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                          'outputFileDiff',
+                                          '{}/boussBenchSat'.format(startdir),
+                                          execCmd=cmd,
+                                          precision=precision))
         # Double Diffusion
         suite.addTest(doubleDiffusion.unitTest.DoubleDiffusion('outputFileDiff',
-                                                  '%s/doubleDiffusion'\
-                                                  % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                          '{}/doubleDiffusion'.format(startdir),
+                                          execCmd=cmd,
+                                          precision=precision))
         # Phase Field
         suite.addTest(phase_field.unitTest.PhaseField('outputFileDiff',
-                                                  '%s/phase_field'\
-                                                  % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                          '{}/phase_field'.format(startdir),
+                                          execCmd=cmd,
+                                          precision=precision))
         # Axisymmetric run (spherical Couette)
         suite.addTest(couetteAxi.unitTest.CouetteAxi('outputFileDiff',
-                                                  '%s/couetteAxi'\
-                                                  % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                          '{}/couetteAxi'.format(startdir),
+                                          execCmd=cmd,
+                                          precision=precision))
         # Precession with Po=-0.01
         suite.addTest(precession.unitTest.PrecessionTest(
-                                                  'outputFileDiff',
-                                                  '%s/precession' % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                         'outputFileDiff',
+                                         '{}/precession'.format(startdir),
+                                         execCmd=cmd,
+                                         precision=precision))
         # First full sphere benchmark from Marti et al. (2014)
         suite.addTest(full_sphere.unitTest.FullSphere('outputFileDiff',
-                                                  '%s/full_sphere' \
-                                                  % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                         '{}/full_sphere'.format(startdir),
+                                         execCmd=cmd,
+                                         precision=precision))
         # Onset of convection
         suite.addTest(onset.unitTest.OnsetTest('outputFileDiff',
-                                               '%s/onset' % startdir, 
-                                               execCmd=cmd,
-                                               precision=precision))
+                                         '{}/onset'.format(startdir),
+                                         execCmd=cmd,
+                                         precision=precision))
     if args.test_level in [-1, 1]:
         # Test restart file capabilities
         suite.addTest(testRestart.unitTest.TestRestart('outputFileDiff',
-                                                  '%s/testRestart' % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                         '{}/testRestart'.format(startdir),
+                                         execCmd=cmd,
+                                         precision=precision))
         # Test truncations
         suite.addTest(testTruncations.unitTest.TestTruncations('outputFileDiff',
-                                                  '%s/testTruncations'\
-                                                  % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                         '{}/testTruncations'.format(startdir),
+                                         execCmd=cmd,
+                                         precision=precision))
         # Test grid mapping capabilities
         suite.addTest(testMapping.unitTest.TestMapping('outputFileDiff',
-                                                  '%s/testMapping' % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                         '{}/testMapping'.format(startdir),
+                                         execCmd=cmd,
+                                         precision=precision))
         # Check standard time series outputs
         suite.addTest(testOutputs.unitTest.OutputTest('outputFileDiff',
-                                                  '%s/testOutputs' % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                         '{}/testOutputs'.format(startdir),
+                                         execCmd=cmd,
+                                         precision=precision))
         # Check radial profiles
         suite.addTest(testRadialOutputs.unitTest.RadialOutputTest(
-                                                  'outputFileDiff',
-                                                  '%s/testRadialOutputs'\
-                                                  % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=1e-7))
+                                         'outputFileDiff',
+                                         '{}/testRadialOutputs'.format(startdir),
+                                         execCmd=cmd,
+                                         precision=1e-7))
     if args.test_level in [-1, 2]:
         # Check the anelastic non-magnetic benchmark
         suite.addTest(hydro_bench_anel.unitTest.AnelasticBenchmark(
-                                                  'outputFileDiff',
-                                                  '%s/hydro_bench_anel'\
-                                                  % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                        'outputFileDiff',
+                                        '{}/hydro_bench_anel'.format(startdir),
+                                        execCmd=cmd,
+                                        precision=precision))
     if args.test_level in [-1, 3]:
         # Check heat flux pattern in a Boussinesq model
         suite.addTest(fluxPerturbation.unitTest.HeatFluxPattern(
-                                                  'outputFileDiff',
-                                                  '%s/fluxPerturbation'\
-                                                  % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                        'outputFileDiff',
+                                        '{}/fluxPerturbation'.format(startdir),
+                                        execCmd=cmd,
+                                        precision=precision))
         # Check an anelastic case with a zero Gruneisen (isothermal) parameter
         suite.addTest(isothermal_nrho3.unitTest.ZeroGruneisen(
-                                                  'outputFileDiff',
-                                                  '%s/isothermal_nrho3'\
-                                                  % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                        'outputFileDiff',
+                                        '{}/isothermal_nrho3'.format(startdir),
+                                        execCmd=cmd,
+                                        precision=precision))
         # Check conducting and rotating IC
         suite.addTest(dynamo_benchmark_condICrotIC.unitTest.ConductingRotatingIC(
-                                                  'outputFileDiff',
-                                                  '%s/dynamo_benchmark_condICrotIC'\
-                                                  % startdir,
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                        'outputFileDiff',
+                                        '{}/dynamo_benchmark_condICrotIC'.format(startdir),
+                                        execCmd=cmd,
+                                        precision=precision))
         # Check variable electrical conductivity
         suite.addTest(varCond.unitTest.VariableConductivity('outputFileDiff',
-                                                  '%s/varCond' % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                        '{}/varCond'.format(startdir),
+                                        execCmd=cmd,
+                                        precision=precision))
     if args.test_level in [-1, 4]:
         # Check CMB and r coefficients
         suite.addTest(testCoeffOutputs.unitTest.TestCoeffOutputs(
-                                                  'outputFileDiff',
-                                                  '%s/testCoeffOutputs'\
-                                                  % startdir, 
-                                                  execCmd=cmd))
+                                        'outputFileDiff',
+                                        '{}/testCoeffOutputs'.format(startdir),
+                                        execCmd=cmd))
         # Check RMS force balance
         suite.addTest(testRMSOutputs.unitTest.TestRMSOutputs('outputFileDiff',
-                                                  '%s/testRMSOutputs'\
-                                                  % startdir, 
-                                                  execCmd=cmd,
-                                                  precision=precision))
+                                        '{}/testRMSOutputs'.format(startdir),
+                                        execCmd=cmd,
+                                        precision=precision))
         # Check Graphic and Movie outputs
         suite.addTest(testGraphMovieOutputs.unitTest.TestGraphicMovieOutputs(
-                                                  'outputFileDiff',
-                                                  '%s/testGraphMovieOutputs' \
-                                                  % startdir, 
-                                                  execCmd=cmd))
+                                        'outputFileDiff',
+                                        '{}/testGraphMovieOutputs'.format(startdir),
+                                        execCmd=cmd))
         # Check TO and Geos outputs
         suite.addTest(testTOGeosOutputs.unitTest.TestTOGeosOutputs(
-                                                  'outputFileDiff',
-                                                  '%s/testTOGeosOutputs' \
-                                                  % startdir, 
-                                                  execCmd=cmd))
+                                        'outputFileDiff',
+                                        '{}/testTOGeosOutputs'.format(startdir),
+                                        execCmd=cmd))
 
     return suite
 
@@ -425,7 +410,7 @@ def printLevelInfo():
 if __name__ == '__main__':
     precision = 1e-8 # relative tolerance between expected and actual result
     startdir = os.getcwd()
-    execDir = '%s/tmp' % startdir # where MagIC will be built
+    execDir = '{}/tmp'.format(startdir) # where MagIC will be built
 
     parser = getParser()
     args = parser.parse_args()

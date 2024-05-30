@@ -21,6 +21,9 @@ module chebyshev
       type(costf_odd_t) :: chebt_oc
       real(cp), allocatable :: x_cheb(:)
       complex(cp), pointer :: work_costf(:,:)
+      !real(cp), allocatable :: drx(:)   ! First derivative of non-linear mapping (see Bayliss and Turkel, 1990)
+      real(cp), allocatable :: ddrx(:)  ! Second derivative of non-linear mapping
+      real(cp), allocatable :: dddrx(:) ! Third derivative of non-linear mapping
    contains
       procedure :: initialize
       procedure :: finalize
@@ -48,8 +51,8 @@ contains
       integer, intent(in) :: order ! This is going to be n_cheb_max
       integer, intent(in) :: order_boundary ! this is used to determine whether mappings are used
 
-      !-- Local variables:
-      integer :: ni,nd
+      !-- Local variable
+      integer :: nd
 
       this%rnorm = sqrt(two/real(n_r_max-1,kind=cp))
       this%n_max = order  ! n_cheb_max
@@ -79,10 +82,8 @@ contains
       this%dr_top(:,:)=0.0_cp
       this%dr_bot(:,:)=0.0_cp
 
-      ni = 2*n_r_max+2
       nd = 2*n_r_max+5
-
-      call this%chebt_oc%initialize(n_r_max, ni, nd)
+      call this%chebt_oc%initialize(n_r_max, this%n_max, nd)
 
       allocate ( this%drx(n_r_max), this%ddrx(n_r_max), this%dddrx(n_r_max) )
       bytes_allocated=bytes_allocated+3*n_r_max*SIZEOF_DEF_REAL

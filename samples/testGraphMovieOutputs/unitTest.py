@@ -1,4 +1,3 @@
-from __future__ import print_function
 import unittest
 import numpy as np
 import glob
@@ -8,24 +7,24 @@ import shutil
 import subprocess as sp
 
 def cleanDir(dir):
-    if os.path.exists('%s/pscond.dat' % dir):
-        os.remove('%s/pscond.dat' % dir)
-    if os.path.exists('%s/scond.dat' % dir):
-        os.remove('%s/scond.dat' % dir)
-    if os.path.exists('%s/run_magic.sh' % dir):
-        os.remove('%s/run_magic.sh' % dir)
-    if os.path.exists('%s/run_magic_mpi.sh' % dir):
-        os.remove('%s/run_magic_mpi.sh' % dir)
-    for f in glob.glob('%s/*_BIS' % dir):
+    if os.path.exists('{}/pscond.dat'.format(dir)):
+        os.remove('{}/pscond.dat'.format(dir))
+    if os.path.exists('{}/scond.dat'.format(dir)):
+        os.remove('{}/scond.dat'.format(dir))
+    if os.path.exists('{}/run_magic.sh'.format(dir)):
+        os.remove('{}/run_magic.sh'.format(dir))
+    if os.path.exists('{}/run_magic_mpi.sh'.format(dir)):
+        os.remove('{}/run_magic_mpi.sh'.format(dir))
+    for f in glob.glob('{}/*_BIS'.format(dir)):
         os.remove(f)
-    for f in glob.glob('%s/*.test' % dir):
+    for f in glob.glob('{}/*.test'.format(dir)):
         os.remove(f)
-    if os.path.exists('%s/stdout.out' % dir):
-        os.remove('%s/stdout.out' % dir)
-    for f in glob.glob('%s/*.pyc' % dir):
+    if os.path.exists('{}/stdout.out'.format(dir)):
+        os.remove('{}/stdout.out'.format(dir))
+    for f in glob.glob('{}/*.pyc'.format(dir)):
         os.remove(f)
-    if os.path.exists('%s/__pycache__' % dir):
-        shutil.rmtree('%s/__pycache__' % dir)
+    if os.path.exists('{}/__pycache__'.format(dir)):
+        shutil.rmtree('{}/__pycache__'.format(dir))
 
 
 def readStack(file):
@@ -46,10 +45,10 @@ def generateEkinFile(fileName='e_kin.test'):
     gr = MagicGraph(ivar=1)
  
     file = open(fileName, 'w')
-    st = '%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f' % ( gr.entropy[10, 13, 3], 
-         gr.Br[33, 0, 2], gr.Btheta[3, 11, 11], gr.Bphi[34, 12, 25], 
-         gr.vr[11, 15, 2], gr.vtheta[33, 33, 3], gr.vphi[32, 33, 7],
-         gr.Br_ic[5, 101, 3], gr.Btheta_ic[40, 39, 13] )
+    st = '{:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}'.format( \
+         gr.entropy[10, 13, 3], gr.Br[33, 0, 2], gr.Btheta[3, 11, 11],
+         gr.Bphi[34, 12, 25], gr.vr[11, 15, 2], gr.vtheta[33, 33, 3],
+         gr.vphi[32, 33, 7], gr.Br_ic[5, 101, 3], gr.Btheta_ic[40, 39, 13] )
 
     #Write output for graphic files
     file.write(st+'\n')
@@ -70,7 +69,7 @@ def generateEkinFile(fileName='e_kin.test'):
     vp_slice = Movie(file='Vp_P=0_000000_mov.start', iplot=False)
     Br_slice = Movie(file='Br_P=0_000000_mov.start', iplot=False)
 
-    st = '%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f' % ( \
+    st = '{:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}'.format( \
          av.data[0, 1, 121, 12], ahf.data[0, 0, 99, 33], brcmb.data[0, 1, 47, 128],
          vtr.data[0, 0, 33, 87], vreq.data[0, 0, 28, 31], teq.data[0, 1, 29, 29],
          vortz.data[0, 1, 1, 1], hel.data[0, 0, 3, 4], Bteq.data_ic[0, -1, 10, 5], 
@@ -99,14 +98,14 @@ class TestGraphicMovieOutputs(unittest.TestCase):
 
     def setUp(self):
         # Cleaning when entering
-        print('\nDirectory   :           %s' % self.dir)
-        print('Description :           %s' % self.description)
+        print('\nDirectory   :           {}'.format(self.dir))
+        print('Description :           {}'.format(self.description))
         self.startTime = time.time()
         cleanDir(self.dir)
-        for f in glob.glob('%s/*.start' % self.dir):
+        for f in glob.glob('{}/*.start'.format(self.dir)):
             os.remove(f)
         os.chdir(self.dir)
-        cmd = '%s %s/input.nml' % (self.execCmd, self.dir)
+        cmd = '{} {}/input.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
 
@@ -114,12 +113,12 @@ class TestGraphicMovieOutputs(unittest.TestCase):
         # Cleaning when leaving
         os.chdir(self.startDir)
         cleanDir(self.dir)
-        for f in glob.glob('%s/*.start' % self.dir):
+        for f in glob.glob('{}/*.start'.format(self.dir)):
             os.remove(f)
 
         t = time.time()-self.startTime
         st = time.strftime("%M:%S", time.gmtime(t))
-        print('Time used   :                            %s' % st)
+        print('Time used   :                            {}'.format(st))
 
         if hasattr(self, '_outcome'): # python 3.4+
             if hasattr(self._outcome, 'errors'):  # python 3.4-3.10
@@ -151,8 +150,8 @@ class TestGraphicMovieOutputs(unittest.TestCase):
                          'MAGIC_HOME is not defined! source sourceme.sh!')
     def outputFileDiff(self):
         generateEkinFile('e_kin.test')
-        datRef = readStack('%s/reference.out' % self.dir)
-        datTmp = readStack('%s/e_kin.test' % self.dir)
+        datRef = readStack('{}/reference.out'.format(self.dir))
+        datTmp = readStack('{}/e_kin.test'.format(self.dir))
         np.testing.assert_equal(datRef, datTmp)
 
 
