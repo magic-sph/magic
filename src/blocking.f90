@@ -51,43 +51,15 @@ module blocking
 
    type(subblocks_mappings), public, target :: st_sub_map, lo_sub_map
 
-   !------------------------------------------------------------------------
-   !  Following divides loops over points in theta-direction (index ic) into
-   !  blocks. Enhances performance by trying to decrease memory access
-   !  but is not relevant for SMP parallel processing.
-   !  It is tried to divide the theta loop into parts whose data
-   !  fit into cache. Thus ideal block sizes (nfs) highly depend on the
-   !  used computer.
-   !  The value nfs used here has been determined experientally
-   !  by Uli Christensen for an IBM SP2. It represents an upper bound.
-   !  The real block size sizeThetaB used in the code is determined in
-   !  s_prep.f by decreasing the size starting with nfs,
-   !  until n_theta_max is a multiple of sizeThetaB. The maximum number of
-   !  blocks is limited to 8 here (see s_prep.f).
-   !  To find a new blocking for a different computer I suggest to
-   !  vary the number of blocks nThetaBs (see s_prep.f) for a fixed
-   !  resolution. If the ideal no. of blocks nThetaBsI has been found
-   !  this determins the ideal block size:
-   !         sizeThetaBI=((n_theta_max-1)/nThetaBsI+1)*n_phi_max
-   !  This can than be rescaled for different resolutions n_phi_max:
-   !         nfs=sizeThetaBI/n_phi_max+1
-   !  The resulting block number can be kept down by multiplying this
-   !  with an integer number nBDown, Uli has used K=8 here.
-   !  For the memory access this is equivalent to inceasing the
-   !  number of blocks.
-   !  I dont know exactly why Uli has the additional 16. It may just
-   !  decrease the block size to be on the safe side, which is a good
-   !  idea, since you dont want to end up with blocks that are just
-   !  a little bit larger than the cache.
-   !  Thus it seems a good idea to use
-   !        nfs=sizeThetaBI/(n_phi_max+nBSave)+1)*nBDown
-   !
-
    public :: initialize_blocking, finalize_blocking
 
 contains
 
-   subroutine initialize_blocking
+   subroutine initialize_blocking()
+      !
+      ! This subroutine allocates and initializes the different LM mappings
+      ! employed in the code.
+      !
 
       integer :: n
       integer(lip) :: local_bytes_used
@@ -220,7 +192,10 @@ contains
 
    end subroutine initialize_blocking
 !------------------------------------------------------------------------
-   subroutine finalize_blocking
+   subroutine finalize_blocking()
+      !
+      ! This subroutine deallocates the LM mappings used in MagIC.
+      !
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(release : lo_map, st_map, lo_sub_map, st_sub_map)

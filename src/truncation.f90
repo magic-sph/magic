@@ -50,7 +50,6 @@ contains
    subroutine initialize_truncation
 
       integer :: n_r_maxML,n_r_ic_maxML,n_r_totML,l_maxML,lm_maxML
-      integer :: lm_max_dL,n_r_max_dL,n_r_ic_max_dL
       integer :: l, m
 
       if ( .not. l_axi ) then

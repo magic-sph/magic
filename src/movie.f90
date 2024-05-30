@@ -1,5 +1,6 @@
 module movie_data
 
+   use iso_fortran_env, only: output_unit
    use parallel_mod
    use precision_mod
    use truncation, only: n_r_max, n_theta_max, n_phi_max, minc, n_r_ic_max, n_r_tot
@@ -1244,8 +1245,8 @@ contains
          if ( n_field_type(1) == 54 .and.                    &
          &    ( ( n_surface /= 0 .and. n_surface /= 3 ) .or. &
          &    index(string,'AX') /= 0 ) ) then
-            write(*,*) 'Sorry, can only prepare movie file for'
-            write(*,*) 'phi component of LF in 3d or for phi-cut.'
+            write(output_unit,*) 'Sorry, can only prepare movie file for'
+            write(output_unit,*) 'phi component of LF in 3d or for phi-cut.'
             call abortRun('Stop run in movie')
          end if
 

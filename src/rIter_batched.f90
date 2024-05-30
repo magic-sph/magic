@@ -54,7 +54,7 @@ module rIter_batched_mod
    use fields, only: s_Rloc, ds_Rloc, z_Rloc, dz_Rloc, p_Rloc,    &
        &             b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc,dj_Rloc,  &
        &             w_Rloc, dw_Rloc, ddw_Rloc, xi_Rloc, omega_ic,&
-       &             omega_ma, dp_Rloc, phi_Rloc
+       &             omega_ma, phi_Rloc
    use time_schemes, only: type_tscheme
    use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv, &
        &                          ellip_fac_cmb, ellip_fac_icb
@@ -457,10 +457,7 @@ contains
                  &                 PFt2LM(idx1:idx2), PFp2LM(idx1:idx2),           &
                  &                 LFrLM(idx1:idx2), LFt2LM(idx1:idx2),            &
                  &                 LFp2LM(idx1:idx2), CFt2LM(idx1:idx2),           &
-                 &                 CFp2LM(idx1:idx2), w_Rloc(:,nR), dw_Rloc(:,nR), &
-                 &                 ddw_Rloc(:,nR), z_Rloc(:,nR), s_Rloc(:,nR),     &
-                 &                 xi_Rloc(:,nR), p_Rloc(:,nR), dp_Rloc(:,nR),     &
-                 &                 this%nl_lm%AdvrLM(:,nR))
+                 &                 CFp2LM(idx1:idx2), this%nl_lm%AdvrLM(:,nR))
          end if
 
          !-- Finish calculation of TO variables:
