@@ -3,6 +3,7 @@ module radial_data
    ! This module defines the MPI decomposition in the radial direction.
    !
 
+   use iso_fortran_env, only: output_unit
    use parallel_mod, only: rank, n_procs, nR_per_rank, load, getBlocks
    use logic, only: l_mag, lVerbose, l_finite_diff
  
@@ -45,8 +46,8 @@ contains
       end if
 
       if ( lVerbose ) then
-         write(*,"(4(A,I4))") "On rank ",rank," nR is in (", &
-               nRstart,",",nRstop,"), nR_per_rank is ",nR_per_rank
+         write(output_unit,"(4(A,I4))") "On rank ",rank," nR is in (", &
+         &     nRstart,",",nRstop,"), nR_per_rank is ",nR_per_rank
       end if
 
    end subroutine initialize_radial_data
