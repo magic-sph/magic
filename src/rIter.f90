@@ -149,7 +149,7 @@ contains
       !-- Courant citeria:
       real(cp),    intent(out) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
 
-      integer :: nR, nBc, nR_Mag
+      integer :: nR, nBc
       logical :: lMagNlBc, l_bound, lDeriv
 
       if ( l_graph ) then
@@ -217,12 +217,6 @@ contains
          end if
 
          if ( lRmsCalc ) nBc=0 ! One also needs to compute the boundaries in that case
-
-         if ( l_mag .or. l_mag_LF ) then
-             nR_Mag=nR
-         else
-             nR_Mag=1
-         end if
 
          dtrkc(nR)=1e10_cp
          dthkc(nR)=1e10_cp
@@ -426,10 +420,24 @@ contains
          !   get_td finally calculates the d*dt terms needed for the
          !   time step performed in LMLoop.f90 .
          call td_counter%start_count()
-         call this%nl_lm%get_td(nR, nBc, lPressNext, dVSrLM(:,nR), dVXirLM(:,nR), &
-              &                 dVxVhLM(:,nR), dVxBhLM(:,nR_Mag), dwdt(:,nR),     &
-              &                 dzdt(:,nR), dpdt(:,nR), dsdt(:,nR), dxidt(:,nR),  &
-              &                 dbdt(:,nR_Mag), djdt(:,nR_Mag))
+         if ( l_conv ) then
+            call this%nl_lm%get_dzdt(nR, nBc, dzdt(:,nR))
+            if ( l_double_curl ) then
+               call this%nl_lm%get_dwdt_double_curl(nR, nBc, dwdt(:,nR), dVxVhLM(:,nR))
+            else
+               call this%nl_lm%get_dwdt(nR, nBc, dwdt(:,nR))
+            end if
+         end if
+         if ( (.not. l_double_curl) .or. lPressNext ) then
+            call this%nl_lm%get_dpdt(nR, nBc, dpdt(:,nR))
+         end if
+         if ( l_heat ) call this%nl_lm%get_dsdt(nR, nBc, dsdt(:,nR), dVSrLM(:,nR))
+         if ( l_chemical_conv ) then
+            call this%nl_lm%get_dxidt(nBc, dxidt(:,nR), dVXirLM(:,nR))
+         end if
+         if ( l_mag ) then
+            call this%nl_lm%get_dbdt(nR, nBc, dbdt(:,nR), djdt(:,nR), dVxBhLM(:,nR))
+         end if
          call td_counter%stop_count(l_increment=.false.)
 
          !-- Finish computation of r.m.s. forces
