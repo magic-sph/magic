@@ -83,7 +83,7 @@ class MagicTs(MagicSetup):
             # Or the tag is a bit more complicated and we need to find
             # the corresponding log file
             else:
-                st = os.path.join(datadir, '{}\.(.*)'.format(self.field))
+                st = os.path.join(datadir, r'{}\.(.*)'.format(self.field))
                 mask = re.compile(st)
                 if mask.match(files[-1]):
                     ending = mask.search(files[-1]).groups(0)[0]
