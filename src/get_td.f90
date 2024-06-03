@@ -270,11 +270,11 @@ contains
       if (nBc == 0 ) then
 
 #ifdef WITH_OMP_GPU
-			!$omp target teams distribute parallel do private(l,lmS,lmA) &
-			!$omp private(CorPol_loc)
+         !$omp target teams distribute parallel do private(l,lmS,lmA) &
+         !$omp private(CorPol_loc)
 #else
-			!$omp parallel do default(shared) private(l,lmS,lmA) &
-			!$omp private(CorPol_loc)
+         !$omp parallel do default(shared) private(l,lmS,lmA) &
+         !$omp private(CorPol_loc)
 #endif
          do lm=1,lm_max
             l  =lm2l(lm)
@@ -377,11 +377,11 @@ contains
       if (nBc == 0 ) then
 
 #ifdef WITH_OMP_GPU
-			!$omp target teams distribute parallel do private(l,lmS,lmA) &
-			!$omp private(CorPol_loc)
+         !$omp target teams distribute parallel do private(l,lmS,lmA) &
+         !$omp private(CorPol_loc)
 #else
-			!$omp parallel do default(shared) private(l,lmS,lmA) &
-			!$omp private(CorPol_loc)
+         !$omp parallel do default(shared) private(l,lmS,lmA) &
+         !$omp private(CorPol_loc)
 #endif
          do lm=1,lm_max
             l  =lm2l(lm)
@@ -448,11 +448,11 @@ contains
 
       if (nBc == 0 ) then
 #ifdef WITH_OMP_GPU
-			!$omp target teams distribute parallel do private(l,lmS,lmA) &
-			!$omp private(CorTor_loc)
+         !$omp target teams distribute parallel do private(l,lmS,lmA) &
+         !$omp private(CorTor_loc)
 #else
-			!$omp parallel do default(shared) private(l,lmS,lmA) &
-			!$omp private(CorTor_loc)
+         !$omp parallel do default(shared) private(l,lmS,lmA) &
+         !$omp private(CorTor_loc)
 #endif
          do lm=1,lm_max
             l  =lm2l(lm)
@@ -494,9 +494,9 @@ contains
             end if
          end do
 #ifdef WITH_OMP_GPU
-			!$omp end target teams distribute parallel do
+         !$omp end target teams distribute parallel do
 #else
-			!$omp end parallel do
+         !$omp end parallel do
 #endif
       end if
 
@@ -1560,11 +1560,11 @@ contains
       complex(cp) :: CorPol_loc
 
 #ifdef WITH_OMP_GPU
-			!$omp target teams distribute parallel do collapse(2) private(l,lmS,lmA) &
-			!$omp private(CorPol_loc)
+         !$omp target teams distribute parallel do collapse(2) private(l,lmS,lmA) &
+         !$omp private(CorPol_loc)
 #else
-			!$omp parallel do default(shared) private(l,lmS,lmA) &
-			!$omp private(CorPol_loc)
+         !$omp parallel do default(shared) private(l,lmS,lmA) &
+         !$omp private(CorPol_loc)
 #endif
       do nR=nRstart,nRstop
          do lm=1,lm_max
