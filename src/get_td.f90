@@ -787,7 +787,7 @@ module nonlinear_lm_2d_mod
        &             l_adv_curl, l_parallel_solve, l_temperature_diff
    use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1, l_R
    use physical_parameters, only: CorFac, epsc,  n_r_LCR, epscXi
-   use blocking, only: lm2l, lm2m, lm2lmA, lm2lmS
+   use blocking, only: lm2l, lm2lmA, lm2lmS
    use horizontal_data, only: dLh, dPhi, dTheta2A, dTheta3A, dTheta4A, dTheta2S, &
        &                      dTheta3S, dTheta4S
    use constants, only: zero, two
@@ -986,23 +986,22 @@ contains
       complex(cp), intent(out) :: dVxVhLM(lm_max,nRstart:nRstop)
 
       !-- Local variables:
-      integer :: l,m,lm,lmS,lmA,nR
+      integer :: l,lm,lmS,lmA,nR
       complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc,dsdt_loc
 
       if ( l_conv ) then
 
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2) &
-         !$omp private(l,m,lmS,lmA) &
+         !$omp private(l,lmS,lmA) &
          !$omp private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
 #else
-         !$omp parallel do default(shared) private(lm,l,m,lmS,lmA) &
+         !$omp parallel do default(shared) private(lm,l,lmS,lmA) &
          !$omp private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
 #endif
          do nR=nRstart,nRstop
             do lm=1,lm_max
                l   =lm2l(lm)
-               m   =lm2m(lm)
                lmS =lm2lmS(lm)
                lmA =lm2lmA(lm)
 
