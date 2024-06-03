@@ -240,8 +240,8 @@ class Butterfly:
             #ax.text(0.05, 0.9, 'a)', transform =ax.transAxes)
         ax.set_yticks([-90,-45,0,45,90])
         if labTex:
-            ax.set_yticklabels(['$-90^\circ$', '$-45^\circ$', '$0^\circ$',
-                                '$45^\circ$', '$90^\circ$'])
+            ax.set_yticklabels([r'$-90^\circ$', r'$-45^\circ$', r'$0^\circ$',
+                                r'$45^\circ$', r'$90^\circ$'])
         else:
             ax.set_yticklabels(['-90', '-45', '0', '45', '90'])
 

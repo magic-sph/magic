@@ -352,7 +352,7 @@ class MagicSpectrum(MagicSetup):
                                 self.ekin_torl_SD[1:], self.ekin_torl[1:]+\
                                 self.ekin_torl_SD[1:], alpha=0.2)
             if labTex:
-                ax.set_xlabel('Degree $\ell$')
+                ax.set_xlabel(r'Degree $\ell$')
                 ax.set_ylabel(r'${\cal U}^2$')
             else:
                 ax.set_xlabel('Degree l')
@@ -407,7 +407,7 @@ class MagicSpectrum(MagicSetup):
                                 self.emagcmb_l_SD[1:], self.emagcmb_l[1:]+\
                                 self.emagcmb_l_SD[1:], alpha=0.2)
             if labTex:
-                ax.set_xlabel('Degree $\ell$')
+                ax.set_xlabel(r'Degree $\ell$')
             else:
                 ax.set_xlabel('Degree l')
             ax.set_ylabel('Magnetic Energy')
@@ -464,7 +464,7 @@ class MagicSpectrum(MagicSetup):
                 ax.fill_between(self.index[1:], y-ystd, y+ystd, alpha=0.2)
 
             if labTex:
-                ax.set_xlabel('Degree $\ell$')
+                ax.set_xlabel(r'Degree $\ell$')
             else:
                 ax.set_xlabel('Degree l')
             ax.set_ylabel('Energy')
@@ -530,7 +530,7 @@ class MagicSpectrum(MagicSetup):
             #          label='Coriolis-Pressure-Buoyancy-Lorentz')
 
             if labTex:
-                ax.set_xlabel('$\ell$')
+                ax.set_xlabel(r'$\ell$')
             else:
                 ax.set_xlabel('l')
             ax.set_ylabel('RMS forces')
@@ -559,7 +559,7 @@ class MagicSpectrum(MagicSetup):
                     ax.fill_between(self.index+1, np.sqrt(self.dT_icb_l)-std,
                                     np.sqrt(self.dT_icb_l)+std, alpha=0.2)
             if labTex:
-                ax.set_xlabel('$\ell+1$')
+                ax.set_xlabel(r'$\ell+1$')
             else:
                 ax.set_xlabel('l+1')
             ax.set_ylabel('Temperature')
@@ -605,7 +605,7 @@ class MagicSpectrum(MagicSetup):
                     ax.fill_between(self.index+1, np.sqrt(self.dXi_icb_l)-std,
                                     np.sqrt(self.dXi_icb_l)+std, alpha=0.2)
             if labTex:
-                ax.set_xlabel('$\ell+1$')
+                ax.set_xlabel(r'$\ell+1$')
             else:
                 ax.set_xlabel('l+1')
             ax.set_ylabel('Chemical composition')
@@ -623,7 +623,7 @@ class MagicSpectrum(MagicSetup):
                                 np.sqrt(self.Xi_m[::self.minc])+std,
                                 alpha=0.2)
             if labTex:
-                ax.set_xlabel('Order $m+1$')
+                ax.set_xlabel(r'Order $m+1$')
             else:
                 ax.set_xlabel('m+1')
             ax.set_ylabel('Chemical composition')
@@ -639,7 +639,7 @@ class MagicSpectrum(MagicSetup):
                 ax.fill_between(self.index+1, np.sqrt(self.Phase_l)-std,
                                 np.sqrt(self.Phase_l)+std, alpha=0.2)
             if labTex:
-                ax.set_xlabel('$\ell+1$')
+                ax.set_xlabel(r'$\ell+1$')
             else:
                 ax.set_xlabel('l+1')
             ax.set_ylabel('Phase field')
@@ -1008,7 +1008,7 @@ class SpecLookUpTable:
 
 
 class MagicSpectrum2D(MagicSetup):
-    """
+    r"""
     This class can be used to read and display 2-D spectra in the :math:`(r,\ell)`
     and in the :math:`(r,m)` planes
 
@@ -1245,8 +1245,8 @@ class MagicSpectrum2D(MagicSetup):
                               np.log10(self.Geo_r_l[:, 1:].T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
-                ax0.set_ylabel('Degree $\ell$')
-                ax0.set_xlabel('Radius $r$')
+                ax0.set_ylabel(r'Degree $\ell$')
+                ax0.set_xlabel(r'Radius $r$')
             else:
                 ax0.set_ylabel('Degree l')
                 ax0.set_xlabel('Radius')
@@ -1261,8 +1261,8 @@ class MagicSpectrum2D(MagicSetup):
                               np.log10((self.Buo_r_l[:, 1:]+self.Chem_r_l[:, 1:]).T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
-                ax1.set_ylabel('Degree $\ell$')
-                ax1.set_xlabel('Radius $r$')
+                ax1.set_ylabel(r'Degree $\ell$')
+                ax1.set_xlabel(r'Radius $r$')
             else:
                 ax1.set_ylabel('Degree l')
                 ax1.set_xlabel('Radius')
@@ -1278,8 +1278,8 @@ class MagicSpectrum2D(MagicSetup):
                                   np.log10(self.LF_r_l[:, 1:].T),
                                   levs, cmap=plt.get_cmap(cm), extend='both')
                 if labTex:
-                    ax2.set_ylabel('Degree $\ell$')
-                    ax2.set_xlabel('Radius $r$')
+                    ax2.set_ylabel(r'Degree $\ell$')
+                    ax2.set_xlabel(r'Radius $r$')
                 else:
                     ax2.set_ylabel('Degree l')
                     ax2.set_xlabel('Radius')
@@ -1294,8 +1294,8 @@ class MagicSpectrum2D(MagicSetup):
                               np.log10(self.Iner_r_l[:, 1:].T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
-                ax3.set_ylabel('Degree $\ell$')
-                ax3.set_xlabel('Radius $r$')
+                ax3.set_ylabel(r'Degree $\ell$')
+                ax3.set_xlabel(r'Radius $r$')
             else:
                 ax3.set_ylabel('Degree l')
                 ax3.set_xlabel('Radius')
@@ -1310,8 +1310,8 @@ class MagicSpectrum2D(MagicSetup):
                               np.log10(self.Dif_r_l[:, 1:].T),
                               levs, cmap=plt.get_cmap(cm), extend='both')
             if labTex:
-                ax4.set_ylabel('Degree $\ell$')
-                ax4.set_xlabel('Radius $r$')
+                ax4.set_ylabel(r'Degree $\ell$')
+                ax4.set_xlabel(r'Radius $r$')
             else:
                 ax4.set_ylabel('Degree l')
                 ax4.set_xlabel('Radius')
@@ -1329,8 +1329,8 @@ class MagicSpectrum2D(MagicSetup):
                               levs, cmap=plt.get_cmap(cm), extend='both')
             fig0.colorbar(im)
             if labTex:
-                ax0.set_ylabel('Degree $\ell$')
-                ax0.set_xlabel('Radius $r$')
+                ax0.set_ylabel(r'Degree $\ell$')
+                ax0.set_xlabel(r'Radius $r$')
             else:
                 ax0.set_ylabel('Degree l')
                 ax0.set_xlabel('Radius')
@@ -1346,8 +1346,8 @@ class MagicSpectrum2D(MagicSetup):
                               levs, cmap=plt.get_cmap(cm), extend='both')
             fig1.colorbar(im)
             if labTex:
-                ax1.set_ylabel('Degree $\ell$')
-                ax1.set_xlabel('Radius $r$')
+                ax1.set_ylabel(r'Degree $\ell$')
+                ax1.set_xlabel(r'Radius $r$')
             else:
                 ax1.set_ylabel('Degree l')
                 ax1.set_xlabel('Radius')

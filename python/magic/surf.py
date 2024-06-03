@@ -1614,7 +1614,7 @@ def report(nvar=1, levels=defaultLevels, lclean=True):
     :param nvar: int
     """
     file = open('report.tex', 'w')
-    file.write("\documentclass[a4paper,10pt]{article}\n")
+    file.write("\\documentclass[a4paper,10pt]{article}\n")
     file.write("\\usepackage[utf8]{inputenc}\n")
     file.write("\\usepackage{amsmath,amsfonts,amssymb}\n")
     file.write("\\usepackage[francais]{babel}\n")
@@ -1623,13 +1623,13 @@ def report(nvar=1, levels=defaultLevels, lclean=True):
     file.write("\\usepackage{geometry}\n")
     file.write("\\usepackage[pdftex]{xcolor}\n")
 
-    file.write("\geometry{hmargin=1cm,vmargin=2cm}\n")
+    file.write("\\geometry{hmargin=1cm,vmargin=2cm}\n")
 
     file.write("\\begin{document}\n")
 
     s = Surf(ivar=nvar)
 
-    st = "Ek = {:.2e}, Ra = {:.2e}, Pr = {:.1f}, $N_{\\rho}$={:.2f}, $\eta$={.1f}".format(
+    st = "Ek = {:.2e}, Ra = {:.2e}, Pr = {:.1f}, $N_{\\rho}$={:.2f}, $\\eta$={.1f}".format(
             s.gr.ek, s.gr.ra, s.gr.pr, s.gr.strat, s.gr.radratio)
     file.write("\\begin{center}\\begin{large}\n")
     file.write(" "+st+"\n")

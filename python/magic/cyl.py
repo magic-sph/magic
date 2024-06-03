@@ -21,7 +21,7 @@ else:
     zavgMode = 'python'
 
 def sph2cyl_plane(data, rad, ns):
-    """
+    r"""
     This function extrapolates a phi-slice of a spherical shell on
     a cylindrical grid
 
@@ -338,7 +338,7 @@ def sph2cyl(g, ns=None, nz=None):
 
 
 class Cyl(MagicSetup):
-    """
+    r"""
     This class allows to extrapolate a given :ref:`graphic file <secGraphFile>`
     on a cylindrical grid. Once done, the extrapolated file is stored in
     a python.pickle file. It is then possible to display 2-D cuts of the extrapolated
@@ -424,7 +424,7 @@ class Cyl(MagicSetup):
 
     def surf(self, field='Bphi', r=0.85, vmin=None, vmax=None,
              levels=16, cm='RdYlBu_r', normed=True, figsize=None):
-        """
+        r"""
         Plot the surface distribution of an input field at a given
         input radius (normalised by the outer boundary radius).
 
@@ -499,7 +499,7 @@ class Cyl(MagicSetup):
 
     def equat(self, field='vs', levels=16, cm='RdYlBu_r', normed=True, vmax=None,
               vmin=None):
-        """
+        r"""
         Plot an input field in the equatorial plane.
 
             >>> c = Cyl(ns=65)

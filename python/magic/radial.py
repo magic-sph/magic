@@ -288,7 +288,7 @@ class MagicRadial(MagicSetup):
             ax = fig.add_subplot(111)
             ax.plot(x_axis, self.dLkappa, label='dLkappa')
             ax.set_xlabel('Radius')
-            ax.set_ylabel('$d\ln\kappa / dr$')
+            ax.set_ylabel(r'$d\ln\kappa / dr$')
             ax.set_xlim(x_axis.min(), x_axis.max())
             ax.legend(loc='best', frameon=False)
             fig.tight_layout()
