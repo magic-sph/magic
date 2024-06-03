@@ -12,7 +12,7 @@ json_model = {'phys_params': [],
 
 
 class ThetaHeat(MagicSetup):
-    """
+    r"""
     This class allows to conduct some analysis of the latitudinal
     variation of the heat transfer. It relies on the movie files
     :ref:`ATmov.TAG <secMovieFile>` and :ref:`AHF_mov.TAG <secMovieFile>`.

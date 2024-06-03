@@ -300,7 +300,8 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
 
     if bounds:
         ax.plot(radius[0]*np.cos(phi), radius[0]*np.sin(phi), 'k-', lw=1.5)
-        ax.plot(radius[-1]*np.cos(phi), radius[-1]*np.sin(phi), 'k-', lw=1.5)
+        if abs(radius[-1]) > 1e-8:
+            ax.plot(radius[-1]*np.cos(phi), radius[-1]*np.sin(phi), 'k-', lw=1.5)
 
         if not deminc and minc > 1:
             ax.plot(radius, np.zeros_like(radius), 'k-', lw=1.5)
@@ -479,7 +480,8 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
 
     if bounds:
         ax.plot((radius[0])*np.sin(th), (radius[0])*np.cos(th), 'k-')
-        ax.plot((radius[-1])*np.sin(th), (radius[-1])*np.cos(th), 'k-')
+        if abs(radius[-1]) > 1e-8:
+            ax.plot((radius[-1])*np.sin(th), (radius[-1])*np.cos(th), 'k-')
         ax.plot([0., 0.], [radius[-1], radius[0]], 'k-')
         ax.plot([0., 0.], [-radius[-1], -radius[0]], 'k-')
 
@@ -733,4 +735,4 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
             if rasterized:
                 c.set_rasterized(True)
 
-    return fig
+    return fig, x, y
