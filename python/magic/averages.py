@@ -257,20 +257,21 @@ class AvgField:
                     self.lut['radial_profiles']['radius'] = rr.radius
                     for field in params['radial_profiles'][key]:
                         if hasattr(rr, field):
-                            self.lut['radial_profiles'][field+'_av'] = rr.__dict__[field]
+                            self.lut['radial_profiles'][field+'R_av'] = \
+                                rr.__dict__[field]
                             setattr(self, field+'R_av', rr.__dict__[field])
                             if std and hasattr(rr, field + '_SD'):
-                                self.lut['radial_profiles'][field+'_sd'] = \
+                                self.lut['radial_profiles'][field+'R_sd'] = \
                                     rr.__dict__[field + '_SD']
                                 setattr(self, field+'R_sd', rr.__dict__[field+'_SD'])
         else:  # Set parameters to -1
             for key in params['radial_profiles'].keys():
                 self.lut['radial_profiles']['radius'] = -1 * np.ones(33)
                 for field in params['radial_profiles'][key]:
-                    self.lut['radial_profiles'][field+'_av'] = -1 * np.ones(33)
+                    self.lut['radial_profiles'][field+'R_av'] = -1 * np.ones(33)
                     #setattr(self, field+'R_av', rr.__dict__[field])
                     if std:
-                        self.lut['radial_profiles'][field+'_sd'] = -1 * np.ones(33)
+                        self.lut['radial_profiles'][field+'R_sd'] = -1 * np.ones(33)
                         #setattr(self, field+'R_sd', rr.__dict__[field+'_SD'])
 
         # Handle theta profiles

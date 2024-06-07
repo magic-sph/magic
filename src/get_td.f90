@@ -18,7 +18,7 @@ module nonlinear_lm_mod
        &             l_chemical_conv, l_single_matrix, l_double_curl
    use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1, l_R
    use physical_parameters, only: CorFac, epsc,  n_r_LCR, epscXi
-   use blocking, only: lm2l, lm2m, lm2lmA, lm2lmS
+   use blocking, only: lm2l, lm2lmA, lm2lmS
    use horizontal_data, only: dLh, dPhi, dTheta2A, dTheta3A, dTheta4A, dTheta2S, &
        &                      dTheta3S, dTheta4S
    use constants, only: zero, two
@@ -32,14 +32,20 @@ module nonlinear_lm_mod
       !----- Nonlinear terms in lm-space:
       complex(cp), allocatable :: AdvrLM(:), AdvtLM(:), AdvpLM(:)
       complex(cp), allocatable :: VxBrLM(:), VxBtLM(:), VxBpLM(:)
-      complex(cp), allocatable :: VStLM(:),  VSpLM(:)
-      complex(cp), allocatable :: VXitLM(:),  VXipLM(:)
+      complex(cp), allocatable :: VStLM(:), VSpLM(:)
+      complex(cp), allocatable :: VXitLM(:), VXipLM(:)
       complex(cp), allocatable :: heatTermsLM(:)
    contains
       procedure :: initialize
       procedure :: finalize
       procedure :: set_zero
-      procedure :: get_td
+      procedure :: get_dsdt
+      procedure :: get_dbdt
+      procedure :: get_dxidt
+      procedure :: get_dwdt_double_curl
+      procedure :: get_dwdt
+      procedure :: get_dzdt
+      procedure :: get_dpdt
    end type nonlinear_lm_t
 
 contains
@@ -164,13 +170,11 @@ contains
 
    end subroutine set_zero
 !----------------------------------------------------------------------------
-   subroutine get_td(this,nR,nBc,lPressNext,dVSrLM,dVXirLM,dVxVhLM,dVxBhLM, &
-              &      dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt)
+   subroutine get_dwdt(this,nR,nBc,dwdt)
       !
-      !  Purpose of this to calculate time derivatives
-      !  ``dwdt``,``dzdt``,``dpdt``,``dsdt``,``dxidt``,``dbdt``,``djdt``
-      !  and auxiliary arrays ``dVxBhLM``, ``dVxVhLM``
-      !  from non-linear terms in spectral form
+      ! This subroutine finishes the assembly of the explicit terms that
+      ! enter the equation for the poloidal equation at the radial level
+      ! nR.
       !
 
       !-- Input of variables:
@@ -178,226 +182,381 @@ contains
 
       integer, intent(in) :: nR  ! Radial level
       integer, intent(in) :: nBc ! signifies boundary conditions
-      logical, intent(in) :: lPressNext
 
       !-- Output of variables:
-      complex(cp), intent(out) :: dVSrLM(:)
-      complex(cp), intent(out) :: dVXirLM(:)
-      complex(cp), intent(out) :: dwdt(:),dzdt(:)
-      complex(cp), intent(out) :: dpdt(:),dsdt(:)
-      complex(cp), intent(out) :: dxidt(:)
-      complex(cp), intent(out) :: dbdt(:),djdt(:)
-      complex(cp), intent(out) :: dVxBhLM(:)
-      complex(cp), intent(out) :: dVxVhLM(:)
+      complex(cp), intent(out) :: dwdt(:)
 
       !-- Local variables:
-      integer :: l,m,lm,lmS,lmA
-      complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc,dsdt_loc
-      !integer, parameter :: DOUBLE_COMPLEX_PER_CACHELINE=4
-
-      !write(*,"(I3,A,4ES20.12)") nR,": get_td start: ",SUM(this%AdvrLM)
-
-      !lm_chunksize=(((lm_max)/nThreads)/DOUBLE_COMPLEX_PER_CACHELINE) * &
-      !             & DOUBLE_COMPLEX_PER_CACHELINE
-      !lm_chunksize=4
-      !write(*,"(A,I4)") "Using a chunksize of ",lm_chunksize
+      integer :: l,lm,lmS,lmA
+      complex(cp) :: CorPol_loc
 
       if (nBc == 0 ) then
 
-         if ( l_conv ) then  ! Convection
-
 #ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do private(l,m,lmS,lmA) &
-            !$omp& private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
+         !$omp target teams distribute parallel do private(l,lmS,lmA) &
+         !$omp private(CorPol_loc)
 #else
-            !$omp parallel do default(shared) private(lm,l,m,lmS,lmA) &
-            !$omp private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
+         !$omp parallel do default(shared) private(l,lmS,lmA) &
+         !$omp private(CorPol_loc)
 #endif
-            do lm=1,lm_max
-               l   =lm2l(lm)
-               m   =lm2m(lm)
-               lmS =lm2lmS(lm)
-               lmA =lm2lmA(lm)
+         do lm=1,lm_max
+            l  =lm2l(lm)
+            lmS=lm2lmS(lm)
+            lmA=lm2lmA(lm)
 
-               if ( l == 0 ) then ! This is l=0,m=0
-                  lmA=lm2lmA(1)
-                  if ( l_conv_nl ) then
-                     AdvPol_loc=or2(nR)*this%AdvrLM(lm)
-                     AdvTor_loc=zero!-dTheta1A(lm)*this%AdvpLM(lmA)
-                  else
-                     AdvPol_loc=zero
-                     AdvTor_loc=zero
-                  end if
-                  if ( l_corr ) then
-                     CorPol_loc=two*CorFac*or1(nR) * dTheta2A(lm)* z_Rloc(lmA,nR)
-                     CorTor_loc= two*CorFac*or2(nR) * (                 &
-                     &                dTheta3A(lm)*dw_Rloc(lmA,nR) +    &
-                     &        or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR) )
+            if ( l == 0 ) then ! This is l=0,m=0
+               if ( l_conv_nl ) then
+                  dwdt(lm)=or2(nR)*this%AdvrLM(lm)
+               else
+                  dwdt(lm)=zero
+               end if
+               if ( l_corr .and. (.not. l_single_matrix) ) then
+                  dwdt(lm)=dwdt(lm)+two*CorFac*or1(nR)*dTheta2A(lm)*z_Rloc(lmA,nR)
+               end if
+            else
+               if ( l_conv_nl ) then
+                  dwdt(lm)=or2(nR)*this%AdvrLM(lm)
+               else
+                  dwdt(lm)=zero
+               endif
+
+               if ( l_corr .and. nBc /= 2 ) then
+                  if ( l < l_R(nR) ) then
+                     CorPol_loc =two*CorFac*or1(nR) * (  &
+                     &        dPhi(lm)*dw_Rloc(lm,nR) +  & ! phi-deriv of dw/dr
+                     &    dTheta2A(lm)*z_Rloc(lmA,nR) -  & ! sin(theta) dtheta z
+                     &    dTheta2S(lm)*z_Rloc(lmS,nR) )
+                  else if ( l == l_R(nR) ) then
+                     CorPol_loc =two*CorFac*or1(nR) * (  &
+                     &        dPhi(lm)*dw_Rloc(lm,nR) -  & ! phi-deriv of dw/dr
+                     &    dTheta2S(lm)*z_Rloc(lmS,nR) )
                   else
                      CorPol_loc=zero
-                     CorTor_loc=zero
                   end if
+                  dwdt(lm)=dwdt(lm)+CorPol_loc
+               end if
+            end if
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
+         !$omp end parallel do
+#endif
+      end if
 
-                  if ( l_single_matrix ) then
-                     dwdt(lm)=AdvPol_loc!+CorPol_loc
-                  else
-                     dwdt(lm)=AdvPol_loc+CorPol_loc
-                  end if
+   end subroutine get_dwdt
+!----------------------------------------------------------------------------
+   subroutine get_dwdt_double_curl(this,nR,nBc,dwdt,dVxVhLM)
+      !
+      ! This subroutine finishes the assembly of the explicit terms that
+      ! enter the equation for the poloidal equation in case the double
+      ! curl formulation is employed.
+      !
 
-                  dzdt(lm)=AdvTor_loc+CorTor_loc
+      !-- Input of variables:
+      class(nonlinear_lm_t) :: this
+
+      integer, intent(in) :: nR  ! Radial level
+      integer, intent(in) :: nBc ! signifies boundary conditions
+
+      !-- Output of variables:
+      complex(cp), intent(out) :: dwdt(:)
+      complex(cp), intent(out) :: dVxVhLM(:)
+
+      !-- Local variables:
+      integer :: l,lm,lmS,lmA
+      complex(cp) :: CorPol_loc
+
+      if (nBc == 0 ) then
+
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do private(l,lmS,lmA) &
+         !$omp private(CorPol_loc)
+#else
+         !$omp parallel do default(shared) private(l,lmS,lmA) &
+         !$omp private(CorPol_loc)
+#endif
+         do lm=1,lm_max
+            l  =lm2l(lm)
+            lmS=lm2lmS(lm)
+            lmA=lm2lmA(lm)
+
+            if ( l == 0 ) then
+               if ( l_conv_nl ) then
+                  dwdt(lm)=or2(nR)*this%AdvrLM(lm)
                else
-
-                  if ( l_double_curl ) then ! Pressure is not needed
-
-                     if ( l_corr ) then
-                        if ( l < l_R(nR) ) then
-                           CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
-                           &                    dPhi(lm)*(                          &
-                           &         -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
-                           &             ( beta(nR)*or1(nR)+or2(nR))*               &
-                           &                            dLh(lm)*w_Rloc(lm,nR) )   + &
-                           &             dTheta3A(lm)*( dz_Rloc(lmA,nR)-            &
-                           &                            beta(nR)*z_Rloc(lmA,nR) ) + &
-                           &             dTheta3S(lm)*( dz_Rloc(lmS,nR)-            &
-                           &                            beta(nR)*z_Rloc(lmS,nR) ) + &
-                           &          or1(nR)* (                                    &
-                           &             dTheta4A(lm)* z_Rloc(lmA,nR)               &
-                           &            -dTheta4S(lm)* z_Rloc(lmS,nR) ) )
-                        else if ( l == l_R(nR) ) then
-                           CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
-                           &                    dPhi(lm)*(                          &
-                           &         -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
-                           &             ( beta(nR)*or1(nR)+or2(nR))*               &
-                           &                            dLh(lm)*w_Rloc(lm,nR) )   + &
-                           &             dTheta3S(lm)*( dz_Rloc(lmS,nR)-            &
-                           &                            beta(nR)*z_Rloc(lmS,nR) ) - &
-                           &          or1(nR)* dTheta4S(lm)* z_Rloc(lmS,nR) )
-                        else
-                           CorPol_loc=zero
-                        end if
-                     else
-                        CorPol_loc=zero
-                     end if
-
-                     if ( l_conv_nl ) then
-                        AdvPol_loc =dLh(lm)*or4(nR)*orho1(nR)*this%AdvrLM(lm)
-                        dVxVhLM(lm)=-orho1(nR)*r(nR)*r(nR)*dLh(lm)*this%AdvtLM(lm)
-                     else
-                        AdvPol_loc =zero
-                        dVxVhLM(lm)=zero
-                     endif
-
-                  else ! We don't use the double curl
-
-                     if ( l_corr .and. nBc /= 2 ) then
-                        if ( l < l_R(nR) ) then
-                           CorPol_loc =two*CorFac*or1(nR) * (  &
-                           &        dPhi(lm)*dw_Rloc(lm,nR) +  & ! phi-deriv of dw/dr
-                           &    dTheta2A(lm)*z_Rloc(lmA,nR) -  & ! sin(theta) dtheta z
-                           &    dTheta2S(lm)*z_Rloc(lmS,nR) )
-                        else if ( l == l_R(nR) ) then
-                           CorPol_loc =two*CorFac*or1(nR) * (  &
-                           &        dPhi(lm)*dw_Rloc(lm,nR) -  & ! phi-deriv of dw/dr
-                           &    dTheta2S(lm)*z_Rloc(lmS,nR) )
-                        else
-                           CorPol_loc=zero
-                        end if
-                     else
-                        CorPol_loc=zero
-                     end if
-
-                     if ( l_conv_nl ) then
-                        AdvPol_loc=or2(nR)*this%AdvrLM(lm)
-                     else
-                        AdvPol_loc=zero
-                     endif
-
-                  end if ! Double curl or not for the poloidal equation
-
-                  dwdt(lm)=AdvPol_loc+CorPol_loc
-
-                  if ( l_corr ) then
-                     if ( l < l_R(nR) ) then
-                        CorTor_loc=          two*CorFac*or2(nR) * (  &
-                        &                 dPhi(lm)*z_Rloc(lm,nR)   + &
-                        &            dTheta3A(lm)*dw_Rloc(lmA,nR)  + &
-                        &    or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR)  + &
-                        &            dTheta3S(lm)*dw_Rloc(lmS,nR)  - &
-                        &    or1(nR)*dTheta4S(lm)* w_Rloc(lmS,nR)  )
-                     else if ( l == l_R(nR) ) then
-                        CorTor_loc=          two*CorFac*or2(nR) * (  &
-                        &                 dPhi(lm)*z_Rloc(lm,nR)   + &
-                        &            dTheta3S(lm)*dw_Rloc(lmS,nR)  - &
-                        &    or1(nR)*dTheta4S(lm)* w_Rloc(lmS,nR)  )
-                     else
-                        CorTor_loc=zero
-                     end if
-                  else
-                     CorTor_loc=zero
-                  end if
-                  if ( l_conv_nl ) then
-                     AdvTor_loc=dLh(lm)*this%AdvpLM(lm)
-                  else
-                     AdvTor_loc=zero
-                  end if
-                  dzdt(lm)=CorTor_loc+AdvTor_loc
+                  dwdt(lm)=zero
+               end if
+               if ( l_corr .and. (.not. l_single_matrix ) ) then
+                  dwdt(lm)=dwdt(lm)+two*CorFac*or1(nR)*dTheta2A(lm)*z_Rloc(lmA,nR)
+               end if
+            else
+               if ( l_conv_nl ) then
+                  dwdt(lm)   =dLh(lm)*or4(nR)*orho1(nR)*this%AdvrLM(lm)
+                  dVxVhLM(lm)=-orho1(nR)*r(nR)*r(nR)*dLh(lm)*this%AdvtLM(lm)
+               else
+                  dwdt(lm)   =zero
+                  dVxVhLM(lm)=zero
                end if
 
-            end do
-#ifdef WITH_OMP_GPU
-            !$omp end target teams distribute parallel do
-#else
-            !$omp end parallel do
-#endif
-
-            ! In case double curl is calculated dpdt is useless
-            if ( (.not. l_double_curl) .or. lPressNext ) then
-            !if ( .true. ) then
-#ifdef WITH_OMP_GPU
-               !$omp target teams distribute parallel do private(lm,l,m,lmS,lmA) &
-               !$omp& private(AdvPol_loc,CorPol_loc)
-#else
-               !$omp parallel do default(shared) private(lm,l,m,lmS,lmA) &
-               !$omp private(AdvPol_loc,CorPol_loc)
-#endif
-               do lm=1,lm_max
-                  l   =lm2l(lm)
-                  if ( l == 0 ) cycle
-                  m   =lm2m(lm)
-                  lmS =lm2lmS(lm)
-                  lmA =lm2lmA(lm)
-
-                  !------ Recycle CorPol and AdvPol:
-                  if ( l_corr ) then
-                     if ( l < l_R(nR) ) then
-                        CorPol_loc=           two*CorFac*or2(nR) *  &
-                        &           ( -dPhi(lm)  * ( dw_Rloc(lm,nR) &
-                        &            +or1(nR)*dLh(lm)*w_Rloc(lm,nR) &
-                        &                                         ) &
-                        &              +dTheta3A(lm)*z_Rloc(lmA,nR) &
-                        &              +dTheta3S(lm)*z_Rloc(lmS,nR) &
-                        &           )
-                     else if ( l == l_R(nR) ) then
-                        CorPol_loc=           two*CorFac*or2(nR) *  &
-                        &           ( -dPhi(lm)  * ( dw_Rloc(lm,nR) &
-                        &            +or1(nR)*dLh(lm)*w_Rloc(lm,nR) &
-                        &                                         ) &
-                        &              +dTheta3S(lm)*z_Rloc(lmS,nR) &
-                        &           )
-                     else
-                        CorPol_loc=zero
-                     end if
+               if ( l_corr ) then
+                  if ( l < l_R(nR) ) then
+                     CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
+                     &                    dPhi(lm)*(                          &
+                     &         -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
+                     &             ( beta(nR)*or1(nR)+or2(nR))*               &
+                     &                            dLh(lm)*w_Rloc(lm,nR) )   + &
+                     &             dTheta3A(lm)*( dz_Rloc(lmA,nR)-            &
+                     &                            beta(nR)*z_Rloc(lmA,nR) ) + &
+                     &             dTheta3S(lm)*( dz_Rloc(lmS,nR)-            &
+                     &                            beta(nR)*z_Rloc(lmS,nR) ) + &
+                     &          or1(nR)* (                                    &
+                     &             dTheta4A(lm)* z_Rloc(lmA,nR)               &
+                     &            -dTheta4S(lm)* z_Rloc(lmS,nR) ) )
+                  else if ( l == l_R(nR) ) then
+                     CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
+                     &                    dPhi(lm)*(                          &
+                     &         -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
+                     &             ( beta(nR)*or1(nR)+or2(nR))*               &
+                     &                            dLh(lm)*w_Rloc(lm,nR) )   + &
+                     &             dTheta3S(lm)*( dz_Rloc(lmS,nR)-            &
+                     &                            beta(nR)*z_Rloc(lmS,nR) ) - &
+                     &          or1(nR)* dTheta4S(lm)* z_Rloc(lmS,nR) )
                   else
                      CorPol_loc=zero
                   end if
-                  if ( l_conv_nl ) then
-                     AdvPol_loc=-dLh(lm)*this%AdvtLM(lm)
-                  else
-                     AdvPol_loc=zero
-                  end if
-                  dpdt(lm)=AdvPol_loc+CorPol_loc
+                  dwdt(lm)=dwdt(lm)+CorPol_loc
+               end if
+            end if
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
+         !$omp end parallel do
+#endif
 
-               end do ! lm loop
+      else   ! boundary !
+
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+#else
+         !$omp parallel do
+#endif
+         do lm=1,lm_max
+            dVxVhLM(lm)=zero
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
+         !$omp end parallel do
+#endif
+
+      end if  ! boundary ? lvelo ?
+
+   end subroutine get_dwdt_double_curl
+!----------------------------------------------------------------------------
+   subroutine get_dpdt(this,nR,nBc,dpdt)
+      !
+      ! This subroutine finishes the assembly of the explicit terms that
+      ! enter the equation for pressure dpdt(:) at the radial level nR.
+      !
+
+      !-- Input of variables:
+      class(nonlinear_lm_t) :: this
+
+      integer, intent(in) :: nR  ! Radial level
+      integer, intent(in) :: nBc ! signifies boundary conditions
+
+      !-- Output of variables:
+      complex(cp), intent(out) :: dpdt(:)
+
+      !-- Local variables:
+      integer :: l,lm,lmS,lmA
+      complex(cp) :: CorPol_loc
+
+      if (nBc == 0 ) then
+
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do private(l,lmS,lmA) &
+         !$omp private(CorPol_loc)
+#else
+         !$omp parallel do default(shared) private(l,lmS,lmA) &
+         !$omp private(CorPol_loc)
+#endif
+         do lm=1,lm_max
+            l  =lm2l(lm)
+            lmS=lm2lmS(lm)
+            lmA=lm2lmA(lm)
+
+            if ( l > 0 ) then
+               if ( l_conv_nl ) then
+                  dpdt(lm)=-dLh(lm)*this%AdvtLM(lm)
+               else
+                  dpdt(lm)=zero
+               end if
+
+               if ( l_corr ) then
+                  if ( l < l_R(nR) ) then
+                     CorPol_loc=           two*CorFac*or2(nR) *  &
+                     &           ( -dPhi(lm)  * ( dw_Rloc(lm,nR) &
+                     &            +or1(nR)*dLh(lm)*w_Rloc(lm,nR) &
+                     &                                         ) &
+                     &              +dTheta3A(lm)*z_Rloc(lmA,nR) &
+                     &              +dTheta3S(lm)*z_Rloc(lmS,nR) &
+                     &           )
+                  else if ( l == l_R(nR) ) then
+                     CorPol_loc=           two*CorFac*or2(nR) *  &
+                     &           ( -dPhi(lm)  * ( dw_Rloc(lm,nR) &
+                     &            +or1(nR)*dLh(lm)*w_Rloc(lm,nR) &
+                     &                                         ) &
+                     &              +dTheta3S(lm)*z_Rloc(lmS,nR) &
+                     &           )
+                  else
+                     CorPol_loc=zero
+                  end if
+                  dpdt(lm)=dpdt(lm)+CorPol_loc
+               end if
+            end if
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
+         !$omp end parallel do
+#endif
+      end if
+
+   end subroutine get_dpdt
+!-----------------------------------------------------------------------------
+   subroutine get_dzdt(this,nR,nBc,dzdt)
+      !
+      ! This subroutine finishes the assembly of the explicit terms that
+      ! enter the toroidal equation dzdt(:) at the radial level nR.
+      !
+
+      !-- Input of variables:
+      class(nonlinear_lm_t) :: this
+
+      integer, intent(in) :: nR  ! Radial level
+      integer, intent(in) :: nBc ! signifies boundary conditions
+
+      !-- Output of variables:
+      complex(cp), intent(out) :: dzdt(:)
+
+      !-- Local variables:
+      integer :: l,lm,lmS,lmA
+      complex(cp) :: CorTor_loc
+
+      if (nBc == 0 ) then
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do private(l,lmS,lmA) &
+         !$omp private(CorTor_loc)
+#else
+         !$omp parallel do default(shared) private(l,lmS,lmA) &
+         !$omp private(CorTor_loc)
+#endif
+         do lm=1,lm_max
+            l  =lm2l(lm)
+            lmS=lm2lmS(lm)
+            lmA=lm2lmA(lm)
+            
+            if ( l == 0 ) then
+               dzdt(lm)=zero!-dTheta1A(lm)*this%AdvpLM(lmA)
+               if ( l_corr ) then
+                  dzdt(lm)=dzdt(lm)+ two*CorFac*or2(nR) * (          &
+                  &                dTheta3A(lm)*dw_Rloc(lmA,nR) +    &
+                  &        or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR) )
+               end if
+            else
+               if ( l_conv_nl ) then
+                  dzdt(lm)=dLh(lm)*this%AdvpLM(lm)
+               else
+                  dzdt(lm)=zero
+               end if
+
+               if ( l_corr ) then
+                  if ( l < l_R(nR) ) then
+                     CorTor_loc=          two*CorFac*or2(nR) * (  &
+                     &                 dPhi(lm)*z_Rloc(lm,nR)   + &
+                     &            dTheta3A(lm)*dw_Rloc(lmA,nR)  + &
+                     &    or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR)  + &
+                     &            dTheta3S(lm)*dw_Rloc(lmS,nR)  - &
+                     &    or1(nR)*dTheta4S(lm)* w_Rloc(lmS,nR)  )
+                  else if ( l == l_R(nR) ) then
+                     CorTor_loc=          two*CorFac*or2(nR) * (  &
+                     &                 dPhi(lm)*z_Rloc(lm,nR)   + &
+                     &            dTheta3S(lm)*dw_Rloc(lmS,nR)  - &
+                     &    or1(nR)*dTheta4S(lm)* w_Rloc(lmS,nR)  )
+                  else
+                     CorTor_loc=zero
+                  end if
+                  dzdt(lm)=dzdt(lm)+CorTor_loc
+               end if
+            end if
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
+         !$omp end parallel do
+#endif
+      end if
+
+   end subroutine get_dzdt
+!-----------------------------------------------------------------------------
+   subroutine get_dsdt(this, nR, nBc, dsdt, dVSrLM)
+      !
+      ! This subroutine finishes the assembly of dsdt(:) and dVSrLM(:)
+      ! at the radial level nR.
+      !
+
+      class(nonlinear_lm_t) :: this
+
+      !-- Input variables
+      integer, intent(in) :: nR  ! Radial level
+      integer, intent(in) :: nBc ! Boundary point or not
+
+      !-- Output variables
+      complex(cp), intent(out) :: dsdt(:) ! divH(uh*s)
+      complex(cp), intent(out) :: dVSrLM(:) ! ur*s
+
+      !-- Local variables
+      integer :: lm, l
+
+      if ( nBc == 0 ) then
+
+         if ( l_anel ) then
+            if ( l_anelastic_liquid ) then
+#ifdef WITH_OMP_GPU
+               !$omp target teams distribute parallel do private(l)
+#else
+               !$omp parallel do private(l)
+#endif
+               do lm=1,lm_max
+                  l=lm2l(lm)
+                  if ( l == 0 ) then
+                     dsdt(lm)=epsc*epscProf(nR)+temp0(nR)*this%heatTermsLM(lm)
+                  else
+                     dsdt(lm)=dLh(lm)*this%VStLM(lm)+temp0(nR)*this%heatTermsLM(lm)
+                  end if
+               end do
+#ifdef WITH_OMP_GPU
+               !$omp end target teams distribute parallel do
+#else
+               !$omp end parallel do
+#endif
+            else
+#ifdef WITH_OMP_GPU
+               !$omp target teams distribute parallel do private(l)
+#else
+               !$omp parallel do private(l)
+#endif
+               do lm=1,lm_max
+                  l=lm2l(lm)
+                  if ( l == 0 ) then
+                     dsdt(lm)=epsc*epscProf(nR)+this%heatTermsLM(lm)
+                  else
+                     dsdt(lm)=dLh(lm)*this%VStLM(lm)+this%heatTermsLM(lm)
+                  end if
+               end do
 #ifdef WITH_OMP_GPU
                !$omp end target teams distribute parallel do
 #else
@@ -405,75 +564,19 @@ contains
 #endif
             end if
 
-         else
-#ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do
-#endif
-            do lm=1,lm_max
-               dwdt(lm)=zero
-               dzdt(lm)=zero
-               dpdt(lm)=zero
-            end do
-#ifdef WITH_OMP_GPU
-            !$omp end target teams distribute parallel do
-#endif
-         end if ! l_conv ?
-
-      end if
-
-      if ( nBc == 0 ) then
-
-         if ( l_heat ) then
-
-#ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do private(dsdt_loc,l)
-#else
-            !$omp parallel do default(shared) private(dsdt_loc,l)
-#endif
-            do lm=1,lm_max
-               l   =lm2l(lm)
-               if ( l == 0 ) then
-                  dsdt_loc =epsc*epscProf(nR)!+opr/epsS*divKtemp0(nR)
-                  if ( l_anel ) then
-                     if ( l_anelastic_liquid ) then
-                        dsdt_loc=dsdt_loc+temp0(nR)*this%heatTermsLM(1)
-                     else
-                        dsdt_loc=dsdt_loc+this%heatTermsLM(1)
-                     end if
-                  end if
-                  dsdt(1)=dsdt_loc
-               else
-                  dsdt_loc  =dLh(lm)*this%VStLM(lm)
-                  if ( l_anel ) then
-                     if ( l_anelastic_liquid ) then
-                        dsdt_loc = dsdt_loc+temp0(nR)*this%heatTermsLM(lm)
-                     else
-                        dsdt_loc = dsdt_loc+this%heatTermsLM(lm)
-                     end if
-                  end if
-                  dsdt(lm) = dsdt_loc
-               end if
-            end do
-#ifdef WITH_OMP_GPU
-            !$omp end target teams distribute parallel do
-#else
-            !$omp end parallel do
-#endif
-         end if
-
-         if ( l_chemical_conv ) then
+         else ! Boussinesq
 
 #ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do private(l)
 #else
-            !$omp parallel do default(shared) private(lm,l)
+            !$omp parallel do private(l)
 #endif
             do lm=1,lm_max
-               l   =lm2l(lm)
+               l=lm2l(lm)
                if ( l == 0 ) then
-                  dxidt(1)  =epscXi
+                  dsdt(lm)=epsc*epscProf(nR)
                else
-                  dxidt(lm)  =dLh(lm)*this%VXitLM(lm)
+                  dsdt(lm)=dLh(lm)*this%VStLM(lm)
                end if
             end do
 #ifdef WITH_OMP_GPU
@@ -482,6 +585,103 @@ contains
             !$omp end parallel do
 #endif
          end if
+
+      else   ! boundary !
+
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+#else
+         !$omp parallel do
+#endif
+         do lm=1,lm_max
+            dVSrLM(lm)=zero
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
+         !$omp end parallel do
+#endif
+
+      end if  ! boundary ? lvelo ?
+
+   end subroutine get_dsdt
+!-----------------------------------------------------------------------------
+   subroutine get_dxidt(this, nBc, dxidt, dVXirLM)
+      !
+      ! This subroutine finishes the assembly of dxidt(:) and dVXirLM(:)
+      ! at the radial level nR.
+      !
+
+      class(nonlinear_lm_t) :: this
+
+      !-- Input variables
+      integer, intent(in) :: nBc ! Boundary point or not
+
+      !-- Output variables
+      complex(cp), intent(out) :: dxidt(:) ! divH(uh*xi)
+      complex(cp), intent(out) :: dVXirLM(:) ! ur*xi
+
+      !-- Local variables
+      integer :: lm, l
+
+      if ( nBc == 0 ) then
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do private(l)
+#else
+         !$omp parallel do private(l)
+#endif
+         do lm=1,lm_max
+            l=lm2l(lm)
+            if ( l == 0 ) then
+               dxidt(lm)=epscXi
+            else
+               dxidt(lm)=dLh(lm)*this%VXitLM(lm)
+            end if
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
+         !$omp end parallel do
+#endif
+      else   ! boundary !
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do
+#else
+         !$omp parallel do
+#endif
+         do lm=1,lm_max
+            dVXirLM(lm)=zero
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
+         !$omp end parallel do
+#endif
+      end if  ! boundary ? lvelo ?
+
+   end subroutine get_dxidt
+!-----------------------------------------------------------------------------
+   subroutine get_dbdt(this, nR, nBc, dbdt, djdt, dVxBhLM)
+      !
+      ! This subroutine finishes the assembly of dbdt(:), djdt(j)
+      ! at the radial level nR.
+      !
+
+      class(nonlinear_lm_t) :: this
+
+      !-- Input variables
+      integer, intent(in) :: nR  ! Radial level
+      integer, intent(in) :: nBc ! Boundary point or not
+
+      !-- Output variables
+      complex(cp), intent(out) :: dbdt(:)
+      complex(cp), intent(out) :: djdt(:)
+      complex(cp), intent(out) :: dVxBhLM(:)
+
+      !-- Local variables
+      integer :: lm, l
+
+      if ( nBc == 0 ) then
 
          if ( l_mag_nl .or. l_mag_kin  ) then
 #ifdef WITH_OMP_GPU
@@ -528,9 +728,9 @@ contains
             !$omp parallel do default(shared) private(l)
 #endif
             do lm=1,lm_max
-               l   =lm2l(lm)
+               l=lm2l(lm)
                if ( l == 0 ) then
-                  dVxBhLM(1)=zero
+                  dVxBhLM(lm)=zero
                else
                   dVxBhLM(lm)=-dLh(lm)*this%VxBtLM(lm)*r(nR)*r(nR)
                end if
@@ -557,55 +757,10 @@ contains
 #endif
             end if
          end if
-         if ( l_double_curl ) then
-#ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do
-#else
-            !$omp parallel do
-#endif
-            do lm=1,lm_max
-               dVxVhLM(lm)=zero
-            end do
-#ifdef WITH_OMP_GPU
-            !$omp end target teams distribute parallel do
-#else
-            !$omp end parallel do
-#endif
-         end if
-         if ( l_heat ) then
-#ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do
-#else
-            !$omp parallel do
-#endif
-            do lm=1,lm_max
-               dVSrLM(lm)=zero
-            end do
-#ifdef WITH_OMP_GPU
-            !$omp end target teams distribute parallel do
-#else
-            !$omp end parallel do
-#endif
-         end if
-         if ( l_chemical_conv ) then
-#ifdef WITH_OMP_GPU
-            !$omp target teams distribute parallel do
-#else
-            !$omp parallel do
-#endif
-            do lm=1,lm_max
-               dVXirLM(lm)=zero
-            end do
-#ifdef WITH_OMP_GPU
-            !$omp end target teams distribute parallel do
-#else
-            !$omp end parallel do
-#endif
-         end if
 
       end if  ! boundary ? lvelo ?
 
-   end subroutine get_td
+   end subroutine get_dbdt
 !-----------------------------------------------------------------------------
 end module nonlinear_lm_mod
 
@@ -632,7 +787,7 @@ module nonlinear_lm_2d_mod
        &             l_adv_curl, l_parallel_solve, l_temperature_diff
    use radial_functions, only: r, or2, or1, beta, epscProf, or4, temp0, orho1, l_R
    use physical_parameters, only: CorFac, epsc,  n_r_LCR, epscXi
-   use blocking, only: lm2l, lm2m, lm2lmA, lm2lmS
+   use blocking, only: lm2l, lm2lmA, lm2lmS
    use horizontal_data, only: dLh, dPhi, dTheta2A, dTheta3A, dTheta4A, dTheta2S, &
        &                      dTheta3S, dTheta4S
    use constants, only: zero, two
@@ -654,6 +809,13 @@ module nonlinear_lm_2d_mod
       procedure :: finalize
       procedure :: set_zero
       procedure :: get_td
+      procedure :: get_dsdt
+      procedure :: get_dbdt
+      procedure :: get_dxidt
+      procedure :: get_dwdt_double_curl
+      procedure :: get_dwdt
+      procedure :: get_dzdt
+      procedure :: get_dpdt
    end type nonlinear_lm_2d_t
 
 contains
@@ -824,28 +986,26 @@ contains
       complex(cp), intent(out) :: dVxVhLM(lm_max,nRstart:nRstop)
 
       !-- Local variables:
-      integer :: l,m,lm,lmS,lmA,nR
+      integer :: l,lm,lmS,lmA,nR
       complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc,dsdt_loc
 
       if ( l_conv ) then
 
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2) &
-         !$omp private(l,m,lmS,lmA) &
+         !$omp private(l,lmS,lmA) &
          !$omp private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
 #else
-         !$omp parallel do default(shared) private(lm,l,m,lmS,lmA) &
+         !$omp parallel do default(shared) private(lm,l,lmS,lmA) &
          !$omp private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc)
 #endif
          do nR=nRstart,nRstop
             do lm=1,lm_max
                l   =lm2l(lm)
-               m   =lm2m(lm)
                lmS =lm2lmS(lm)
                lmA =lm2lmA(lm)
 
                if ( l == 0 ) then ! This is l=0,m=0
-                  lmA=lm2lmA(1)
                   if ( l_conv_nl ) then
                      AdvPol_loc=or2(nR)*this%AdvrLM(lm,nR)
                      AdvTor_loc=zero!-dTheta1A(lm)*this%AdvpLM(lmA,nR)
@@ -1040,17 +1200,17 @@ contains
 #endif
          do nR=nRstart,nRstop
             do lm=1,lm_max
-               l   =lm2l(lm)
+               l=lm2l(lm)
                if ( l == 0 ) then
                   dsdt_loc =epsc*epscProf(nR)!+opr/epsS*divKtemp0(nR)
                   if ( l_anel ) then
                      if ( l_anelastic_liquid ) then
-                        dsdt_loc=dsdt_loc+temp0(nR)*this%heatTermsLM(1,nR)
+                        dsdt_loc=dsdt_loc+temp0(nR)*this%heatTermsLM(lm,nR)
                      else
-                        dsdt_loc=dsdt_loc+this%heatTermsLM(1,nR)
+                        dsdt_loc=dsdt_loc+this%heatTermsLM(lm,nR)
                      end if
                   end if
-                  dsdt(1,nR)=dsdt_loc
+                  dsdt(lm,nR)=dsdt_loc
                else
                   dsdt_loc     =dLh(lm)*this%VStLM(lm,nR)
                   if ( l_anel ) then
@@ -1083,9 +1243,9 @@ contains
             do lm=1,lm_max
                l   =lm2l(lm)
                if ( l == 0 ) then
-                  dxidt(1,nR)  =epscXi
+                  dxidt(lm,nR)=epscXi
                else
-                  dxidt(lm,nR)  =dLh(lm)*this%VXitLM(lm,nR)
+                  dxidt(lm,nR)=dLh(lm)*this%VXitLM(lm,nR)
                end if
             end do
          end do
@@ -1152,7 +1312,7 @@ contains
                   do lm=1,lm_max
                      l   =lm2l(lm)
                      if ( l == 0 ) then
-                        dVxBhLM(1,nR)=zero
+                        dVxBhLM(lm,nR)=zero
                      else
                         dVxBhLM(lm,nR)=-dLh(lm)*this%VxBtLM(lm,nR)*r(nR)*r(nR)
                      end if
@@ -1190,6 +1350,8 @@ contains
                   end do
 #ifdef WITH_OMP_GPU
                   !$omp end target teams distribute parallel do
+#else
+                  !$omp end parallel do
 #endif
                end if
             end if  ! boundary ? lvelo ?
@@ -1197,5 +1359,558 @@ contains
       end if ! Do the boundary points need special care?
 
    end subroutine get_td
+!----------------------------------------------------------------------------
+   subroutine get_dwdt(this,dwdt)
+      !
+      ! This subroutine finishes the assembly of the explicit terms that
+      ! enter the equation for the poloidal equation for nRstart:nRstop.
+      !
+
+      !-- Input of variables:
+      class(nonlinear_lm_2d_t) :: this
+
+      !-- Output of variables:
+      complex(cp), intent(out) :: dwdt(lm_max,nRstart:nRstop)
+
+      !-- Local variables:
+      integer :: l,lm,lmS,lmA,nR
+      complex(cp) :: CorPol_loc
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2) private(l,lmS,lmA) &
+      !$omp private(CorPol_loc)
+#else
+      !$omp parallel do default(shared) private(l,lmS,lmA) &
+      !$omp private(CorPol_loc)
+#endif
+      do nR=nRstart,nRstop
+         do lm=1,lm_max
+            l  =lm2l(lm)
+            lmS=lm2lmS(lm)
+            lmA=lm2lmA(lm)
+
+            if ( l == 0 ) then ! This is l=0,m=0
+               if ( l_conv_nl ) then
+                  dwdt(lm,nR)=or2(nR)*this%AdvrLM(lm,nR)
+               else
+                  dwdt(lm,nR)=zero
+               end if
+               if ( l_corr .and. (.not. l_single_matrix) ) then
+                  dwdt(lm,nR)=dwdt(lm,nR)+two*CorFac*or1(nR)*dTheta2A(lm)*z_Rloc(lmA,nR)
+               end if
+            else
+               if ( l_conv_nl ) then
+                  dwdt(lm,nR)=or2(nR)*this%AdvrLM(lm,nR)
+               else
+                  dwdt(lm,nR)=zero
+               endif
+
+               if ( l_corr ) then
+                  if ( l < l_R(nR) ) then
+                     CorPol_loc =two*CorFac*or1(nR) * (  &
+                     &        dPhi(lm)*dw_Rloc(lm,nR) +  & ! phi-deriv of dw/dr
+                     &    dTheta2A(lm)*z_Rloc(lmA,nR) -  & ! sin(theta) dtheta z
+                     &    dTheta2S(lm)*z_Rloc(lmS,nR) )
+                  else if ( l == l_R(nR) ) then
+                     CorPol_loc =two*CorFac*or1(nR) * (  &
+                     &        dPhi(lm)*dw_Rloc(lm,nR) -  & ! phi-deriv of dw/dr
+                     &    dTheta2S(lm)*z_Rloc(lmS,nR) )
+                  else
+                     CorPol_loc=zero
+                  end if
+                  dwdt(lm,nR)=dwdt(lm,nR)+CorPol_loc
+               end if
+            end if
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+   end subroutine get_dwdt
+!----------------------------------------------------------------------------
+   subroutine get_dwdt_double_curl(this,dwdt,dVxVhLM)
+      !
+      ! This subroutine finishes the assembly of the explicit terms that
+      ! enter the equation for the poloidal equation in case the double
+      ! curl formulation is employed.
+      !
+
+      !-- Input of variables:
+      class(nonlinear_lm_2d_t) :: this
+
+      !-- Output of variables:
+      complex(cp), intent(out) :: dwdt(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) :: dVxVhLM(lm_max,nRstart:nRstop)
+
+      !-- Local variables:
+      integer :: l,lm,lmS,lmA,nR
+      complex(cp) :: CorPol_loc
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2) private(l,lmS,lmA) &
+      !$omp private(CorPol_loc)
+#else
+      !$omp parallel do default(shared) private(l,lmS,lmA) &
+      !$omp private(CorPol_loc)
+#endif
+      do nR=nRstart,nRstop
+         do lm=1,lm_max
+            l  =lm2l(lm)
+            lmS=lm2lmS(lm)
+            lmA=lm2lmA(lm)
+
+            if ( l == 0 ) then
+               if ( l_conv_nl ) then
+                  dwdt(lm,nR)=or2(nR)*this%AdvrLM(lm,nR)
+               else
+                  dwdt(lm,nR)=zero
+               end if
+               if ( l_corr .and. (.not. l_single_matrix ) ) then
+                  dwdt(lm,nR)=dwdt(lm,nR)+two*CorFac*or1(nR)*dTheta2A(lm)*z_Rloc(lmA,nR)
+               end if
+            else
+               if ( l_conv_nl ) then
+                  dwdt(lm,nR)   =dLh(lm)*or4(nR)*orho1(nR)*this%AdvrLM(lm,nR)
+                  dVxVhLM(lm,nR)=-orho1(nR)*r(nR)*r(nR)*dLh(lm)*this%AdvtLM(lm,nR)
+               else
+                  dwdt(lm,nR)   =zero
+                  dVxVhLM(lm,nR)=zero
+               end if
+
+               if ( l_corr ) then
+                  if ( l < l_R(nR) ) then
+                     CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
+                     &                    dPhi(lm)*(                          &
+                     &         -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
+                     &             ( beta(nR)*or1(nR)+or2(nR))*               &
+                     &                            dLh(lm)*w_Rloc(lm,nR) )   + &
+                     &             dTheta3A(lm)*( dz_Rloc(lmA,nR)-            &
+                     &                            beta(nR)*z_Rloc(lmA,nR) ) + &
+                     &             dTheta3S(lm)*( dz_Rloc(lmS,nR)-            &
+                     &                            beta(nR)*z_Rloc(lmS,nR) ) + &
+                     &          or1(nR)* (                                    &
+                     &             dTheta4A(lm)* z_Rloc(lmA,nR)               &
+                     &            -dTheta4S(lm)* z_Rloc(lmS,nR) ) )
+                  else if ( l == l_R(nR) ) then
+                     CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
+                     &                    dPhi(lm)*(                          &
+                     &         -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
+                     &             ( beta(nR)*or1(nR)+or2(nR))*               &
+                     &                            dLh(lm)*w_Rloc(lm,nR) )   + &
+                     &             dTheta3S(lm)*( dz_Rloc(lmS,nR)-            &
+                     &                            beta(nR)*z_Rloc(lmS,nR) ) - &
+                     &          or1(nR)* dTheta4S(lm)* z_Rloc(lmS,nR) )
+                  else
+                     CorPol_loc=zero
+                  end if
+                  dwdt(lm,nR)=dwdt(lm,nR)+CorPol_loc
+               end if
+            end if
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+      ! boundary values are set to zero except for FD and single matrix with Tdiff
+      if ( (.not. l_parallel_solve) .and.  &
+      &    (.not. (l_single_matrix .and. l_temperature_diff)) ) then
+
+         do nR=nRstart,nRstop
+            if (nR==n_r_cmb .or. nR==n_r_icb ) then
+
+#ifdef WITH_OMP_GPU
+               !$omp target teams distribute parallel do
+#else
+               !$omp parallel do
+#endif
+               do lm=1,lm_max
+                  dVxVhLM(lm,nR)=zero
+               end do
+#ifdef WITH_OMP_GPU
+               !$omp end target teams distribute parallel do
+#else
+               !$omp end parallel do
+#endif
+            end if  ! boundary ? lvelo ?
+         end do
+      end if ! Do the boundary points need special care?
+
+   end subroutine get_dwdt_double_curl
+!----------------------------------------------------------------------------
+   subroutine get_dpdt(this,dpdt)
+      !
+      ! This subroutine finishes the assembly of the explicit terms that
+      ! enter the equation for pressure dpdt for nRstart:nRstop
+      !
+
+      !-- Input of variables:
+      class(nonlinear_lm_2d_t) :: this
+
+      !-- Output of variables:
+      complex(cp), intent(out) :: dpdt(lm_max,nRstart:nRstop)
+
+      !-- Local variables:
+      integer :: l,lm,lmS,lmA,nR
+      complex(cp) :: CorPol_loc
+
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2) private(l,lmS,lmA) &
+         !$omp private(CorPol_loc)
+#else
+         !$omp parallel do default(shared) private(l,lmS,lmA) &
+         !$omp private(CorPol_loc)
+#endif
+      do nR=nRstart,nRstop
+         do lm=1,lm_max
+            l  =lm2l(lm)
+            lmS=lm2lmS(lm)
+            lmA=lm2lmA(lm)
+
+            if ( l > 0 ) then
+               if ( l_conv_nl ) then
+                  dpdt(lm,nR)=-dLh(lm)*this%AdvtLM(lm,nR)
+               else
+                  dpdt(lm,nR)=zero
+               end if
+
+               if ( l_corr ) then
+                  if ( l < l_R(nR) ) then
+                     CorPol_loc=           two*CorFac*or2(nR) *  &
+                     &           ( -dPhi(lm)  * ( dw_Rloc(lm,nR) &
+                     &            +or1(nR)*dLh(lm)*w_Rloc(lm,nR) &
+                     &                                         ) &
+                     &              +dTheta3A(lm)*z_Rloc(lmA,nR) &
+                     &              +dTheta3S(lm)*z_Rloc(lmS,nR) &
+                     &           )
+                  else if ( l == l_R(nR) ) then
+                     CorPol_loc=           two*CorFac*or2(nR) *  &
+                     &           ( -dPhi(lm)  * ( dw_Rloc(lm,nR) &
+                     &            +or1(nR)*dLh(lm)*w_Rloc(lm,nR) &
+                     &                                         ) &
+                     &              +dTheta3S(lm)*z_Rloc(lmS,nR) &
+                     &           )
+                  else
+                     CorPol_loc=zero
+                  end if
+                  dpdt(lm,nR)=dpdt(lm,nR)+CorPol_loc
+               end if
+            end if
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+   end subroutine get_dpdt
+!-----------------------------------------------------------------------------
+   subroutine get_dzdt(this,dzdt)
+      !
+      ! This subroutine finishes the assembly of the explicit terms that
+      ! enter the toroidal equation dzdt for the range nRstart:nRstop.
+      !
+
+      !-- Input of variables:
+      class(nonlinear_lm_2d_t) :: this
+
+      !-- Output of variables:
+      complex(cp), intent(out) :: dzdt(lm_max,nRstart:nRstop)
+
+      !-- Local variables:
+      integer :: l,lm,lmS,lmA,nR
+      complex(cp) :: CorTor_loc
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2) private(l,lmS,lmA) &
+      !$omp private(CorTor_loc)
+#else
+      !$omp parallel do default(shared) private(l,lmS,lmA) &
+      !$omp private(CorTor_loc)
+#endif
+      do nR=nRstart,nRstop
+         do lm=1,lm_max
+            l  =lm2l(lm)
+            lmS=lm2lmS(lm)
+            lmA=lm2lmA(lm)
+            
+            if ( l == 0 ) then
+               dzdt(lm,nR)=zero!-dTheta1A(lm)*this%AdvpLM(lmA)
+               if ( l_corr ) then
+                  dzdt(lm,nR)=dzdt(lm,nR)+ two*CorFac*or2(nR) * (    &
+                  &                dTheta3A(lm)*dw_Rloc(lmA,nR) +    &
+                  &        or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR) )
+               end if
+            else
+               if ( l_conv_nl ) then
+                  dzdt(lm,nR)=dLh(lm)*this%AdvpLM(lm,nR)
+               else
+                  dzdt(lm,nR)=zero
+               end if
+
+               if ( l_corr ) then
+                  if ( l < l_R(nR) ) then
+                     CorTor_loc=          two*CorFac*or2(nR) * (  &
+                     &                 dPhi(lm)*z_Rloc(lm,nR)   + &
+                     &            dTheta3A(lm)*dw_Rloc(lmA,nR)  + &
+                     &    or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR)  + &
+                     &            dTheta3S(lm)*dw_Rloc(lmS,nR)  - &
+                     &    or1(nR)*dTheta4S(lm)* w_Rloc(lmS,nR)  )
+                  else if ( l == l_R(nR) ) then
+                     CorTor_loc=          two*CorFac*or2(nR) * (  &
+                     &                 dPhi(lm)*z_Rloc(lm,nR)   + &
+                     &            dTheta3S(lm)*dw_Rloc(lmS,nR)  - &
+                     &    or1(nR)*dTheta4S(lm)* w_Rloc(lmS,nR)  )
+                  else
+                     CorTor_loc=zero
+                  end if
+                  dzdt(lm,nR)=dzdt(lm,nR)+CorTor_loc
+               end if
+            end if
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+   end subroutine get_dzdt
+!-----------------------------------------------------------------------------
+   subroutine get_dsdt(this, dsdt, dVSrLM)
+      !
+      ! This subroutine finishes the assembly of dsdt and dVSrLM
+      ! for the whole range of nRstart:nRstop
+      !
+
+      class(nonlinear_lm_2d_t) :: this
+
+      !-- Output variables
+      complex(cp), intent(out) :: dsdt(lm_max,nRstart:nRstop) ! divH(uh*s)
+      complex(cp), intent(out) :: dVSrLM(lm_max,nRstart:nRstop) ! ur*s
+
+      !-- Local variables
+      integer :: lm, l, nR
+
+      if ( l_anel ) then
+         if ( l_anelastic_liquid ) then
+#ifdef WITH_OMP_GPU
+            !$omp target teams distribute parallel do collapse(2) private(l)
+#else
+            !$omp parallel do private(l)
+#endif
+            do nR=nRstart,nRstop
+               do lm=1,lm_max
+                  l=lm2l(lm)
+                  if ( l == 0 ) then
+                     dsdt(lm,nR)=epsc*epscProf(nR)+temp0(nR)*this%heatTermsLM(lm,nR)
+                  else
+                     dsdt(lm,nR)=dLh(lm)*this%VStLM(lm,nR) + &
+                     &           temp0(nR)*this%heatTermsLM(lm,nR)
+                  end if
+               end do
+            end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+#else
+            !$omp end parallel do
+#endif
+         else
+#ifdef WITH_OMP_GPU
+            !$omp target teams distribute parallel do collapse(2) private(l)
+#else
+            !$omp parallel do private(l)
+#endif
+            do nR=nRstart,nRstop
+               do lm=1,lm_max
+                  l=lm2l(lm)
+                  if ( l == 0 ) then
+                     dsdt(lm,nR)=epsc*epscProf(nR)+this%heatTermsLM(lm,nR)
+                  else
+                     dsdt(lm,nR)=dLh(lm)*this%VStLM(lm,nR)+this%heatTermsLM(lm,nR)
+                  end if
+               end do
+            end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+#else
+            !$omp end parallel do
+#endif
+         end if
+
+      else ! Boussinesq
+
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2) private(l)
+#else
+         !$omp parallel do private(l)
+#endif
+         do nR=nRstart,nRstop
+            do lm=1,lm_max
+               l=lm2l(lm)
+               if ( l == 0 ) then
+                  dsdt(lm,nR)=epsc*epscProf(nR)
+               else
+                  dsdt(lm,nR)=dLh(lm)*this%VStLM(lm,nR)
+               end if
+            end do
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
+         !$omp end parallel do
+#endif
+      end if
+
+   end subroutine get_dsdt
+!-----------------------------------------------------------------------------
+   subroutine get_dxidt(this, dxidt, dVXirLM)
+      !
+      ! This subroutine finishes the assembly of dxidt and dVXirLM
+      ! for the whole range nRstart:nRstop
+      !
+
+      class(nonlinear_lm_2d_t) :: this
+
+      !-- Output variables
+      complex(cp), intent(out) :: dxidt(lm_max,nRstart:nRstop) ! divH(uh*xi)
+      complex(cp), intent(out) :: dVXirLM(lm_max,nRstart:nRstop) ! ur*xi
+
+      !-- Local variables
+      integer :: lm, l, nR
+
+#ifdef WITH_OMP_GPU
+      !$omp target teams distribute parallel do collapse(2)private(l)
+#else
+      !$omp parallel do private(l)
+#endif
+      do nR=nRstart,nRstop
+         do lm=1,lm_max
+            l=lm2l(lm)
+            if ( l == 0 ) then
+               dxidt(lm,nR)=epscXi
+            else
+               dxidt(lm,nR)=dLh(lm)*this%VXitLM(lm,nR)
+            end if
+         end do
+      end do
+#ifdef WITH_OMP_GPU
+      !$omp end target teams distribute parallel do
+#else
+      !$omp end parallel do
+#endif
+
+   end subroutine get_dxidt
+!-----------------------------------------------------------------------------
+   subroutine get_dbdt(this, dbdt, djdt, dVxBhLM)
+      !
+      ! This subroutine finishes the assembly of dbdt, djdt and dVxBhLM
+      ! at the range of radial levels nRstart:nRstop
+      !
+
+      class(nonlinear_lm_2d_t) :: this
+
+      !-- Output variables
+      complex(cp), intent(out) :: dbdt(lm_maxMag,nRstartMag:nRstopMag)
+      complex(cp), intent(out) :: djdt(lm_maxMag,nRstartMag:nRstopMag)
+      complex(cp), intent(out) :: dVxBhLM(lm_maxMag,nRstartMag:nRstopMag)
+
+      !-- Local variables
+      integer :: lm,l,nR
+
+      if ( l_mag_nl .or. l_mag_kin  ) then
+#ifdef WITH_OMP_GPU
+         !$omp target teams distribute parallel do collapse(2)
+#else
+         !$omp parallel do default(shared)
+#endif
+         do nR=nRstart,nRstop
+            do lm=1,lm_max
+               dbdt(lm,nR)   = dLh(lm)*this%VxBpLM(lm,nR)
+               dVxBhLM(lm,nR)=-dLh(lm)*this%VxBtLM(lm,nR)*r(nR)*r(nR)
+               djdt(lm,nR)   = dLh(lm)*or4(nR)*this%VxBrLM(lm,nR)
+            end do
+         end do
+#ifdef WITH_OMP_GPU
+         !$omp end target teams distribute parallel do
+#else
+         !$omp end parallel do
+#endif
+      else
+         if ( l_mag ) then
+#ifdef WITH_OMP_GPU
+            !$omp target teams distribute parallel do collapse(2)
+#else
+            !$omp parallel do
+#endif
+            do nR=nRstart,nRstop
+               do lm=1,lm_max
+                  dbdt(lm,nR)   =zero
+                  djdt(lm,nR)   =zero
+                  dVxBhLM(lm,nR)=zero
+               end do
+            end do
+#ifdef WITH_OMP_GPU
+            !$omp end target teams distribute parallel do
+#else
+            !$omp end parallel do
+#endif
+         end if
+      end if
+
+      ! boundary values are set to zero except for FD and single matrix with Tdiff
+      if ( (.not. l_parallel_solve) .and.  &
+      &    (.not. (l_single_matrix .and. l_temperature_diff)) ) then
+
+         do nR=nRstart,nRstop
+            if (nR==n_r_cmb .or. nR==n_r_icb ) then
+
+               if ( l_mag_nl .or. l_mag_kin ) then
+#ifdef WITH_OMP_GPU
+                  !$omp target teams distribute parallel do private(lm,l)
+#else
+                  !$omp parallel do default(shared) private(lm,l)
+#endif
+                  do lm=1,lm_max
+                     l   =lm2l(lm)
+                     if ( l == 0 ) then
+                        dVxBhLM(lm,nR)=zero
+                     else
+                        dVxBhLM(lm,nR)=-dLh(lm)*this%VxBtLM(lm,nR)*r(nR)*r(nR)
+                     end if
+                  end do
+#ifdef WITH_OMP_GPU
+                  !$omp end target teams distribute parallel do
+#else
+                  !$omp end parallel do
+#endif
+               else
+                  if ( l_mag ) then
+#ifdef WITH_OMP_GPU
+                     !$omp target teams distribute parallel do
+#else
+                     !$omp parallel do
+#endif
+                     do lm=1,lm_max
+                        dVxBhLM(lm,nR)=zero
+                     end do
+#ifdef WITH_OMP_GPU
+                     !$omp end target teams distribute parallel do
+#else
+                     !$omp end parallel do
+#endif
+                  end if
+               end if
+            end if  ! boundary ? lvelo ?
+         end do
+      end if ! Do the boundary points need special care?
+
+   end subroutine get_dbdt
 !-----------------------------------------------------------------------------
 end module nonlinear_lm_2d_mod

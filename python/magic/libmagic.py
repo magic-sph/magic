@@ -3,6 +3,7 @@ import scipy.interpolate as S
 from scipy.integrate import simps
 import numpy as np
 import glob, os, re, sys
+import subprocess as sp
 from .npfile import *
 
 
@@ -1207,3 +1208,19 @@ def horizontal_mean(field, colat, std=False):
         return field_mean, field_std
     else:
         return field_mean
+
+def cleanBIS(dir='.'):
+    """
+    This function renames all files with a trailing '_BIS' in a given
+    directory.
+
+    :param dir: the working directory
+    :type dir: str
+    """
+
+    files = glob.glob('*_BIS')
+    for file in files:
+        cmd = 'mv {} {}'.format(file, file[:-4])
+        print(cmd)
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+                stderr=open(os.devnull, 'wb'))

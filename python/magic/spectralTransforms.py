@@ -12,20 +12,18 @@ class SpectralTransforms(object):
     from spectral to physical space. It works in two steps: one first needs
     to initialize the transform
 
-    >>> sh = SpectralTransforms( l_max=256, lm_max=33153, n_theta_max=384)
+    >>> sh = SpectralTransforms( l_max=256, n_theta_max=384)
     >>> print(Tlm[:, 10].shape) # lm_max (Temperature at ir=10)
     >>> T = sh.spec_spat(Tlm) # T[n_phi_max, n_theta_max]
     """
 
-    def __init__(self, l_max=32, minc=1, lm_max=561, n_theta_max=64, m_max = None,
+    def __init__(self, l_max=32, minc=1, n_theta_max=64, m_max=None,
                  verbose=True):
         """
         :param l_max: maximum spherical harmonic degree
         :type l_max: int
         :param minc: azimuthal symmetry
         :type minc: int
-        :param lm_max: maximum l,m combination
-        :type lm_max: int
         :param n_theta_max: number of grid points in the latitudinal direction
         :type n_theta_max: int
         :param verbose: some info about the SHT layout
@@ -38,7 +36,7 @@ class SpectralTransforms(object):
         else:
             self.m_max = int(m_max)
 
-        self._legF90.init(l_max, minc, lm_max, n_theta_max, self.m_max)
+        self._legF90.init(l_max, minc, n_theta_max, self.m_max)
         self.l_max = self._legF90.l_max
         self.minc = self._legF90.minc
         self.lm_max = self._legF90.lm_max

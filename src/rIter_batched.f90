@@ -477,8 +477,21 @@ contains
       end do
 
       call td_counter%start_count()
-      call this%nl_lm%get_td(lPressNext, dVxVhLM, dVxBhLM, dwdt, dzdt, dpdt, dsdt, &
-           &                 dxidt, dbdt, djdt)
+      if ( l_conv ) then
+         call this%nl_lm%get_dzdt(dzdt)
+         if ( l_double_curl ) then
+            call this%nl_lm%get_dwdt_double_curl(dwdt, dVxVhLM)
+         else
+            call this%nl_lm%get_dwdt(dwdt)
+         end if
+      end if
+      if ( (.not. l_double_curl) .or. lPressNext ) call this%nl_lm%get_dpdt(dpdt)
+      if ( l_heat ) call this%nl_lm%get_dsdt(dsdt, dVSrLM)
+      if ( l_chemical_conv ) call this%nl_lm%get_dxidt(dxidt, dVXirLM)
+      if ( l_mag ) call this%nl_lm%get_dbdt(dbdt, djdt, dVxBhLM)
+
+      !call this%nl_lm%get_td(lPressNext, dVxVhLM, dVxBhLM, dwdt, dzdt, dpdt, dsdt, &
+      !     &                 dxidt, dbdt, djdt)
       call td_counter%stop_count(l_increment=.false.)
 
       phy2lm_counter%n_counts=phy2lm_counter%n_counts+1
