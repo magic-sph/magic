@@ -961,26 +961,26 @@ contains
          end if
 
          if ( l_precession ) then
-               !$omp target teams distribute parallel do collapse(2)
-               do nPhi=1,n_phi_max
-                  do nLat=1,nlat_padded
-                     this%gsa%Advr(nLat,nPhi)=this%gsa%Advr(nLat,nPhi) + this%gsa%PCr(nLat,nPhi)
-                     this%gsa%Advt(nLat,nPhi)=this%gsa%Advt(nLat,nPhi) + this%gsa%PCt(nLat,nPhi)
-                     this%gsa%Advp(nLat,nPhi)=this%gsa%Advp(nLat,nPhi) + this%gsa%PCp(nLat,nPhi)
-                  end do
+            !$omp target teams distribute parallel do collapse(2)
+            do nPhi=1,n_phi_max
+               do nLat=1,nlat_padded
+                  this%gsa%Advr(nLat,nPhi)=this%gsa%Advr(nLat,nPhi) + this%gsa%PCr(nLat,nPhi)
+                  this%gsa%Advt(nLat,nPhi)=this%gsa%Advt(nLat,nPhi) + this%gsa%PCt(nLat,nPhi)
+                  this%gsa%Advp(nLat,nPhi)=this%gsa%Advp(nLat,nPhi) + this%gsa%PCp(nLat,nPhi)
                end do
-               !$omp end target teams distribute parallel do
+            end do
+            !$omp end target teams distribute parallel do
          end if
 
          if ( l_centrifuge ) then
-               !$omp target teams distribute parallel do collapse(2)
-               do nPhi=1,n_phi_max
-                  do nLat=1,nlat_padded
-                     this%gsa%Advr(nLat, nPhi)=this%gsa%Advr(nLat,nPhi) + this%gsa%CAr(nLat,nPhi)
-                     this%gsa%Advt(nLat, nPhi)=this%gsa%Advt(nLat,nPhi) + this%gsa%CAt(nLat,nPhi)
-                  end do
+            !$omp target teams distribute parallel do collapse(2)
+            do nPhi=1,n_phi_max
+               do nLat=1,nlat_padded
+                  this%gsa%Advr(nLat, nPhi)=this%gsa%Advr(nLat,nPhi) + this%gsa%CAr(nLat,nPhi)
+                  this%gsa%Advt(nLat, nPhi)=this%gsa%Advt(nLat,nPhi) + this%gsa%CAt(nLat,nPhi)
                end do
-               !$omp end target teams distribute parallel do
+            end do
+            !$omp end target teams distribute parallel do
          end if
 
 #else
