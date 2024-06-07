@@ -52,9 +52,8 @@ class ExtraPot:
 
         l_max = (20*self.nt)/30
         m_max = (l_max/self.minc)*self.minc
-        lm_max = m_max*(l_max+1)/minc-m_max*(m_max-minc)/(2*minc)+(l_max+1-m_max)
 
-        sh = SpectralTransforms(l_max, self.minc, lm_max, self.nt)
+        sh = SpectralTransforms(l_max, self.minc, self.nt)
         brlm = sh.spat_spec(self.brcmb)
         bpolcmb = np.zeros_like(brlm)
         bpolcmb[1:] = brlm[1:]/(sh.ell[1:]*(sh.ell[1:]+1))*self.rcmb**2
