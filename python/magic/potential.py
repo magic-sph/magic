@@ -170,17 +170,12 @@ class MagicPotential(MagicSetup):
         self.n_theta_max = max(int(3*self.l_max/2), 128)
         self.n_theta_max += self.n_theta_max % 2
         self.n_phi_max = int(2*self.n_theta_max/self.minc)
-        lm_max = (self.m_max*(self.l_max+1)/self.minc
-                  - self.m_max*(self.m_max-self.minc)/(2*self.minc)
-                  + (self.l_max+1-self.m_max))
-        self.lm_max = max(self.lm_max, lm_max)
         t1 = time.time()
-
         self.sh = SpectralTransforms(l_max=self.l_max, minc=self.minc,
-                                     lm_max=self.lm_max,
                                      m_max=self.m_max,
                                      n_theta_max=self.n_theta_max,
                                      verbose=verbose)
+        self.lm_max = self.sh.lm_max
         t2 = time.time()
         if verbose:
             print('Time to set up the spectral transforms: {:.2e}'.format(t2-t1))

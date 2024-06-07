@@ -517,7 +517,6 @@ class MagicCoeffCmb(MagicSetup):
 
         # Define spectral transform setup
         sh = SpectralTransforms(l_max=self.l_max_cmb, minc=self.minc,
-                                lm_max=self.lm_max_cmb,
                                 n_theta_max=nlat)
 
         # Transform data on grid space

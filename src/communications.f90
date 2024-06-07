@@ -589,9 +589,13 @@ contains
    end subroutine gather_from_lo_to_rank0
 !-------------------------------------------------------------------------------
    subroutine scatter_from_rank0_to_lo(arr_full,arr_lo)
+      !
+      ! This subroutine scatters a complex input array of size lm_max
+      ! and re-aranges the (l,m) pairs using the local mapping.
+      !
 
-      complex(cp) :: arr_full(1:lm_max)
-      complex(cp) :: arr_lo(llm:ulm)
+      complex(cp), intent(in) :: arr_full(1:lm_max)
+      complex(cp), intent(out) :: arr_lo(llm:ulm)
 
       integer :: l,m
 #ifdef WITH_MPI

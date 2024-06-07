@@ -18,13 +18,12 @@ module legendre
 
 contains
 
-   subroutine init(l_max_in,minc_in,lm_max_in,n_theta_max_in,m_max_in)
+   subroutine init(l_max_in,minc_in,n_theta_max_in,m_max_in)
 
       !-- Input variables
       integer, intent(in) :: l_max_in ! Spherical harmonic order
       integer, intent(in) :: minc_in  ! Azimuthal symmetry
       integer, intent(in) :: n_theta_max_in ! Number of latitudinal grid point
-      integer, intent(in) :: lm_max_in ! lm max
       integer, intent(in) :: m_max_in
 
       !-- Local variables:
@@ -37,11 +36,18 @@ contains
 
       l_max = l_max_in
       minc = minc_in
-      lm_max = lm_max_in
       n_theta_max = n_theta_max_in
       n_phi_max = n_theta_max*2/minc
       m_max = m_max_in
       n_m_max = m_max/minc+1
+
+      !-- Number of l/m combinations
+      lm_max=0
+      do m=0,m_max,minc
+         do l=m,l_max
+            lm_max = lm_max+1
+         end do
+      end do
 
       if ( allocated(gauss) ) deallocate( gauss )
       if ( allocated(plma) ) deallocate( plma )
