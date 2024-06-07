@@ -670,8 +670,8 @@ contains
             if ( tscheme%istage == 1 ) then
                if ( lVerbose ) write(output_unit,*) "! start output"
 
-               if ( l_cmb .and. l_dt_cmb_field .and. nRstart==n_r_cmb ) then
-                  call scatter_from_rank0_to_lo(dbdt_Rloc(:,n_r_cmb), dbdt_CMB_LMloc)
+               if ( l_cmb .and. l_dt_cmb_field ) then
+                  call scatter_from_rank0_to_lo(dbdt_Rloc(:,nRstart), dbdt_CMB_LMloc)
                end if
 
                if ( lVerbose ) write(output_unit,*) "! start real output"
