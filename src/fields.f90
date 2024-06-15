@@ -7,7 +7,7 @@ module fields
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use constants, only: zero
-   use physical_parameters, only: ampForce
+   use special, only: ampForce
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
        &                 n_r_ic_maxMag, fd_order, fd_order_bound
    use logic, only: l_chemical_conv, l_finite_diff, l_mag, l_parallel_solve, &
