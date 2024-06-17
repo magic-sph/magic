@@ -783,9 +783,10 @@ contains
          if ( amp_tide /= 0.0_cp ) then
             y20_norm = 0.5_cp  * sqrt(5.0_cp/pi)
             y22_norm = 0.25_cp * sqrt(7.5_cp/pi)
-            tide_fac20  = amp_tide / y20_norm * r_cmb**2
-            tide_fac22p = half * amp_tide / y22_norm / sqrt(6.0_cp) * r_cmb**2 ! Needs a half factor
-            tide_fac22n = -7.0_cp * tide_fac22p                                ! Half factor carried over
+            tide_fac20  = amp_tide / y20_norm * r_cmb**2 ! (2,0,1) mode of Ogilvie 2014
+            tide_fac22p = half * amp_tide / y22_norm / sqrt(6.0_cp) * r_cmb**2 ! Needs a half factor, (2,2,1) mode
+            tide_fac22n = -7.0_cp * tide_fac22p                                ! Half factor carried over, (2,2,3) mode,
+                                                                               ! has opposite sign to that of the other two (Polfliet & Smeyers, 1990)
          else
             tide_fac20  = 0.0_cp
             tide_fac22p = 0.0_cp

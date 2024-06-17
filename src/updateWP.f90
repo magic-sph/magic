@@ -445,12 +445,17 @@ contains
                         end if
 
                         if ( amp_tide /= 0.0_cp ) then
+                           ! tide_fac22p -> (2,2,1)
+                           ! tide_fac22n -> (2,2,3)
+                           ! (2,2,3) must have the same signed frequency
+                           ! as (2,0,1) above while (2,2,1) has the opposite
+                           ! sign in the rotating frame (Ogilvie, 2014)
                            rhs1(1,2*lm-1,threadid)=rhs1(1,2*lm-1,threadid)        &
                            &                 + (tide_fac22p + tide_fac22n)        &
                            &                      /real(l1*(l1+1),kind=cp)        &
                            &                      * cos(omega_tide*(time))
                            rhs1(1,2*lm,threadid)  =rhs1(1,2*lm,threadid)          &
-                           &                 +  (tide_fac22p - tide_fac22n)       &
+                           &                 +  (-tide_fac22p + tide_fac22n)       &
                            &                       /real(l1*(l1+1),kind=cp)       &
                            &                       * sin(omega_tide*(time))
                         end if
