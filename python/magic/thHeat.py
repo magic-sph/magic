@@ -3,7 +3,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from magic import scanDir, MagicSetup, Movie, chebgrid, rderavg, AvgField
 import os, pickle
-from scipy.integrate import simps, trapz
+from scipy.integrate import trapz
+try:
+    from scipy.integrate import simps
+except:
+    from scipy.integrate import simpson as simps
 
 json_model = {'phys_params': [],
               'time_series': { 'heat': ['topnuss', 'botnuss']},

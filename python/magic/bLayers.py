@@ -5,7 +5,10 @@ import os
 from magic import MagicRadial, matder, intcheb, MagicSetup, scanDir, AvgField
 from magic.setup import labTex
 from scipy.signal import argrelextrema
-from scipy.integrate import simps
+try:
+    from scipy.integrate import simps
+except:
+    from scipy.integrate import simpson as simps
 from scipy.interpolate import splrep, splev
 
 def getAccuratePeaks(rad, uh, uhTop, uhBot, ri, ro):
