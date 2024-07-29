@@ -392,7 +392,7 @@ program magic
    call initialize_courant(time, tscheme%dt(1), tag)
 
    !--- Second pre-calculation:
-   call preCalcTimes(time, tEND, tscheme%dt(1), n_time_step, n_time_steps)
+   call preCalcTimes(time, n_time_step)
 
    !--- Write info to STDOUT and log-file:
    if ( rank == 0 ) then

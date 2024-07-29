@@ -20,7 +20,7 @@ module useful
 contains
 
    logical function l_correct_step(n,t,t_last,n_max,n_step,n_intervals, &
-                    &              n_ts,times)
+                    &              dt_output,times)
       !
       ! Suppose we have a (loop) maximum of n_max steps!
       ! If n_intervals times in these steps a certain action should be carried out
@@ -41,8 +41,8 @@ contains
       integer,  intent(in) :: n_max        ! max number of steps
       integer,  intent(in) :: n_step       ! action interval
       integer,  intent(in) :: n_intervals  ! number of actions
-      integer,  intent(in) :: n_ts         ! number of times t
-      real(cp), intent(in) :: times(:)     ! times where l_correct_step == true
+      real(cp), intent(in) :: dt_output    ! Output frequency
+      real(cp), intent(inout) :: times(:)  ! times where l_correct_step == true
 
       !-- Local variables:
       integer :: n_offset     ! offset with no action
@@ -66,8 +66,15 @@ contains
          if ( n == n_max .or. mod(n,n_step) == 0 ) l_correct_step=.true.
       end if
 
-      if ( n_ts >= 1 ) then
-         do n_t=1,n_ts
+      if ( size(times) == 1 .and. times(1) > 0.0_cp ) then
+         !-- Time array has one single entry for the next output
+         if ( times(1) < t .and. times(1) >= t_last ) then
+            l_correct_step=.true.
+            times(1)=times(1)+dt_output ! In this case, increment the target time for next output
+         end if
+      else if ( size(times) > 1 ) then
+         !-- Time array contains multiple entries
+         do n_t=1,size(times)
             if ( times(n_t) < t .and. times(n_t) >= t_last ) then
                l_correct_step=.true.
                exit

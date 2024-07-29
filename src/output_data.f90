@@ -26,17 +26,17 @@ module output_data
    real(cp), public :: t_TOmovie_start,t_TOmovie_stop,dt_TOmovie
    real(cp), public :: t_pot_start,t_pot_stop,dt_pot
    real(cp), public :: t_probe_start,t_probe_stop,dt_probe
-   integer, public :: n_graph_step,n_graphs,n_t_graph
-   integer, public :: n_rst_step,n_rsts,n_t_rst,n_stores
-   integer, public :: n_log_step,n_logs,n_t_log
-   integer, public :: n_spec_step,n_specs,n_t_spec
-   integer, public :: n_cmb_step,n_cmbs,n_t_cmb
-   integer, public :: n_r_field_step,n_r_fields,n_t_r_field
-   integer, public :: n_movie_step,n_movie_frames,n_t_movie
-   integer, public :: n_TO_step,n_TOs,n_t_TO
-   integer, public :: n_TOmovie_step,n_TOmovie_frames,n_t_TOmovie
-   integer, public :: n_pot_step,n_pots,n_t_pot      
-   integer, public :: n_probe_step,n_probe_out,n_t_probe
+   integer, public :: n_graph_step,n_graphs
+   integer, public :: n_rst_step,n_rsts,n_stores
+   integer, public :: n_log_step,n_logs
+   integer, public :: n_spec_step,n_specs
+   integer, public :: n_cmb_step,n_cmbs
+   integer, public :: n_r_field_step,n_r_fields
+   integer, public :: n_movie_step,n_movie_frames
+   integer, public :: n_TO_step,n_TOs
+   integer, public :: n_TOmovie_step,n_TOmovie_frames
+   integer, public :: n_pot_step,n_pots
+   integer, public :: n_probe_step,n_probe_out
    integer, public, parameter :: n_time_hits=30 ! Maximum number of specific times for I/O in input namelist
    real(cp), allocatable, public ::  t_graph(:)
    real(cp), allocatable, public ::  t_rst(:)
