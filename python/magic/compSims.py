@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 from magic import *
-from scipy.integrate import trapz
 from matplotlib.ticker import ScalarFormatter
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-
+try:
+    from scipy.integrate import trapz
+except:
+    from scipy.integrate import trapezoid as trapz
 
 class CompSims:
     """

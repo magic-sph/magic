@@ -8,8 +8,11 @@ import matplotlib.pyplot as plt
 import scipy.interpolate as S
 from magic.plotlib import cut
 from magic.setup import labTex
-from scipy.integrate import simps
 from .npfile import *
+try:
+    from scipy.integrate import simps
+except:
+    from scipy.integrate import simpson as simps
 
 
 class Butterfly:

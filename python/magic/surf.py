@@ -7,7 +7,10 @@ from .plotlib import equatContour, merContour, radialContour, default_cmap, \
 import matplotlib.pyplot as plt
 import os
 import numpy as np
-from scipy.integrate import trapz
+try:
+    from scipy.integrate import trapz
+except:
+    from scipy.integrate import trapezoid as trapz
 
 
 class Surf:
@@ -869,7 +872,7 @@ class Surf:
 
             vs = self.gr.vr * np.sin(th3D) + self.gr.vtheta * np.cos(th3D)
             vz = self.gr.vr * np.cos(th3D) - self.gr.vtheta * np.sin(th3D)
-            vortz = 1./s3D*(-phideravg(vs, self.gr.minc) + 
+            vortz = 1./s3D*(-phideravg(vs, self.gr.minc) +
                             sderavg(s3D*self.gr.vphi, self.gr.radius))
 
             data = vortz * vz
