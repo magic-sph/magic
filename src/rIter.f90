@@ -55,7 +55,7 @@ module rIter_mod
    use RMS, only: get_nl_RMS, transform_to_lm_RMS, compute_lm_forces, &
        &          transform_to_grid_RMS
    use probe_mod
-   use special, only: ellip_fac_cmb, ellip_fac_icb, amp_tide, l_radial_flow_bc
+   use special, only: ellip_fac_icb, l_radial_flow_bc
 
    implicit none
 
