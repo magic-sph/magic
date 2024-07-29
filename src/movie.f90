@@ -6,7 +6,7 @@ module movie_data
    use truncation, only: n_r_max, n_theta_max, n_phi_max, minc, n_r_ic_max, n_r_tot
    use logic, only: l_store_frame, l_save_out, l_movie, l_movie_oc, l_geosMovie, &
        &            l_movie_ic, l_HTmovie, l_dtBmovie, l_store_frame, l_save_out,&
-       &            l_phaseMovie
+       &            l_phaseMovie, l_dtphaseMovie
    use radial_data, only: nRstart,nRstop, n_r_icb, n_r_cmb, radial_balance
    use radial_functions, only: r_cmb, r_icb, r, r_ic
    use horizontal_data, only: theta_ord, phi, n_theta_ord2cal
@@ -297,6 +297,7 @@ contains
       !                   - =124  : axisymmetric convective heat flux
       !                   - =125  : axisymmetric flux of chemical composition
       !                   - =126  : melting radius
+      !                   - =127  : temperatur gradient at melting radius
       !                     for phi=const.
       !
       !     * n_movie_surface(n_movie) = defines surface
@@ -425,13 +426,14 @@ contains
       rad=180.0_cp/pi
 
       !--- Loop over max possible no of movies:
-      l_movie_oc   =.false.
-      l_movie_ic   =.false.
-      l_HTmovie    =.false.
-      l_dtBmovie   =.false.
-      l_geosMovie  =.false.
-      l_phaseMovie =.false.
-      l_store_frame=.false.
+      l_movie_oc    =.false.
+      l_movie_ic    =.false.
+      l_HTmovie     =.false.
+      l_dtBmovie    =.false.
+      l_geosMovie   =.false.
+      l_phaseMovie  =.false.
+      l_dtphaseMovie=.false.
+      l_store_frame =.false.
       n_field_type(:)=0
 
       do i=1,n_movies_max
@@ -811,6 +813,14 @@ contains
             lStore=.false.
             l_phaseMovie=.true.
             n_field_type(1)=117
+         else if ( index(string,'DTRM') /= 0 .or. index(string,'DTPHASE') /= 0 ) then
+            n_type=127
+            typeStr=' temperature gradient at melting radius'
+            file_name='dt_rmelt_'
+            n_fields=1
+            lStore=.false.
+            l_dtphaseMovie=.true.
+            n_field_type(1)=118
          else if ( index(string,'VH') /= 0 .or. index(string,'VM') /= 0 ) then
             n_type=14
             file_name='Vh_'
@@ -1085,7 +1095,7 @@ contains
             n_field_size=n_phi_max*n_r_max
             n_field_size_ic=0
             const=r_cmb
-         else if ( n_type == 126 ) then ! Melting radius
+         else if ( n_type == 126 .or. n_type == 127 ) then ! Melting radius or temp gradient at rm
             n_surface=1  ! R=const.
             n_const=1   !
             n_field_size=n_phi_max*n_theta_max

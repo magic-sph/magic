@@ -347,7 +347,6 @@ program magic
    if ( l_mag ) call initialize_magnetic_energy()
    call initialize_spectra()
    call initialize_outPar_mod()
-   call initialize_outMisc_mod()
    call initialize_outRot()
    if ( l_power ) call initialize_output_power()
    call initialize_fields_average_mod()
@@ -362,6 +361,7 @@ program magic
 
    if ( l_TO ) call initialize_outTO_mod() ! Needs to be called after preCalc, r_icb needed
    if ( l_movie ) call initialize_movie_data() !Needs to be called after preCalc to get correct coordinate values
+   call initialize_outMisc_mod() ! Needs to be called after movie
    call initialize_geos(l_par, l_SRIC, l_geosMovie) ! Needs to be called after preCalc, l_geosMovie defined in movie
    if ( l_RMS .or. l_DTrMagSpec ) call initialize_dtB_mod() ! Needs to be called after movie to make sure l_dtBmovie has been set
    if (l_probe) call initialize_probes()       !Needs to be called after preCalc to get correct coordinate values

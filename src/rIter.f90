@@ -361,8 +361,8 @@ contains
 
          !-- Kinetic energy in the solid and liquid phases
          if ( lPhaseCalc ) then
-            call get_ekin_solid_liquid(this%gsa%sc,this%gsa%vrc,this%gsa%vtc, &
-                 &                     this%gsa%vpc,this%gsa%phic,nR)
+            call get_ekin_solid_liquid(this%gsa%sc,this%gsa%drsc,this%gsa%vrc, &
+                 &                     this%gsa%vtc,this%gsa%vpc,this%gsa%phic,nR)
          end if
 
          !-- Kinetic energy parallel and perpendicular to rotation axis
