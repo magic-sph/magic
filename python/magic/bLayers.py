@@ -478,7 +478,7 @@ class BLayers(MagicSetup):
         y = RolC[self.radius >= self.ro-self.bcTopSlope]
         x = self.radius[self.radius >= self.ro-self.bcTopSlope]
         try:
-            self.rolTop = simps(3.*y*x**2, x)/(self.ro**3-(self.ro-self.bcTopSlope)**3)
+            self.rolTop = simps(3.*y*x**2, x=x)/(self.ro**3-(self.ro-self.bcTopSlope)**3)
         except IndexError:
             self.rolTop = 0.
 
@@ -500,7 +500,7 @@ class BLayers(MagicSetup):
 
         y = RolC[self.radius <= self.ri+self.bcBotSlope]
         x = self.radius[self.radius <= self.ri+self.bcBotSlope]
-        self.rolBot = simps(3.*y*x**2, x)/((self.ri+self.bcBotSlope)**3-self.ri**3)
+        self.rolBot = simps(3.*y*x**2, x=x)/((self.ri+self.bcBotSlope)**3-self.ri**3)
         print('reynols bc, reynolds bulk', self.rebl, self.rebulk)
         print('reh bc, reh bulk', self.rehbl, self.rehbulk)
         print('rolbc, rolbulk, roltop, rolbot', self.rolbl, self.rolbulk,

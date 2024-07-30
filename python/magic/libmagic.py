@@ -1201,12 +1201,12 @@ def horizontal_mean(field, colat, std=False):
     """
 
     field_m = field.mean(axis=0) # Azimuthal average
-    field_mean = 0.5 * simps(field_m.T*np.sin(colat), colat, axis=-1)
+    field_mean = 0.5 * simps(field_m.T*np.sin(colat), x=colat, axis=-1)
 
     if std:
         dat = (field-field_mean)**2
         dat_m = dat.mean(axis=0)
-        dat_mean = 0.5 * simps(dat_m.T*np.sin(colat), colat, axis=-1)
+        dat_mean = 0.5 * simps(dat_m.T*np.sin(colat), x=colat, axis=-1)
         field_std = np.sqrt(dat_mean)
         return field_mean, field_std
     else:

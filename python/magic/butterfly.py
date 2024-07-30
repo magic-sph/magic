@@ -284,7 +284,7 @@ class Butterfly:
         self.omega = w[1:nt//2+1]
         self.amp1D = np.zeros_like(self.omega)
         for i in range(len(self.omega)):
-            self.amp1D[i] = simps(self.amp[:, i], self.theta)
+            self.amp1D[i] = simps(self.amp[:, i], x=self.theta)
 
         fig = plt.figure()
         ax = fig.add_subplot(211)
