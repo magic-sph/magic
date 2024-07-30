@@ -176,13 +176,11 @@ contains
       phiNorm=one/real(n_phi_max, kind=cp)
 
       !-- Set values to zero before filling it
-      do nTheta=1,n_theta_max
-         dzCorAS_Rloc(nTheta,nR) =0.0_cp
-         dzRstrAS_Rloc(nTheta,nR)=0.0_cp
-         dzAstrAS_Rloc(nTheta,nR)=0.0_cp
-         if ( l_mag ) dzLFAS_Rloc(nTheta,nR)=0.0_cp
-         if ( l_phase_field ) dzPenAS_Rloc(nTheta,nR)=0.0_cp
-      end do
+      dzCorAS_Rloc(:,nR) =0.0_cp
+      dzRstrAS_Rloc(:,nR)=0.0_cp
+      dzAstrAS_Rloc(:,nR)=0.0_cp
+      if ( l_mag ) dzLFAS_Rloc(:,nR)=0.0_cp
+      if ( l_phase_field ) dzPenAS_Rloc(:,nR)=0.0_cp
 
       !-- Big loop over thetas in block:
       do nTheta=1,n_theta_max
