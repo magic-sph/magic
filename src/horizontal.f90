@@ -133,14 +133,14 @@ contains
       !   Gauss-Legendre integration of the plms:
       call gauleg(-one,one,theta_ord,tmp_gauss,n_theta_max)
 
+      ! Get dP for all degrees and order m=0 at the equator only
+      ! Usefull to estimate the flow velocity at the equator
+      call plm_theta(half*pi,l_max,0,0,minc,Pl0Eq,dPl0Eq,l_max+1,norm)
+
       !-- Legendre polynomials and cos(theta) derivative:
       do n_theta=1,n_theta_max/2  ! Loop over colat in NHS
 
          colat=theta_ord(n_theta)
-
-         ! Get dP for all degrees and order m=0 at the equator only
-         ! Usefull to estimate the flow velocity at the equator
-         call plm_theta(half*pi,l_max,0,0,minc,Pl0Eq,dPl0Eq,l_max+1,norm)
 
          if ( l_scramble_theta ) then
             O_sin_theta(2*n_theta-1)   =one/sin(colat)

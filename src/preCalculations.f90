@@ -886,9 +886,8 @@ contains
       !-- Local variables:
       logical :: l_t
       real(cp) :: tmp(size(t))
-      integer :: n, n_t_max, n_t
+      integer :: n, n_t
 
-      n_t_max = size(t)
       t_start=t_start/tScale
       t_stop =t_stop/tScale
       dt     =dt/tScale
@@ -905,13 +904,8 @@ contains
       !-- Check whether any time is given explicitly:
       l_t=.false.
       n_t=0
-      do n=1,n_t_max
-         if ( t(n) >= 0.0_cp ) then
-            t(n)=t(n)/tScale
-            l_t=.true.
-            n_t=n_t+1
-         end if
-      end do
+      where ( t >= 0.0_cp ) t=t/tScale
+      if ( maxval(t(:)) >= 0.0_cp ) l_t=.true.; n_t=count(t(:)>=0.0)
 
       !-- Properly reallocate at the right size
       if ( l_t ) then
@@ -938,11 +932,7 @@ contains
 
          deallocate(t) ! Deallocate to get the proper size
          allocate(t(n_t))
-         t(1)=t_start
-         do n=2,n_t
-            t(n)=t(n-1)+dt
-         end do
-
+         t(:) = [(t_start+(n-1)*dt, n=1,n_t)]
       end if
 
       !-- In case only n_step or n_tot is specified such that l_t=.false.

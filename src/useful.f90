@@ -46,7 +46,6 @@ contains
 
       !-- Local variables:
       integer :: n_offset     ! offset with no action
-      integer :: n_t          ! counter for times
       integer :: n_steps      ! local step width
 
       if ( n_step /= 0 .and. n_intervals /= 0 ) then
@@ -56,11 +55,9 @@ contains
       end if
 
       l_correct_step=.false.
-
       if ( n_intervals /= 0 ) then
          n_steps=n_max/n_intervals
          n_offset=n_max-n_steps*n_intervals
-
          if ( n > n_offset .and. mod(n-n_offset,n_steps) == 0 ) l_correct_step=.true.
       else if ( n_step /= 0 ) then
          if ( n == n_max .or. mod(n,n_step) == 0 ) l_correct_step=.true.
@@ -74,12 +71,7 @@ contains
          end if
       else if ( size(times) > 1 ) then
          !-- Time array contains multiple entries
-         do n_t=1,size(times)
-            if ( times(n_t) < t .and. times(n_t) >= t_last ) then
-               l_correct_step=.true.
-               exit
-            end if
-         end do
+         l_correct_step=any((times(:) >= t_last) .and. (times(:) < t), dim=1)
       end if
 
    end function l_correct_step
