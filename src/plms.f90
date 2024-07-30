@@ -2,7 +2,6 @@ module plms_theta
 
    use precision_mod
    use constants, only: osq4pi, one, two
-   use useful, only: abortRun
 
    implicit none
 
@@ -13,7 +12,7 @@ module plms_theta
 contains
 
    subroutine plm_theta(theta,max_degree,min_order,max_order,m0, &
-              &          plma,dtheta_plma,ndim_plma,norm)
+              &          plma,dtheta_plma,norm)
       !
       !  This produces the :math:`P_{\ell}^m` for all degrees :math:`\ell` and
       !  orders :math:`m` for a given colatitude. :math:`\theta`, as well as
@@ -33,13 +32,12 @@ contains
       integer,  intent(in) :: min_order  ! required min order of plm
       integer,  intent(in) :: max_order  ! required max order of plm
       integer,  intent(in) :: m0         ! basic wave number
-      integer,  intent(in) :: ndim_plma  ! dimension of plma and dtheta_plma
       integer,  intent(in) :: norm       ! =0 fully normalised
                                          ! =1 Schmidt normalised
 
       !-- Output variables:
-      real(cp), intent(out) :: plma(ndim_plma) ! associated Legendre polynomials at theta
-      real(cp), intent(out) :: dtheta_plma(ndim_plma) ! their theta derivative
+      real(cp), intent(out) :: plma(:) ! associated Legendre polynomials at theta
+      real(cp), intent(out) :: dtheta_plma(:) ! their theta derivative
 
       !-- Local variables:
       real(cp) :: sq2,dnorm,fac,plm,plm1,plm2
@@ -94,9 +92,6 @@ contains
 
             !----- Now store it:
             pos=pos+1
-            if ( pos > ndim_plma ) then
-               call abortRun('! Dimension ndim_plma too small in subroutine plm_theta')
-            end if
             plma(pos) = dnorm*plm
 
          end do
@@ -129,9 +124,6 @@ contains
          !-------- l=m contribution:
          l=m
          pos=pos+1
-         if ( pos > ndim_plma ) then
-            call abortRun('! Dimension ndim_plma too small in subroutine plm_theta')
-         end if
          if ( m < max_degree ) then
             if( norm == 0 .OR. norm == 2 ) then
                dtheta_plma(pos)= l/sqrt(real(2*l+3,cp)) * plma(pos+1)
@@ -150,9 +142,6 @@ contains
          do l=m+1,max_degree-1
 
             pos=pos+1
-            if ( pos > ndim_plma ) then
-               call abortRun('! Dimension ndim_plma too small in subroutine plm_theta')
-            end if
             if( norm == 0 .OR. norm == 2 ) then
                dtheta_plma(pos)=                      &
                &  l*sqrt( real((l+m+1)*(l-m+1),cp) /  &
@@ -177,9 +166,6 @@ contains
          if ( m < max_degree ) then
             l=max_degree
             pos=pos+1
-            if ( pos > ndim_plma ) then
-               call abortRun('! Dimension ndim_plma too small in subroutine plm_theta')
-            end if
             if( norm == 0 .OR. norm == 2 ) then
                dtheta_plma(pos)=                      &
                &  l*sqrt( real((l+m+1)*(l-m+1),cp) /  &
