@@ -616,10 +616,7 @@ contains
                !       For stress-free conducting boundaries
                PERFON('nl_m_bnd')
                if ( l_b_nl_cmb .and. (nRStart <= n_r_cmb) ) then
-                  b_nl_cmb(1) =zero
-                  aj_nl_cmb(1)=zero
-                  call get_b_nl_bcs('CMB', br_vt_lm_cmb,br_vp_lm_cmb,              &
-                       &            2,lm_max,b_nl_cmb(2:lm_max),aj_nl_cmb(2:lm_max))
+                  call get_b_nl_bcs('CMB',br_vt_lm_cmb,br_vp_lm_cmb,b_nl_cmb,aj_nl_cmb)
                end if
                !-- Replace by scatter from rank to lo (and in updateB accordingly)
                if ( l_b_nl_cmb ) then
@@ -631,9 +628,7 @@ contains
 #endif
                end if
                if ( l_b_nl_icb .and. (nRstop >= n_r_icb) ) then
-                  aj_nl_icb(1)=zero
-                  call get_b_nl_bcs('ICB', br_vt_lm_icb,br_vp_lm_icb,              &
-                       &            2,lm_max,b_nl_cmb(2:lm_max),aj_nl_icb(2:lm_max))
+                  call get_b_nl_bcs('ICB',br_vt_lm_icb,br_vp_lm_icb,b_nl_cmb,aj_nl_icb)
                end if
                if ( l_b_nl_icb ) then
 #ifdef WITH_MPI

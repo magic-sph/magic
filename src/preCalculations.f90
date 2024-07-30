@@ -302,12 +302,10 @@ contains
       end if
 
       !-- Calculate auxiliary arrays containing effective Courant grid intervals:
-      delxh2(1)      =r_cmb**2/real(l_R(1)*(l_R(1)+1),kind=cp)
-      delxh2(n_r_max)=r_icb**2/real(l_R(n_r_max)*(l_R(n_r_max)+1),kind=cp)
+      delxh2(:)=r(:)**2/real(l_R(:)*(l_R(:)+1),kind=cp)
       delxr2(1)      =(r(1)-r(2))**2
       delxr2(n_r_max)=(r(n_r_max-1)-r(n_r_max))**2
       do n_r=2,n_r_max-1
-         delxh2(n_r)=r(n_r)**2/real(l_R(n_r)*(l_R(n_r)+1),kind=cp)
          delmin=min((r(n_r-1)-r(n_r)),(r(n_r)-r(n_r+1)))
          delxr2(n_r)=delmin*delmin
       end do
@@ -743,7 +741,7 @@ contains
          do l=1,l_max
             fac_loop(l)=0.0_cp
             if (mod(l,2)/=0) then
-               if(l==1) then
+               if ( l==1 ) then
                   fac_loop(l)= one
                else
                   fac_loop(l)= -fac_loop(l-2)*loopRadRatio**2*real(l,kind=cp)/ &
@@ -752,7 +750,7 @@ contains
             end if
          end do
 
-         if (l_non_rot) then
+         if ( l_non_rot ) then
             amp_curr = Le
          else
             amp_curr = Le * sqrt(prmag/ek)

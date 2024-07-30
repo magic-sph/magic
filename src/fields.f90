@@ -179,7 +179,7 @@ contains
             z_Rloc(:,:)=zero
             s_Rloc(:,:)=zero
             if ( l_mag ) then
-               if( l_mag_par_solve ) then
+               if ( l_mag_par_solve ) then
                   allocate(b_Rloc(lm_max,nRstart:nRstop), aj_Rloc(lm_max,nRstart:nRstop))
                   b_Rloc(:,:) =zero
                   aj_Rloc(:,:)=zero

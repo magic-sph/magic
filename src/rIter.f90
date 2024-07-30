@@ -704,7 +704,7 @@ contains
          call spat_to_qst(this%gsa%VXir, this%gsa%VXit, this%gsa%VXip, &
               &           dVXirLM, this%nl_lm%VXitLM, this%nl_lm%VXipLM, l_R(nR))
       end if
-      if( l_phase_field ) call scal_to_SH(this%gsa%phiTerms, dphidt,l_R(nR))
+      if ( l_phase_field ) call scal_to_SH(this%gsa%phiTerms, dphidt,l_R(nR))
       if ( l_mag_nl ) then
          if ( nR>n_r_LCR ) then
             call spat_to_qst(this%gsa%VxBr, this%gsa%VxBt, this%gsa%VxBp, &

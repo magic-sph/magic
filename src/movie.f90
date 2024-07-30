@@ -532,7 +532,7 @@ contains
             n_type=4 ! Horizontal field
             file_name='Bh_'
             lIC=.true.
-         else if( index(string,'BS') /= 0) then
+         else if ( index(string,'BS') /= 0) then
             n_type=114
             typeStr='cyl radial magnetic field'
             file_name='Bs_'

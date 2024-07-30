@@ -58,9 +58,9 @@ contains
          end do
 
          plm=sqrt(fac)
-         if( sin(theta) /= 0.0_cp ) then
+         if ( sin(theta) /= 0.0_cp ) then
             plm=plm*sin(theta)**m
-         else if( m /= 0 ) then
+         else if ( m /= 0 ) then
             plm=0.0_cp
          end if
 
@@ -125,13 +125,13 @@ contains
          l=m
          pos=pos+1
          if ( m < max_degree ) then
-            if( norm == 0 .OR. norm == 2 ) then
+            if ( norm == 0 .OR. norm == 2 ) then
                dtheta_plma(pos)= l/sqrt(real(2*l+3,cp)) * plma(pos+1)
             else if ( norm == 1 ) then
                dtheta_plma(pos)= l/sqrt(real(2*l+1,cp)) * plma(pos+1)
             end if
          else
-            if( norm == 0 .OR. norm == 2 ) then
+            if ( norm == 0 .OR. norm == 2 ) then
                dtheta_plma(pos)= l/sqrt(real(2*l+3,cp)) * dtheta_plma(pos)
             else if ( norm == 1 ) then
                dtheta_plma(pos)= l/sqrt(real(2*l+1,cp)) * dtheta_plma(pos)
@@ -142,7 +142,7 @@ contains
          do l=m+1,max_degree-1
 
             pos=pos+1
-            if( norm == 0 .OR. norm == 2 ) then
+            if ( norm == 0 .OR. norm == 2 ) then
                dtheta_plma(pos)=                      &
                &  l*sqrt( real((l+m+1)*(l-m+1),cp) /  &
                &             real((2*l+1)*(2*l+3),cp) &
@@ -166,7 +166,7 @@ contains
          if ( m < max_degree ) then
             l=max_degree
             pos=pos+1
-            if( norm == 0 .OR. norm == 2 ) then
+            if ( norm == 0 .OR. norm == 2 ) then
                dtheta_plma(pos)=                      &
                &  l*sqrt( real((l+m+1)*(l-m+1),cp) /  &
                &             real((2*l+1)*(2*l+3),cp) &
