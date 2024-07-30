@@ -110,7 +110,7 @@ module radial_functions
 
 contains
 
-   subroutine initialize_radial_functions
+   subroutine initialize_radial_functions()
       !
       ! Initial memory allocation
       !
@@ -193,7 +193,7 @@ contains
 
    end subroutine initialize_radial_functions
 !------------------------------------------------------------------------------
-   subroutine finalize_radial_functions
+   subroutine finalize_radial_functions()
       !
       ! Memory deallocation of radial functions
       !
@@ -619,7 +619,7 @@ contains
       else if (index(interior_model,'MESA_5M_ZAMS') /= 0) then
 
          l_non_adia = .true.
-         rrOcmb = r*r_cut_model/r_cmb
+         rrOcmb(:) = r(:)*r_cut_model/r_cmb
 
          allocate( coeffAlpha(12), coeffTemp(12), coeffGrav(12), coeffGrun(12),&
          &         coeffDens(12) )
@@ -882,15 +882,12 @@ contains
               &         0.0_cp,0.0_cp,0.0_cp,0.0_cp,.false.)
 
          !----- Store first n_r_ic_max points of r_ic_2 to r_ic:
-         do n_r=1,n_r_ic_max-1
-            r_ic(n_r)   =r_ic_2(n_r)
-            O_r_ic(n_r) =one/r_ic(n_r)
-            O_r_ic2(n_r)=O_r_ic(n_r)*O_r_ic(n_r)
-         end do
-         n_r=n_r_ic_max
-         r_ic(n_r)   =0.0_cp
-         O_r_ic(n_r) =0.0_cp
-         O_r_ic2(n_r)=0.0_cp
+         r_ic(1:n_r_ic_max-1)   =r_ic_2(1:n_r_ic_max-1)
+         O_r_ic(1:n_r_ic_max-1) =one/r_ic(1:n_r_ic_max-1)
+         O_r_ic2(1:n_r_ic_max-1)=O_r_ic(1:n_r_ic_max-1)*O_r_ic(1:n_r_ic_max-1)
+         r_ic(n_r_ic_max)   =0.0_cp
+         O_r_ic(n_r_ic_max) =0.0_cp
+         O_r_ic2(n_r_ic_max)=0.0_cp
 
       end if
 
@@ -947,20 +944,20 @@ contains
 
    end subroutine radial
 !------------------------------------------------------------------------------
-   subroutine transportProperties
+   subroutine transportProperties()
       !
       ! Calculates the transport properties: electrical conductivity,
       ! kinematic viscosity and thermal conductivity.
       !
 
-      integer :: n_r
       real(cp) :: a,b,c,s1,s2,r0
       real(cp) :: dsigma0
       real(cp) :: dvisc(n_r_max), dkappa(n_r_max), dsigma(n_r_max)
+      real(cp) :: rrOcmb(n_r_max)
       !real(cp) :: condBot(n_r_max), condTop(n_r_max)
       !real(cp) :: func(n_r_max)
       real(cp) :: kcond(n_r_max)
-      real(cp) :: a0,a1,a2,a3,a4,a5,rrOcmb
+      real(cp) :: a0,a1,a2,a3,a4,a5
       real(cp) :: ampVisc, ampKap, slopeVisc, slopeKap
 
       !-- Variable conductivity:
@@ -988,27 +985,18 @@ contains
          else if ( nVarCond == 2 ) then
 
             r0=con_radratio*r_cmb
-            !------ Use grid point closest to r0:
-            do n_r=1,n_r_max
-               if ( r(n_r) < r0 )then
-                  r0=r(n_r)
-                  exit
-               end if
-            end do
-            dsigma0=(con_LambdaMatch-1)*con_DecRate /(r0-r_icb)
-            do n_r=1,n_r_max
-               if ( r(n_r) < r0 ) then
-                  sigma(n_r)  = one+(con_LambdaMatch-1)* &
-                  &   ((r(n_r)-r_icb)/(r0-r_icb))**con_DecRate
-                  dsigma(n_r) = dsigma0 * &
-                  &   ((r(n_r)-r_icb)/(r0-r_icb))**(con_DecRate-1)
-               else
-                  sigma(n_r) =con_LambdaMatch*exp(dsigma0/con_LambdaMatch*(r(n_r)-r0))
-                  dsigma(n_r)=dsigma0*exp(dsigma0/con_LambdaMatch*(r(n_r)-r0))
-               end if
-               lambda(n_r)  =one/sigma(n_r)
-               dLlambda(n_r)=-dsigma(n_r)/sigma(n_r)
-            end do
+            !------ Find the grid point closest to r0:
+            r0=r(minloc(abs(r(:)-r0),dim=1))
+            dsigma0=(con_LambdaMatch-1)*con_DecRate/(r0-r_icb)
+            where ( r < r0 )
+               sigma=one+(con_LambdaMatch-1)*((r-r_icb)/(r0-r_icb))**con_DecRate
+               dsigma=dsigma0*((r-r_icb)/(r0-r_icb))**(con_DecRate-1)
+            else where
+               sigma=con_LambdaMatch*exp(dsigma0/con_LambdaMatch*(r-r0))
+               dsigma=dsigma0*exp(dsigma0/con_LambdaMatch*(r-r0))
+            end where
+            lambda(:)  =one/sigma(:)
+            dLlambda(:)=-dsigma(:)/sigma(:)
          else if ( nVarCond == 3 ) then ! Magnetic diff propto 1/rho
             lambda(:)=rho0(n_r_max)/rho0(:)
             sigma(:)=one/lambda(:)
@@ -1029,7 +1017,7 @@ contains
             kappa(:)  =one
             dLkappa(:)=0.0_cp
          else if ( nVarDiff == 1 ) then ! Constant conductivity
-            ! kappa(n_r)=one/rho0(n_r) Denise's version
+            ! kappa(:)=one/rho0(:) Denise Tortorella's version
             kappa(:)=rho0(n_r_max)/rho0(:)
             call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
             dLkappa(:)=dkappa(:)/kappa(:)
@@ -1051,13 +1039,10 @@ contains
             a3 =  0.63741485_cp
             a4 = -0.15812944_cp
             a5 =  0.01034262_cp
-            do n_r=1,n_r_max
-               rrOcmb = r(n_r)/r_cmb*r_cut_model
-               kappa(n_r)= a5 + a4*rrOcmb    + a3*rrOcmb**2 &
-               &              + a2*rrOcmb**3 + a1*rrOcmb**4 &
-               &                             + a0*rrOcmb**5
-            end do
-            kappa(:)=kappa(:)/kappa(1) ! normalise by the value at the top
+            rrOcmb(:) = r(:)/r_cmb*r_cut_model
+            kappa(:)= a5 + a4*rrOcmb(:) + a3*rrOcmb(:)**2 + a2*rrOcmb(:)**3 &
+            &            + a1*rrOcmb(:)**4 + a0*rrOcmb(:)**5
+            kappa(:)=kappa(:)/kappa(1) ! normalize by the value at the outer boundary
             call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
             dLkappa(:)=dkappa(:)/kappa(:)
          else if ( nVarDiff == 4) then ! Earth case
@@ -1114,7 +1099,7 @@ contains
             ampKap = 10.0_cp
             slopeKap = 30.0_cp
             if ( rStrat <= r_icb ) then
-               kappa(:) = one
+               kappa(:)=one
             else
                kappa(:)=(half*(ampKap-one)*tanh(slopeKap* &
                &       (r(:)-rStrat))+half*(ampKap+one))/ampKap
@@ -1174,10 +1159,10 @@ contains
          dLvisc(:)=dvisc(:)/visc(:)
          call get_dr(dLvisc,ddLvisc,n_r_max,rscheme_oc)
       else if ( nVarVisc == 3 ) then ! Jump in the stratified layer
-         ampVisc = 10.0_cp
-         slopeVisc = 100.0_cp
+         ampVisc  =10.0_cp
+         slopeVisc=100.0_cp
          if ( rStrat <= r_icb ) then
-            visc(:) = one
+            visc(:)=one
          else
             visc(:)=(-half*(ampVisc-one)*tanh(slopeVisc*(r(:)-rStrat))+       &
             &         half*(ampVisc+one))*(half*(ampVisc-one)*tanh(slopeVisc* &
@@ -1229,10 +1214,10 @@ contains
          &          ampVisc - half)*tanh(slopeVisc*(r(:) - rStrat - thickStrat)) &
          &          + half))
       else if ( nVarVisc == 4 ) then ! Bottom stratified
-         ampVisc = 10.0_cp
-         slopeVisc = 30.0_cp
+         ampVisc  =10.0_cp
+         slopeVisc=30.0_cp
          if ( rStrat <= r_icb ) then
-            visc(:) = one
+            visc(:)=one
          else
             visc(:)=(half*(ampVisc-one)*tanh(slopeVisc* &
             &       (r(:)-rStrat))+half*(ampVisc+one))/ampVisc
@@ -1263,8 +1248,6 @@ contains
       ! in case stable stratification is required
       !
 
-      integer :: n_r
-
       if ( nVarEntropyGrad == 0 ) then ! Default: isentropic
          dEntropy0(:)=0.0_cp
          l_non_adia = .false.
@@ -1280,14 +1263,11 @@ contains
          if ( rStrat <= r_icb .or. rStrat >= r_cmb ) then
             dentropy0(:) = ampStrat
          else
-            do n_r=1,n_r_max
-               if ( r(n_r) <= rStrat .or. rStrat >= r_cmb) then
-                  dentropy0(n_r)=-one
-               else
-                  dentropy0(n_r)=(ampStrat+one)*(r(n_r)-r_cmb)/(r_cmb-rStrat) + &
-                  &              ampStrat
-               end if
-            end do
+            where ( r <= rStrat )
+               dentropy0 = -one
+            else where
+               dentropy0 = (ampStrat+one)*(r-r_cmb)/(r_cmb-rStrat) + ampStrat
+            end where
          end if
          l_non_adia = .true.
       else if ( nVarEntropyGrad == 3 ) then ! SSL
@@ -1316,12 +1296,9 @@ contains
             dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3-r_icb**3)*(r_icb/r(:))**2
          else
             dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3-r_icb**3)*(r_icb/r(:))**2
-            do n_r=1,n_r_max
-               if ( r(n_r) >= rStrat ) then
-                  dentropy0(n_r) = dentropy0(n_r) + ampStrat*(r(n_r)-rStrat)/ &
-                  &                (r_cmb-rStrat)
-               end if
-            end do
+            where ( r >= rStrat )
+               dentropy0 = dentropy0 + ampStrat*(r-rStrat)/(r_cmb-rStrat)
+            end where
          end if
          l_non_adia = .true.
       end if
@@ -1379,10 +1356,8 @@ contains
       end if
 
       !-- renormalize
-      do n_r=1,n_r_max
-        workMat(n_r,1)      =rscheme_oc%boundary_fac*workMat(n_r,1)
-        workMat(n_r,n_r_max)=rscheme_oc%boundary_fac*workMat(n_r,n_r_max)
-      end do
+     workMat(:,1)      =rscheme_oc%boundary_fac*workMat(:,1)
+     workMat(:,n_r_max)=rscheme_oc%boundary_fac*workMat(:,n_r_max)
 
       do n_r=1,n_r_max
          workMat_fac(n_r,1)=one/maxval(abs(workMat(n_r,:)))
@@ -1403,22 +1378,16 @@ contains
          call abortRun('! Singular Matrix in getBackground!')
       end if
 
-      do n_r=2,n_r_max
-         rhs(n_r)=input(n_r)
-      end do
+      rhs(2:n_r_max)=input(2:n_r_max)
       rhs(1)=boundaryVal
 
-      do n_r=1,n_r_max
-         rhs(n_r)=rhs(n_r)*workMat_fac(n_r,1)
-      end do
+      rhs(:)=rhs(:)*workMat_fac(:,1)
 
       !-- Solve for s0:
       call solve_mat(workMat,n_r_max,n_r_max,workPivot,rhs)
 
       !-- Copy result to s0:
-      do n_r=1,n_r_max
-         output(n_r)=rhs(n_r)*workMat_fac(n_r,2)
-      end do
+      output(:)=rhs(:)*workMat_fac(:,2)
 
       !-- Set cheb-modes > n_cheb_max to zero:
       if ( rscheme_oc%n_max < n_r_max ) then
