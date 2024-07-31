@@ -4,10 +4,9 @@ import numpy as np
 from magic import scanDir, MagicSetup, Movie, chebgrid, rderavg, AvgField
 import os, pickle
 try:
-    from scipy.integrate import simps, trapz
+    from scipy.integrate import simps
 except:
     from scipy.integrate import simpson as simps
-    from scipy.integrate import trapezoid as trapz
 
 json_model = {'phys_params': [],
               'time_series': { 'heat': ['topnuss', 'botnuss']},
