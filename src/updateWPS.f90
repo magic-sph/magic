@@ -21,9 +21,9 @@ module updateWPS_mod
        &                       ogrun, kappa, orho1, dentropy0, temp0, l_R
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
        &                          ViscHeatFac, ThExpNb, BuoFac,        &
-       &                          CorFac, ktopp, ellipticity_cmb,      &
-       &                          ellipticity_icb, ellip_fac_cmb,      &
-       &                          ellip_fac_icb
+       &                          CorFac, ktopp
+   use special, only: ellipticity_cmb, ellipticity_icb, ellip_fac_cmb, &
+       &              ellip_fac_icb
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: tops, bots, omegaOsz_ma1, tShift_ma1,        &
        &                  omegaOsz_ic1, tShift_ic1

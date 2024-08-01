@@ -8,7 +8,7 @@ module nonlinear_bcs
    use radial_functions, only: r_cmb, r_icb, rho0, orho1, or2
    use physical_parameters, only: sigma_ratio, conductance_ma, prmag, oek
    use horizontal_data, only: cosTheta, sinTheta_E2, phi, sinTheta
-   use constants, only: two, y10_norm, y11_norm
+   use constants, only: two, y10_norm, y11_norm, zero
    use useful, only: abortRun
    use sht, only: spat_to_sphertor, sht_l_single
 
@@ -47,10 +47,8 @@ contains
       integer,  intent(in) :: nR
 
       !-- Output variables:
-      ! br*vt/(sin(theta)**2*r**2)
-      complex(cp), intent(inout) :: br_vt_lm(lm_max)
-      ! br*(vp/(sin(theta)**2*r**2)-omega_ma)
-      complex(cp), intent(inout) :: br_vp_lm(lm_max)
+      complex(cp), intent(inout) :: br_vt_lm(:) ! br*vt/(sin(theta)**2*r**2)
+      complex(cp), intent(inout) :: br_vp_lm(:) ! br*(vp/(sin(theta)**2*r**2)-omega_ma)
 
       !-- Local variables:
       integer :: n_theta, n_phi
@@ -141,28 +139,22 @@ contains
 
    end subroutine get_br_v_bcs_batch
 !----------------------------------------------------------------------------
-   subroutine get_b_nl_bcs(bc,br_vt_lm,br_vp_lm,lm_min_b,lm_max_b,b_nl_bc,aj_nl_bc)
+   subroutine get_b_nl_bcs(bc,br_vt_lm,br_vp_lm,b_nl_bc,aj_nl_bc)
       !
       !  Purpose of this subroutine is to calculate the nonlinear term
       !  of the magnetic boundary condition for a conducting mantle in
       !  physical space (theta,phi), assuming that the conductance
       !  of the mantle is much smaller than that of the core.
-      !  Calculation is performed for the theta block:
-      !
-      !  .. code-block:: fortran
-      !
-      !                  n_theta_min<=n_theta<=n_theta_min+n_theta_block-1
       !
 
       !-- Input variables:
       character(len=3), intent(in) :: bc                 ! Distinguishes 'CMB' and 'ICB'
-      integer,          intent(in) :: lm_min_b,lm_max_b  ! limits of lm-block
-      complex(cp),      intent(in) :: br_vt_lm(lm_max)  ! :math:`B_r u_\theta/(r^2\sin^2\theta)`
-      complex(cp),      intent(in) :: br_vp_lm(lm_max)  ! :math:`B_r u_\phi/(r^2\sin^2\theta)`
+      complex(cp),      intent(in) :: br_vt_lm(:)  ! :math:`B_r u_\theta/(r^2\sin^2\theta)`
+      complex(cp),      intent(in) :: br_vp_lm(:)  ! :math:`B_r u_\phi/(r^2\sin^2\theta)`
 
       !-- Output variables:
-      complex(cp), intent(out) :: b_nl_bc(lm_min_b:lm_max_b)  ! nonlinear bc for b
-      complex(cp), intent(out) :: aj_nl_bc(lm_min_b:lm_max_b) ! nonlinear bc for aj
+      complex(cp), intent(out) :: b_nl_bc(:)  ! nonlinear bc for b
+      complex(cp), intent(out) :: aj_nl_bc(:) ! nonlinear bc for aj
 
       !-- Local variables:
       integer :: lm        ! position of degree and order
@@ -170,9 +162,11 @@ contains
 
       if ( bc == 'CMB' ) then
 
+         b_nl_bc(1) =zero
+         aj_nl_bc(1)=zero
          fac=conductance_ma*prmag
          !$omp parallel do default(shared)
-         do lm=lm_min_b,lm_max_b
+         do lm=2,lm_max
             b_nl_bc(lm) =-fac * br_vt_lm(lm)
             aj_nl_bc(lm)=-fac * br_vp_lm(lm)
          end do
@@ -180,9 +174,10 @@ contains
 
       else if ( bc == 'ICB' ) then
 
+         aj_nl_bc(1)=zero
          fac=sigma_ratio*prmag
          !$omp parallel do default(shared) private(lm)
-         do lm=lm_min_b,lm_max_b
+         do lm=2,lm_max
             aj_nl_bc(lm)=-fac * br_vp_lm(lm)
          end do
          !$omp end parallel do
@@ -335,7 +330,7 @@ contains
       !
 
       !-- Input variable
-      complex(cp), intent(in) :: ddw(lm_max)
+      complex(cp), intent(in) :: ddw(:)
 
       !-- Output variables:
       real(cp), intent(out) :: vrr(:,:), vtr(:,:), vpr(:,:)

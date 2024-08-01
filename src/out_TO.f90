@@ -679,7 +679,7 @@ contains
          !-- Find indices of angular grid levels that bracket thet
          n_th1=n_theta_max
          tbracket: do n_th=n_theta_max,1,-1
-            if( theta(n_th) <= thet) then
+            if ( theta(n_th) <= thet) then
                n_th1=n_th
                exit tbracket
             end if

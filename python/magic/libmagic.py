@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 import scipy.interpolate as S
-from scipy.integrate import simps
 import numpy as np
 import glob, os, re, sys
 import subprocess as sp
 from .npfile import *
+try:
+    from scipy.integrate import simps
+except:
+    from scipy.integrate import simpson as simps
 
 
 def selectField(obj, field, labTex=True, ic=False):
@@ -561,7 +564,7 @@ def fd_grid(nr, a, b, fd_stretching=0.3, fd_ratio=0.1):
         dr_after = dr_before
         for i in range(1, nr):
             rr[i]=rr[i-1]-dr_before
-    
+
     else:
         n_boundary_points = int( float(nr-1)/(2.*(1+ratio1)) )
         ratio1 = float(nr-1)/float(2.*n_boundary_points) -1.
@@ -574,7 +577,7 @@ def fd_grid(nr, a, b, fd_stretching=0.3, fd_ratio=0.1):
             dr_before = dr_before*dr_after
         dr_before = 1./(float(n_bulk_points)+ \
                     2.*dr_after*((1-dr_before)/(1.-dr_after)))
-    
+
         for i in range(n_boundary_points):
             dr_before = dr_before*dr_after
 
@@ -1198,12 +1201,12 @@ def horizontal_mean(field, colat, std=False):
     """
 
     field_m = field.mean(axis=0) # Azimuthal average
-    field_mean = 0.5 * simps(field_m.T*np.sin(colat), colat, axis=-1)
+    field_mean = 0.5 * simps(field_m.T*np.sin(colat), x=colat, axis=-1)
 
     if std:
         dat = (field-field_mean)**2
         dat_m = dat.mean(axis=0)
-        dat_mean = 0.5 * simps(dat_m.T*np.sin(colat), colat, axis=-1)
+        dat_mean = 0.5 * simps(dat_m.T*np.sin(colat), x=colat, axis=-1)
         field_std = np.sqrt(dat_mean)
         return field_mean, field_std
     else:

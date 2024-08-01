@@ -43,14 +43,21 @@ module preCalculations
        &                          ktops, kbots, interior_model, r_LCR,     &
        &                          n_r_LCR, mode, tmagcon, oek, Bn, imagcon,&
        &                          ktopxi, kbotxi, epscxi, epscxi0, sc, osc,&
-       &                          ChemFac, raxi, Po, prec_angle,           &
-       &                          ellipticity_cmb, ellip_fac_cmb,          &
-       &                          ellipticity_icb, ellip_fac_icb
+       &                          ChemFac, raxi, Po, prec_angle
    use horizontal_data, only: horizontal
    use integration, only: rInt_R
    use useful, only: logWrite, abortRun
-   use special, only: l_curr, fac_loop, loopRadRatio, amp_curr, Le, n_imp, l_imp
+   use special, only: l_curr, fac_loop, loopRadRatio, amp_curr, Le, n_imp, &
+       &              l_imp, l_radial_flow_bc,                             &
+       &              ellipticity_cmb, ellip_fac_cmb,                      &
+       &              ellipticity_icb, ellip_fac_icb,                      &
+       &              tide_fac20, tide_fac22p, tide_fac22n,                &
+       &              amp_tide
    use time_schemes, only: type_tscheme
+
+#ifdef WITH_OMP_GPU
+   use blocking, only: lo_sub_map, lo_map, st_sub_map, st_map
+#endif
 
    implicit none
 
@@ -79,6 +86,7 @@ contains
       character(len=76) :: fileName
       character(len=80) :: message
       real(cp) :: mom(n_r_max)
+      real(cp) :: y20_norm, y22_norm
 
       !-- Determine scales depending on n_tScale,n_lScale :
       if ( n_tScale == 0 ) then
@@ -94,7 +102,7 @@ contains
          !----- Rotational time scale:
          tScale=one/ek  ! or ekScaled ? (not defined yet...)
          if ( rank==0 ) then
-            print*, 'Warning: rotational timescale, be sure to set dtmax large enough !'
+            write(output_unit,*) 'Warning: rotational timescale, be sure to set dtmax large enough !'
          end if
       end if
       if ( n_lScale == 0 ) then
@@ -302,12 +310,10 @@ contains
       end if
 
       !-- Calculate auxiliary arrays containing effective Courant grid intervals:
-      delxh2(1)      =r_cmb**2/real(l_R(1)*(l_R(1)+1),kind=cp)
-      delxh2(n_r_max)=r_icb**2/real(l_R(n_r_max)*(l_R(n_r_max)+1),kind=cp)
+      delxh2(:)=r(:)**2/real(l_R(:)*(l_R(:)+1),kind=cp)
       delxr2(1)      =(r(1)-r(2))**2
       delxr2(n_r_max)=(r(n_r_max-1)-r(n_r_max))**2
       do n_r=2,n_r_max-1
-         delxh2(n_r)=r(n_r)**2/real(l_R(n_r)*(l_R(n_r)+1),kind=cp)
          delmin=min((r(n_r-1)-r(n_r)),(r(n_r)-r(n_r+1)))
          delxr2(n_r)=delmin*delmin
       end do
@@ -743,7 +749,7 @@ contains
          do l=1,l_max
             fac_loop(l)=0.0_cp
             if (mod(l,2)/=0) then
-               if(l==1) then
+               if ( l==1 ) then
                   fac_loop(l)= one
                else
                   fac_loop(l)= -fac_loop(l-2)*loopRadRatio**2*real(l,kind=cp)/ &
@@ -752,7 +758,7 @@ contains
             end if
          end do
 
-         if (l_non_rot) then
+         if ( l_non_rot ) then
             amp_curr = Le
          else
             amp_curr = Le * sqrt(prmag/ek)
@@ -767,16 +773,31 @@ contains
          call abortRun('LCR not compatible with imposed field!')
       end if
 
-      if ( ellipticity_cmb /= 0.0_cp ) then
-         ellip_fac_cmb=-two*r_cmb**3*ellipticity_cmb*omega_ma1*omegaOsz_ma1
-      else
-         ellip_fac_cmb=0.0_cp
-      end if
+      if (l_radial_flow_bc) then
+         if ( ellipticity_cmb /= 0.0_cp ) then
+            ellip_fac_cmb=-two*r_cmb**3*ellipticity_cmb*omega_ma1*omegaOsz_ma1
+         else
+            ellip_fac_cmb=0.0_cp
+         end if
 
-      if ( ellipticity_icb /= 0.0_cp ) then
-         ellip_fac_icb=-two*r_icb**3*ellipticity_icb*omega_ic1*omegaOsz_ic1
-      else
-         ellip_fac_icb=0.0_cp
+         if ( ellipticity_icb /= 0.0_cp ) then
+            ellip_fac_icb=-two*r_icb**3*ellipticity_icb*omega_ic1*omegaOsz_ic1
+         else
+            ellip_fac_icb=0.0_cp
+         end if
+
+         if ( amp_tide /= 0.0_cp ) then
+            y20_norm = 0.5_cp  * sqrt(5.0_cp/pi)
+            y22_norm = 0.25_cp * sqrt(7.5_cp/pi)
+            tide_fac20  = amp_tide / y20_norm * r_cmb**2 ! (2,0,1) mode of Ogilvie 2014
+            tide_fac22p = half * amp_tide / y22_norm / sqrt(6.0_cp) * r_cmb**2 ! Needs a half factor, (2,2,1) mode
+            tide_fac22n = -7.0_cp * tide_fac22p                                ! Half factor carried over, (2,2,3) mode,
+                                                                               ! has opposite sign to that of the other two (Polfliet & Smeyers, 1990)
+         else
+            tide_fac20  = 0.0_cp
+            tide_fac22p = 0.0_cp
+            tide_fac22n = 0.0_cp
+         end if
       end if
 
       !-- From radial_data
@@ -810,6 +831,9 @@ contains
       if ( l_chemical_conv ) then
          !$omp target update to(topxi, botxi) nowait
       end if
+
+      !-- From blocking module
+      !$omp target update to(lo_map, st_map, lo_sub_map, st_sub_map)
 #endif
 
       !-- From num_param module
@@ -819,20 +843,14 @@ contains
 
    end subroutine preCalc
 !-------------------------------------------------------------------------------
-   subroutine preCalcTimes(time,tEND,dt,n_time_step,n_time_steps)
+   subroutine preCalcTimes(time,n_time_step)
       !
       !  Precalc. after time, time and dt has been read from startfile.
       !
 
       !-- Output variables
       real(cp), intent(inout) :: time ! Current time
-      real(cp), intent(in) :: tEND ! Final requested time
-      real(cp), intent(in) :: dt ! Time step size
       integer,  intent(inout) :: n_time_step ! Index of time loop
-      integer,  intent(in) :: n_time_steps ! Number of iterations
-
-      !-- Local variables:
-      real(cp) :: time_span
 
       !----- Set time step:
       if ( l_reset_t ) then
@@ -840,70 +858,61 @@ contains
          n_time_step=0
       end if
 
-      if ( tEND > 0.0_cp ) then
-         time_span = tEND-time
-      else
-         time_span = dt*n_time_steps
-      end if
-
       tmagcon=tmagcon+time
 
       !-- Get output times:
-      call get_hit_times(t_graph,n_t_graph,t_graph_start,t_graph_stop,dt_graph,  &
-           &             n_graphs,n_graph_step,'graph',time,time_span,tScale)
+      call get_hit_times(t_graph,t_graph_start,t_graph_stop,dt_graph,  &
+           &             n_graphs,n_graph_step,'graph',time,tScale)
 
-      call get_hit_times(t_pot,n_t_pot,t_pot_start,t_pot_stop,dt_pot,    &
-           &             n_pots,n_pot_step,'pot',time,time_span,tScale)
+      call get_hit_times(t_pot,t_pot_start,t_pot_stop,dt_pot,    &
+           &             n_pots,n_pot_step,'pot',time,tScale)
 
-      call get_hit_times(t_rst,n_t_rst,t_rst_start,t_rst_stop,dt_rst,    &
-           &             n_rsts,n_rst_step,'rst',time,time_span,tScale)
+      call get_hit_times(t_rst,t_rst_start,t_rst_stop,dt_rst,    &
+           &             n_rsts,n_rst_step,'rst',time,tScale)
 
-      call get_hit_times(t_log,n_t_log,t_log_start,t_log_stop,dt_log,    &
-           &             n_logs,n_log_step,'log',time,time_span,tScale)
+      call get_hit_times(t_log,t_log_start,t_log_stop,dt_log,    &
+           &             n_logs,n_log_step,'log',time,tScale)
 
-      call get_hit_times(t_spec,n_t_spec,t_spec_start,t_spec_stop,dt_spec,  &
-           &             n_specs,n_spec_step,'spec',time,time_span,tScale)
+      call get_hit_times(t_spec,t_spec_start,t_spec_stop,dt_spec,  &
+           &             n_specs,n_spec_step,'spec',time,tScale)
 
       if ( l_probe ) then
-         call get_hit_times(t_probe,n_t_probe,t_probe_start,t_probe_stop,dt_probe, &
-              &             n_probe_out,n_probe_step,'probe',time,time_span,tScale)
+         call get_hit_times(t_probe,t_probe_start,t_probe_stop,dt_probe, &
+              &             n_probe_out,n_probe_step,'probe',time,tScale)
       end if
 
       if ( l_cmb_field ) then
-         l_cmb_field=.false.
-         call get_hit_times(t_cmb,n_t_cmb,t_cmb_start,t_cmb_stop,dt_cmb,n_cmbs,&
-              &             n_cmb_step,'cmb',time,time_span,tScale)
-         if ( n_cmbs > 0 .or. n_cmb_step > 0 .or. n_t_cmb > 0 ) l_cmb_field= .true.
+         call get_hit_times(t_cmb,t_cmb_start,t_cmb_stop,dt_cmb,n_cmbs,&
+              &             n_cmb_step,'cmb',time,tScale)
       end if
       l_dt_cmb_field=l_dt_cmb_field .and. l_cmb_field
 
       if ( l_r_field ) then
-         call get_hit_times(t_r_field,n_t_r_field,t_r_field_start,t_r_field_stop,&
+         call get_hit_times(t_r_field,t_r_field_start,t_r_field_stop,            &
               &             dt_r_field,n_r_fields,n_r_field_step,'r_field',time, &
-              &             time_span,tScale)
+              &             tScale)
       end iF
 
       if ( l_movie ) then
-         call get_hit_times(t_movie,n_t_movie,t_movie_start,t_movie_stop,dt_movie,&
-              &             n_movie_frames,n_movie_step,'movie',time,time_span,tScale)
+         call get_hit_times(t_movie,t_movie_start,t_movie_stop,dt_movie,&
+              &             n_movie_frames,n_movie_step,'movie',time,tScale)
       end if
 
       if ( l_TO ) then
-         if ( n_TOs == 0 .and. n_t_TO == 0 ) n_TO_step=max(3,n_TO_step)
-         call get_hit_times(t_TO,n_t_TO,t_TO_start,t_TO_stop,dt_TO,n_TOs, &
-              &             n_TO_step,'TO',time,time_span,tScale)
+         call get_hit_times(t_TO,t_TO_start,t_TO_stop,dt_TO,n_TOs, &
+              &             n_TO_step,'TO',time,tScale)
       end if
 
       if ( l_TOmovie ) then
-         call get_hit_times(t_TOmovie,n_t_TOmovie,t_TOmovie_start,t_TOmovie_stop,&
+         call get_hit_times(t_TOmovie,t_TOmovie_start,t_TOmovie_stop,            &
               &             dt_TOmovie,n_TOmovie_frames,n_TOmovie_step,'TOmovie',&
-              &             time,time_span,tScale)
+              &             time,tScale)
       end if
 
    end subroutine preCalcTimes
 !-------------------------------------------------------------------------------
-   subroutine get_hit_times(t,n_t,t_start,t_stop,dt,n_tot,n_step,string,time,&
-              &             time_span,tScale)
+   subroutine get_hit_times(t,t_start,t_stop,dt,n_tot,n_step,string,time,&
+              &             tScale)
       !
       ! This subroutine checks whether any specific times t(*) are given
       ! on input. If so, it returns their number n_r and sets l_t to true.
@@ -914,7 +923,6 @@ contains
       !-- Input variables:
       real(cp),         intent(in) :: time       ! Time of start file
       real(cp),         intent(in) :: tScale     ! Scale unit for time
-      real(cp),         intent(in) :: time_span  ! Time interval
       character(len=*), intent(in) :: string
       integer,               intent(inout) :: n_tot   ! Number of output (times) if no times defined
       integer,               intent(inout) :: n_step  ! Ouput step in no. of time steps
@@ -923,29 +931,29 @@ contains
       real(cp),              intent(inout) :: t_stop  ! Stop time for output
       real(cp),              intent(inout) :: dt      ! Time step for output
 
-      !-- Output variables
-      integer,               intent(out) :: n_t  ! No. of output times
-
       !-- Local variables:
       logical :: l_t
       real(cp) :: tmp(size(t))
-      integer :: n, n_t_max
+      integer :: n, n_t
 
-      n_t_max = size(t)
       t_start=t_start/tScale
       t_stop =t_stop/tScale
       dt     =dt/tScale
 
+      if ( n_tot /= 0 .and. n_step /= 0 ) then
+         write(output_unit,*)
+         write(output_unit,*) '! You have to either provide the total'
+         write(output_unit,*) '! number or the step for output:'
+         write(output_unit,'(A,2(A,I10))') string, "n_tot = ",n_tot,", n_step = ",n_step
+         write(output_unit,*) '! I set the step width to zero!'
+         n_step=0
+      end if
+
       !-- Check whether any time is given explicitly:
       l_t=.false.
       n_t=0
-      do n=1,n_t_max
-         if ( t(n) >= 0.0_cp ) then
-            t(n)=t(n)/tScale
-            l_t=.true.
-            n_t=n_t+1
-         end if
-      end do
+      where ( t >= 0.0_cp ) t=t/tScale
+      if ( maxval(t(:)) >= 0.0_cp ) l_t=.true.; n_t=count(t(:)>=0.0)
 
       !-- Properly reallocate at the right size
       if ( l_t ) then
@@ -959,58 +967,27 @@ contains
       if ( t_start < time ) t_start=time
       if ( .not. l_t .and. ( dt > 0.0_cp .or. ( n_tot > 0 .and. t_stop > t_start ) ) ) then
          if ( n_tot > 0 .and. dt > 0.0_cp ) then
-            n_t  =n_tot
-            n_tot=0
-         else if ( dt > 0.0_cp ) then
-            if ( t_stop > t_start ) then
-               n_t=int((t_stop-t_start)/dt)+1
-            else ! In case t_start, t_stop are not provided guess a max number
-               n_t=int(time_span/dt)+1
-            end if
+            n_t=n_tot
+            n_tot=0 ! This is to ensure that time array is used later in l_correct_step
+         else if ( dt > 0.0_cp ) then ! In that case t(:) is an array with one element
+            n_t=1
          else if ( n_tot > 0 ) then
             n_t=n_tot
-            n_tot=0
             dt=(t_stop-t_start)/real(n_t-1,kind=cp)
+            n_tot=0 ! This is to ensure that time array is used later in l_correct_step
          end if
          l_t=.true.
 
          deallocate(t) ! Deallocate to get the proper size
-         if ( t_start == time ) then
-            n_t=n_t-1
-            allocate(t(n_t))
-            t(1)=t_start+dt
-         else
-            allocate(t(n_t))
-            t(1)=t_start
-         end if
-
-         do n=2,n_t
-            t(n)=t(n-1)+dt
-         end do
-
+         allocate(t(n_t))
+         t(:) = [(t_start+(n-1)*dt, n=1,n_t)]
       end if
 
-      if ( n_tot /= 0 .and. n_step /= 0 ) then
-         write(output_unit,*)
-         write(output_unit,*) '! You have to either provide the total'
-         write(output_unit,*) '! number or the step for output:'
-         write(output_unit,'(A,2(A,I10))') string, "n_tot = ",n_tot,", n_step = ",n_step
-         write(output_unit,*) '! I set the step width to zero!'
-         n_step=0
-      end if
-
-      if ( l_t ) then
-         t_start=t(1)
-         t_stop =t(n_t)
-         if ( n_t >= 2 ) then
-            dt=t(2)-t(1)
-         else
-            dt=0.0_cp
-         end if
-      else  ! If this is still filled with -1, reduce the size to one element
+      !-- In case only n_step or n_tot is specified such that l_t=.false.
+      if ( .not. l_t ) then
          deallocate(t)
          allocate(t(1))
-         t(:)=-one
+         t(1)=-one
       end if
 
    end subroutine get_hit_times

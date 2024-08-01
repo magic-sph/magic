@@ -19,7 +19,7 @@ module updateZ_mod
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: visc, or1, or2, rscheme_oc, dLvisc, beta, &
        &                       rho0, r_icb, r_cmb, r, beta, dbeta
-   use physical_parameters, only: kbotv, ktopv, prec_angle, po, oek, ampForce, &
+   use physical_parameters, only: kbotv, ktopv, prec_angle, po, oek,     &
        &                          gammatau_gravi
    use num_param, only: AMstart, dct_counter, solve_counter
    use torsional_oscillations, only: ddzASL

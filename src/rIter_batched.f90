@@ -56,14 +56,14 @@ module rIter_batched_mod
        &             w_Rloc, dw_Rloc, ddw_Rloc, xi_Rloc, omega_ic,&
        &             omega_ma, phi_Rloc
    use time_schemes, only: type_tscheme
-   use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv, &
-       &                          ellip_fac_cmb, ellip_fac_icb
+   use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv
    use rIteration, only: rIter_t
    use RMS, only: get_nl_RMS_batch, transform_to_lm_RMS, compute_lm_forces,       &
        &          transform_to_grid_RMS_batch, dtVrLM, dtVtLM, dtVpLM, dpkindrLM, &
        &          Advt2LM, Advp2LM, PFt2LM, PFp2LM, LFrLM, LFt2LM, LFp2LM,  &
        &          CFt2LM, CFp2LM
    use probe_mod
+   use special, only: ellip_fac_icb, l_radial_flow_bc
 
 #ifdef WITH_OMP_GPU
    use hipfort_check, only: hipCheck
@@ -278,8 +278,8 @@ contains
 
       !-- Kinetic energy in the solid and liquid phases
       if ( lPhaseCalc ) then
-         call get_ekin_solid_liquid_batch(this%gsa%sc,this%gsa%vrc,this%gsa%vtc, &
-              &                           this%gsa%vpc,this%gsa%phic)
+         call get_ekin_solid_liquid_batch(this%gsa%sc,this%gsa%drsc,this%gsa%vrc, &
+              &                           this%gsa%vtc,this%gsa%vpc,this%gsa%phic)
       end if
 
       !-- North/South hemisphere differences
@@ -347,7 +347,7 @@ contains
          else if ( nR == n_r_icb .and. l_b_nl_icb ) then
             br_vt_lm_icb(:)=zero
             br_vp_lm_icb(:)=zero
-            call get_br_v_bcs_batch(nR, this%gsa%brc, this%gsa%vtc, this%gsa%vpc, omega_ic,  &
+            call get_br_v_bcs_batch(nR, this%gsa%brc, this%gsa%vtc, this%gsa%vpc, omega_ic, &
                  &                  br_vt_lm_icb, br_vp_lm_icb)
          end if
 
@@ -726,7 +726,7 @@ contains
 #ifdef WITH_OMP_GPU
          call hipCheck(hipDeviceSynchronize())
 #endif
-         if ( nRstart == n_r_cmb .and. ktopv==2 .and. ellip_fac_cmb == 0.0_cp ) then
+         if ( nRstart == n_r_cmb .and. ktopv==2 .and. (.not. l_radial_flow_bc) ) then
             call v_rigid_boundary_batch(n_r_cmb, omega_ma, .true., this%gsa%vrc,   &
                  &                      this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
                  &                      this%gsa%dvrdtc, this%gsa%dvrdpc,          &

@@ -28,7 +28,7 @@ module outMisc_mod
    use horizontal_data, only: gauss, theta_ord, n_theta_cal2ord, O_sin_theta_E2
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, l_hemi, &
        &            l_temperature_diff, l_chemical_conv, l_phase_field,    &
-       &            l_mag, l_onset
+       &            l_mag, l_onset, l_dtphaseMovie
    use output_data, only: tag
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four, half, zero
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
@@ -54,18 +54,19 @@ module outMisc_mod
    real(cp), allocatable :: HelASr(:,:), Hel2ASr(:,:)
    real(cp), allocatable :: HelnaASr(:,:), Helna2ASr(:,:)
    real(cp), allocatable :: HelEAASr(:)
-   real(cp), allocatable :: temp_Rloc(:,:,:), phi_Rloc(:,:,:)
-   real(cp), allocatable :: temp_Ploc(:,:,:), phi_Ploc(:,:,:)
+   real(cp), allocatable :: temp_Rloc(:,:,:), phi_Rloc(:,:,:), dtemp_Rloc(:,:,:)
+   real(cp), allocatable :: temp_Ploc(:,:,:), phi_Ploc(:,:,:), dtemp_Ploc(:,:,:)
    complex(cp), allocatable :: coeff_old(:)
    integer :: nPstart ! Starting nPhi index when MPI distributed
    integer :: nPstop  ! Stoping nPhi index when MPI distributed
    type(load), allocatable :: phi_balance(:) ! phi-distributed balance
    real(cp), allocatable :: rmelt_loc(:,:) ! Melting radius (theta,phi)
+   real(cp), allocatable :: dt_rmelt_loc(:,:) ! Temp. gradient at melting radius (theta,phi)
 
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
    &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
    &         get_ekin_solid_liquid_batch, get_helicity_batch, get_hemi_batch,    &
-   &         get_onset, write_rmelt_frame
+   &         get_onset, write_rmelt_frame, write_dt_rmelt_frame
 
 contains
 
@@ -184,7 +185,26 @@ contains
          allocate( rmelt_loc(n_theta_max,nPstart:nPstop) )
          bytes_allocated=bytes_allocated+(nPstop-nPstart+1)*n_theta_max* &
          &               SIZEOF_DEF_REAL
-         rmelt_loc(:,:)=0.0_cp
+         rmelt_loc(:,:)   =0.0_cp
+
+         if ( l_dtphaseMovie ) then
+            allocate( dtemp_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
+            allocate( dtemp_Ploc(n_theta_max,nPstart:nPstop,n_r_max) )
+            bytes_allocated=bytes_allocated+2*(nRstop-nRstart+1)*n_phi_max* &
+            &               n_theta_max*SIZEOF_DEF_REAL
+            dtemp_Rloc(:,:,:)=0.0_cp
+#ifdef WITH_OMP_GPU
+            !$omp target enter data map(alloc: dtemp_Rloc)
+            !$omp target update to(dtemp_Rloc)
+            gpu_bytes_allocated=gpu_bytes_allocated+(nRstop-nRstart+1)*n_phi_max* &
+            &                   n_theta_max*SIZEOF_DEF_REAL
+#endif
+            dtemp_Ploc(:,:,:)=0.0_cp
+            allocate( dt_rmelt_loc(n_theta_max,nPstart:nPstop) )
+            bytes_allocated=bytes_allocated+(nPstop-nPstart+1)*n_theta_max* &
+            &               SIZEOF_DEF_REAL
+            dt_rmelt_loc(:,:)=0.0_cp
+         end if
       end if
 
       if ( l_onset ) then
@@ -250,6 +270,12 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target exit data map(delete: ekinSr, ekinLr, volSr, temp_Rloc, phi_Rloc)
 #endif
+         if ( l_dtphaseMovie ) then
+#ifdef WITH_OMP_GPU
+            !$omp target exit data map(delete: dtemp_Rloc)
+#endif
+            deallocate( dtemp_Rloc, dtemp_Ploc, dt_rmelt_loc)
+         end if
          deallocate( temp_Rloc, phi_Rloc, temp_Ploc, phi_Ploc, phi_balance )
          deallocate( ekinSr, ekinLr, volSr, rmelt_loc )
          call PhiMeanR%finalize()
@@ -765,6 +791,7 @@ contains
 
       !-- MPI transpose
       call transp_R2Phi(temp_Rloc, temp_Ploc)
+      if ( l_dtphaseMovie ) call transp_R2Phi(dtemp_Rloc, dtemp_Ploc)
       call transp_R2Phi(phi_Rloc, phi_Ploc)
 
       rmelt_axi_loc(:)=0.0_cp
@@ -774,8 +801,14 @@ contains
       do n_p=nPstart,nPstop
          do n_t=1,n_theta_max
             n_t_ord=n_theta_cal2ord(n_t)
-            call get_rmelt_tmelt(phi_Ploc(n_t,n_p,:), temp_Ploc(n_t,n_p,:), &
-                 &               rmelt_loc(n_t,n_p), tmelt_loc)
+            if ( l_dtphaseMovie ) then
+               call get_rmelt_tmelt(phi_Ploc(n_t,n_p,:), temp_Ploc(n_t,n_p,:), &
+                    &               rmelt_loc(n_t,n_p), tmelt_loc,             &
+                    &               dtemp_Ploc(n_t,n_p,:), dt_rmelt_loc(n_t,n_p))
+            else
+               call get_rmelt_tmelt(phi_Ploc(n_t,n_p,:), temp_Ploc(n_t,n_p,:), &
+                    &               rmelt_loc(n_t,n_p), tmelt_loc)
+            end if
             rmelt_axi_loc(n_t_ord)=rmelt_axi_loc(n_t_ord)+two*norm*rmelt_loc(n_t,n_p)
             rmelt_mean_loc=rmelt_mean_loc+gauss(n_t)*norm*rmelt_loc(n_t,n_p)
             tmelt_mean_loc=tmelt_mean_loc+gauss(n_t)*norm*tmelt_loc
@@ -875,7 +908,7 @@ contains
 
    end subroutine outPhase
 !----------------------------------------------------------------------------------
-   subroutine get_ekin_solid_liquid(s,vr,vt,vp,phi,nR)
+   subroutine get_ekin_solid_liquid(s,ds,vr,vt,vp,phi,nR)
       !
       ! This subroutine computes the kinetic energy content in the solid
       ! and in the liquid phase when phase field is employed.
@@ -883,7 +916,7 @@ contains
 
       !-- Input variables
       integer,  intent(in) :: nR
-      real(cp), intent(in) :: s(:,:),vr(:,:),vt(:,:),vp(:,:),phi(:,:)
+      real(cp), intent(in) :: s(:,:),ds(:,:),vr(:,:),vt(:,:),vp(:,:),phi(:,:)
 
       !-- Output variables:
 
@@ -924,6 +957,7 @@ contains
 
             phi_Rloc(nTheta,nPhi,nR) =phi(nTheta,nPhi)
             temp_Rloc(nTheta,nPhi,nR)=s(nTheta,nPhi)
+            if ( l_dtphaseMovie ) dtemp_Rloc(nTheta,nPhi,nR)=ds(nTheta,nPhi)
          end do
       end do
 #ifdef WITH_OMP_GPU
@@ -938,7 +972,7 @@ contains
 
    end subroutine get_ekin_solid_liquid
 !----------------------------------------------------------------------------------
-   subroutine get_ekin_solid_liquid_batch(s,vr,vt,vp,phi)
+   subroutine get_ekin_solid_liquid_batch(s,ds,vr,vt,vp,phi)
       !
       ! This subroutine computes the kinetic energy content in the solid
       ! and in the liquid phase when phase field is employed (batched version)
@@ -946,6 +980,7 @@ contains
 
       !-- Input variables
       real(cp), intent(in) :: s(nlat_padded,nRstart:nRstop,n_phi_max)
+      real(cp), intent(in) :: ds(nlat_padded,nRstart:nRstop,n_phi_max)
       real(cp), intent(in) :: vr(nlat_padded,nRstart:nRstop,n_phi_max)
       real(cp), intent(in) :: vt(nlat_padded,nRstart:nRstop,n_phi_max)
       real(cp), intent(in) :: vp(nlat_padded,nRstart:nRstop,n_phi_max)
@@ -962,6 +997,7 @@ contains
       ekinSr(:)=0.0_cp
       volSr(:) =0.0_cp
 
+      !-- warning on GPU with dtemp_Rloc --!
 #ifdef WITH_OMP_GPU
       !$omp target update to(ekinSr,ekinLr,volSr,temp_Rloc,phi_Rloc)
       !$omp target teams distribute parallel do collapse(2) &
@@ -989,6 +1025,7 @@ contains
 
                phi_Rloc(nTheta,nPhi,nR) =phi(nTheta,nR,nPhi)
                temp_Rloc(nTheta,nPhi,nR)=s(nTheta,nR,nPhi)
+               if ( l_dtphaseMovie ) dtemp_Rloc(nTheta,nPhi,nR)=ds(nTheta,nR,nPhi)
             end do
          end do
       end do
@@ -1548,7 +1585,7 @@ contains
 
    end subroutine get_onset
 !----------------------------------------------------------------------------------
-   subroutine get_rmelt_tmelt(phase, temp, rphase, tphase)
+   subroutine get_rmelt_tmelt(phase, temp, rphase, tphase, dtemp, dtphase)
       !
       ! This subroutine determines the melting point by approximating it by
       ! the radius where phi=0.5. It returns the radius and the temperature.
@@ -1559,10 +1596,12 @@ contains
       !-- Input variables
       real(cp), intent(in) :: phase(:) ! Phase field
       real(cp), intent(in) :: temp(:)  ! Temperature
+      real(cp), optional, intent(in) :: dtemp(:) ! Temperature gradient
 
       !-- Output variables
       real(cp), intent(out) :: rphase ! Radius of the melting point
       real(cp), intent(out) :: tphase ! Temperature of the melting point
+      real(cp), optional, intent(out) :: dtphase ! Temperature gradient at rm
 
       !-- Local variables
       integer :: n_r, n_r_phase, n_r_start, n_r_stop
@@ -1597,6 +1636,10 @@ contains
          x(:)=r(n_r_start:n_r_stop)
          y(:)=temp(n_r_start:n_r_stop)
          tphase=lagrange_interp(x,rphase,y)
+         if ( present(dtemp) ) then
+            y(:)=dtemp(n_r_start:n_r_stop)
+            dtphase=lagrange_interp(x,rphase,y)
+         end if
       end if
 
    end subroutine get_rmelt_tmelt
@@ -1628,6 +1671,34 @@ contains
       end if
 
    end subroutine write_rmelt_frame
+!------------------------------------------------------------------------------------
+   subroutine write_dt_rmelt_frame(n_movie)
+      !
+      ! This subroutine handles the computation and the writing of the movie
+      ! which contains dt_rmelt(phi,theta) as a function of time.
+      !
+
+      !-- Input variables
+      integer,  intent(in) :: n_movie ! The index of the movie in list of movies
+
+      !-- Local variables
+      integer :: n_field, n_fields, n_out
+      real(cp) :: dt_rmelt(n_phi_max,n_theta_max)
+
+      n_fields=n_movie_fields(n_movie)
+      n_out   =n_movie_file(n_movie)
+
+      !-- MPI gather
+      call gather_Ploc(dt_rmelt_loc, dt_rmelt)
+
+      !-- Write outputs
+      if ( rank == 0 ) then
+         do n_field=1,n_fields
+            write(n_out) real(dt_rmelt,kind=outp)
+         end do
+      end if
+
+   end subroutine write_dt_rmelt_frame
 !------------------------------------------------------------------------------------
    subroutine transp_R2Phi(arr_Rloc, arr_Ploc)
       !

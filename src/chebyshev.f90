@@ -379,45 +379,32 @@ contains
       !                   = map_fac * d Cheb(y) / d y
 
       !-- construction of chebs and derivatives with recursion:
-      do k=1,n_r_max  ! do loop over the n_r grid points !
+      !----- set first two chebs:
+      this%rMat(:,1)  =one
+      this%rMat(:,2)  =this%x_cheb(:)
+      this%drMat(:,1) =0.0_cp
+      this%drMat(:,2) =this%drx(:)
+      this%d2rMat(:,1)=0.0_cp
+      this%d2rMat(:,2)=this%ddrx(:)
+      this%d3rMat(:,1)=0.0_cp
+      this%d3rMat(:,2)=this%dddrx(:)
 
-         !----- set first two chebs:
-         this%rMat(1,k)  =one
-         this%rMat(2,k)  =this%x_cheb(k)
-         this%drMat(1,k) =0.0_cp
-         this%drMat(2,k) =this%drx(k)
-         this%d2rMat(1,k)=0.0_cp
-         this%d2rMat(2,k)=this%ddrx(k)
-         this%d3rMat(1,k)=0.0_cp
-         this%d3rMat(2,k)=this%dddrx(k)
-
-         !----- now construct the rest with a recursion:
-         do n=3,n_r_max ! do loop over the (n-1) order of the chebs
-
-            this%rMat(n,k) =two*this%x_cheb(k)*this%rMat(n-1,k)-this%rMat(n-2,k)
-            this%drMat(n,k)=    two*this%drx(k)*this%rMat(n-1,k) + &
-            &               two*this%x_cheb(k)*this%drMat(n-1,k) - &
-            &                                  this%drMat(n-2,k)
-            this%d2rMat(n,k)=  two*this%ddrx(k)*this%rMat(n-1,k) + &
-            &                 four*this%drx(k)*this%drMat(n-1,k) + &
-            &              two*this%x_cheb(k)*this%d2rMat(n-1,k) - &
-            &                                 this%d2rMat(n-2,k)
-            this%d3rMat(n,k)=  two*this%dddrx(k)*this%rMat(n-1,k) + &
-            &               6.0_cp*this%ddrx(k)*this%drMat(n-1,k) + &
-            &               6.0_cp*this%drx(k)*this%d2rMat(n-1,k) + &
-            &               two*this%x_cheb(k)*this%d3rMat(n-1,k) - &
-            &                                  this%d3rMat(n-2,k)
-
-         end do
-
+      !----- now construct the rest with a recursion:
+      do n=3,n_r_max ! do loop over the (n-1) order of the chebs
+         this%rMat(:,n) =two*this%x_cheb(:)*this%rMat(:,n-1)-this%rMat(:,n-2)
+         this%drMat(:,n)=    two*this%drx(:)*this%rMat(:,n-1) + &
+         &               two*this%x_cheb(:)*this%drMat(:,n-1) - &
+         &                                  this%drMat(:,n-2)
+         this%d2rMat(:,n)=  two*this%ddrx(:)*this%rMat(:,n-1) + &
+         &                 four*this%drx(:)*this%drMat(:,n-1) + &
+         &              two*this%x_cheb(:)*this%d2rMat(:,n-1) - &
+         &                                 this%d2rMat(:,n-2)
+         this%d3rMat(:,n)=  two*this%dddrx(:)*this%rMat(:,n-1) + &
+         &               6.0_cp*this%ddrx(:)*this%drMat(:,n-1) + &
+         &               6.0_cp*this%drx(:)*this%d2rMat(:,n-1) + &
+         &               two*this%x_cheb(:)*this%d3rMat(:,n-1) - &
+         &                                  this%d3rMat(:,n-2)
       end do
-
-      !-- This transposition is needed to bring those matrices in alignement
-      !-- with the fortran column-major storage (see update routines)
-      this%rMat  =transpose(this%rMat)
-      this%drMat =transpose(this%drMat)
-      this%d2rMat=transpose(this%d2rMat)
-      this%d3rMat=transpose(this%d3rMat)
 
       !-- Compute a vector that allows the computation of the first derivative
       !-- on the boundary point
