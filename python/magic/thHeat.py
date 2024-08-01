@@ -3,7 +3,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from magic import scanDir, MagicSetup, Movie, chebgrid, rderavg, AvgField
 import os, pickle
-from scipy.integrate import simps, trapz
+try:
+    from scipy.integrate import simps
+except:
+    from scipy.integrate import simpson as simps
 
 json_model = {'phys_params': [],
               'time_series': { 'heat': ['topnuss', 'botnuss']},
@@ -145,8 +148,8 @@ class ThetaHeat(MagicSetup):
         for i in range(self.ntheta):
             th2D[i, :] = self.colat[i]
 
-        self.temprmmean = 0.5*simps(self.tempmean*np.sin(th2D), th2D, axis=0)
-        self.temprmstd = 0.5*simps(self.tempstd*np.sin(th2D), th2D, axis=0)
+        self.temprmmean = 0.5*simps(self.tempmean*np.sin(th2D), x=th2D, axis=0)
+        self.temprmstd = 0.5*simps(self.tempstd*np.sin(th2D), x=th2D, axis=0)
         sinTh = np.sin(self.colat)
 
         # Conducting temperature profile (Boussinesq only!)
@@ -173,18 +176,18 @@ class ThetaHeat(MagicSetup):
         # Close to the equator
         mask2D = (th2D>=np.pi/2.-angle/2.)*(th2D<=np.pi/2+angle/2.)
         mask = (self.colat>=np.pi/2.-angle/2.)*(self.colat<=np.pi/2+angle/2.)
-        fac = 1./simps(sinTh[mask], self.colat[mask])
-        self.nussBotEq = fac*simps(self.nussbotmean[mask]*sinTh[mask], self.colat[mask])
-        self.nussTopEq = fac*simps(self.nusstopmean[mask]*sinTh[mask], self.colat[mask])
+        fac = 1./simps(sinTh[mask], x=self.colat[mask])
+        self.nussBotEq = fac*simps(self.nussbotmean[mask]*sinTh[mask], x=self.colat[mask])
+        self.nussTopEq = fac*simps(self.nusstopmean[mask]*sinTh[mask], x=self.colat[mask])
         sinC = sinTh.copy()
         sinC[~mask] = 0.
-        fac = 1./simps(sinC, self.colat)
+        fac = 1./simps(sinC, x=self.colat)
         tempC = self.tempmean.copy()
         tempC[~mask2D] = 0.
-        self.tempEqmean = fac*simps(tempC*np.sin(th2D), th2D, axis=0)
+        self.tempEqmean = fac*simps(tempC*np.sin(th2D), x=th2D, axis=0)
         tempC = self.tempstd.copy()
         tempC[~mask2D] = 0.
-        self.tempEqstd = fac*simps(tempC*np.sin(th2D), th2D, axis=0)
+        self.tempEqstd = fac*simps(tempC*np.sin(th2D), x=th2D, axis=0)
 
         dtempEq = rderavg(self.tempEqmean, self.radius)
         self.betaEq = dtempEq[len(dtempEq)//2]
@@ -192,27 +195,27 @@ class ThetaHeat(MagicSetup):
         # 45\deg inclination
         mask2D = (th2D>=np.pi/4.-angle/2.)*(th2D<=np.pi/4+angle/2.)
         mask = (self.colat>=np.pi/4.-angle/2.)*(self.colat<=np.pi/4+angle/2.)
-        fac = 1./simps(np.sin(self.colat[mask]), self.colat[mask])
-        nussBot45NH = fac*simps(self.nussbotmean[mask]*sinTh[mask], self.colat[mask])
-        nussTop45NH = fac*simps(self.nusstopmean[mask]*sinTh[mask], self.colat[mask])
+        fac = 1./simps(np.sin(self.colat[mask]), x=self.colat[mask])
+        nussBot45NH = fac*simps(self.nussbotmean[mask]*sinTh[mask], x=self.colat[mask])
+        nussTop45NH = fac*simps(self.nusstopmean[mask]*sinTh[mask], x=self.colat[mask])
         sinC = sinTh.copy()
         sinC[~mask] = 0.
-        fac = 1./simps(sinC, self.colat)
+        fac = 1./simps(sinC, x=self.colat)
         tempC = self.tempmean.copy()
         tempC[~mask2D] = 0.
-        temp45NH = fac*simps(tempC*np.sin(th2D), th2D, axis=0)
+        temp45NH = fac*simps(tempC*np.sin(th2D), x=th2D, axis=0)
 
         mask2D = (th2D>=3.*np.pi/4.-angle/2.)*(th2D<=3.*np.pi/4+angle/2.)
         mask = (self.colat>=3.*np.pi/4.-angle/2.)*(self.colat<=3.*np.pi/4+angle/2.)
-        fac = 1./simps(np.sin(self.colat[mask]), self.colat[mask])
-        nussBot45SH = fac*simps(self.nussbotmean[mask]*sinTh[mask], self.colat[mask])
-        nussTop45SH = fac*simps(self.nusstopmean[mask]*sinTh[mask], self.colat[mask])
+        fac = 1./simps(np.sin(self.colat[mask]), x=self.colat[mask])
+        nussBot45SH = fac*simps(self.nussbotmean[mask]*sinTh[mask], x=self.colat[mask])
+        nussTop45SH = fac*simps(self.nusstopmean[mask]*sinTh[mask], x=self.colat[mask])
         sinC = sinTh.copy()
         sinC[~mask] = 0.
-        fac = 1./simps(sinC, self.colat)
+        fac = 1./simps(sinC, x=self.colat)
         tempC = self.tempmean.copy()
         tempC[~mask2D] = 0.
-        temp45SH = fac*simps(tempC*np.sin(th2D), th2D, axis=0)
+        temp45SH = fac*simps(tempC*np.sin(th2D), x=th2D, axis=0)
 
         self.nussTop45 = 0.5*(nussTop45NH+nussTop45SH)
         self.nussBot45 = 0.5*(nussBot45NH+nussBot45SH)
@@ -224,33 +227,33 @@ class ThetaHeat(MagicSetup):
         # Polar regions
         mask2D = (th2D<=angle/2.)
         mask = (self.colat<=angle/2.)
-        fac = 1./simps(np.sin(self.colat[mask]), self.colat[mask])
-        nussBotPoNH = fac*simps(self.nussbotmean[mask]*sinTh[mask], self.colat[mask])
-        nussTopPoNH = fac*simps(self.nusstopmean[mask]*sinTh[mask], self.colat[mask])
+        fac = 1./simps(np.sin(self.colat[mask]), x=self.colat[mask])
+        nussBotPoNH = fac*simps(self.nussbotmean[mask]*sinTh[mask], x=self.colat[mask])
+        nussTopPoNH = fac*simps(self.nusstopmean[mask]*sinTh[mask], x=self.colat[mask])
         sinC = sinTh.copy()
         sinC[~mask] = 0.
-        fac = 1./simps(sinC, self.colat)
+        fac = 1./simps(sinC, x=self.colat)
         tempC = self.tempmean.copy()
         tempC[~mask2D] = 0.
-        tempPolNHmean = fac*simps(tempC*np.sin(th2D), th2D, axis=0)
+        tempPolNHmean = fac*simps(tempC*np.sin(th2D), x=th2D, axis=0)
         tempC = self.tempstd.copy()
         tempC[~mask2D] = 0.
-        tempPolNHstd = fac*simps(tempC*np.sin(th2D), th2D, axis=0)
+        tempPolNHstd = fac*simps(tempC*np.sin(th2D), x=th2D, axis=0)
 
         mask2D = (th2D>=np.pi-angle/2.)
         mask = (self.colat>=np.pi-angle/2.)
         fac = 1./simps(np.sin(self.colat[mask]), self.colat[mask])
-        nussBotPoSH = fac*simps(self.nussbotmean[mask]*sinTh[mask], self.colat[mask])
-        nussTopPoSH = fac*simps(self.nusstopmean[mask]*sinTh[mask], self.colat[mask])
+        nussBotPoSH = fac*simps(self.nussbotmean[mask]*sinTh[mask], x=self.colat[mask])
+        nussTopPoSH = fac*simps(self.nusstopmean[mask]*sinTh[mask], x=self.colat[mask])
         sinC = sinTh.copy()
         sinC[~mask] = 0.
-        fac = 1./simps(sinC, self.colat)
+        fac = 1./simps(sinC, x=self.colat)
         tempC = self.tempmean.copy()
         tempC[~mask2D] = 0.
-        tempPolSHmean = fac*simps(tempC*np.sin(th2D), th2D, axis=0)
+        tempPolSHmean = fac*simps(tempC*np.sin(th2D), x=th2D, axis=0)
         tempC = self.tempstd.copy()
         tempC[~mask2D] = 0.
-        tempPolSHstd = fac*simps(tempC*np.sin(th2D), th2D, axis=0)
+        tempPolSHstd = fac*simps(tempC*np.sin(th2D), x=th2D, axis=0)
 
         self.nussBotPo = 0.5*(nussBotPoNH+nussBotPoSH)
         self.nussTopPo = 0.5*(nussTopPoNH+nussTopPoSH)
@@ -264,20 +267,20 @@ class ThetaHeat(MagicSetup):
         angleTC = np.arcsin(self.ri/self.ro)
         mask2D = (th2D<=angleTC)
         mask = (self.colat<=angleTC)
-        fac = 1./simps(np.sin(self.colat[mask]), self.colat[mask])
-        nussITC_NH = fac*simps(self.nusstopmean[mask]*sinTh[mask], self.colat[mask])
+        fac = 1./simps(np.sin(self.colat[mask]), x=self.colat[mask])
+        nussITC_NH = fac*simps(self.nusstopmean[mask]*sinTh[mask], x=self.colat[mask])
 
         mask2D = (th2D>=np.pi-angleTC)
         mask = (self.colat>=np.pi-angleTC)
         fac = 1./simps(np.sin(self.colat[mask]), self.colat[mask])
-        nussITC_SH = fac*simps(self.nusstopmean[mask]*sinTh[mask], self.colat[mask])
+        nussITC_SH = fac*simps(self.nusstopmean[mask]*sinTh[mask], x=self.colat[mask])
 
         self.nussITC = 0.5*(nussITC_NH+nussITC_SH)
 
         mask2D = (th2D>=angleTC)*(th2D<=np.pi-angleTC)
         mask = (self.colat>=angleTC)*(self.colat<=np.pi-angleTC)
         fac = 1./simps(sinTh[mask], self.colat[mask])
-        self.nussOTC = fac*simps(self.nusstopmean[mask]*sinTh[mask], self.colat[mask])
+        self.nussOTC = fac*simps(self.nusstopmean[mask]*sinTh[mask], x=self.colat[mask])
 
         if iplot:
             self.plot()

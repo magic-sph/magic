@@ -31,7 +31,7 @@ module step_time_mod
        &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix,  &
        &            l_packed_transp, l_rot_ic, l_rot_ma, l_cond_ma,    &
        &            l_parallel_solve, l_mag_par_solve, l_phase_field,  &
-       &            l_onset, l_geosMovie, l_phaseMovie
+       &            l_onset, l_geosMovie, l_phaseMovie, l_dtphaseMovie
    use init_fields, only: omega_ic1, omega_ma1
    use radialLoop, only: radialLoopG
    use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage, &
@@ -39,17 +39,17 @@ module step_time_mod
        &                 assemble_stage_Rdist
    use signals_mod, only: initialize_signals, check_signals
    use graphOut_mod, only: open_graph_file, close_graph_file
-   use output_data, only: tag, n_graph_step, n_graphs, n_t_graph, t_graph, &
-       &                  n_spec_step, n_specs, n_t_spec, t_spec,          &
-       &                  n_movie_step, n_movie_frames, n_t_movie, t_movie,&
-       &                  n_TOmovie_step, n_TOmovie_frames, n_t_TOmovie,   &
-       &                  t_TOmovie, n_pot_step, n_pots, n_t_pot, t_pot,   &
-       &                  n_rst_step, n_rsts, n_t_rst, t_rst, n_stores,    &
-       &                  n_log_step, n_logs, n_t_log, t_log, n_cmb_step,  &
-       &                  n_cmbs, n_t_cmb, t_cmb, n_r_field_step,          &
-       &                  n_r_fields, n_t_r_field, t_r_field, n_TO_step,   &
-       &                  n_TOs, n_t_TO, t_TO, n_probe_step, n_probe_out,  &
-       &                  n_t_probe, t_probe, log_file, n_log_file,        &
+   use output_data, only: tag, n_graph_step, n_graphs, dt_graph, t_graph, &
+       &                  n_spec_step, n_specs, dt_spec, t_spec,          &
+       &                  n_movie_step, n_movie_frames, dt_movie, t_movie,&
+       &                  n_TOmovie_step, n_TOmovie_frames, dt_TOmovie,   &
+       &                  t_TOmovie, n_pot_step, n_pots, dt_pot, t_pot,   &
+       &                  n_rst_step, n_rsts, dt_rst, t_rst, n_stores,    &
+       &                  n_log_step, n_logs, dt_log, t_log, n_cmb_step,  &
+       &                  n_cmbs, dt_cmb, t_cmb, n_r_field_step,          &
+       &                  n_r_fields, dt_r_field, t_r_field, n_TO_step,   &
+       &                  n_TOs, dt_TO, t_TO, n_probe_step, n_probe_out,  &
+       &                  dt_probe, t_probe, log_file, n_log_file,        &
        &                  n_time_hits
    use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp, b_ghost, aj_ghost, &
        &                  get_mag_rhs_imp_ghost, fill_ghosts_B
@@ -299,17 +299,17 @@ contains
          if ( time >= tEND .and. tEND /= 0.0_cp ) l_stop_time=.true.
 
          !-- Checking logic for output:
-         l_graph= l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
-         &                       n_graph_step,n_graphs,n_t_graph,t_graph) .or. &
+         l_graph= l_correct_step(n_time_step-1,time,timeLast,n_time_steps,    &
+         &                       n_graph_step,n_graphs,dt_graph,t_graph) .or. &
          &                  n_graph_signal == 1
          n_graph_signal=0   ! reset interrupt signal !
          l_spectrum=                                                             &
          &              l_correct_step(n_time_step-1,time,timeLast,n_time_steps, &
-         &                n_spec_step,n_specs,n_t_spec,t_spec) .or.              &
+         &                n_spec_step,n_specs,dt_spec,t_spec) .or.               &
          &                n_spec_signal == 1
-         l_frame= l_movie .and. (                                                &
-         &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-         &             n_movie_step,n_movie_frames,n_t_movie,t_movie) .or.       &
+         l_frame= l_movie .and. (                                               &
+         &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps, &
+         &             n_movie_step,n_movie_frames,dt_movie,t_movie) .or.       &
          &                   n_time_steps_go == 1 )
          if ( l_mag .or. l_mag_LF ) then
             l_dtB=( l_frame .and. l_dtBmovie ) .or. ( l_log .and. l_DTrMagSpec )
@@ -317,54 +317,54 @@ contains
 
          lTOframe=l_TOmovie .and.                                                &
          &          l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
-         &          n_TOmovie_step,n_TOmovie_frames,n_t_TOmovie,t_TOmovie)
+         &          n_TOmovie_step,n_TOmovie_frames,dt_TOmovie,t_TOmovie)
 
          l_probe_out=l_probe .and.                                               &
          &          l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
-         &          n_probe_step,n_probe_out,n_t_probe,t_probe)
+         &          n_probe_step,n_probe_out,dt_probe,t_probe)
 
          !-- Potential files
          l_pot= l_correct_step(n_time_step-1,time,timeLast,n_time_steps, &
-         &                       n_pot_step,n_pots,n_t_pot,t_pot) .or.   &
+         &                       n_pot_step,n_pots,dt_pot,t_pot) .or.    &
          &                  n_pot_signal == 1
          n_pot_signal=0   ! reset interrupt signal !
 
          l_new_rst_file=                                                         &
          &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-         &                            n_rst_step,n_rsts,n_t_rst,t_rst) .or.      &
+         &                            n_rst_step,n_rsts,dt_rst,t_rst) .or.       &
          &             n_rst_signal == 1
          n_rst_signal=0
          l_store= l_new_rst_file .or.                                            &
          &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-         &                            0,n_stores,0,t_rst)
+         &                            0,n_stores,0.0_cp,t_rst)
 
          l_log= l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-         &                            n_log_step,n_logs,n_t_log,t_log)
+         &                            n_log_step,n_logs,dt_log,t_log)
          l_cmb= l_cmb_field .and.                                                &
          &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-         &                            n_cmb_step,n_cmbs,n_t_cmb,t_cmb)
+         &                            n_cmb_step,n_cmbs,dt_cmb,t_cmb)
          l_r= l_r_field .and.                                                    &
          &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-         &                            n_r_field_step,n_r_fields,n_t_r_field,     &
+         &                            n_r_field_step,n_r_fields,dt_r_field,      &
          &                            t_r_field)
          l_logNext=.false.
          if ( n_time_step+1 <= n_time_steps+1 )                                  &
          &             l_logNext=                                                &
          &             l_correct_step(n_time_step,time+tscheme%dt(1),timeLast,   &
-         &                   n_time_steps,n_log_step,n_logs,n_t_log,t_log)
+         &                   n_time_steps,n_log_step,n_logs,dt_log,t_log)
          lTOCalc= n_time_step > 2 .and. l_TO .and.                   &
          &               l_correct_step(n_time_step-1,time,timeLast, &
-         &               n_time_steps,n_TO_step,n_TOs,n_t_TO,t_TO)
+         &               n_time_steps,n_TO_step,n_TOs,dt_TO,t_TO)
          lTOnext     =.false.
          lTOframeNext=.false.
          if ( n_time_step+1 <= n_time_steps+1 ) then
             lTONext= l_TO .and.                                            &
             &                l_correct_step(n_time_step,time+tscheme%dt(1),&
-            &                timeLast,n_time_steps,n_TO_step,n_TOs,n_t_TO,t_TO)
+            &                timeLast,n_time_steps,n_TO_step,n_TOs,dt_TO,t_TO)
             lTOframeNext= l_TOmovie .and.                                   &
             &                l_correct_step(n_time_step,time+tscheme%dt(1), &
             &                timeLast,n_time_steps,n_TOmovie_step,          &
-            &                n_TOmovie_frames,n_t_TOmovie,t_TOmovie)
+            &                n_TOmovie_frames,dt_TOmovie,t_TOmovie)
          end if
          lTONext      =lTOnext.or.lTOframeNext
          lTONext2     =.false.
@@ -373,11 +373,11 @@ contains
             lTONext2= l_TO .and.                                                 &
             &                l_correct_step(n_time_step+1,time+2*tscheme%dt(1),  &
             &                                timeLast,n_time_steps,n_TO_step,    &
-            &                                            n_TOs,n_t_TO,t_TO)
+            &                                            n_TOs,dt_TO,t_TO)
             lTOframeNext2= l_TOmovie .and.                                      &
             &                l_correct_step(n_time_step+1,time+2*tscheme%dt(1), &
             &                             timeLast,n_time_steps,n_TOmovie_step, &
-            &                       n_TOmovie_frames,n_t_TOmovie,t_TOmovie)
+            &                       n_TOmovie_frames,dt_TOmovie,t_TOmovie)
          end if
          lTONext2=lTOnext2.or.lTOframeNext2
 
@@ -417,7 +417,7 @@ contains
          lViscBcCalc  =l_ViscBcCalc .and. l_log
          lOnsetCalc   =l_onset      .and. (l_log .or. l_logNext)
 
-         l_HT  = (l_frame .and. l_movie) .or. lViscBcCalc
+         l_HT  = (l_frame .and. l_movie) .or. lViscBcCalc .or. (l_frame .and. l_dtphaseMovie)
          lPressCalc=lRmsCalc .or. ( l_PressGraph .and. l_graph )  &
          &            .or. lFluxProfCalc
          lPressNext=( l_RMS .or. l_FluxProfs ) .and. l_logNext
@@ -616,10 +616,7 @@ contains
                !       For stress-free conducting boundaries
                PERFON('nl_m_bnd')
                if ( l_b_nl_cmb .and. (nRStart <= n_r_cmb) ) then
-                  b_nl_cmb(1) =zero
-                  aj_nl_cmb(1)=zero
-                  call get_b_nl_bcs('CMB', br_vt_lm_cmb,br_vp_lm_cmb,              &
-                       &            2,lm_max,b_nl_cmb(2:lm_max),aj_nl_cmb(2:lm_max))
+                  call get_b_nl_bcs('CMB',br_vt_lm_cmb,br_vp_lm_cmb,b_nl_cmb,aj_nl_cmb)
                end if
                !-- Replace by scatter from rank to lo (and in updateB accordingly)
                if ( l_b_nl_cmb ) then
@@ -631,9 +628,7 @@ contains
 #endif
                end if
                if ( l_b_nl_icb .and. (nRstop >= n_r_icb) ) then
-                  aj_nl_icb(1)=zero
-                  call get_b_nl_bcs('ICB', br_vt_lm_icb,br_vp_lm_icb,              &
-                       &            2,lm_max,b_nl_cmb(2:lm_max),aj_nl_icb(2:lm_max))
+                  call get_b_nl_bcs('ICB',br_vt_lm_icb,br_vp_lm_icb,b_nl_cmb,aj_nl_icb)
                end if
                if ( l_b_nl_icb ) then
 #ifdef WITH_MPI
@@ -670,8 +665,8 @@ contains
             if ( tscheme%istage == 1 ) then
                if ( lVerbose ) write(output_unit,*) "! start output"
 
-               if ( l_cmb .and. l_dt_cmb_field .and. nRstart==n_r_cmb ) then
-                  call scatter_from_rank0_to_lo(dbdt_Rloc(:,n_r_cmb), dbdt_CMB_LMloc)
+               if ( l_cmb .and. l_dt_cmb_field ) then
+                  call scatter_from_rank0_to_lo(dbdt_Rloc(:,nRstart), dbdt_CMB_LMloc)
                end if
 
                if ( lVerbose ) write(output_unit,*) "! start real output"

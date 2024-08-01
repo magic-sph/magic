@@ -705,7 +705,7 @@ class MagicCheckpoint:
         self.omega_ic = 0.
         self.omega_ma = 0.
 
-        sh = SpectralTransforms(l_max=self.l_max, lm_max=self.lm_max, minc=self.minc,
+        sh = SpectralTransforms(l_max=self.l_max, minc=self.minc,
                                 n_theta_max=self.n_theta_max)
 
         # Calculate and store the poloidal potential using vr

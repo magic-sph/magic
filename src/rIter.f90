@@ -50,12 +50,12 @@ module rIter_mod
        &             w_Rloc, dw_Rloc, ddw_Rloc, xi_Rloc, omega_ic,&
        &             omega_ma, phi_Rloc
    use time_schemes, only: type_tscheme
-   use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv,&
-       &                          ellip_fac_cmb, ellip_fac_icb
+   use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv
    use rIteration, only: rIter_t
    use RMS, only: get_nl_RMS, transform_to_lm_RMS, compute_lm_forces, &
        &          transform_to_grid_RMS
    use probe_mod
+   use special, only: ellip_fac_icb, l_radial_flow_bc
 
    implicit none
 
@@ -361,8 +361,8 @@ contains
 
          !-- Kinetic energy in the solid and liquid phases
          if ( lPhaseCalc ) then
-            call get_ekin_solid_liquid(this%gsa%sc,this%gsa%vrc,this%gsa%vtc, &
-                 &                     this%gsa%vpc,this%gsa%phic,nR)
+            call get_ekin_solid_liquid(this%gsa%sc,this%gsa%drsc,this%gsa%vrc, &
+                 &                     this%gsa%vtc,this%gsa%vpc,this%gsa%phic,nR)
          end if
 
          !-- Kinetic energy parallel and perpendicular to rotation axis
@@ -586,7 +586,7 @@ contains
                     &                 this%gsa%dvtdpc, this%gsa%dvpdpc, l_R(nR))
             end if
          else if ( nBc == 2 ) then
-            if ( nR == n_r_cmb .and. ellip_fac_cmb == 0.0_cp ) then
+            if ( nR == n_r_cmb .and. (.not. l_radial_flow_bc) ) then
                call v_rigid_boundary(nR, omega_ma, lDeriv, this%gsa%vrc,      &
                     &              this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
                     &              this%gsa%dvrdtc, this%gsa%dvrdpc,          &
@@ -704,7 +704,7 @@ contains
          call spat_to_qst(this%gsa%VXir, this%gsa%VXit, this%gsa%VXip, &
               &           dVXirLM, this%nl_lm%VXitLM, this%nl_lm%VXipLM, l_R(nR))
       end if
-      if( l_phase_field ) call scal_to_SH(this%gsa%phiTerms, dphidt,l_R(nR))
+      if ( l_phase_field ) call scal_to_SH(this%gsa%phiTerms, dphidt,l_R(nR))
       if ( l_mag_nl ) then
          if ( nR>n_r_LCR ) then
             call spat_to_qst(this%gsa%VxBr, this%gsa%VxBt, this%gsa%VxBp, &

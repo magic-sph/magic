@@ -8,8 +8,11 @@ import matplotlib.pyplot as plt
 import scipy.interpolate as S
 from magic.plotlib import cut
 from magic.setup import labTex
-from scipy.integrate import simps
 from .npfile import *
+try:
+    from scipy.integrate import simps
+except:
+    from scipy.integrate import simpson as simps
 
 
 class Butterfly:
@@ -281,7 +284,7 @@ class Butterfly:
         self.omega = w[1:nt//2+1]
         self.amp1D = np.zeros_like(self.omega)
         for i in range(len(self.omega)):
-            self.amp1D[i] = simps(self.amp[:, i], self.theta)
+            self.amp1D[i] = simps(self.amp[:, i], x=self.theta)
 
         fig = plt.figure()
         ax = fig.add_subplot(211)

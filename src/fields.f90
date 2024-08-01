@@ -7,7 +7,7 @@ module fields
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use constants, only: zero
-   use physical_parameters, only: ampForce
+   use special, only: ampForce
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
        &                 n_r_ic_maxMag, fd_order, fd_order_bound
    use logic, only: l_chemical_conv, l_finite_diff, l_mag, l_parallel_solve, &
@@ -179,7 +179,7 @@ contains
             z_Rloc(:,:)=zero
             s_Rloc(:,:)=zero
             if ( l_mag ) then
-               if( l_mag_par_solve ) then
+               if ( l_mag_par_solve ) then
                   allocate(b_Rloc(lm_max,nRstart:nRstop), aj_Rloc(lm_max,nRstart:nRstop))
                   b_Rloc(:,:) =zero
                   aj_Rloc(:,:)=zero

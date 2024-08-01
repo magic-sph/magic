@@ -390,18 +390,18 @@ contains
                            rhs2(1,2*lm,threadid)        =0.0_cp
                            rhs2(n_r_max,2*lm-1,threadid)=bpeakbot
                            rhs2(n_r_max,2*lm,threadid)  =0.0_cp
-                        else if( l1 == 1 .and. imagcon == 12 ) then
+                        else if ( l1 == 1 .and. imagcon == 12 ) then
                            rhs2(1,2*lm-1,threadid)      =bpeaktop
                            rhs2(1,2*lm,threadid)        =0.0_cp
                            rhs2(n_r_max,2*lm-1,threadid)=bpeakbot
                            rhs2(n_r_max,2*lm,threadid)  =0.0_cp
-                        else if( l1 == 1 .and. imagcon == -1) then
+                        else if ( l1 == 1 .and. imagcon == -1) then
                            rhs1(n_r_max,2*lm-1,threadid)=bpeakbot
                            rhs1(n_r_max,2*lm,threadid)  =0.0_cp
-                        else if( l1 == 1 .and. imagcon == -2) then
+                        else if ( l1 == 1 .and. imagcon == -2) then
                            rhs1(1,2*lm-1,threadid)      =bpeaktop
                            rhs1(1,2*lm,threadid)        =0.0_cp
-                        else if( l1 == 3 .and. imagcon == -10 ) then
+                        else if ( l1 == 3 .and. imagcon == -10 ) then
                            rhs2(1,2*lm-1,threadid)      =bpeaktop
                            rhs2(1,2*lm,threadid)        =0.0_cp
                            rhs2(n_r_max,2*lm-1,threadid)=bpeakbot

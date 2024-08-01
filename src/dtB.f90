@@ -24,7 +24,7 @@ module dtB_mod
        &               lm2lmS, lm2lmA
    use radial_spectra ! rBrSpec, rBpSpec
    use sht, only: scal_to_SH, spat_to_sphertor
-   use constants, only: two
+   use constants, only: two, ci
    use radial_der, only: get_dr
 
    implicit none
@@ -428,8 +428,8 @@ contains
             do lm=start_lm,stop_lm
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
-               PadvLMIC_LMloc(lm,nR)=-omega_ic*dPhi(st_map%lm2(l,m))*b_ic(lm,nR)
-               TadvLMIC_LMloc(lm,nR)=-omega_ic*dPhi(st_map%lm2(l,m))*aj_ic(lm,nR)
+               PadvLMIC_LMloc(lm,nR)=-omega_ic*ci*m*b_ic(lm,nR)
+               TadvLMIC_LMloc(lm,nR)=-omega_ic*ci*m*aj_ic(lm,nR)
                PdifLMIC_LMloc(lm,nR)=opm*O_sr * ( ddb_ic(lm,nR) + &
                &                     two*real(l+1,cp)*O_r_ic(nR)*db_ic(lm,nR) )
                TdifLMIC_LMloc(lm,nR)=opm*O_sr * ( ddj_ic(lm,nR) + &

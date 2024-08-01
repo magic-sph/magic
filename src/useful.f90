@@ -20,7 +20,7 @@ module useful
 contains
 
    logical function l_correct_step(n,t,t_last,n_max,n_step,n_intervals, &
-                    &              n_ts,times)
+                    &              dt_output,times)
       !
       ! Suppose we have a (loop) maximum of n_max steps!
       ! If n_intervals times in these steps a certain action should be carried out
@@ -41,12 +41,11 @@ contains
       integer,  intent(in) :: n_max        ! max number of steps
       integer,  intent(in) :: n_step       ! action interval
       integer,  intent(in) :: n_intervals  ! number of actions
-      integer,  intent(in) :: n_ts         ! number of times t
-      real(cp), intent(in) :: times(:)     ! times where l_correct_step == true
+      real(cp), intent(in) :: dt_output    ! Output frequency
+      real(cp), intent(inout) :: times(:)  ! times where l_correct_step == true
 
       !-- Local variables:
       integer :: n_offset     ! offset with no action
-      integer :: n_t          ! counter for times
       integer :: n_steps      ! local step width
 
       if ( n_step /= 0 .and. n_intervals /= 0 ) then
@@ -56,23 +55,23 @@ contains
       end if
 
       l_correct_step=.false.
-
       if ( n_intervals /= 0 ) then
          n_steps=n_max/n_intervals
          n_offset=n_max-n_steps*n_intervals
-
          if ( n > n_offset .and. mod(n-n_offset,n_steps) == 0 ) l_correct_step=.true.
       else if ( n_step /= 0 ) then
          if ( n == n_max .or. mod(n,n_step) == 0 ) l_correct_step=.true.
       end if
 
-      if ( n_ts >= 1 ) then
-         do n_t=1,n_ts
-            if ( times(n_t) < t .and. times(n_t) >= t_last ) then
-               l_correct_step=.true.
-               exit
-            end if
-         end do
+      if ( size(times) == 1 .and. times(1) > 0.0_cp ) then
+         !-- Time array has one single entry for the next output
+         if ( times(1) < t .and. times(1) >= t_last ) then
+            l_correct_step=.true.
+            times(1)=times(1)+dt_output ! In this case, increment the target time for next output
+         end if
+      else if ( size(times) > 1 ) then
+         !-- Time array contains multiple entries
+         l_correct_step=any((times(:) >= t_last) .and. (times(:) < t), dim=1)
       end if
 
    end function l_correct_step
