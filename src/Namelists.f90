@@ -134,7 +134,8 @@ contains
       &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
       &    omega_ma2,omegaOsz_ma2,tShift_ma2,             &
       &    amp_mode_ma,omega_mode_ma,m_mode_ma,           &
-      &    mode_symm_ma,ellipticity_cmb
+      &    mode_symm_ma,ellipticity_cmb, amp_tide,        &
+      &    omega_tide
 
       namelist/inner_core/sigma_ratio,nRotIc,rho_ratio_ic, &
       &    omega_ic1,omegaOsz_ic1,tShift_ic1,              &
@@ -750,6 +751,10 @@ contains
       l_AM=l_AM .or. l_correct_AMe .or. l_correct_AMz
       l_AM=l_AM .or. l_power
 
+      ! Radial flow BC?
+      if (ellipticity_cmb /= 0.0_cp .or. ellipticity_icb /= 0.0_cp .or. &
+      &   amp_tide /=0.0_cp ) l_radial_flow_bc=.true.
+
       !-- Heat boundary condition
       if ( impS /= 0 ) then
          rad=pi/180
@@ -1233,6 +1238,8 @@ contains
       write(n_out,'(''  m_mode_ma       ='',i4,'','')')  m_mode_ma
       write(n_out,'(''  mode_symm_ma    ='',i4,'','')')  mode_symm_ma
       write(n_out,'(''  ellipticity_cmb ='',ES14.6,'','')') ellipticity_cmb
+      write(n_out,'(''  amp_tide        ='',ES14.6,'','')') amp_tide
+      write(n_out,'(''  omega_tide      ='',ES14.6,'','')') omega_tide
       write(n_out,*) "/"
 
       write(n_out,*) "&inner_core"
@@ -1365,6 +1372,8 @@ contains
       radratio    =0.35_cp
       dilution_fac=0.0_cp    ! centrifugal acceleration
       ampForce    =0.0_cp    ! External body force amplitude
+      amp_tide    =0.0_cp    ! Amplitude of tide
+      omega_tide  =0.0_cp    ! Frequency of tide
 
       !-- Phase field
       tmelt       =0.0_cp    ! Melting temperature

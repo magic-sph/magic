@@ -42,7 +42,7 @@ contains
       !
 
       !-- Local variables
-      integer :: n_theta, norm, lm, mc, m
+      integer :: n_theta, norm, mc, m
       real(cp) :: colat,theta_ord(n_theta_max), gauss(n_theta_max)
       real(cp) :: plma(lm_max), dtheta_plma(lm_max)
 
@@ -62,20 +62,18 @@ contains
 
       !-- Calculate grid points and weights for the
       !--   Gauss-Legendre integration of the plms:
-      call gauleg(-one,one,theta_ord,gauss,n_theta_max)
+      call gauleg(-one,one,theta_ord,gauss)
 
       do n_theta=1,n_theta_max/2  ! Loop over colat in NHS
          colat=theta_ord(n_theta)
          !----- plmtheta calculates plms and their derivatives
          !      up to degree and order l_max and m_max at
          !      the points cos(theta_ord(n_theta)):
-         call plm_theta(colat,l_max,m_min,m_max,minc,plma,dtheta_plma,lm_max,norm)
-         do lm=1,lm_max
-            Plm(lm,n_theta) =plma(lm)
-            dPlm(lm,n_theta)=dtheta_plma(lm)
-            wPlm(lm,n_theta) =two*pi*gauss(n_theta)*plma(lm)
-            wdPlm(lm,n_theta)=two*pi*gauss(n_theta)*dtheta_plma(lm)
-         end do
+         call plm_theta(colat,l_max,m_min,m_max,minc,plma,dtheta_plma,norm)
+         Plm(:,n_theta) =plma(:)
+         dPlm(:,n_theta)=dtheta_plma(:)
+         wPlm(:,n_theta) =two*pi*gauss(n_theta)*plma(:)
+         wdPlm(:,n_theta)=two*pi*gauss(n_theta)*dtheta_plma(:)
       end do
 
       !-- Build auxiliary index arrays for Legendre transform:

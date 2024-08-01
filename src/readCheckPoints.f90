@@ -689,7 +689,7 @@ contains
          !         boundaries in the case of no slip conditions.
          if ( inform == 3 .and. l_mag_old .and. lMagMem == 1 ) then
             read(n_start_file,iostat=ioerr) dom_ic, dom_ma
-            if( ioerr/=0 ) then
+            if ( ioerr/=0 ) then
                write(output_unit,*) '! Could not read last line in input file!'
                write(output_unit,*) '! Data missing or wrong format!'
                write(output_unit,*) '! Change inform accordingly!'
@@ -701,7 +701,7 @@ contains
             omega_ic2Old=0.0_cp
             omega_ma1Old=omega_ma
             omega_ma2Old=0.0_cp
-            if( ioerr/=0 ) then
+            if ( ioerr/=0 ) then
                write(output_unit,*) '! Could not read last line in input file!'
                write(output_unit,*) '! Data missing or wrong format!'
                write(output_unit,*) '! Change inform accordingly!'
@@ -713,7 +713,7 @@ contains
             &    omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2,      &
             &    omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1,      &
             &    omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2
-            if( ioerr/=0 ) then
+            if ( ioerr/=0 ) then
                write(output_unit,*) '! Could not read last line in input file!'
                write(output_unit,*) '! Data missing or wrong format!'
                write(output_unit,*) '! Change inform accordingly!'
@@ -726,7 +726,7 @@ contains
             &    omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1,      &
             &    omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2,      &
             &    dt_array_old(1)
-            if( ioerr/=0 ) then
+            if ( ioerr/=0 ) then
                write(output_unit,*) '! Could not read last line in input file!'
                write(output_unit,*) '! Data missing or wrong format!'
                write(output_unit,*) '! Change inform accordingly!'
@@ -2550,7 +2550,7 @@ contains
                &    tscheme%family=='MULTISTEP' ) dscal_dt%impl(n_o)=scal_imp(n_o-1)
             end do
          end if
-         if(  nold_old  >= 2 ) then
+         if (  nold_old  >= 2 ) then
             call MPI_File_Read(fh, scal_old, nold_old-1, MPI_DEF_REAL, istat, ierr)
             do n_o=2,nold_old
                if ( n_o <= tscheme%nold .and. &

@@ -17,9 +17,11 @@ module updateWP_mod
        &                       alpha0, temp0, beta, dbeta, ogrun, l_R, &
        &                       rscheme_oc, ddLvisc, ddbeta, orho1
    use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,   &
-       &                          ViscHeatFac, ThExpNb, ktopp,         &
-       &                          ellipticity_cmb, ellipticity_icb,    &
-       &                          ellip_fac_cmb, ellip_fac_icb
+       &                          ViscHeatFac, ThExpNb, ktopp
+   use special, only:  ellipticity_cmb, ellipticity_icb,               &
+       &               ellip_fac_cmb, ellip_fac_icb,                   &
+       &               tide_fac20, tide_fac22p, tide_fac22n,           &
+       &               omega_tide, amp_tide, l_radial_flow_bc
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: omegaOsz_ma1, tShift_ma1, omegaOsz_ic1, tShift_ic1
    use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
@@ -569,19 +571,45 @@ contains
                rhs1(n_r_max,2*lm-1,0)=0.0_cp
                rhs1(n_r_max,2*lm,0)  =0.0_cp
 
-               if ( l1 == 2 .and. m1 == 2 ) then
-                  if ( ellipticity_cmb /= 0.0_cp ) then
-                     rhs1(1,2*lm-1,0)=ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
-                     &                *cos(omegaOsz_ma1*(time+tShift_ma1))
-                     rhs1(1,2*lm,0)  =ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
-                     &                *sin(omegaOsz_ma1*(time+tShift_ma1))
+               if (l_radial_flow_bc) then
+
+                  if ( l1 == 2 .and. m1 == 0 ) then
+                     if ( amp_tide /= 0.0_cp ) then
+                        rhs1(1,2*lm-1,0)=rhs1(1,2*lm-1,0)                     &
+                        &                + tide_fac20/real(l1*(l1+1),kind=cp) &
+                        &                * cos(omega_tide*(time))
+                        rhs1(1,2*lm,0)  =rhs1(1,2*lm,0)                       &
+                        &                + tide_fac20/real(l1*(l1+1),kind=cp) &
+                        &                * sin(omega_tide*(time))
+                     end if
                   end if
 
-                  if ( ellipticity_icb /= 0.0_cp ) then
-                     rhs1(n_r_max,2*lm-1,0)=ellip_fac_icb/real(l1*(l1+1),kind=cp) &
-                     &                      *cos(omegaOsz_ic1*(time+tShift_ic1))
-                     rhs1(n_r_max,2*lm,0)  =ellip_fac_icb/real(l1*(l1+1),kind=cp) &
-                     &                      *sin(omegaOsz_ic1*(time+tShift_ic1))
+                  if ( l1 == 2 .and. m1 == 2 ) then
+                     if ( ellipticity_cmb /= 0.0_cp ) then
+                        rhs1(1,2*lm-1,0)=ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
+                        &                *cos(omegaOsz_ma1*(time+tShift_ma1))
+                        rhs1(1,2*lm,0)  =ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
+                        &                 *sin(omegaOsz_ma1*(time+tShift_ma1))
+                     end if
+
+                     if ( ellipticity_icb /= 0.0_cp ) then
+                        rhs1(n_r_max,2*lm-1,0)=ellip_fac_icb/real(l1*(l1+1),kind=cp) &
+                        &                      *cos(omegaOsz_ic1*(time+tShift_ic1))
+                        rhs1(n_r_max,2*lm,0)  =ellip_fac_icb/real(l1*(l1+1),kind=cp) &
+                        &                      *sin(omegaOsz_ic1*(time+tShift_ic1))
+                     end if
+
+                     if ( amp_tide /= 0.0_cp ) then
+                        ! tide_fac22p -> (2,2,1)
+                        ! tide_fac22n -> (2,2,3)
+                        ! (2,2,3) must have the same signed frequency
+                        ! as (2,0,1) above while (2,2,1) has the opposite
+                        ! sign in the rotating frame (Ogilvie, 2014)
+                        rhs1(1,2*lm-1,0)=rhs1(1,2*lm-1,0)+(tide_fac22p + tide_fac22n)  &
+                        &                /real(l1*(l1+1),kind=cp)*cos(omega_tide*(time))
+                        rhs1(1,2*lm,0)  =rhs1(1,2*lm,0)+ (-tide_fac22p + tide_fac22n)  &
+                        &                /real(l1*(l1+1),kind=cp)*sin(omega_tide*(time))
+                     end if
                   end if
                end if
 
@@ -594,6 +622,26 @@ contains
                      rhs1(nR,2*lm-1,0)= real(work_LMloc(lm1,nR))
                      rhs1(nR,2*lm,0)  =aimag(work_LMloc(lm1,nR))
                   end do
+
+                  ! Special BC for free-slip and radial flow
+                  if (l_radial_flow_bc .and. (ktopv == 1 .or. kbotv == 1)) then
+                     if (l1 == 2 .and. m1 == 2) then
+                        if ( (ellipticity_cmb /= 0.0_cp .or. amp_tide /= 0.0_cp) &
+                        &  .and. ktopv == 1 ) then
+                           rhs1(2,2*lm-1,0)=-real(l1*(l1+1),kind=cp)*or2(1)
+                           rhs1(2,2*lm,0)  =-real(l1*(l1+1),kind=cp)*or2(1)
+                        else if (ellipticity_icb /= 0.0_cp .and. kbotv == 1) then
+                           rhs1(n_r_max-1,2*lm-1,0)=-real(l1*(l1+1),kind=cp)*or2(n_r_max)
+                           rhs1(n_r_max-1,2*lm,0)  =-real(l1*(l1+1),kind=cp)*or2(n_r_max)
+                        end if
+                     end if
+
+                     if (l1 == 2 .and. m1 == 0) then
+                        if (amp_tide /= 0.0_cp .and. ktopv == 1) then
+                           rhs1(2,2*lm-1,0)=-real(l1*(l1+1),kind=cp)*or2(1)
+                        end if
+                     end if
+                  end if
 
                   if ( l_heat .and. (.not. l_parallel_solve) ) then
                      do nR=3,n_r_max-2
@@ -816,19 +864,50 @@ contains
                   rhs1(n_r_max,2*lm-1,threadid)=0.0_cp
                   rhs1(n_r_max,2*lm,threadid)  =0.0_cp
 
-                  if ( l1 == 2 .and. m1 == 2 ) then
-                     if ( ellipticity_cmb /= 0.0_cp ) then
-                        rhs1(1,2*lm-1,threadid)=ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
-                        &                       *cos(omegaOsz_ma1*(time+tShift_ma1))
-                        rhs1(1,2*lm,threadid)  =ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
-                        &                       *sin(omegaOsz_ma1*(time+tShift_ma1))
+                  if (l_radial_flow_bc) then
+
+                     if ( l1 == 2 .and. m1 == 0 ) then
+                        if ( amp_tide /= 0.0_cp ) then
+
+                           rhs1(1,2*lm-1,threadid)=rhs1(1,2*lm-1,threadid)         &
+                           &                  + tide_fac20/real(l1*(l1+1),kind=cp) &
+                           &                    * cos(omega_tide*(time))
+                           rhs1(1,2*lm,threadid)  =rhs1(1,2*lm,threadid)           &
+                           &                  + tide_fac20/real(l1*(l1+1),kind=cp) &
+                           &                      * sin(omega_tide*(time))
+                        end if
                      end if
 
-                     if ( ellipticity_icb /= 0.0_cp ) then
-                        rhs1(n_r_max,2*lm-1,threadid)=ellip_fac_icb/real(l1*(l1+1),kind=cp) &
-                        &                             *cos(omegaOsz_ic1*(time+tShift_ic1))
-                        rhs1(n_r_max,2*lm,threadid)  =ellip_fac_icb/real(l1*(l1+1),kind=cp) &
-                        &                             *sin(omegaOsz_ic1*(time+tShift_ic1))
+                     if ( l1 == 2 .and. m1 == 2 ) then
+                        if ( ellipticity_cmb /= 0.0_cp ) then
+                           rhs1(1,2*lm-1,threadid)=ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
+                           &                       *cos(omegaOsz_ma1*(time+tShift_ma1))
+                           rhs1(1,2*lm,threadid)  =ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
+                           &                       *sin(omegaOsz_ma1*(time+tShift_ma1))
+                        end if
+
+                        if ( ellipticity_icb /= 0.0_cp ) then
+                           rhs1(n_r_max,2*lm-1,threadid)=ellip_fac_icb/real(l1*(l1+1),kind=cp) &
+                           &                             *cos(omegaOsz_ic1*(time+tShift_ic1))
+                           rhs1(n_r_max,2*lm,threadid)  =ellip_fac_icb/real(l1*(l1+1),kind=cp) &
+                           &                             *sin(omegaOsz_ic1*(time+tShift_ic1))
+                        end if
+
+                        if ( amp_tide /= 0.0_cp ) then
+                           ! tide_fac22p -> (2,2,1)
+                           ! tide_fac22n -> (2,2,3)
+                           ! (2,2,3) must have the same signed frequency
+                           ! as (2,0,1) above while (2,2,1) has the opposite
+                           ! sign in the rotating frame (Ogilvie, 2014)
+                           rhs1(1,2*lm-1,threadid)=rhs1(1,2*lm-1,threadid)        &
+                           &                 + (tide_fac22p + tide_fac22n)        &
+                           &                      /real(l1*(l1+1),kind=cp)        &
+                           &                      * cos(omega_tide*(time))
+                           rhs1(1,2*lm,threadid)  =rhs1(1,2*lm,threadid)          &
+                           &                 +  (-tide_fac22p + tide_fac22n)      &
+                           &                       /real(l1*(l1+1),kind=cp)       &
+                           &                       * sin(omega_tide*(time))
+                        end if
                      end if
                   end if
 
@@ -837,6 +916,27 @@ contains
                      rhs1(2,2*lm,threadid)          =0.0_cp
                      rhs1(n_r_max-1,2*lm-1,threadid)=0.0_cp
                      rhs1(n_r_max-1,2*lm,threadid)  =0.0_cp
+
+                     ! Special BC for free-slip and radial flow
+                     if (l_radial_flow_bc .and. (ktopv == 1 .or. kbotv == 1)) then
+                        if (l1 == 2 .and. m1 == 2) then
+                           if ( (ellipticity_cmb /= 0.0_cp .or. amp_tide /= 0.0_cp) &
+                           &  .and. ktopv == 1 ) then
+                              rhs1(2,2*lm-1,threadid)=-real(l1*(l1+1),kind=cp)*or2(1)
+                              rhs1(2,2*lm,threadid)  =-real(l1*(l1+1),kind=cp)*or2(1)
+                           else if (ellipticity_icb /= 0.0_cp .and. kbotv == 1) then
+                              rhs1(n_r_max-1,2*lm-1,threadid)=-real(l1*(l1+1),kind=cp)*or2(n_r_max)
+                              rhs1(n_r_max-1,2*lm,threadid)  =-real(l1*(l1+1),kind=cp)*or2(n_r_max)
+                           end if
+                        end if
+
+                        if (l1 == 2 .and. m1 == 0) then
+                           if (amp_tide /= 0.0_cp .and. ktopv == 1) then
+                              rhs1(2,2*lm-1,threadid)=-real(l1*(l1+1),kind=cp)*or2(1)
+                           end if
+                        end if
+                     end if
+
                      do nR=3,n_r_max-2
                         rhs1(nR,2*lm-1,threadid)= real(work_LMloc(lm1,nR))
                         rhs1(nR,2*lm,threadid)  =aimag(work_LMloc(lm1,nR))

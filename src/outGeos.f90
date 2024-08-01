@@ -94,25 +94,19 @@ contains
          smin = 0.0_cp
          smax = r_CMB
 
-         !-- Grid spacing
-         ds = (smax-smin)/(n_s_max-1)
-
          !-- Cylindrical grid
-         do n_s=1,n_s_max
-            cyl(n_s)=r_cmb-(n_s-1)*ds
-         end do
+         ds = (smax-smin)/(n_s_max-1)
+         cyl(:) = [(r_cmb-(n_s-1)*ds, n_s=1,n_s_max)]
 
          !-- Height
          allocate( h(n_s_max) )
          bytes_allocated=bytes_allocated+n_s_max*SIZEOF_DEF_REAL
-         do n_s=1,n_s_max
-            if ( cyl(n_s) >= r_ICB ) then
-               h(n_s)=two*sqrt(r_CMB**2-cyl(n_s)**2)
-               n_s_otc=n_s ! Last index outside TC
-            else
-               h(n_s)=sqrt(r_CMB**2-cyl(n_s)**2)-sqrt(r_ICB**2-cyl(n_s)**2)
-            end if
-         end do
+         where ( cyl >= r_ICB )
+            h=two*sqrt(r_CMB**2-cyl**2)
+         else where
+            h=sqrt(r_CMB**2-cyl**2)-sqrt(r_ICB**2-cyl**2)
+         end where
+         n_s_otc=count(cyl>=r_ICB,dim=1)
       end if
 
       !-- Open geos.TAG file

@@ -54,14 +54,14 @@ module rIter_mod
        &             w_Rloc, dw_Rloc, ddw_Rloc, xi_Rloc, omega_ic,&
        &             omega_ma, phi_Rloc
    use time_schemes, only: type_tscheme
-   use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv,&
-       &                          ellip_fac_cmb, ellip_fac_icb
+   use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv
    use rIteration, only: rIter_t
    use RMS, only: get_nl_RMS, transform_to_lm_RMS, compute_lm_forces,       &
        &          transform_to_grid_RMS, dtVrLM, dtVtLM, dtVpLM, dpkindrLM, &
        &          Advt2LM, Advp2LM, PFt2LM, PFp2LM, LFrLM, LFt2LM, LFp2LM,  &
        &          CFt2LM, CFp2LM
    use probe_mod
+   use special, only: ellip_fac_icb, l_radial_flow_bc
 
 #ifdef WITH_OMP_GPU
    use hipfort_check, only: hipCheck
@@ -402,8 +402,8 @@ contains
 
          !-- Kinetic energy in the solid and liquid phases
          if ( lPhaseCalc ) then
-            call get_ekin_solid_liquid(this%gsa%sc,this%gsa%vrc,this%gsa%vtc, &
-                 &                     this%gsa%vpc,this%gsa%phic,nR)
+            call get_ekin_solid_liquid(this%gsa%sc,this%gsa%drsc,this%gsa%vrc, &
+                 &                     this%gsa%vtc,this%gsa%vpc,this%gsa%phic,nR)
          end if
 
          !-- Kinetic energy parallel and perpendicular to rotation axis
@@ -825,7 +825,7 @@ contains
 #ifdef WITH_OMP_GPU
             call hipCheck(hipDeviceSynchronize())
 #endif
-            if ( nR == n_r_cmb .and. ellip_fac_cmb == 0.0_cp ) then
+            if ( nR == n_r_cmb .and. (.not. l_radial_flow_bc) ) then
                call v_rigid_boundary(nR, omega_ma, lDeriv, this%gsa%vrc,        &
                     &                this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
                     &                this%gsa%dvrdtc, this%gsa%dvrdpc,          &

@@ -72,9 +72,7 @@ contains
             n_theta_max=n_phi_tot/2
          end if
 
-         if ( m_max == 0 ) then
-            m_max=(l_max/minc)*minc
-         end if
+         if ( m_max == 0 ) m_max=(l_max/minc)*minc
       else
          minc       =1
          n_phi_max  =1

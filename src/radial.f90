@@ -128,7 +128,7 @@ module radial_functions
 
 contains
 
-   subroutine initialize_radial_functions
+   subroutine initialize_radial_functions()
       !
       ! Initial memory allocation
       !
@@ -250,7 +250,7 @@ contains
 
    end subroutine initialize_radial_functions
 !------------------------------------------------------------------------------
-   subroutine finalize_radial_functions
+   subroutine finalize_radial_functions()
       !
       ! Memory deallocation of radial functions
       !
@@ -707,7 +707,7 @@ contains
       else if (index(interior_model,'MESA_5M_ZAMS') /= 0) then
 
          l_non_adia = .true.
-         rrOcmb = r*r_cut_model/r_cmb
+         rrOcmb(:) = r(:)*r_cut_model/r_cmb
 
          allocate( coeffAlpha(12), coeffTemp(12), coeffGrav(12), coeffGrun(12),&
          &         coeffDens(12) )
@@ -970,15 +970,12 @@ contains
               &         0.0_cp,0.0_cp,0.0_cp,0.0_cp,.false.)
 
          !----- Store first n_r_ic_max points of r_ic_2 to r_ic:
-         do n_r=1,n_r_ic_max-1
-            r_ic(n_r)   =r_ic_2(n_r)
-            O_r_ic(n_r) =one/r_ic(n_r)
-            O_r_ic2(n_r)=O_r_ic(n_r)*O_r_ic(n_r)
-         end do
-         n_r=n_r_ic_max
-         r_ic(n_r)   =0.0_cp
-         O_r_ic(n_r) =0.0_cp
-         O_r_ic2(n_r)=0.0_cp
+         r_ic(1:n_r_ic_max-1)   =r_ic_2(1:n_r_ic_max-1)
+         O_r_ic(1:n_r_ic_max-1) =one/r_ic(1:n_r_ic_max-1)
+         O_r_ic2(1:n_r_ic_max-1)=O_r_ic(1:n_r_ic_max-1)*O_r_ic(1:n_r_ic_max-1)
+         r_ic(n_r_ic_max)   =0.0_cp
+         O_r_ic(n_r_ic_max) =0.0_cp
+         O_r_ic2(n_r_ic_max)=0.0_cp
 
       end if
 
@@ -1035,21 +1032,16 @@ contains
 
    end subroutine radial
 !------------------------------------------------------------------------------
-   subroutine transportProperties
+   subroutine transportProperties()
       !
       ! Calculates the transport properties: electrical conductivity,
       ! kinematic viscosity and thermal conductivity.
       !
-
-      integer :: n_r
-      real(cp) :: a,b,c,s1,s2,r0
-      real(cp) :: dsigma0
+      real(cp) :: a,b,c,s1,s2,r0,a0,a1,a2,a3,a4,a5
+      real(cp) :: dsigma0, ampVisc, ampKap, slopeVisc, slopeKap
       real(cp) :: dvisc(n_r_max), dkappa(n_r_max), dsigma(n_r_max)
-      !real(cp) :: condBot(n_r_max), condTop(n_r_max)
-      !real(cp) :: func(n_r_max)
-      real(cp) :: kcond(n_r_max)
-      real(cp) :: a0,a1,a2,a3,a4,a5,rrOcmb
-      real(cp) :: ampVisc, ampKap, slopeVisc, slopeKap
+      real(cp) :: rrOcmb(n_r_max), kcond(n_r_max)
+      !real(cp) :: condBot(n_r_max), condTop(n_r_max), func(n_r_max)
 
       !-- Variable conductivity:
       if ( imagcon == -10 ) then
@@ -1058,284 +1050,296 @@ contains
          sigma(:)   =one/lambda(:)
          dLlambda(:)=5.0_cp/r(:)
       else if ( l_mag ) then
-         if ( nVarCond == 0 ) then
-            lambda(:)  =one
-            sigma(:)   =one
-            dLlambda(:)=0.0_cp
-         else if ( nVarCond == 1 ) then
-            b =log(three)/con_FuncWidth
-            r0=con_radratio*r_cmb
-            s1=tanh(b*(r0-r_cmb))
-            s2=tanh(b*(r0-r_icb))
-            a =(-one+con_LambdaOut)/(s1-s2)
-            c =(s1-s2*con_LambdaOut)/(s1-s2)
-            sigma(:)   = a*tanh(b*(r0-r(:)))+c
-            dsigma(:)  =-a*b/cosh(b*(r0-r(:)))
-            lambda(:)  =one/sigma(:)
-            dLlambda(:)=-dsigma(:)/sigma(:)
-         else if ( nVarCond == 2 ) then
+         select case(nVarCond)
 
-            r0=con_radratio*r_cmb
-            !------ Use grid point closest to r0:
-            do n_r=1,n_r_max
-               if ( r(n_r) < r0 )then
-                  r0=r(n_r)
-                  exit
-               end if
-            end do
-            dsigma0=(con_LambdaMatch-1)*con_DecRate /(r0-r_icb)
-            do n_r=1,n_r_max
-               if ( r(n_r) < r0 ) then
-                  sigma(n_r)  = one+(con_LambdaMatch-1)* &
-                  &   ((r(n_r)-r_icb)/(r0-r_icb))**con_DecRate
-                  dsigma(n_r) = dsigma0 * &
-                  &   ((r(n_r)-r_icb)/(r0-r_icb))**(con_DecRate-1)
-               else
-                  sigma(n_r) =con_LambdaMatch*exp(dsigma0/con_LambdaMatch*(r(n_r)-r0))
-                  dsigma(n_r)=dsigma0*exp(dsigma0/con_LambdaMatch*(r(n_r)-r0))
-               end if
-               lambda(n_r)  =one/sigma(n_r)
-               dLlambda(n_r)=-dsigma(n_r)/sigma(n_r)
-            end do
-         else if ( nVarCond == 3 ) then ! Magnetic diff propto 1/rho
-            lambda(:)=rho0(n_r_max)/rho0(:)
-            sigma(:)=one/lambda(:)
-            call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
-            dLlambda(:)=dsigma(:)/lambda(:)
-         else if ( nVarCond == 4 ) then ! Profile
-            lambda=(rho0(:)/rho0(n_r_max))**difExp
-            sigma(:)=one/lambda(:)
-            call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
-            dLlambda(:)=dsigma(:)/lambda(:)
-         end if
+            case(1)
+               b =log(three)/con_FuncWidth
+               r0=con_radratio*r_cmb
+               s1=tanh(b*(r0-r_cmb))
+               s2=tanh(b*(r0-r_icb))
+               a =(-one+con_LambdaOut)/(s1-s2)
+               c =(s1-s2*con_LambdaOut)/(s1-s2)
+               sigma(:)   = a*tanh(b*(r0-r(:)))+c
+               dsigma(:)  =-a*b/cosh(b*(r0-r(:)))
+               lambda(:)  =one/sigma(:)
+               dLlambda(:)=-dsigma(:)/sigma(:)
+
+            case(2) ! Two-branches solution from Gomez-Perez
+               r0=con_radratio*r_cmb
+               !------ Find the grid point closest to r0:
+               r0=r(minloc(abs(r(:)-r0),dim=1))
+               dsigma0=(con_LambdaMatch-1)*con_DecRate/(r0-r_icb)
+               where ( r < r0 )
+                  sigma=one+(con_LambdaMatch-1)*((r-r_icb)/(r0-r_icb))**con_DecRate
+                  dsigma=dsigma0*((r-r_icb)/(r0-r_icb))**(con_DecRate-1)
+               else where
+                  sigma=con_LambdaMatch*exp(dsigma0/con_LambdaMatch*(r-r0))
+                  dsigma=dsigma0*exp(dsigma0/con_LambdaMatch*(r-r0))
+               end where
+               lambda(:)  =one/sigma(:)
+               dLlambda(:)=-dsigma(:)/sigma(:)
+
+            case(3) ! Magnetic diff propto 1/rho
+               lambda(:)=rho0(n_r_max)/rho0(:)
+               sigma(:)=one/lambda(:)
+               call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
+               dLlambda(:)=dsigma(:)/lambda(:)
+
+            case(4) ! Profile related to a power-law of density
+               lambda=(rho0(:)/rho0(n_r_max))**difExp
+               sigma(:)=one/lambda(:)
+               call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
+               dLlambda(:)=dsigma(:)/lambda(:)
+
+            case default ! Constant diffusivity
+               lambda(:)  =one
+               sigma(:)   =one
+               dLlambda(:)=0.0_cp
+
+         end select
       end if
 
       !-- Variable thermal diffusivity
       if ( l_heat ) then
 
-         if ( nVarDiff == 0 ) then
-            kappa(:)  =one
-            dLkappa(:)=0.0_cp
-         else if ( nVarDiff == 1 ) then ! Constant conductivity
-            ! kappa(n_r)=one/rho0(n_r) Denise's version
-            kappa(:)=rho0(n_r_max)/rho0(:)
-            call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
-            dLkappa(:)=dkappa(:)/kappa(:)
-         else if ( nVarDiff == 2 ) then ! Profile
-            kappa(:)=(rho0(:)/rho0(n_r_max))**difExp
-            call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
-            dLkappa(:)=dkappa(:)/kappa(:)
-         else if ( nVarDiff == 3 ) then ! polynomial fit to a model
-            if ( radratio < 0.19_cp ) then
-               write(output_unit,*) '! NOTE: with this polynomial fit     '
-               write(output_unit,*) '! for variable thermal conductivity  '
-               write(output_unit,*) '! considering radratio < 0.2 may lead'
-               write(output_unit,*) '! to strange profiles'
-               call abortRun('Stop the run in radial.f90')
-            end if
-            a0 = -0.32839722_cp
-            a1 =  one
-            a2 = -1.16153274_cp
-            a3 =  0.63741485_cp
-            a4 = -0.15812944_cp
-            a5 =  0.01034262_cp
-            do n_r=1,n_r_max
-               rrOcmb = r(n_r)/r_cmb*r_cut_model
-               kappa(n_r)= a5 + a4*rrOcmb    + a3*rrOcmb**2 &
-               &              + a2*rrOcmb**3 + a1*rrOcmb**4 &
-               &                             + a0*rrOcmb**5
-            end do
-            kappa(:)=kappa(:)/kappa(1) ! normalise by the value at the top
-            call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
-            dLkappa(:)=dkappa(:)/kappa(:)
-         else if ( nVarDiff == 4) then ! Earth case
-            !condTop=r_cmb**2*dtemp0(1)*or2/dtemp0
-            !do n_r=2,n_r_max
-            !  if ( r(n_r-1)>rStrat .and. r(n_r)<=rStrat ) then
-            !     if ( r(n_r-1)-rStrat < rStrat-r(n_r) ) then
-            !        n_const=n_r-1
-            !     else
-            !        n_const=n_r
-            !     end if
-            !  end if
-            !end do
-            !condBot=(rho0/rho0(n_const))*condTop(n_const)
-            !func=half*(tanh(slopeStrat*(r-rStrat))+one)
-            !kcond=condTop*func+condBot*(1-func)
-            !kcond=kcond/kcond(n_r_max)
-            !kappa=kcond/rho0
-            !call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
-            !dLkappa=dkappa/kappa
+         select case(nVarDiff)
 
-            ! Alternative scenario
-            kcond(:)=(one-0.4469_cp*(r(:)/r_cmb)**2)/(one-0.4469_cp)
-            kcond(:)=kcond(:)/kcond(1)
-            kappa(:)=kcond(:)/rho0
-            call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
-            dLkappa(:)=dkappa(:)/kappa(:)
-         else if ( nVarDiff == 5 ) then ! Thermal background equilibrium
-            kcond(:)=one/(r(:)*r(:)*dLtemp0(:)*temp0(:))
-            kcond(:)=kcond(:)/kcond(1)
-            kappa(:)=kcond(:)/rho0(:)
-            call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
-            dLkappa(:)=dkappa(:)/kappa(:)
-         else if ( nVarDiff == 6 ) then ! Jump in the stratified layer
-            ampKap = 10.0_cp
-            slopeKap = 100.0_cp
-            if ( rStrat <= r_icb ) then
-               kappa(:) = one
-            else
-               kappa(:)=(-half*(ampKap-one)*tanh(slopeKap*(r(:)-rStrat))+      &
-               &          half*(ampKap+one))*(half*(ampKap-one)*tanh(slopeKap* &
-               &          (r(:)-rStrat-thickStrat))+half*(ampKap+one))/ampKap
-            end if
-            dLkappa(:)=ampKap*(slopeKap*(-half*ampKap + half)*(-tanh(slopeKap*(r &
-            &         - rStrat))**2 + 1)*(half*ampKap + (half*ampKap - half)*    &
-            &         tanh(slopeKap*(r - rStrat - thickStrat)) + half)/ampKap +  &
-            &         slopeKap*(half*ampKap - half)*(-tanh(slopeKap*(r - rStrat -&
-            &         thickStrat))**2 + 1)*(half*ampKap + (-half*ampKap + half)* &
-            &         tanh(slopeKap*(r - rStrat)) + half)/ampKap)/((half*ampKap +&
-            &         (-half*ampKap + half)*tanh(slopeKap*(r - rStrat)) + half)* &
-            &         (half*ampKap + (half*ampKap - half)*tanh(slopeKap*(r -     &
-            &         rStrat - thickStrat)) + half))
-         else if ( nVarDiff == 7 ) then ! Bottom stratified
-            ampKap = 10.0_cp
-            slopeKap = 30.0_cp
-            if ( rStrat <= r_icb ) then
-               kappa(:) = one
-            else
-               kappa(:)=(half*(ampKap-one)*tanh(slopeKap* &
-               &       (r(:)-rStrat))+half*(ampKap+one))/ampKap
-            end if
-            dLkappa(:)=slopeKap*(half*ampKap-half)*(-tanh(slopeKap*(r(:)-rStrat))**2&
-            &         +one)/(half*ampKap+(half*ampKap-half)*tanh(slopeKap*(r(:)-    &
-            &         rStrat))+half)
-         end if
+            case(1) ! Constant conductivity
+               ! kappa(:)=one/rho0(:) Denise Tortorella's version
+               kappa(:)=rho0(n_r_max)/rho0(:)
+               call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
+               dLkappa(:)=dkappa(:)/kappa(:)
+
+            case(2) ! Related to a power-law of the density profile
+               kappa(:)=(rho0(:)/rho0(n_r_max))**difExp
+               call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
+               dLkappa(:)=dkappa(:)/kappa(:)
+
+            case(3) ! Polynomial fit to a model
+               if ( radratio < 0.19_cp ) then
+                  write(output_unit,*) '! NOTE: with this polynomial fit     '
+                  write(output_unit,*) '! for variable thermal conductivity  '
+                  write(output_unit,*) '! considering radratio < 0.2 may lead'
+                  write(output_unit,*) '! to strange profiles'
+                  call abortRun('Stop the run in radial.f90')
+               end if
+               a0 = -0.32839722_cp
+               a1 =  one
+               a2 = -1.16153274_cp
+               a3 =  0.63741485_cp
+               a4 = -0.15812944_cp
+               a5 =  0.01034262_cp
+               rrOcmb(:) = r(:)/r_cmb*r_cut_model
+               kappa(:)= a5 + a4*rrOcmb(:) + a3*rrOcmb(:)**2 + a2*rrOcmb(:)**3 &
+               &            + a1*rrOcmb(:)**4 + a0*rrOcmb(:)**5
+               kappa(:)=kappa(:)/kappa(1) ! normalize by the value at the outer boundary
+               call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
+               dLkappa(:)=dkappa(:)/kappa(:)
+
+            case(4) ! Earth case
+               !condTop=r_cmb**2*dtemp0(1)*or2/dtemp0
+               !do n_r=2,n_r_max
+               !  if ( r(n_r-1)>rStrat .and. r(n_r)<=rStrat ) then
+               !     if ( r(n_r-1)-rStrat < rStrat-r(n_r) ) then
+               !        n_const=n_r-1
+               !     else
+               !        n_const=n_r
+               !     end if
+               !  end if
+               !end do
+               !condBot=(rho0/rho0(n_const))*condTop(n_const)
+               !func=half*(tanh(slopeStrat*(r-rStrat))+one)
+               !kcond=condTop*func+condBot*(1-func)
+               !kcond=kcond/kcond(n_r_max)
+               !kappa=kcond/rho0
+               !call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
+               !dLkappa=dkappa/kappa
+
+               ! Alternative scenario
+               kcond(:)=(one-0.4469_cp*(r(:)/r_cmb)**2)/(one-0.4469_cp)
+               kcond(:)=kcond(:)/kcond(1)
+               kappa(:)=kcond(:)/rho0
+               call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
+               dLkappa(:)=dkappa(:)/kappa(:)
+
+            case(5) ! Thermal background equilibrium
+               kcond(:)=one/(r(:)*r(:)*dLtemp0(:)*temp0(:))
+               kcond(:)=kcond(:)/kcond(1)
+               kappa(:)=kcond(:)/rho0(:)
+               call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
+               dLkappa(:)=dkappa(:)/kappa(:)
+
+            case(6) ! Jump in the stratified layer
+               ampKap = 10.0_cp
+               slopeKap = 100.0_cp
+               if ( rStrat <= r_icb ) then
+                  kappa(:) = one
+               else
+                  kappa(:)=(-half*(ampKap-one)*tanh(slopeKap*(r(:)-rStrat))+      &
+                  &          half*(ampKap+one))*(half*(ampKap-one)*tanh(slopeKap* &
+                  &          (r(:)-rStrat-thickStrat))+half*(ampKap+one))/ampKap
+               end if
+               dLkappa(:)=ampKap*(slopeKap*(-half*ampKap + half)*(-tanh(slopeKap*(r &
+               &         - rStrat))**2 + 1)*(half*ampKap + (half*ampKap - half)*    &
+               &         tanh(slopeKap*(r - rStrat - thickStrat)) + half)/ampKap +  &
+               &         slopeKap*(half*ampKap - half)*(-tanh(slopeKap*(r - rStrat -&
+               &         thickStrat))**2 + 1)*(half*ampKap + (-half*ampKap + half)* &
+               &         tanh(slopeKap*(r - rStrat)) + half)/ampKap)/((half*ampKap +&
+               &         (-half*ampKap + half)*tanh(slopeKap*(r - rStrat)) + half)* &
+               &         (half*ampKap + (half*ampKap - half)*tanh(slopeKap*(r -     &
+               &         rStrat - thickStrat)) + half))
+
+            case(7) ! Bottom stratified
+               ampKap = 10.0_cp
+               slopeKap = 30.0_cp
+               if ( rStrat <= r_icb ) then
+                  kappa(:)=one
+               else
+                  kappa(:)=(half*(ampKap-one)*tanh(slopeKap* &
+                  &       (r(:)-rStrat))+half*(ampKap+one))/ampKap
+               end if
+               dLkappa(:)=slopeKap*(half*ampKap-half)*(-tanh(slopeKap*(r(:)-rStrat))**2&
+               &         +one)/(half*ampKap+(half*ampKap-half)*tanh(slopeKap*(r(:)-    &
+               &         rStrat))+half)
+
+            case default
+               kappa(:)  =one
+               dLkappa(:)=0.0_cp
+
+         end select
 
       end if
 
       !-- Eps profiles
       !-- The remaining division by rho will happen in updateS.f90
-      if ( nVarEps == 0 ) then
-         ! eps is constant
-         if ( l_anelastic_liquid ) then
-            epscProf(:)=one
-         else
-            epscProf(:)=otemp1(:)
-         end if
-      else if ( nVarEps == 1 ) then
-         ! rho*eps in the RHS
-         if ( l_anelastic_liquid ) then
-            epscProf(:)=rho0(:)
-         else
-            epscProf(:)=rho0(:)*otemp1(:)
-         end if
-      else if ( nVarEps == 2 ) then
-         ! rho*temp*eps in the RHS
-         if ( l_anelastic_liquid ) then
-            epscProf(:)=rho0(:)*temp0(:)
-         else
-            epscProf(:)=rho0(:)
-         end if
-      else if ( nVarEps == 3 ) then
-         ! eps*rho**2*temp**(-3)*exp(-Bn/T) in the RHS
-         if ( l_anelastic_liquid ) then
-            epscProf(:)=rho0(:)**2*temp0(:)**(-3)*exp(-Bn/temp0(:))
-         else
-            epscProf(:)=rho0(:)**2*temp0(:)**(-4)*exp(-Bn/temp0(:))
-         end if
-      end if
+      select case(nVarEps)
+
+         case(1) ! rho*eps in the RHS
+            if ( l_anelastic_liquid ) then
+               epscProf(:)=rho0(:)
+            else
+               epscProf(:)=rho0(:)*otemp1(:)
+            end if
+
+         case(2) ! rho*temp*eps in the RHS
+            if ( l_anelastic_liquid ) then
+               epscProf(:)=rho0(:)*temp0(:)
+            else
+               epscProf(:)=rho0(:)
+            end if
+         case(3) ! eps*rho**2*temp**(-3)*exp(-Bn/T) in the RHS
+            if ( l_anelastic_liquid ) then
+               epscProf(:)=rho0(:)**2*temp0(:)**(-3)*exp(-Bn/temp0(:))
+            else
+               epscProf(:)=rho0(:)**2*temp0(:)**(-4)*exp(-Bn/temp0(:))
+            end if
+
+         case default ! eps is constant
+            if ( l_anelastic_liquid ) then
+               epscProf(:)=one
+            else
+               epscProf(:)=otemp1(:)
+            end if
+
+      end select
 
       !-- Variable viscosity
-      if ( nVarVisc == 0 ) then ! default: constant kinematic viscosity
-         visc(:)   =one
-         dLvisc(:) =0.0_cp
-         ddLvisc(:)=0.0_cp
-      else if ( nVarVisc == 1 ) then ! Constant dynamic viscosity
-         visc(:)=rho0(n_r_max)/rho0(:)
-         call get_dr(visc,dvisc,n_r_max,rscheme_oc)
-         dLvisc(:)=dvisc(:)/visc(:)
-         call get_dr(dLvisc,ddLvisc,n_r_max,rscheme_oc)
-      else if ( nVarVisc == 2 ) then ! Profile
-         visc(:)=(rho0/rho0(n_r_max))**difExp
-         call get_dr(visc,dvisc,n_r_max,rscheme_oc)
-         dLvisc(:)=dvisc(:)/visc(:)
-         call get_dr(dLvisc,ddLvisc,n_r_max,rscheme_oc)
-      else if ( nVarVisc == 3 ) then ! Jump in the stratified layer
-         ampVisc = 10.0_cp
-         slopeVisc = 100.0_cp
-         if ( rStrat <= r_icb ) then
-            visc(:) = one
-         else
-            visc(:)=(-half*(ampVisc-one)*tanh(slopeVisc*(r(:)-rStrat))+       &
-            &         half*(ampVisc+one))*(half*(ampVisc-one)*tanh(slopeVisc* &
-            &         (r(:)-rStrat-thickStrat))+half*(ampVisc+one))/ampVisc
-         end if
-         dLvisc(:)=ampVisc*(slopeVisc*(-half*ampVisc + half)*(-tanh(slopeVisc*(r &
-         &         - rStrat))**2 + 1)*(half*ampVisc + (half*ampVisc - half)*     &
-         &         tanh(slopeVisc*(r - rStrat - thickStrat)) + half)/ampVisc +   &
-         &         slopeVisc*(half*ampVisc - half)*(-tanh(slopeVisc*(r - rStrat -&
-         &         thickStrat))**2 + 1)*(half*ampVisc + (-half*ampVisc + half)*  &
-         &         tanh(slopeVisc*(r - rStrat)) + half)/ampVisc)/((half*ampVisc +&
-         &         (-half*ampVisc + half)*tanh(slopeVisc*(r - rStrat)) + half)*  &
-         &         (half*ampVisc + (half*ampVisc - half)*tanh(slopeVisc*(r -     &
-         &         rStrat - thickStrat)) + half))
+      select case(nVarVisc)
 
-         ddLvisc(:)=-ampVisc*slopeVisc*(-half*ampVisc + half)*(slopeVisc*(-half* &
-         &          ampVisc + half)*(-tanh(slopeVisc*(r(:) - rStrat))**2 + 1)*   &
-         &          (half*ampVisc + (half*ampVisc - half)*tanh(slopeVisc*(r(:) - &
-         &          rStrat - thickStrat)) + half)/ampVisc + slopeVisc*(half*     &
-         &          ampVisc - half)*(-tanh(slopeVisc*(r(:) - rStrat - thickStrat)&
-         &          )**2 + 1)*(half*ampVisc + (-half*ampVisc + half)*tanh(       &
-         &          slopeVisc*(r(:) - rStrat)) + half)/ampVisc)*(-tanh(slopeVisc*&
-         &          (r(:) - rStrat))**2 + 1)/((half*ampVisc + (-half*ampVisc +   &
-         &          half)*tanh(slopeVisc*(r(:) - rStrat)) + half)**2*(half*      &
-         &          ampVisc + (half*ampVisc - half)*tanh(slopeVisc*(r(:) - rStrat&
-         &          - thickStrat)) + half)) - ampVisc*slopeVisc*(half*ampVisc -  &
-         &          half)*(slopeVisc*(-half*ampVisc + half)*(-tanh(slopeVisc*(   &
-         &          r(:) - rStrat))**2 + 1)*(half*ampVisc + (half*ampVisc - half)&
-         &          *tanh(slopeVisc*(r(:) - rStrat - thickStrat)) + half)/ampVisc&
-         &          + slopeVisc*(half*ampVisc - half)*(-tanh(slopeVisc*(r(:) -   &
-         &          rStrat - thickStrat))**2 + 1)*(half*ampVisc + (-half*ampVisc &
-         &          + half)*tanh(slopeVisc*(r(:) - rStrat)) + half)/ampVisc)*(   &
-         &          -tanh(slopeVisc*(r(:) - rStrat - thickStrat))**2 + 1)/((half*&
-         &          ampVisc + (-half*ampVisc + half)*tanh(slopeVisc*(r(:) -      &
-         &          rStrat)) + half)*(half*ampVisc + (half*ampVisc - half)*tanh( &
-         &          slopeVisc*(r(:) - rStrat - thickStrat)) + half)**2)+ampVisc*(&
-         &          2*slopeVisc**2*(-half*ampVisc + half)*(half*ampVisc - half)*(&
-         &          -tanh(slopeVisc*(r(:) - rStrat))**2 + 1)*(-tanh(slopeVisc*(  &
-         &          r(:) - rStrat - thickStrat))**2 + 1)/ampVisc - 2*slopeVisc**2&
-         &          *(-half*ampVisc + half)*(-tanh(slopeVisc*(r(:) - rStrat))**2 &
-         &          + 1)*(half*ampVisc + (half*ampVisc - half)*tanh(slopeVisc*(  &
-         &          r(:) - rStrat - thickStrat)) + half)*tanh(slopeVisc*(r(:) -  &
-         &          rStrat))/ampVisc - 2*slopeVisc**2*(half*ampVisc - half)*(    &
-         &          -tanh(slopeVisc*(r(:) - rStrat - thickStrat))**2 + 1)*(half* &
-         &          ampVisc + (-half*ampVisc + half)*tanh(slopeVisc*(r(:) -      &
-         &          rStrat)) + half)*tanh(slopeVisc*(r(:) - rStrat - thickStrat))&
-         &          /ampVisc)/((half*ampVisc + (-half*ampVisc + half)*tanh(      &
-         &          slopeVisc*(r(:) - rStrat)) + half)*(half*ampVisc + (half*    &
-         &          ampVisc - half)*tanh(slopeVisc*(r(:) - rStrat - thickStrat)) &
-         &          + half))
-      else if ( nVarVisc == 4 ) then ! Bottom stratified
-         ampVisc = 10.0_cp
-         slopeVisc = 30.0_cp
-         if ( rStrat <= r_icb ) then
-            visc(:) = one
-         else
-            visc(:)=(half*(ampVisc-one)*tanh(slopeVisc* &
-            &       (r(:)-rStrat))+half*(ampVisc+one))/ampVisc
-         end if
-         dLvisc(:)=slopeVisc*(half*ampVisc-half)*(-tanh(slopeVisc*(r(:)-rStrat))**2&
-         &         +one)/(half*ampVisc+(half*ampVisc-half)*tanh(slopeVisc*(r(:)-   &
-         &         rStrat))+half)
+         case(1) ! Constant dynamic viscosity
+            visc(:)=rho0(n_r_max)/rho0(:)
+            call get_dr(visc,dvisc,n_r_max,rscheme_oc)
+            dLvisc(:)=dvisc(:)/visc(:)
+            call get_dr(dLvisc,ddLvisc,n_r_max,rscheme_oc)
 
-         ddLvisc(:)=-slopeVisc**2*(half*ampVisc-half)**2*(-tanh(slopeVisc*(r(:)- &
-         &          rStrat))**2+one)**2/(half*ampVisc+(half*ampVisc-half)*       &
-         &          tanh(slopeVisc*(r(:)-rStrat))+half)**2-2*slopeVisc**2*(half* &
-         &          ampVisc-half)*(-tanh(slopeVisc*(r(:)-rStrat))**2+one)*tanh(  &
-         &          slopeVisc*(r(:)-rStrat))/(half*ampVisc+(half*ampVisc-half)*  &
-         &          tanh(slopeVisc*(r(:)-rStrat))+half)
-      end if
+         case(2) ! Profile based on a power-law of density
+            visc(:)=(rho0/rho0(n_r_max))**difExp
+            call get_dr(visc,dvisc,n_r_max,rscheme_oc)
+            dLvisc(:)=dvisc(:)/visc(:)
+            call get_dr(dLvisc,ddLvisc,n_r_max,rscheme_oc)
+
+         case(3) ! Jump in the stratified layer
+            ampVisc  =10.0_cp
+            slopeVisc=100.0_cp
+            if ( rStrat <= r_icb ) then
+               visc(:)=one
+            else
+               visc(:)=(-half*(ampVisc-one)*tanh(slopeVisc*(r(:)-rStrat))+       &
+               &         half*(ampVisc+one))*(half*(ampVisc-one)*tanh(slopeVisc* &
+               &         (r(:)-rStrat-thickStrat))+half*(ampVisc+one))/ampVisc
+            end if
+            dLvisc(:)=ampVisc*(slopeVisc*(-half*ampVisc + half)*(-tanh(slopeVisc*(r &
+            &         - rStrat))**2 + 1)*(half*ampVisc + (half*ampVisc - half)*     &
+            &         tanh(slopeVisc*(r - rStrat - thickStrat)) + half)/ampVisc +   &
+            &         slopeVisc*(half*ampVisc - half)*(-tanh(slopeVisc*(r - rStrat -&
+            &         thickStrat))**2 + 1)*(half*ampVisc + (-half*ampVisc + half)*  &
+            &         tanh(slopeVisc*(r - rStrat)) + half)/ampVisc)/((half*ampVisc +&
+            &         (-half*ampVisc + half)*tanh(slopeVisc*(r - rStrat)) + half)*  &
+            &         (half*ampVisc + (half*ampVisc - half)*tanh(slopeVisc*(r -     &
+            &         rStrat - thickStrat)) + half))
+
+            ddLvisc(:)=-ampVisc*slopeVisc*(-half*ampVisc + half)*(slopeVisc*(-half* &
+            &          ampVisc + half)*(-tanh(slopeVisc*(r(:) - rStrat))**2 + 1)*   &
+            &          (half*ampVisc + (half*ampVisc - half)*tanh(slopeVisc*(r(:) - &
+            &          rStrat - thickStrat)) + half)/ampVisc + slopeVisc*(half*     &
+            &          ampVisc - half)*(-tanh(slopeVisc*(r(:) - rStrat - thickStrat)&
+            &          )**2 + 1)*(half*ampVisc + (-half*ampVisc + half)*tanh(       &
+            &          slopeVisc*(r(:) - rStrat)) + half)/ampVisc)*(-tanh(slopeVisc*&
+            &          (r(:) - rStrat))**2 + 1)/((half*ampVisc + (-half*ampVisc +   &
+            &          half)*tanh(slopeVisc*(r(:) - rStrat)) + half)**2*(half*      &
+            &          ampVisc + (half*ampVisc - half)*tanh(slopeVisc*(r(:) - rStrat&
+            &          - thickStrat)) + half)) - ampVisc*slopeVisc*(half*ampVisc -  &
+            &          half)*(slopeVisc*(-half*ampVisc + half)*(-tanh(slopeVisc*(   &
+            &          r(:) - rStrat))**2 + 1)*(half*ampVisc + (half*ampVisc - half)&
+            &          *tanh(slopeVisc*(r(:) - rStrat - thickStrat)) + half)/ampVisc&
+            &          + slopeVisc*(half*ampVisc - half)*(-tanh(slopeVisc*(r(:) -   &
+            &          rStrat - thickStrat))**2 + 1)*(half*ampVisc + (-half*ampVisc &
+            &          + half)*tanh(slopeVisc*(r(:) - rStrat)) + half)/ampVisc)*(   &
+            &          -tanh(slopeVisc*(r(:) - rStrat - thickStrat))**2 + 1)/((half*&
+            &          ampVisc + (-half*ampVisc + half)*tanh(slopeVisc*(r(:) -      &
+            &          rStrat)) + half)*(half*ampVisc + (half*ampVisc - half)*tanh( &
+            &          slopeVisc*(r(:) - rStrat - thickStrat)) + half)**2)+ampVisc*(&
+            &          2*slopeVisc**2*(-half*ampVisc + half)*(half*ampVisc - half)*(&
+            &          -tanh(slopeVisc*(r(:) - rStrat))**2 + 1)*(-tanh(slopeVisc*(  &
+            &          r(:) - rStrat - thickStrat))**2 + 1)/ampVisc - 2*slopeVisc**2&
+            &          *(-half*ampVisc + half)*(-tanh(slopeVisc*(r(:) - rStrat))**2 &
+            &          + 1)*(half*ampVisc + (half*ampVisc - half)*tanh(slopeVisc*(  &
+            &          r(:) - rStrat - thickStrat)) + half)*tanh(slopeVisc*(r(:) -  &
+            &          rStrat))/ampVisc - 2*slopeVisc**2*(half*ampVisc - half)*(    &
+            &          -tanh(slopeVisc*(r(:) - rStrat - thickStrat))**2 + 1)*(half* &
+            &          ampVisc + (-half*ampVisc + half)*tanh(slopeVisc*(r(:) -      &
+            &          rStrat)) + half)*tanh(slopeVisc*(r(:) - rStrat - thickStrat))&
+            &          /ampVisc)/((half*ampVisc + (-half*ampVisc + half)*tanh(      &
+            &          slopeVisc*(r(:) - rStrat)) + half)*(half*ampVisc + (half*    &
+            &          ampVisc - half)*tanh(slopeVisc*(r(:) - rStrat - thickStrat)) &
+            &          + half))
+
+         case(4) ! Bottom stratified
+            ampVisc  =10.0_cp
+            slopeVisc=30.0_cp
+            if ( rStrat <= r_icb ) then
+               visc(:)=one
+            else
+               visc(:)=(half*(ampVisc-one)*tanh(slopeVisc* &
+               &       (r(:)-rStrat))+half*(ampVisc+one))/ampVisc
+            end if
+            dLvisc(:)=slopeVisc*(half*ampVisc-half)*(-tanh(slopeVisc*(r(:)-rStrat))**2&
+            &         +one)/(half*ampVisc+(half*ampVisc-half)*tanh(slopeVisc*(r(:)-   &
+            &         rStrat))+half)
+
+            ddLvisc(:)=-slopeVisc**2*(half*ampVisc-half)**2*(-tanh(slopeVisc*(r(:)- &
+            &          rStrat))**2+one)**2/(half*ampVisc+(half*ampVisc-half)*       &
+            &          tanh(slopeVisc*(r(:)-rStrat))+half)**2-2*slopeVisc**2*(half* &
+            &          ampVisc-half)*(-tanh(slopeVisc*(r(:)-rStrat))**2+one)*tanh(  &
+            &          slopeVisc*(r(:)-rStrat))/(half*ampVisc+(half*ampVisc-half)*  &
+            &          tanh(slopeVisc*(r(:)-rStrat))+half)
+
+         case default ! default: constant kinematic viscosity
+            visc(:)   =one
+            dLvisc(:) =0.0_cp
+            ddLvisc(:)=0.0_cp
+
+      end select
 
       if ( l_anelastic_liquid .or. l_non_adia ) then
          divKtemp0=rho0*kappa*(d2temp0+(beta+dLkappa+two*or1)*temp0*dLtemp0)*sq4pi
@@ -1351,68 +1355,69 @@ contains
       ! in case stable stratification is required
       !
 
-      integer :: n_r
+      select case(nVarEntropyGrad)
 
-      if ( nVarEntropyGrad == 0 ) then ! Default: isentropic
-         dEntropy0(:)=0.0_cp
-         l_non_adia = .false.
-      else if ( nVarEntropyGrad == 1 ) then ! Takehiro
-         if ( rStrat <= r_icb .or. rStrat >= r_cmb ) then
-            dentropy0(:) = ampStrat
-         else
-            dentropy0(:) = -half*(ampStrat+one)*(one-tanh(slopeStrat*(r(:)-rStrat)))&
-            &              + ampStrat
-         end if
-         l_non_adia = .true.
-      else if ( nVarEntropyGrad == 2 ) then ! Flat + linear
-         if ( rStrat <= r_icb .or. rStrat >= r_cmb ) then
-            dentropy0(:) = ampStrat
-         else
-            do n_r=1,n_r_max
-               if ( r(n_r) <= rStrat .or. rStrat >= r_cmb) then
-                  dentropy0(n_r)=-one
-               else
-                  dentropy0(n_r)=(ampStrat+one)*(r(n_r)-r_cmb)/(r_cmb-rStrat) + &
-                  &              ampStrat
-               end if
-            end do
-         end if
-         l_non_adia = .true.
-      else if ( nVarEntropyGrad == 3 ) then ! SSL
-         if ( rStrat <= r_icb  .or. rStrat >= r_cmb) then
-            dentropy0(:) = -one
-         else
-            dentropy0(:) = 0.25_cp*(ampStrat+one)*(one+tanh(slopeStrat*(r(:)-rStrat)))&
-            &              *(one-tanh(slopeStrat*(r(:)-rStrat-thickStrat)))           &
-            &              - one
-         end if
-         l_non_adia = .true.
-      else if ( nVarEntropyGrad == 4 ) then ! modified Takehiro
-         if ( rStrat <= r_icb .or. rStrat >= r_cmb ) then
+         case(1) ! Takehiro
+            if ( rStrat <= r_icb .or. rStrat >= r_cmb ) then
+               dentropy0(:) = ampStrat
+            else
+               dentropy0(:) = -half*(ampStrat+one)*(one-tanh(slopeStrat*(r(:)-rStrat)))&
+               &              + ampStrat
+            end if
+            l_non_adia = .true.
+
+         case(2) ! Flat + linear
+            if ( rStrat <= r_icb .or. rStrat >= r_cmb ) then
+               dentropy0(:) = ampStrat
+            else
+               where ( r <= rStrat )
+                  dentropy0 = -one
+               else where
+                  dentropy0 = (ampStrat+one)*(r-r_cmb)/(r_cmb-rStrat) + ampStrat
+               end where
+            end if
+            l_non_adia = .true.
+
+         case(3) ! SSL
+            if ( rStrat <= r_icb  .or. rStrat >= r_cmb) then
+               dentropy0(:) = -one
+            else
+               dentropy0(:) = 0.25_cp*(ampStrat+one)*(one+tanh(slopeStrat*(r(:)-rStrat)))&
+               &              *(one-tanh(slopeStrat*(r(:)-rStrat-thickStrat)))           &
+               &              - one
+            end if
+            l_non_adia = .true.
+
+         case(4) ! modified Takehiro
+            if ( rStrat <= r_icb .or. rStrat >= r_cmb ) then
+               dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3-r_icb**3)*(r_icb/r(:))**2
+            else
+               dentropy0(:) = half*(-ampStrat+(r(:)**3-r_cmb**3)/(r_cmb**3-r_icb**3)* &
+               &              (r_icb/r(:))**2)*(one-tanh(slopeStrat*(r(:)-rStrat))) + &
+               &              ampStrat
+            end if
+            l_non_adia = .true.
+
+         case(5) ! uniform volumic heat without strat
             dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3-r_icb**3)*(r_icb/r(:))**2
-         else
-            dentropy0(:) = half*(-ampStrat+(r(:)**3-r_cmb**3)/(r_cmb**3-r_icb**3)* &
-            &              (r_icb/r(:))**2)*(one-tanh(slopeStrat*(r(:)-rStrat))) +  &
-            &              ampStrat
-         end if
-         l_non_adia = .true.
-      else if ( nVarEntropyGrad == 5 ) then ! uniform volumic heat without strat
-         dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3-r_icb**3)*(r_icb/r(:))**2
-         l_non_adia = .true.
-      else if ( nVarEntropyGrad == 6 ) then ! Chemical heating + linear stratification
-         if ( rStrat <= r_icb .or. rStrat >= r_cmb ) then
-            dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3-r_icb**3)*(r_icb/r(:))**2
-         else
-            dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3-r_icb**3)*(r_icb/r(:))**2
-            do n_r=1,n_r_max
-               if ( r(n_r) >= rStrat ) then
-                  dentropy0(n_r) = dentropy0(n_r) + ampStrat*(r(n_r)-rStrat)/ &
-                  &                (r_cmb-rStrat)
-               end if
-            end do
-         end if
-         l_non_adia = .true.
-      end if
+            l_non_adia = .true.
+
+         case(6) ! Chemical heating + linear stratification
+            if ( rStrat <= r_icb .or. rStrat >= r_cmb ) then
+               dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3-r_icb**3)*(r_icb/r(:))**2
+            else
+               dentropy0(:) = (r(:)**3-r_cmb**3)/(r_cmb**3-r_icb**3)*(r_icb/r(:))**2
+               where ( r >= rStrat )
+                  dentropy0 = dentropy0 + ampStrat*(r-rStrat)/(r_cmb-rStrat)
+               end where
+            end if
+            l_non_adia = .true.
+
+         case default ! Default: isentropic
+            dEntropy0(:)=0.0_cp
+            l_non_adia = .false.
+
+      end select
 
    end subroutine getEntropyGradient
 !------------------------------------------------------------------------------
@@ -1467,10 +1472,8 @@ contains
       end if
 
       !-- renormalize
-      do n_r=1,n_r_max
-        workMat(n_r,1)      =rscheme_oc%boundary_fac*workMat(n_r,1)
-        workMat(n_r,n_r_max)=rscheme_oc%boundary_fac*workMat(n_r,n_r_max)
-      end do
+     workMat(:,1)      =rscheme_oc%boundary_fac*workMat(:,1)
+     workMat(:,n_r_max)=rscheme_oc%boundary_fac*workMat(:,n_r_max)
 
       do n_r=1,n_r_max
          workMat_fac(n_r,1)=one/maxval(abs(workMat(n_r,:)))
@@ -1491,22 +1494,16 @@ contains
          call abortRun('! Singular Matrix in getBackground!')
       end if
 
-      do n_r=2,n_r_max
-         rhs(n_r)=input(n_r)
-      end do
+      rhs(2:n_r_max)=input(2:n_r_max)
       rhs(1)=boundaryVal
 
-      do n_r=1,n_r_max
-         rhs(n_r)=rhs(n_r)*workMat_fac(n_r,1)
-      end do
+      rhs(:)=rhs(:)*workMat_fac(:,1)
 
       !-- Solve for s0:
       call solve_mat(workMat,n_r_max,n_r_max,workPivot,rhs)
 
       !-- Copy result to s0:
-      do n_r=1,n_r_max
-         output(n_r)=rhs(n_r)*workMat_fac(n_r,2)
-      end do
+      output(:)=rhs(:)*workMat_fac(:,2)
 
       !-- Set cheb-modes > n_cheb_max to zero:
       if ( rscheme_oc%n_max < n_r_max ) then

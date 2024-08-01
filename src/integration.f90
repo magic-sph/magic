@@ -241,8 +241,8 @@ contains
                   exit rbracket
                end if
             end do rbracket
-            if(n_r2 == n_r_max-1) n_r2=n_r_max-2
-            if(n_r2 == 1 ) n_r2=2
+            if (n_r2 == n_r_max-1) n_r2=n_r_max-2
+            if (n_r2 == 1 ) n_r2=2
             n_r3=n_r2-1
             n_r1=n_r2+1
             n_r0=n_r2+2
@@ -253,7 +253,7 @@ contains
             else
                n_th1=n_theta_max
                tbracket: do n_th=n_theta_max,1,-1
-                  if( theta(n_th) <= thet) then
+                  if ( theta(n_th) <= thet) then
                      n_th1=n_th
                      exit tbracket
                   end if
@@ -438,7 +438,7 @@ contains
             else
                n_th1=n_theta_max
                tbracket: do n_th=n_theta_max,1,-1
-                  if( theta(n_th) <= thet) then
+                  if ( theta(n_th) <= thet) then
                      n_th1=n_th
                      exit tbracket
                   end if

@@ -98,7 +98,7 @@ contains
       theta_found = .false.
 
       do n_theta=1,n_theta_max,2
-         if( n_theta == n_theta_usr) then
+         if ( n_theta == n_theta_usr) then
             theta_found = .true.
             n_theta_probe = n_theta
             exit

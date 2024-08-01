@@ -14,9 +14,9 @@ module start_fields
        &                       otemp1, ogrun, dentropy0, dxicond, r_icb
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
        &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
-       &                          ViscHeatFac, impXi, ampForce
+       &                          ViscHeatFac, impXi
    use num_param, only: dtMax, alpha
-   use special, only: lGrenoble
+   use special, only: lGrenoble, ampForce
    use output_data, only: log_file, n_log_file
    use blocking, only: lo_map, llm, ulm, ulmMag, llmMag
    use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &

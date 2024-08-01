@@ -69,7 +69,6 @@ contains
 
       !-- Inner core:
       if ( lIC ) then
-
          lAS=.true.
          if ( trim(adjustl(fileRoot)) == 'rBrAdvSpec' ) lAS= .false.
 
@@ -77,10 +76,6 @@ contains
 
          do n_r=2,n_r_ic_max
             rRatio=r_ic(n_r)/r_ic(1)
-            do l=1,6
-               e_p(l,n_r_max-1+n_r)=0.0_cp
-               e_p_AS(l,n_r_max-1+n_r)=0.0_cp
-            end do
             do lm=llm,ulm
                l=map%lm2l(lm)
                if ( l > 0 .and. l <= 6 ) then
@@ -104,13 +99,6 @@ contains
                      e_p(l,n_r_max-1+n_r)=e_p(l,n_r_max-1+n_r) + fac*e_p_temp
                   end if
                end if
-            end do
-         end do
-      else
-         do n_r=2,n_r_ic_max
-            do l=1,6
-               e_p_AS(l,n_r_max-1+n_r)=0.0_cp
-               e_p(l,n_r_max-1+n_r)   =0.0_cp
             end do
          end do
       end if
@@ -190,13 +178,6 @@ contains
          end do    ! do loop over lms in block
       end do    ! radial grid points
 
-      !-- Inner core:
-      do n_r=2,n_r_ic_max
-         do l=1,6
-            e_t_AS(l,n_r_max-1+n_r)=0.0_cp
-            e_t(l,n_r_max-1+n_r)   =0.0_cp
-         end do
-      end do
       if ( lIC .and. l_cond_ic ) then
 
          lAS=.true.
