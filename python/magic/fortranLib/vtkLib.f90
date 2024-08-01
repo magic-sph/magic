@@ -385,7 +385,7 @@ subroutine getCode(scalcodes,scalnames,nscals,veccodes,vecnames,nvecs)
       if ( scalcodes(i) == 2) scalnames(i) = 'Magnetic energy'
       if ( scalcodes(i) == 3) scalnames(i) = 'z vorticity'
       if ( scalcodes(i) == 4) scalnames(i) = 'Radial velocity'
-      if ( scalcodes(i) == 5) scalnames(i) = 'Zonal velocity'
+      if ( scalcodes(i) == 5) scalnames(i) = 'Azimuthal velocity'
       if ( scalcodes(i) == 6) scalnames(i) = 'Fluct. entropy'
       if ( scalcodes(i) == 7) scalnames(i) = 'Fluct. z vorticity'
       if ( scalcodes(i) == 8) scalnames(i) = 'Radial vorticity'
