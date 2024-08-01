@@ -868,7 +868,6 @@ contains
 
                      if ( l1 == 2 .and. m1 == 0 ) then
                         if ( amp_tide /= 0.0_cp ) then
-
                            rhs1(1,2*lm-1,threadid)=rhs1(1,2*lm-1,threadid)         &
                            &                  + tide_fac20/real(l1*(l1+1),kind=cp) &
                            &                    * cos(omega_tide*(time))
