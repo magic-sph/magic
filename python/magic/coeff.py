@@ -653,7 +653,7 @@ class MagicCoeffR(MagicSetup):
     """
 
     def __init__(self, tag, datadir='.', ratio_cmb_surface=1, scale_b=1, iplot=True,
-                 field='B', r=1, precision=np.float64, lCut=None, quiet=False, step=1):
+                 field='V', r=1, precision=np.float64, lCut=None, quiet=False, step=1):
         """
         :param tag: if you specify a pattern, it tries to read the corresponding files
         :type tag: str
