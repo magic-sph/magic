@@ -1267,6 +1267,8 @@ contains
       ! in case stable stratification is required
       !
 
+      integer :: k
+
       select case(nVarEntropyGrad)
 
          case(1) ! Takehiro
@@ -1325,8 +1327,28 @@ contains
             end if
             l_non_adia = .true.
 
+         case(7) ! N stratified layers, given by arrays
+            dentropy0(:) = -one
+
+            ! Check if bottom SSL exists
+            if ( ampStrat_arr(1) > 0.0_cp ) then
+               dentropy0(:) = dentropy0(:) + (ampStrat_arr(1)+one) *         &
+               &             (one - half * (one-tanh(slopeStrat_arr(1) *  &
+               &                               (rStrat_arr(1) - r(:)))) )
+            end if
+
+            ! Subsequent ones
+            do k=2,nSSLmax
+               dentropy0(:) = dentropy0(:) + ( 0.25_cp * (ampStrat_arr(k)+one)* &
+               &                 (one+tanh(slopeStrat_arr(k) * (r(:)-rStrat_arr(k)))) *  &
+               &                 (one - tanh(slopeStrat_arr(k) * (r(:) -   &
+               &                 rStrat_arr(k) - thickStrat_arr(k))) ) )
+            end do
+
+            l_non_adia = .true.
+
          case default ! Default: isentropic
-            dEntropy0(:)=0.0_cp
+            dentropy0(:)=0.0_cp
             l_non_adia = .false.
 
       end select

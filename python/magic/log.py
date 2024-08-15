@@ -87,6 +87,15 @@ class MagicSetup:
             if not quiet:
                 print(err)
 
+        try:
+            if self.nVarEntropyGrad == 7:
+                self.ampStrat_arr = np.float32(self.ampStrat_arr.split("  "))
+                self.rStrat_arr = np.float32(self.rStrat_arr.split("  "))
+                self.thickStrat_arr = np.float32(self.thickStrat_arr.split("  "))
+                self.slopeStrat_arr = np.float32(self.slopeStrat_arr.split("  "))
+        except AttributeError as err:
+            if not quiet:
+                print(err)
     #def __repr__(self):
         #st = 'Welcome in the run {}\n'.format(self.tag)
         #st += ' ---- Params ---- \n'
