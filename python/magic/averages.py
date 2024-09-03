@@ -57,7 +57,7 @@ def to_json(o, level=0):
         ret += "[" + ','.join(map(str, o.flatten().tolist())) + "]"
     elif isinstance(o, np.ndarray) and np.issubdtype(o.dtype, np.bool_):
         ret += "[" + ','.join(map(lambda x: '"{}"'.format(x), o.flatten().tolist())) + "]"
-    elif isinstance(o, np.ndarray) and np.issubdtype(o.dtype, np.str):
+    elif isinstance(o, np.ndarray) and np.issubdtype(o.dtype, np.str_):
         ret += "[" + ','.join(map(lambda x: '"{}"'.format(x), o.flatten().tolist())) + "]"
     elif isinstance(o, np.ndarray) and np.issubdtype(o.dtype, np.inexact):
         ret += "[" + ','.join(map(lambda x: '{:.8e}'.format(x), o.flatten().tolist())) + "]"
