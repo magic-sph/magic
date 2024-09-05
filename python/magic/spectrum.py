@@ -300,7 +300,7 @@ class MagicSpectrum(MagicSetup):
                                     self.ekin_torl_SD[1:], self.ekin_torl[1:]+\
                                     self.ekin_torl_SD[1:], alpha=0.2)
             if labTex:
-                ax.set_xlabel('Degree $\ell$')
+                ax.set_xlabel(r'Degree $\ell$')
             else:
                 ax.set_xlabel('Degree l')
             ax.set_ylabel('Kinetic energy')
