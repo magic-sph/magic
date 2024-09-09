@@ -76,17 +76,18 @@ contains
       &    radial_scheme,polo_flow_eq, time_scheme,         &
       &    mpi_transp,l_adv_curl,mpi_packing
 
-      namelist/phys_param/                                     &
-      &    ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,Bn,   &
-      &    ktops,kbots,ktopv,kbotv,ktopb,kbotb,kbotxi,ktopxi,  &
-      &    s_top,s_bot,impS,sCMB,xi_top,xi_bot,impXi,xiCMB,    &
-      &    nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch,  &
-      &    con_LambdaOut,con_FuncWidth,ThExpNb,GrunNb,         &
-      &    strat,polind,DissNb,g0,g1,g2,r_cut_model,thickStrat,&
-      &    epsS,slopeStrat,rStrat,ampStrat,cmbHflux,r_LCR,     &
-      &    nVarDiff,nVarVisc,difExp,nVarEps,interior_model,    &
-      &    nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,   &
-      &    dilution_fac,stef,tmelt,phaseDiffFac,penaltyFac,    &
+      namelist/phys_param/                                        &
+      &    ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,Bn,      &
+      &    ktops,kbots,ktopv,kbotv,ktopb,kbotb,kbotxi,ktopxi,     &
+      &    s_top,s_bot,impS,sCMB,xi_top,xi_bot,impXi,xiCMB,       &
+      &    nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch,     &
+      &    con_LambdaOut,con_FuncWidth,ThExpNb,GrunNb,            &
+      &    strat,polind,DissNb,g0,g1,g2,r_cut_model,thickStrat,   &
+      &    epsS,slopeStrat,rStrat,ampStrat,ampStrat_arr,          &
+      &    rStrat_arr,thickStrat_arr,slopeStrat_arr,cmbHflux,     &
+      &    r_LCR,nVarDiff,nVarVisc,difExp,nVarEps,interior_model, &
+      &    nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,      &
+      &    dilution_fac,stef,tmelt,phaseDiffFac,penaltyFac,       &
       &    epsPhase,ktopphi,kbotphi,ampForce
 
       namelist/B_external/                                     &
@@ -953,6 +954,37 @@ contains
       write(n_out,'(''  ampStrat        ='',ES14.6,'','')') ampStrat
       write(n_out,'(''  thickStrat      ='',ES14.6,'','')') thickStrat
       write(n_out,'(''  nVarEntropyGrad ='',i3,'','')') nVarEntropyGrad
+
+      if (nVarEntropyGrad == 7) then
+         write(n_out,'("  ampStrat_arr    =")',advance="no")
+         do i=1,nSSLmax
+            if ( ampStrat_arr(i) > 0.0_cp ) &
+            &  write(n_out,'(1p,ES14.6)',advance="no") ampStrat_arr(i)
+         end do
+         write(n_out,*) ""
+
+         write(n_out,'("  rStrat_arr      =")',advance="no")
+         do i=1,nSSLmax
+            if ( ampStrat_arr(i) > 0.0_cp ) &
+            &  write(n_out,'(1p,ES14.6)',advance="no") rStrat_arr(i)
+         end do
+         write(n_out,*) ""
+
+         write(n_out,'("  thickStrat_arr  =")',advance="no")
+         do i=1,nSSLmax
+            if ( ampStrat_arr(i) > 0.0_cp ) &
+            &  write(n_out,'(1p,ES14.6)',advance="no") thickStrat_arr(i)
+         end do
+         write(n_out,*) ""
+
+         write(n_out,'("  slopeStrat_arr  =")',advance="no")
+         do i=1,nSSLmax
+            if ( ampStrat_arr(i) > 0.0_cp ) &
+            &  write(n_out,'(1p,ES14.6)',advance="no") slopeStrat_arr(i)
+         end do
+         write(n_out,*) ""
+      end if
+
       write(n_out,'(''  radratio        ='',ES14.6,'','')') radratio
       write(n_out,'(''  l_isothermal    ='',l3,'','')') l_isothermal
       write(n_out,'(''  phaseDiffFac    ='',ES14.6,'','')') phaseDiffFac
@@ -1386,6 +1418,10 @@ contains
       ampStrat   =10.0_cp
       thickStrat =0.1_cp
       nVarEntropyGrad=0
+      ampStrat_arr(:) = -one
+      rStrat_arr(:) = 0.0_cp
+      thickStrat_arr(:) = 0.0_cp
+      slopeStrat_arr(:) = 0.0_cp
       !----- Gravity parameters: defaut value g propto r (i.e. g1=1)
       g0         =0.0_cp
       g1         =one

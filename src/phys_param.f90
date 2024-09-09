@@ -62,6 +62,14 @@ module physical_parameters
    real(cp) :: ampStrat       ! stratified Layer
    real(cp) :: thickStrat     ! stratified Layer
    integer  :: nVarEntropyGrad! stratified Layer
+
+   ! Parameters for multiple stably stratified layers
+   integer, parameter :: nSSLmax = 5 ! Max number of stratified layers, first one is bottom SSL
+   real(cp) :: ampStrat_arr(nSSLmax) ! Amplitude array
+   real(cp) :: rStrat_arr(nSSLmax) ! Radii array, first one is radius of bottom SSL
+   real(cp) :: thickStrat_arr(nSSLmax) ! Thickess, first one ignored
+   real(cp) :: slopeStrat_arr(nSSLmax) ! Slope array
+
    character(len=72) :: interior_model ! name of the interior model
    real(cp) :: r_cut_model    ! Percentage on the inner part of the interior model to be used
    real(cp) :: g0             ! Set to 1.0 for constant gravity

@@ -343,8 +343,6 @@ mem_alloc.o           : parallel.o precision_mod.o output_data.o
 out_TO.o              : truncation.o horizontal.o num_param.o logic.o\
                         phys_param.o radial.o parallel.o integration.o\
                         constants.o output_data.o TO.o useful.o mem_alloc.o
-dtB_arrays.o          : truncation.o precision_mod.o constants.o\
-                        mem_alloc.o
 courant.o             : truncation.o blocking.o num_param.o\
                         phys_param.o radial.o horizontal.o logic.o\
                         useful.o radial_data.o parallel.o
@@ -417,10 +415,9 @@ LMLoop.o              : truncation.o blocking.o parallel.o time_array.o\
                         logic.o radial_data.o updateWPS.o\
                         output_data.o fields.o dt_fieldsLast.o\
                         updateS.o updateB.o mem_alloc.o updateXI.o\
-                        updateZ.o updateWP.o  debugging.o
+                        updateZ.o updateWP.o
 mpi_transpose.o       : precision_mod.o truncation.o radial_data.o\
                         mem_alloc.o parallel.o blocking.o
-debugging.o           : precision_mod.o precision_mod.o
 timing.o              : parallel.o precision_mod.o
 radial_derivatives.o  : $(DCT_OBJS) constants.o precision_mod.o chebyshev.o
 output.o              : truncation.o blocking.o phys_param.o\

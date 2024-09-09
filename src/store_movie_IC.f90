@@ -349,8 +349,8 @@ contains
                            frames(n_o)=        help*O_sin_theta(nThetaR) * &
                            &    ( cBrB(nThetaR,nPhi0)*BtB(nThetaR,nPhi0) - &
                            &      cBtB(nThetaR,nPhi0)*BrB(nThetaR,nPhi0) )
-                           frames(n_o)=            help*O_sin_theta(nThetaR) * &
-                           &    ( cBrB(nThetaR,nPhi180)*BtB(nThetaR,nPhi180) - &
+                           frames(n_o+n_field_size)=help*O_sin_theta(nThetaR) * &
+                           &    ( cBrB(nThetaR,nPhi180)*BtB(nThetaR,nPhi180) -  &
                            &      cBtB(nThetaR,nPhi180)*BrB(nThetaR,nPhi180) )
                         end do
                      else
