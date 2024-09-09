@@ -6,7 +6,11 @@ module dtB_mod
    !
    use precision_mod
    use parallel_mod
+#ifdef WITH_OMP_GPU
+   use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
+#else
    use mem_alloc, only: bytes_allocated
+#endif
    use truncation, only: n_r_maxMag, n_r_ic_maxMag, n_r_max, lm_max,   &
        &                 n_cheb_max, n_r_ic_max, l_max, n_phi_max,     &
        &                 n_theta_max, nlat_padded
@@ -29,7 +33,7 @@ module dtB_mod
 #else
    use sht, only: scal_to_SH, sht_l_single, spat_to_sphertor
 #endif
-   use constants, only: two, ci
+   use constants, only: zero, two, ci
    use radial_der, only: get_dr
 
    implicit none
@@ -62,6 +66,19 @@ module dtB_mod
    complex(cp), public, allocatable :: PadvLMIC_LMloc(:,:), PdifLMIC_LMloc(:,:)
    complex(cp), public, allocatable :: TadvLMIC_LMloc(:,:), TdifLMIC_LMloc(:,:)
 
+   !-- Local private complex arrays for SH transforms
+   !-- arrays depending on r:
+#ifdef WITH_OMP_GPU
+   !$omp declare target(BtVrLM, BpVrLM, BrVtLM, BrVpLM, BtVpLM, &
+   !$omp&               BpVtLM, BpVtBtVpCotLM, BpVtBtVpSn2LM,   &
+   !$omp&               BrVZLM, BtVZLM, BtVZsn2LM)
+#endif
+
+   complex(cp), allocatable :: BtVrLM(:), BpVrLM(:), BrVtLM(:)
+   complex(cp), allocatable :: BtVpLM(:), BpVtLM(:), BrVpLM(:)
+   complex(cp), allocatable :: BpVtBtVpCotLM(:), BpVtBtVpSn2LM(:)
+   complex(cp), allocatable :: BtVZLM(:), BtVZsn2LM(:), BrVZLM(:)
+
    class(type_mpitransp), pointer :: r2lo_dtB
 
    public :: initialize_dtB_mod, get_dtBLMfinish, get_dtBLM, get_dH_dtBLM, &
@@ -79,7 +96,6 @@ contains
       ! The remaining global arrays should be suppressed, they are only
       ! needed because of some movie outputs
       !
-
       if ( l_dtBmovie ) then
          if ( rank == 0 ) then
             allocate( PstrLM(lm_max,n_r_max), PadvLM(lm_max,n_r_max) )
@@ -101,6 +117,34 @@ contains
             allocate( TdifLMIC(1,1) )
          end if
       end if
+
+      allocate( BtVrLM(lm_max), BpVrLM(lm_max), BrVtLM(lm_max), BrVpLM(lm_max) )
+      allocate( BtVpLM(lm_max), BpVtLM(lm_max), BpVtBtVpCotLM(lm_max) )
+      allocate( BpVtBtVpSn2LM(lm_max), BrVZLM(lm_max), BtVZLM(lm_max) )
+      allocate( BtVZsn2LM(lm_max) )
+      bytes_allocated = bytes_allocated+ 11*lm_max*SIZEOF_DEF_COMPLEX
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc: BtVrLM, BpVrLM, BrVtLM, BrVpLM, BtVpLM, &
+      !$omp&                             BpVtLM, BpVtBtVpCotLM, BpVtBtVpSn2LM,   &
+      !$omp&                             BrVZLM, BtVZLM, BtVZsn2LM)
+      gpu_bytes_allocated = gpu_bytes_allocated + 11*lm_max*SIZEOF_DEF_COMPLEX
+#endif
+      BtVrLM(:) = zero
+      BpVrLM(:) = zero
+      BrVtLM(:) = zero
+      BrVpLM(:) = zero
+      BtVpLM(:) = zero
+      BpVtLM(:) = zero
+      BrVZLM(:) = zero
+      BtVZLM(:) = zero
+      BpVtBtVpCotLM(:) = zero
+      BpVtBtVpSn2LM(:) = zero
+      BtVZsn2LM(:) = zero
+#ifdef WITH_OMP_GPU
+      !$omp target update to(BtVrLM, BpVrLM, BrVtLM, BrVpLM, BtVpLM, &
+      !$omp&                 BpVtLM, BpVtBtVpCotLM, BpVtBtVpSn2LM,   &
+      !$omp&                 BrVZLM, BtVZLM, BtVZsn2LM)
+#endif
 
       allocate( PdifLM_LMloc(llmMag:ulmMag,n_r_max) )
       allocate( TdifLM_LMloc(llmMag:ulmMag,n_r_max) )
@@ -153,6 +197,14 @@ contains
          deallocate( TdifLMIC, TadvLMIC, PdifLMIC, PadvLMIC, TdifLM, PdifLM )
       end if
 
+      deallocate( BtVrLM, BpVrLM, BrVtLM, BrVpLM, BtVpLM, BpVtLM )
+      deallocate( BpVtBtVpCotLM, BpVtBtVpSn2LM, BrVZLM, BtVZLM, BtVZsn2LM )
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete: BtVrLM, BpVrLM, BrVtLM, BrVpLM, BtVpLM, &
+      !$omp&                             BpVtLM, BpVtBtVpCotLM, BpVtBtVpSn2LM,   &
+      !$omp&                             BrVZLM, BtVZLM, BtVZsn2LM)
+      gpu_bytes_allocated = gpu_bytes_allocated + 11*lm_max*SIZEOF_DEF_COMPLEX
+#endif
       deallocate( PdifLM_LMloc, TdifLM_LMloc, PadvLMIC_LMloc, PdifLMIC_LMloc )
       deallocate( TadvLMIC_LMloc, TdifLMIC_LMloc )
       deallocate( dtB_Rloc_container, dtB_LMloc_container )
@@ -182,9 +234,7 @@ contains
 
    end subroutine dtb_gather_lo_on_rank0
 !----------------------------------------------------------------------------
-   subroutine  get_dtBLM(nR,vr,vt,vp,br,bt,bp,BtVrLM,BpVrLM,BrVtLM,BrVpLM, &
-               &         BtVpLM,BpVtLM,BrVZLM,BtVZLM,BpVtBtVpCotLM,        &
-               &         BpVtBtVpSn2LM,BtVZsn2LM)
+   subroutine  get_dtBLM(nR,vr,vt,vp,br,bt,bp)
       !
       !  This subroutine calculates non-linear products in grid-space for radial
       !  level nR.
@@ -194,15 +244,6 @@ contains
       integer,  intent(in) :: nR
       real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
       real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
-
-      !-- Output variables:
-      complex(cp), intent(out) :: BtVrLM(:),BpVrLM(:)
-      complex(cp), intent(out) :: BrVtLM(:),BrVpLM(:)
-      complex(cp), intent(out) :: BtVpLM(:),BpVtLM(:)
-      complex(cp), intent(out) :: BrVZLM(:),BtVZLM(:)
-      complex(cp), intent(out) :: BpVtBtVpCotLM(:)
-      complex(cp), intent(out) :: BpVtBtVpSn2LM(:)
-      complex(cp), intent(out) :: BtVZsn2LM(:)
 
       !-- Local variables:
       integer :: n_theta,n_phi
@@ -319,6 +360,11 @@ contains
 
       !$omp target exit data map(delete: BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
       !$omp&                             BpVtBtVpCot, BpVtBtVpSn2, BtVZsn2, vpAS)
+
+      !-- Likely useless: we do not need them on CPU
+      !$omp target update from(BtVrLM, BpVrLM, BrVtLM, BrVpLM, BtVpLM, &
+      !$omp&                   BpVtLM, BpVtBtVpCotLM, BpVtBtVpSn2LM,   &
+      !$omp&                   BrVZLM, BtVZLM, BtVZsn2LM)
 #else
       call spat_to_sphertor(sht_l_single, BtVr, BpVr, BtVrLM, BpVrLM, l_max)
       call spat_to_sphertor(sht_l_single, BrVt, BrVp, BrVtLM, BrVpLM, l_max)
@@ -336,9 +382,7 @@ contains
 
    end subroutine get_dtBLM
 !-----------------------------------------------------------------------
-   subroutine  get_dtBLM_batch(nR,vr,vt,vp,br,bt,bp,BtVrLM,BpVrLM,BrVtLM,BrVpLM, &
-               &               BtVpLM,BpVtLM,BrVZLM,BtVZLM,BpVtBtVpCotLM,        &
-               &               BpVtBtVpSn2LM,BtVZsn2LM)
+   subroutine  get_dtBLM_batch(nR,vr,vt,vp,br,bt,bp)
       !
       !  This subroutine calculates non-linear products in grid-space for radial
       !  level nR.
@@ -348,15 +392,6 @@ contains
       integer,  intent(in) :: nR
       real(cp), intent(in) :: vr(:,:,:),vt(:,:,:),vp(:,:,:)
       real(cp), intent(in) :: br(:,:,:),bt(:,:,:),bp(:,:,:)
-
-      !-- Output variables:
-      complex(cp), intent(out) :: BtVrLM(:),BpVrLM(:)
-      complex(cp), intent(out) :: BrVtLM(:),BrVpLM(:)
-      complex(cp), intent(out) :: BtVpLM(:),BpVtLM(:)
-      complex(cp), intent(out) :: BrVZLM(:),BtVZLM(:)
-      complex(cp), intent(out) :: BpVtBtVpCotLM(:)
-      complex(cp), intent(out) :: BpVtBtVpSn2LM(:)
-      complex(cp), intent(out) :: BtVZsn2LM(:)
 
       !-- Local variables:
       integer :: n_theta,n_phi
@@ -473,6 +508,10 @@ contains
 
       !$omp target exit data map(delete: BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
       !$omp&                             BpVtBtVpCot, BpVtBtVpSn2, BtVZsn2, vpAS)
+
+      !$omp target update from(BtVrLM, BpVrLM, BrVtLM, BrVpLM, BtVpLM, &
+      !$omp&                   BpVtLM, BpVtBtVpCotLM, BpVtBtVpSn2LM,   &
+      !$omp&                   BrVZLM, BtVZLM, BtVZsn2LM)
 #else
       call spat_to_sphertor(sht_l_single, BtVr, BpVr, BtVrLM, BpVrLM, l_max)
       call spat_to_sphertor(sht_l_single, BrVt, BrVp, BrVtLM, BrVpLM, l_max)
@@ -490,8 +529,7 @@ contains
 
    end subroutine get_dtBLM_batch
 !-----------------------------------------------------------------------
-   subroutine get_dH_dtBLM(nR,BtVrLM,BpVrLM,BrVtLM,BrVpLM,BtVpLM,BpVtLM, &
-              &            BrVZLM,BtVZLM,BpVtBtVpCotLM,BpVtBtVpSn2LM)
+   subroutine get_dH_dtBLM(nR)
       !
       !  Purpose of this routine is to calculate theta and phi
       !  derivative related terms of the magnetic production and
@@ -500,12 +538,6 @@ contains
 
       !-- Input variables:
       integer,     intent(in) :: nR
-      complex(cp), intent(in) :: BtVrLM(:),BpVrLM(:)
-      complex(cp), intent(in) :: BrVtLM(:),BrVpLM(:)
-      complex(cp), intent(in) :: BtVpLM(:),BpVtLM(:)
-      complex(cp), intent(in) :: BpVtBtVpCotLM(:)
-      complex(cp), intent(in) :: BpVtBtVpSn2LM(:)
-      complex(cp), intent(in) :: BrVZLM(:),BtVZLM(:)
 
       !-- Local variables:
       integer :: l,m,lm,lmS,lmA

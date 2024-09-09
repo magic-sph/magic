@@ -314,12 +314,12 @@ contains
                write(output_unit,"(4X,2(A,I4))") "Subblocks of Block ",n,"/",n_procs
                do n2=1,sub_map%nLMBs2(n)
                   write(output_unit,"(8X,3(A,I4))") "subblock no. ",n2,", of ",&
-                       & sub_map%nLMBs2(n)," with size ",sub_map%sizeLMB2(n2,n)
+                  &      sub_map%nLMBs2(n)," with size ",sub_map%sizeLMB2(n2,n)
                   do n3=1,sub_map%sizeLMB2(n2,n)
-                     write(output_unit,"(10X,A,I4,A,I6,2I4)") "local lm is ",n3,      &
-                          &" translates into global lm,l,m : ",             &
-                          & sub_map%lm22lm(n3,n2,n),sub_map%lm22l(n3,n2,n), &
-                          & sub_map%lm22m(n3,n2,n)
+                     write(output_unit,"(10X,A,I4,A,I6,2I4)") "local lm is ",n3,  &
+                     &    " translates into global lm,l,m : ",                    &
+                     &     sub_map%lm22lm(n3,n2,n),sub_map%lm22l(n3,n2,n),        &
+                     &     sub_map%lm22m(n3,n2,n)
                   end do
                end do
             end if
@@ -426,7 +426,7 @@ contains
 
       if ( lm /= map%lm_max ) then
          write(output_unit,"(2(A,I6))") 'get_lorder_lm_blocking: Wrong lm = ',lm, &
-                              " != map%lm_max = ",map%lm_max
+         &                              " != map%lm_max = ",map%lm_max
          call abortRun('Stop run in blocking')
       end if
       do lm=1,map%lm_max

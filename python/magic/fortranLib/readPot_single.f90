@@ -1,15 +1,17 @@
 module potreader_single
 
+   use iso_fortran_env, only: cp => real32
+
    implicit none
 
-   real(kind=4) :: ra, ek, pr, prmag, radratio, sigma_ratio, omega_ma, omega_ic
-   real(kind=4) :: raxi, sc
-   real(kind=4) :: time
+   real(cp) :: ra, ek, pr, prmag, radratio, sigma_ratio, omega_ma, omega_ic
+   real(cp) :: raxi, sc
+   real(cp) :: time
    integer :: n_r_max, l_max, n_r_ic_max, lm_max, minc, version
    integer :: m_min, m_max
-   real(kind=4), allocatable :: radius(:), rho0(:)
-   complex(kind=4), allocatable :: pol(:,:), tor(:,:)
-   complex(kind=4), allocatable :: pol_ic(:,:), tor_ic(:,:)
+   real(cp), allocatable :: radius(:), rho0(:)
+   complex(cp), allocatable :: pol(:,:), tor(:,:)
+   complex(cp), allocatable :: pol_ic(:,:), tor_ic(:,:)
 
 contains
 

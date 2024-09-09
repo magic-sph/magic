@@ -33,7 +33,6 @@ module rIter_batched_mod
    use nonlinear_lm_mod, only: nonlinear_lm_t
    use nonlinear_lm_2d_mod, only: nonlinear_lm_2d_t
    use grid_space_arrays_3d_mod, only: grid_space_arrays_3d_t
-   use dtB_arrays_mod, only: dtB_arrays_t
    use torsional_oscillations, only: prep_TO_axi, getTO, getTOnext, getTOfinish
 #ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi, graphOut_mpi_header
@@ -76,7 +75,6 @@ module rIter_batched_mod
 
    type, public, extends(rIter_t) :: rIter_batched_t
       type(grid_space_arrays_3d_t) :: gsa
-      type(dtB_arrays_t) :: dtB_arrays
       type(nonlinear_lm_2d_t) :: nl_lm
    contains
       procedure :: initialize
@@ -100,7 +98,6 @@ contains
 #endif
 
       call this%gsa%initialize(nRstart,nRstop)
-      if ( l_RMS .or. l_DTrMagSpec ) call this%dtB_arrays%initialize()
       call this%nl_lm%initialize(lm_max,nRstart,nRstop)
 
       allocate(dLw(lm_max,nRstart:nRstop), dLz(lm_max,nRstart:nRstop))
@@ -124,7 +121,6 @@ contains
       class(rIter_batched_t) :: this
 
       call this%gsa%finalize()
-      if ( l_RMS .or. l_DTrMagSpec ) call this%dtB_arrays%finalize()
       call this%nl_lm%finalize()
 
 #ifdef WITH_OMP_GPU
@@ -407,21 +403,8 @@ contains
          !--------- Calculation of magnetic field production and advection terms
          !          for graphic output:
          if ( l_dtB ) then
-#ifdef WITH_OMP_GPU
-            !$omp target update to(this%dtB_arrays)
-#endif
             call get_dtBLM_batch(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,       &
-                 &               this%gsa%brc,this%gsa%btc,this%gsa%bpc,          &
-                 &               this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,   &
-                 &               this%dtB_arrays%BrVtLM,this%dtB_arrays%BrVpLM,   &
-                 &               this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,   &
-                 &               this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,   &
-                 &               this%dtB_arrays%BpVtBtVpCotLM,                   &
-                 &               this%dtB_arrays%BpVtBtVpSn2LM,                   &
-                 &               this%dtB_arrays%BtVZsn2LM)
-#ifdef WITH_OMP_GPU
-            !$omp target update from(this%dtB_arrays)
-#endif
+                 &               this%gsa%brc,this%gsa%btc,this%gsa%bpc)
          end if
 
 
@@ -465,14 +448,7 @@ contains
 
          !--- Form partial horizontal derivaties of magnetic production and
          !    advection terms:
-         if ( l_dtB ) then
-            call get_dH_dtBLM(nR,this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM, &
-                 &            this%dtB_arrays%BrVtLM,this%dtB_arrays%BrVpLM,    &
-                 &            this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,    &
-                 &            this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,    &
-                 &            this%dtB_arrays%BpVtBtVpCotLM,                    &
-                 &            this%dtB_arrays%BpVtBtVpSn2LM)
-         end if
+         if ( l_dtB ) call get_dH_dtBLM(nR)
 
       end do
 
