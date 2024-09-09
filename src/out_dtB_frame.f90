@@ -84,7 +84,6 @@ contains
       const       =movie_const(n_movie)
     
       !--- Axisymmetric dtFL or dtAB:
-    
       if ( n_type == 31 .or. n_type == 32 .or. n_type == 33 .or. &
       &    n_type == 41 .or. n_type == 42 .or. n_type == 43 ) then
     
@@ -151,7 +150,7 @@ contains
     
          end do
     
-         !--- dtBr:
+      !--- dtBr:
       else ! non-axisymmetric fields
     
          do n_field=1,n_fields
@@ -185,7 +184,6 @@ contains
             end if
     
             !------ Outer core contribution:
-    
             !------ Calculate needed radial derivatives:
             if ( n_field_type == 35 ) then
                call get_dr(PstrLM,workA,lm_max,1,lm_max, &
