@@ -28,7 +28,6 @@ module rIter_mod
    use constants, only: zero
    use nonlinear_lm_mod, only: nonlinear_lm_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
-   use dtB_arrays_mod, only: dtB_arrays_t
    use torsional_oscillations, only: prep_TO_axi, getTO, getTOnext, getTOfinish
 #ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi, graphOut_mpi_header
@@ -63,7 +62,6 @@ module rIter_mod
 
    type, public, extends(rIter_t) :: rIter_single_t
       type(grid_space_arrays_t) :: gsa
-      type(dtB_arrays_t) :: dtB_arrays
       type(nonlinear_lm_t) :: nl_lm
    contains
       procedure :: initialize
@@ -80,7 +78,6 @@ contains
       class(rIter_single_t) :: this
 
       call this%gsa%initialize()
-      if ( l_RMS .or. l_DTrMagSpec ) call this%dtB_arrays%initialize()
       call this%nl_lm%initialize(lm_max)
 
    end subroutine initialize
@@ -90,7 +87,6 @@ contains
       class(rIter_single_t) :: this
 
       call this%gsa%finalize()
-      if ( l_RMS .or. l_DTrMagSpec ) call this%dtB_arrays%finalize()
       call this%nl_lm%finalize()
 
    end subroutine finalize
@@ -390,15 +386,8 @@ contains
          !--------- Calculation of magnetic field production and advection terms
          !          for graphic output:
          if ( l_dtB ) then
-            call get_dtBLM(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,       &
-                 &         this%gsa%brc,this%gsa%btc,this%gsa%bpc,          &
-                 &         this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,   &
-                 &         this%dtB_arrays%BrVtLM,this%dtB_arrays%BrVpLM,   &
-                 &         this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,   &
-                 &         this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,   &
-                 &         this%dtB_arrays%BpVtBtVpCotLM,                   &
-                 &         this%dtB_arrays%BpVtBtVpSn2LM,                   &
-                 &         this%dtB_arrays%BtVZsn2LM)
+            call get_dtBLM(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,  &
+                 &         this%gsa%brc,this%gsa%btc,this%gsa%bpc)
          end if
 
 
@@ -450,14 +439,7 @@ contains
 
          !--- Form partial horizontal derivaties of magnetic production and
          !    advection terms:
-         if ( l_dtB ) then
-            call get_dH_dtBLM(nR,this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM, &
-                 &            this%dtB_arrays%BrVtLM,this%dtB_arrays%BrVpLM,    &
-                 &            this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,    &
-                 &            this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,    &
-                 &            this%dtB_arrays%BpVtBtVpCotLM,                    &
-                 &            this%dtB_arrays%BpVtBtVpSn2LM)
-         end if
+         if ( l_dtB ) call get_dH_dtBLM(nR)
 
       end do
 
