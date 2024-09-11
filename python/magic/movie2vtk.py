@@ -217,7 +217,7 @@ class Movie2Vtk:
             if self.movtype in [1, 2, 3, 14]:  # read inner core
                 shape = (self.n_theta_max, 2*(n_r_mov_tot+2))
                 self.n_theta_plot = 2*self.n_theta_max
-            elif self.movtype in [8, 9]:
+            elif self.movtype in [8, 9, 20, 21, 22, 23, 24, 25, 26]:
                 shape = (self.n_theta_max, n_r_mov_tot+2)
                 self.n_theta_plot = self.n_theta_max
             elif self.movtype in [4, 5, 6, 7, 15, 16, 17, 18, 47, 54,
