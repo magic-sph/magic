@@ -17,10 +17,10 @@ contains
               &            n_r_max,n_cheb_max,dr_fac,work1,work2, &
               &            chebt_odd, chebt_even)
       !
-      !  Returns first rarial derivative df and second radial
+      !  Returns first radial derivative df and second radial
       !  derivative ddf of the input function f.
       !  Array f(n_f_max,*) may contain several functions numbered by
-      !  the first index. The subroutine calculates the derivaties of
+      !  the first index. The subroutine calculates the derivatives of
       !  the functions f(n_f_start,*) to f(n_f_stop) by transforming
       !  to a Chebychev representation using n_r_max radial grid points.
       !  The cheb transforms have to be initialized by calling
@@ -73,10 +73,9 @@ contains
               &             n_r_max,n_cheb_max,dr_fac,work1, &
               &             chebt_odd, chebt_even)
       !
-      !  Returns first rarial derivative df and second radial
-      !  derivative ddf of the input function f.
+      !  Returns first rarial derivative df.
       !  Array f(n_f_max,*) may contain several functions numbered by
-      !  the first index. The subroutine calculates the derivaties of
+      !  the first index. The subroutine calculates the derivative of
       !  the functions f(n_f_start,*) to f(n_f_stop) by transforming
       !  to a Chebychev representation using n_r_max radial grid points.
       !  The cheb transforms have to be initialized by calling
@@ -116,10 +115,10 @@ contains
               &              n_r_max,n_cheb_max,dr_fac,work1,     &
               &              chebt_odd, chebt_even)
       !
-      !  Returns first rarial derivative df and second radial
+      !  Returns first radial derivative df and second radial
       !  derivative ddf of the input function f.
       !  Array f(n_f_max,*) may contain several functions numbered by
-      !  the first index. The subroutine calculates the derivaties of
+      !  the first index. The subroutine calculates the derivatives of
       !  the functions f(n_f_start,*) to f(n_f_stop) by transforming
       !  to a Chebychev representation using n_r_max radial grid points.
       !  The cheb transforms have to be initialized by calling
