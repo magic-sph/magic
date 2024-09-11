@@ -459,41 +459,41 @@ contains
                typeStr=' radial magnetic field production '
                file_name='BrPro_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=27
+               l_dtBmovie=.true.
             else if ( index(string,'ADV') /= 0 ) then
                n_type=72
                typeStr=' radial magnetic field advection '
                file_name='BrAdv_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=28
+               l_dtBmovie=.true.
             else if ( index(string,'DIF') /= 0 ) then
                n_type=73
                typeStr=' radial magnetic field diffusion '
                file_name='BrDif_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=29
+               l_dtBmovie=.true.
             else if ( index(string,'INV') /= 0 ) then
                n_type=103
                typeStr=' radial magnetic field diffusion '
                file_name='BrInv_'
                lIC=.false.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=81
+               l_dtBmovie=.true.
             else if ( index(string,'SHEAR') /= 0 ) then
                n_type=98
                typeStr=' azimuthal shear of radial magnetic field'
                file_name='BrShear'
                lIC=.false.
-               lStore=.true.
                n_fields=1
                n_field_type(1)=53
+               l_dtBmovie=.true.
             else
                n_type=1
                typeStr=' radial magnetic field '
@@ -508,9 +508,9 @@ contains
                typeStr=' toroidal B theta'
                file_name='BtTor_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=50
+               l_dtBmovie=.true.
             else
                n_type=2
                typeStr=' theta comp. of magnetic field '
@@ -555,33 +555,33 @@ contains
                typeStr=' pol. fieldlines'
                file_name='FLPol_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=52
+               l_dtBmovie=.true.
             else if ( index(string,'PRO') /= 0 ) then
                n_type=31 ! Poloidal field lines production
                typeStr=' axisymm. fieldline production '
                file_name='FLPro_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=20
+               l_dtBmovie=.true.
             else if ( index(string,'ADV') /= 0 ) then
                n_type=32 ! Poloidal field lines advection
                typeStr=' axisymm. fieldline advection '
                file_name='FLAdv_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=21
+               l_dtBmovie=.true.
             else if ( index(string,'DIF') /= 0 ) then
                n_type=33 ! Poloidal field lines diffusion
                typeStr=' axisymm. fieldline diffusion '
                file_name='FLDif_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=22
+               l_dtBmovie=.true.
             else
                n_type=30
                typeStr=' axisymm. fieldlines '
@@ -604,25 +604,25 @@ contains
                typeStr=' axisymm. B phi production '
                file_name='ABPro_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=23
+               l_dtBmovie=.true.
             else if ( index(string,'ADV') /= 0 ) then
                n_type=42
                typeStr=' axisymm. B phi advection '
                file_name='ABAdv_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=25
+               l_dtBmovie=.true.
             else if ( index(string,'DIF') /= 0 ) then
                n_type=43
                typeStr=' axisymm. B phi diffusion '
                file_name='ABDif_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=26
+               l_dtBmovie=.true.
             else
                n_type=40
                typeStr=' axisymm. B phi '
@@ -637,34 +637,34 @@ contains
                typeStr=' radial current production '
                file_name='JrPro_'
                lIC=.true.
-               lStore=.false.
                n_fields=2
                n_field_type(1)=31
                n_field_type(2)=32
+               l_dtBmovie=.true.
             else if ( index(string,'ADV') /= 0 ) then
                n_type=82
                typeStr=' radial current advection '
                file_name='JrAdv_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=33
+               l_dtBmovie=.true.
             else if ( index(string,'DIF') /= 0 ) then
                n_type=83
                typeStr=' radial current diffusion '
                file_name='JrDif_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=34
+               l_dtBmovie=.true.
             else
                n_type=80
                typeStr=' radial current '
                file_name='Jr_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=30
+               l_dtBmovie=.true.
             end if
          else if ( index(string,'BZ') /= 0 ) then
             if ( index(string,'PRO') /= 0 ) then
@@ -672,33 +672,33 @@ contains
                typeStr=' poloidal Bz production '
                file_name='BzPolPro_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=35
+               l_dtBmovie=.true.
             else if ( index(string,'ADV') /= 0 ) then
                n_type=52
                typeStr=' poloidal Bz advection '
                file_name='BzPolAdv_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=36
+               l_dtBmovie=.true.
             else if ( index(string,'DIF') /= 0 ) then
                n_type=53
                typeStr=' poloidal Bz diffusion '
                file_name='BzPolDif_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=37
+               l_dtBmovie=.true.
             else
                n_type=50
                typeStr=' poloidal Bz '
                file_name='BzPol_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=13
+               l_dtBmovie=.true.
             end if
          else if ( index(string,'BP') /= 0 .and. index(string,'TOR') /= 0 ) then
             if ( index(string,'PRO') /= 0 ) then
@@ -706,34 +706,34 @@ contains
                typeStr=' toroidal Bphi production '
                file_name='BpTorPro_'
                lIC=.true.
-               lStore=.false.
                n_fields=2
                n_field_type(1)=43
                n_field_type(2)=49
+               l_dtBmovie=.true.
             else if ( index(string,'ADV') /= 0 ) then
                n_type=62
                typeStr=' toroidal Bphi advection '
                file_name='BpTorAdv_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=45
+               l_dtBmovie=.true.
             else if ( index(string,'DIF') /= 0 ) then
                n_type=63
                typeStr=' toroidal Bphi diffusion '
                file_name='BpTorDif_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=46
+               l_dtBmovie=.true.
             else
                n_type=60
                typeStr=' toroidal Bphi '
                file_name='BpTor_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=42
+               l_dtBmovie=.true.
             end if
          else if ( index(string,'JZ') /= 0 ) then
             if ( index(string,'PRO') /= 0 ) then
@@ -741,34 +741,34 @@ contains
                typeStr=' poloidal Jz production '
                file_name='JzTorPro_'
                lIC=.true.
-               lStore=.false.
                n_fields=2
                n_field_type(1)=38
                n_field_type(2)=39
+               l_dtBmovie=.true.
             else if ( index(string,'ADV') /= 0 ) then
                n_type=92
                typeStr=' poloidal Jz advection '
                file_name='JzTorAdv_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=40
+               l_dtBmovie=.true.
             else if ( index(string,'DIF') /= 0 ) then
                n_type=93
                typeStr=' poloidal Jz diffusion '
                file_name='JzTorDif_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=41
+               l_dtBmovie=.true.
             else
                n_type=90
                typeStr=' poloidal Jz '
                file_name='JzTor_'
                lIC=.true.
-               lStore=.true.
                n_fields=1
                n_field_type(1)=14
+               l_dtBmovie=.true.
             end if
          ! Possible conflict with HEATTCONV r= (which contains VR)
          else if ( index(string,'VR') /= 0 .and. index(string,'CONV') == 0) then
@@ -1072,9 +1072,9 @@ contains
             typeStr=' pot tor '
             file_name='PotTor_'
             lIC=.true.
-            lStore=.false.
             n_fields=1
             n_field_type(1)=51
+            l_dtBmovie=.true.
          else
             message = 'Couldnt interpret movie field from string:'//string
             call abortRun(message)
@@ -1143,7 +1143,7 @@ contains
          &    index(string,'RAD=') /= 0 .or. index(string,'RADIUS=') /= 0 ) then
             n_surface=1  ! R=const.
             n_field_size=n_phi_max*n_theta_max
-            n_field_size_ic=n_field_size
+            n_field_size_ic=0!n_field_size
 
             !------ Get Radius in fractions of outer core radius:
             if ( index(string,'R=') /= 0 ) then
@@ -1154,6 +1154,7 @@ contains
                word=string(index(string,'RADIUS=')+7:length)
             end if
             read(word,*) r_movie
+
 
             !------ Choose closest radial grid point:
             if ( r_movie == 0 ) then
@@ -1169,9 +1170,12 @@ contains
             else
                !------ Negative numbers signify inner core values in
                !       fractions of r_icb:
-               r_movie=-r_movie*r_icb
-               n_const = minloc(abs(r_ic - r_movie),1)
-               const = r_ic(n_const)
+               if ( lIC ) then
+                  n_field_size_ic=n_field_size
+                  r_movie=-r_movie*r_icb
+                  n_const = minloc(abs(r_ic - r_movie),1)
+                  const = r_ic(n_const)
+               end if
             end if
 
             call dble2str(r_movie,word)
@@ -1266,12 +1270,6 @@ contains
          n_movies=n_movies+1
          lStoreMov(n_movies)=lStore
          lICField(n_movies)=lIC
-         if ( .not. lStore .and. n_field_type(1) /= 13 .and.           &
-         &    n_field_type(1) /= 14 .and. n_field_type(1) /= 30 .and.  &
-         &    n_field_type(1) /= 42 .and. n_field_type(1) /= 50 .and.  &
-         &    n_field_type(1) /= 51 .and. n_field_type(1) /= 52 .and.  &
-         &    n_field_type(1) /= 54 .and. n_field_type(1) /= 100 .and. &
-         &    n_field_type(1) /= 101 .and. n_field_type(1) /= 102 ) l_dtBmovie=.true.
 
          !------ Translate horizontal movies:
          if ( n_type == 4 ) then
@@ -1342,7 +1340,7 @@ contains
          n_movie_fields_ic(n_movies)=n_fields_ic
 
          !------ Store size of field and where it should be stored in
-         !       the work array frames(*) (see c_movie.f):
+         !       the work array frames(*):
          do n=1,n_fields
             if ( n_fields_oc > 0 ) then
                n_movie_field_type(n,n_movies) =n_field_type(n)
@@ -1431,7 +1429,7 @@ contains
             if (field_length > max_field_length) max_field_length=field_length
          end do
       end do
-      if (rank == 0) then
+      if ( rank == 0 ) then
          allocate(field_frames_global(max_field_length))
       else
          ! This is only needed for debug runs with boundary check.
@@ -1478,7 +1476,7 @@ contains
                call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
                     &           field_frames_global,recvcounts,displs,      &
                     &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-               if (rank == 0) then
+               if ( rank == 0 ) then
                   frames(n_start:n_stop)=field_frames_global(1:field_length)
                end if
             end do
@@ -1491,8 +1489,8 @@ contains
                n_stop =n_movie_field_stop(n_field,n_movie)
                field_length = n_stop-n_start+1
                myTag=7654+n_movie
-               if (rank == 0) then
-                  if ((nRstart <= n_const) .and. (n_const <= nRstop)) then
+               if ( rank == 0 ) then
+                  if ( (nRstart <= n_const) .and. (n_const <= nRstop) ) then
                      ! relevant frames already set on rank 0
                      ! do nothing
                   else
@@ -1500,7 +1498,7 @@ contains
                           &        MPI_ANY_SOURCE,mytag,MPI_COMM_WORLD,status,ierr)
                   end if
                else
-                  if ((nRstart <= n_const) .and. (n_const <= nRstop)) then
+                  if ( (nRstart <= n_const) .and. (n_const <= nRstop) ) then
                      ! relevant frames are all on this rank  /= 0
                      ! send to rank 0
                      call MPI_Send(frames(n_start),field_length,MPI_DEF_REAL,&
@@ -1517,7 +1515,7 @@ contains
 
                local_start=n_start+(nRstart-1)*n_phi_max
                local_end  =local_start+nR_per_rank*n_phi_max-1
-               if (local_end > n_stop) then
+               if ( local_end > n_stop ) then
                   call abortRun('local_end exceeds n_stop')
                end if
                do irank=0,n_procs-1
@@ -1532,7 +1530,7 @@ contains
                call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
                     &           field_frames_global,recvcounts,displs,      &
                     &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-               if (rank == 0) then
+               if ( rank == 0 ) then
                   frames(n_start:n_stop)=field_frames_global(1:field_length)
                end if
             end do  ! Do loop over field for one movie
@@ -1552,7 +1550,7 @@ contains
                do irank=0,n_procs-1
                   recvcounts(irank)=radial_balance(irank)%n_per_rank*n_theta_max
                end do
-               if (local_end > n_stop) then
+               if ( local_end > n_stop ) then
                   call abortRun('local_end exceeds n_stop')
                end if
                displs(0)=0
@@ -1570,11 +1568,14 @@ contains
                &    n_field_type == 19 .or. n_field_type == 8  .or.   &
                &    n_field_type == 110 .or. n_field_type == 111 .or. &
                &    n_field_type == 114 .or. n_field_type == 115 .or. &
-               &    n_field_type == 116 ) then
+               &    n_field_type == 116 .or. n_field_type == 20 .or.  &
+               &    n_field_type == 21 .or. n_field_type == 22 .or.   &
+               &    n_field_type == 23 .or. n_field_type == 24 .or.   &
+               &    n_field_type == 25 .or. n_field_type == 26 ) then
                   call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
                        &           field_frames_global,recvcounts,displs,      &
                        &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-                  if (rank == 0) then
+                  if ( rank == 0 ) then
                      frames(n_start:n_stop)=field_frames_global(1:field_length)
                   end if
 
@@ -1584,7 +1585,7 @@ contains
                   call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
                        &           field_frames_global,recvcounts,displs,      &
                        &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-                  if (rank == 0) then
+                  if ( rank == 0 ) then
                      frames(n_start:n_stop)=field_frames_global(1:field_length/2)
                   end if
                   n_start=n_stop+1
@@ -1594,7 +1595,7 @@ contains
                   call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
                        &           field_frames_global,recvcounts,displs,      &
                        &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-                  if (rank == 0) then
+                  if ( rank == 0 ) then
                      frames(n_start:n_stop)=field_frames_global(1:field_length/2)
                   end if
 
@@ -1604,7 +1605,7 @@ contains
          end if
       end do
 
-      if (rank == 0) deallocate(field_frames_global)
+      if ( rank == 0 ) deallocate(field_frames_global)
 #endif
 
    end subroutine movie_gather_frames_to_rank0

@@ -352,9 +352,7 @@ program magic
    call initialize_fields_average_mod()
    if ( l_TO ) call initialize_TO()
 
-   if ( rank == 0 ) then
-      call tscheme%print_info(n_log_file)
-   end if
+   if ( rank == 0 ) call tscheme%print_info(n_log_file)
 
    !--- Do pre-calculations:
    call preCalc(tscheme)
@@ -363,7 +361,7 @@ program magic
    if ( l_movie ) call initialize_movie_data() !Needs to be called after preCalc to get correct coordinate values
    call initialize_outMisc_mod() ! Needs to be called after movie
    call initialize_geos(l_par, l_SRIC, l_geosMovie) ! Needs to be called after preCalc, l_geosMovie defined in movie
-   if ( l_RMS .or. l_DTrMagSpec ) call initialize_dtB_mod() ! Needs to be called after movie to make sure l_dtBmovie has been set
+   if ( l_RMS .or. l_DTrMagSpec .or. l_dtBmovie ) call initialize_dtB_mod() ! Needs to be called after movie to make sure l_dtBmovie has been set
    if (l_probe) call initialize_probes()       !Needs to be called after preCalc to get correct coordinate values
    if ( l_RMS ) call initialize_RMS()
    local_bytes_used=bytes_allocated-local_bytes_used

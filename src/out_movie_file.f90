@@ -4,7 +4,6 @@ module out_movie
    use parallel_mod, only: rank
    use geos, only: cyl, n_s_max, write_geos_frame
    use outMisc_mod, only: write_rmelt_frame, write_dt_rmelt_frame
-   use communications, only: gt_OC, gather_all_from_lo_to_rank0
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, l_max,    &
        &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,  &
        &                 n_r_ic_max, n_r_max, nlat_padded
@@ -28,7 +27,6 @@ module out_movie
    use sht, only: torpol_to_spat, toraxi_to_spat
    use logic, only: l_save_out, l_cond_ic, l_mag, l_full_sphere
    use constants, only: zero, half, one, two
-   use out_dtB_frame, only: write_dtB_frame
    use output_data, only: runid
    use useful, only: abortRun
 
@@ -161,9 +159,7 @@ contains
 
    end subroutine store_movie_frame
 !----------------------------------------------------------------------------
-   subroutine write_movie_frame(n_frame,time,b_LMloc,db_LMloc,aj_LMloc,   &
-              &                 dj_LMloc,b_ic,db_ic,aj_ic,dj_ic,omega_ic, &
-              &                 omega_ma)
+   subroutine write_movie_frame(n_frame,time,omega_ic,omega_ma)
       !
       !  Writes different movie frames into respective output files.
       !  Called from rank 0 with full arrays in standard LM order.
@@ -173,51 +169,16 @@ contains
       real(cp),    intent(in) :: time
       integer,     intent(in) :: n_frame
       real(cp),    intent(in) :: omega_ic,omega_ma
-      complex(cp), intent(in) :: b_LMloc(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: db_LMloc(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: aj_LMloc(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: dj_LMloc(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(in) :: db_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(in) :: dj_ic(lm_maxMag,n_r_ic_maxMag)
 
       !-- Local variables:
       integer :: n_fields, n_fields_ic, n_fields_oc
       integer :: n_movie, n_surface, n_type, n_out
       integer :: n_field, n, n_start, n_stop, n_r, n_theta, n_phi
       integer :: n_r_mov_tot
-      logical :: l_dtB_frame
       character(len=64) :: version
       real(cp) :: const
       real(cp) :: r_mov_tot(n_r_max+n_r_ic_max)
       real(outp) :: dumm(n_theta_max)
-      complex(cp), allocatable :: b(:,:), aj(:,:), db(:,:), dj(:,:)
-
-      l_dtB_frame =.false.
-
-      do n_movie=1,n_movies
-         n_type=n_movie_type(n_movie)
-         if ( (.not. lStoreMov(n_movie)) .and. n_type /= 99 .and.          &
-         &     n_type /= 130 .and. n_type /= 131 .and. n_type /= 132 .and. &
-         &     n_type /= 126 .and. n_type /= 127 ) then
-            l_dtB_frame=.true.
-         end if
-      end do
-
-      if ( l_dtB_frame ) then
-         if ( rank == 0 ) then
-            allocate( b(lm_maxMag,n_r_maxMag), aj(lm_maxMag,n_r_maxMag) )
-            allocate( db(lm_maxMag,n_r_maxMag), dj(lm_maxMag,n_r_maxMag) )
-         else
-            allocate( b(1,1), aj(1,1), db(1,1), dj(1,1) )
-         end if
-
-         call gather_all_from_lo_to_rank0(gt_OC,b_LMloc,b)
-         call gather_all_from_lo_to_rank0(gt_OC,db_LMloc,db)
-         call gather_all_from_lo_to_rank0(gt_OC,aj_LMloc,aj)
-         call gather_all_from_lo_to_rank0(gt_OC,dj_LMloc,dj)
-      end if
 
       do n_movie=1,n_movies
 
@@ -306,10 +267,6 @@ contains
                call write_rmelt_frame(n_movie)
             else if ( n_type==127 ) then ! Temp. gradient at melting radius
                call write_dt_rmelt_frame(n_movie)
-            else
-               if ( rank == 0 ) then
-                  call write_dtB_frame(n_movie,b,db,aj,dj,b_ic,db_ic,aj_ic,dj_ic)
-               end if
             end if
          else
             if ( rank == 0 ) then
@@ -329,8 +286,6 @@ contains
          if ( l_save_out .and. rank==0 ) close(n_out)
 
       end do  ! Loop over movies
-
-      if ( l_dtB_frame ) deallocate( b, aj, db, dj )
 
    end subroutine write_movie_frame
 !----------------------------------------------------------------------------

@@ -94,7 +94,7 @@ contains
                   n_store_last= n_movie_field_start(n_field,n_movie)-1
 
                   if ( n_store_last >= 0 ) then
-                     n_o_r=n_store_last + (nR-2)*n_theta_max*n_phi_max
+                     n_o_r=n_store_last + (nR-1)*n_theta_max*n_phi_max
 
                      if ( n_field_type == 1 ) then
                         do nPhi=1,n_phi_max
@@ -216,14 +216,13 @@ contains
                nTheta =n_const
                nThetaR=n_const
 
-
                do n_field=n_fields_oc+1,n_fields
 
                   n_field_type=n_movie_field_type(n_field,n_movie)
                   n_store_last=n_movie_field_start(n_field,n_movie)-1
 
                   if ( n_store_last >= 0 ) then
-                     n_o=n_store_last+(nR-2)*n_phi_max
+                     n_o=n_store_last+(nR-1)*n_phi_max
                      if ( n_field_type == 1 ) then !-- Br
                         do nPhi=1,n_phi_max
                            frames(nPhi+n_o)=BrB(nThetaR,nPhi)*O_r_ic2(nR)
@@ -296,7 +295,7 @@ contains
                   n_field_size=( n_movie_field_stop(n_field,n_movie)-n_store_last )/2
 
                   if ( n_store_last >= 0 ) then
-                     n_o_r=n_store_last+(nR-2)*n_theta_max
+                     n_o_r=n_store_last+(nR-1)*n_theta_max
 
                      if ( n_field_type == 1 ) then
                         do nThetaR=1,n_theta_max
@@ -352,13 +351,6 @@ contains
                            frames(n_o+n_field_size)=help*O_sin_theta(nThetaR) * &
                            &    ( cBrB(nThetaR,nPhi180)*BtB(nThetaR,nPhi180) -  &
                            &      cBtB(nThetaR,nPhi180)*BrB(nThetaR,nPhi180) )
-                        end do
-                     else
-                        do nThetaR=1,n_theta_max
-                           nTheta=n_theta_cal2ord(nThetaR)
-                           n_o=n_o_r+nTheta
-                           frames(n_o)=0.0_cp
-                           frames(n_o+n_field_size)=0.0_cp
                         end do
                      end if
                   end if
