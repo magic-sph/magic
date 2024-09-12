@@ -374,12 +374,17 @@ contains
       !                      - =66 : time derivative of axisym. v phi
       !                      - =67 : relative strength of axisym. v phi
       !                      - =81 : Br inverse appearence at CMB
-      !                      - =91 : radial derivative of T
-      !                      - =92 : Vz north/south correlation
-      !                      - =93 : Vorz north/south correlation
-      !                      - =94 : Hel north/south correlation
-      !                      - =101: AS poloidal Br production
-      !                      - =102: AS poloidal Br dynamo term
+      !                      - =91 : radial derivative of T or s
+      !                      - =92 : axisymmetric radial derivative of T or s
+      !                      - =94 : axisymmetric s component of velocity
+      !                      - =95 : axisymmetric Reynolds stress correlation us*uphi
+      !                      - =96 : axisymmetric z component of velocity
+      !                      - =97 : axisymmetric Reynolds stress correlation uz*uphi
+      !                      - =98 : axisymmetric square of s component of velocity
+      !                      - =99 : axisymmetric square of z component of velocity
+      !                      - =100: geostrophic Vs
+      !                      - =101: geostrophic Vphi
+      !                      - =102: geostrophic z vorticity
       !                      - =103: AS poloidal Br diffusion
       !                      - =104: AS toroidal Bp production
       !                      - =105: AS toroidal Bp dynamo term
@@ -387,14 +392,15 @@ contains
       !                      - =107: AS toroidal Bp diffusion
       !                      - =108: Bs
       !                      - =109: composition field
-      !                      - =110: axisymm. composition
-      !                      - =111: axisymm. phase
+      !                      - =110: axisymmetric chemical composition
+      !                      - =111: axisymmetric phase field
       !                      - =112: phase field
-      !                      - =113: flux of chemical composition
+      !                      - =113: radial derivative of chemical composition
       !                      - =114: axisymmetric kinetic energy
       !                      - =115: axisymmetric convective heat flux
-      !                      - =116: axisymmetric heat flux of composition
+      !                      - =116: axisymmetric radial derivative of composition
       !                      - =117: melting radius
+      !                      - =118: temperature gradient along the solid/liquid interface
       !
       !     * n_movie_field_start(n_field,n_movie) = defines where first
       !       element of a field is stored in ``frames(*)``
