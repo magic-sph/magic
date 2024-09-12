@@ -25,10 +25,9 @@ module out_dtB_frame
        &              PadvLM_Rloc, PadvLM_LMloc, TstrLM_Rloc, TstrLM_LMloc,    &
        &              TadvLM_Rloc, TadvLM_LMloc, TdifLM_LMloc, TomeLM_Rloc,    &
        &              TomeLM_LMloc
-   use movie_data, only: n_movie_type, n_movie_fields, n_movie_fields_ic,   &
-       &                 n_movie_file, n_movie_const, n_movie_surface,      &
-       &                 movie_const, n_movie_field_type, frames, n_movies, &
-       &                 n_movie_field_start
+   use movie_data, only: n_movie_fields, n_movie_fields_ic, n_movie_file,   &
+       &                 n_movie_const, n_movie_surface, movie_const,       &
+       &                 n_movie_field_type, frames, n_movies, n_movie_field_start
    use logic, only: l_cond_ic
    use constants, only: zero, one
    use radial_der_even, only: get_drNS_even
@@ -50,7 +49,7 @@ contains
       !
 
       !-- Local variables:
-      integer :: n_type, n_out, n_movie
+      integer :: n_out, n_movie
       integer :: n_fields, n_field, n_const, n_r, n_store_last
       integer :: n_theta, n_theta_cal, n_phi, n_o, n_or
       integer :: lm, l, m
@@ -65,21 +64,18 @@ contains
 
       do n_movie=1,n_movies
 
-         n_type   =n_movie_type(n_movie)
          n_fields =n_movie_fields(n_movie)
          n_out    =n_movie_file(n_movie)
          n_const  =n_movie_const(n_movie)
          n_surface=n_movie_surface(n_movie)
          const    =movie_const(n_movie)
 
-         !--- Axisymmetric dtFL or dtAB:
-         if ( n_type == 31 .or. n_type == 32 .or. n_type == 33 .or. &
-         &    n_type == 41 .or. n_type == 42 .or. n_type == 43 ) then
+         do n_field=1,n_fields
 
-            do n_field=1,n_fields
+            n_field_type=n_movie_field_type(n_field,n_movie)
+            n_store_last=n_movie_field_start(n_field,n_movie)-1
 
-               n_field_type=n_movie_field_type(n_field,n_movie)
-               n_store_last=n_movie_field_start(n_field,n_movie)-1
+            if ( n_surface == 3 ) then ! Axisymmetric movies
 
                if ( n_field_type == 20 ) then
                   call lo2r_one%transp_lm2r(PstrLM_LMloc,PstrLM_Rloc)
@@ -93,6 +89,8 @@ contains
                   call lo2r_one%transp_lm2r(TadvLM_LMloc,TadvLM_Rloc)
                else if ( n_field_type == 26 ) then
                   call lo2r_one%transp_lm2r(TdifLM_LMloc,work_Rloc)
+               else
+                  cycle ! Leave the n_field loop
                end if
 
                do n_r=nRstart,nRstop
@@ -120,21 +118,7 @@ contains
 
                end do
 
-            end do
-
-         !--- dtBr:
-         else if ( n_type == 103 .or. n_type == 51 .or. n_type == 52 .or. &
-         &         n_type == 53 .or. n_type == 91 .or. n_type == 92 .or.  &
-         &         n_type == 71 .or. n_type == 72 .or. n_type == 73 .or.  &
-         &         n_type == 80 .or. n_type == 81 .or. n_type == 82 .or.  &
-         &         n_type == 83 .or. n_type == 81 .or. n_type == 82 .or.  &
-         &         n_type == 93 .or. n_type == 60 .or. n_type == 61 .or.  &
-         &         n_type == 62 .or. n_type == 63 )  then ! non-axisymmetric fields
-
-            do n_field=1,n_fields
-
-               n_field_type=n_movie_field_type(n_field,n_movie)
-               n_store_last=n_movie_field_start(n_field,n_movie)-1
+            else if ( n_surface == 0 .or. n_surface == 1 ) then ! 3D or rcut movies
 
                if ( n_field_type == 24 ) then
                   ! This reduces omega effect to field production of axisymm. toroidal field:
@@ -342,6 +326,8 @@ contains
                   !--- Fieldlines for theta=const.
                   else if ( n_field_type == 52 ) then
                      call get_Btor(b_Rloc(:,n_r),dtBr,dtBt,rMov,.false.)
+                  else
+                     cycle ! Do not store anything in frames(*)
                   end if
 
                   !--- Now store the stuff to frames(*):
@@ -372,11 +358,11 @@ contains
 
                end do          ! r loop
 
-            end do  ! LOOP over fields in movie file
+            end if ! which surface ?
 
-         end if
+         end do  ! LOOP over fields in movie file
 
-      end do
+      end do ! Loop over movies
 
    end subroutine calc_dtB_frame
 !----------------------------------------------------------------------------
@@ -387,7 +373,7 @@ contains
       !
 
       !-- Local variables:
-      integer :: n_type, n_out, n_fields_oc, n_fields_ic, n_movie
+      integer :: n_out, n_fields_oc, n_fields_ic, n_movie
       integer :: n_fields, n_field, n_const, n_r, n_store_last
       integer :: n_theta, n_theta_cal, n_phi, n_o, n_or
       integer :: n_surface, n_field_type
@@ -404,7 +390,6 @@ contains
 
       do n_movie=1,n_movies
 
-         n_type      =n_movie_type(n_movie)
          n_fields_oc =n_movie_fields(n_movie)
          n_fields_ic =n_movie_fields_ic(n_movie)
          n_fields    =n_fields_oc+n_fields_ic
@@ -413,14 +398,14 @@ contains
          n_surface   =n_movie_surface(n_movie)
          const       =movie_const(n_movie)
 
-         !--- Axisymmetric dtFL or dtAB:
-         if ( n_type == 31 .or. n_type == 32 .or. n_type == 33 .or. &
-         &    n_type == 41 .or. n_type == 42 .or. n_type == 43 ) then
+         do n_field=n_fields_oc+1,n_fields
 
-            do n_field=n_fields_oc+1,n_fields
+            n_field_type=n_movie_field_type(n_field,n_movie)
+            n_store_last=n_movie_field_start(n_field,n_movie)-1
 
-               n_field_type=n_movie_field_type(n_field,n_movie)
-               n_store_last=n_movie_field_start(n_field,n_movie)-1
+            !--- Axisymmetric dtFL or dtAB:
+            if ( n_surface == 3 ) then
+
 
                do n_r=1,n_r_ic_max
 
@@ -433,13 +418,12 @@ contains
                   else if ( n_field_type == 26 ) then
                      call get_dtB(dtB,TdifLMIC_LMloc,llm,ulm,1,n_r_ic_max,n_r,.true.)
                   else
-                     dtB(:)=0.0_cp
+                     cycle
                   end if
 
 
                   if ( rank == 0 ) then
                      n_or=n_store_last+(n_r-1)*n_theta_max
-                     if ( n_r==1 ) print*, maxval(abs(dtB))
                      !--- Store in frame field:
                      do n_theta_cal=1,n_theta_max
                         n_theta=n_theta_cal2ord(n_theta_cal)
@@ -449,21 +433,8 @@ contains
 
                end do
 
-            end do
-
-         !--- dtBr:
-         else if ( n_type == 103 .or. n_type == 51 .or. n_type == 52 .or. &
-         &         n_type == 53 .or. n_type == 91 .or. n_type == 92 .or.  &
-         &         n_type == 71 .or. n_type == 72 .or. n_type == 73 .or.  &
-         &         n_type == 80 .or. n_type == 81 .or. n_type == 82 .or.  &
-         &         n_type == 83 .or. n_type == 81 .or. n_type == 82 .or.  &
-         &         n_type == 93 .or. n_type == 60 .or. n_type == 61 .or.  &
-         &         n_type == 62 .or. n_type == 63 )  then ! non-axisymmetric fields
-
-            do n_field=n_fields_oc+1,n_fields
-
-               n_field_type=n_movie_field_type(n_field,n_movie)
-               n_store_last=n_movie_field_start(n_field,n_movie)-1
+            !--- dtBr:
+            else if ( n_surface == 0 .or. n_surface == 1 ) then
 
                l_loop=.true.
                if ( n_surface == 1 .and. const >= r_icb ) l_loop= .false.
@@ -578,6 +549,8 @@ contains
                      else if ( n_field_type == 52 ) then
                         call gather_from_lo_to_rank0(b_ic_LMloc(:,n_r), workA_1d)
                         call get_Btor(workA_1d,dtBr,dtBt,rMov,.true.)
+                     else
+                        cycle
                      end if
 
                      !--- Now rank=0 store the stuff for the inner core.
@@ -602,14 +575,12 @@ contains
 
                end if ! l_loop ?
 
-               !--- Write frame field:
-               !write(n_out) (real(dtBrframe(n),kind=outp),n=1,n_field_size)
 
-            end do  ! LOOP over fields in movie file
+            end if ! n_surface ?
 
-         end if
+         end do  ! LOOP over fields in movie file
 
-      end do
+      end do ! Loop over movies
 
    end subroutine calc_dtB_frame_IC
 !----------------------------------------------------------------------------
