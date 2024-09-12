@@ -3,7 +3,7 @@ module out_movie
    use precision_mod
    use parallel_mod, only: rank
    use geos, only: cyl, n_s_max, write_geos_frame
-   use outMisc_mod, only: write_rmelt_frame, write_dt_rmelt_frame
+   use outMisc_mod, only: write_melt_frame
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, l_max,    &
        &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,  &
        &                 n_r_ic_max, n_r_max, nlat_padded
@@ -263,10 +263,8 @@ contains
                call abortRun('! Use TO output for Lorentz force!')
             else if ( n_type==130 .or. n_type==131 .or. n_type==132 ) then
                call write_geos_frame(n_movie)
-            else if ( n_type==126 ) then ! Melting radius
-               call write_rmelt_frame(n_movie)
-            else if ( n_type==127 ) then ! Temp. gradient at melting radius
-               call write_dt_rmelt_frame(n_movie)
+            else if ( n_type==126 .or. n_type==127) then ! phase field
+               call write_melt_frame(n_movie)
             end if
          else
             if ( rank == 0 ) then
