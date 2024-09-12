@@ -58,59 +58,56 @@ contains
          n_surface  =n_movie_surface(n_movie)
          n_const    =n_movie_const(n_movie)
 
-         if ( n_surface == 0 ) then
+         select case(n_surface)
 
-            do n_field=n_fields_oc+1,n_fields
-               n_field_type= n_movie_field_type(n_field,n_movie)
-               n_store_last= n_movie_field_start(n_field,n_movie)-1
-               if ( n_store_last >= 0 ) then
-                  call store_fields_3d(bICB, b_ic, db_ic, ddb_ic, aj_ic, dj_ic, &
-                       &               n_store_last, n_field_type)
-               end if
-            end do  ! Loop over fields
+            case(0) ! 3d
+               do n_field=n_fields_oc+1,n_fields
+                  n_field_type= n_movie_field_type(n_field,n_movie)
+                  n_store_last= n_movie_field_start(n_field,n_movie)-1
+                  if ( n_store_last >= 0 ) then
+                     call store_fields_3d(bICB, b_ic, db_ic, ddb_ic, aj_ic, dj_ic, &
+                          &               n_store_last, n_field_type)
+                  end if
+               end do  ! Loop over fields
 
-         else if ( n_surface == 1 ) then  ! r-slice
+            case(1)  ! r-slice
+               if ( n_fields_ic > 0 ) then
+                  nR=abs(n_const)
+                  do n_field=n_fields_oc+1,n_fields
+                     n_field_type=n_movie_field_type(n_field,n_movie)
+                     n_store_last=n_movie_field_start(n_field,n_movie)-1
+                     if ( n_store_last >= 0 ) then
+                        call store_fields_r(bICB, b_ic, db_ic, aj_ic, &
+                             &              n_store_last, n_field_type, nR)
+                     end if
+                  end do  ! Loop over fields
+               end if ! if there is anything in the inner core
 
-            if ( n_fields_ic > 0 ) then
-               nR=abs(n_const)
+            case(2) ! Theta-slice or equat
+               nTheta =n_const
+
                do n_field=n_fields_oc+1,n_fields
                   n_field_type=n_movie_field_type(n_field,n_movie)
                   n_store_last=n_movie_field_start(n_field,n_movie)-1
                   if ( n_store_last >= 0 ) then
-                     call store_fields_r(bICB, b_ic, db_ic, aj_ic, &
-                          &              n_store_last, n_field_type, nR)
+                     call store_fields_t(bICB, b_ic, db_ic, ddb_ic, aj_ic, dj_ic, &
+                          &              n_store_last, n_field_type, nTheta)
                   end if
                end do  ! Loop over fields
 
-            end if ! if there is anything in the inner core
+            case(3) ! Phi-slice or Phi-avg
+               do n_field=n_fields_oc+1,n_fields
+                  n_field_type=n_movie_field_type(n_field,n_movie)
+                  n_store_last=n_movie_field_start(n_field,n_movie)-1
+                  n_field_size=( n_movie_field_stop(n_field,n_movie)-n_store_last )/2
+                  if ( n_store_last >= 0 ) then
+                     call store_fields_p(bICB, b_ic, db_ic, ddb_ic, aj_ic, dj_ic, &
+                          &              n_store_last, n_field_type, n_const,     &
+                          &              n_field_size)
+                  end if
+               end do    ! Loop over fields
 
-         else if ( n_surface == 2 ) then ! Theta-slice or equat
-
-            nTheta =n_const
-
-            do n_field=n_fields_oc+1,n_fields
-               n_field_type=n_movie_field_type(n_field,n_movie)
-               n_store_last=n_movie_field_start(n_field,n_movie)-1
-               if ( n_store_last >= 0 ) then
-                  call store_fields_t(bICB, b_ic, db_ic, ddb_ic, aj_ic, dj_ic, &
-                       &              n_store_last, n_field_type, nTheta)
-               end if
-            end do  ! Loop over fields
-
-         else if ( abs(n_surface) == 3 ) then ! Phi-slice or Phi-avg
-
-            do n_field=n_fields_oc+1,n_fields
-               n_field_type=n_movie_field_type(n_field,n_movie)
-               n_store_last=n_movie_field_start(n_field,n_movie)-1
-               n_field_size=( n_movie_field_stop(n_field,n_movie)-n_store_last )/2
-               if ( n_store_last >= 0 ) then
-                  call store_fields_p(bICB, b_ic, db_ic, ddb_ic, aj_ic, dj_ic, &
-                       &              n_store_last, n_field_type, n_const,     &
-                       &              n_field_size)
-               end if
-            end do    ! Loop over fields
-
-         end if  ! Which surface ?
+         end select  ! Which surface ?
 
       end do     ! Loop over movies
 

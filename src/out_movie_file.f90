@@ -8,12 +8,12 @@ module out_movie
        &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,  &
        &                 n_r_ic_max, n_r_max, nlat_padded
    use movie_data, only: frames, n_movie_fields, n_movies, n_movie_surface, &
-       &                 n_movie_const, n_movie_field_type,                 &
+       &                 n_movie_const, n_movie_field_type, lGeosField,     &
        &                 n_movie_field_start,n_movie_field_stop,            &
        &                 movieDipColat, movieDipLon, movieDipStrength,      &
-       &                 movieDipStrengthGeo, n_movie_type,                 &
+       &                 movieDipStrengthGeo, lPhaseField, movie_const,     &
        &                 lStoreMov, n_movie_file, n_movie_fields_ic,        &
-       &                 movie_file, movie_const
+       &                 movie_file
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: orho1, orho2, or1, or2, or3, or4, beta,  &
        &                       r_surface, r_cmb, r, r_ic, temp0
@@ -77,83 +77,78 @@ contains
          n_surface=n_movie_surface(n_movie)
          n_const  =n_movie_const(n_movie)
 
-         if ( n_surface == -1 ) then ! Earth Surface
+         select case ( n_surface )
 
-            if ( n_r /= 1 ) cycle  ! not CMB radius
+            case(-1) ! Earth surface
+               if ( n_r /= 1 ) cycle  ! not CMB radius
+               do n_field=1,n_fields
+                  n_field_type=n_movie_field_type(n_field,n_movie)
+                  n_store_last=n_movie_field_start(n_field,n_movie)-1
+                  if ( n_store_last >= 0 ) then
+                     call store_fields_sur(n_store_last,n_field_type,bCMB)
+                  end if
+               end do
 
-            do n_field=1,n_fields
-               n_field_type=n_movie_field_type(n_field,n_movie)
-               n_store_last=n_movie_field_start(n_field,n_movie)-1
-               if ( n_store_last >= 0 ) then
-                  call store_fields_sur(n_store_last,n_field_type,bCMB)
-               end if
-            end do
+            case(0) ! 3d
+               do n_field=1,n_fields
+                  n_field_type=n_movie_field_type(n_field,n_movie)
+                  n_store_last=n_movie_field_start(n_field,n_movie)-1
+                  if ( n_store_last >= 0 ) then
+                     call store_fields_3d(vr,vt,vp,br,bt,bp,sr,drSr,xir,phir,  &
+                          &               dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbr,cbt, &
+                          &               n_r,n_store_last,n_field_type)
+                  end if
+               end do
 
-         else if ( n_surface == 0 ) then ! 3d
+            case(1) ! Surface r=constant
+               if ( n_r /= n_const ) cycle  ! not desired radius
 
-            do n_field=1,n_fields
-               n_field_type=n_movie_field_type(n_field,n_movie)
-               n_store_last=n_movie_field_start(n_field,n_movie)-1
-               if ( n_store_last >= 0 ) then
-                  call store_fields_3d(vr,vt,vp,br,bt,bp,sr,drSr,xir,phir,  &
-                       &               dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbr,cbt, &
-                       &               n_r,n_store_last,n_field_type)
-               end if
-            end do
+               do n_field=1,n_fields
+                  n_field_type=n_movie_field_type(n_field,n_movie)
+                  n_store_last=n_movie_field_start(n_field,n_movie)-1
+                  if ( n_store_last >= 0 ) then
+                     call store_fields_r(vr,vt,vp,br,bt,bp,sr,drSr,xir,phir, &
+                          &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,n_r,    &
+                          &              n_store_last,n_field_type)
+                  end if
+               end do
 
-         else if ( n_surface == 1 ) then ! Surface r=constant
+            case(2) ! Surface theta=constant
+               !------ Test whether n_theta_movie is in the current theta block
+               !       and find its position n_theta_movie_c:
+               lThetaFound=.false.
+               do n_theta=1,n_theta_max
+                  if ( n_theta == n_const ) then
+                     lThetaFound=.true.
+                     exit
+                  end if
+               end do
+               if ( .not. lThetaFound) cycle        ! Theta not found !
 
-            if ( n_r /= n_const ) cycle  ! not desired radius
+               do n_field=1,n_fields
+                  n_field_type=n_movie_field_type(n_field,n_movie)
+                  n_store_last=n_movie_field_start(n_field,n_movie)-1
+                  if ( n_store_last >= 0 ) then
+                     call store_fields_t(vr,vt,vp,br,bt,bp,sr,drSr,xir,phir,   &
+                          &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbt,n_r,  &
+                          &              n_store_last,n_field_type,n_theta)
+                    end if
+               end do
 
-            do n_field=1,n_fields
-               n_field_type=n_movie_field_type(n_field,n_movie)
-               n_store_last=n_movie_field_start(n_field,n_movie)-1
-               if ( n_store_last >= 0 ) then
-                  call store_fields_r(vr,vt,vp,br,bt,bp,sr,drSr,xir,phir, &
-                       &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,n_r,    &
-                       &              n_store_last,n_field_type)
-               end if
-            end do
+            case(3)  ! Surface phi=const.
+               do n_field=1,n_fields
+                  n_field_type=n_movie_field_type(n_field,n_movie)
+                  n_store_last=n_movie_field_start(n_field,n_movie)-1
+                  n_field_size=(n_movie_field_stop(n_field,n_movie) - n_store_last)/2
+                  if ( n_store_last >= 0 ) then
+                     call store_fields_p(vr,vt,vp,br,bp,bt,sr,drSr,xir,phir,   &
+                          &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbr,cbt,  &
+                          &              n_r,n_store_last,n_field_type,        &
+                          &              n_const,n_field_size)
+                  end if
+               end do  ! Do loop over field for one movie
 
-         else if ( n_surface == 2 ) then ! Surface theta=constant
-
-            !------ Test whether n_theta_movie is in the current theta block
-            !       and find its position n_theta_movie_c:
-            lThetaFound=.false.
-            do n_theta=1,n_theta_max
-               if ( n_theta == n_const ) then
-                  lThetaFound=.true.
-                  exit
-               end if
-            end do
-            if ( .not. lThetaFound) cycle        ! Theta not found !
-
-            do n_field=1,n_fields
-               n_field_type=n_movie_field_type(n_field,n_movie)
-               n_store_last=n_movie_field_start(n_field,n_movie)-1
-               if ( n_store_last >= 0 ) then
-                  call store_fields_t(vr,vt,vp,br,bt,bp,sr,drSr,xir,phir,   &
-                       &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbt,n_r,  &
-                       &              n_store_last,n_field_type,n_theta)
-                 end if
-            end do
-
-         else if ( abs(n_surface) == 3 ) then  ! Surface phi=const.
-
-            do n_field=1,n_fields
-               n_field_type=n_movie_field_type(n_field,n_movie)
-               n_store_last=n_movie_field_start(n_field,n_movie)-1
-               n_field_size=(n_movie_field_stop(n_field,n_movie) - n_store_last)/2
-               if ( n_store_last >= 0 ) then
-                  call store_fields_p(vr,vt,vp,br,bp,bt,sr,drSr,xir,phir,   &
-                       &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbr,cbt,  &
-                       &              n_r,n_store_last,n_field_type,        &
-                       &              n_const,n_field_size)
-               end if
-            end do  ! Do loop over field for one movie
-
-
-         end if  ! Surface ?
+         end select
 
       end do  ! Do loop over movies !
 
@@ -172,7 +167,7 @@ contains
 
       !-- Local variables:
       integer :: n_fields, n_fields_ic, n_fields_oc
-      integer :: n_movie, n_surface, n_type, n_out
+      integer :: n_movie, n_surface, n_out
       integer :: n_field, n, n_start, n_stop, n_r, n_theta, n_phi
       integer :: n_r_mov_tot
       character(len=64) :: version
@@ -182,7 +177,6 @@ contains
 
       do n_movie=1,n_movies
 
-         n_type     =n_movie_type(n_movie)
          n_surface  =n_movie_surface(n_movie)
          n_fields_oc=n_movie_fields(n_movie)
          n_fields_ic=n_movie_fields_ic(n_movie)
@@ -204,8 +198,8 @@ contains
             !------ Start with info about movie type:
             version='JW_Movie_Version_2'
             write(n_out) version
-            write(n_out) real(n_type,kind=outp), real(n_surface,kind=outp), &
-            &            real(const,kind=outp), real(n_fields,kind=outp)
+            write(n_out) 0.0_outp, real(n_surface,kind=outp), real(const,kind=outp), &
+            &            real(n_fields,kind=outp)
             write(n_out) (real(n_movie_field_type(n,n_movie),kind=outp),n=1,n_fields)
 
             !------ Combine OC and IC radial grid points:
@@ -236,7 +230,7 @@ contains
             write(n_out) (dumm(n),n=1,11)
 
             !------ Write grid:
-            if ( n_type==130 .or. n_type==131 .or. n_type==132 ) &
+            if ( lGeosField(n_movie) ) &
             &   write(n_out) (real(cyl(n_r)/r_cmb,kind=outp), n_r=1,n_s_max)
             write(n_out) (real(r_mov_tot(n_r)/r_cmb,kind=outp), n_r=1,n_r_mov_tot)
             write(n_out) (real(theta_ord(n_theta),kind=outp), n_theta=1,n_theta_max)
@@ -259,11 +253,9 @@ contains
 
          !------ Write frames:
          if ( .not. lStoreMov(n_movie) ) then
-            if ( n_type == 99 ) then
-               call abortRun('! Use TO output for Lorentz force!')
-            else if ( n_type==130 .or. n_type==131 .or. n_type==132 ) then
+            if ( lGeosField(n_movie) ) then
                call write_geos_frame(n_movie)
-            else if ( n_type==126 .or. n_type==127) then ! phase field
+            else if ( lPhaseField(n_movie) ) then ! phase field
                call write_melt_frame(n_movie)
             end if
          else
