@@ -1,8 +1,12 @@
 module out_movie
+   !
+   ! This module handles the storage of the relevant diagnostics in the public
+   ! array frames(*) and then the writing of the corresponding movie files
+   !
 
    use precision_mod
    use parallel_mod, only: rank
-   use geos, only: cyl, n_s_max, write_geos_frame
+   use geos, only: cyl
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, l_max,    &
        &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,  &
        &                 n_r_ic_max, n_r_max, nlat_padded
@@ -10,9 +14,8 @@ module out_movie
        &                 n_movie_const, n_movie_field_type, lGeosField,     &
        &                 n_movie_field_start,n_movie_field_stop,            &
        &                 movieDipColat, movieDipLon, movieDipStrength,      &
-       &                 movieDipStrengthGeo, movie_const,     &
-       &                 lStoreMov, n_movie_file, n_movie_fields_ic,        &
-       &                 movie_file
+       &                 movieDipStrengthGeo, movie_const, movie_file,      &
+       &                 n_movie_file, n_movie_fields_ic
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: orho1, orho2, or1, or2, or3, or4, beta,  &
        &                       r_surface, r_cmb, r, r_ic, temp0
@@ -26,7 +29,7 @@ module out_movie
    use sht, only: torpol_to_spat, toraxi_to_spat
    use logic, only: l_save_out, l_cond_ic, l_mag, l_full_sphere
    use constants, only: zero, half, one, two
-   use output_data, only: runid
+   use output_data, only: runid, n_s_max
    use useful, only: abortRun
 
    implicit none
@@ -251,23 +254,17 @@ contains
          end if
 
          !------ Write frames:
-         if ( .not. lStoreMov(n_movie) ) then
-            if ( lGeosField(n_movie) ) then
-               call write_geos_frame(n_movie)
-            end if
-         else
-            if ( rank == 0 ) then
-               do n_field=1,n_fields
-                  n_start=n_movie_field_start(n_field,n_movie)
-                  if ( n_fields_oc > 0 ) then
-                     n_stop =n_movie_field_stop(n_field,n_movie)
-                  end if
-                  if ( n_fields_ic > 0 ) then
-                     n_stop=n_movie_field_stop(n_fields_oc + n_field,n_movie)
-                  end if
-                  write(n_out) (real(frames(n),kind=outp),n=n_start,n_stop)
-               end do
-            end if
+         if ( rank == 0 ) then
+            do n_field=1,n_fields
+               n_start=n_movie_field_start(n_field,n_movie)
+               if ( n_fields_oc > 0 ) then
+                  n_stop =n_movie_field_stop(n_field,n_movie)
+               end if
+               if ( n_fields_ic > 0 ) then
+                  n_stop=n_movie_field_stop(n_fields_oc + n_field,n_movie)
+               end if
+               write(n_out) (real(frames(n),kind=outp),n=n_start,n_stop)
+            end do
          end if
 
          if ( l_save_out .and. rank==0 ) close(n_out)

@@ -12,7 +12,7 @@ module outTO_mod
    use truncation, only: n_r_max, n_theta_max, n_phi_max, minc
    use mem_alloc, only: bytes_allocated
    use num_param, only: tScale
-   use output_data, only: sDens, zDens, tag, runid, log_file, n_log_file
+   use output_data, only: sDens, zDens, tag, runid, log_file, n_log_file, n_s_max
    use radial_data, only: radial_balance, nRstart, nRstop
    use radial_functions, only: r_ICB, r_CMB, r
    use horizontal_data, only: theta_ord, phi
@@ -39,7 +39,7 @@ module outTO_mod
    real(cp), allocatable :: dzLFAS(:,:), V2AS(:,:), Bs2AS(:,:), BspAS(:,:), VAS(:,:)
    real(cp), allocatable :: BspdAS(:,:), BpsdAS(:,:), BzpdAS(:,:), BpzdAS(:,:)
    real(cp), allocatable :: dzPenAS(:,:)
-   integer :: n_s_otc, n_s_max, n_NHS_file, n_SHS_file, n_TOmov_file, n_TO_file
+   integer :: n_s_otc, n_NHS_file, n_SHS_file, n_TOmov_file, n_TO_file
    real(cp) :: volcyl_oc
    character(len=64) :: movFile, TOFile
    integer :: nTOmovSets ! Number of TO_mov frames
@@ -89,8 +89,6 @@ contains
       end if
 
       !-- Cylindrical radius
-      n_s_max = n_r_max+int(r_ICB*n_r_max)
-      n_s_max = int(sDens*n_s_max)
       allocate( cyl(n_s_max) )
       bytes_allocated=bytes_allocated+n_s_max*SIZEOF_DEF_REAL
 

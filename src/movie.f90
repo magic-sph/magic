@@ -10,7 +10,7 @@ module movie_data
    use radial_data, only: nRstart,nRstop, n_r_icb, n_r_cmb, radial_balance
    use radial_functions, only: r_cmb, r_icb, r, r_ic
    use horizontal_data, only: theta_ord, phi, n_theta_ord2cal
-   use output_data, only: n_log_file, log_file, tag
+   use output_data, only: n_log_file, log_file, tag, n_s_max
    use charmanip, only: capitalize, delete_string, dble2str
    use useful, only: logWrite, abortRun
    use constants, only: pi, one
@@ -30,8 +30,7 @@ module movie_data
    character(len=80), public :: movie(n_movies_max)  ! Only for input
    character(len=72), public :: movie_file(n_movies_max)
 
-   logical, public :: lStoreMov(n_movies_max),lICField(n_movies_max)
-   logical, public :: lGeosField(n_movies_max)
+   logical, public :: lICField(n_movies_max), lGeosField(n_movies_max)
    logical :: lAxiField(n_movies_max), lPhaseField(n_movies_max)
    integer, public :: n_movies
    integer, public :: n_movie_surface(n_movies_max)
@@ -336,7 +335,7 @@ contains
       integer :: n_fields,n_fields_oc,n_fields_ic
       integer :: n_field_size, n_field_size_ic, n_field_start
       integer :: n_field_type(n_movie_fields_max)
-      logical :: lStore, lIC, lAxi, lGeos, lPhase
+      logical :: lIC, lAxi, lGeos, lPhase
 
       !--- Initialize first storage index:
       n_field_start=1
@@ -358,7 +357,6 @@ contains
 
       do i=1,n_movies_max
 
-         lStore=.true.
          lIC   =.false.
          lPhase=.false.
          lGeos =.false.
@@ -688,7 +686,6 @@ contains
                typeStr=' geos phi-component of velocity '
                file_name='geosVPHI_'
                n_fields=1
-               lStore=.false.
                l_geosMovie=.true.
                n_field_type(1)=101
                lGeos=.true.
@@ -734,7 +731,6 @@ contains
                   typeStr=' geos z-component of vorticity '
                   file_name='geosVorZ_'
                   n_fields=1
-                  lStore=.false.
                   l_geosMovie=.true.
                   n_field_type(1)=102
                   lGeos=.true.
@@ -774,7 +770,6 @@ contains
                typeStr=' geos s-component of velocity '
                file_name='geosVS_'
                n_fields=1
-               lStore=.false.
                l_geosMovie=.true.
                n_field_type(1)=100
                lGeos=.true.
@@ -969,7 +964,7 @@ contains
          else if ( lGeos ) then ! Geos average
             n_surface=-2 ! constant theta
             n_const=1   !
-            n_field_size=n_phi_max*n_r_max
+            n_field_size=n_phi_max*n_s_max
             n_field_size_ic=0
             const=r_cmb
          else if ( lPhase ) then ! Melting radius or temp gradient at rm
@@ -1132,7 +1127,6 @@ contains
          !--- Now store the necessary information:
          !------ Increase number of movies:
          n_movies=n_movies+1
-         lStoreMov(n_movies)=lStore
          lICField(n_movies)=lIC
          lGeosField(n_movies)=lGeos
          lAxiField(n_movies)=lAxi
@@ -1208,27 +1202,17 @@ contains
          do n=1,n_fields
             if ( n_fields_oc > 0 ) then
                n_movie_field_type(n,n_movies) =n_field_type(n)
-               if ( lStore ) then
-                  n_movie_field_start(n,n_movies)=n_field_start
-                  n_field_start=n_field_start+n_field_size
-                  n_movie_field_stop(n,n_movies) =n_field_start-1
-                  l_store_frame=.true.
-               else
-                  n_movie_field_start(n,n_movies)=-1
-                  n_movie_field_stop(n,n_movies) =-1
-               end if
+               n_movie_field_start(n,n_movies)=n_field_start
+               n_field_start=n_field_start+n_field_size
+               n_movie_field_stop(n,n_movies) =n_field_start-1
+               l_store_frame=.true.
             end if
             if ( n_fields_ic > 0 ) then
                n_ic=n_fields_oc+n
                n_movie_field_type(n_ic,n_movies)=n_field_type(n)
-               if ( lStore ) then
-                  n_movie_field_start(n_ic,n_movies)=n_field_start
-                  n_field_start=n_field_start+n_field_size_ic
-                  n_movie_field_stop(n_ic,n_movies)=n_field_start-1
-               else
-                  n_movie_field_start(n_ic,n_movies)=-1
-                  n_movie_field_stop(n_ic,n_movies) =-1
-               end if
+               n_movie_field_start(n_ic,n_movies)=n_field_start
+               n_field_start=n_field_start+n_field_size_ic
+               n_movie_field_stop(n_ic,n_movies)=n_field_start-1
             end if
          end do
 
@@ -1307,6 +1291,10 @@ contains
          n_const  =n_movie_const(n_movie)
 
          select case(n_surface)
+
+            case(-2) ! Cylindrical geos movie
+               ! Data is already on rank 0
+               cycle
 
             case(-1) ! Earth Surface
                ! theta-phi surface for n_r=1 (CMB)

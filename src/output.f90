@@ -24,7 +24,7 @@ module output_mod
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,          &
        &            l_chemical_conv, l_movie, l_full_sphere, l_spec_avg,      &
        &            l_phase_field, l_hemi, l_dtBmovie, l_phaseMovie,          &
-       &            l_dtPhaseMovie
+       &            l_dtPhaseMovie, l_geosMovie
    use fields, only: omega_ic, omega_ma, b_ic,db_ic, aj_ic,                  &
        &             w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,        &
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
@@ -44,7 +44,7 @@ module output_mod
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three, zero
    use outMisc_mod, only: outHeat, outHelicity, outHemi, outPhase, get_onset, &
        &                  calc_melt_frame
-   use geos, only: outGeos, outOmega
+   use geos, only: outGeos, outOmega, calc_geos_frame
    use outRot, only: write_rot
    use integration, only: rInt_R
    use outPar_mod, only: outPar, outPerpPar
@@ -658,6 +658,8 @@ contains
          if ( l_dtBmovie ) call calc_dtB_frame()
 
          if ( l_phaseMovie .or. l_dtphaseMovie ) call calc_melt_frame()
+
+         if ( l_geosMovie ) call calc_geos_frame()
 
          call movie_gather_frames_to_rank0()
 
