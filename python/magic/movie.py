@@ -246,7 +246,7 @@ class Movie:
 
         if n_surface == 0:
             self.surftype = '3d volume'
-            if self.movtype in [1, 2, 3]:
+            if self.movtype in [1, 2, 3, 31]:
                 shape = (self.n_phi_tot, self.n_theta_max, n_r_mov_tot+2)
             else:
                 shape = (self.n_phi_tot, self.n_theta_max, self.n_r_max)
@@ -318,7 +318,7 @@ class Movie:
             for ll in range(self.n_fields):
                 dat = infile.fort_read(precision, shape=shape, order='F')
                 if n_surface == 0:
-                    if self.movtype in [1, 2, 3]:
+                    if self.movtype in [1, 2, 3, 31]:
                         self.data[ll, k, ...] = dat[:, :, :self.n_r_max]
                         self.data_ic[ll, k, ...] = dat[:, :, self.n_r_max:]
                     else:
