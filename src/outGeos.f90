@@ -17,7 +17,7 @@ module geos
    use output_data, only: sDens, zDens, tag
    use horizontal_data, only: n_theta_cal2ord, O_sin_theta_E2, theta_ord, &
        &                      O_sin_theta, cosTheta, sinTheta
-   use movie_data, only: n_movie_type, n_movie_fields, n_movie_file
+   use movie_data, only: n_movie_field_type, n_movie_fields, n_movie_file
    use truncation, only: n_phi_max, n_theta_max, n_r_max, nlat_padded, l_max
    use integration, only: simps, cylmean_otc, cylmean_itc
    use logic, only: l_save_out
@@ -504,43 +504,45 @@ contains
       integer, intent(in) :: n_movie ! The index of the movie in list of movies
 
       !-- Local variables
-      integer :: n_type, n_p, n_fields, n_field, n_out
+      integer :: n_p, n_fields, n_field, n_field_type, n_out
       real(cp) :: dat(n_s_max,nPstart:nPstop), dat_full(n_phi_max,n_s_max)
       real(cp) :: datITC_N(n_s_max), datITC_S(n_s_max)
 
-      n_type  =n_movie_type(n_movie)
       n_fields=n_movie_fields(n_movie)
       n_out   =n_movie_file(n_movie)
 
-      if ( n_type == 130 ) then ! Us
-         call transp_R2Phi(us_Rloc, us_Ploc)
-      else if (n_type == 131 ) then ! Uphi
-         call transp_R2Phi(up_Rloc, up_Ploc)
-      else if (n_type == 132 ) then ! Vort z
-         call transp_R2Phi(wz_Rloc, wz_Ploc)
-      end if
+      do n_field=1,n_fields
+         n_field_type=n_movie_field_type(n_field,n_movie)
 
-      !-- Z averaging
-      do n_p=nPstart,nPstop
-         if ( n_type == 130 ) then
-            call cylmean(us_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
-         else if ( n_type == 131 ) then
-            call cylmean(up_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
-         else if ( n_type == 132 ) then
-            call cylmean(wz_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
+         if ( n_field_type == 100 ) then ! Us
+            call transp_R2Phi(us_Rloc, us_Ploc)
+            !-- Z averaging
+            do n_p=nPstart,nPstop
+               call cylmean(us_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
+               dat(:,n_p)=dat(:,n_p)+datITC_N(:)
+            end do
+         else if (n_field_type == 101 ) then ! Uphi
+            call transp_R2Phi(up_Rloc, up_Ploc)
+            !-- Z averaging
+            do n_p=nPstart,nPstop
+               call cylmean(up_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
+               dat(:,n_p)=dat(:,n_p)+datITC_N(:)
+            end do
+         else if (n_field_type == 102 ) then ! Vort z
+            call transp_R2Phi(wz_Rloc, wz_Ploc)
+            !-- Z averaging
+            do n_p=nPstart,nPstop
+               call cylmean(wz_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
+               dat(:,n_p)=dat(:,n_p)+datITC_N(:)
+            end do
          end if
-         dat(:,n_p)=dat(:,n_p)+datITC_N(:)
+
+         !-- MPI gather
+         call gather_Ploc(dat,  dat_full)
+
+         !-- Write outputs
+         if ( rank == 0 ) write(n_out) real(dat_full,kind=outp)
       end do
-
-      !-- MPI gather
-      call gather_Ploc(dat,  dat_full)
-
-      !-- Write outputs
-      if ( rank == 0 ) then
-         do n_field=1,n_fields
-            write(n_out) real(dat_full,kind=outp)
-         end do
-      end if
 
    end subroutine write_geos_frame
 !------------------------------------------------------------------------------------
