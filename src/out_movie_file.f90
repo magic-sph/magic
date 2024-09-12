@@ -150,6 +150,17 @@ contains
                   end if
                end do  ! Do loop over field for one movie
 
+            case(4)  ! phi averages
+               do n_field=1,n_fields
+                  n_field_type=n_movie_field_type(n_field,n_movie)
+                  n_store_last=n_movie_field_start(n_field,n_movie)-1
+                  if ( n_store_last >= 0 ) then
+                     call store_fields_p_avg(vr,vt,vp,bp,sr,drSr,xir,phir,dvrdp,       &
+                          &                  dvpdr,dvtdr, dvrdt,cvr,n_r,n_store_last,  &
+                          &                  n_field_type)
+                  end if
+               end do  ! Do loop over field for one movie
+
          end select
 
       end do  ! Do loop over movies !
@@ -577,11 +588,8 @@ contains
       integer,  intent(in) :: n_field_size     ! Size of field
 
       !-- Local variables:
-      integer :: n_phi_0,n_phi_180,n_theta,n_theta2
-      integer :: n_theta_cal,n_phi,n_0,n_180
-      real(cp) ::  phi_norm,fac,fac_r
-
-      real(cp) ::  fl(n_theta_max) ! Field for poloidal field lines
+      integer :: n_phi_0,n_phi_180,n_theta,n_theta_cal,n_0,n_180
+      real(cp) ::  fac,fac_r
 
       !--- Get phi no. for left and right halfspheres:
       n_phi_0=n_phi_const
@@ -592,7 +600,6 @@ contains
       end if
       n_0=n_store_last+(n_r-1)*n_theta_max
       n_180=n_0+n_field_size
-      phi_norm=one/n_phi_max
 
       if ( n_field_type == 1 ) then
 
@@ -717,7 +724,151 @@ contains
             frames(n_180+n_theta)=phir(n_theta_cal,n_phi_180)
          end do
 
-      else if ( n_field_type == 8 ) then
+      else if ( n_field_type == 16 ) then
+
+         fac=or1(n_r)*orho1(n_r)*vScale
+         do n_theta_cal=1,n_theta_max
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=fac * (                                    &
+            &    cosTheta(n_theta_cal)*or1(n_r)*cvr(n_theta_cal,n_phi_0) - &
+            &                        or2(n_r)*dvrdp(n_theta_cal,n_phi_0) + &
+            &                                 dvpdr(n_theta_cal,n_phi_0) - &
+            &                          beta(n_r)*vp(n_theta_cal,n_phi_0)  )
+            frames(n_180+n_theta)=fac * (                                    &
+            &    cosTheta(n_theta_cal)*or1(n_r)*cvr(n_theta_cal,n_phi_180) - &
+            &                        or2(n_r)*dvrdp(n_theta_cal,n_phi_180) + &
+            &                                 dvpdr(n_theta_cal,n_phi_180) - &
+            &                          beta(n_r)*vp(n_theta_cal,n_phi_180)  )
+         end do
+
+      else if ( n_field_type == 17 ) then ! Convective heat flux
+
+         fac=or2(n_r)*temp0(n_r)*vScale
+         do n_theta_cal=1,n_theta_max
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=fac*vr(n_theta_cal,n_phi_0)*sr(n_theta_cal,n_phi_0)
+            frames(n_180+n_theta)=fac*vr(n_theta_cal,n_phi_180) * &
+            &                     sr(n_theta_cal,n_phi_180)
+         end do
+
+      else if ( n_field_type == 113 ) then ! Composition heat flux
+
+         fac=or2(n_r)*vScale
+         do n_theta_cal=1,n_theta_max
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=fac*vr(n_theta_cal,n_phi_0)*xir(n_theta_cal,n_phi_0)
+            frames(n_180+n_theta)=fac*vr(n_theta_cal,n_phi_180) * &
+            &                     xir(n_theta_cal,n_phi_180)
+         end do
+
+      else if ( n_field_type == 91 ) then
+
+         do n_theta_cal=1,n_theta_max
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=drSr(n_theta_cal,n_phi_0)
+            frames(n_180+n_theta)=drSr(n_theta_cal,n_phi_180)
+         end do
+
+      else if ( n_field_type == 18 ) then
+
+         !--- Helicity:
+         do n_theta_cal=1,n_theta_max
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=                                      &
+            &           or4(n_r)*orho2(n_r)*vr(n_theta_cal,n_phi_0) * &
+            &                              cvr(n_theta_cal,n_phi_0) + &
+            &    or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)* (   &
+            &                               vt(n_theta_cal,n_phi_0) * &
+            &                 ( or2(n_r)*dvrdp(n_theta_cal,n_phi_0) - &
+            &                            dvpdr(n_theta_cal,n_phi_0) + &
+            &                beta(n_r)*   vp(n_theta_cal,n_phi_0) ) + &
+            &                               vp(n_theta_cal,n_phi_0) * &
+            &                 (          dvtdr(n_theta_cal,n_phi_0) - &
+            &                  beta(n_r)*   vt(n_theta_cal,n_phi_0) - &
+            &                   or2(n_r)*dvrdt(n_theta_cal,n_phi_0) ) )
+            frames(n_180+n_theta)=                                    &
+            &         or4(n_r)*orho2(n_r)*vr(n_theta_cal,n_phi_180) * &
+            &                            cvr(n_theta_cal,n_phi_180) + &
+            &    or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)* (   &
+            &                             vt(n_theta_cal,n_phi_180) * &
+            &               ( or2(n_r)*dvrdp(n_theta_cal,n_phi_180) - &
+            &                          dvpdr(n_theta_cal,n_phi_180) + &
+            &              beta(n_r)*   vp(n_theta_cal,n_phi_180) ) + &
+            &                             vp(n_theta_cal,n_phi_180) * &
+            &               (          dvtdr(n_theta_cal,n_phi_180) - &
+            &                 beta(n_r)*  vt(n_theta_cal,n_phi_180) - &
+            &                 or2(n_r)*dvrdt(n_theta_cal,n_phi_180) ) )
+         end do
+
+      else if ( n_field_type == 47 ) then
+
+         !--- Phi component of vorticity:
+         fac=vScale*orho1(n_r)*or1(n_r)
+         do n_theta_cal=1,n_theta_max
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=                         &
+            &            fac*O_sin_theta(n_theta_cal)*   &
+            &    (          dvtdr(n_theta_cal,n_phi_0) - &
+            &     beta(n_r)*   vt(n_theta_cal,n_phi_0) - &
+            &      or2(n_r)*dvrdt(n_theta_cal,n_phi_0) )
+            frames(n_180+n_theta)=                         &
+            &              fac*O_sin_theta(n_theta_cal)*   &
+            &    (          dvtdr(n_theta_cal,n_phi_180) - &
+            &     beta(n_r)*   vt(n_theta_cal,n_phi_180) - &
+            &      or2(n_r)*dvrdt(n_theta_cal,n_phi_180) )
+         end do
+
+         !--- Phi component of Lorentz-Force:
+
+      else if ( n_field_type == 54 ) then
+
+         fac_r=LFfac*or3(n_r)
+         do n_theta_cal=1,n_theta_max
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            fac=fac_r*O_sin_theta(n_theta_cal)
+            frames(n_0+n_theta)= fac *                                &
+            &    ( cbr(n_theta_cal,n_phi_0)*bt(n_theta_cal,n_phi_0) - &
+            &      cbt(n_theta_cal,n_phi_0)*br(n_theta_cal,n_phi_0) )
+            frames(n_180+n_theta)= fac *                                  &
+            &    ( cbr(n_theta_cal,n_phi_180)*bt(n_theta_cal,n_phi_180) - &
+            &      cbt(n_theta_cal,n_phi_180)*br(n_theta_cal,n_phi_180) )
+         end do
+
+      end if
+
+   end subroutine store_fields_p
+!----------------------------------------------------------------------------
+   subroutine store_fields_p_avg(vr,vt,vp,bp,sr,drSr,xir,phir,dvrdp,       &
+              &                  dvpdr,dvtdr, dvrdt,cvr,n_r,n_store_last,  &
+              &                  n_field_type)
+      !
+      !  Purpose of this subroutine is to store movie frames for phi-averaged
+      !  surfaces into array frames(*)
+      !
+
+      !-- Input variables:
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
+      real(cp), intent(in) :: bp(:,:)
+      real(cp), intent(in) :: sr(:,:),drSr(:,:)
+      real(cp), intent(in) :: xir(:,:),phir(:,:)
+      real(cp), intent(in) :: dvrdp(:,:),dvpdr(:,:)
+      real(cp), intent(in) :: dvtdr(:,:),dvrdt(:,:)
+      real(cp), intent(in) :: cvr(:,:)
+      integer,  intent(in) :: n_r              ! No. of radial point
+      integer,  intent(in) :: n_store_last     ! Start position in frame(*)-1
+      integer,  intent(in) :: n_field_type     ! Defines field type
+
+      !-- Local variables:
+      integer :: n_theta,n_theta2,n_theta_cal,n_phi,n_0
+      real(cp) ::  phi_norm
+
+      real(cp) ::  fl(n_theta_max) ! Field for poloidal field lines
+
+      !--- Get phi no. for left and right halfspheres:
+      n_0=n_store_last+(n_r-1)*n_theta_max
+      phi_norm=one/n_phi_max
+
+      if ( n_field_type == 8 ) then
 
          !--- Field for axisymmetric poloidal field lines:
          call get_fl(fl,n_r,.false.)
@@ -947,83 +1098,6 @@ contains
             frames(n_0+n_theta)=phi_norm*fl(1)*orho2(n_r)*or2(n_r)
          end do
 
-
-      else if ( n_field_type == 16 ) then
-
-         fac=or1(n_r)*orho1(n_r)*vScale
-         do n_theta_cal=1,n_theta_max
-            n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=fac * (                                    &
-            &    cosTheta(n_theta_cal)*or1(n_r)*cvr(n_theta_cal,n_phi_0) - &
-            &                        or2(n_r)*dvrdp(n_theta_cal,n_phi_0) + &
-            &                                 dvpdr(n_theta_cal,n_phi_0) - &
-            &                          beta(n_r)*vp(n_theta_cal,n_phi_0)  )
-            frames(n_180+n_theta)=fac * (                                    &
-            &    cosTheta(n_theta_cal)*or1(n_r)*cvr(n_theta_cal,n_phi_180) - &
-            &                        or2(n_r)*dvrdp(n_theta_cal,n_phi_180) + &
-            &                                 dvpdr(n_theta_cal,n_phi_180) - &
-            &                          beta(n_r)*vp(n_theta_cal,n_phi_180)  )
-         end do
-
-      else if ( n_field_type == 17 ) then ! Convective heat flux
-
-         fac=or2(n_r)*temp0(n_r)*vScale
-         do n_theta_cal=1,n_theta_max
-            n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=fac*vr(n_theta_cal,n_phi_0)*sr(n_theta_cal,n_phi_0)
-            frames(n_180+n_theta)=fac*vr(n_theta_cal,n_phi_180) * &
-            &                     sr(n_theta_cal,n_phi_180)
-         end do
-
-      else if ( n_field_type == 113 ) then ! Composition heat flux
-
-         fac=or2(n_r)*vScale
-         do n_theta_cal=1,n_theta_max
-            n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=fac*vr(n_theta_cal,n_phi_0)*xir(n_theta_cal,n_phi_0)
-            frames(n_180+n_theta)=fac*vr(n_theta_cal,n_phi_180) * &
-            &                     xir(n_theta_cal,n_phi_180)
-         end do
-
-      else if ( n_field_type == 91 ) then
-
-         do n_theta_cal=1,n_theta_max
-            n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=drSr(n_theta_cal,n_phi_0)
-            frames(n_180+n_theta)=drSr(n_theta_cal,n_phi_180)
-         end do
-
-      else if ( n_field_type == 18 ) then
-
-         !--- Helicity:
-         do n_theta_cal=1,n_theta_max
-            n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=                                      &
-            &           or4(n_r)*orho2(n_r)*vr(n_theta_cal,n_phi_0) * &
-            &                              cvr(n_theta_cal,n_phi_0) + &
-            &    or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)* (   &
-            &                               vt(n_theta_cal,n_phi_0) * &
-            &                 ( or2(n_r)*dvrdp(n_theta_cal,n_phi_0) - &
-            &                            dvpdr(n_theta_cal,n_phi_0) + &
-            &                beta(n_r)*   vp(n_theta_cal,n_phi_0) ) + &
-            &                               vp(n_theta_cal,n_phi_0) * &
-            &                 (          dvtdr(n_theta_cal,n_phi_0) - &
-            &                  beta(n_r)*   vt(n_theta_cal,n_phi_0) - &
-            &                   or2(n_r)*dvrdt(n_theta_cal,n_phi_0) ) )
-            frames(n_180+n_theta)=                                    &
-            &         or4(n_r)*orho2(n_r)*vr(n_theta_cal,n_phi_180) * &
-            &                            cvr(n_theta_cal,n_phi_180) + &
-            &    or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)* (   &
-            &                             vt(n_theta_cal,n_phi_180) * &
-            &               ( or2(n_r)*dvrdp(n_theta_cal,n_phi_180) - &
-            &                          dvpdr(n_theta_cal,n_phi_180) + &
-            &              beta(n_r)*   vp(n_theta_cal,n_phi_180) ) + &
-            &                             vp(n_theta_cal,n_phi_180) * &
-            &               (          dvtdr(n_theta_cal,n_phi_180) - &
-            &                 beta(n_r)*  vt(n_theta_cal,n_phi_180) - &
-            &                 or2(n_r)*dvrdt(n_theta_cal,n_phi_180) ) )
-         end do
-
       else if ( n_field_type == 19 ) then
 
          !--- Axisymmetric helicity:
@@ -1047,44 +1121,9 @@ contains
             frames(n_0+n_theta)=phi_norm*fl(1)
          end do
 
-
-      else if ( n_field_type == 47 ) then
-
-         !--- Phi component of vorticity:
-         fac=vScale*orho1(n_r)*or1(n_r)
-         do n_theta_cal=1,n_theta_max
-            n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=                         &
-            &            fac*O_sin_theta(n_theta_cal)*   &
-            &    (          dvtdr(n_theta_cal,n_phi_0) - &
-            &     beta(n_r)*   vt(n_theta_cal,n_phi_0) - &
-            &      or2(n_r)*dvrdt(n_theta_cal,n_phi_0) )
-            frames(n_180+n_theta)=                         &
-            &              fac*O_sin_theta(n_theta_cal)*   &
-            &    (          dvtdr(n_theta_cal,n_phi_180) - &
-            &     beta(n_r)*   vt(n_theta_cal,n_phi_180) - &
-            &      or2(n_r)*dvrdt(n_theta_cal,n_phi_180) )
-         end do
-
-         !--- Phi component of Lorentz-Force:
-
-      else if ( n_field_type == 54 ) then
-
-         fac_r=LFfac*or3(n_r)
-         do n_theta_cal=1,n_theta_max
-            n_theta=n_theta_cal2ord(n_theta_cal)
-            fac=fac_r*O_sin_theta(n_theta_cal)
-            frames(n_0+n_theta)= fac *                                &
-            &    ( cbr(n_theta_cal,n_phi_0)*bt(n_theta_cal,n_phi_0) - &
-            &      cbt(n_theta_cal,n_phi_0)*br(n_theta_cal,n_phi_0) )
-            frames(n_180+n_theta)= fac *                                  &
-            &    ( cbr(n_theta_cal,n_phi_180)*bt(n_theta_cal,n_phi_180) - &
-            &      cbt(n_theta_cal,n_phi_180)*br(n_theta_cal,n_phi_180) )
-         end do
-
       end if
 
-   end subroutine store_fields_p
+   end subroutine store_fields_p_avg
 !----------------------------------------------------------------------------
    subroutine store_fields_t(vr,vt,vp,br,bt,bp,sr,drSr,xir,phir,dvrdp,    &
               &              dvpdr,dvtdr,dvrdt,cvr,cbt,n_r,n_store_last,  &

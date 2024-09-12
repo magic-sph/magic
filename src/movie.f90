@@ -31,7 +31,7 @@ module movie_data
    character(len=72), public :: movie_file(n_movies_max)
 
    logical, public :: lICField(n_movies_max), lGeosField(n_movies_max)
-   logical :: lAxiField(n_movies_max), lPhaseField(n_movies_max)
+   logical :: lPhaseField(n_movies_max)
    integer, public :: n_movies
    integer, public :: n_movie_surface(n_movies_max)
    integer, public :: n_movie_const(n_movies_max)
@@ -975,7 +975,7 @@ contains
             const=r_cmb
          else if (   index(string,'AX') /= 0 .or. lAxi ) then
             !--- Axisymmetric stuff:
-            n_surface=3  ! PHI=const.
+            n_surface=4  ! PHI=const.
             n_const=1
             n_field_size=n_r_max*n_theta_max
             n_field_size_ic=n_r_ic_max*n_theta_max
@@ -1129,7 +1129,6 @@ contains
          n_movies=n_movies+1
          lICField(n_movies)=lIC
          lGeosField(n_movies)=lGeos
-         lAxiField(n_movies)=lAxi
          lPhaseField(n_movies)=lPhase
 
          !------ Translate horizontal movies:
@@ -1176,7 +1175,7 @@ contains
             if ( n_surface == 1 .and. n_const < 0 ) then
                n_fields_oc=0
                n_fields_ic=n_fields
-            else if ( n_surface == 0 .or. n_surface == 2 .or. n_surface == 3 ) then
+            else if ( n_surface == 0 .or. n_surface == 2 .or. n_surface == 3 .or. n_surface == 4 ) then
                n_fields_ic=n_fields
             end if
          end if
@@ -1242,6 +1241,8 @@ contains
                write(n_log_file,'('' !    at theta='',f12.6)') const
             else if ( n_surface == 3 ) then
                write(n_log_file,'('' !    at phi='',f12.6)') rad*phi(n_const)
+            else if ( n_surface == -2 ) then
+               write(n_log_file,*) '!    phi average    !'
             end if
             if ( n_fields_ic > 0 ) &
                  write(n_log_file,'('' !    including inner core magnetic field.'')')
@@ -1417,35 +1418,56 @@ contains
                   end do
                   sendcount=local_end-local_start+1
 
+                  n_stop=n_start+field_length/2-1
+                  call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
+                       &           field_frames_global,recvcounts,displs,      &
+                       &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+                  if ( rank == 0 ) then
+                     frames(n_start:n_stop)=field_frames_global(1:field_length/2)
+                  end if
+                  n_start=n_stop+1
+                  n_stop =n_start+field_length/2-1
+                  local_start = local_start+field_length/2
+                  local_end = local_end+field_length/2
+                  call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
+                       &           field_frames_global,recvcounts,displs,      &
+                       &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+                  if ( rank == 0 ) then
+                     frames(n_start:n_stop)=field_frames_global(1:field_length/2)
+                  end if
+
+               end do  ! Do loop over field for one movie
+
+            case(4)  ! Surface phi average
+               ! all ranks have a part of the frames array for each movie
+               ! we need to gather
+
+               do n_field=1,n_fields
+                  n_start      = n_movie_field_start(n_field,n_movie)
+                  n_stop       = n_movie_field_stop(n_field,n_movie)
+                  n_field_type = n_movie_field_type(n_field,n_movie)
+                  field_length = n_stop-n_start+1
+
+                  local_start=n_start+(nRstart-1)*n_theta_max
+                  local_end  =local_start+nR_per_rank*n_theta_max-1
+                  do irank=0,n_procs-1
+                     recvcounts(irank)=radial_balance(irank)%n_per_rank*n_theta_max
+                  end do
+                  if ( local_end > n_stop ) then
+                     call abortRun('local_end exceeds n_stop')
+                  end if
+                  displs(0)=0
+                  do irank=1,n_procs-1
+                     displs(irank)=displs(irank-1)+recvcounts(irank-1)
+                  end do
+                  sendcount=local_end-local_start+1
+
                   !-- Either only the axisymmetric or both slices
-                  if ( lAxiField(n_movie) ) then
-                     call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
-                          &           field_frames_global,recvcounts,displs,      &
-                          &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-                     if ( rank == 0 ) then
-                        frames(n_start:n_stop)=field_frames_global(1:field_length)
-                     end if
-
-                  else ! Two phi slices
-
-                     n_stop=n_start+field_length/2-1
-                     call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
-                          &           field_frames_global,recvcounts,displs,      &
-                          &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-                     if ( rank == 0 ) then
-                        frames(n_start:n_stop)=field_frames_global(1:field_length/2)
-                     end if
-                     n_start=n_stop+1
-                     n_stop =n_start+field_length/2-1
-                     local_start = local_start+field_length/2
-                     local_end = local_end+field_length/2
-                     call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
-                          &           field_frames_global,recvcounts,displs,      &
-                          &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-                     if ( rank == 0 ) then
-                        frames(n_start:n_stop)=field_frames_global(1:field_length/2)
-                     end if
-
+                  call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
+                       &           field_frames_global,recvcounts,displs,      &
+                       &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+                  if ( rank == 0 ) then
+                     frames(n_start:n_stop)=field_frames_global(1:field_length)
                   end if
                end do  ! Do loop over field for one movie
 

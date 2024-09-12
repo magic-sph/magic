@@ -107,6 +107,16 @@ contains
                   end if
                end do    ! Loop over fields
 
+            case(4) ! Phi-avg
+               do n_field=n_fields_oc+1,n_fields
+                  n_field_type=n_movie_field_type(n_field,n_movie)
+                  n_store_last=n_movie_field_start(n_field,n_movie)-1
+                  if ( n_store_last >= 0 ) then
+                     call store_fields_p_avg(bICB, b_ic, db_ic, aj_ic, n_store_last, &
+                          &                  n_field_type)
+                  end if
+               end do    ! Loop over fields
+
          end select  ! Which surface ?
 
       end do     ! Loop over movies
@@ -208,15 +218,13 @@ contains
       integer,     intent(in) :: n_field_size
 
       !-- Local variables
-      integer :: nR, nTheta, nThetaR, nPhi, n_o, n_o_r, nPhi0, nPhi180
-      real(cp) :: help, fl(n_theta_max), phi_norm
+      integer :: nR, nTheta, nThetaR, n_o, n_o_r, nPhi0, nPhi180
+      real(cp) :: help
       real(cp) :: BrB(nlat_padded,n_phi_max), BtB(nlat_padded,n_phi_max)
       real(cp) :: BpB(nlat_padded,n_phi_max), cBrB(nlat_padded,n_phi_max)
       real(cp) :: cBtB(nlat_padded,n_phi_max), cBpB(nlat_padded,n_phi_max)
       complex(cp) :: b_ic_r(lm_maxMag), db_ic_r(lm_maxMag), ddb_ic_r(lm_maxMag)
       complex(cp) :: aj_ic_r(lm_maxMag), dj_ic_r(lm_maxMag)
-
-      phi_norm=one/n_phi_max ! 1 /n_phi_max
 
       do nR=1,n_r_ic_max
 
@@ -287,25 +295,6 @@ contains
                    frames(n_o+n_field_size)= BpB(nThetaR,nPhi180) * &
                    &                 O_r_ic(nR)*O_sin_theta(nThetaR)
                end do
-            else if ( n_field_type == 8 ) then
-               call get_fl(fl,nR,.true.)
-               do nThetaR=1,n_theta_max
-                  nTheta=n_theta_cal2ord(nThetaR)
-                  n_o=n_o_r+nTheta
-                  !write(*,"(A,I5,A)") "store_movie_IC: frames(",n_o,")"
-                  frames(n_o)=fl(nThetaR)
-               end do
-            else if ( n_field_type == 9 ) then
-               do nThetaR=1,n_theta_max
-                  nTheta=n_theta_cal2ord(nThetaR)
-                  n_o=n_o_r+nTheta
-                  help=0.0_cp
-                  do nPhi=1,n_phi_max
-                     help=help+BpB(nThetaR,nPhi)
-                  end do
-                  frames(n_o)=phi_norm*help*O_r_ic(nR)* &
-                  &           O_sin_theta(nThetaR)
-               end do
             else if ( n_field_type == 54 ) then
                help=LFfac*O_r_ic(nR)*O_r_ic2(nR)
                do nThetaR=1,n_theta_max
@@ -326,6 +315,77 @@ contains
 
 
    end subroutine store_fields_p
+!----------------------------------------------------------------------------
+   subroutine store_fields_p_avg(bICB, b_ic, db_ic, aj_ic, n_store_last, n_field_type)
+      !
+      ! This subroutine stores the frames corresponding to phi cuts movie files
+      ! for inner core field.
+      !
+
+      !-- Input variables:
+      complex(cp), intent(in) :: bICB(lm_maxMag)
+      complex(cp), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      integer,     intent(in) :: n_store_last
+      integer,     intent(in) :: n_field_type
+
+      !-- Local variables
+      integer :: nR, nTheta, nThetaR, nPhi, n_o, n_o_r
+      real(cp) :: help, fl(n_theta_max), phi_norm
+      real(cp) :: BrB(nlat_padded,n_phi_max), BtB(nlat_padded,n_phi_max)
+      real(cp) :: BpB(nlat_padded,n_phi_max)
+      complex(cp) :: b_ic_r(lm_maxMag), db_ic_r(lm_maxMag), aj_ic_r(lm_maxMag)
+
+      phi_norm=one/n_phi_max ! 1 /n_phi_max
+
+      do nR=1,n_r_ic_max
+
+         if ( l_cond_ic ) then
+            call gather_from_lo_to_rank0(b_ic(:,nR), b_ic_r)
+            call gather_from_lo_to_rank0(db_ic(:,nR), db_ic_r)
+            call gather_from_lo_to_rank0(aj_ic(:,nR), aj_ic_r)
+         else
+            db_ic_r(:)=zero
+            aj_ic_r(:)=zero
+         end if
+
+         if ( rank == 0 ) then
+            if ( l_cond_ic ) then
+               call torpol_to_spat_IC(r_ic(nR),r_ICB,b_ic_r,db_ic_r,aj_ic_r, &
+                    &                 BrB,BtB,BpB)
+            else
+               call torpol_to_spat_IC(r_ic(nR),r_ICB,bICB,db_ic_r,aj_ic_r, &
+                    &                 BrB,BtB,BpB)
+            end if
+
+            n_o_r=n_store_last+(nR-1)*n_theta_max
+
+            if ( n_field_type == 8 ) then
+               call get_fl(fl,nR,.true.)
+               do nThetaR=1,n_theta_max
+                  nTheta=n_theta_cal2ord(nThetaR)
+                  n_o=n_o_r+nTheta
+                  frames(n_o)=fl(nThetaR)
+               end do
+            else if ( n_field_type == 9 ) then
+               do nThetaR=1,n_theta_max
+                  nTheta=n_theta_cal2ord(nThetaR)
+                  n_o=n_o_r+nTheta
+                  help=0.0_cp
+                  do nPhi=1,n_phi_max
+                     help=help+BpB(nThetaR,nPhi)
+                  end do
+                  frames(n_o)=phi_norm*help*O_r_ic(nR)*O_sin_theta(nThetaR)
+               end do
+            end if
+
+         end if ! rank == 0?
+
+      end do     ! Loop over radius
+
+
+   end subroutine store_fields_p_avg
 !----------------------------------------------------------------------------
    subroutine store_fields_t(bICB, b_ic, db_ic, ddb_ic, aj_ic, dj_ic, &
               &              n_store_last, n_field_type, nTheta)

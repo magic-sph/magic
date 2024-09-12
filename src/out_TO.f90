@@ -162,7 +162,7 @@ contains
             version='JW_Movie_Version_2'
             write(n_TOmov_file) version
             dumm(1)=102           ! type of input
-            dumm(2)=3             ! marker for constant phi plane
+            dumm(2)=4             ! marker for constant phi plane
             dumm(3)=0.0_cp        ! surface constant
             dumm(4)=nFields       ! no of fields
             write(n_TOmov_file) (real(dumm(n),kind=outp),n=1,4)

@@ -75,7 +75,7 @@ contains
             n_field_type=n_movie_field_type(n_field,n_movie)
             n_store_last=n_movie_field_start(n_field,n_movie)-1
 
-            if ( n_surface == 3 ) then ! Axisymmetric movies
+            if ( n_surface == 4 ) then ! Axisymmetric movies
 
                if ( n_field_type == 20 ) then
                   call lo2r_one%transp_lm2r(PstrLM_LMloc,PstrLM_Rloc)
@@ -404,8 +404,7 @@ contains
             n_store_last=n_movie_field_start(n_field,n_movie)-1
 
             !--- Axisymmetric dtFL or dtAB:
-            if ( n_surface == 3 ) then
-
+            if ( n_surface == 4 ) then
 
                do n_r=1,n_r_ic_max
 
