@@ -31,8 +31,8 @@ module movie_data
    character(len=72), public :: movie_file(n_movies_max)
 
    logical, public :: lStoreMov(n_movies_max),lICField(n_movies_max)
-   logical, public :: lGeosField(n_movies_max), lPhaseField(n_movies_max)
-   logical :: lAxiField(n_movies_max)
+   logical, public :: lGeosField(n_movies_max)
+   logical :: lAxiField(n_movies_max), lPhaseField(n_movies_max)
    integer, public :: n_movies
    integer, public :: n_movie_surface(n_movies_max)
    integer, public :: n_movie_const(n_movies_max)
@@ -702,7 +702,6 @@ contains
             typeStr=' melting radius'
             file_name='rmelt_'
             n_fields=1
-            lStore=.false.
             l_phaseMovie=.true.
             n_field_type(1)=117
             lPhase=.true.
@@ -710,7 +709,6 @@ contains
             typeStr=' temperature gradient at melting radius'
             file_name='dt_rmelt_'
             n_fields=1
-            lStore=.false.
             l_dtphaseMovie=.true.
             n_field_type(1)=118
             lPhase=.true.
@@ -1350,6 +1348,10 @@ contains
                end do
 
             case(1) ! Surface r=constant
+
+               !-- In that case this is already on rank=0
+               if ( lPhaseField(n_movie) ) cycle
+
                ! frames is set only for one rank, where n_r=n_const
                ! send to rank 0
                do n_field=1,n_fields

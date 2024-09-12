@@ -3,7 +3,6 @@ module out_movie
    use precision_mod
    use parallel_mod, only: rank
    use geos, only: cyl, n_s_max, write_geos_frame
-   use outMisc_mod, only: write_melt_frame
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, l_max,    &
        &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,  &
        &                 n_r_ic_max, n_r_max, nlat_padded
@@ -11,7 +10,7 @@ module out_movie
        &                 n_movie_const, n_movie_field_type, lGeosField,     &
        &                 n_movie_field_start,n_movie_field_stop,            &
        &                 movieDipColat, movieDipLon, movieDipStrength,      &
-       &                 movieDipStrengthGeo, lPhaseField, movie_const,     &
+       &                 movieDipStrengthGeo, movie_const,     &
        &                 lStoreMov, n_movie_file, n_movie_fields_ic,        &
        &                 movie_file
    use radial_data, only: n_r_icb, n_r_cmb
@@ -255,8 +254,6 @@ contains
          if ( .not. lStoreMov(n_movie) ) then
             if ( lGeosField(n_movie) ) then
                call write_geos_frame(n_movie)
-            else if ( lPhaseField(n_movie) ) then ! phase field
-               call write_melt_frame(n_movie)
             end if
          else
             if ( rank == 0 ) then
