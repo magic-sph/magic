@@ -275,7 +275,7 @@ class Movie:
             shape = (self.n_phi_tot, self.n_s_max)
             self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
                                   self.n_s_max), precision)
-        elif n_surface == 3:
+        elif n_surface >= 3:
             self.surftype = 'phi_constant'
             if self.movtype in [1, 2, 3, 14]:  # read inner core
                 shape = (self.n_theta_max, 2*(n_r_mov_tot+2))
@@ -331,7 +331,7 @@ class Movie:
                         self.data[ll, k, ...] = dat
                 elif n_surface == -2:
                     self.data[ll, k, ...] = dat
-                elif n_surface == 3:
+                elif n_surface >= 3:
                     if self.movtype in [1, 2, 3, 14]:
                         datoc0 = dat[:, :self.n_r_max]
                         datoc1 = dat[:, self.n_r_max:2*self.n_r_max]
