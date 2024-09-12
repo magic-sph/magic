@@ -19,7 +19,7 @@ module out_movie_IC
        &                 n_movie_surface, n_movies, n_movie_field_type,   &
        &                 n_movie_fields
    use out_movie, only: get_fl
-   use constants, only: one
+   use constants, only: zero, one
    use blocking, only: llmMag, ulmMag
    use sht, only: torpol_to_spat_IC, torpol_to_curl_spat_IC
 
@@ -139,16 +139,13 @@ contains
       real(cp) :: BpB(nlat_padded,n_phi_max)
       complex(cp) :: b_ic_r(lm_maxMag), db_ic_r(lm_maxMag), aj_ic_r(lm_maxMag)
 
-
-      !toto -> attention a la mise a zero si non condic
-
       if ( l_cond_ic ) then
          call gather_from_lo_to_rank0(b_ic(:,nR), b_ic_r)
          call gather_from_lo_to_rank0(db_ic(:,nR), db_ic_r)
          call gather_from_lo_to_rank0(aj_ic(:,nR), aj_ic_r)
       else
-         call gather_from_lo_to_rank0(db_ic(:,1), db_ic_r)
-         call gather_from_lo_to_rank0(aj_ic(:,1), aj_ic_r)
+         db_ic_r(:)=zero
+         aj_ic_r(:)=zero
       end if
 
       if ( rank == 0 ) then
@@ -156,7 +153,7 @@ contains
             call torpol_to_spat_IC(r_ic(nR),r_ICB,b_ic_r,db_ic_r,aj_ic_r, &
                  &                 BrB,BtB,BpB)
          else
-            call torpol_to_spat_IC(r_ic(nR),r_ICB,bICB(:),db_ic_r,aj_ic_r, &
+            call torpol_to_spat_IC(r_ic(nR),r_ICB,bICB,db_ic_r,aj_ic_r, &
                  &                 BrB,BtB,BpB)
          end if
 
@@ -226,7 +223,7 @@ contains
 
       do nR=1,n_r_ic_max
 
-         if ( l_cond_ic .or. (.not. l_cond_ic .and. nR==1) ) then
+         if ( l_cond_ic ) then
             call gather_from_lo_to_rank0(b_ic(:,nR), b_ic_r)
             call gather_from_lo_to_rank0(db_ic(:,nR), db_ic_r)
             call gather_from_lo_to_rank0(aj_ic(:,nR), aj_ic_r)
@@ -235,6 +232,9 @@ contains
                call gather_from_lo_to_rank0(dj_ic(:,nR), dj_ic_r)
                call gather_from_lo_to_rank0(ddb_ic(:,nR), ddb_ic_r)
             end if
+         else
+            db_ic_r(:)=zero
+            aj_ic_r(:)=zero
          end if
 
          if ( rank == 0 ) then
@@ -246,11 +246,12 @@ contains
                        &                      aj_ic_r,dj_ic_r,cBrB,cBtB,cBpB)
                end if
             else
-               call torpol_to_spat_IC(r_ic(nR),r_ICB,bICB(:),db_ic_r,aj_ic_r, &
+               call torpol_to_spat_IC(r_ic(nR),r_ICB,bICB,db_ic_r,aj_ic_r, &
                     &                 BrB,BtB,BpB)
                if ( n_field_type == 54 ) then
-                  call torpol_to_curl_spat_IC(r_ic(nR),r_ICB,db_ic_r,ddb_ic_r, &
-                       &                      aj_ic_r, dj_ic_r,cBrB,cBtB,cBpB)
+                  cBrB(:,:)=0.0_cp
+                  cBtB(:,:)=0.0_cp
+                  cBpB(:,:)=0.0_cp
                end if
             end if
 
@@ -358,7 +359,7 @@ contains
 
       do nR=1,n_r_ic_max
 
-         if ( l_cond_ic .or. (.not. l_cond_ic .and. nR==1) ) then
+         if ( l_cond_ic ) then
             call gather_from_lo_to_rank0(b_ic(:,nR), b_ic_r)
             call gather_from_lo_to_rank0(db_ic(:,nR), db_ic_r)
             call gather_from_lo_to_rank0(aj_ic(:,nR), aj_ic_r)
@@ -367,6 +368,9 @@ contains
                call gather_from_lo_to_rank0(dj_ic(:,nR), dj_ic_r)
                call gather_from_lo_to_rank0(ddb_ic(:,nR), ddb_ic_r)
             end if
+         else
+            db_ic_r(:)=zero
+            aj_ic_r(:)=zero
          end if
 
          if ( rank == 0 ) then
@@ -378,11 +382,12 @@ contains
                        &                      aj_ic_r,dj_ic_r,cBrB,cBtB,cBpB)
                end if
             else
-               call torpol_to_spat_IC(r_ic(nR),r_ICB,bICB(:),db_ic_r,aj_ic_r, &
+               call torpol_to_spat_IC(r_ic(nR),r_ICB,bICB,db_ic_r,aj_ic_r, &
                     &                 BrB,BtB,BpB)
                if ( n_field_type == 14 ) then
-                  call torpol_to_curl_spat_IC(r_ic(nR),r_ICB,db_ic_r,ddb_ic_r, &
-                       &                      aj_ic_r, dj_ic_r,cBrB,cBtB,cBpB)
+                  cBrB(:,:)=0.0_cp
+                  cBtB(:,:)=0.0_cp
+                  cBpB(:,:)=0.0_cp
                end if
             end if
 
@@ -447,7 +452,7 @@ contains
 
       do nR=1,n_r_ic_max
 
-         if ( l_cond_ic .or. (.not. l_cond_ic .and. nR==1) ) then
+         if ( l_cond_ic ) then
             call gather_from_lo_to_rank0(b_ic(:,nR), b_ic_r)
             call gather_from_lo_to_rank0(db_ic(:,nR), db_ic_r)
             call gather_from_lo_to_rank0(aj_ic(:,nR), aj_ic_r)
@@ -456,6 +461,9 @@ contains
                call gather_from_lo_to_rank0(dj_ic(:,nR), dj_ic_r)
                call gather_from_lo_to_rank0(ddb_ic(:,nR), ddb_ic_r)
             end if
+         else
+            db_ic_r(:)=zero
+            aj_ic_r(:)=zero
          end if
 
          if ( rank == 0 ) then
@@ -467,11 +475,12 @@ contains
                        &                      aj_ic_r,dj_ic_r,cBrB,cBtB,cBpB)
                end if
             else
-               call torpol_to_spat_IC(r_ic(nR),r_ICB,bICB(:),db_ic_r,aj_ic_r, &
+               call torpol_to_spat_IC(r_ic(nR),r_ICB,bICB,db_ic_r,aj_ic_r, &
                     &                 BrB,BtB,BpB)
                if ( n_field_type == 54 ) then
-                  call torpol_to_curl_spat_IC(r_ic(nR),r_ICB,db_ic_r,ddb_ic_r, &
-                       &                      aj_ic_r, dj_ic_r,cBrB,cBtB,cBpB)
+                  cBrB(:,:)=0.0_cp
+                  cBtB(:,:)=0.0_cp
+                  cBpB(:,:)=0.0_cp
                end if
             end if
 
