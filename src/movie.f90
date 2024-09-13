@@ -5,8 +5,8 @@ module movie_data
    use precision_mod
    use truncation, only: n_r_max, n_theta_max, n_phi_max, minc, n_r_ic_max, n_r_tot
    use logic, only: l_store_frame, l_save_out, l_movie, l_movie_oc, l_geosMovie, &
-       &            l_movie_ic, l_HTmovie, l_dtBmovie, l_store_frame, l_save_out,&
-       &            l_phaseMovie, l_dtphaseMovie
+       &            l_movie_ic, l_HTmovie, l_dtBmovie, l_phaseMovie, l_save_out, &
+       &            l_dtphaseMovie
    use radial_data, only: nRstart,nRstop, n_r_icb, n_r_cmb, radial_balance
    use radial_functions, only: r_cmb, r_icb, r, r_ic
    use horizontal_data, only: theta_ord, phi, n_theta_ord2cal
@@ -1244,8 +1244,9 @@ contains
             else if ( n_surface == -2 ) then
                write(n_log_file,*) '!    phi average    !'
             end if
-            if ( n_fields_ic > 0 ) &
-                 write(n_log_file,'('' !    including inner core magnetic field.'')')
+            if ( n_fields_ic > 0 ) then
+               write(n_log_file,'('' !    including inner core magnetic field.'')')
+            end if
 
             if ( l_save_out ) close(n_log_file)
          end if
