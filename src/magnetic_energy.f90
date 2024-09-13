@@ -17,8 +17,6 @@ module magnetic_energy
    use blocking, only: st_map, lo_map, llmMag, ulmMag
    use logic, only: l_cond_ic, l_mag, l_mag_LF, l_save_out, l_earth_likeness, &
        &            l_full_sphere
-   use movie_data, only: movieDipColat, movieDipLon, movieDipStrength, &
-       &                 movieDipStrengthGeo
    use output_data, only: tag, l_max_comp, l_geo
    use constants, only: pi, zero, one, two, half, four, osq4pi
    use special, only: n_imp, rrMP
@@ -733,11 +731,6 @@ contains
             end if
 
          end if
-         ! Store values needed for movie output:
-         movieDipColat      =theta_dip
-         movieDipLon        =phi_dip
-         movieDipStrength   =e_dip_cmb/e_cmb
-         movieDipStrengthGeo=e_dip_cmb/e_geo
       end if
 
    end subroutine get_e_mag

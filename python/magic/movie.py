@@ -71,14 +71,14 @@ class Movie:
                  std=False, dpi=80, normRad=False, precision=np.float32,
                  deminc=True, ifield=0, centeredCm=None, datadir='.'):
         """
-        :param nvar: the number of timesteps of the movie file we want to plot
+        :param nvar: the number of frames of the movie file we want to plot
                      starting from the last line
         :type nvar: int
         :param png: if png=True, write the png files instead of display
         :type png: bool
         :param iplot: if iplot=True, display otherwise just read
         :type iplot: bool
-        :param lastvar: the number of the last timesteps to be read
+        :param lastvar: the index of the last timesteps to be read
         :type lastvar: int
         :param nstep: the stepping between two timesteps
         :type nstep: int
@@ -160,196 +160,68 @@ class Movie:
             filename = file
 
         filename = os.path.join(datadir, filename)
-        mot = re.compile(r'.*[Mm]ov\.(.*)')
-        end = mot.findall(filename)[0]
+
+        # Get the version
+        self._get_version(filename)
 
         # Read the movie file
         infile = npfile(filename, endian='B')
-        # Header
-        version = infile.fort_read('|S64')[0].decode()
-        n_type, n_surface, const, n_fields = infile.fort_read(precision)
-        movtype = infile.fort_read(precision)
-        self.n_fields = int(n_fields)
-        if self.n_fields > 1:
-            print('!!! Warning: several fields in the movie file !!!')
-            print('!!! {} fields !!!'.format(self.n_fields))
-            print('!!! The one displayed is controlled by the    !!!')
-            print('!!! input parameter ifield (=0 by default)    !!!')
-        self.movtype = int(movtype[ifield])
-        n_surface = int(n_surface)
 
-        # Run parameters
-        runid = infile.fort_read('|S64')
-        n_r_mov_tot, n_r_max, n_theta_max, n_phi_tot, self.minc, self.ra, \
-            self.ek, self.pr, self.prmag, self.radratio, self.tScale =   \
-            infile.fort_read(precision)
-        self.minc = int(self.minc)
-        n_r_mov_tot = int(n_r_mov_tot)
-        self.n_r_max = int(n_r_max)
-        self.n_r_ic_max = n_r_mov_tot-self.n_r_max
-        self.n_theta_max = int(n_theta_max)
-        self.n_phi_tot = int(n_phi_tot)
+        # Read the movie header
+        self._read_header(infile, ifield, precision)
 
-        # Grid
-        if self.movtype in [100, 101, 102]:
-            self.cylRad = infile.fort_read(precision)
-            self.n_s_max = len(self.cylRad)
-        else:
-            self.n_s_max = 0
-        self.radius = infile.fort_read(precision)
-        self.radius_ic = np.zeros((self.n_r_ic_max+2), precision)
-        self.radius_ic[:-1] = self.radius[self.n_r_max-1:]
+        # Get the number of lines
+        self._get_nlines(datadir, filename, nvar, lastvar)
 
-        self.radius = self.radius[:self.n_r_max]  # remove inner core
-        # Overwrite radius to ensure double-precision of the
-        # grid (useful for Cheb der)
-        rout = 1./(1.-self.radratio)
-        # rin = self.radratio/(1.-self.radratio)
-        self.radius *= rout
-        self.radius_ic *= rout
-        # self.radius = chebgrid(self.n_r_max-1, rout, rin)
-        self.theta = infile.fort_read(precision)
-        self.phi = infile.fort_read(precision)
-
-        if filename.split('.')[-2].endswith('TO_mov'):
-            l_TOmov = True
-        else:
-            l_TOmov = False
-
-        # Determine the number of lines by reading the log.TAG file
-        logfile = open(os.path.join(datadir, 'log.{}'.format(end)), 'r')
-        mot = re.compile(r'  ! WRITING MOVIE FRAME NO\s*(\d*).*')
-        mot2 = re.compile(r' ! WRITING TO MOVIE FRAME NO\s*(\d*).*')
-        nlines = 0
-        for line in logfile.readlines():
-            if not l_TOmov and mot.match(line):
-                nlines = int(mot.findall(line)[0])
-            elif l_TOmov and mot2.match(line):
-                nlines = int(mot2.findall(line)[0])
-        logfile.close()
-
-        # In case no 'nlines' can be determined from the log file:
-        if nlines == 0:
-            nlines = getNlines(filename, endian='B', precision=precision)
-            nlines -= 8  # Remove 8 lines of header
-            nlines = nlines//(self.n_fields+1)
-
-        if lastvar is None:
-            self.var2 = nlines
-        else:
-            self.var2 = lastvar
-        if str(nvar) == 'all':
-            self.nvar = nlines
-            self.var2 = nlines
-        else:
-            self.nvar = nvar
-
-        if n_surface == 0:
-            self.surftype = '3d volume'
-            if self.movtype in [1, 2, 3, 31]:
-                shape = (self.n_phi_tot, self.n_theta_max, n_r_mov_tot+2)
-            else:
-                shape = (self.n_phi_tot, self.n_theta_max, self.n_r_max)
-            self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
-                                  self.n_theta_max, self.n_r_max), precision)
-            self.data_ic = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
-                                    self.n_theta_max, self.n_r_ic_max+2),
-                                    precision)
-        elif n_surface == 1 or n_surface == -1:
-            self.surftype = 'r_constant'
-            shape = (self.n_phi_tot, self.n_theta_max)
-            self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
-                                  self.n_theta_max), precision)
-        elif n_surface == 2:
-            self.surftype = 'theta_constant'
-            if self.movtype in [1, 2, 3, 14]:  # read inner core
-                shape = (self.n_phi_tot, n_r_mov_tot+2)
-            else:
-                shape = (self.n_phi_tot, self.n_r_max)
-            self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
-                                  self.n_r_max), precision)
-            self.data_ic = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
-                                     self.n_r_ic_max+2), precision)
-        elif n_surface == -2:
-            self.surftype = 'theta_constant'
-            shape = (self.n_phi_tot, self.n_s_max)
-            self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
-                                  self.n_s_max), precision)
-        elif n_surface >= 3:
-            self.surftype = 'phi_constant'
-            if self.movtype in [1, 2, 3, 14]:  # read inner core
-                shape = (self.n_theta_max, 2*(n_r_mov_tot+2))
-                self.n_theta_plot = 2*self.n_theta_max
-            elif self.movtype in [8, 9, 20, 21, 22, 23, 24, 25, 26]:
-                shape = (self.n_theta_max, n_r_mov_tot+2)
-                self.n_theta_plot = self.n_theta_max
-            elif self.movtype in [4, 5, 6, 7, 15, 16, 17, 18, 47, 54,
-                                  109, 112]:
-                shape = (self.n_theta_max, self.n_r_max, 2)
-                self.n_theta_plot = 2*self.n_theta_max
-            elif self.movtype in [10, 11, 12, 19, 92, 94, 95, 110, 111, 114,
-                                  115, 116]:
-                shape = (self.n_theta_max, self.n_r_max)
-                self.n_theta_plot = self.n_theta_max
-            # Inner core is not stored here
-            self.data = np.zeros((self.n_fields, self.nvar, self.n_theta_plot,
-                                  self.n_r_max), precision)
-            self.data_ic = np.zeros((self.n_fields, self.nvar,
-                                     self.n_theta_plot, self.n_r_ic_max+2),
-                                    precision)
+        # Get the shape of the data
+        self._get_data_shape(precision)
 
         self.time = np.zeros(self.nvar, precision)
 
         # Read the data
-
         # If one skip the beginning, nevertheless read but do not store
         for i in range(self.var2-self.nvar):
-            n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
-                movieDipLon, movieDipStrength, movieDipStrengthGeo = \
-                infile.fort_read(precision)
+            if self.version == 2:
+                n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
+                    movieDipLon, movieDipStrength, movieDipStrengthGeo = \
+                    infile.fort_read(precision)
+            else:
+                t_movieS = infile.fort_read(precision)
             for ll in range(self.n_fields):
-                dat = infile.fort_read(precision, shape=shape, order='F')
+                dat = infile.fort_read(precision, shape=self.shape, order='F')
         # then read the remaining requested nvar lines
         for k in range(self.nvar):
-            n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
-                movieDipLon, movieDipStrength, movieDipStrengthGeo = \
-                infile.fort_read(precision)
+            if self.version == 2:
+                n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
+                    movieDipLon, movieDipStrength, movieDipStrengthGeo = \
+                    infile.fort_read(precision)
+            else:
+                t_movieS = infile.fort_read(precision)
             self.time[k] = t_movieS
             for ll in range(self.n_fields):
-                dat = infile.fort_read(precision, shape=shape, order='F')
-                if n_surface == 0:
-                    if self.movtype in [1, 2, 3, 31]:
-                        self.data[ll, k, ...] = dat[:, :, :self.n_r_max]
+                dat = infile.fort_read(precision, shape=self.shape, order='F')
+                if self.n_surface == 0:
+                    self.data[ll, k, ...] = dat[:, :, :self.n_r_max]
+                    if self.lIC:
                         self.data_ic[ll, k, ...] = dat[:, :, self.n_r_max:]
-                    else:
-                        self.data[ll, k, ...] = dat
-                elif n_surface == 2:
-                    if self.movtype in [1, 2, 3, 14]:
-                        self.data[ll, k, ...] = dat[:, :self.n_r_max]
+                elif self.n_surface == 2:
+                    self.data[ll, k, ...] = dat[:, :self.n_r_max]
+                    if self.lIC:
                         self.data_ic[ll, k, ...] = dat[:, self.n_r_max:]
-                    else:
-                        self.data[ll, k, ...] = dat
-                elif n_surface == -2:
+                elif self.n_surface == -2:
                     self.data[ll, k, ...] = dat
-                elif n_surface >= 3:
-                    if self.movtype in [1, 2, 3, 14]:
-                        datoc0 = dat[:, :self.n_r_max]
-                        datoc1 = dat[:, self.n_r_max:2*self.n_r_max]
-                        datic0 = dat[:, 2*self.n_r_max:2*self.n_r_max+self.n_r_ic_max+2]
-                        datic1 = dat[:, 2*self.n_r_max+self.n_r_ic_max+2:]
-                        self.data[ll, k, ...] = np.vstack((datoc0, datoc1))
+                elif self.n_surface == 3:
+                    datoc0 = dat[:, :self.n_r_max]
+                    datoc1 = dat[:, self.n_r_max:2*self.n_r_max]
+                    self.data[ll, k, ...] = np.vstack((datoc0, datoc1))
+                    if self.lIC:
+                        datic0 = dat[:, 2*self.n_r_max:2*self.n_r_max+self.n_r_ic_max]
+                        datic1 = dat[:, 2*self.n_r_max+self.n_r_ic_max:]
                         self.data_ic[ll, k, ...] = np.vstack((datic0, datic1))
-                    elif self.movtype in [8, 9, 20, 21, 22, 23, 24, 25, 26]:
+                elif self.n_surface == 4:
+                    self.data[ll, k, ...] = dat[:, :self.n_r_max]
+                    if self.lIC:
                         self.data_ic[ll, k, ...] = dat[:, self.n_r_max:]
-                        self.data[ll, k, ...] = dat[:, :self.n_r_max]
-                    elif self.movtype in [4, 5, 6, 7, 15, 16, 17, 18, 47, 54, 91,
-                                          109, 112]:
-                        dat0 = dat[..., 0]
-                        dat1 = dat[..., 1]
-                        self.data[ll, k, ...] = np.vstack((dat0, dat1))
-                    elif self.movtype in [10, 11, 12, 19, 92, 94, 95, 110, 111,
-                                          114, 115, 116]:
-                        self.data[ll, k, ...] = dat
                 else:
                     self.data[ll, k, ...] = dat
                 if fluct:
@@ -379,6 +251,226 @@ class Movie:
             cmap = plt.get_cmap(cm)
             self.avgStd(ifield, std, cut, centeredCm, levels, cmap)
 
+    def _get_version(self, filename):
+        """
+        This routine determines the version of the movie files
+
+        :param filename: name of the movie file
+        :type filename: str
+        """
+        with open(filename, 'rb') as fi:
+            rm = np.fromfile(fi, np.float32, count=1) # record marker
+            self.version = np.fromfile(fi, '>i4', count=1)[0]
+            rm = np.fromfile(fi, np.float32, count=1)
+        if abs(self.version) > 100:
+            fi = npfile(filename, endian='B')
+            version = fi.fort_read('|S64')[0].decode().rstrip()
+            self.version = int(version[-1])
+            fi.close()
+
+    def _get_nlines(self, datadir, filename, nvar, lastvar):
+        """
+        This routine determines the number of frames stored in a movie file
+
+        :param filename: name of the movie file
+        :type filename: str
+        :param datadir: working directory
+        :type datadir: str
+        :param nvar: the number of frames of the movie file we want to plot
+                     starting from the last line
+        :type nvar: int
+        :param lastvar: the index of the last timesteps to be read
+        :type lastvar: int
+        """
+
+        # Get the number of lines
+        pattern = re.compile(r'.*[Mm]ov\.(.*)')
+        end = pattern.findall(filename)[0]
+        if filename.split('.')[-2].endswith('TO_mov'):
+            l_TOmov = True
+        else:
+            l_TOmov = False
+
+        # Determine the number of lines by reading the log.TAG file
+        logfile = open(os.path.join(datadir, 'log.{}'.format(end)), 'r')
+        pattern = re.compile(r'  ! WRITING MOVIE FRAME NO\s*(\d*).*')
+        mot2 = re.compile(r' ! WRITING TO MOVIE FRAME NO\s*(\d*).*')
+        nlines = 0
+        for line in logfile.readlines():
+            if not l_TOmov and pattern.match(line):
+                nlines = int(pattern.findall(line)[0])
+            elif l_TOmov and mot2.match(line):
+                nlines = int(mot2.findall(line)[0])
+        logfile.close()
+
+        # In case no 'nlines' can be determined from the log file:
+        if nlines == 0:
+            nlines = getNlines(filename, endian='B', precision=precision)
+            if self.version == 2:
+                nlines -= 8  # Remove 8 lines of header
+            else:
+                nlines -= 10 # Remove 10 lines of header
+            if self.movtype in [100, 101, 102]:
+                nlines -=1  # One additional line in the header for those movies
+            nlines = nlines//(self.n_fields+1)
+
+        if lastvar is None:
+            self.var2 = nlines
+        else:
+            self.var2 = lastvar
+        if str(nvar) == 'all':
+            self.nvar = nlines
+            self.var2 = nlines
+        else:
+            self.nvar = nvar
+
+    def _read_header(self, infile, ifield, precision):
+        """
+        This routine reads the header of the movie files
+
+        :param infile: the movie file loaded using npfile
+        :type infile: magic.npfile.npfile
+        :param ifield: the index of the considered field (in case the movie
+                       contains several)
+        :type ifield: int
+        :param precision: precision of the input file, np.float32 for single
+                          precision, np.float64 for double precision
+        :type precision: str
+        """
+        # Header
+        if self.version == 2:
+            version = infile.fort_read('|S64')[0].decode().rstrip()
+            n_type, n_surface, const, n_fields = infile.fort_read(precision)
+            self.n_surface = int(n_surface)
+            self.n_fields = int(n_fields)
+            movtype = infile.fort_read(precision).astype(np.int32)
+        else:
+            version = infile.fort_read(np.int32)[0]
+            self.n_surface, self.n_fields = infile.fort_read(np.int32)
+            const = infile.fort_read(precision)
+            movtype = infile.fort_read(np.int32)
+        self.movtype = movtype[ifield]
+
+        # Run parameters
+        runid = infile.fort_read('|S64')
+        if self.version == 2:
+            n_r_mov_tot, n_r_max, n_theta_max, n_phi_tot, self.minc, self.ra, \
+                self.ek, self.pr, self.prmag, self.radratio, self.tScale =   \
+                infile.fort_read(precision)
+            self.minc = int(self.minc)
+            self.n_r_mov_tot = int(n_r_mov_tot)
+            self.n_r_max = int(n_r_max)
+            self.n_r_ic_max = self.n_r_mov_tot-self.n_r_max
+            self.n_r_mov_tot += 2
+            self.n_r_ic_max += 2
+            self.raxi = 0.
+            self.sc = 0.
+            self.n_theta_max = int(n_theta_max)
+            self.n_phi_tot = int(n_phi_tot)
+            self.n_s_max = 0
+        else:
+            self.n_r_mov_tot, self.n_r_max, self.n_r_ic_max, self.n_theta_max, \
+                self.n_phi_tot, self.n_s_max, self.minc = infile.fort_read(np.int32)
+            self.ra, self.ek, self.pr, self.raxi, self.sc, self.prmag, \
+                self.radratio, self.tScale = infile.fort_read(precision)
+
+        # Grid
+        if self.movtype in [100, 101, 102]:
+            self.cylRad = infile.fort_read(precision)
+            if self.version == 2:
+                self.n_s_max = len(self.cylRad)
+        self.radius = infile.fort_read(precision)
+        if self.version == 2:
+            self.radius_ic = np.zeros((self.n_r_ic_max), precision)
+            self.radius_ic[:-1] = self.radius[self.n_r_max-1:]
+        else:
+            self.radius_ic = self.radius[self.n_r_max:]
+
+        self.radius = self.radius[:self.n_r_max]  # remove inner core
+        # Overwrite radius to ensure double-precision of the
+        # grid (useful for Cheb der)
+        rout = 1./(1.-self.radratio)
+        # rin = self.radratio/(1.-self.radratio)
+        self.radius *= rout
+        self.radius_ic *= rout
+        # self.radius = chebgrid(self.n_r_max-1, rout, rin)
+        self.theta = infile.fort_read(precision)
+        self.phi = infile.fort_read(precision)
+
+        if self.version == 2:
+            if self.movtype not in [1, 2, 3, 14, 8, 9, 20, 21, 22, 23, 24, 25, 26, 31]:
+                self.n_r_mov_tot = self.n_r_max
+                self.lIC = False
+            else:
+                self.lIC = True
+        else:
+            if self.n_r_mov_tot > self.n_r_max:
+                self.lIC = True
+            else:
+                self.lIC = False
+
+    def _get_data_shape(self, precision, allocate=True):
+        """
+        This determines the size of the movie frames depending on n_surface
+
+        :param precision: precision of the input file, np.float32 for single
+                          precision, np.float64 for double precision
+        :type precision: str
+        """
+
+        if self.n_surface == 0:
+            self.shape = (self.n_phi_tot, self.n_theta_max, self.n_r_mov_tot)
+            if allocate:
+                self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
+                                      self.n_theta_max, self.n_r_max), precision)
+            if allocate and self.lIC:
+                self.data_ic = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
+                                        self.n_theta_max, self.n_r_ic_max),
+                                        precision)
+        elif self.n_surface == 1 or self.n_surface == -1:
+            self.shape = (self.n_phi_tot, self.n_theta_max)
+            if allocate:
+                self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
+                                      self.n_theta_max), precision)
+        elif self.n_surface == 2:
+            self.shape = (self.n_phi_tot, self.n_r_mov_tot)
+            if allocate:
+                self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
+                                      self.n_r_max), precision)
+            if allocate and self.lIC:
+                self.data_ic = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
+                                         self.n_r_ic_max), precision)
+        elif self.n_surface == -2:
+            self.shape = (self.n_phi_tot, self.n_s_max)
+            if allocate:
+                self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
+                                      self.n_s_max), precision)
+        elif self.n_surface == 3:
+            if self.movtype in [8, 9, 10, 11, 12, 19, 20, 21, 22, 23, 24, 25, 26,
+                                92, 94, 95, 110, 111, 114, 115, 116]:
+                self.shape = (self.n_theta_max, self.n_r_mov_tot)
+                self.n_theta_plot = self.n_theta_max
+                self.n_surface == 4
+            else:
+                self.shape = (self.n_theta_max, 2*self.n_r_mov_tot)
+                self.n_theta_plot = 2*self.n_theta_max
+            if allocate:
+                self.data = np.zeros((self.n_fields, self.nvar, self.n_theta_plot,
+                                      self.n_r_max), precision)
+            if allocate and self.lIC:
+                self.data_ic = np.zeros((self.n_fields, self.nvar,
+                                         self.n_theta_plot, self.n_r_ic_max),
+                                        precision)
+        elif self.n_surface == 4:
+            self.shape = (self.n_theta_max, self.n_r_mov_tot)
+            if allocate:
+                self.data = np.zeros((self.n_fields, self.nvar, self.n_theta_max,
+                                      self.n_r_max), precision)
+            if allocate and self.lIC:
+                self.data_ic = np.zeros((self.n_fields, self.nvar,
+                                         self.n_theta_max, self.n_r_ic_max),
+                                        precision)
+
     def __add__(self, new):
         """
         Built-in function to sum two movies. In case, the spatial grid have been
@@ -393,7 +485,7 @@ class Movie:
         if self.data[0, 0, ...].shape != new.data[0, 0, ...].shape:
             new_shape = new.data[0, 0, ...].shape
             old_shape = self.data[0, 0, ...].shape
-            if self.surftype == 'r_constant':
+            if self.n_surface == 1:
                 if (new_shape[0] != old_shape[0]) and (new_shape[1] != old_shape[1]):
                     ip = interp1d(self.phi, self.data, axis=-2,
                                   fill_value='extrapolate')
@@ -409,7 +501,7 @@ class Movie:
                     it = interp1d(self.theta, self.data, axis=-1,
                                   fill_value='extrapolate')
                     self.data = it(new.theta)
-            elif self.surftype == 'theta_constant':
+            elif self.n_surface == 2:
                 if (new_shape[0] != old_shape[0]) and (new_shape[1] != old_shape[1]):
                     ip = interp1d(self.phi, self.data, axis=-2,
                                   fill_value='extrapolate')
@@ -425,8 +517,7 @@ class Movie:
                     ir = interp1d(self.radius[::-1], self.data[..., ::-1], axis=-1)
                     tmp = ir(new.radius[::-1])
                     self.data = self.data[..., ::-1]
-            elif self.surftype == 'phi_constant' and \
-                 self.movtype in [10, 11, 12, 19, 92, 94, 95, 110, 111]:
+            elif self.n_surface == 4:
                 if (new_shape[0] != old_shape[0]) and (new_shape[1] != old_shape[1]):
                     it = interp1d(self.theta, self.data, axis=-2,
                                   fill_value='extrapolate')
@@ -442,8 +533,7 @@ class Movie:
                     ir = interp1d(self.radius[::-1], self.data[..., ::-1], axis=-1)
                     tmp = ir(new.radius[::-1])
                     self.data = tmp[..., ::-1]
-            elif self.surftype == 'phi_constant' and \
-                 self.movtype not in [10, 11, 12, 19, 92, 94, 95, 110, 111]:
+            elif self.n_surface == 3:
                 if (new_shape[0] != old_shape[0]) and (new_shape[1] != old_shape[1]):
                     it = interp1d(self.theta, self.data[..., :self.n_theta_max, :],
                                   axis=-2, fill_value='extrapolate')
@@ -483,7 +573,7 @@ class Movie:
         return out
 
     def avgStd(self, ifield=0, std=False, cut=0.5, centeredCm=None,
-               levels=12, cmap='RdYlBu_r', ic=False):
+               levels=12, cmap='RdYlBu_r'):
         """
         Plot time-average or standard deviation
 
@@ -505,11 +595,11 @@ class Movie:
         """
         if std:
             avg = self.data[ifield, ...].std(axis=0)
-            if ic:
+            if self.lIC:
                 avg_ic = self.data_ic[ifield, ...].std(axis=0)
         else:
             avg = self.data[ifield, ...].mean(axis=0)
-            if ic:
+            if self.lIC:
                 avg_ic = self.data_ic[ifield, ...].mean(axis=0)
         if centeredCm is None:
             if avg.min() < 0 and avg.max() > 0:
@@ -525,12 +615,12 @@ class Movie:
             vmin = cut * avg.min()
         cs = np.linspace(vmin, vmax, levels)
 
-        if self.surftype == 'phi_constant':
-            if self.n_theta_plot == self.n_theta_max:
+        if self.n_surface in [3, 4]:
+            if self.n_surface == 4:
                 th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
                 fig = plt.figure(figsize=(4, 8))
                 th0 = th
-            else:
+            elif self.n_surface == 3:
                 th0 = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
                 th1 = np.linspace(np.pi/2., 3.*np.pi/2., self.n_theta_max)
                 th = np.concatenate((th0, th1))
@@ -544,11 +634,11 @@ class Movie:
             yyout = rr.max() * np.sin(th0)
             xxin = rr.min() * np.cos(th0)
             yyin = rr.min() * np.sin(th0)
-            if ic:
+            if self.lIC:
                 rr, tth = np.meshgrid(self.radius_ic, th)
                 xx_ic = rr * np.cos(tth)
                 yy_ic = rr * np.sin(tth)
-        elif self.surftype == 'r_constant':
+        elif self.n_surface == 1:
             th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
             phi = np.linspace(-np.pi, np.pi, self.n_phi_tot)
             ttheta, pphi = np.meshgrid(th, phi)
@@ -556,7 +646,7 @@ class Movie:
             xxout, yyout = hammer2cart(th, -np.pi)
             xxin, yyin = hammer2cart(th, np.pi)
             fig = plt.figure(figsize=(8, 4))
-        elif self.surftype == 'theta_constant':
+        elif self.n_surface == 2:
             phi = np.linspace(0., 2.*np.pi, self.n_phi_tot)
             rr, pphi = np.meshgrid(self.radius, phi)
             xx = rr * np.cos(pphi)
@@ -565,8 +655,12 @@ class Movie:
             yyout = rr.max() * np.sin(pphi)
             xxin = rr.min() * np.cos(pphi)
             yyin = rr.min() * np.sin(pphi)
+            if self.lIC:
+                rr, pphi = np.meshgrid(self.radius_ic, phi)
+                xx_ic = rr * np.cos(pphi)
+                yy_ic = rr * np.sin(pphi)
             fig = plt.figure(figsize=(6, 6))
-        elif self.surftype == '3d volume':
+        elif n_surface == 0:
             self.data = self.data[ifield, ..., 0]
             th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
             phi = np.linspace(-np.pi, np.pi, self.n_phi_tot)
@@ -579,7 +673,7 @@ class Movie:
         fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01)
         ax = fig.add_subplot(111, frameon=False)
         ax.contourf(xx, yy, avg, cs, cmap=cmap, extend='both')
-        if ic:
+        if self.lIC:
             ax.contourf(xx_ic, yy_ic, avg_ic, cs, cmap=cmap, extend='both')
         ax.plot(xxout, yyout, 'k-', lw=1.5)
         ax.plot(xxin, yyin, 'k-', lw=1.5)
@@ -646,12 +740,12 @@ class Movie:
             # vmin, vmax = self.data.min(), self.data.max()
             cs = np.linspace(vmin, vmax, levels)
 
-        if self.surftype == 'phi_constant':
-            if self.n_theta_plot == self.n_theta_max:
+        if self.n_surface in [3, 4]:
+            if self.n_surface == 4:
                 th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
                 fig = plt.figure(figsize=(4, 8))
                 th0 = th
-            else:
+            elif self.n_surface == 3:
                 th0 = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
                 th1 = np.linspace(np.pi/2., 3.*np.pi/2., self.n_theta_max)
                 th = np.concatenate((th0, th1))
@@ -670,7 +764,7 @@ class Movie:
                 rr, tth = np.meshgrid(self.radius_ic, th)
                 xx_ic = rr * np.cos(tth)
                 yy_ic = rr * np.sin(tth)
-        elif self.surftype == 'r_constant':
+        elif self.n_surface == 1:
             th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
             if deminc:
                 phi = np.linspace(-np.pi, np.pi, self.n_phi_tot*self.minc+1)
@@ -684,7 +778,7 @@ class Movie:
             ttheta, pphi = np.meshgrid(th, phi)
             xx, yy = hammer2cart(ttheta, pphi)
             fig = plt.figure(figsize=(8, 4))
-        elif self.surftype == 'theta_constant':
+        elif self.n_surface == 2:
             if deminc:
                 phi = np.linspace(0., 2.*np.pi, self.n_phi_tot*self.minc+1)
             else:
@@ -704,7 +798,7 @@ class Movie:
                 xx_ic = rr * np.cos(pphi)
                 yy_ic = rr * np.sin(pphi)
             fig = plt.figure(figsize=(6, 6))
-        elif self.surftype == '3d volume':
+        elif self.n_surface == 0:
             self.data = self.data[ifield, ..., 0]
             th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
             phi = np.linspace(-np.pi, np.pi, self.n_phi_tot)
@@ -725,7 +819,7 @@ class Movie:
                     vmin = cut * vmin
                     vmax = -vmin
                     cs = np.linspace(vmin, vmax, levels)
-                if self.surftype in ['r_constant', 'theta_constant']:
+                if self.n_surface in [1, 2]:
                     if deminc:
                         dat = symmetrize(self.data[ifield, k, ...], self.minc)
                         if ic:
@@ -765,7 +859,7 @@ class Movie:
                         vmax = cut * self.data[ifield, k, ...].max()
                         vmin = cut * self.data[ifield, k, ...].min()
                     cs = np.linspace(vmin, vmax, levels)
-                if self.surftype in ['r_constant', 'theta_constant']:
+                if self.n_surface in [1, 2]:
                     if deminc:
                         dat = symmetrize(self.data[ifield, k, ...], self.minc)
                         if ic:

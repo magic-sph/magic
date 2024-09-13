@@ -210,12 +210,12 @@ contains
             close(n_drift_asym_file)
          end if
       end if
-      if ( l_hemi ) then 
+      if ( l_hemi ) then
          deallocate( hemi_ekin_r, hemi_vrabs_r )
          if ( l_mag ) deallocate( hemi_emag_r, hemi_brabs_r )
       end if
       if ( l_hel ) deallocate( HelASr, Hel2ASr, HelnaASr, Helna2ASr, HelEAASr )
-      
+
       if ( l_phase_field ) then
          if ( l_dtphaseMovie ) deallocate( dtemp_Rloc, dtemp_Ploc, dt_rmelt_loc)
          deallocate( temp_Rloc, phi_Rloc, temp_Ploc, phi_Ploc, phi_balance )
@@ -237,7 +237,7 @@ contains
 !----------------------------------------------------------------------------------
    subroutine outHemi(timeScaled)
       !
-      ! This function handles the writing of outputs related to hemisphericity of 
+      ! This function handles the writing of outputs related to hemisphericity of
       ! the kinetic and magnetic energy between Northern and Southern hemispheres.
       ! This is based on Wieland Dietrich's work (see Dietrich & Wicht, 2013).
       ! Outputs are stored in the time series hemi.TAG
@@ -1212,7 +1212,7 @@ contains
       if ( n_r_phase == n_r_cmb ) then
          rphase=r_cmb
          tphase=temp(n_r_cmb)
-      else 
+      else
          if ( n_r_phase == n_r_cmb+1 ) then
             n_r_start=n_r_phase-1
             n_r_stop =n_r_phase+2

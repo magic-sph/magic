@@ -46,7 +46,7 @@ def getGraphEndianness(filename):
     except ValueError:
         f = open(filename, 'rb')
         # Little endian
-        version = np.fromfile(f, 'i4', count=1)[0]
+        version = np.fromfile(f, np.int32, count=1)[0]
         endian = 'l'
         if abs(version) > 100:
             f.close()

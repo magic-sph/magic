@@ -356,7 +356,7 @@ contains
             e_mag_p_ic_m(:)=0.0_cp; e_mag_t_ic_m(:)=0.0_cp
          end if
 
-         !-- Extra outputs specific to magnetic spectra 
+         !-- Extra outputs specific to magnetic spectra
          eCMB(:)=0.0_cp
          do lm=llm,ulm
             l=lo_map%lm2l(lm)
@@ -466,7 +466,7 @@ contains
             &     ml,round_off(e_kin_p_l(ml),maxval(e_kin_p_l),cut),            &
             &     round_off(e_kin_p_m(ml),maxval(e_kin_p_m),cut),               &
             &     round_off(e_kin_t_l(ml),maxval(e_kin_t_l),cut),               &
-            &     round_off(e_kin_t_m(ml),maxval(e_kin_t_m),cut),               & 
+            &     round_off(e_kin_t_m(ml),maxval(e_kin_t_m),cut),               &
             &     round_off(e_kin_nearSurf_l(ml),maxval(e_kin_nearSurf_l),cut), &
             &     round_off(e_kin_nearSurf_m(ml),maxval(e_kin_nearSurf_m),cut), &
             &     round_off(e_mer_l(ml),maxval(e_mer_l),cut),                   &
@@ -836,7 +836,7 @@ contains
       real(cp) :: T_temp, dT_temp, surf_ICB, fac, facICB
       real(cp) :: T_r_l(n_r_max,0:l_max),T_r_l_global(n_r_max,0:l_max)
       real(cp) :: T_r_m(n_r_max,0:l_max),T_r_m_global(n_r_max,0:l_max)
-      real(cp) ::  T_ICB_l_global(0:l_max), dT_ICB_l_global(0:l_max) 
+      real(cp) ::  T_ICB_l_global(0:l_max), dT_ICB_l_global(0:l_max)
       real(cp) :: T_ICB_m_global(0:l_max), dT_ICB_m_global(0:l_max)
 
       if ( present(T_ICB_l) ) then

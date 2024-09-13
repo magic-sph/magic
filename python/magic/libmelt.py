@@ -183,7 +183,7 @@ class MagicMelt(MagicSetup):
         # If the number of latitudinal grid points has changed, one
         # needs to interpolate
         if len(self.colatitude) != len(theta_new):
-            it = interp1d(self.colatitude, self.rmelt, axis=-1, 
+            it = interp1d(self.colatitude, self.rmelt, axis=-1,
                           fill_value='extrapolate')
             self.rmelt = it(theta_new)
             self.colatitude = theta_new
@@ -208,7 +208,7 @@ class MagicMelt(MagicSetup):
         fig = plt.figure()
         ax = fig.add_subplot(111)
 
-        im = ax.contourf(self.time, self.colatitude, self.rmelt.T, levels, 
+        im = ax.contourf(self.time, self.colatitude, self.rmelt.T, levels,
                          cmap=plt.get_cmap(cm))
         ax.set_xlabel('Time')
         ax.set_ylabel('Colatitude')
