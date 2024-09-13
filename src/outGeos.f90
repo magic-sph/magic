@@ -14,10 +14,11 @@ module geos
    use mem_alloc, only: bytes_allocated
    use radial_data, only: radial_balance, nRstart, nRstop
    use radial_functions, only: or1, or2, r_ICB, r_CMB, r, orho1, orho2, beta
-   use output_data, only: sDens, zDens, tag
+   use output_data, only: sDens, zDens, tag, n_s_max
    use horizontal_data, only: n_theta_cal2ord, O_sin_theta_E2, theta_ord, &
        &                      O_sin_theta, cosTheta, sinTheta
-   use movie_data, only: n_movie_type, n_movie_fields, n_movie_file
+   use movie_data, only: n_movie_field_type, n_movie_fields, n_movie_file, &
+       &                 n_movies, n_movie_field_start, frames
    use truncation, only: n_phi_max, n_theta_max, n_r_max, nlat_padded, l_max
    use integration, only: simps, cylmean_otc, cylmean_itc
    use logic, only: l_save_out
@@ -38,12 +39,11 @@ module geos
    integer :: nPstop  ! Stoping nPhi index when MPI distributed
    type(load), allocatable :: phi_balance(:) ! phi-distributed balance
    integer :: n_geos_file ! file unit for geos.TAG
-   integer, public :: n_s_max ! Number of cylindrical points
    integer :: n_s_otc ! Index for last point outside TC
    character(len=72) :: geos_file ! file name
 
    public :: initialize_geos, finalize_geos, calcGeos, outGeos, outOmega, &
-   &         write_geos_frame
+   &         calc_geos_frame
 
 contains
 
@@ -84,8 +84,6 @@ contains
 
       if ( l_geos .or. l_SRIC .or. l_geosMovie ) then
          !-- Cylindrical radius
-         n_s_max = n_r_max+int(r_ICB*n_r_max)
-         n_s_max = int(sDens*n_s_max)
          allocate( cyl(n_s_max) )
          bytes_allocated=bytes_allocated+n_s_max*SIZEOF_DEF_REAL
 
@@ -494,55 +492,67 @@ contains
 
    end subroutine outGeos
 !------------------------------------------------------------------------------------
-   subroutine write_geos_frame(n_movie)
+   subroutine calc_geos_frame()
       !
       ! This subroutine handles the computation and the writing of geos movie
       ! files.
       !
 
-      !-- Input variables
-      integer, intent(in) :: n_movie ! The index of the movie in list of movies
-
       !-- Local variables
-      integer :: n_type, n_p, n_fields, n_field, n_out
+      integer :: n_p, n_fields, n_field, n_field_type, n_out, n_movie
+      integer :: n_store_last, n_phi, n_s, n_o
       real(cp) :: dat(n_s_max,nPstart:nPstop), dat_full(n_phi_max,n_s_max)
       real(cp) :: datITC_N(n_s_max), datITC_S(n_s_max)
 
-      n_type  =n_movie_type(n_movie)
-      n_fields=n_movie_fields(n_movie)
-      n_out   =n_movie_file(n_movie)
+      do n_movie=1,n_movies
+         n_fields=n_movie_fields(n_movie)
+         n_out   =n_movie_file(n_movie)
 
-      if ( n_type == 130 ) then ! Us
-         call transp_R2Phi(us_Rloc, us_Ploc)
-      else if (n_type == 131 ) then ! Uphi
-         call transp_R2Phi(up_Rloc, up_Ploc)
-      else if (n_type == 132 ) then ! Vort z
-         call transp_R2Phi(wz_Rloc, wz_Ploc)
-      end if
-
-      !-- Z averaging
-      do n_p=nPstart,nPstop
-         if ( n_type == 130 ) then
-            call cylmean(us_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
-         else if ( n_type == 131 ) then
-            call cylmean(up_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
-         else if ( n_type == 132 ) then
-            call cylmean(wz_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
-         end if
-         dat(:,n_p)=dat(:,n_p)+datITC_N(:)
-      end do
-
-      !-- MPI gather
-      call gather_Ploc(dat,  dat_full)
-
-      !-- Write outputs
-      if ( rank == 0 ) then
          do n_field=1,n_fields
-            write(n_out) real(dat_full,kind=outp)
-         end do
-      end if
+            n_field_type=n_movie_field_type(n_field,n_movie)
+            n_store_last=n_movie_field_start(n_field,n_movie)-1
 
-   end subroutine write_geos_frame
+            if ( n_field_type == 100 ) then ! Us
+               call transp_R2Phi(us_Rloc, us_Ploc)
+               !-- Z averaging
+               do n_p=nPstart,nPstop
+                  call cylmean(us_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
+                  dat(:,n_p)=dat(:,n_p)+datITC_N(:)
+               end do
+            else if (n_field_type == 101 ) then ! Uphi
+               call transp_R2Phi(up_Rloc, up_Ploc)
+               !-- Z averaging
+               do n_p=nPstart,nPstop
+                  call cylmean(up_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
+                  dat(:,n_p)=dat(:,n_p)+datITC_N(:)
+               end do
+            else if (n_field_type == 102 ) then ! Vort z
+               call transp_R2Phi(wz_Rloc, wz_Ploc)
+               !-- Z averaging
+               do n_p=nPstart,nPstop
+                  call cylmean(wz_Ploc(:,:,n_p),dat(:,n_p),datITC_N,datITC_S)
+                  dat(:,n_p)=dat(:,n_p)+datITC_N(:)
+               end do
+            else
+               cycle
+            end if
+
+            !-- MPI gather
+            call gather_Ploc(dat,  dat_full)
+
+            !-- Write outputs
+            if ( rank == 0 ) then
+               do n_s=1,n_s_max
+                  n_o=n_store_last+(n_s-1)*n_phi_max
+                  do n_phi=1,n_phi_max
+                     frames(n_phi+n_o)=real(dat_full(n_phi,n_s),kind=outp)
+                  end do
+               end do
+            end if
+         end do ! loop over n_fields
+      end do ! loop over n_movies
+
+   end subroutine calc_geos_frame
 !------------------------------------------------------------------------------------
    subroutine outOmega(z, omega_ic)
       !

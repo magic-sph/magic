@@ -212,12 +212,12 @@ class Movie2Vtk:
                 shape = (self.n_phi_tot, n_r_mov_tot+2)
             else:
                 shape = (self.n_phi_tot, self.n_r_max)
-        elif n_surface == 3:
+        elif n_surface >= 3:
             self.surftype = 'phi_constant'
             if self.movtype in [1, 2, 3, 14]:  # read inner core
                 shape = (self.n_theta_max, 2*(n_r_mov_tot+2))
                 self.n_theta_plot = 2*self.n_theta_max
-            elif self.movtype in [8, 9]:
+            elif self.movtype in [8, 9, 20, 21, 22, 23, 24, 25, 26]:
                 shape = (self.n_theta_max, n_r_mov_tot+2)
                 self.n_theta_plot = self.n_theta_max
             elif self.movtype in [4, 5, 6, 7, 15, 16, 17, 18, 47, 54,
@@ -288,7 +288,7 @@ class Movie2Vtk:
                         dat = tmp
                     fname = os.path.join(datadir, fname)
                     self.equat2vtk(fname, dat, fieldName)
-                elif n_surface == 3:
+                elif n_surface >= 3:
                     if fluct or mean_field:
                         field_m = mov_mean.data[0, k, ...]
                     if self.movtype in [1, 2, 3, 14]:

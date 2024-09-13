@@ -62,11 +62,11 @@ contains
 
    subroutine initialize(this, n_r_max, n_cheb_max, n_in)
       !
-      ! Definition of FFTW plans for type I DCTs. 
+      ! Definition of FFTW plans for type I DCTs.
       !
 
       class(costf_odd_t) :: this
-      
+
       !-- Input variables
       integer, intent(in) :: n_cheb_max ! Max number of Chebyshev polynomials
       integer, intent(in) :: n_in   ! Not used here, only for compatibility
@@ -136,7 +136,7 @@ contains
       this%der2(:)=this%der(:)*this%der(:)
       this%der(n_r_max)=0
 #endif
-      
+
       plan_size(1) = n_r_max
       this%plan_1d = fftw_plan_r2r(1, plan_size, array_in_1d, array_out_1d, &
                      &             plan_type, fftw_plan_flag)

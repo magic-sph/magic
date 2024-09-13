@@ -20,7 +20,8 @@ module outMisc_mod
    use blocking, only: llm, ulm, lo_map, lm2
    use radial_der, only: get_dr
    use mean_sd, only: mean_sd_type
-   use movie_data, only: n_movie_fields, n_movie_file
+   use movie_data, only: n_movie_fields, n_movie_file, n_movie_field_type, &
+       &                 n_movies, n_movie_field_start, frames
    use horizontal_data, only: gauss, theta_ord, n_theta_cal2ord, O_sin_theta_E2
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, l_hemi, &
        &            l_temperature_diff, l_chemical_conv, l_phase_field,    &
@@ -61,7 +62,7 @@ module outMisc_mod
 
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
    &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
-   &         get_onset, write_rmelt_frame, write_dt_rmelt_frame
+   &         get_onset, calc_melt_frame
 
 contains
 
@@ -1236,61 +1237,47 @@ contains
 
    end subroutine get_rmelt_tmelt
 !------------------------------------------------------------------------------------
-   subroutine write_rmelt_frame(n_movie)
+   subroutine calc_melt_frame()
       !
       ! This subroutine handles the computation and the writing of the movie
-      ! which contains rmelt(phi,theta) as a function of time.
+      ! which contains rmelt(phi,theta) or dt(phi,theta,r=rmelt) as a function of time.
       !
-
-      !-- Input variables
-      integer,  intent(in) :: n_movie ! The index of the movie in list of movies
 
       !-- Local variables
-      integer :: n_field, n_fields, n_out
-      real(cp) :: rmelt(n_phi_max,n_theta_max)
+      integer :: n_movie, n_field, n_fields, n_out, n_field_type, n_store_last
+      integer :: n_theta, n_phi, n_o
+      real(cp) :: data(n_phi_max,n_theta_max)
 
-      n_fields=n_movie_fields(n_movie)
-      n_out   =n_movie_file(n_movie)
+      do n_movie=1,n_movies
+         n_fields=n_movie_fields(n_movie)
+         n_out   =n_movie_file(n_movie)
 
-      !-- MPI gather
-      call gather_Ploc(rmelt_loc, rmelt)
-
-      !-- Write outputs
-      if ( rank == 0 ) then
          do n_field=1,n_fields
-            write(n_out) real(rmelt,kind=outp)
+            n_field_type=n_movie_field_type(n_field,n_movie)
+            n_store_last=n_movie_field_start(n_field,n_movie)-1
+
+            !-- MPI gather
+            if ( n_field_type == 117 ) then ! melt radius
+               call gather_Ploc(rmelt_loc, data)
+            else if ( n_field_type == 118 ) then ! radial derivative of temp. along interface
+               call gather_Ploc(dt_rmelt_loc, data)
+            else
+               cycle
+            end if
+
+            !-- Store outputs in frames(*)
+            if ( rank == 0 ) then
+               do n_phi=1,n_phi_max
+                  do n_theta=1,n_theta_max
+                     n_o=n_store_last+(n_theta-1)*n_phi_max
+                     frames(n_phi+n_o)=real(data(n_phi,n_theta),kind=outp)
+                  end do
+               end do
+            end if
          end do
-      end if
+      end do
 
-   end subroutine write_rmelt_frame
-!------------------------------------------------------------------------------------
-   subroutine write_dt_rmelt_frame(n_movie)
-      !
-      ! This subroutine handles the computation and the writing of the movie
-      ! which contains dt_rmelt(phi,theta) as a function of time.
-      !
-
-      !-- Input variables
-      integer,  intent(in) :: n_movie ! The index of the movie in list of movies
-
-      !-- Local variables
-      integer :: n_field, n_fields, n_out
-      real(cp) :: dt_rmelt(n_phi_max,n_theta_max)
-
-      n_fields=n_movie_fields(n_movie)
-      n_out   =n_movie_file(n_movie)
-
-      !-- MPI gather
-      call gather_Ploc(dt_rmelt_loc, dt_rmelt)
-
-      !-- Write outputs
-      if ( rank == 0 ) then
-         do n_field=1,n_fields
-            write(n_out) real(dt_rmelt,kind=outp)
-         end do
-      end if
-
-   end subroutine write_dt_rmelt_frame
+   end subroutine calc_melt_frame
 !------------------------------------------------------------------------------------
    subroutine transp_R2Phi(arr_Rloc, arr_Ploc)
       !

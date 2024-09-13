@@ -5,12 +5,12 @@ module movie_data
    use precision_mod
    use truncation, only: n_r_max, n_theta_max, n_phi_max, minc, n_r_ic_max, n_r_tot
    use logic, only: l_store_frame, l_save_out, l_movie, l_movie_oc, l_geosMovie, &
-       &            l_movie_ic, l_HTmovie, l_dtBmovie, l_store_frame, l_save_out,&
-       &            l_phaseMovie, l_dtphaseMovie
+       &            l_movie_ic, l_HTmovie, l_dtBmovie, l_phaseMovie, l_save_out, &
+       &            l_dtphaseMovie
    use radial_data, only: nRstart,nRstop, n_r_icb, n_r_cmb, radial_balance
    use radial_functions, only: r_cmb, r_icb, r, r_ic
    use horizontal_data, only: theta_ord, phi, n_theta_ord2cal
-   use output_data, only: n_log_file, log_file, tag
+   use output_data, only: n_log_file, log_file, tag, n_s_max
    use charmanip, only: capitalize, delete_string, dble2str
    use useful, only: logWrite, abortRun
    use constants, only: pi, one
@@ -30,9 +30,9 @@ module movie_data
    character(len=80), public :: movie(n_movies_max)  ! Only for input
    character(len=72), public :: movie_file(n_movies_max)
 
-   logical, public :: lStoreMov(n_movies_max),lICField(n_movies_max)
+   logical, public :: lICField(n_movies_max), lGeosField(n_movies_max)
+   logical :: lPhaseField(n_movies_max)
    integer, public :: n_movies
-   integer, public :: n_movie_type(n_movies_max)
    integer, public :: n_movie_surface(n_movies_max)
    integer, public :: n_movie_const(n_movies_max)
    integer, public :: n_movie_fields(n_movies_max)
@@ -211,94 +211,6 @@ contains
       !  and is used in this form by further subroutines:
       !
       !     * n_movies = total number of movies
-      !     * n_type(n_movie) =  movie type:
-      !
-      !                   - =  1  : Radial magnetic field
-      !                   - =  2  : Theta component of magnetic field
-      !                   - =  3  : Azimuthal magnetic field
-      !                   - =  4  : Horizontal magnetic field
-      !                   - =  5  : Total magnetic field (all compnents)
-      !                   - =  8  : Axisymmetric azimuthal
-      !                     magnetic field (phi=constant)
-      !                   - =  9  : 3d magnetic field
-      !                   - = 11  : Radial velocity field
-      !                   - = 12  : Theta component of velocity field
-      !                   - = 13  : Azimuthal velocity field
-      !                   - = 14  : Horizontal velocity field
-      !                   - = 15  : Total velocity field (all compnents)
-      !                   - = 17  : Scalar field whose contours are the
-      !                     stream lines of the axisymm. poloidal
-      !                     velocity field (phi=constant)
-      !                   - = 18  : Axisymmetric azimuthal
-      !                     velocity field (phi=constant)
-      !                   - = 19  : 3d velocity field
-      !                   - = 20  : z component of vorticity
-      !                   - = 21  : Temperature field
-      !                   - = 22  : radial conv. heat transport
-      !                   - = 23  : helicity
-      !                   - = 24  : axisymmetric helicity
-      !                   - = 25  : phi component of vorticity
-      !                   - = 26  : radial component of vorticity
-      !                   - = 28  : axisymmetric Temperature field
-      !                     for phi=const.
-      !                   - = 29  : 3d temperature field
-      !                   - = 30  : Scalar field whose contours are the
-      !                     fieldlines of the axisymm. poloidal
-      !                     magnetic field (phi=constant)
-      !                   - = 31  : field line production
-      !                   - = 32  : field line advection
-      !                   - = 33  : field line diffusion
-      !                   - = 40  : Axisymmetric azimuthal
-      !                     magnetic field (phi=constant)
-      !                   - = 41  : Axis. Bphi production +  omega eff.
-      !                   - = 42  : Axis. Bphi advection
-      !                   - = 43  : Axis. Bphi diffusion
-      !                   - = 44  : Axis. Bphi str.,dyn.,omega,diff.
-      !                   - = 50  : Bz
-      !                   - = 51  : Bz production
-      !                   - = 52  : Bz advection
-      !                   - = 53  : Bz diffusion
-      !                   - = 60  : toroidal Bphi
-      !                   - = 61  : toroidal Bphi production + omega eff.
-      !                   - = 62  : toroidal Bphi advection
-      !                   - = 63  : toroidal Bphi diffusion
-      !                   - = 71  : Br production
-      !                   - = 72  : Br advection
-      !                   - = 73  : Br diffusion
-      !                   - = 80  : Jr
-      !                   - = 81  : Jr production
-      !                   - = 82  : Jr advection
-      !                   - = 83  : Jr diffusion
-      !                   - = 90  : poloidal Jz pol.
-      !                   - = 91  : poloidal Jz pol. production
-      !                   - = 92  : poloidal Jz advection
-      !                   - = 93  : poloidal Jz diffusion
-      !                   - = 94  : z component of velovity
-      !                   - = 95  : toroidal Btheta
-      !                   - = 96  : toroidal Potential
-      !                   - = 97  : Function for Poloidal Fieldlines
-      !                   - = 98  : azimuthal shear of Br
-      !                   - = 99  : phi component of Lorentz force
-      !                   - =101  : Stress fields
-      !                   - =102  : Force fields
-      !                   - =103  : Br Inverse appearence at CMB
-      !                   - =110  : radial derivative of temperature/composition
-      !                   - =111  : Vz and Vorz north/south correlation
-      !                   - =112  : axisymm dtB tersm for Br and Bp
-      !                   - =113  : axisymmetric radial derivative of entropy/temperature
-      !                   - =114  : Cylindrically radial magnetic field
-      !                   - =115  : Composition field
-      !                   - =116  : axisymmetric Vs
-      !                   - =117  : axisymmetric Composition field
-      !                   - =118  : axisymmetric phase field
-      !                   - =121  : phase field
-      !                   - =122  : flux of chemical composition
-      !                   - =123  : axisymmetric kinetic energy
-      !                   - =124  : axisymmetric convective heat flux
-      !                   - =125  : axisymmetric flux of chemical composition
-      !                   - =126  : melting radius
-      !                   - =127  : temperatur gradient at melting radius
-      !                     for phi=const.
       !
       !     * n_movie_surface(n_movie) = defines surface
       !     * n_movie_surface =  1  : r=constant:
@@ -374,12 +286,17 @@ contains
       !                      - =66 : time derivative of axisym. v phi
       !                      - =67 : relative strength of axisym. v phi
       !                      - =81 : Br inverse appearence at CMB
-      !                      - =91 : radial derivative of T
-      !                      - =92 : Vz north/south correlation
-      !                      - =93 : Vorz north/south correlation
-      !                      - =94 : Hel north/south correlation
-      !                      - =101: AS poloidal Br production
-      !                      - =102: AS poloidal Br dynamo term
+      !                      - =91 : radial derivative of T or s
+      !                      - =92 : axisymmetric radial derivative of T or s
+      !                      - =94 : axisymmetric s component of velocity
+      !                      - =95 : axisymmetric Reynolds stress correlation us*uphi
+      !                      - =96 : axisymmetric z component of velocity
+      !                      - =97 : axisymmetric Reynolds stress correlation uz*uphi
+      !                      - =98 : axisymmetric square of s component of velocity
+      !                      - =99 : axisymmetric square of z component of velocity
+      !                      - =100: geostrophic Vs
+      !                      - =101: geostrophic Vphi
+      !                      - =102: geostrophic z vorticity
       !                      - =103: AS poloidal Br diffusion
       !                      - =104: AS toroidal Bp production
       !                      - =105: AS toroidal Bp dynamo term
@@ -387,14 +304,15 @@ contains
       !                      - =107: AS toroidal Bp diffusion
       !                      - =108: Bs
       !                      - =109: composition field
-      !                      - =110: axisymm. composition
-      !                      - =111: axisymm. phase
+      !                      - =110: axisymmetric chemical composition
+      !                      - =111: axisymmetric phase field
       !                      - =112: phase field
-      !                      - =113: flux of chemical composition
+      !                      - =113: radial derivative of chemical composition
       !                      - =114: axisymmetric kinetic energy
       !                      - =115: axisymmetric convective heat flux
-      !                      - =116: axisymmetric heat flux of composition
+      !                      - =116: axisymmetric radial derivative of composition
       !                      - =117: melting radius
+      !                      - =118: temperature gradient along the solid/liquid interface
       !
       !     * n_movie_field_start(n_field,n_movie) = defines where first
       !       element of a field is stored in ``frames(*)``
@@ -417,13 +335,14 @@ contains
       integer :: n_fields,n_fields_oc,n_fields_ic
       integer :: n_field_size, n_field_size_ic, n_field_start
       integer :: n_field_type(n_movie_fields_max)
-      logical :: lStore, lIC
+      logical :: lIC, lAxi, lGeos, lPhase
 
       !--- Initialize first storage index:
       n_field_start=1
 
       !--- Converts from radiant to degree:
       rad=180.0_cp/pi
+      n_type=0
 
       !--- Loop over max possible no of movies:
       l_movie_oc    =.false.
@@ -438,8 +357,10 @@ contains
 
       do i=1,n_movies_max
 
-         lStore=.true.
          lIC   =.false.
+         lPhase=.false.
+         lGeos =.false.
+         lAxi  =.false.
 
          string=movie(i)
 
@@ -455,47 +376,41 @@ contains
 
          if ( index(string,'BR') /= 0 ) then
             if ( index(string,'PRO') /= 0 ) then
-               n_type=71
                typeStr=' radial magnetic field production '
                file_name='BrPro_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=27
+               l_dtBmovie=.true.
             else if ( index(string,'ADV') /= 0 ) then
-               n_type=72
                typeStr=' radial magnetic field advection '
                file_name='BrAdv_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=28
+               l_dtBmovie=.true.
             else if ( index(string,'DIF') /= 0 ) then
-               n_type=73
                typeStr=' radial magnetic field diffusion '
                file_name='BrDif_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=29
+               l_dtBmovie=.true.
             else if ( index(string,'INV') /= 0 ) then
-               n_type=103
                typeStr=' radial magnetic field diffusion '
                file_name='BrInv_'
                lIC=.false.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=81
+               l_dtBmovie=.true.
             else if ( index(string,'SHEAR') /= 0 ) then
-               n_type=98
                typeStr=' azimuthal shear of radial magnetic field'
                file_name='BrShear'
                lIC=.false.
-               lStore=.true.
                n_fields=1
                n_field_type(1)=53
+               l_dtBmovie=.true.
             else
-               n_type=1
                typeStr=' radial magnetic field '
                n_fields=1
                file_name='Br_'
@@ -504,15 +419,13 @@ contains
             end if
          else if ( index(string,'BT') /= 0 ) then
             if ( index(string,'TOR') /= 0 ) then
-               n_type=95 ! Toroidal B theta
                typeStr=' toroidal B theta'
                file_name='BtTor_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=50
+               l_dtBmovie=.true.
             else
-               n_type=2
                typeStr=' theta comp. of magnetic field '
                n_fields=1
                file_name='Bt_'
@@ -522,25 +435,23 @@ contains
             end if
          else if ( index(string,'BP' ) /= 0 .and. index(string,'TOR') == 0 .and. &
          &    index(string,'AX' ) == 0 .and. index(string,'AB' ) == 0 ) then
-            n_type=3
             typeStr=' azimuthal magnetic field '
             file_name='Bp_'
             lIC=.true.
             n_fields=1
             n_field_type(1)=3
+            lAxi=.true.
          else if ( index(string,'BH') /= 0 .or. index(string,'BM') /= 0 ) then
             n_type=4 ! Horizontal field
             file_name='Bh_'
             lIC=.true.
          else if ( index(string,'BS') /= 0) then
-            n_type=114
             typeStr='cyl radial magnetic field'
             file_name='Bs_'
             lIC=.true.
             n_fields=1
             n_field_type(1)=108
          else if ( index(string,'BALL') /= 0 ) then
-            n_type=5 ! Total field
             typeStr=' all magnetic field components '
             n_fields=3
             file_name='B_'
@@ -551,47 +462,46 @@ contains
             n_field_type(3)=3
          else if ( index(string,'FIELDLINE') /= 0 .or. index(string,'FL') /= 0 ) then
             if ( index(string,'POL') /= 0 ) then
-               n_type=97 ! Poloidal field lines
                typeStr=' pol. fieldlines'
                file_name='FLPol_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=52
+               l_dtBmovie=.true.
+               lAxi=.true.
             else if ( index(string,'PRO') /= 0 ) then
-               n_type=31 ! Poloidal field lines production
                typeStr=' axisymm. fieldline production '
                file_name='FLPro_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=20
+               l_dtBmovie=.true.
+               lAxi=.true.
             else if ( index(string,'ADV') /= 0 ) then
-               n_type=32 ! Poloidal field lines advection
                typeStr=' axisymm. fieldline advection '
                file_name='FLAdv_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=21
+               l_dtBmovie=.true.
+               lAxi=.true.
             else if ( index(string,'DIF') /= 0 ) then
-               n_type=33 ! Poloidal field lines diffusion
                typeStr=' axisymm. fieldline diffusion '
                file_name='FLDif_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=22
+               l_dtBmovie=.true.
+               lAxi=.true.
             else
-               n_type=30
                typeStr=' axisymm. fieldlines '
                file_name='FL_'
                lIC=.true.
                n_fields=1
                n_field_type(1)=8
+               lAxi=.true.
             end if
          else if ( index (string,'LORENTZ') /= 0 .or. index(string,'LF') /= 0 ) then
-            n_type=99
             typeStr=' phi Lorentz force '
             file_name='LFp_'
             lIC=.false.
@@ -600,232 +510,209 @@ contains
          else if ( ( index(string,'AX') /= 0 .and.  &
          &    index(string,'BP') /= 0 ) .or. index(string,'AB') /= 0 ) then
             if ( index(string,'PRO') /= 0 ) then
-               n_type=41
                typeStr=' axisymm. B phi production '
                file_name='ABPro_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=23
+               l_dtBmovie=.true.
+               lAxi=.true.
             else if ( index(string,'ADV') /= 0 ) then
-               n_type=42
                typeStr=' axisymm. B phi advection '
                file_name='ABAdv_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=25
+               l_dtBmovie=.true.
+               lAxi=.true.
             else if ( index(string,'DIF') /= 0 ) then
-               n_type=43
                typeStr=' axisymm. B phi diffusion '
                file_name='ABDif_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=26
+               l_dtBmovie=.true.
+               lAxi=.true.
             else
-               n_type=40
                typeStr=' axisymm. B phi '
                file_name='AB_'
                lIC=.true.
                n_fields=1
                n_field_type(1)=9
+               lAxi=.true.
             end if
          else if ( index(string,'JR') /= 0 ) then
             if ( index(string,'PRO') /= 0 ) then
-               n_type=81
                typeStr=' radial current production '
                file_name='JrPro_'
                lIC=.true.
-               lStore=.false.
                n_fields=2
                n_field_type(1)=31
                n_field_type(2)=32
+               l_dtBmovie=.true.
             else if ( index(string,'ADV') /= 0 ) then
-               n_type=82
                typeStr=' radial current advection '
                file_name='JrAdv_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=33
+               l_dtBmovie=.true.
             else if ( index(string,'DIF') /= 0 ) then
-               n_type=83
                typeStr=' radial current diffusion '
                file_name='JrDif_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=34
+               l_dtBmovie=.true.
             else
-               n_type=80
                typeStr=' radial current '
                file_name='Jr_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=30
+               l_dtBmovie=.true.
             end if
          else if ( index(string,'BZ') /= 0 ) then
             if ( index(string,'PRO') /= 0 ) then
-               n_type=51
                typeStr=' poloidal Bz production '
                file_name='BzPolPro_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=35
+               l_dtBmovie=.true.
             else if ( index(string,'ADV') /= 0 ) then
-               n_type=52
                typeStr=' poloidal Bz advection '
                file_name='BzPolAdv_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=36
+               l_dtBmovie=.true.
             else if ( index(string,'DIF') /= 0 ) then
-               n_type=53
                typeStr=' poloidal Bz diffusion '
                file_name='BzPolDif_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=37
+               l_dtBmovie=.true.
             else
-               n_type=50
                typeStr=' poloidal Bz '
                file_name='BzPol_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=13
+               l_dtBmovie=.true.
             end if
          else if ( index(string,'BP') /= 0 .and. index(string,'TOR') /= 0 ) then
             if ( index(string,'PRO') /= 0 ) then
-               n_type=61
                typeStr=' toroidal Bphi production '
                file_name='BpTorPro_'
                lIC=.true.
-               lStore=.false.
                n_fields=2
                n_field_type(1)=43
                n_field_type(2)=49
+               l_dtBmovie=.true.
             else if ( index(string,'ADV') /= 0 ) then
-               n_type=62
                typeStr=' toroidal Bphi advection '
                file_name='BpTorAdv_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=45
+               l_dtBmovie=.true.
             else if ( index(string,'DIF') /= 0 ) then
-               n_type=63
                typeStr=' toroidal Bphi diffusion '
                file_name='BpTorDif_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=46
+               l_dtBmovie=.true.
             else
-               n_type=60
                typeStr=' toroidal Bphi '
                file_name='BpTor_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=42
+               l_dtBmovie=.true.
             end if
          else if ( index(string,'JZ') /= 0 ) then
             if ( index(string,'PRO') /= 0 ) then
-               n_type=91
                typeStr=' poloidal Jz production '
                file_name='JzTorPro_'
                lIC=.true.
-               lStore=.false.
                n_fields=2
                n_field_type(1)=38
                n_field_type(2)=39
+               l_dtBmovie=.true.
             else if ( index(string,'ADV') /= 0 ) then
-               n_type=92
                typeStr=' poloidal Jz advection '
                file_name='JzTorAdv_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=40
+               l_dtBmovie=.true.
             else if ( index(string,'DIF') /= 0 ) then
-               n_type=93
                typeStr=' poloidal Jz diffusion '
                file_name='JzTorDif_'
                lIC=.true.
-               lStore=.false.
                n_fields=1
                n_field_type(1)=41
+               l_dtBmovie=.true.
             else
-               n_type=90
                typeStr=' poloidal Jz '
                file_name='JzTor_'
                lIC=.true.
-               lStore=.true.
                n_fields=1
                n_field_type(1)=14
+               l_dtBmovie=.true.
             end if
          ! Possible conflict with HEATTCONV r= (which contains VR)
          else if ( index(string,'VR') /= 0 .and. index(string,'CONV') == 0) then
-            n_type=11
             typeStr=' radial velocity field '
             file_name='Vr_'
             n_fields=1
             n_field_type(1)=4
          else if ( index(string,'VT') /= 0 ) then
-            n_type=12
             typeStr=' theta comp. of velocity field '
             file_name='Vt_'
             n_fields=1
             n_field_type(1)=5
          else if ( index(string,'VP') /= 0 ) then
             if ( index(string,'AX') /= 0 ) then
-               n_type=18
                typeStr=' axisym. azimuthal velocity field '
                file_name='AV_'
                n_fields=1
                n_field_type(1)=11
+               lAxi=.true.
             else if ( index(string,'GEOS') /= 0 ) then
-               n_type=131
                typeStr=' geos phi-component of velocity '
                file_name='geosVPHI_'
                n_fields=1
-               lStore=.false.
                l_geosMovie=.true.
                n_field_type(1)=101
+               lGeos=.true.
             else
-               n_type=13
                typeStr=' phi comp. of velocity field '
                file_name='Vp_'
                n_fields=1
                n_field_type(1)=6
             end if
          else if ( index(string,'RMELT') /= 0 ) then
-            n_type=126
             typeStr=' melting radius'
             file_name='rmelt_'
             n_fields=1
-            lStore=.false.
             l_phaseMovie=.true.
             n_field_type(1)=117
+            lPhase=.true.
          else if ( index(string,'DTRM') /= 0 .or. index(string,'DTPHASE') /= 0 ) then
-            n_type=127
             typeStr=' temperature gradient at melting radius'
             file_name='dt_rmelt_'
             n_fields=1
-            lStore=.false.
             l_dtphaseMovie=.true.
             n_field_type(1)=118
+            lPhase=.true.
          else if ( index(string,'VH') /= 0 .or. index(string,'VM') /= 0 ) then
             n_type=14
             file_name='Vh_'
          else if ( index(string,'VALL') /= 0 ) then
-            n_type=15
             typeStr=' all velocity components '
             file_name='V_'
             n_fields=3
@@ -833,36 +720,32 @@ contains
             n_field_type(2)=5
             n_field_type(3)=6
          else if ( index(string,'STREAMLINE') /= 0 .or. index(string,'SL') /= 0 ) then
-            n_type=17
             typeStr=' axisym. meridional velocity streamlines '
             file_name='SL_'
             n_fields=1
             n_field_type(1)=10
+            lAxi=.true.
          else if ( index(string,'VOR') /= 0 ) then
             if ( index(string,'Z') /= 0 ) then
                if ( index(string,'GEOS') /= 0 ) then
-                  n_type=132
                   typeStr=' geos z-component of vorticity '
                   file_name='geosVorZ_'
                   n_fields=1
-                  lStore=.false.
                   l_geosMovie=.true.
                   n_field_type(1)=102
+                  lGeos=.true.
                else
-                  n_type=20
                   typeStr=' z-component of vorticity '
                   file_name='VorZ_'
                   n_fields=1
                   n_field_type(1)=16
                end if
             else if ( index(string,'P') /= 0 ) then
-               n_type=20
                typeStr=' phi-component of vorticity '
                file_name='VorP_'
                n_fields=1
                n_field_type(1)=47
             else if ( index(string,'R') /= 0 ) then
-               n_type=20
                typeStr=' r-component of vorticity '
                file_name='VorR_'
                n_fields=1
@@ -870,61 +753,59 @@ contains
             end if
          else if ( index(string,'VS2') /= 0 ) then
             if ( index(string,'AX') /= 0 ) then
-               n_type=118
                typeStr=' axisym. vs**2 '
                file_name='AVS2_'
                n_fields=1
                n_field_type(1)=98
+               lAxi=.true.
             end if
          else if ( index(string,'VS') /= 0 ) then
             if ( index(string,'AX') /= 0 ) then
-               n_type=116
                typeStr=' axisym. s-component of velocity '
                file_name='AVS_'
                n_fields=1
                n_field_type(1)=94
+               lAxi=.true.
             else if ( index(string,'GEOS') /= 0 ) then
-               n_type=130
                typeStr=' geos s-component of velocity '
                file_name='geosVS_'
                n_fields=1
-               lStore=.false.
                l_geosMovie=.true.
                n_field_type(1)=100
+               lGeos=.true.
             end if
          else if ( index(string,'REYS') /= 0 ) then
             if ( index(string,'AX') /= 0 ) then
-               n_type=116
                typeStr=' axisym. vs*vphi '
                file_name='AReyS_'
                n_fields=1
                n_field_type(1)=95
+               lAxi=.true.
             end if
          else if ( index(string,'REYZ') /= 0 ) then
             if ( index(string,'AX') /= 0 ) then
-               n_type=117
                typeStr=' axisym. vz*vphi '
                file_name='AReyZ_'
                n_fields=1
                n_field_type(1)=97
+               lAxi=.true.
             end if
          else if ( index(string,'VZ2') /= 0 ) then
             if ( index(string,'AX') /= 0 ) then
-               n_type=119
                typeStr=' axisym. vz**2 '
                file_name='AVZ2_'
                n_fields=1
                n_field_type(1)=99
+               lAxi=.true.
             end if
          else if ( index(string,'VZ') /= 0 ) then
             if ( index(string,'AX') /= 0 ) then
-               n_type=120
                typeStr=' axisym. vz '
                file_name='AVZ_'
                n_fields=1
                n_field_type(1)=96
+               lAxi=.true.
             else
-               n_type=94
                typeStr=' z-component of velocity '
                file_name='VZ_'
                n_fields=1
@@ -932,37 +813,36 @@ contains
             end if
          else if ( ( index(string,'AX') /= 0 .and.  &
          &    index(string,'HEL' ) /= 0 ) .or. index(string,'AHEL') /= 0 ) then
-            n_type=24
             typeStr=' axisymmetric helicity '
             file_name='AH_'
             n_fields=1
             n_field_type(1)=19
+            lAxi=.true.
          else if ( index(string,'HEL') /= 0 ) then
-            n_type=23
             typeStr=' helicity '
             file_name='HE_'
             n_fields=1
             n_field_type(1)=18
          else if ( index(string,'AX') /= 0 .and. &
          &    ( index(string,'TEM') /= 0 .or. index(string,'ENT') /= 0 ) ) then
-            n_type=28
             typeStr=' axisymmetric temp. '
             file_name='AT'
             n_fields=1
             n_field_type(1)=12
+            lAxi=.true.
          else if ( index(string,'AX') /= 0 .and. &
          &    ( index(string,'COMP') /= 0 .or. index(string,'XI') /= 0 ) ) then
-            n_type=117
             typeStr=' axisymmetric comp. '
             file_name='AC'
             n_fields=1
             n_field_type(1)=110
+            lAxi=.true.
          else if ( index(string,'AX') /= 0 .and. ( index(string,'PHASE') /= 0 ) ) then
-            n_type=118
             typeStr=' axisymmetric phase '
             file_name='APHI'
             n_fields=1
             n_field_type(1)=111
+            lAxi=.true.
          else if ( index(string,'ENTROPY') /= 0 .or. index(string,'TEM') /= 0 ) then
             ns=index(string,'S')
             if ( ns > 0 ) then
@@ -970,7 +850,6 @@ contains
                   call abortRun('! No surface T field available !')
                end if
             end if
-            n_type=21
             typeStr=' temperature field '
             file_name='T_'
             n_fields=1
@@ -982,7 +861,6 @@ contains
                   call abortRun('! No surface C field available !')
                end if
             end if
-            n_type=115
             typeStr=' Composition field '
             file_name='XI_'
             n_fields=1
@@ -994,18 +872,17 @@ contains
                   call abortRun('! No surface C field available !')
                end if
             end if
-            n_type=121
             typeStr=' phase field '
             file_name='PHI_'
             n_fields=1
             n_field_type(1)=112
          else if ( index(string,'HEATTCONV') /= 0 ) then
             if ( index(string,'AX') /= 0 ) then
-               n_type=124
                typeStr='axisymmetric convective heat transport '
                file_name='AHT_'
                n_fields=1
                n_field_type(1)=115
+               lAxi=.true.
             else
                ns=index(string,'S')
                if ( ns > 0 ) then
@@ -1013,7 +890,6 @@ contains
                      call abortRun('! No surface convective heat flux !')
                   end if
                end if
-               n_type=22
                typeStr=' radial convective heat transport '
                file_name='HT_'
                n_fields=1
@@ -1021,11 +897,11 @@ contains
             end if
          else if ( index(string,'HEATXCONV') /= 0 ) then
             if ( index(string,'AX') /= 0 ) then
-               n_type=125
                typeStr='axisymmetric transport of composition '
                file_name='AHXi_'
                n_fields=1
                n_field_type(1)=116
+               lAxi=.true.
             else
                ns=index(string,'S')
                if ( ns > 0 ) then
@@ -1033,7 +909,6 @@ contains
                      call abortRun('! No surface flux of composition !')
                   end if
                end if
-               n_type=122
                typeStr=' radial transport of composition '
                file_name='HXi_'
                n_fields=1
@@ -1041,12 +916,12 @@ contains
             end if
          else if ( index(string,'HEATF') /= 0 ) then
             if ( index(string,'AX') /= 0 ) then
-               n_type=113
                typeStr='axisymmetric dSdr '
                file_name='AHF_'
                l_HTmovie=.true.
                n_fields=1
                n_field_type(1)=92
+               lAxi=.true.
             else
                ns=index(string,'S')
                if ( ns > 0 ) then
@@ -1054,7 +929,6 @@ contains
                      call abortRun('! No surface T field available !')
                   end if
                end if
-               n_type=110
                typeStr='dSdr '
                file_name='HF_'
                l_HTmovie=.true.
@@ -1062,19 +936,18 @@ contains
                n_field_type(1)=91
             end if
          else if ( index(string,'AX') /= 0 .and. index(string,'EKIN') /= 0   ) then
-            n_type=123
             typeStr='axisymmetric kinetic energy '
             file_name='AEKIN_'
             n_fields=1
             n_field_type(1)=114
+            lAxi=.true.
          else if ( index(string,'POT') /= 0 .and. index(string,'TOR') /= 0 ) then
-            n_type=96
             typeStr=' pot tor '
             file_name='PotTor_'
             lIC=.true.
-            lStore=.false.
             n_fields=1
             n_field_type(1)=51
+            l_dtBmovie=.true.
          else
             message = 'Couldnt interpret movie field from string:'//string
             call abortRun(message)
@@ -1082,32 +955,27 @@ contains
 
 
          !--- Identify surface type:
-
-         if ( n_type == 103 ) then
+         if ( n_field_type(1) == 81 ) then
             n_surface=1 !
             n_const=1   !
             n_field_size=n_phi_max*n_theta_max
             n_field_size_ic=n_field_size
             const=r_cmb
-         else if ( n_type == 130 .or. n_type == 131 .or. n_type == 132 ) then
+         else if ( lGeos ) then ! Geos average
             n_surface=-2 ! constant theta
             n_const=1   !
-            n_field_size=n_phi_max*n_r_max
+            n_field_size=n_phi_max*n_s_max
             n_field_size_ic=0
             const=r_cmb
-         else if ( n_type == 126 .or. n_type == 127 ) then ! Melting radius or temp gradient at rm
+         else if ( lPhase ) then ! Melting radius or temp gradient at rm
             n_surface=1  ! R=const.
             n_const=1   !
             n_field_size=n_phi_max*n_theta_max
             n_field_size_ic=0
             const=r_cmb
-         else if (   index(string,'AX') /= 0 .or.                     &
-         &    file_name(1:2) == 'AV' .or. file_name(1:2) == 'AB' .or. &
-         &    n_type == 30 .or. n_type == 31 .or. n_type == 32 .or.   &
-         &    n_type == 33 .or. n_type == 40 .or. n_type == 41 .or.   &
-         &    n_type == 42 .or. n_type == 43 .or. n_type == 17 ) then
+         else if (   index(string,'AX') /= 0 .or. lAxi ) then
             !--- Axisymmetric stuff:
-            n_surface=3  ! PHI=const.
+            n_surface=4  ! PHI=const.
             n_const=1
             n_field_size=n_r_max*n_theta_max
             n_field_size_ic=n_r_ic_max*n_theta_max
@@ -1143,7 +1011,7 @@ contains
          &    index(string,'RAD=') /= 0 .or. index(string,'RADIUS=') /= 0 ) then
             n_surface=1  ! R=const.
             n_field_size=n_phi_max*n_theta_max
-            n_field_size_ic=n_field_size
+            n_field_size_ic=0!n_field_size
 
             !------ Get Radius in fractions of outer core radius:
             if ( index(string,'R=') /= 0 ) then
@@ -1154,6 +1022,7 @@ contains
                word=string(index(string,'RADIUS=')+7:length)
             end if
             read(word,*) r_movie
+
 
             !------ Choose closest radial grid point:
             if ( r_movie == 0 ) then
@@ -1169,9 +1038,12 @@ contains
             else
                !------ Negative numbers signify inner core values in
                !       fractions of r_icb:
-               r_movie=-r_movie*r_icb
-               n_const = minloc(abs(r_ic - r_movie),1)
-               const = r_ic(n_const)
+               if ( lIC ) then
+                  n_field_size_ic=n_field_size
+                  r_movie=-r_movie*r_icb
+                  n_const = minloc(abs(r_ic - r_movie),1)
+                  const = r_ic(n_const)
+               end if
             end if
 
             call dble2str(r_movie,word)
@@ -1252,26 +1124,12 @@ contains
             call abortRun(message)
          end if
 
-         if ( n_field_type(1) == 54 .and.                    &
-         &    ( ( n_surface /= 0 .and. n_surface /= 3 ) .or. &
-         &    index(string,'AX') /= 0 ) ) then
-            write(output_unit,*) 'Sorry, can only prepare movie file for'
-            write(output_unit,*) 'phi component of LF in 3d or for phi-cut.'
-            call abortRun('Stop run in movie')
-         end if
-
          !--- Now store the necessary information:
-
          !------ Increase number of movies:
          n_movies=n_movies+1
-         lStoreMov(n_movies)=lStore
          lICField(n_movies)=lIC
-         if ( .not. lStore .and. n_field_type(1) /= 13 .and.           &
-         &    n_field_type(1) /= 14 .and. n_field_type(1) /= 30 .and.  &
-         &    n_field_type(1) /= 42 .and. n_field_type(1) /= 50 .and.  &
-         &    n_field_type(1) /= 51 .and. n_field_type(1) /= 52 .and.  &
-         &    n_field_type(1) /= 54 .and. n_field_type(1) /= 100 .and. &
-         &    n_field_type(1) /= 101 .and. n_field_type(1) /= 102 ) l_dtBmovie=.true.
+         lGeosField(n_movies)=lGeos
+         lPhaseField(n_movies)=lPhase
 
          !------ Translate horizontal movies:
          if ( n_type == 4 ) then
@@ -1317,7 +1175,7 @@ contains
             if ( n_surface == 1 .and. n_const < 0 ) then
                n_fields_oc=0
                n_fields_ic=n_fields
-            else if ( n_surface == 0 .or. n_surface == 2 .or. n_surface == 3 ) then
+            else if ( n_surface == 0 .or. n_surface == 2 .or. n_surface == 3 .or. n_surface == 4 ) then
                n_fields_ic=n_fields
             end if
          end if
@@ -1329,9 +1187,6 @@ contains
          call delete_string(file_name,' ',length)
          movie_file(n_movies)=file_name(1:length)
 
-         !------ Store movie type:
-         n_movie_type(n_movies)=n_type
-
          !------ Store information about movie surface:
          n_movie_surface(n_movies)=n_surface
          n_movie_const(n_movies)  =n_const
@@ -1342,31 +1197,21 @@ contains
          n_movie_fields_ic(n_movies)=n_fields_ic
 
          !------ Store size of field and where it should be stored in
-         !       the work array frames(*) (see c_movie.f):
+         !       the work array frames(*):
          do n=1,n_fields
             if ( n_fields_oc > 0 ) then
                n_movie_field_type(n,n_movies) =n_field_type(n)
-               if ( lStore ) then
-                  n_movie_field_start(n,n_movies)=n_field_start
-                  n_field_start=n_field_start+n_field_size
-                  n_movie_field_stop(n,n_movies) =n_field_start-1
-                  l_store_frame=.true.
-               else
-                  n_movie_field_start(n,n_movies)=-1
-                  n_movie_field_stop(n,n_movies) =-1
-               end if
+               n_movie_field_start(n,n_movies)=n_field_start
+               n_field_start=n_field_start+n_field_size
+               n_movie_field_stop(n,n_movies) =n_field_start-1
+               l_store_frame=.true.
             end if
             if ( n_fields_ic > 0 ) then
                n_ic=n_fields_oc+n
                n_movie_field_type(n_ic,n_movies)=n_field_type(n)
-               if ( lStore ) then
-                  n_movie_field_start(n_ic,n_movies)=n_field_start
-                  n_field_start=n_field_start+n_field_size_ic
-                  n_movie_field_stop(n_ic,n_movies)=n_field_start-1
-               else
-                  n_movie_field_start(n_ic,n_movies)=-1
-                  n_movie_field_stop(n_ic,n_movies) =-1
-               end if
+               n_movie_field_start(n_ic,n_movies)=n_field_start
+               n_field_start=n_field_start+n_field_size_ic
+               n_movie_field_stop(n_ic,n_movies)=n_field_start-1
             end if
          end do
 
@@ -1396,9 +1241,12 @@ contains
                write(n_log_file,'('' !    at theta='',f12.6)') const
             else if ( n_surface == 3 ) then
                write(n_log_file,'('' !    at phi='',f12.6)') rad*phi(n_const)
+            else if ( n_surface == -2 ) then
+               write(n_log_file,*) '!    phi average    !'
             end if
-            if ( n_fields_ic > 0 ) &
-                 write(n_log_file,'('' !    including inner core magnetic field.'')')
+            if ( n_fields_ic > 0 ) then
+               write(n_log_file,'('' !    including inner core magnetic field.'')')
+            end if
 
             if ( l_save_out ) close(n_log_file)
          end if
@@ -1431,7 +1279,7 @@ contains
             if (field_length > max_field_length) max_field_length=field_length
          end do
       end do
-      if (rank == 0) then
+      if ( rank == 0 ) then
          allocate(field_frames_global(max_field_length))
       else
          ! This is only needed for debug runs with boundary check.
@@ -1443,148 +1291,139 @@ contains
          n_fields =n_movie_fields(n_movie)
          n_surface=n_movie_surface(n_movie)
          n_const  =n_movie_const(n_movie)
-         if ( n_surface == -1 ) then ! Earth Surface
-            ! theta-phi surface for n_r=1 (CMB)
-            ! frames is already existent on rank 0 with all
-            ! needed values
-            ! do nothing, pass to the next movie
 
-            cycle
+         select case(n_surface)
 
-         else if ( n_surface == 0 ) then ! 3d
-            ! 3d, all grid points written to frames
-            ! but only n_r=nRstart:nRstop on one rank,
-            ! gather needed
-            do n_field=1,n_fields
-               n_start = n_movie_field_start(n_field,n_movie)
-               n_stop  = n_movie_field_stop(n_field,n_movie)
-               field_length = n_stop-n_start+1
+            case(-2) ! Cylindrical geos movie
+               ! Data is already on rank 0
+               cycle
 
-               local_start=n_start+(nRstart-1)*n_phi_max*n_theta_max
-               local_end  =local_start+nR_per_rank*n_phi_max*n_theta_max-1
-               if (local_end > n_stop) then
-                  call abortRun('local_end exceeds n_stop')
-               end if
-               do irank=0,n_procs-1
-                  recvcounts(irank) = radial_balance(irank)%n_per_rank* &
-                  &                   n_phi_max*n_theta_max
-               end do
-               displs(0)=0
-               do irank=1,n_procs-1
-                  displs(irank)=displs(irank-1)+recvcounts(irank-1)
-               end do
-               sendcount=local_end-local_start+1
+            case(-1) ! Earth Surface
+               ! theta-phi surface for n_r=1 (CMB)
+               ! frames is already existent on rank 0 with all
+               ! needed values
+               ! do nothing, pass to the next movie
+               cycle
 
-               call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
-                    &           field_frames_global,recvcounts,displs,      &
-                    &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-               if (rank == 0) then
-                  frames(n_start:n_stop)=field_frames_global(1:field_length)
-               end if
-            end do
+            case(0) ! 3d
+               ! 3d, all grid points written to frames
+               ! but only n_r=nRstart:nRstop on one rank,
+               ! gather needed
+               do n_field=1,n_fields
+                  n_start = n_movie_field_start(n_field,n_movie)
+                  n_stop  = n_movie_field_stop(n_field,n_movie)
+                  field_length = n_stop-n_start+1
 
-         else if ( n_surface == 1 ) then ! Surface r=constant
-            ! frames is set only for one rank, where n_r=n_const
-            ! send to rank 0
-            do n_field=1,n_fields
-               n_start=n_movie_field_start(n_field,n_movie)
-               n_stop =n_movie_field_stop(n_field,n_movie)
-               field_length = n_stop-n_start+1
-               myTag=7654+n_movie
-               if (rank == 0) then
-                  if ((nRstart <= n_const) .and. (n_const <= nRstop)) then
-                     ! relevant frames already set on rank 0
-                     ! do nothing
-                  else
-                     call MPI_Recv(frames(n_start),field_length,MPI_DEF_REAL,     &
-                          &        MPI_ANY_SOURCE,mytag,MPI_COMM_WORLD,status,ierr)
+                  local_start=n_start+(nRstart-1)*n_phi_max*n_theta_max
+                  local_end  =local_start+nR_per_rank*n_phi_max*n_theta_max-1
+                  if (local_end > n_stop) then
+                     call abortRun('local_end exceeds n_stop')
                   end if
-               else
-                  if ((nRstart <= n_const) .and. (n_const <= nRstop)) then
-                     ! relevant frames are all on this rank  /= 0
-                     ! send to rank 0
-                     call MPI_Send(frames(n_start),field_length,MPI_DEF_REAL,&
-                          &        0,mytag,MPI_COMM_WORLD,ierr)
-                  end if
-               end if
-            end do
+                  do irank=0,n_procs-1
+                     recvcounts(irank) = radial_balance(irank)%n_per_rank* &
+                     &                   n_phi_max*n_theta_max
+                  end do
+                  displs(0)=0
+                  do irank=1,n_procs-1
+                     displs(irank)=displs(irank-1)+recvcounts(irank-1)
+                  end do
+                  sendcount=local_end-local_start+1
 
-         else if ( n_surface == 2 ) then ! Surface theta=constant
-            do n_field=1,n_fields
-               n_start = n_movie_field_start(n_field,n_movie)
-               n_stop  = n_movie_field_stop(n_field,n_movie)
-               field_length = n_stop-n_start+1
-
-               local_start=n_start+(nRstart-1)*n_phi_max
-               local_end  =local_start+nR_per_rank*n_phi_max-1
-               if (local_end > n_stop) then
-                  call abortRun('local_end exceeds n_stop')
-               end if
-               do irank=0,n_procs-1
-                  recvcounts(irank)=radial_balance(irank)%n_per_rank*n_phi_max
-               end do
-               displs(0)=0
-               do irank=1,n_procs-1
-                  displs(irank)=displs(irank-1)+recvcounts(irank-1)
-               end do
-               sendcount=local_end-local_start+1
-
-               call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
-                    &           field_frames_global,recvcounts,displs,      &
-                    &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-               if (rank == 0) then
-                  frames(n_start:n_stop)=field_frames_global(1:field_length)
-               end if
-            end do  ! Do loop over field for one movie
-
-         else if ( abs(n_surface) == 3 ) then  ! Surface phi=const.
-            ! all ranks have a part of the frames array for each movie
-            ! we need to gather
-
-            do n_field=1,n_fields
-               n_start      = n_movie_field_start(n_field,n_movie)
-               n_stop       = n_movie_field_stop(n_field,n_movie)
-               n_field_type = n_movie_field_type(n_field,n_movie)
-               field_length = n_stop-n_start+1
-
-               local_start=n_start+(nRstart-1)*n_theta_max
-               local_end  =local_start+nR_per_rank*n_theta_max-1
-               do irank=0,n_procs-1
-                  recvcounts(irank)=radial_balance(irank)%n_per_rank*n_theta_max
-               end do
-               if (local_end > n_stop) then
-                  call abortRun('local_end exceeds n_stop')
-               end if
-               displs(0)=0
-               do irank=1,n_procs-1
-                  displs(irank)=displs(irank-1)+recvcounts(irank-1)
-               end do
-               sendcount=local_end-local_start+1
-
-               !-- Either only the axisymmetric or both slices
-               if ( n_field_type == 9 .or. n_field_type == 11 .or.    &
-               &    n_field_type == 12 .or. n_field_type == 92 .or.   &
-               &    n_field_type == 94 .or. n_field_type == 95 .or.   &
-               &    n_field_type == 96 .or. n_field_type == 97 .or.   &
-               &    n_field_type == 98 .or. n_field_type == 99 .or.   &
-               &    n_field_type == 19 .or. n_field_type == 8  .or.   &
-               &    n_field_type == 110 .or. n_field_type == 111 .or. &
-               &    n_field_type == 114 .or. n_field_type == 115 .or. &
-               &    n_field_type == 116 ) then
                   call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
                        &           field_frames_global,recvcounts,displs,      &
                        &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-                  if (rank == 0) then
+                  if ( rank == 0 ) then
                      frames(n_start:n_stop)=field_frames_global(1:field_length)
                   end if
+               end do
 
-               else ! Two phi slices
+            case(1) ! Surface r=constant
+
+               !-- In that case this is already on rank=0
+               if ( lPhaseField(n_movie) ) cycle
+
+               ! frames is set only for one rank, where n_r=n_const
+               ! send to rank 0
+               do n_field=1,n_fields
+                  n_start=n_movie_field_start(n_field,n_movie)
+                  n_stop =n_movie_field_stop(n_field,n_movie)
+                  field_length = n_stop-n_start+1
+                  myTag=7654+n_movie
+                  if ( rank == 0 ) then
+                     if ( (nRstart <= n_const) .and. (n_const <= nRstop) ) then
+                        ! relevant frames already set on rank 0
+                        ! do nothing
+                     else
+                        call MPI_Recv(frames(n_start),field_length,MPI_DEF_REAL,     &
+                             &        MPI_ANY_SOURCE,mytag,MPI_COMM_WORLD,status,ierr)
+                     end if
+                  else
+                     if ( (nRstart <= n_const) .and. (n_const <= nRstop) ) then
+                        ! relevant frames are all on this rank  /= 0
+                        ! send to rank 0
+                        call MPI_Send(frames(n_start),field_length,MPI_DEF_REAL,&
+                             &        0,mytag,MPI_COMM_WORLD,ierr)
+                     end if
+                  end if
+               end do
+
+            case(2) ! Surface theta=constant
+               do n_field=1,n_fields
+                  n_start = n_movie_field_start(n_field,n_movie)
+                  n_stop  = n_movie_field_stop(n_field,n_movie)
+                  field_length = n_stop-n_start+1
+
+                  local_start=n_start+(nRstart-1)*n_phi_max
+                  local_end  =local_start+nR_per_rank*n_phi_max-1
+                  if ( local_end > n_stop ) then
+                     call abortRun('local_end exceeds n_stop')
+                  end if
+                  do irank=0,n_procs-1
+                     recvcounts(irank)=radial_balance(irank)%n_per_rank*n_phi_max
+                  end do
+                  displs(0)=0
+                  do irank=1,n_procs-1
+                     displs(irank)=displs(irank-1)+recvcounts(irank-1)
+                  end do
+                  sendcount=local_end-local_start+1
+
+                  call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
+                       &           field_frames_global,recvcounts,displs,      &
+                       &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+                  if ( rank == 0 ) then
+                     frames(n_start:n_stop)=field_frames_global(1:field_length)
+                  end if
+               end do  ! Do loop over field for one movie
+
+            case(3)  ! Surface phi=const.
+               ! all ranks have a part of the frames array for each movie
+               ! we need to gather
+
+               do n_field=1,n_fields
+                  n_start      = n_movie_field_start(n_field,n_movie)
+                  n_stop       = n_movie_field_stop(n_field,n_movie)
+                  n_field_type = n_movie_field_type(n_field,n_movie)
+                  field_length = n_stop-n_start+1
+
+                  local_start=n_start+(nRstart-1)*n_theta_max
+                  local_end  =local_start+nR_per_rank*n_theta_max-1
+                  do irank=0,n_procs-1
+                     recvcounts(irank)=radial_balance(irank)%n_per_rank*n_theta_max
+                  end do
+                  if ( local_end > n_stop ) then
+                     call abortRun('local_end exceeds n_stop')
+                  end if
+                  displs(0)=0
+                  do irank=1,n_procs-1
+                     displs(irank)=displs(irank-1)+recvcounts(irank-1)
+                  end do
+                  sendcount=local_end-local_start+1
 
                   n_stop=n_start+field_length/2-1
                   call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
                        &           field_frames_global,recvcounts,displs,      &
                        &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-                  if (rank == 0) then
+                  if ( rank == 0 ) then
                      frames(n_start:n_stop)=field_frames_global(1:field_length/2)
                   end if
                   n_start=n_stop+1
@@ -1594,17 +1433,49 @@ contains
                   call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
                        &           field_frames_global,recvcounts,displs,      &
                        &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-                  if (rank == 0) then
+                  if ( rank == 0 ) then
                      frames(n_start:n_stop)=field_frames_global(1:field_length/2)
                   end if
 
-               end if
-            end do  ! Do loop over field for one movie
+               end do  ! Do loop over field for one movie
 
-         end if
+            case(4)  ! Surface phi average
+               ! all ranks have a part of the frames array for each movie
+               ! we need to gather
+
+               do n_field=1,n_fields
+                  n_start      = n_movie_field_start(n_field,n_movie)
+                  n_stop       = n_movie_field_stop(n_field,n_movie)
+                  n_field_type = n_movie_field_type(n_field,n_movie)
+                  field_length = n_stop-n_start+1
+
+                  local_start=n_start+(nRstart-1)*n_theta_max
+                  local_end  =local_start+nR_per_rank*n_theta_max-1
+                  do irank=0,n_procs-1
+                     recvcounts(irank)=radial_balance(irank)%n_per_rank*n_theta_max
+                  end do
+                  if ( local_end > n_stop ) then
+                     call abortRun('local_end exceeds n_stop')
+                  end if
+                  displs(0)=0
+                  do irank=1,n_procs-1
+                     displs(irank)=displs(irank-1)+recvcounts(irank-1)
+                  end do
+                  sendcount=local_end-local_start+1
+
+                  !-- Either only the axisymmetric or both slices
+                  call MPI_Gatherv(frames(local_start),sendcount,MPI_DEF_REAL, &
+                       &           field_frames_global,recvcounts,displs,      &
+                       &           MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+                  if ( rank == 0 ) then
+                     frames(n_start:n_stop)=field_frames_global(1:field_length)
+                  end if
+               end do  ! Do loop over field for one movie
+
+         end select
       end do
 
-      if (rank == 0) deallocate(field_frames_global)
+      if ( rank == 0 ) deallocate(field_frames_global)
 #endif
 
    end subroutine movie_gather_frames_to_rank0

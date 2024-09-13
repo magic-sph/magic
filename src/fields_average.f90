@@ -190,7 +190,7 @@ contains
       !----- Fields in grid space:
       real(cp) :: Br(nlat_padded,n_phi_max),Bt(nlat_padded,n_phi_max)
       real(cp) :: Bp(nlat_padded,n_phi_max),Vr(nlat_padded,n_phi_max)
-      real(cp) :: Vt(nlat_padded,n_phi_max),Vp(nlat_padded,n_phi_max) 
+      real(cp) :: Vt(nlat_padded,n_phi_max),Vp(nlat_padded,n_phi_max)
       real(cp) :: Sr(nlat_padded,n_phi_max),Prer(nlat_padded,n_phi_max)
       real(cp) :: Xir(nlat_padded,n_phi_max),Phir(nlat_padded,n_phi_max)
 
@@ -449,7 +449,7 @@ contains
          !--- Store potentials of averaged field:
          !    dw_ave_LMloc and db_ave_LMloc used as work arrays here.
          nPotSets=0
-#ifdef WITH_MPI	
+#ifdef WITH_MPI
          call write_Pot_mpi(time,w_ave_Rloc,z_ave_Rloc,b_ic_ave,aj_ic_ave,nPotSets,  &
               &             'V_lmr_ave.',omega_ma,omega_ic)
          if ( l_mag) then

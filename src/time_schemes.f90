@@ -12,7 +12,7 @@ module time_schemes
 
    implicit none
 
-   private 
+   private
 
    type, abstract, public :: type_tscheme
 
@@ -25,14 +25,14 @@ module time_schemes
       character(len=8) :: time_scheme ! Name of the time scheme
       logical :: l_assembly
       real(cp), allocatable :: dt(:) ! Array that contains the timesteps
-      real(cp), allocatable :: wimp_lin(:) ! Weighting factor 
+      real(cp), allocatable :: wimp_lin(:) ! Weighting factor
       logical,  allocatable :: l_exp_calc(:) ! Array of booleans to specify the calculation of an explicit stage
       logical, allocatable :: l_imp_calc_rhs(:) ! Array of booleans to specify the calculation of an implicit stage
       real(cp) :: courfac ! Courant factor
       real(cp) :: alffac ! Courant factor for Alfven waves
       real(cp) :: intfac ! Coriolis factor
 
-   contains 
+   contains
 
       procedure(initialize_if), deferred :: initialize
       procedure(finalize_if),  deferred :: finalize
