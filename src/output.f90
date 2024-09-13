@@ -680,7 +680,7 @@ contains
          call logWrite(message)
 
          !--- Storing the movie frame:
-         call write_movie_frame(n_frame,timeScaled,omega_ic,omega_ma)
+         call write_movie_frame(n_frame,timeScaled)
       end if
 
       !----- Plot out inner core magnetic field, outer core

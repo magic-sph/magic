@@ -188,7 +188,7 @@ if buildSo:
                  '--fcompiler={}'.format(fcompiler),
                  '--compiler={}'.format(ccompiler),
                  '--opt={}'.format(f90options),
-                 omp_options, '-c', '-m', 
+                 omp_options, '-c', '-m',
                  'cylavg', omp_link,
                  'fortranLib/cyl.f90'], stderr=sp.PIPE, stdout=sp.PIPE)
 

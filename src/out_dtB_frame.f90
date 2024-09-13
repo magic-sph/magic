@@ -721,7 +721,7 @@ contains
       zeros(:)=zero
 
       call torpol_to_spat_single(cs1, cs2, zeros, Br, Bt, Bp, l_max)
-            
+
    end subroutine get_Bpol
 !-------------------------------------------------------------------------------------
    subroutine get_Btor(Tlm,Bt,Bp,rT,lIC)
@@ -779,7 +779,7 @@ contains
       end do
 
       call sphtor_to_spat(sht_l_single, zeros, cs1, Bt, Bp, l_max)
-            
+
    end subroutine get_Btor
 !-------------------------------------------------------------------------------------
    subroutine lm2pt(alm,aij,rT,lIC,lrComp)

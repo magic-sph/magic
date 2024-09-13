@@ -9,7 +9,7 @@ module outTO_mod
    use precision_mod
    use parallel_mod
    use constants, only: one, two, pi, vol_oc
-   use truncation, only: n_r_max, n_theta_max, n_phi_max, minc
+   use truncation, only: n_r_max, n_theta_max, n_phi_max, minc, n_r_ic_max
    use mem_alloc, only: bytes_allocated
    use num_param, only: tScale
    use output_data, only: sDens, zDens, tag, runid, log_file, n_log_file, n_s_max
@@ -17,7 +17,7 @@ module outTO_mod
    use radial_functions, only: r_ICB, r_CMB, r
    use horizontal_data, only: theta_ord, phi
    use logic, only: l_save_out, l_TOmovie, l_full_sphere, l_phase_field, l_mag
-   use physical_parameters, only: ra, ek, pr,prmag, radratio, LFfac
+   use physical_parameters, only: ra, ek, pr,prmag, radratio, LFfac, raxi, sc
    use torsional_oscillations, only: dzCorAS_Rloc, dzdVpAS_Rloc, dzddVpAS_Rloc,  &
        &                             dzRstrAS_Rloc, dzAstrAS_Rloc, dzStrAS_Rloc, &
        &                             dzLFAS_Rloc, V2AS_Rloc, Bs2AS_Rloc,         &
@@ -55,10 +55,10 @@ contains
       !
 
       !-- Local variables
-      integer :: n_s, nFields, n
-      real(cp) :: smin, smax, ds, dumm(12)
+      integer :: n_s, nFields, n_surface, n_r_mov_tot
+      real(cp) :: smin, smax, ds
       character(len=64) :: TOfileNhs,TOfileShs
-      character(len=64) :: version
+      integer :: version
 
       if ( rank == 0 ) then
          allocate( dzCorAS(n_theta_max,n_r_max), dzdVpAS(n_theta_max,n_r_max) )
@@ -157,42 +157,30 @@ contains
             open(newunit=n_TOmov_file, file=movFile, status='unknown',  &
             &    form='unformatted', position='append')
 
-            nFields=7
+            nFields  =7
             if ( l_phase_field ) nFields=nFields+1
-            version='JW_Movie_Version_2'
+            version=3
+            n_surface=4
             write(n_TOmov_file) version
-            dumm(1)=102           ! type of input
-            dumm(2)=4             ! marker for constant phi plane
-            dumm(3)=0.0_cp        ! surface constant
-            dumm(4)=nFields       ! no of fields
-            write(n_TOmov_file) (real(dumm(n),kind=outp),n=1,4)
-
-            dumm(1)=11.0          ! Field marker for AS vPhi
-            dumm(2)=61.0          ! Field marker for Reynolds Force
-            dumm(3)=62.0          ! Field marker for Advective Force
-            dumm(4)=63.0          ! Field marker for Viscous Force
-            dumm(5)=64.0          ! Field marker for Lorentz Force
-            dumm(6)=65.0          ! Field marker for Coriolis force
-            dumm(7)=66.0          ! Field marker for dtVp
-            write(n_TOmov_file) (real(dumm(n),kind=outp),n=1,nFields)
+            write(n_TOmov_file) n_surface, nFields
+            write(n_TOmov_file) 0.0_outp ! const
+            if ( l_phase_field ) then
+               write(n_TOmov_file) [11, 61, 62, 63, 64, 65, 66]
+            else
+               write(n_TOmov_file) [11, 61, 62, 63, 64, 65, 66, 67]
+            end if
+            n_r_mov_tot = n_r_max
 
             !------ Now other info about grid and parameters:
             write(n_TOmov_file) runid ! run identifier
-            dumm( 1)=n_r_max          ! total number of radial points
-            dumm( 2)=n_r_max          ! no of radial point in outer core
-            dumm( 3)=n_theta_max      ! no. of theta points
-            dumm( 4)=n_phi_max        ! no. of phi points
-            dumm( 5)=minc             ! imposed symmetry
-            dumm( 6)=ra               ! control parameters
-            dumm( 7)=ek               ! (for information only)
-            dumm( 8)=pr               !      -"-
-            dumm( 9)=prmag            !      -"-
-            dumm(10)=radratio         ! ratio of inner / outer core
-            dumm(11)=tScale           ! timescale
-            write(n_TOmov_file) (real(dumm(n),kind=outp),     n=1,11)
-            write(n_TOmov_file) (real(r(n)/r_CMB,kind=outp),  n=1,n_r_max)
-            write(n_TOmov_file) (real(theta_ord(n),kind=outp),n=1,n_theta_max)
-            write(n_TOmov_file) (real(phi(n),kind=outp),      n=1,n_phi_max)
+            write(n_TOmov_file) n_r_mov_tot, n_r_max, n_r_ic_max, n_theta_max, &
+            &                   n_phi_max, n_s_max, minc
+            write(n_TOmov_file) real(ra,outp), real(ek,outp), real(pr,outp),      &
+            &                   real(raxi,outp), real(sc,outp), real(prmag,outp), &
+            &                   real(radratio,outp), real(tScale,outp)
+            write(n_TOmov_file) real(r(:)/r_CMB,kind=outp)
+            write(n_TOmov_file) real(theta_ord(:),kind=outp)
+            write(n_TOmov_file) real(phi(:),kind=outp)
          end if
       end if
 
@@ -238,7 +226,7 @@ contains
       !-- Local variables
       character(len=255) :: message
       logical :: lTC
-      integer :: n_s, n
+      integer :: n_s
       real(cp) :: V2IntS(n_s_max),V2IntN(n_s_max),Bs2IntS(n_s_max),Bs2IntN(n_s_max)
       real(cp) :: BspIntS(n_s_max),BspIntN(n_s_max),BspdIntS(n_s_max),BspdIntN(n_s_max)
       real(cp) :: BpsdIntS(n_s_max),BpsdIntN(n_s_max),dVpIntS(n_s_max),dVpIntN(n_s_max)
@@ -257,7 +245,7 @@ contains
       real(cp) :: VgRMS, VpRMS, VRMS, TayRMS, TayRRMS, TayVRMS
 
       !-- For boundaries:
-      real(cp) :: BspB(2),BspdB(2),BpsdB(2),zMin,zMax,dumm(8)
+      real(cp) :: BspB(2),BspdB(2),BpsdB(2),zMin,zMax
       real(cp) :: Bs2B(2),BszB(2),BpzB(2),BzpdB(2),BpzdB(2)
 
       !-- Gather R-distributed arrays on rank == 0
@@ -570,15 +558,7 @@ contains
             nTOmovSets=nTOmovSets+1
 
             !-- Write time and frame number
-            dumm(1)=nTOmovSets        ! time frame number for movie
-            dumm(2)=time              ! time
-            dumm(3)=0.0_cp
-            dumm(4)=0.0_cp
-            dumm(5)=0.0_cp
-            dumm(6)=0.0_cp
-            dumm(7)=0.0_cp
-            dumm(8)=0.0_cp
-            write(n_TOmov_file) (real(dumm(n),kind=outp),n=1,8)
+            write(n_TOmov_file) real(time,kind=outp)
 
             !-- Write fields
             write(n_TOmov_file) real(VAS,kind=outp)
@@ -758,7 +738,7 @@ contains
 !------------------------------------------------------------------------------------
    subroutine get_dds(arr, ddarr, cyl)
       !
-      ! This subroutine is used to compute the 4th order accurate 2nd s-derivative 
+      ! This subroutine is used to compute the 4th order accurate 2nd s-derivative
       ! on the regularly spaced grid
       !
       ! https://bellaard.com/tools/Finite%20difference%20coefficient%20calculator/
@@ -801,7 +781,7 @@ contains
       !
       ! This subroutine gathers the r-distributed array
       !
-      
+
       !-- Input variable
       real(cp), intent(in) :: arr_Rloc(n_theta_max,nRstart:nRstop)
 

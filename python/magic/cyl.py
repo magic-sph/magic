@@ -96,7 +96,7 @@ if zavgMode == 'f2py':
     def zavg(input, radius, ns, minc, save=True, filename='vp.pickle',
              normed=True, colat=None):
         """
-        This function computes a z-integration of a list of input arrays 
+        This function computes a z-integration of a list of input arrays
         (on the spherical grid). This works well for 2-D (phi-slice) arrays.
         In case of 3-D arrays, only one element is allowed (too demanding
         otherwise).
@@ -114,7 +114,7 @@ if zavgMode == 'f2py':
         :type save: bool
         :param filename: name of the output pickle when save=True
         :type filename: str
-        :param normed: a boolean to specify if ones wants to simply integrate 
+        :param normed: a boolean to specify if ones wants to simply integrate
                        over z or compute a z-average (default is True: average)
         :type normed: bool
         :param colat: an optional array containing the colatitudes
@@ -186,8 +186,8 @@ else:
     def zavg(input, radius, ns, minc, save=True, filename='vp.pickle',
              normed=True):
         """
-        This function computes a z-integration of a list of input arrays 
-        (on the spherical grid). This works well for 2-D (phi-slice) 
+        This function computes a z-integration of a list of input arrays
+        (on the spherical grid). This works well for 2-D (phi-slice)
         arrays. In case of 3-D arrays, only one element is allowed
         (too demanding otherwise).
 

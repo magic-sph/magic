@@ -31,7 +31,7 @@ def getPotEndianness(filename):
     try:
         f = npfile(filename, endian='l')
         try:  # This test is not 100% safe but in principle it should work
-            i = f.fort_read('i4')
+            i = f.fort_read(np.int32)
             if abs(i[0]) > 100:
                 raise TypeError
             endian = 'l'
@@ -39,7 +39,7 @@ def getPotEndianness(filename):
         except TypeError:
             f.close()
             f = npfile(filename, endian='B')
-            i = f.fort_read('i4')
+            i = f.fort_read(np.int32)
             if abs(i[0]) > 100:
                 raise TypeError
             endian = 'B'
@@ -47,7 +47,7 @@ def getPotEndianness(filename):
         record_marker = True
     except ValueError:
         f = open(filename, 'rb')
-        ver = np.fromfile(f, dtype='i4', count=1)[0]
+        ver = np.fromfile(f, dtype=np.int32, count=1)[0]
         if abs(ver) < 100:
             endian = 'l'
         else:
@@ -241,7 +241,7 @@ class MagicPotential(MagicSetup):
 
                 # Read header
                 self.l_max, self.n_r_max, self.n_r_ic_max, self.minc, \
-                    self.lm_max = infile.fort_read('i4')
+                    self.lm_max = infile.fort_read(np.int32)
                 self.m_max = int((self.l_max/self.minc)*self.minc)
                 self.n_m_max = int(self.m_max/self.minc+1)
                 self.ra, self.ek, self.pr, self.prmag, self.radratio, \

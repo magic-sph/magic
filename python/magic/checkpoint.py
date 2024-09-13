@@ -58,7 +58,7 @@ def get_map(lm_max, lmax, mmin, mmax, minc):
 def interp_one_field(field, rold, rnew, rfac=None):
     """
     This routine interpolates a complex input field from an old radial grid
-    to a new one. 
+    to a new one.
 
     :param field: the field to be interpolated
     :type field: numpy.ndarray
@@ -164,7 +164,7 @@ class MagicCheckpoint:
 
     def read(self, filename, endian='l'):
         """
-        This routine is used to read a checkpoint file. 
+        This routine is used to read a checkpoint file.
 
         :param filename: name of the checkpoint file
         :type filename: str
@@ -179,7 +179,7 @@ class MagicCheckpoint:
         self.version = np.fromfile(file, fmt, count=1)[0]
         fmt = '{}f8'.format(prefix)
         self.time = np.fromfile(file, fmt, count=1)[0]
-        
+
         # Time scheme
         self.tscheme_family = file.read(10).decode()
         nexp, nimp, nold = np.fromfile(file, dtype=np.int32, count=3)
@@ -574,7 +574,7 @@ class MagicCheckpoint:
 
         # When nalias=60 ntheta=lmax: trick to have lmax in MagIC's header
         self.nalias = 60
-        self.n_theta_max = self.l_max 
+        self.n_theta_max = self.l_max
         self.n_phi_tot = self.l_max
         self.n_r_ic_max = 1
 
@@ -727,7 +727,7 @@ class MagicCheckpoint:
         s3D = rr3D*np.sin(th3D)
         omr = 1./s3D*(thetaderavg(np.sin(th3D)*gr.vphi, order=4) -
                       phideravg(gr.vtheta, minc=self.minc))
- 
+
         for i in range(self.n_r_max):
             om = sh.spat_spec(omr[:, :, i])
             self.ztor[i, 1:] = om[1:]/(sh.ell[1:]*(sh.ell[1:]+1)) * \
@@ -777,7 +777,7 @@ class MagicCheckpoint:
                     rr = self.radius_ic[i-1]
                     rdep[1:] = (self.radius_ic[i-1]/ri)**(sh.ell[1:]+1)
                 self.bpol_ic[i, 1:] = vr[1:]/(sh.ell[1:]*(sh.ell[1:]+1))*rr**2
-                # Not stable: 
+                # Not stable:
                 #if self.radius_ic[i] >= 0.01:
                 #    mask = ( self.lm2l <= 2 ) * ( self.lm2m <= 2)
                 #    self.bpol_ic[i, mask] /= rdep[mask]
