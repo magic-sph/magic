@@ -35,7 +35,7 @@ def to_json(o, level=0):
             ret += SPACE * INDENT * (level + 1)
             ret += '"' + str(k) + '":' + SPACE
             ret += to_json(v, level + 1)
-  
+
         ret += NEWLINE + SPACE * INDENT * level + "}"
     elif isinstance(o, str):
         ret += '"' + o + '"'
@@ -74,12 +74,12 @@ class AvgField:
     This class computes the time-average properties from time series, spectra
     and radial profiles. It will store the input starting time in a small file
     named ``tInitAvg``, such that the next time you use it you don't need to
-    provide ``tstart`` again. By default, the outputs are stored in a 
+    provide ``tstart`` again. By default, the outputs are stored in a
     fully documented JSON file named avg.json: this is split into several
     categories, namely numerical parameters, physical parameters, time averaged
     scalar quantities, time averaged spectra and time-averaged radial profiles.
     The quantities stored in the JSON file are entirely controlled by an input
-    model file wich enlists the different quantities of interest. 
+    model file wich enlists the different quantities of interest.
     A default example file named ``model.json`` is provided in
     ``$MAGIC_HOME/python/magic``, and an example of how to build a dedicated one
     is provided below.
@@ -97,7 +97,7 @@ class AvgField:
                        'spectra': {},
                        'radial_profiles': {'powerR': ['viscDiss', 'buoPower']}
                      }
-    >>> # Compute the selected averages in the dirctory mydir                 
+    >>> # Compute the selected averages in the dirctory mydir
     >>> a = AvgField(datadir='mydir', model=json_model)
     """
 
@@ -409,7 +409,7 @@ class AvgStack:
     avg files to compute a global output which summarises all the outputs in one
     single file
 
-    >>> # Simply go through the directories listed in "runs.txt" and produce a 
+    >>> # Simply go through the directories listed in "runs.txt" and produce a
     >>> # local file named "my_results.json"
     >>> st = AvgStack(dirList="runs.txt", filename="my_results.json")
     >>> # Now also recompute each individual avg.json file in each directory
@@ -423,8 +423,8 @@ class AvgStack:
         :param dirList: the filename of the list of directories, lines starting with
                         a hash are omitted by the reader
         :type dirList: str
-        :param filename: 
-        :param recompute: recompute each individual average file in each single 
+        :param filename:
+        :param recompute: recompute each individual average file in each single
                           directory when set to True
         :type recompute: bool
         :param datadir: working directory

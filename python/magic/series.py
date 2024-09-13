@@ -215,7 +215,7 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlim(self.time[0], self.time[-1])
             fig.tight_layout()
-            
+
             fig1 = plt.figure()
             ax1 = fig1.add_subplot(111)
             if abs(self.lorentz_torque_ic).max() > 0.:

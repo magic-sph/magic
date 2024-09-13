@@ -563,7 +563,7 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
     :type rasterized: bool
     :param gridColor: this is used to set the color of the grid
     :type gridColor: str
-    :param gridLineStyle: this allows to set the line style of the grid 
+    :param gridLineStyle: this allows to set the line style of the grid
                           (':', '-', '--')
     :type gridLineStyle: str
     :param gridLineWidth: this is used to tune the thickness of the lines used
