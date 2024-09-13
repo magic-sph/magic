@@ -68,6 +68,7 @@ module output_data
    character(len=72), public :: log_file
    character(len=72), public :: lp_file
    !----- Z-integrated output:
+   integer, public :: n_s_max ! Number of radial grid points in s-direction
    real(cp), public :: sDens ! Density in s when using z-integration
    real(cp), public :: zDens ! Density in z when using z-integration
 

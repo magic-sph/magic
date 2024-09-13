@@ -12,7 +12,7 @@ module time_schemes
 
    implicit none
 
-   private 
+   private
 
    type, abstract, public :: type_tscheme
 
@@ -32,7 +32,7 @@ module time_schemes
       real(cp) :: alffac ! Courant factor for Alfven waves
       real(cp) :: intfac ! Coriolis factor
 
-   contains 
+   contains
 
       procedure(initialize_if), deferred :: initialize
       procedure(finalize_if),  deferred :: finalize

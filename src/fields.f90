@@ -69,9 +69,7 @@ module fields
    !         for even chebs
    complex(cp), public, allocatable :: b_ic(:,:)
    complex(cp), public, allocatable :: db_ic(:,:)
-   complex(cp), public, allocatable :: ddb_ic(:,:)
    complex(cp), public, allocatable :: aj_ic(:,:)
-   complex(cp), public, allocatable :: dj_ic(:,:)
    complex(cp), public, allocatable :: b_ic_LMloc(:,:)
    complex(cp), public, allocatable :: db_ic_LMloc(:,:)
    complex(cp), public, allocatable :: ddb_ic_LMloc(:,:)
@@ -104,37 +102,31 @@ contains
          bytes_allocated = bytes_allocated + lm_maxMag*SIZEOF_DEF_COMPLEX
          allocate( b_ic(lm_maxMag,n_r_ic_maxMag) )
          allocate( db_ic(lm_maxMag,n_r_ic_maxMag) )
-         allocate( ddb_ic(lm_maxMag,n_r_ic_maxMag) )
          allocate( aj_ic(lm_maxMag,n_r_ic_maxMag) )
-         allocate( dj_ic(lm_maxMag,n_r_ic_maxMag) )
          bytes_allocated = bytes_allocated + &
-         &                 5*lm_maxMag*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
+         &                 3*lm_maxMag*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 #ifdef WITH_OMP_GPU
          gpu_bytes_allocated = gpu_bytes_allocated + &
-         &                 5*lm_maxMag*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
+         &                 3*lm_maxMag*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 #endif
       else
          allocate( bICB(1) )
          bytes_allocated = bytes_allocated + n_r_maxMag*SIZEOF_DEF_COMPLEX
          allocate( b_ic(1,n_r_ic_maxMag) )
          allocate( db_ic(1,n_r_ic_maxMag) )
-         allocate( ddb_ic(1,n_r_ic_maxMag) )
          allocate( aj_ic(1,n_r_ic_maxMag) )
-         allocate( dj_ic(1,n_r_ic_maxMag) )
-         bytes_allocated = bytes_allocated + 5*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated + 3*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 #ifdef WITH_OMP_GPU
-         gpu_bytes_allocated = gpu_bytes_allocated + 5*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
+         gpu_bytes_allocated = gpu_bytes_allocated + 3*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 #endif
       end if
       bICB(:)    =zero
       b_ic(:,:)  =zero
       db_ic(:,:) =zero
-      ddb_ic(:,:)=zero
       aj_ic(:,:) =zero
-      dj_ic(:,:) =zero
 #ifdef WITH_OMP_GPU
-      !$omp target enter data map(alloc: b_ic, db_ic, ddb_ic, aj_ic, dj_ic)
-      !$omp target update to(b_ic, db_ic, ddb_ic, aj_ic, dj_ic) nowait
+      !$omp target enter data map(alloc: b_ic, db_ic, aj_ic)
+      !$omp target update to(b_ic, db_ic, aj_ic) nowait
 #endif
 
       if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
@@ -546,9 +538,9 @@ contains
 #endif
 
 #ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: b_ic, db_ic, ddb_ic, aj_ic, dj_ic)
+      !$omp target exit data map(delete: b_ic, db_ic, aj_ic)
 #endif
-      deallocate( bICB, b_ic, db_ic, ddb_ic, aj_ic, dj_ic )
+      deallocate( bICB, b_ic, db_ic, aj_ic )
       deallocate( press_LMloc_container, press_Rloc_container )
       if ( l_parallel_solve ) then
          deallocate( w_LMloc, z_LMloc, s_LMloc, w_RLoc, z_Rloc, s_Rloc )

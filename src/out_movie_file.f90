@@ -1,21 +1,22 @@
 module out_movie
+   !
+   ! This module handles the storage of the relevant diagnostics in the public
+   ! array frames(*) and then the writing of the corresponding movie files
+   !
 
    use precision_mod
    use parallel_mod, only: rank
-   use geos, only: cyl, n_s_max, write_geos_frame
-   use outMisc_mod, only: write_rmelt_frame, write_dt_rmelt_frame
-   use communications, only: gt_OC, gather_all_from_lo_to_rank0
+   use geos, only: cyl
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, l_max,    &
        &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,  &
        &                 n_r_ic_max, n_r_max, nlat_padded
    use grid_blocking, only: radlatlon2spat
    use movie_data, only: frames, n_movie_fields, n_movies, n_movie_surface, &
-       &                 n_movie_const, n_movie_field_type,                 &
+       &                 n_movie_const, n_movie_field_type, lGeosField,     &
        &                 n_movie_field_start,n_movie_field_stop,            &
        &                 movieDipColat, movieDipLon, movieDipStrength,      &
-       &                 movieDipStrengthGeo, n_movie_type,                 &
-       &                 lStoreMov, n_movie_file, n_movie_fields_ic,        &
-       &                 movie_file, movie_const
+       &                 movieDipStrengthGeo, movie_const, movie_file,      &
+       &                 n_movie_file, n_movie_fields_ic
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: orho1, orho2, or1, or2, or3, or4, beta,  &
        &                       r_surface, r_cmb, r, r_ic, temp0
@@ -29,8 +30,7 @@ module out_movie
    use sht, only: torpol_to_spat_single, toraxi_to_spat
    use logic, only: l_save_out, l_cond_ic, l_mag, l_full_sphere
    use constants, only: zero, half, one, two
-   use out_dtB_frame, only: write_dtB_frame
-   use output_data, only: runid
+   use output_data, only: runid, n_s_max
    use useful, only: abortRun
 
    implicit none
@@ -80,91 +80,95 @@ contains
          n_surface=n_movie_surface(n_movie)
          n_const  =n_movie_const(n_movie)
 
-         if ( n_surface == -1 ) then ! Earth Surface
+         select case ( n_surface )
 
-            if ( n_r /= 1 ) cycle  ! not CMB radius
+            case(-1) ! Earth surface
+               if ( n_r /= 1 ) cycle  ! not CMB radius
+               do n_field=1,n_fields
+                  n_field_type=n_movie_field_type(n_field,n_movie)
+                  n_store_last=n_movie_field_start(n_field,n_movie)-1
+                  if ( n_store_last >= 0 ) then
+                     call store_fields_sur(n_store_last,n_field_type,bCMB)
+                  end if
+               end do
 
-            do n_field=1,n_fields
-               n_field_type=n_movie_field_type(n_field,n_movie)
-               n_store_last=n_movie_field_start(n_field,n_movie)-1
-               if ( n_store_last >= 0 ) then
-                  call store_fields_sur(n_store_last,n_field_type,bCMB)
-               end if
-            end do
+            case(0) ! 3d
+               do n_field=1,n_fields
+                  n_field_type=n_movie_field_type(n_field,n_movie)
+                  n_store_last=n_movie_field_start(n_field,n_movie)-1
+                  if ( n_store_last >= 0 ) then
+                     call store_fields_3d(vr,vt,vp,br,bt,bp,sr,drSr,xir,phir,  &
+                          &               dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbr,cbt, &
+                          &               n_r,n_store_last,n_field_type)
+                  end if
+               end do
 
-         else if ( n_surface == 0 ) then ! 3d
+            case(1) ! Surface r=constant
+               if ( n_r /= n_const ) cycle  ! not desired radius
 
-            do n_field=1,n_fields
-               n_field_type=n_movie_field_type(n_field,n_movie)
-               n_store_last=n_movie_field_start(n_field,n_movie)-1
-               if ( n_store_last >= 0 ) then
-                  call store_fields_3d(vr,vt,vp,br,bt,bp,sr,drSr,xir,phir,  &
-                       &               dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbr,cbt, &
-                       &               n_r,n_store_last,n_field_type)
-               end if
-            end do
+               do n_field=1,n_fields
+                  n_field_type=n_movie_field_type(n_field,n_movie)
+                  n_store_last=n_movie_field_start(n_field,n_movie)-1
+                  if ( n_store_last >= 0 ) then
+                     call store_fields_r(vr,vt,vp,br,bt,bp,sr,drSr,xir,phir, &
+                          &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,n_r,    &
+                          &              n_store_last,n_field_type)
+                  end if
+               end do
 
-         else if ( n_surface == 1 ) then ! Surface r=constant
+            case(2) ! Surface theta=constant
+               !------ Test whether n_theta_movie is in the current theta block
+               !       and find its position n_theta_movie_c:
+               lThetaFound=.false.
+               do n_theta=1,n_theta_max
+                  if ( n_theta == n_const ) then
+                     lThetaFound=.true.
+                     exit
+                  end if
+               end do
+               if ( .not. lThetaFound) cycle        ! Theta not found !
 
-            if ( n_r /= n_const ) cycle  ! not desired radius
+               do n_field=1,n_fields
+                  n_field_type=n_movie_field_type(n_field,n_movie)
+                  n_store_last=n_movie_field_start(n_field,n_movie)-1
+                  if ( n_store_last >= 0 ) then
+                     call store_fields_t(vr,vt,vp,br,bt,bp,sr,drSr,xir,phir,   &
+                          &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbt,n_r,  &
+                          &              n_store_last,n_field_type,n_theta)
+                    end if
+               end do
 
-            do n_field=1,n_fields
-               n_field_type=n_movie_field_type(n_field,n_movie)
-               n_store_last=n_movie_field_start(n_field,n_movie)-1
-               if ( n_store_last >= 0 ) then
-                  call store_fields_r(vr,vt,vp,br,bt,bp,sr,drSr,xir,phir, &
-                       &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,n_r,    &
-                       &              n_store_last,n_field_type)
-               end if
-            end do
+            case(3)  ! Surface phi=const.
+               do n_field=1,n_fields
+                  n_field_type=n_movie_field_type(n_field,n_movie)
+                  n_store_last=n_movie_field_start(n_field,n_movie)-1
+                  n_field_size=(n_movie_field_stop(n_field,n_movie) - n_store_last)/2
+                  if ( n_store_last >= 0 ) then
+                     call store_fields_p(vr,vt,vp,br,bp,bt,sr,drSr,xir,phir,   &
+                          &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbr,cbt,  &
+                          &              n_r,n_store_last,n_field_type,        &
+                          &              n_const,n_field_size)
+                  end if
+               end do  ! Do loop over field for one movie
 
-         else if ( n_surface == 2 ) then ! Surface theta=constant
+            case(4)  ! phi averages
+               do n_field=1,n_fields
+                  n_field_type=n_movie_field_type(n_field,n_movie)
+                  n_store_last=n_movie_field_start(n_field,n_movie)-1
+                  if ( n_store_last >= 0 ) then
+                     call store_fields_p_avg(vr,vt,vp,bp,sr,drSr,xir,phir,dvrdp,       &
+                          &                  dvpdr,dvtdr, dvrdt,cvr,n_r,n_store_last,  &
+                          &                  n_field_type)
+                  end if
+               end do  ! Do loop over field for one movie
 
-            !------ Test whether n_theta_movie is in the current theta block
-            !       and find its position n_theta_movie_c:
-            lThetaFound=.false.
-            do n_theta=1,n_theta_max
-               if ( n_theta == n_const ) then
-                  lThetaFound=.true.
-                  exit
-               end if
-            end do
-            if ( .not. lThetaFound) cycle        ! Theta not found !
-
-            do n_field=1,n_fields
-               n_field_type=n_movie_field_type(n_field,n_movie)
-               n_store_last=n_movie_field_start(n_field,n_movie)-1
-               if ( n_store_last >= 0 ) then
-                  call store_fields_t(vr,vt,vp,br,bt,bp,sr,drSr,xir,phir,   &
-                       &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbt,n_r,  &
-                       &              n_store_last,n_field_type,n_theta)
-                 end if
-            end do
-
-         else if ( abs(n_surface) == 3 ) then  ! Surface phi=const.
-
-            do n_field=1,n_fields
-               n_field_type=n_movie_field_type(n_field,n_movie)
-               n_store_last=n_movie_field_start(n_field,n_movie)-1
-               n_field_size=(n_movie_field_stop(n_field,n_movie) - n_store_last)/2
-               if ( n_store_last >= 0 ) then
-                  call store_fields_p(vr,vt,vp,br,bp,bt,sr,drSr,xir,phir,   &
-                       &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbr,cbt,  &
-                       &              n_r,n_store_last,n_field_type,        &
-                       &              n_const,n_field_size)
-               end if
-            end do  ! Do loop over field for one movie
-
-
-         end if  ! Surface ?
+         end select
 
       end do  ! Do loop over movies !
 
    end subroutine store_movie_frame
 !----------------------------------------------------------------------------
-   subroutine write_movie_frame(n_frame,time,b_LMloc,db_LMloc,aj_LMloc,   &
-              &                 dj_LMloc,b_ic,db_ic,aj_ic,dj_ic,omega_ic, &
-              &                 omega_ma)
+   subroutine write_movie_frame(n_frame,time,omega_ic,omega_ma)
       !
       !  Writes different movie frames into respective output files.
       !  Called from rank 0 with full arrays in standard LM order.
@@ -174,55 +178,19 @@ contains
       real(cp),    intent(in) :: time
       integer,     intent(in) :: n_frame
       real(cp),    intent(in) :: omega_ic,omega_ma
-      complex(cp), intent(in) :: b_LMloc(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: db_LMloc(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: aj_LMloc(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: dj_LMloc(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(in) :: db_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(in) :: dj_ic(lm_maxMag,n_r_ic_maxMag)
 
       !-- Local variables:
       integer :: n_fields, n_fields_ic, n_fields_oc
-      integer :: n_movie, n_surface, n_type, n_out
+      integer :: n_movie, n_surface, n_out
       integer :: n_field, n, n_start, n_stop, n_r, n_theta, n_phi
       integer :: n_r_mov_tot
-      logical :: l_dtB_frame
       character(len=64) :: version
       real(cp) :: const
       real(cp) :: r_mov_tot(n_r_max+n_r_ic_max)
       real(outp) :: dumm(n_theta_max)
-      complex(cp), allocatable :: b(:,:), aj(:,:), db(:,:), dj(:,:)
-
-      l_dtB_frame =.false.
-
-      do n_movie=1,n_movies
-         n_type=n_movie_type(n_movie)
-         if ( (.not. lStoreMov(n_movie)) .and. n_type /= 99 .and.          &
-         &     n_type /= 130 .and. n_type /= 131 .and. n_type /= 132 .and. &
-         &     n_type /= 126 .and. n_type /= 127 ) then
-            l_dtB_frame=.true.
-         end if
-      end do
-
-      if ( l_dtB_frame ) then
-         if ( rank == 0 ) then
-            allocate( b(lm_maxMag,n_r_maxMag), aj(lm_maxMag,n_r_maxMag) )
-            allocate( db(lm_maxMag,n_r_maxMag), dj(lm_maxMag,n_r_maxMag) )
-         else
-            allocate( b(1,1), aj(1,1), db(1,1), dj(1,1) )
-         end if
-
-         call gather_all_from_lo_to_rank0(gt_OC,b_LMloc,b)
-         call gather_all_from_lo_to_rank0(gt_OC,db_LMloc,db)
-         call gather_all_from_lo_to_rank0(gt_OC,aj_LMloc,aj)
-         call gather_all_from_lo_to_rank0(gt_OC,dj_LMloc,dj)
-      end if
 
       do n_movie=1,n_movies
 
-         n_type     =n_movie_type(n_movie)
          n_surface  =n_movie_surface(n_movie)
          n_fields_oc=n_movie_fields(n_movie)
          n_fields_ic=n_movie_fields_ic(n_movie)
@@ -244,8 +212,8 @@ contains
             !------ Start with info about movie type:
             version='JW_Movie_Version_2'
             write(n_out) version
-            write(n_out) real(n_type,kind=outp), real(n_surface,kind=outp), &
-            &            real(const,kind=outp), real(n_fields,kind=outp)
+            write(n_out) 0.0_outp, real(n_surface,kind=outp), real(const,kind=outp), &
+            &            real(n_fields,kind=outp)
             write(n_out) (real(n_movie_field_type(n,n_movie),kind=outp),n=1,n_fields)
 
             !------ Combine OC and IC radial grid points:
@@ -276,7 +244,7 @@ contains
             write(n_out) (dumm(n),n=1,11)
 
             !------ Write grid:
-            if ( n_type==130 .or. n_type==131 .or. n_type==132 ) &
+            if ( lGeosField(n_movie) ) &
             &   write(n_out) (real(cyl(n_r)/r_cmb,kind=outp), n_r=1,n_s_max)
             write(n_out) (real(r_mov_tot(n_r)/r_cmb,kind=outp), n_r=1,n_r_mov_tot)
             write(n_out) (real(theta_ord(n_theta),kind=outp), n_theta=1,n_theta_max)
@@ -298,40 +266,22 @@ contains
          end if
 
          !------ Write frames:
-         if ( .not. lStoreMov(n_movie) ) then
-            if ( n_type == 99 ) then
-               call abortRun('! Use TO output for Lorentz force!')
-            else if ( n_type==130 .or. n_type==131 .or. n_type==132 ) then
-               call write_geos_frame(n_movie)
-            else if ( n_type==126 ) then ! Melting radius
-               call write_rmelt_frame(n_movie)
-            else if ( n_type==127 ) then ! Temp. gradient at melting radius
-               call write_dt_rmelt_frame(n_movie)
-            else
-               if ( rank == 0 ) then
-                  call write_dtB_frame(n_movie,b,db,aj,dj,b_ic,db_ic,aj_ic,dj_ic)
+         if ( rank == 0 ) then
+            do n_field=1,n_fields
+               n_start=n_movie_field_start(n_field,n_movie)
+               if ( n_fields_oc > 0 ) then
+                  n_stop =n_movie_field_stop(n_field,n_movie)
                end if
-            end if
-         else
-            if ( rank == 0 ) then
-               do n_field=1,n_fields
-                  n_start=n_movie_field_start(n_field,n_movie)
-                  if ( n_fields_oc > 0 ) then
-                     n_stop =n_movie_field_stop(n_field,n_movie)
-                  end if
-                  if ( n_fields_ic > 0 ) then
-                     n_stop=n_movie_field_stop(n_fields_oc + n_field,n_movie)
-                  end if
-                  write(n_out) (real(frames(n),kind=outp),n=n_start,n_stop)
-               end do
-            end if
+               if ( n_fields_ic > 0 ) then
+                  n_stop=n_movie_field_stop(n_fields_oc + n_field,n_movie)
+               end if
+               write(n_out) (real(frames(n),kind=outp),n=n_start,n_stop)
+            end do
          end if
 
          if ( l_save_out .and. rank==0 ) close(n_out)
 
       end do  ! Loop over movies
-
-      if ( l_dtB_frame ) deallocate( b, aj, db, dj )
 
    end subroutine write_movie_frame
 !----------------------------------------------------------------------------
@@ -649,11 +599,8 @@ contains
       integer,  intent(in) :: n_field_size     ! Size of field
 
       !-- Local variables:
-      integer :: n_phi_0,n_phi_180,n_theta,n_theta2
-      integer :: n_theta_cal,n_phi,n_0,n_180,nelem0,nelem180
-      real(cp) ::  phi_norm,fac,fac_r
-
-      real(cp) ::  fl(n_theta_max) ! Field for poloidal field lines
+      integer :: n_phi_0,n_phi_180,n_theta,n_theta_cal,n_0,n_180,nelem0,nelem180
+      real(cp) ::  fac,fac_r
 
       !--- Get phi no. for left and right halfspheres:
       n_phi_0=n_phi_const
@@ -664,7 +611,6 @@ contains
       end if
       n_0=n_store_last+(n_r-1)*n_theta_max
       n_180=n_0+n_field_size
-      phi_norm=one/n_phi_max
 
       if ( n_field_type == 1 ) then
 
@@ -805,7 +751,141 @@ contains
             frames(n_180+n_theta)=phir(nelem180)
          end do
 
-      else if ( n_field_type == 8 ) then
+      else if ( n_field_type == 16 ) then
+
+         fac=or1(n_r)*orho1(n_r)*vScale
+         do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=fac * ( cosTheta(n_theta_cal)*or1(n_r)*cvr(nelem0) - &
+            &                           or2(n_r)*dvrdp(nelem0) + dvpdr(nelem0) -     &
+            &                           beta(n_r)*vp(nelem0)  )
+            frames(n_180+n_theta)=fac * ( cosTheta(n_theta_cal)*or1(n_r)*            &
+            &                             cvr(nelem180) - or2(n_r)*dvrdp(nelem180) + &
+            &                             dvpdr(nelem180) - beta(n_r)*vp(nelem180)  )
+         end do
+
+      else if ( n_field_type == 17 ) then ! Convective heat flux
+
+         fac=or2(n_r)*temp0(n_r)*vScale
+         do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)  =fac*vr(nelem0)*sr(nelem0)
+            frames(n_180+n_theta)=fac*vr(nelem180) * sr(nelem180)
+         end do
+
+      else if ( n_field_type == 113 ) then ! Composition heat flux
+
+         fac=or2(n_r)*vScale
+         do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)  =fac*vr(nelem0)*xir(nelem0)
+            frames(n_180+n_theta)=fac*vr(nelem180) * xir(nelem180)
+         end do
+
+      else if ( n_field_type == 91 ) then
+
+         do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=drSr(nelem0)
+            frames(n_180+n_theta)=drSr(nelem180)
+         end do
+
+      else if ( n_field_type == 18 ) then
+
+         !--- Helicity:
+         do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=or4(n_r)*orho2(n_r)*vr(nelem0) * cvr(nelem0) +    &
+            &             or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)* (      &
+            &             vt(nelem0) * ( or2(n_r)*dvrdp(nelem0) - dvpdr(nelem0) + &
+            &                            beta(n_r)*vp(nelem0) ) +                 &
+            &             vp(nelem0) * ( dvtdr(nelem0) - beta(n_r)*vt(nelem0) -   &
+            &                            or2(n_r)*dvrdt(nelem0) ) )
+            frames(n_180+n_theta)=or4(n_r)*orho2(n_r)*vr(nelem180) * cvr(nelem180) +    &
+            &             or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)* (            &
+            &             vt(nelem180) * ( or2(n_r)*dvrdp(nelem180) - dvpdr(nelem180) + &
+            &                              beta(n_r)* vp(nelem180) ) +                  &
+            &             vp(nelem180) * (dvtdr(nelem180) - beta(n_r)*vt(nelem180) -    &
+            &                             or2(n_r)*dvrdt(nelem180) ) )
+         end do
+
+      else if ( n_field_type == 47 ) then
+
+         !--- Phi component of vorticity:
+         fac=vScale*orho1(n_r)*or1(n_r)
+         do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=fac*O_sin_theta(n_theta_cal)*             &
+            &                   ( dvtdr(nelem0) - beta(n_r)* vt(nelem0) - &
+            &                     or2(n_r)*dvrdt(nelem0) )
+            frames(n_180+n_theta)=fac*O_sin_theta(n_theta_cal)*                &
+            &                     ( dvtdr(nelem180) - beta(n_r)*vt(nelem180) - &
+            &                       or2(n_r)*dvrdt(nelem180) )
+         end do
+
+         !--- Phi component of Lorentz-Force:
+
+      else if ( n_field_type == 54 ) then
+
+         fac_r=LFfac*or3(n_r)
+         do n_theta_cal=1,n_theta_max
+            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
+            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            fac=fac_r*O_sin_theta(n_theta_cal)
+            frames(n_0+n_theta)= fac * ( cbr(nelem0)*bt(nelem0) - &
+            &                            cbt(nelem0)*br(nelem0) )
+            frames(n_180+n_theta)= fac * ( cbr(nelem180)*bt(nelem180) - &
+            &                              cbt(nelem180)*br(nelem180) )
+         end do
+
+      end if
+
+   end subroutine store_fields_p
+!----------------------------------------------------------------------------
+   subroutine store_fields_p_avg(vr,vt,vp,bp,sr,drSr,xir,phir,dvrdp,       &
+              &                  dvpdr,dvtdr, dvrdt,cvr,n_r,n_store_last,  &
+              &                  n_field_type)
+      !
+      !  Purpose of this subroutine is to store movie frames for phi-averaged
+      !  surfaces into array frames(*)
+      !
+
+      !-- Input variables:
+      real(cp), intent(in) :: vr(*),vt(*),vp(*)
+      real(cp), intent(in) :: bp(*)
+      real(cp), intent(in) :: sr(*),drSr(*)
+      real(cp), intent(in) :: xir(*),phir(*)
+      real(cp), intent(in) :: dvrdp(*),dvpdr(*)
+      real(cp), intent(in) :: dvtdr(*),dvrdt(*)
+      real(cp), intent(in) :: cvr(*)
+      integer,  intent(in) :: n_r              ! No. of radial point
+      integer,  intent(in) :: n_store_last     ! Start position in frame(*)-1
+      integer,  intent(in) :: n_field_type     ! Defines field type
+
+      !-- Local variables:
+      integer :: n_theta,n_theta2,n_theta_cal,n_phi,n_0,nelem0
+      real(cp) ::  phi_norm
+
+      real(cp) ::  fl(n_theta_max) ! Field for poloidal field lines
+
+      !--- Get phi no. for left and right halfspheres:
+      n_0=n_store_last+(n_r-1)*n_theta_max
+      phi_norm=one/n_phi_max
+
+      if ( n_field_type == 8 ) then
 
          !--- Field for axisymmetric poloidal field lines:
          call get_fl(fl,n_r,.false.)
@@ -1040,75 +1120,6 @@ contains
             frames(n_0+n_theta)=phi_norm*fl(1)*orho2(n_r)*or2(n_r)
          end do
 
-
-      else if ( n_field_type == 16 ) then
-
-         fac=or1(n_r)*orho1(n_r)*vScale
-         do n_theta_cal=1,n_theta_max
-            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
-            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
-            n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=fac * ( cosTheta(n_theta_cal)*or1(n_r)*cvr(nelem0) - &
-            &                           or2(n_r)*dvrdp(nelem0) + dvpdr(nelem0) -     &
-            &                           beta(n_r)*vp(nelem0)  )
-            frames(n_180+n_theta)=fac * ( cosTheta(n_theta_cal)*or1(n_r)*            &
-            &                             cvr(nelem180) - or2(n_r)*dvrdp(nelem180) + &
-            &                             dvpdr(nelem180) - beta(n_r)*vp(nelem180)  )
-         end do
-
-      else if ( n_field_type == 17 ) then ! Convective heat flux
-
-         fac=or2(n_r)*temp0(n_r)*vScale
-         do n_theta_cal=1,n_theta_max
-            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
-            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
-            n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)  =fac*vr(nelem0)*sr(nelem0)
-            frames(n_180+n_theta)=fac*vr(nelem180) * sr(nelem180)
-         end do
-
-      else if ( n_field_type == 113 ) then ! Composition heat flux
-
-         fac=or2(n_r)*vScale
-         do n_theta_cal=1,n_theta_max
-            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
-            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
-            n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)  =fac*vr(nelem0)*xir(nelem0)
-            frames(n_180+n_theta)=fac*vr(nelem180) * xir(nelem180)
-         end do
-
-      else if ( n_field_type == 91 ) then
-
-         do n_theta_cal=1,n_theta_max
-            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
-            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
-            n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=drSr(nelem0)
-            frames(n_180+n_theta)=drSr(nelem180)
-         end do
-
-      else if ( n_field_type == 18 ) then
-
-         !--- Helicity:
-         do n_theta_cal=1,n_theta_max
-            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
-            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
-            n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=or4(n_r)*orho2(n_r)*vr(nelem0) * cvr(nelem0) +    &
-            &             or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)* (      &
-            &             vt(nelem0) * ( or2(n_r)*dvrdp(nelem0) - dvpdr(nelem0) + &
-            &                            beta(n_r)*vp(nelem0) ) +                 &
-            &             vp(nelem0) * ( dvtdr(nelem0) - beta(n_r)*vt(nelem0) -   &
-            &                            or2(n_r)*dvrdt(nelem0) ) )
-            frames(n_180+n_theta)=or4(n_r)*orho2(n_r)*vr(nelem180) * cvr(nelem180) +    &
-            &             or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)* (            &
-            &             vt(nelem180) * ( or2(n_r)*dvrdp(nelem180) - dvpdr(nelem180) + &
-            &                              beta(n_r)* vp(nelem180) ) +                  &
-            &             vp(nelem180) * (dvtdr(nelem180) - beta(n_r)*vt(nelem180) -    &
-            &                             or2(n_r)*dvrdt(nelem180) ) )
-         end do
-
       else if ( n_field_type == 19 ) then
 
          !--- Axisymmetric helicity:
@@ -1127,42 +1138,9 @@ contains
             frames(n_0+n_theta)=phi_norm*fl(1)
          end do
 
-
-      else if ( n_field_type == 47 ) then
-
-         !--- Phi component of vorticity:
-         fac=vScale*orho1(n_r)*or1(n_r)
-         do n_theta_cal=1,n_theta_max
-            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
-            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
-            n_theta=n_theta_cal2ord(n_theta_cal)
-            frames(n_0+n_theta)=fac*O_sin_theta(n_theta_cal)*             &
-            &                   ( dvtdr(nelem0) - beta(n_r)* vt(nelem0) - &
-            &                     or2(n_r)*dvrdt(nelem0) )
-            frames(n_180+n_theta)=fac*O_sin_theta(n_theta_cal)*                &
-            &                     ( dvtdr(nelem180) - beta(n_r)*vt(nelem180) - &
-            &                       or2(n_r)*dvrdt(nelem180) )
-         end do
-
-         !--- Phi component of Lorentz-Force:
-
-      else if ( n_field_type == 54 ) then
-
-         fac_r=LFfac*or3(n_r)
-         do n_theta_cal=1,n_theta_max
-            nelem0   = radlatlon2spat(n_theta_cal,n_phi_0,n_r)
-            nelem180 = radlatlon2spat(n_theta_cal,n_phi_180,n_r)
-            n_theta=n_theta_cal2ord(n_theta_cal)
-            fac=fac_r*O_sin_theta(n_theta_cal)
-            frames(n_0+n_theta)= fac * ( cbr(nelem0)*bt(nelem0) - &
-            &                            cbt(nelem0)*br(nelem0) )
-            frames(n_180+n_theta)= fac * ( cbr(nelem180)*bt(nelem180) - &
-            &                              cbt(nelem180)*br(nelem180) )
-         end do
-
       end if
 
-   end subroutine store_fields_p
+   end subroutine store_fields_p_avg
 !----------------------------------------------------------------------------
    subroutine store_fields_t(vr,vt,vp,br,bt,bp,sr,drSr,xir,phir,dvrdp,    &
               &              dvpdr,dvtdr,dvrdt,cvr,cbt,n_r,n_store_last,  &

@@ -43,7 +43,7 @@ def generateEkinFile(fileName='e_kin.test'):
     from magic import MagicGraph, Movie
 
     gr = MagicGraph(ivar=1)
- 
+
     file = open(fileName, 'w')
     st = '{:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}'.format( \
          gr.entropy[10, 13, 3], gr.Br[33, 0, 2], gr.Btheta[3, 11, 11],
@@ -72,11 +72,11 @@ def generateEkinFile(fileName='e_kin.test'):
     st = '{:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}'.format( \
          av.data[0, 1, 121, 12], ahf.data[0, 0, 99, 33], brcmb.data[0, 1, 47, 128],
          vtr.data[0, 0, 33, 87], vreq.data[0, 0, 28, 31], teq.data[0, 1, 29, 29],
-         vortz.data[0, 1, 1, 1], hel.data[0, 0, 3, 4], Bteq.data_ic[0, -1, 10, 5], 
-         Br3D.data[0, -1, 10, 31, 12], Br3D.data_ic[0, -1, 20, 11, 4],
+         vortz.data[0, 1, 1, 1], hel.data[0, 0, 3, 4], Bteq.data_ic[0, -1, 10, 6],
+         Br3D.data[0, -1, 10, 31, 12], Br3D.data_ic[0, -1, 20, 11, 5],
          vt3D.data[0, 0, 15, 16, 13], fl.data[0, -1, 10, 12],
          vr_slice.data[0, -1, 10, 10], vp_slice.data[0, -1, 73, 13],
-         Br_slice.data[0, 0, 212, 13], Br_slice.data_ic[0, -1, 193, 7])
+         Br_slice.data[0, 0, 212, 13], Br_slice.data_ic[0, -1, 193, 8])
 
     # Write output for movie files
     file.write(st)
@@ -127,7 +127,7 @@ class TestGraphicMovieOutputs(unittest.TestCase):
             else:  # python 3.11+
                 result = self._outcome.result
         else:  # python 2.7-3.3
-            result = getattr(self, '_outcomeForDoCleanups', 
+            result = getattr(self, '_outcomeForDoCleanups',
                              self._resultForDoCleanups)
 
         error = self.list2reason(result.errors)
@@ -146,7 +146,7 @@ class TestGraphicMovieOutputs(unittest.TestCase):
                 print('\n')
                 print(result.failures[-1][-1])
 
-    @unittest.skipUnless('MAGIC_HOME' in os.environ, 
+    @unittest.skipUnless('MAGIC_HOME' in os.environ,
                          'MAGIC_HOME is not defined! source sourceme.sh!')
     def outputFileDiff(self):
         generateEkinFile('e_kin.test')

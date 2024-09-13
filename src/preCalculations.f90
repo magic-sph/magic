@@ -773,6 +773,10 @@ contains
          call abortRun('LCR not compatible with imposed field!')
       end if
 
+      !-- Define n_s_max for cylindral grid
+      n_s_max = n_r_max+int(r_icb*n_r_max)
+      n_s_max = int(sDens*n_s_max)
+
       if (l_radial_flow_bc) then
          if ( ellipticity_cmb /= 0.0_cp ) then
             ellip_fac_cmb=-two*r_cmb**3*ellipticity_cmb*omega_ma1*omegaOsz_ma1
