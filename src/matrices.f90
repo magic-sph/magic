@@ -1202,7 +1202,7 @@ contains
    subroutine set_data_(this, dat, idx)
 
       class(type_mbandmat) :: this
-      
+
       !-- Input variables
       integer,  intent(in) :: idx
       real(cp), intent(in) :: dat(:,:)

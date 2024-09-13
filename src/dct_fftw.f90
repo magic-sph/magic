@@ -419,7 +419,7 @@ contains
          &                         sqrt(one-xcheb(2:this%n_r_max-1)**2) /&
          &                         (2*this%n_r_max-2)
       end do
-         
+
 #elif (DCT_VERSION==dft_many)
       integer :: k, n_r, threadid, n_f
       complex(cp) :: tot

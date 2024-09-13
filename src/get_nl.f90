@@ -749,7 +749,7 @@ contains
          allocate( this%LFp(nlat_padded,nRl:nRu,n_phi_max) )
          allocate( this%VxBr(nlat_padded,nRl:nRu,n_phi_max) )
          allocate( this%VxBt(nlat_padded,nRl:nRu,n_phi_max) )
-         allocate( this%VxBp(nlat_padded,nRl:nRu,n_phi_max) ) 
+         allocate( this%VxBp(nlat_padded,nRl:nRu,n_phi_max) )
          bytes_allocated=bytes_allocated + 6*size_of_phys*SIZEOF_DEF_REAL
          this%LFr(:,:,:)=0.0_cp
          this%LFt(:,:,:)=0.0_cp
@@ -823,7 +823,7 @@ contains
       allocate( this%dsdpc(nlat_padded,nRl:nRu,n_phi_max) )
       this%dsdpc(:,:,:)=0.0_cp
       bytes_allocated=bytes_allocated + 16*size_of_phys*SIZEOF_DEF_REAL
-      
+
       if ( l_mag ) then
          allocate( this%brc(nlat_padded,nRl:nRu,n_phi_max) )
          allocate( this%btc(nlat_padded,nRl:nRu,n_phi_max) )

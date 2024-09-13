@@ -458,7 +458,7 @@ contains
             l  =lm2l(lm)
             lmS=lm2lmS(lm)
             lmA=lm2lmA(lm)
-            
+
             if ( l == 0 ) then
                dzdt(lm)=zero!-dTheta1A(lm)*this%AdvpLM(lmA)
                if ( l_corr ) then
@@ -1639,7 +1639,7 @@ contains
             l  =lm2l(lm)
             lmS=lm2lmS(lm)
             lmA=lm2lmA(lm)
-            
+
             if ( l == 0 ) then
                dzdt(lm,nR)=zero!-dTheta1A(lm)*this%AdvpLM(lmA)
                if ( l_corr ) then
