@@ -1,6 +1,5 @@
 !-- TODO: All GPU kernels are sequentiels ("!$omp target") for "FD" branch in get_dr_complex, get_ddr, get_dddr routines.
 !-- This makes finite_differences, testRMSOutputs, & varProps work again. Next: Debug kernel by kernel
-#define USE_FFT
 module radial_der
    !
    ! Radial derivatives functions
@@ -84,9 +83,9 @@ contains
    subroutine get_dcheb_complex(f,df,n_f_max,n_f_start,n_f_stop, &
               &                 n_r_max,n_cheb_max,use_gpu)
       !
-      !  Returns Chebyshev coeffitients of first derivative df and second  
-      !  derivative ddf for a function whose cheb-coeff. are given as     
-      !  columns in array f(n_f_max,n_r_max).                             
+      !  Returns Chebyshev coeffitients of first derivative df and second
+      !  derivative ddf for a function whose cheb-coeff. are given as
+      !  columns in array f(n_f_max,n_r_max).
       !
 
       !-- Input variables:
@@ -217,11 +216,11 @@ contains
    subroutine get_ddcheb(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
               &          n_r_max,n_cheb_max,use_gpu)
       !
-      !  Returns Chebyshev coefficients of first derivative df and second  
-      !  derivative ddf for a function whose cheb-coeff. are given as     
-      !  columns in array f(n_c_tot,n_r_max).                             
+      !  Returns Chebyshev coefficients of first derivative df and second
+      !  derivative ddf for a function whose cheb-coeff. are given as
+      !  columns in array f(n_c_tot,n_r_max).
       !
-    
+
       !-- Input variables:
       integer,     intent(in) :: n_f_start  ! No of column to start with
       integer,     intent(in) :: n_f_stop   ! No of column to stop with
@@ -230,11 +229,11 @@ contains
       integer,     intent(in) :: n_cheb_max ! Number of cheb modes
       complex(cp), intent(in) :: f(n_f_max,n_r_max)
       logical, optional, intent(in) :: use_gpu
-    
+
       !-- Output variables:
       complex(cp), intent(out) ::  df(n_f_max,n_r_max)
       complex(cp), intent(out) ::  ddf(n_f_max,n_r_max)
-    
+
       !-- local variables:
       integer :: n_f,n_cheb
       real(cp) :: fac_cheb
@@ -245,8 +244,8 @@ contains
       if( present(use_gpu) ) then
          loc_use_gpu = use_gpu
       end if
-#endif      
-      
+#endif
+
       if ( loc_use_gpu ) then
 #ifdef WITH_OMP_GPU
          !-- First coefficients:
@@ -322,11 +321,11 @@ contains
    subroutine get_dddcheb(f,df,ddf,dddf,n_f_max,n_f_start,n_f_stop, &
               &           n_r_max,n_cheb_max,use_gpu)
       !
-      !  Returns chebychev coeffitiens of first derivative df and second  
-      !  derivative ddf for a function whose cheb-coeff. are given as     
-      !  columns in array f(n_c_tot,n_r_max).                             
+      !  Returns chebychev coeffitiens of first derivative df and second
+      !  derivative ddf for a function whose cheb-coeff. are given as
+      !  columns in array f(n_c_tot,n_r_max).
       !
-         
+
       !-- Input variables:
       integer,     intent(in) :: n_f_start  ! No of column to start with
       integer,     intent(in) :: n_f_stop   ! No of column to stop with
@@ -431,34 +430,34 @@ contains
    end subroutine get_dddcheb
 !---------------------------------------------------------------------------
    subroutine get_dr_real_1d(f,df,n_r_max,r_scheme)
- 
+
       !-- Input variables:
       integer,             intent(in) :: n_r_max    ! number of radial grid points
       real(cp),            intent(in) :: f(n_r_max)
       class(type_rscheme), intent(in) :: r_scheme
-    
+
       !-- Output variables:
       real(cp), intent(out) :: df(n_r_max)   ! first derivative of f
-    
+
       !-- Local:
       integer :: n_r, od
-    
+
       select type (r_scheme)
 
       type is(type_cheb_odd)
 
          !-- Copy input functions:
          work_1d_real(1:n_r_max)=f(:)
-    
+
          !-- Transform f to cheb space:
          call r_scheme%costf1(work_1d_real)
-    
+
          !-- Get derivatives:
          call get_dcheb(work_1d_real,df,n_r_max,r_scheme%n_max)
-    
+
          !-- Transform back:
          call r_scheme%costf1(df)
-    
+
          !-- New map:
          df(:)=r_scheme%drx(:)*df(:)
 
@@ -490,13 +489,13 @@ contains
    subroutine get_dr_complex(f,df,n_f_max,n_f_start,n_f_stop, &
               &              n_r_max,r_scheme,nocopy,l_dct_in,use_gpu)
       !
-      !  Returns first radial derivative df of the input function f.      
-      !  Array f(n_f_max,*) may contain several functions numbered by     
-      !  the first index. The subroutine calculates the derivaties of     
-      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming      
-      !  to a Chebychev representation using n_r_max radial grid points . 
+      !  Returns first radial derivative df of the input function f.
+      !  Array f(n_f_max,*) may contain several functions numbered by
+      !  the first index. The subroutine calculates the derivaties of
+      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming
+      !  to a Chebychev representation using n_r_max radial grid points .
       !
-    
+
       !-- Input variables:
       integer,             intent(in) :: n_r_max          ! number of radial grid points
       integer,             intent(in) :: n_f_max          ! first dim of f
@@ -507,10 +506,10 @@ contains
       logical, optional,   intent(in) :: nocopy
       logical, optional,   intent(in) :: l_dct_in
       logical, optional,   intent(in) :: use_gpu
-    
+
       !-- Output variables:
       complex(cp), intent(out) :: df(n_f_max,n_r_max)   ! first derivative of f
-    
+
       !-- Local:
       integer :: n_r,n_f,od
       logical :: copy_array, l_dct_in_loc, loc_use_gpu
@@ -538,7 +537,7 @@ contains
          end if
 
          if ( copy_array )  then
-#ifdef USE_FFT
+#ifdef USE_DCT_FFT
             if (loc_use_gpu) then
 #ifdef WITH_OMP_GPU
                call r_scheme%gpu_chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max,     &
@@ -573,18 +572,18 @@ contains
             if ( l_dct_in_loc ) then
                call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
             end if
-          
+
             !-- Get derivatives:
             call get_dcheb(work,df,n_f_max,n_f_start,n_f_stop,n_r_max, &
                  &         r_scheme%n_max,loc_use_gpu)
-          
+
             !-- Transform back:
             call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
 #endif
 
          else
 
-#ifdef USE_FFT
+#ifdef USE_DCT_FFT
             if (loc_use_gpu) then
 #ifdef WITH_OMP_GPU
                call r_scheme%gpu_chebt_oc%get_dr_fft(f,df,r_scheme%x_cheb,n_f_max,     &
@@ -600,7 +599,7 @@ contains
             if ( l_dct_in_loc ) then
                call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
             end if
-          
+
             !-- Get derivatives:
             call get_dcheb(f,df,n_f_max,n_f_start,n_f_stop,n_r_max, &
                  &         r_scheme%n_max,loc_use_gpu)
@@ -613,7 +612,7 @@ contains
 #endif
 
          end if
-       
+
          !-- New map:
          if (loc_use_gpu) then
 #ifdef WITH_OMP_GPU
@@ -721,14 +720,14 @@ contains
    subroutine get_ddr(f,df,ddf,n_f_max,n_f_start,n_f_stop,n_r_max,r_scheme, &
               &       l_dct_in)
       !
-      !  Returns first radial derivative df and second radial             
-      !  derivative ddf of the input function f.                          
-      !  Array f(n_f_max,*) may contain several functions numbered by     
-      !  the first index. The subroutine calculates the derivatives of    
-      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming      
-      !  to a Chebychev representation using n_r_max radial grid points.  
+      !  Returns first radial derivative df and second radial
+      !  derivative ddf of the input function f.
+      !  Array f(n_f_max,*) may contain several functions numbered by
+      !  the first index. The subroutine calculates the derivatives of
+      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming
+      !  to a Chebychev representation using n_r_max radial grid points.
       !
-    
+
       !-- Input variables:
       integer,             intent(in) :: n_r_max       ! number of radial grid points
       integer,             intent(in) :: n_f_max       ! first dim of f
@@ -741,7 +740,7 @@ contains
       !-- Output variables:
       complex(cp), intent(out) :: df(n_f_max,n_r_max)   ! first derivative of f
       complex(cp), intent(out) :: ddf(n_f_max,n_r_max)  ! second derivative of f
-    
+
       !-- Local variables:
       integer :: n_r,n_f,od
       logical :: l_dct_in_loc
@@ -760,8 +759,8 @@ contains
          else
             l_dct_in_loc=.true.
          end if
-    
-#ifdef USE_FFT
+
+#ifdef USE_DCT_FFT
          if (loc_use_gpu) then
 #ifdef WITH_OMP_GPU
             call r_scheme%gpu_chebt_oc%get_ddr_fft(f,df,ddf,r_scheme%x_cheb,n_f_max, &
@@ -791,16 +790,16 @@ contains
          if ( l_dct_in_loc ) then
             call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
          end if
-    
+
          !-- Get derivatives:
          call get_ddcheb(work,df,ddf,n_f_max,n_f_start,n_f_stop, &
               &          n_r_max,r_scheme%n_max,loc_use_gpu)
-    
+
          !-- Transform back:
          call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
          call r_scheme%costf1(ddf,n_f_max,n_f_start,n_f_stop,loc_use_gpu)
 #endif
-    
+
          !-- New map:
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
@@ -890,11 +889,11 @@ contains
               &        l_dct_in)
       !
       !  Returns first radial derivative df, the second radial deriv. ddf,
-      !  and the third radial derivative dddf of the input function f.    
-      !  Array f(n_f_max,*) may contain several functions numbered by     
-      !  the first index. The subroutine calculates the derivaties of     
-      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming      
-      !  to a Chebychev representation using n_r_max radial grid points.  
+      !  and the third radial derivative dddf of the input function f.
+      !  Array f(n_f_max,*) may contain several functions numbered by
+      !  the first index. The subroutine calculates the derivaties of
+      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming
+      !  to a Chebychev representation using n_r_max radial grid points.
       !
 
       !-- Input variables:
@@ -905,7 +904,7 @@ contains
       integer,             intent(in) :: n_f_stop        ! last function to be treated
       class(type_rscheme), intent(in) :: r_scheme
       logical, optional,   intent(in) :: l_dct_in
-    
+
       !-- Output variables:
       complex(cp), intent(out) :: df(n_f_max,n_r_max)    ! first derivative of f
       complex(cp), intent(out) :: ddf(n_f_max,n_r_max)   ! second derivative of f
@@ -930,7 +929,7 @@ contains
             l_dct_in_loc=.true.
          end if
 
-#ifdef USE_FFT
+#ifdef USE_DCT_FFT
          if (loc_use_gpu) then
 #ifdef WITH_OMP_GPU
             call r_scheme%gpu_chebt_oc%get_dddr_fft(f,df,ddf,dddf,r_scheme%x_cheb,  &

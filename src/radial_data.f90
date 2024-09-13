@@ -6,16 +6,16 @@ module radial_data
    use iso_fortran_env, only: output_unit
    use parallel_mod, only: rank, n_procs, nR_per_rank, load, getBlocks
    use logic, only: l_mag, lVerbose, l_finite_diff
- 
+
    implicit none
- 
+
    private
 
    type(load), public, allocatable :: radial_balance(:)
- 
+
    integer, protected, public :: nRstart,nRstop,nRstartMag,nRstopMag
    integer, protected, public :: n_r_cmb,n_r_icb
- 
+
    public :: initialize_radial_data, finalize_radial_data
 
 contains
@@ -31,7 +31,7 @@ contains
       n_r_icb=n_r_max
 
       allocate(radial_balance(0:n_procs-1))
-      call getBlocks(radial_balance, n_r_max, n_procs)   
+      call getBlocks(radial_balance, n_r_max, n_procs)
 
       nRstart = radial_balance(rank)%nStart
       nRstop = radial_balance(rank)%nStop

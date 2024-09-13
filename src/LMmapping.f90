@@ -10,15 +10,15 @@ module LMmapping
    use parallel_mod, only: load
 
    implicit none
- 
+
    private
- 
+
    type, public :: mappings
       integer :: l_max, m_max, lm_max ,m_min
       integer, allocatable :: lm2(:,:),lm2l(:),lm2m(:)
       integer, allocatable :: lm2lmS(:), lm2lmA(:)
    end type mappings
- 
+
    type, public :: subblocks_mappings
       integer :: nLMBs,l_max,m_max,sizeLMB2max,m_min
       integer, allocatable :: nLMBs2(:)
@@ -28,7 +28,7 @@ module LMmapping
       integer, allocatable :: lm22l(:,:,:)
       integer, allocatable :: lm22m(:,:,:)
    end type subblocks_mappings
- 
+
    public :: allocate_mappings, deallocate_mappings, &
    &         allocate_subblocks_mappings, deallocate_subblocks_mappings
 

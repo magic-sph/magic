@@ -81,12 +81,12 @@ ifeq ($(COMPILER),intel)
 	else
 		COMP_MPFC = mpiifort
 		COMP_MPCC = mpiicc
-	endif	
+	endif
 
 	FFLAG_MKL_LIBS = -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 \
                          -lmkl_lapack95_lp64\
 			 -lmkl_sequential -lmkl_core -lpthread -lm \
-			 -Wl,-rpath,$(MKLROOT)/lib/intel64 
+			 -Wl,-rpath,$(MKLROOT)/lib/intel64
 
 endif
 ifeq ($(COMPILER),gnu)
@@ -99,7 +99,7 @@ ifeq ($(COMPILER),gnu)
 	FFLAG_PREPROCESSOR = -cpp
 	FFLAG_WARN_ALL = -Wall -Wno-maybe-uninitialized
 	FFLAG_CHECK_ALL = -fcheck=all
-	FFLAG_FPE = -ffpe-trap=invalid,zero,overflow 
+	FFLAG_FPE = -ffpe-trap=invalid,zero,overflow
 	COMP_FC = gfortran
 	COMP_CC = gcc
 	COMP_MPFC = mpif90
@@ -217,7 +217,7 @@ ifeq ($(PRODRUN),yes)
 	DEBUG=no
 	OPT += -O3 $(FFLAG_ARCH_OPT)
 else
-	OPT += -O 
+	OPT += -O
 endif
 ifeq ($(USE_OMP),yes)
 	FFLAGS += $(FFLAG_OPENMP)
@@ -243,7 +243,7 @@ endif
 
 INCPATHS += -I.
 
-FFLAGS += $(FFLAG_CONVERT) 
+FFLAGS += $(FFLAG_CONVERT)
 FFLAGS  += $(FFLAG_PREPROCESSOR) $(OPT)
 LDFLAGS =
 
@@ -301,7 +301,7 @@ endif
 OBJS   := $(addsuffix .o, $(basename $(RED_SOURCES)))
 OBJS += truncation.o
 
-.SUFFIXES: 
+.SUFFIXES:
 
 #ifeq ($(COMPILER),gnu)
 #ifeq ($(USE_MPI),yes)
@@ -518,7 +518,7 @@ preCalculations.o     : truncation.o phys_param.o num_param.o constants.o\
                         useful.o integration.o parallel.o special.o
 RMS_helpers.o         : truncation.o blocking.o radial.o constants.o\
                         horizontal.o  useful.o integration.o\
-                        LMmapping.o 
+                        LMmapping.o
 kinetic_energy.o      : truncation.o blocking.o num_param.o radial.o\
                         horizontal.o output_data.o logic.o constants.o\
                         phys_param.o useful.o integration.o\
@@ -544,7 +544,7 @@ RMS.o	              : truncation.o blocking.o mem_alloc.o
 init_fields.o         : truncation.o blocking.o radial.o horizontal.o\
                         constants.o logic.o $(FFT_OBJS) $(SHT_OBJS)\
                         useful.o phys_param.o mpi_transpose.o\
-                        $(DCT_OBJS) mem_alloc.o parallel.o 
+                        $(DCT_OBJS) mem_alloc.o parallel.o
 mean_sd.o             : precision_mod.o mem_alloc.o matrices.o communications.o
 movie.o               : truncation.o parallel.o radial_data.o\
                         output_data.o logic.o radial.o mem_alloc.o\
