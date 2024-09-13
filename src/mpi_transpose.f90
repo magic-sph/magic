@@ -24,7 +24,7 @@ module mpi_transp_mod
       procedure(transp_r2lm_if), deferred :: transp_r2lm
    end type type_mpitransp
 
-   interface 
+   interface
 
       subroutine create_if(this, n_fields)
          import
@@ -386,7 +386,7 @@ contains
                do lm = ulm-llm+1,this%lm_loc-1
                   ii = ii+1
                end do
-            end do 
+            end do
             !-- Padding happens here
             do n_r=radial_balance(p)%n_per_rank,this%n_r_loc-1
                ii=ii+1
@@ -1057,7 +1057,7 @@ contains
                end do
             else
                call MPI_Irecv(arr_LMloc(llm,radial_balance(recv_pe)%nStart,1),   &
-                    &         1,this%r_transfer_type_cont(rank+1,this%n_fields), & 
+                    &         1,this%r_transfer_type_cont(rank+1,this%n_fields), &
                     &         recv_pe,transfer_tag,MPI_COMM_WORLD,               &
                     &         this%r_request(irank),ierr)
                call MPI_Isend(arr_Rloc(lm_balance(send_pe)%nStart,nRstart,1),    &

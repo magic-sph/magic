@@ -157,7 +157,7 @@ contains
            &                           m_min,m_max,lm_balance)
 
       !--- Getting lm sub-blocks:
-      call get_subblocks(st_map, st_sub_map) 
+      call get_subblocks(st_map, st_sub_map)
       !PRINT*," ---------------- Making the lorder subblocks ---------------- "
       call get_subblocks(lo_map, lo_sub_map)
       !PRINT*," ---------------- Making the snake order subblocks ----------- "

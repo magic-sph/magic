@@ -10,10 +10,10 @@ module output_data
    implicit none
 
    private
- 
+
    !----- Identification of run:
    character(len=64), public :: runid
- 
+
    !----- Output time control:
    real(cp), public :: t_graph_start,t_graph_stop,dt_graph
    real(cp), public :: t_rst_start,t_rst_stop,dt_rst
@@ -49,7 +49,7 @@ module output_data
    real(cp), allocatable, public ::  t_TOmovie(:)
    real(cp), allocatable, public ::  t_pot(:)
    real(cp), allocatable, public ::  t_probe(:)
- 
+
    !----- Output radii and degrees for coeff files:
    integer, public :: n_coeff_r_max
    integer, public, allocatable :: n_coeff_r(:)
@@ -60,10 +60,10 @@ module output_data
    integer, public :: l_max_r
    integer, public :: n_r_step
    integer, public :: m_max_modes
- 
+
    !----- Output files:
    integer, public :: n_log_file
- 
+
    character(len=55), public :: tag
    character(len=72), public :: log_file
    character(len=72), public :: lp_file

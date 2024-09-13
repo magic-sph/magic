@@ -738,7 +738,7 @@ contains
 !------------------------------------------------------------------------------------
    subroutine get_dds(arr, ddarr, cyl)
       !
-      ! This subroutine is used to compute the 4th order accurate 2nd s-derivative 
+      ! This subroutine is used to compute the 4th order accurate 2nd s-derivative
       ! on the regularly spaced grid
       !
       ! https://bellaard.com/tools/Finite%20difference%20coefficient%20calculator/
@@ -781,7 +781,7 @@ contains
       !
       ! This subroutine gathers the r-distributed array
       !
-      
+
       !-- Input variable
       real(cp), intent(in) :: arr_Rloc(n_theta_max,nRstart:nRstop)
 
