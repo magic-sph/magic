@@ -9,7 +9,7 @@ module power
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc, only: bytes_allocated
-#endif   
+#endif
    use communications, only: gather_from_Rloc, reduce_radial, send_lm_pair_to_master
    use truncation, only: n_r_ic_maxMag, n_r_max, n_r_ic_max, nlat_padded, &
        &                 n_r_maxMag, n_phi_max, n_theta_max
@@ -88,9 +88,9 @@ contains
       end if
 
 #ifdef WITH_OMP_GPU
-      !$omp target exit data map(delete: viscASr)          
+      !$omp target exit data map(delete: viscASr)
 #endif
-      deallocate(viscASr)        
+      deallocate(viscASr)
 
    end subroutine finalize_output_power
 !----------------------------------------------------------------------------
@@ -415,10 +415,10 @@ contains
       phiNorm=two*pi/real(n_phi_max,cp)
       viscAS=0.0_cp
 
-#ifdef WITH_OMP_GPU      
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2) &
-      !$omp& map(tofrom:viscAS)                             &        
-      !$omp& private(csn2, vischeat)                        &      
+      !$omp& map(tofrom:viscAS)                             &
+      !$omp& private(csn2, vischeat)                        &
       !$omp& reduction(+:viscAS)
 #else
       !$omp parallel do default(shared)         &
@@ -492,7 +492,7 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target update to(viscASr)
-      !$omp target teams distribute parallel do collapse(2) &      
+      !$omp target teams distribute parallel do collapse(2) &
       !$omp& private(csn2, vischeat)                        &
       !$omp& reduction(+:viscASr)
 #else

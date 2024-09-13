@@ -87,7 +87,7 @@ contains
       character(len=72) :: string,rst_file
 
       version = 5
-      l_press_store = ( .not. l_double_curl ) 
+      l_press_store = ( .not. l_double_curl )
 
       if ( l_ave_file ) then
          rst_file="checkpoint_ave."//tag
@@ -678,7 +678,7 @@ contains
 
       end if
 
-      !-- Close file 
+      !-- Close file
       call MPI_Info_free(info, ierr)
       call MPI_File_close(fh, ierr)
 
@@ -726,7 +726,7 @@ contains
 
       !-- Output variables
       integer(lip),        intent(inout) :: disp
-      complex(cp),         intent(inout) :: work(llm:ulm, n_r_max) 
+      complex(cp),         intent(inout) :: work(llm:ulm, n_r_max)
 
       !-- Local variables
       integer :: n_o

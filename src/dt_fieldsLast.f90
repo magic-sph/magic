@@ -263,7 +263,7 @@ contains
          dVSrLM_Rloc(:,:) =zero
          dVxBhLM_Rloc(:,:)=zero
          bytes_allocated = bytes_allocated+                               &
-         &                 6*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX+& 
+         &                 6*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX+&
          &                 3*lm_maxMag*(nRstopMag-nRstartMag+1)*SIZEOF_DEF_COMPLEX
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: dVxVhLM_Rloc, dVSrLM_Rloc, dVxBhLM_Rloc)

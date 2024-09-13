@@ -10,7 +10,7 @@ module grid_blocking
    use radial_data, only: nRstart, nRstop
 
    implicit none
-   
+
    private
 
    logical :: l_batch
