@@ -90,7 +90,7 @@ contains
 
       if ( bc == 'CMB' ) then
 
-         b_nl_bc(1) =zero                                             
+         b_nl_bc(1) =zero
          aj_nl_bc(1)=zero
          fac=conductance_ma*prmag
          !$omp parallel do default(shared)

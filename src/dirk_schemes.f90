@@ -784,7 +784,7 @@ contains
 
       this%butcher_ass_imp(:) = this%dt(1)*this%butcher_ass_imp(:)
       this%butcher_ass_exp(:) = this%dt(1)*this%butcher_ass_exp(:)
-         
+
    end subroutine set_weights
 !------------------------------------------------------------------------------
    subroutine set_dt_array(this, dt_new, dt_min, time, n_log_file,  &
