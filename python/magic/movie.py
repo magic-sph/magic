@@ -450,7 +450,7 @@ class Movie:
                                 92, 94, 95, 110, 111, 114, 115, 116]:
                 self.shape = (self.n_theta_max, self.n_r_mov_tot)
                 self.n_theta_plot = self.n_theta_max
-                self.n_surface == 4
+                self.n_surface = 4
             else:
                 self.shape = (self.n_theta_max, 2*self.n_r_mov_tot)
                 self.n_theta_plot = 2*self.n_theta_max
