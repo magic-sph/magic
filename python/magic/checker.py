@@ -22,7 +22,7 @@ def MagicCheck(tstart=None):
     if the power.TAG and some spectra have been produced in the current directory.
     If in addition the tInitAvg file is also there in the directory it averages
     only from this starting time.
-    
+
     >>> MagicCheck(tstart=10.)
     """
 
@@ -48,7 +48,7 @@ def MagicCheck(tstart=None):
     ohmDiss_avg = avgField(ts.time[mask], ts.ohmDiss[mask])
     viscDiss_avg = avgField(ts.time[mask], ts.viscDiss[mask])
     ratio = 100*abs(buoPower_avg+buoPower_chem_avg+ohmDiss_avg+viscDiss_avg) / \
-            (buoPower_avg+buoPower_chem_avg) 
+            (buoPower_avg+buoPower_chem_avg)
 
     print(bcolors.BOLD + bcolors.UNDERLINE + 'Power balance:' + bcolors.ENDC)
     print('Power injected   : {:.5e}'.format(buoPower_avg+buoPower_chem_avg))

@@ -1742,7 +1742,7 @@ contains
    subroutine readStartFields_mpi(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,phi, &
               &                   dphidt,b,dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic, &
               &                   djdt_ic,omega_ic,omega_ma,domega_ic_dt,   &
-              &                   domega_ma_dt,time,tscheme,n_time_step)   
+              &                   domega_ma_dt,time,tscheme,n_time_step)
       !
       ! This subroutine is used to read the restart files produced
       ! by MagIC using MPI-IO
@@ -1822,7 +1822,7 @@ contains
 
       !-- Read the header
       call MPI_File_Read(fh, version, 1, MPI_INTEGER, istat, ierr)
-      !-- Little trick if wrong-endianness is detected 
+      !-- Little trick if wrong-endianness is detected
       !-- version gets crazy large, so flip back to default reader then
       if ( abs(version) > 100 ) then
          call MPI_File_close(fh, ierr)
@@ -2063,7 +2063,7 @@ contains
       call MPI_File_Read(fh, itest, 1, MPI_INTEGER, istat, ierr)
       l_cond_ic_old = itest /= 0
 
-      !-- Measure offset 
+      !-- Measure offset
       call MPI_File_get_position(fh, offset, ierr)
       call MPI_File_get_byte_offset(fh, offset, disp, ierr)
 
@@ -2690,7 +2690,7 @@ contains
             disp = disp+size_old
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
                  &                 info, ierr)
-            if ( n_o <= tscheme%nold .and. l_map .and. & 
+            if ( n_o <= tscheme%nold .and. l_map .and. &
             &    tscheme%family=='MULTISTEP' ) then
                call mapOneField_mpi( wOld, lm_max_old, n_r_max_old, nRstart_old, &
                     &                nRstop_old, radial_balance_old, lm2lmo,     &

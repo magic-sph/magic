@@ -47,6 +47,11 @@ n_cheb_ic_max=15,
  l_TOmovie   =.true.,
 n_TOmovie_step=5,
  l_par       =.true.,
+ l_movie     =.true.,
+ n_movie_step=10,
+ movie(1)    ="vs geos",
+ movie(2)    ="vp geos",
+ movie(3)    ="vortz geos",
 /
 &mantle 
  nRotMa      =0

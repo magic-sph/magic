@@ -547,7 +547,7 @@ contains
             end do
             !$omp end target teams distribute parallel do
 
-         else ! l /= 0 
+         else ! l /= 0
 
             if ( .not. lWPmat(l1) ) then
                if ( l_double_curl ) then

@@ -14,13 +14,12 @@ module out_movie
    use movie_data, only: frames, n_movie_fields, n_movies, n_movie_surface, &
        &                 n_movie_const, n_movie_field_type, lGeosField,     &
        &                 n_movie_field_start,n_movie_field_stop,            &
-       &                 movieDipColat, movieDipLon, movieDipStrength,      &
-       &                 movieDipStrengthGeo, movie_const, movie_file,      &
-       &                 n_movie_file, n_movie_fields_ic
+       &                 movie_const, movie_file, n_movie_file, lICField,   &
+       &                 n_movie_fields_ic
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: orho1, orho2, or1, or2, or3, or4, beta,  &
        &                       r_surface, r_cmb, r, r_ic, temp0
-   use physical_parameters, only: LFfac, radratio, ra, ek, pr, prmag
+   use physical_parameters, only: LFfac, radratio, ra, ek, pr, prmag, raxi, sc
    use num_param, only: vScale, tScale
    use blocking, only: lm2l, lm2, llmMag, ulmMag
    use horizontal_data, only: O_sin_theta, sinTheta, cosTheta,    &
@@ -168,26 +167,22 @@ contains
 
    end subroutine store_movie_frame
 !----------------------------------------------------------------------------
-   subroutine write_movie_frame(n_frame,time,omega_ic,omega_ma)
+   subroutine write_movie_frame(n_frame, time)
       !
       !  Writes different movie frames into respective output files.
       !  Called from rank 0 with full arrays in standard LM order.
       !
 
       !-- Input of variables:
-      real(cp),    intent(in) :: time
-      integer,     intent(in) :: n_frame
-      real(cp),    intent(in) :: omega_ic,omega_ma
+      integer,  intent(in) :: n_frame
+      real(cp), intent(in) :: time
 
       !-- Local variables:
       integer :: n_fields, n_fields_ic, n_fields_oc
-      integer :: n_movie, n_surface, n_out
-      integer :: n_field, n, n_start, n_stop, n_r, n_theta, n_phi
-      integer :: n_r_mov_tot
-      character(len=64) :: version
+      integer :: n_movie, n_surface, n_out, n_field, n, n_start, n_stop
+      integer :: n_r_mov_tot, version
       real(cp) :: const
       real(cp) :: r_mov_tot(n_r_max+n_r_ic_max)
-      real(outp) :: dumm(n_theta_max)
 
       do n_movie=1,n_movies
 
@@ -210,59 +205,40 @@ contains
          if ( n_frame == 1 .and. rank == 0 ) then
 
             !------ Start with info about movie type:
-            version='JW_Movie_Version_2'
+            version=3
             write(n_out) version
-            write(n_out) 0.0_outp, real(n_surface,kind=outp), real(const,kind=outp), &
-            &            real(n_fields,kind=outp)
-            write(n_out) (real(n_movie_field_type(n,n_movie),kind=outp),n=1,n_fields)
+            write(n_out) n_surface, n_fields
+            write(n_out) const
+            write(n_out) (n_movie_field_type(n,n_movie),n=1,n_fields)
 
             !------ Combine OC and IC radial grid points:
             n_r_mov_tot=n_r_max
-            do n_r=1,n_r_max
-               r_mov_tot(n_r)=r(n_r)
-            end do
-            if ( n_r_ic_max > 0 ) then
-               n_r_mov_tot=n_r_mov_tot+n_r_ic_max-2
-               do n_r=1,n_r_ic_max-2
-                  r_mov_tot(n_r_max+n_r)=r_ic(n_r+1)
-               end do
+            r_mov_tot(:n_r_max)=r(:)
+            if ( n_r_ic_max > 0 .and. lICField(n_movie) ) then
+               n_r_mov_tot=n_r_mov_tot+n_r_ic_max
+               r_mov_tot(n_r_max+1:)=r_ic(:)
             end if
 
             !------ Now other info about grid and parameters:
             write(n_out) runid          ! run identifyer (as set in namelist contrl)
-            dumm( 1)=real(n_r_mov_tot,kind=outp)
-            dumm( 2)=real(n_r_max,kind=outp)
-            dumm( 3)=real(n_theta_max,kind=outp) ! no. of theta points
-            dumm( 4)=real(n_phi_max,kind=outp)   ! no. of phi points
-            dumm( 5)=real(minc,kind=outp)        ! imposed symmetry
-            dumm( 6)=real(ra,kind=outp)          ! control parameters
-            dumm( 7)=real(ek,kind=outp)          ! (for information only)
-            dumm( 8)=real(pr,kind=outp)          !      -"-
-            dumm( 9)=real(prmag,kind=outp)       !      -"-
-            dumm(10)=real(radratio,kind=outp)    ! ratio of inner / outer core
-            dumm(11)=real(tScale,kind=outp)      ! timescale
-            write(n_out) (dumm(n),n=1,11)
+            write(n_out) n_r_mov_tot, n_r_max, n_r_ic_max, n_theta_max, n_phi_max, &
+            &            n_s_max, minc
+            write(n_out) real(ra,outp), real(ek,outp), real(pr,outp), real(raxi,outp), &
+            &            real(sc,outp), real(prmag,outp), real(radratio,outp),         &
+            &            real(tScale,outp)
 
             !------ Write grid:
             if ( lGeosField(n_movie) ) &
-            &   write(n_out) (real(cyl(n_r)/r_cmb,kind=outp), n_r=1,n_s_max)
-            write(n_out) (real(r_mov_tot(n_r)/r_cmb,kind=outp), n_r=1,n_r_mov_tot)
-            write(n_out) (real(theta_ord(n_theta),kind=outp), n_theta=1,n_theta_max)
-            write(n_out) (real(phi(n_phi),kind=outp), n_phi=1,n_phi_max)
+            &   write(n_out) real(cyl(:)/r_cmb,kind=outp)
+            write(n_out) real(r_mov_tot(:)/r_cmb,kind=outp)
+            write(n_out) real(theta_ord(:),kind=outp)
+            write(n_out) real(phi(:),kind=outp)
 
          end if  ! Write header ?
 
          if ( rank == 0 ) then
             !------ Write frame number, time and IC and MA rotation rates::
-            dumm(1)=real(n_frame,kind=outp)
-            dumm(2)=real(time,kind=outp)
-            dumm(3)=real(omega_ic,kind=outp)
-            dumm(4)=real(omega_ma,kind=outp)
-            dumm(5)=real(movieDipColat,kind=outp)
-            dumm(6)=real(movieDipLon,kind=outp)
-            dumm(7)=real(movieDipStrength,kind=outp)
-            dumm(8)=real(movieDipStrengthGeo,kind=outp)
-            write(n_out) (dumm(n),n=1,8)
+            write(n_out) real(time,outp)
          end if
 
          !------ Write frames:

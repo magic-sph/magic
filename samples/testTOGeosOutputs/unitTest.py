@@ -40,16 +40,15 @@ def readStack(file):
 
 
 def generateEkinFile(fileName='e_kin.test'):
-    from magic import TOMovie, MagicTOHemi
+    from magic import TOMovie, MagicTOHemi, Movie
 
     # Write output for TO_mov file
     to = TOMovie(file='TO_mov.start', iplot=False)
     out = 'tmp'
     file = open(out, 'w')
-    st = '{:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}'.format( to.asVphi[0, 13, 3], 
-         to.rey[1, 21, 22], to.adv[1, 52, 11], to.visc[0, 12, 25], 
+    st = '{:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}'.format( to.asVphi[0, 13, 3],
+         to.rey[1, 21, 22], to.adv[1, 52, 11], to.visc[0, 12, 25],
          to.lorentz[0, 73, 30], to.coriolis[1, 33, 3], to.dtVp[1, 88, 7] )
-
     file.write(st+'\n')
 
     # TOnhs.TAG
@@ -64,6 +63,15 @@ def generateEkinFile(fileName='e_kin.test'):
                                               to.tay[4, 27], to.vpr[2, 21])
     file.write(st+'\n')
 
+    # Geos movies
+    vs_geos = Movie(file='geosVS_mov.start', iplot=False)
+    vp_geos = Movie(file='geosVPHI_mov.start', iplot=False)
+    vortz_geos = Movie(file='geosVorZ_mov.start', iplot=False)
+
+    st = '{:.4f} {:.4f} {:.4f}'.format(vs_geos.data[0, -1, 24, 12],
+                                       vp_geos.data[0, -1, 37, 32],
+                                       vortz_geos.data[0, -1, 7, 5])
+    file.write(st+'\n')
     file.close()
 
     # Cat e_kin.test + misc
@@ -117,7 +125,7 @@ class TestTOGeosOutputs(unittest.TestCase):
             else:  # python 3.11+
                 result = self._outcome.result
         else:  # python 2.7-3.3
-            result = getattr(self, '_outcomeForDoCleanups', 
+            result = getattr(self, '_outcomeForDoCleanups',
                              self._resultForDoCleanups)
 
         error = self.list2reason(result.errors)
@@ -136,7 +144,7 @@ class TestTOGeosOutputs(unittest.TestCase):
                 print('\n')
                 print(result.failures[-1][-1])
 
-    @unittest.skipUnless('MAGIC_HOME' in os.environ, 
+    @unittest.skipUnless('MAGIC_HOME' in os.environ,
                          'MAGIC_HOME is not defined! source sourceme.sh!')
     def outputFileDiff(self):
         generateEkinFile('e_kin.test')

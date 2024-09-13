@@ -2569,7 +2569,7 @@ contains
          do n_r=nRstartMag,nRstopMag
             if ( n_r<=n_r_LCR ) then
                do lm=start_lm,stop_lm
-                  l=lm2l(lm) 
+                  l=lm2l(lm)
                   if ( l /= 0 ) then
                      bg(lm,n_r)=(r(n_r_LCR)/r(n_r))**real(l,cp)*b_r_LCR(lm)
                      db(lm,n_r)=-real(l,cp)*(r(n_r_LCR))**real(l,cp)/  &

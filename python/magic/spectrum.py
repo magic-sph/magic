@@ -1107,10 +1107,10 @@ class MagicSpectrum2D(MagicSetup):
         print('Reading {}'.format(filename))
 
         if self.name == '2D_dtVrms_spec':
-            l_one = f.fort_read('i4')
+            l_one = f.fort_read(np.int32)
             if len(l_one) == 1:
                 self.version = l_one[0]
-                self.n_r_max, self.l_max = f.fort_read('i4')
+                self.n_r_max, self.l_max = f.fort_read(np.int32)
                 self.radius = f.fort_read(precision, shape=(self.n_r_max))
                 self.Cor_r_l = f.fort_read(precision,
                                            shape=(self.n_r_max, self.l_max+1))
@@ -1183,7 +1183,7 @@ class MagicSpectrum2D(MagicSetup):
         else:
             if self.version == 'snap':
                 try:
-                    file_version = f.fort_read('i4')[0]
+                    file_version = f.fort_read(np.int32)[0]
                     if file_version > 20:
                         file_version = 0
                         # Close and reopen to rewind
@@ -1200,7 +1200,7 @@ class MagicSpectrum2D(MagicSetup):
                 self.n_r_max, self.l_max, self.minc = out[1]
             elif self.version == 'ave':
                 try:
-                    file_version = f.fort_read('i4')[0]
+                    file_version = f.fort_read(np.int32)[0]
                     if file_version > 20:
                         file_version = 0
                         # Close and reopen to rewind

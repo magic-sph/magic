@@ -20,9 +20,6 @@ module movie_data
 
    private
 
-   real(cp), public :: movieDipColat,movieDipLon
-   real(cp), public :: movieDipStrength,movieDipStrengthGeo
-
    !-- Info in movie type and were the frames are stored:
    integer, public, parameter :: n_movies_max=30  ! Max no. of different movies
    integer, public, parameter :: n_movie_fields_max=6 ! Max no. of fields per movie
@@ -64,11 +61,6 @@ contains
       !
 
       integer :: n
-
-      movieDipColat      =0.0_cp
-      movieDipLon        =0.0_cp
-      movieDipStrength   =0.0_cp
-      movieDipStrengthGeo=0.0_cp
 
       if ( .not. l_movie ) then
          l_movie_oc=.false.
