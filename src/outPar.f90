@@ -35,7 +35,7 @@ module outPar_mod
    implicit none
 
    private
-   
+
    type(mean_sd_type) :: fcond, fconv, fkin, fvisc, fres,  fpoyn
    type(mean_sd_type) :: Eperp, Epar, Eperpaxi, Eparaxi
    type(mean_sd_type) :: uh, duh, gradT2, entropy, comp
@@ -59,7 +59,7 @@ contains
       ! bLayers). Mostly time-averaged radial outputs.
       !
 
-      n_calls = 0 
+      n_calls = 0
       call dlV%initialize(1,n_r_max)
       call dlVc%initialize(1,n_r_max)
       call Rm%initialize(1,n_r_max)

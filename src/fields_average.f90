@@ -479,7 +479,7 @@ contains
          !--- Store potentials of averaged field:
          !    dw_ave_LMloc and db_ave_LMloc used as work arrays here.
          nPotSets=0
-#ifdef WITH_MPI	
+#ifdef WITH_MPI
          call write_Pot_mpi(time,w_ave_Rloc,z_ave_Rloc,b_ic_ave,aj_ic_ave,nPotSets,  &
               &             'V_lmr_ave.',omega_ma,omega_ic)
          if ( l_mag) then
