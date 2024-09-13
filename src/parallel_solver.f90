@@ -17,10 +17,10 @@ module parallel_solvers
 
    private
 
-   type, public :: type_tri_par   
+   type, public :: type_tri_par
       integer :: nRMin
       integer :: nRMax
-      integer :: lMin 
+      integer :: lMin
       integer :: lMax
       real(cp), allocatable :: low(:,:)
       real(cp), allocatable :: diag(:,:)
@@ -578,7 +578,7 @@ contains
       integer,     intent(inout) :: array_req(:)
       complex(cp), intent(inout) :: x(1:lm_max, nRstart-1:nRstop+1)
       integer,     intent(inout) :: req
-      
+
       !-- Local variables
       integer :: lmb, lmu
 

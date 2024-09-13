@@ -5,7 +5,7 @@
 Set a suitable compiler in the first line of the Makefile: `COMPILER = <compiler_phrase>`. The options are `intel`, `gnu` or `portland` - depending on your available compilers.
 
 **Table** : List of default compilers
- 
+
 | Compiler Option |    Normal     |     With MPI     |
 |:---------------:|:-------------:|:----------------:|
 |      intel      |   ifort, icc  | mpiifort, mpiicc |
@@ -17,7 +17,7 @@ Set a suitable compiler in the first line of the Makefile: `COMPILER = <compiler
 * `PRODRUN` Set it to `yes` for production run, `no` for debugging.
 * `PRECISION` Set it to 'dble' for double-precision calculations or to 'sngl' for single-precision calculations
 * `OUT_PREC` Set it to 'dble' for double-precision in binary outputs or to 'sngl' for single precision
-* `DEBUG`   Set to `yes` to run in debugging mode. *While running in debugging mode, set* `PRODRUN` *to* `no`. The debug mode with intel compilers uses `marmot90`. 
+* `DEBUG`   Set to `yes` to run in debugging mode. *While running in debugging mode, set* `PRODRUN` *to* `no`. The debug mode with intel compilers uses `marmot90`.
 * `USE_MPI` Set to `yes` to use MPI
 * `USE_OMP`  Set to `yes` to use openmp (cannot work without MPI)
 * `USE_PRECOND` Set to `yes` to perform some pre-conditioning  of the matrices
