@@ -111,8 +111,8 @@ set(_MPI_Fortran_COMPILER_NAMES            "mpif90|mpf90|mpif90_r|mpf90_r")
 set(_MPI_GNU_C_COMPILER_NAMES              "mpigcc|mpgcc|mpigcc_r|mpgcc_r")
 set(_MPI_GNU_Fortran_COMPILER_NAMES        "mpigfortran|mpgfortran|mpigfortran_r|mpgfortran_r")
 # Intel MPI compiler names
-set(_MPI_Intel_C_COMPILER_NAMES            "mpiicc")
-set(_MPI_Intel_Fortran_COMPILER_NAMES      "mpiifort")
+set(_MPI_Intel_C_COMPILER_NAMES            "mpiicc|mpiicx")
+set(_MPI_Intel_Fortran_COMPILER_NAMES      "mpiifort|mpiifx")
 # PGI compiler names
 set(_MPI_PGI_C_COMPILER_NAMES              "mpipgcc|mppgcc")
 set(_MPI_PGI_Fortran_COMPILER_NAMES        "mpipgf|mppgf")
