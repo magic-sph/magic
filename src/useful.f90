@@ -62,8 +62,9 @@ contains
       else if ( n_step /= 0 ) then
          if ( n == n_max .or. mod(n,n_step) == 0 ) l_correct_step=.true.
       end if
+      if ( l_correct_step ) return
 
-      if ( size(times) == 1 .and. times(1) > 0.0_cp ) then
+      if ( size(times) == 1 ) then
          !-- Time array has one single entry for the next output
          if ( times(1) < t .and. times(1) >= t_last ) then
             l_correct_step=.true.

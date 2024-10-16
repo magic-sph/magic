@@ -4,7 +4,6 @@ import os
 import shutil
 import sys
 import subprocess as sp
-import numpy as np
 import unittest
 import testOutputs.unitTest
 import testRadialOutputs.unitTest
@@ -114,9 +113,9 @@ def cmake(args, startdir, execDir):
     os.chdir(execDir)
 
     if args.use_debug_flags:
-         build_type='-DCMAKE_BUILD_TYPE=Debug'
+        build_type = '-DCMAKE_BUILD_TYPE=Debug'
     else:
-         build_type='-DCMAKE_BUILD_TYPE=Release'
+        build_type = '-DCMAKE_BUILD_TYPE=Release'
 
     if args.use_precond:
         precond_opt = '-DUSE_PRECOND=yes'
@@ -202,7 +201,7 @@ def get_exec_cmd(args, execDir):
     """
     magicExec = '{}/magic.exe'.format(execDir)
 
-    if args.use_mpi: # With MPI
+    if args.use_mpi:  # With MPI
         if args.use_openmp:
             os.environ['OMP_NUM_THREADS'] = str(args.nthreads)
             os.environ['KMP_STACKSIZE'] = '1g'
@@ -213,7 +212,7 @@ def get_exec_cmd(args, execDir):
             os.environ['I_MPI_PIN_PROCESSOR_LIST'] = 'allcores'
 
         execCmd = '{} -n {:d} {}'.format(args.mpicmd, args.nranks, magicExec)
-    else: # Without MPI
+    else:  # Without MPI
         execCmd = '{}'.format(magicExec)
 
     return execCmd
@@ -423,11 +422,11 @@ def printLevelInfo():
         print("                    Test TO and Geos outputs                                       ")
 
 
-
 if __name__ == '__main__':
-    precision = 1e-8 # relative tolerance between expected and actual result
+
+    precision = 1e-8  # relative tolerance between expected and actual result
     startdir = os.getcwd()
-    execDir = '{}/tmp'.format(startdir) # where MagIC will be built
+    execDir = '{}/tmp'.format(startdir)  # where MagIC will be built
 
     parser = getParser()
     args = parser.parse_args()
