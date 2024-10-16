@@ -185,11 +185,19 @@ buildLibs () {
   if [ $f2pyExec != "NotFound" ]; then
     $SED "s/f2pyexec.*/f2pyexec = $f2pyExec/g" $MAGIC_HOME/python/magic/magic.cfg
 
-    local selectedCompiler=$(whichf2pycompiler $f2pyExec)
-    if [ $selectedCompiler == "NotFound" ]; then
-      $SED "s/buildLib.*/buildLib = False/g" $MAGIC_HOME/python/magic/magic.cfg
-    else
+    if [ $pythonVersion == 3 ]; then
+      local minor_version=`python3 -c 'import sys; print(sys.version_info.minor)'`
+    fi
+
+    if [ $pythonVersion == 3 ] && [ $minor_version -ge 12 ]; then
       $SED "s/buildLib.*/buildLib = True/g" $MAGIC_HOME/python/magic/magic.cfg
+    else
+      local selectedCompiler=$(whichf2pycompiler $f2pyExec)
+      if [ $selectedCompiler == "NotFound" ]; then
+        $SED "s/buildLib.*/buildLib = False/g" $MAGIC_HOME/python/magic/magic.cfg
+      else
+        $SED "s/buildLib.*/buildLib = True/g" $MAGIC_HOME/python/magic/magic.cfg
+      fi
     fi
   fi
 }

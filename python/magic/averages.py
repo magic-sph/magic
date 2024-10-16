@@ -298,8 +298,7 @@ class AvgField:
                                 setattr(self, 'rmelt_theta_av', xmean)
                                 setattr(self, 'rmelt_theta_sd', xstd)
                             else:
-                                xmean, xstd = avgField(rm.time[ind:],
-                                                       rm.rmelt[ind:, :])
+                                xmean = avgField(rm.time[ind:], rm.rmelt[ind:, :])
                                 self.lut['theta_profiles']['rmelt_theta_av'] = xmean
                                 setattr(self, 'rmelt_theta_av', xmean)
                 elif key == 'heatf_theta':
