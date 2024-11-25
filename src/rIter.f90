@@ -21,7 +21,7 @@ module rIter_mod
        &            l_precession, l_centrifuge, l_adv_curl,          &
        &            l_double_curl, l_parallel_solve, l_single_matrix,&
        &            l_temperature_diff, l_RMS, l_phase_field,        &
-       &            l_onset, l_DTrMagSpec
+       &            l_onset, l_DTrMagSpec, l_ehd_dep
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop, nRstartMag, &
        &                  nRstopMag
    use radial_functions, only: or2, orho1, l_R
@@ -667,6 +667,10 @@ contains
                this%gsa%Advr(:, nPhi)=this%gsa%Advr(:,nPhi) + this%gsa%CAr(:,nPhi)
                this%gsa%Advt(:, nPhi)=this%gsa%Advt(:,nPhi) + this%gsa%CAt(:,nPhi)
             end if
+
+            if ( l_ehd_dep ) then
+               this%gsa%Advr(:, nPhi)=this%gsa%Advr(:,nPhi) + this%gsa%DEPFr(:,nPhi)
+            end if   
          end do
          !$omp end parallel
 

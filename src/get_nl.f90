@@ -22,15 +22,15 @@ module grid_space_arrays_mod
    use truncation, only: n_phi_max, nlat_padded
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, or3, &
        &                       lambda, or4, or1
-   use physical_parameters, only: LFfac, n_r_LCR, prec_angle, ViscHeatFac,    &
-        &                         oek, po, dilution_fac, ra, opr, OhmLossFac, &
+   use physical_parameters, only: radratio, LFfac, n_r_LCR, prec_angle, ViscHeatFac,    &
+        &                         oek, po, dilution_fac, ra, rae, opr, OhmLossFac, &
         &                         epsPhase, phaseDiffFac, penaltyFac, tmelt
    use horizontal_data, only: sinTheta, cosTheta, phi, O_sin_theta_E2, &
        &                      cosn_theta_E2, O_sin_theta
    use parallel_mod, only: get_openmp_blocks
    use constants, only: two, third, one
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, l_adv_curl, &
-       &            l_chemical_conv, l_precession, l_centrifuge, l_phase_field
+       &            l_chemical_conv, l_precession, l_centrifuge, l_phase_field, l_ehd_dep
 
    implicit none
 
@@ -46,6 +46,7 @@ module grid_space_arrays_mod
       real(cp), allocatable :: VSr(:,:), VSt(:,:), VSp(:,:)
       real(cp), allocatable :: VXir(:,:), VXit(:,:), VXip(:,:)
       real(cp), allocatable :: heatTerms(:,:), phiTerms(:,:)
+      real(cp), allocatable :: DEPFr(:,:)
 
       !----- Fields calculated from these help arrays by legtf:
       real(cp), allocatable :: vrc(:,:), vtc(:,:), vpc(:,:)
@@ -182,6 +183,12 @@ contains
          bytes_allocated=bytes_allocated+2*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
       end if
 
+      if ( l_ehd_dep ) then
+         allocate( this%DEPFr(nlat_padded,n_phi_max) )
+         this%DEPFr(:,:)=0.0_cp
+         bytes_allocated=bytes_allocated + 1*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
+         end if
+         
    end subroutine initialize
 !----------------------------------------------------------------------------
    subroutine finalize(this)
@@ -195,6 +202,7 @@ contains
       deallocate( this%VxBr, this%VxBt, this%VxBp, this%VSr, this%VSt, this%VSp )
       if ( l_chemical_conv ) deallocate( this%VXir, this%VXit, this%VXip )
       if ( l_precession ) deallocate( this%PCr, this%PCt, this%PCp )
+      if ( l_ehd_dep ) deallocate( this%DEPFr )
       if ( l_centrifuge ) deallocate( this%CAr, this%CAt )
       if ( l_adv_curl ) deallocate( this%cvtc, this%cvpc )
       if ( l_phase_field ) deallocate( this%phic, this%phiTerms )
@@ -256,6 +264,12 @@ contains
             &        this%cbrc(:,nPhi)*this%btc(:,nPhi) -    &
             &        this%cbtc(:,nPhi)*this%brc(:,nPhi) )
          end if      ! Lorentz force required ?
+
+         if ( l_ehd_dep .and. (nBc == 0 .or. lRmsCalc) .and. nR>n_r_LCR ) then
+            !------ Get the dielectrophoretic force:
+            !---- r**2* RaE * eta**2 / (1-eta)**4 * Sc / r**5
+            this%DEPFr(:,nPhi)=  rae * opr *  radratio**2/(1.0D0-radratio)**4 * this%sc(:,nPhi) * or3(nR)
+         end if      ! DEP force required ?
 
          if ( l_conv_nl .and. (nBc == 0 .or. lRmsCalc) ) then
 

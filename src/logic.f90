@@ -72,6 +72,7 @@ module logic
    logical :: l_perpPar      ! Switch for calculation of of kinetic energy perpendicular+parallel to the rotation axis
    logical :: l_LCR          ! Switch for zero electrical conductivity beyond r_LCR
    logical :: lVerbose       ! Switch for detailed information about run progress
+   logical :: l_ehd_dep      ! Switch for dilectrophoretic force
 
    logical :: l_PressGraph   ! Store pressure in graphic files
 
