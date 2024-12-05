@@ -64,6 +64,9 @@ module fields_average_mod
 contains
 
    subroutine initialize_fields_average_mod
+      !
+      ! Allocate arrays for computations of time-averaged fields
+      !
 
       allocate( w_ave_LMloc(llm:ulm,n_r_max), z_ave_LMloc(llm:ulm,n_r_max) )
       allocate( s_ave_LMloc(llm:ulm,n_r_max), p_ave_LMloc(llm:ulm,n_r_max) )
@@ -132,6 +135,9 @@ contains
    end subroutine initialize_fields_average_mod
 !----------------------------------------------------------------------------
    subroutine finalize_fields_average_mod
+      !
+      ! Deallocate arrays used to compute time-averaged fields
+      !
 
       deallocate( w_ave_LMloc, z_ave_LMloc, s_ave_LMloc, p_ave_LMloc )
       deallocate( w_ave_Rloc, z_ave_Rloc, s_ave_Rloc, p_ave_Rloc )
@@ -145,7 +151,10 @@ contains
       &                      time_passed,time_norm,omega_ic,omega_ma, &
       &                      w,z,p,s,xi,phi,b,aj,b_ic,aj_ic)
       !
-      ! This subroutine averages fields b and v over time.
+      ! This subroutine averages the fields in spectral space over time
+      ! to produce spectra and checkpoints of the time-averaged field.
+      ! It also computes the spherical harmonic transforms to produce the
+      ! corresponding average graphic file G_ave.TAG.
       !
 
       !-- Input of variables:
@@ -154,18 +163,18 @@ contains
       real(cp),            intent(in) :: time_passed  ! time passed since last log
       real(cp),            intent(in) :: time_norm    ! time passed since start of time loop
       real(cp),            intent(in) :: omega_ic,omega_ma
-      class(type_tscheme), intent(in) :: tscheme
+      class(type_tscheme), intent(in) :: tscheme ! Time scheme
       real(cp),            intent(in) :: simtime
-      complex(cp),         intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: z(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: p(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: s(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: xi(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: phi(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp),         intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp),         intent(in) :: w(llm:ulm,n_r_max) ! Poloidal potential (V)
+      complex(cp),         intent(in) :: z(llm:ulm,n_r_max) ! Toroidal potential (V)
+      complex(cp),         intent(in) :: p(llm:ulm,n_r_max) ! Pressure
+      complex(cp),         intent(in) :: s(llm:ulm,n_r_max) ! Temperature/Entropy
+      complex(cp),         intent(in) :: xi(llm:ulm,n_r_max) ! Chemical composition
+      complex(cp),         intent(in) :: phi(llm:ulm,n_r_max) ! Phase field
+      complex(cp),         intent(in) :: b(llmMag:ulmMag,n_r_maxMag) ! Poloidal potential (B)
+      complex(cp),         intent(in) :: aj(llmMag:ulmMag,n_r_maxMag) ! Toroidal potential (B)
+      complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag) ! Poloidal potential of the inner core field
+      complex(cp),         intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag) ! Toroidal potential of the inner core field
 
       !-- Local stuff:
       ! fields for the gathering
@@ -185,7 +194,7 @@ contains
       complex(cp) :: dj_ic_ave(llm:ulm,n_r_ic_max)
 
       !----- Work array:
-      complex(cp) :: workA_LMloc(llm:ulm,n_r_max)
+      complex(cp) :: workA_LMloc(llm:ulm,n_r_ic_max)
 
       !----- Fields in grid space:
       real(cp) :: Br(nlat_padded,n_phi_max),Bt(nlat_padded,n_phi_max)
