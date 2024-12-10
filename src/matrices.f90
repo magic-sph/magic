@@ -764,7 +764,10 @@ module band_matrices
    implicit none
 
    type, public, extends(type_realmat) :: type_bandmat
-      real(cp), pointer :: du2(:)
+      real(cp), allocatable :: dl(:)
+      real(cp), allocatable :: d(:)
+      real(cp), allocatable :: du(:)
+      real(cp), allocatable :: du2(:)
       integer :: kl
       integer :: ku
    contains
@@ -832,10 +835,9 @@ contains
          allocate( this%dat(nx+(nx-1)/2, ny) )
          this%dat(:,:) = 0.0_cp
          bytes_allocated = bytes_allocated+(nx+(nx-1)/2)*ny*SIZEOF_DEF_REAL
-      else
-         allocate( this%dat(nx, ny) )
-         this%dat(:,:) = 0.0_cp
-         bytes_allocated = bytes_allocated+nx*ny*SIZEOF_DEF_REAL
+      else ! For tridiag arrays
+         allocate( this%dl(this%ncol-1), this%d(this%ncol), this%du(this%ncol-1) )
+         bytes_allocated = bytes_allocated+(ny+2*(ny-1))*SIZEOF_DEF_REAL
       end if
       if ( this%l_pivot ) then
          allocate( this%pivot(this%ncol) )
@@ -945,8 +947,11 @@ contains
       !
       class(type_bandmat) :: this
 
-      deallocate( this%dat )
-
+      if ( this%nrow > 3 ) then
+         deallocate( this%dat )
+      else
+         deallocate( this%dl, this%d, this%du )
+      end if
       if ( this%l_pivot ) then
          deallocate (this%pivot)
          if ( this%nrow == 3 ) then
@@ -987,8 +992,7 @@ contains
       type(c_ptr),    optional, intent(inout) :: handle
 
       if ( this%nrow == 3 ) then
-         call prepare_tridiag(this%dat(3,1:this%ncol-1), this%dat(2,:),  &
-              &               this%dat(1,2:), this%du2, this%ncol,       &
+         call prepare_tridiag(this%dl, this%d, this%du, this%du2, this%ncol,  &
               &               this%pivot, info)
       else
          call prepare_band(this%dat, this%ncol, this%kl, this%ku, this%pivot, info)
@@ -1038,8 +1042,7 @@ contains
       integer, optional,        intent(inout) :: devInfo(:)
 
       if ( this%nrow == 3 ) then
-         call solve_tridiag(this%dat(3,1:this%ncol-1), this%dat(2,:), &
-              &             this%dat(1,2:), this%du2, this%ncol,      &
+         call solve_tridiag(this%dl, this%d, this%du, this%du2, this%ncol, &
               &             this%pivot, rhs)
       else
          call solve_band(this%dat, this%ncol, this%kl, this%ku, this%pivot, rhs)
@@ -1077,8 +1080,7 @@ contains
       integer, optional,     intent(inout) :: devInfo(:)
 
       if ( this%nrow == 3 ) then
-         call solve_tridiag(this%dat(3,1:this%ncol-1), this%dat(2,:), &
-              &             this%dat(1,2:), this%du2, this%ncol,      &
+         call solve_tridiag(this%dl, this%d, this%du, this%du2, this%ncol, &
               &             this%pivot, rhs)
       else
          call solve_band(this%dat, this%ncol, this%kl, this%ku, this%pivot, rhs)
@@ -1117,8 +1119,7 @@ contains
       type(c_ptr),    optional, intent(inout) :: handle
 
       if ( this%nrow == 3 ) then
-         call solve_tridiag(this%dat(3,1:this%ncol-1), this%dat(2,:),   &
-              &             this%dat(1,2:), this%du2, this%ncol,        &
+         call solve_tridiag(this%dl, this%d, this%du, this%du2, this%ncol,  &
               &             this%pivot, rhs, nRHS)
       else
          call solve_band(this%dat, this%ncol, this%kl, this%ku, this%pivot, &
@@ -1185,9 +1186,12 @@ contains
 
       if ( this%nrow == 3 ) then
          do j=1,this%ncol
-            do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
-               this%dat(this%ku+1+i-j,j)=dat(i,j)
-            end do
+            this%d(j)=dat(j,j)
+            if ( j < this%ncol ) this%du(j)=dat(j,j+1)
+            if ( j > 1 )         this%dl(j-1)=dat(j,j-1)
+            !do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
+            !   this%dat(this%ku+1+i-j,j)=dat(i,j)
+            !end do
          end do
       else
          do j=1,this%ncol

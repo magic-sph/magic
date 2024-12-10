@@ -56,20 +56,12 @@ module physical_parameters
    real(cp) :: ThExpNb        ! Thermal expansion * temperature :math:`\alpha_0 T_0`
    real(cp) :: GrunNb         ! Grüneisen paramater :math:`\Gamma=(\gamma-1)/\alpha T`
    real(cp) :: epsS           ! Deviation from the adiabat
-   real(cp) :: cmbHflux       ! stratified Layer
-   real(cp) :: slopeStrat     ! stratified Layer
-   real(cp) :: rStrat         ! stratified Layer
-   real(cp) :: ampStrat       ! stratified Layer
-   real(cp) :: thickStrat     ! stratified Layer
-   integer  :: nVarEntropyGrad! stratified Layer
-
-   ! Parameters for multiple stably stratified layers
-   integer, parameter :: nSSLmax = 5 ! Max number of stratified layers, first one is bottom SSL
-   real(cp) :: ampStrat_arr(nSSLmax) ! Amplitude array
-   real(cp) :: rStrat_arr(nSSLmax) ! Radii array, first one is radius of bottom SSL
-   real(cp) :: thickStrat_arr(nSSLmax) ! Thickess, first one ignored
-   real(cp) :: slopeStrat_arr(nSSLmax) ! Slope array
-
+   integer, private, parameter :: nSSLmax = 5
+   real(cp) :: slopeStrat(nSSLmax) ! stiffness of the transitions to stratified layers
+   real(cp) :: rStrat(nSSLmax)     ! bottom radii of the stratified layers
+   real(cp) :: ampStrat(nSSLmax)   ! degree of stratification of the stratified layers
+   real(cp) :: thickStrat(nSSLmax) ! thicknesses of the stratified Layers
+   integer  :: nVarEntropyGrad     ! type of stratified Layer
    character(len=72) :: interior_model ! name of the interior model
    real(cp) :: r_cut_model    ! Percentage on the inner part of the interior model to be used
    real(cp) :: g0             ! Set to 1.0 for constant gravity

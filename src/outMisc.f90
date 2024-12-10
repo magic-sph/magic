@@ -55,8 +55,8 @@ module outMisc_mod
    real(cp), allocatable :: HelASr(:,:), Hel2ASr(:,:)
    real(cp), allocatable :: HelnaASr(:,:), Helna2ASr(:,:)
    real(cp), allocatable :: HelEAASr(:)
-   real(cp), allocatable :: temp_Rloc(:,:,:), phi_Rloc(:,:,:), dtemp_Rloc(:,:,:)
-   real(cp), allocatable :: temp_Ploc(:,:,:), phi_Ploc(:,:,:), dtemp_Ploc(:,:,:)
+   real(cp), allocatable :: temp_Rloc(:,:,:), phase_Rloc(:,:,:), dtemp_Rloc(:,:,:)
+   real(cp), allocatable :: temp_Ploc(:,:,:), phase_Ploc(:,:,:), dtemp_Ploc(:,:,:)
    complex(cp), allocatable :: coeff_old(:)
    integer :: nPstart ! Starting nPhi index when MPI distributed
    integer :: nPstop  ! Stoping nPhi index when MPI distributed
@@ -167,22 +167,22 @@ contains
          nPstart = phi_balance(rank)%nStart
          nPstop = phi_balance(rank)%nStop
 
-         allocate( phi_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
+         allocate( phase_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
          allocate( temp_Rloc(n_theta_max,n_phi_max,nRstart:nRstop) )
-         allocate( phi_Ploc(n_theta_max,nPstart:nPstop,n_r_max) )
+         allocate( phase_Ploc(n_theta_max,nPstart:nPstop,n_r_max) )
          allocate( temp_Ploc(n_theta_max,nPstart:nPstop,n_r_max) )
          bytes_allocated=bytes_allocated+4*(nRstop-nRstart+1)*n_phi_max* &
          &               n_theta_max*SIZEOF_DEF_REAL
-         phi_Rloc(:,:,:) =0.0_cp
-         temp_Rloc(:,:,:)=0.0_cp
+         phase_Rloc(:,:,:)=0.0_cp
+         temp_Rloc(:,:,:) =0.0_cp
 #ifdef WITH_OMP_GPU
-         !$omp target enter data map(alloc: temp_Rloc, phi_Rloc)
-         !$omp target update to(temp_Rloc, phi_Rloc)
+         !$omp target enter data map(alloc: temp_Rloc, phase_Rloc)
+         !$omp target update to(temp_Rloc, phase_Rloc)
          gpu_bytes_allocated=gpu_bytes_allocated+2*(nRstop-nRstart+1)*n_phi_max* &
          &                   n_theta_max*SIZEOF_DEF_REAL
 #endif
-         phi_Ploc(:,:,:) =0.0_cp
-         temp_Ploc(:,:,:)=0.0_cp
+         phase_Ploc(:,:,:)=0.0_cp
+         temp_Ploc(:,:,:) =0.0_cp
          allocate( rmelt_loc(n_theta_max,nPstart:nPstop) )
          bytes_allocated=bytes_allocated+(nPstop-nPstart+1)*n_theta_max* &
          &               SIZEOF_DEF_REAL
@@ -269,7 +269,7 @@ contains
 
       if ( l_phase_field ) then
 #ifdef WITH_OMP_GPU
-         !$omp target exit data map(delete: ekinSr, ekinLr, volSr, temp_Rloc, phi_Rloc)
+         !$omp target exit data map(delete: ekinSr, ekinLr, volSr, temp_Rloc, phase_Rloc)
 #endif
          if ( l_dtphaseMovie ) then
 #ifdef WITH_OMP_GPU
@@ -277,7 +277,7 @@ contains
 #endif
             deallocate( dtemp_Rloc, dtemp_Ploc, dt_rmelt_loc)
          end if
-         deallocate( temp_Rloc, phi_Rloc, temp_Ploc, phi_Ploc, phi_balance )
+         deallocate( temp_Rloc, phase_Rloc, temp_Ploc, phase_Ploc, phi_balance )
          deallocate( ekinSr, ekinLr, volSr, rmelt_loc )
          call PhiMeanR%finalize()
       end if
@@ -778,8 +778,8 @@ contains
       call gather_from_Rloc(ekinLr,ekinLr_global,0)
       call gather_from_Rloc(volSr,volSr_global,0)
 
-      phase_max_loc = maxval(phi_Rloc)
-      phase_min_loc = minval(phi_RLoc)
+      phase_max_loc = maxval(phase_Rloc)
+      phase_min_loc = minval(phase_RLoc)
 #ifdef WITH_MPI
       call MPI_Reduce(phase_max_loc, phase_max, 1, MPI_DEF_REAL, MPI_MAX, &
            &          0, MPI_COMM_WORLD, ierr)
@@ -793,7 +793,7 @@ contains
       !-- MPI transpose
       call transp_R2Phi(temp_Rloc, temp_Ploc)
       if ( l_dtphaseMovie ) call transp_R2Phi(dtemp_Rloc, dtemp_Ploc)
-      call transp_R2Phi(phi_Rloc, phi_Ploc)
+      call transp_R2Phi(phase_Rloc, phase_Ploc)
 
       rmelt_axi_loc(:)=0.0_cp
       rmelt_mean_loc=0.0_cp
@@ -803,11 +803,11 @@ contains
          do n_t=1,n_theta_max
             n_t_ord=n_theta_cal2ord(n_t)
             if ( l_dtphaseMovie ) then
-               call get_rmelt_tmelt(phi_Ploc(n_t,n_p,:), temp_Ploc(n_t,n_p,:), &
-                    &               rmelt_loc(n_t,n_p), tmelt_loc,             &
+               call get_rmelt_tmelt(phase_Ploc(n_t,n_p,:), temp_Ploc(n_t,n_p,:), &
+                    &               rmelt_loc(n_t,n_p), tmelt_loc,               &
                     &               dtemp_Ploc(n_t,n_p,:), dt_rmelt_loc(n_t,n_p))
             else
-               call get_rmelt_tmelt(phi_Ploc(n_t,n_p,:), temp_Ploc(n_t,n_p,:), &
+               call get_rmelt_tmelt(phase_Ploc(n_t,n_p,:), temp_Ploc(n_t,n_p,:), &
                     &               rmelt_loc(n_t,n_p), tmelt_loc)
             end if
             rmelt_axi_loc(n_t_ord)=rmelt_axi_loc(n_t_ord)+two*norm*rmelt_loc(n_t,n_p)
@@ -956,8 +956,8 @@ contains
                ekinL=ekinL+phiNorm*gauss(nTheta)*ekin
             end if
 
-            phi_Rloc(nTheta,nPhi,nR) =phi(nTheta,nPhi)
-            temp_Rloc(nTheta,nPhi,nR)=s(nTheta,nPhi)
+            phase_Rloc(nTheta,nPhi,nR)=phi(nTheta,nPhi)
+            temp_Rloc(nTheta,nPhi,nR) =s(nTheta,nPhi)
             if ( l_dtphaseMovie ) dtemp_Rloc(nTheta,nPhi,nR)=ds(nTheta,nPhi)
          end do
       end do
@@ -1000,7 +1000,7 @@ contains
 
       !-- warning on GPU with dtemp_Rloc --!
 #ifdef WITH_OMP_GPU
-      !$omp target update to(ekinSr,ekinLr,volSr,temp_Rloc,phi_Rloc)
+      !$omp target update to(ekinSr,ekinLr,volSr,temp_Rloc,phase_Rloc)
       !$omp target teams distribute parallel do collapse(2) &
       !$omp& private(ekin)  &
       !$omp& reduction(+:ekinSr,ekinLr,volSr)
@@ -1024,15 +1024,15 @@ contains
                   ekinLr(nR)=ekinLr(nR)+phiNorm*gauss(nTheta)*ekin
                end if
 
-               phi_Rloc(nTheta,nPhi,nR) =phi(nTheta,nR,nPhi)
-               temp_Rloc(nTheta,nPhi,nR)=s(nTheta,nR,nPhi)
+               phase_Rloc(nTheta,nPhi,nR)=phi(nTheta,nR,nPhi)
+               temp_Rloc(nTheta,nPhi,nR) =s(nTheta,nR,nPhi)
                if ( l_dtphaseMovie ) dtemp_Rloc(nTheta,nPhi,nR)=ds(nTheta,nR,nPhi)
             end do
          end do
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
-      !$omp target update from(ekinSr,ekinLr,volSr,temp_Rloc,phi_Rloc)
+      !$omp target update from(ekinSr,ekinLr,volSr,temp_Rloc,phase_Rloc)
 #else
       !$omp end parallel do
 #endif
@@ -1609,7 +1609,7 @@ contains
       real(cp) :: x(4), y(4)
 
       !-- Determine the radial level where \phi=0.5
-      n_r_phase=2
+      n_r_phase=1
       do n_r=2,n_r_max
          if ( phase(n_r) < half .and. phase(n_r-1) > half ) then
             n_r_phase=n_r
