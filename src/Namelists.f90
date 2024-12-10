@@ -83,8 +83,7 @@ contains
       &    nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch,     &
       &    con_LambdaOut,con_FuncWidth,ThExpNb,GrunNb,            &
       &    strat,polind,DissNb,g0,g1,g2,r_cut_model,thickStrat,   &
-      &    epsS,slopeStrat,rStrat,ampStrat,ampStrat_arr,          &
-      &    rStrat_arr,thickStrat_arr,slopeStrat_arr,cmbHflux,     &
+      &    epsS,slopeStrat,rStrat,ampStrat,                       &
       &    r_LCR,nVarDiff,nVarVisc,difExp,nVarEps,interior_model, &
       &    nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,      &
       &    dilution_fac,stef,tmelt,phaseDiffFac,penaltyFac,       &
@@ -948,42 +947,33 @@ contains
       write(n_out,'(''  ThExpNb         ='',ES14.6,'','')') ThExpNb
       !write(n_out,'(''  GrunNb          ='',ES14.6,'','')') GrunNb
       write(n_out,'(''  epsS            ='',ES14.6,'','')') epsS
-      write(n_out,'(''  cmbHflux        ='',ES14.6,'','')') cmbHflux
-      write(n_out,'(''  slopeStrat      ='',ES14.6,'','')') slopeStrat
-      write(n_out,'(''  rStrat          ='',ES14.6,'','')') rStrat
-      write(n_out,'(''  ampStrat        ='',ES14.6,'','')') ampStrat
-      write(n_out,'(''  thickStrat      ='',ES14.6,'','')') thickStrat
-      write(n_out,'(''  nVarEntropyGrad ='',i3,'','')') nVarEntropyGrad
+      write(n_out,'("  ampStrat        =")',advance="no")
+      do i=1,size(ampStrat)
+         if ( ampStrat(i) > 0.0_cp ) &
+         &  write(n_out,'(1p,ES14.6,'','')',advance="no") ampStrat(i)
+      end do
+      write(n_out,*) ""
 
-      if (nVarEntropyGrad == 7) then
-         write(n_out,'("  ampStrat_arr    =")',advance="no")
-         do i=1,nSSLmax
-            if ( ampStrat_arr(i) > 0.0_cp ) &
-            &  write(n_out,'(1p,ES14.6)',advance="no") ampStrat_arr(i)
-         end do
-         write(n_out,*) ""
+      write(n_out,'("  rStrat          =")',advance="no")
+      do i=1,size(ampStrat)
+         if ( ampStrat(i) > 0.0_cp ) &
+         &  write(n_out,'(1p,ES14.6,'','')',advance="no") rStrat(i)
+      end do
+      write(n_out,*) ""
 
-         write(n_out,'("  rStrat_arr      =")',advance="no")
-         do i=1,nSSLmax
-            if ( ampStrat_arr(i) > 0.0_cp ) &
-            &  write(n_out,'(1p,ES14.6)',advance="no") rStrat_arr(i)
-         end do
-         write(n_out,*) ""
+      write(n_out,'("  thickStrat      =")',advance="no")
+      do i=1,size(ampStrat)
+         if ( ampStrat(i) > 0.0_cp ) &
+         &  write(n_out,'(1p,ES14.6,'','')',advance="no") thickStrat(i)
+      end do
+      write(n_out,*) ""
 
-         write(n_out,'("  thickStrat_arr  =")',advance="no")
-         do i=1,nSSLmax
-            if ( ampStrat_arr(i) > 0.0_cp ) &
-            &  write(n_out,'(1p,ES14.6)',advance="no") thickStrat_arr(i)
-         end do
-         write(n_out,*) ""
-
-         write(n_out,'("  slopeStrat_arr  =")',advance="no")
-         do i=1,nSSLmax
-            if ( ampStrat_arr(i) > 0.0_cp ) &
-            &  write(n_out,'(1p,ES14.6)',advance="no") slopeStrat_arr(i)
-         end do
-         write(n_out,*) ""
-      end if
+      write(n_out,'("  slopeStrat      =")',advance="no")
+      do i=1,size(ampStrat)
+         if ( ampStrat(i) > 0.0_cp ) &
+         &  write(n_out,'(1p,ES14.6,'','')',advance="no") slopeStrat(i)
+      end do
+      write(n_out,*) ""
 
       write(n_out,'(''  radratio        ='',ES14.6,'','')') radratio
       write(n_out,'(''  l_isothermal    ='',l3,'','')') l_isothermal
@@ -1412,16 +1402,15 @@ contains
       r_cut_model=0.98_cp    ! outer radius when using interior model
       !----- Stably stratified layer
       epsS       =0.0_cp
-      cmbHflux   =0.0_cp
-      slopeStrat =20.0_cp
-      rStrat     =1.3_cp
-      ampStrat   =10.0_cp
-      thickStrat =0.1_cp
+      slopeStrat(1) =20.0_cp
+      slopeStrat(2:)=0.0_cp
+      rStrat(1)     =1.3_cp
+      rStrat(2:)    =0.0_cp
+      ampStrat(1)   =10.0_cp
+      ampStrat(2:)  =0.0_cp
+      thickStrat(1) =0.1_cp
+      thickStrat(2:)=0.0_cp
       nVarEntropyGrad=0
-      ampStrat_arr(:) = -one
-      rStrat_arr(:) = 0.0_cp
-      thickStrat_arr(:) = 0.0_cp
-      slopeStrat_arr(:) = 0.0_cp
       !----- Gravity parameters: defaut value g propto r (i.e. g1=1)
       g0         =0.0_cp
       g1         =one
