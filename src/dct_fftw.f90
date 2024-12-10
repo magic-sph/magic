@@ -76,13 +76,14 @@ contains
 #ifdef WITHOMP
       integer :: ier
 #endif
-      integer :: inembed(1), istride, idist, plan_size(1)
-      integer :: onembed(1), ostride, odist, isize, howmany
       integer(C_INT) :: plan_type(1)
+      integer :: plan_size(1)
 #if (DCT_VERSION==dft_loop)
       integer :: k
       complex(cp) :: array_cplx_1d(2*n_r_max-2), array_cplx_out_1d(2*n_r_max-2)
 #elif (DCT_VERSION==dct_many)
+      integer :: inembed(1), istride, idist
+      integer :: onembed(1), ostride, odist, isize, howmany
       real(cp) :: array_in(2*(ulm-llm+1),n_r_max), array_out(2*(ulm-llm+1),n_r_max)
 #elif (DCT_VERSION==dft_many)
       integer :: threadid, start_lm, stop_lm, iThread

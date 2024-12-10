@@ -60,16 +60,16 @@ papers:
 
 
 .. seealso:: A (tentative) comprehensive list of the publications that have 
-             been produced to date (May 2019) using **MagIC**
+             been produced to date (October 2024) using **MagIC**
              is accessible `here <https://ui.adsabs.harvard.edu/public-libraries/LVt1vdaKQsC5P09In2iloA>`_.
-             To date, more than **100 publications** have been-accepted in
-             more than 10 different peer-reviewed journals: `PEPI
+             To date, more than **150 publications** have been-accepted in
+             more than 20 different peer-reviewed journals: `PEPI
              <http://www.journals.elsevier.com/physics-of-the-earth-and-planetary-interiors/>`_
-             (22), `Icarus <http://www.journals.elsevier.com/icarus/>`_ (11), `E&PSL
+             (25), `Icarus <http://www.journals.elsevier.com/icarus/>`_ (15), `E&PSL
              <http://www.journals.elsevier.com/earth-and-planetary-science-letters/>`_ (7), `GJI
-             <http://gji.oxfordjournals.org/>`_ (8), `A&A <http://www.aanda.org/>`_ (6), 
-             `GRL <http://agupubs.onlinelibrary.wiley.com/agu/journal/10.1002/(ISSN)1944-8007/>`_ (4), 
-             `JFM <http://journals.cambridge.org/action/displayJournal?jid=FLM>`_ (6), 
+             <http://gji.oxfordjournals.org/>`_ (17), `A&A <http://www.aanda.org/>`_ (16), 
+             `GRL <http://agupubs.onlinelibrary.wiley.com/agu/journal/10.1002/(ISSN)1944-8007/>`_ (7), 
+             `JFM <http://journals.cambridge.org/action/displayJournal?jid=FLM>`_ (7), 
              `GAFD <http://www.tandfonline.com/toc/ggaf20/current>`_ (3),
              `Nature <http://www.nature.com/nature>`_ (2), etc.
 

@@ -215,7 +215,7 @@ contains
       n_O2_P3=n/2+3
 
       !-- Normalisation factor:
-      !   The actual normalisition factor for the cos transform is the
+      !   The actual normalisation factor for the cos transform is the
       !   usual sqrt(2/n). We have in addition a factor 1/2 from the
       !   pre-processing (sum over two f's) and another factor 1/2 from
       !   post-processing (again sum over two f2's).

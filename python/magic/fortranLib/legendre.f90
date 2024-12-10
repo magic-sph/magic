@@ -144,11 +144,11 @@ contains
    subroutine plm_theta(theta,max_degree,max_order,m0,plma,dtheta_plma,ndim_plma)
 
       !-- Input variables
+      integer :: ndim_plma
       real(kind=8), intent(in) :: theta
       integer,      intent(in) :: max_degree
       integer,      intent(in) :: max_order
       integer,      intent(in) :: m0
-      integer,      intent(in) :: ndim_plma
 
       !-- Output variables
       real(kind=8), intent(out) :: plma(ndim_plma)

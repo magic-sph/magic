@@ -34,11 +34,6 @@ Support for movie files ``*_mov.TAG``
    :private-members:
    :special-members:
 
-.. autoclass:: magic.Movie3D
-   :members:
-   :private-members:
-   :special-members:
-
 .. _secPythonCoeffs:
 
 Support for ``B_cmb_coeff.TAG`` and ``(V|B)_coeff_r#.TAG`` files
