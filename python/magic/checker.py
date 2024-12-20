@@ -40,7 +40,8 @@ def MagicCheck(tstart=None):
     # Not super accurate if n_log_step changed but better that nothing
     n_steps = len(ts.time[mask]) * ts.n_log_step
 
-    dEdt = ts.buoPower+ts.buoPower_chem+ts.ohmDiss+ts.viscDiss+ts.icrotPower+ts.marotPower
+    dEdt = ts.buoPower + ts.buoPower_chem + ts.ohmDiss + ts.viscDiss\
+           + ts.icrotPower + ts.mantlerotPower
 
     # Power balance:
     buoPower_avg = avgField(ts.time[mask], ts.buoPower[mask])
@@ -48,12 +49,10 @@ def MagicCheck(tstart=None):
     ohmDiss_avg = avgField(ts.time[mask], ts.ohmDiss[mask])
     viscDiss_avg = avgField(ts.time[mask], ts.viscDiss[mask])
     icrotPower_avg = avgField(ts.time[mask], ts.icrotPower[mask])
-    marotPower_avg = avgField(ts.time[mask], ts.marotPower[mask])
-    ratio = 100*(
-                abs(buoPower_avg+buoPower_chem_avg+icrotPower_avg+marotPower_avg
-                    +ohmDiss_avg+viscDiss_avg) /
-            (buoPower_avg+buoPower_chem_avg+icrotPower_avg+marotPower_avg)
-                )
+    marotPower_avg = avgField(ts.time[mask], ts.mantlerotPower[mask])
+    ratio = 100*(abs(buoPower_avg+buoPower_chem_avg+icrotPower_avg+marotPower_avg
+                     +ohmDiss_avg+viscDiss_avg) /
+                (buoPower_avg+buoPower_chem_avg+icrotPower_avg+marotPower_avg))
     print(bcolors.BOLD + bcolors.UNDERLINE + 'Power balance:' + bcolors.ENDC)
     print('Power injected   : {:.5e}'.format(buoPower_avg+buoPower_chem_avg))
     print('Power dissipated : {:.5e}'.format(-ohmDiss_avg-viscDiss_avg))
