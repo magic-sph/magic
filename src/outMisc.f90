@@ -8,7 +8,8 @@ module outMisc_mod
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use communications, only: gather_from_Rloc, gather_from_lo_to_rank0
+   use communications, only: gather_from_Rloc, gather_from_lo_to_rank0, &
+       &                     transp_R2Phi
    use truncation, only: n_r_max, n_theta_max, n_r_maxMag, n_phi_max, lm_max, &
        &                 m_min, m_max, minc
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop, radial_balance
@@ -732,9 +733,10 @@ contains
 #endif
 
       !-- MPI transpose
-      call transp_R2Phi(temp_Rloc, temp_Ploc)
-      if ( l_dtphaseMovie ) call transp_R2Phi(dtemp_Rloc, dtemp_Ploc)
-      call transp_R2Phi(phase_Rloc, phase_Ploc)
+      call transp_R2Phi(temp_Rloc, temp_Ploc, phi_balance, nPstart, nPstop)
+      if ( l_dtphaseMovie ) call transp_R2Phi(dtemp_Rloc, dtemp_Ploc, phi_balance, &
+                                 &            nPstart, nPstop)
+      call transp_R2Phi(phase_Rloc, phase_Ploc, phi_balance, nPstart, nPstop)
 
       rmelt_axi_loc(:)=0.0_cp
       rmelt_mean_loc=0.0_cp
@@ -1278,83 +1280,6 @@ contains
       end do
 
    end subroutine calc_melt_frame
-!------------------------------------------------------------------------------------
-   subroutine transp_R2Phi(arr_Rloc, arr_Ploc)
-      !
-      ! This subroutine is used to compute a MPI transpose between a R-distributed
-      ! array and a Phi-distributed array
-      !
-
-      !-- Input array
-      real(cp), intent(in) :: arr_Rloc(n_theta_max,n_phi_max,nRstart:nRstop)
-
-      !-- Output array
-      real(cp), intent(out) :: arr_Ploc(n_theta_max,nPstart:nPstop,n_r_max)
-
-      !-- Local variables
-      integer :: n_r, n_t, n_p
-#ifdef WITH_MPI
-      integer, allocatable :: rcounts(:), scounts(:), rdisp(:), sdisp(:)
-      real(cp), allocatable :: sbuff(:), rbuff(:)
-      integer :: p, ii, my_phi_counts
-
-      !-- Set displacements vectors and buffer sizes
-      allocate( rcounts(0:n_procs-1), scounts(0:n_procs-1) )
-      allocate( rdisp(0:n_procs-1), sdisp(0:n_procs-1) )
-      do p=0,n_procs-1
-         my_phi_counts=phi_balance(p)%n_per_rank
-         scounts(p)=nR_per_rank*my_phi_counts*n_theta_max
-         rcounts(p)=radial_balance(p)%n_per_rank*(nPStop-nPStart+1)*n_theta_max
-      end do
-
-      rdisp(0)=0
-      sdisp(0)=0
-      do p=1,n_procs-1
-         sdisp(p)=sdisp(p-1)+scounts(p-1)
-         rdisp(p)=rdisp(p-1)+rcounts(p-1)
-      end do
-      allocate( sbuff(sum(scounts)), rbuff(sum(rcounts)) )
-      sbuff(:)=0.0_cp
-      rbuff(:)=0.0_cp
-
-      !-- Prepare buffer
-      do p=0,n_procs-1
-         ii=sdisp(p)+1
-         do n_r=nRstart,nRstop
-            do n_p=phi_balance(p)%nStart,phi_balance(p)%nStop
-               do n_t=1,n_theta_max
-                  sbuff(ii)=arr_Rloc(n_t,n_p,n_r)
-                  ii=ii+1
-               end do
-            end do
-         end do
-      end do
-
-      !-- All to all
-      call MPI_Alltoallv(sbuff, scounts, sdisp, MPI_DEF_REAL, &
-           &             rbuff, rcounts, rdisp, MPI_DEF_REAL, &
-           &             MPI_COMM_WORLD, ierr)
-
-      !-- Reassemble array
-      do p=0,n_procs-1
-         ii=rdisp(p)+1
-         do n_r=radial_balance(p)%nStart,radial_balance(p)%nStop
-            do n_p=nPstart,nPstop
-               do n_t=1,n_theta_max
-                  arr_Ploc(n_t,n_p,n_r)=rbuff(ii)
-                  ii=ii+1
-               end do
-            end do
-         end do
-      end do
-
-      !-- Clear memory from temporary arrays
-      deallocate( rcounts, scounts, rdisp, sdisp, rbuff, sbuff )
-#else
-      arr_Ploc(:,:,:)=arr_Rloc(:,:,:)
-#endif
-
-   end subroutine transp_R2Phi
 !------------------------------------------------------------------------------------
    subroutine gather_Ploc(arr_Ploc, arr_full)
       !
