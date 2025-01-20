@@ -694,6 +694,8 @@ class MagicCoeffR(MagicSetup):
         pattern = os.path.join(datadir,  '{}_coeff_r{}.{}'.format(field,r,tag))
         files = scanDir(pattern)
 
+        self.field = field
+
         # Read the B_coeff files (by stacking the different tags)
         data = []
         for k, file in enumerate(files):
@@ -735,7 +737,7 @@ class MagicCoeffR(MagicSetup):
         data = np.array(data, dtype=precision)
         self.nstep = data.shape[0]
         self.wlm = np.zeros((self.nstep, self.lm_max_r), np.complex128)
-        if field == 'V' or field == 'B':
+        if self.field == 'V' or self.field == 'B':
             self.dwlm = np.zeros((self.nstep, self.lm_max_r), np.complex128)
             self.zlm = np.zeros((self.nstep, self.lm_max_r), np.complex128)
 
@@ -744,7 +746,7 @@ class MagicCoeffR(MagicSetup):
         self.time = data[:, 0]
 
         # wlm
-        if field == 'T' or field == 'Xi': #T or Xi contains l = m = 0
+        if self.field == 'T' or self.field == 'Xi': #T or Xi contains l = m = 0
             self.wlm[:, 0:self.l_max_r+1] = data[:, 1:self.l_max_r+2]
             k = self.l_max_r+2
         else:
@@ -759,7 +761,7 @@ class MagicCoeffR(MagicSetup):
         if step > 1:
             self.wlm = self.wlm[::step, :]
 
-        if field == 'V' or field == 'B':
+        if self.field == 'V' or self.field == 'B':
             # dwlm
             self.dwlm[:, 1:self.l_max_r+1] = data[:, k:k+self.l_max_r]
             k += self.l_max_r
@@ -780,7 +782,7 @@ class MagicCoeffR(MagicSetup):
                 self.zlm = self.dwlm[::step, :]
 
         # ddw in case B is stored
-        if field == 'B':
+        if self.field == 'B':
             self.ddwlm = np.zeros((self.nstep, self.lm_max_r), np.complex128)
             self.ddwlm[:, 1:self.l_max_r+1] = data[:, k:k+self.l_max_r]
             k += self.l_max_r
@@ -795,13 +797,13 @@ class MagicCoeffR(MagicSetup):
         # Truncate!
         if lCut is not None:
             if lCut < self.l_max_r:
-                self.truncate(lCut, field=field)
+                self.truncate(lCut)
 
         if step > 1:
             self.time = self.time[::step]
             self.nstep = len(self.time)
 
-        if field == 'V' or field == 'B':
+        if self.field == 'V' or self.field == 'B':
             self.e_pol_axi_l = np.zeros((self.nstep, self.l_max_r+1), precision)
             self.e_tor_axi_l = np.zeros((self.nstep, self.l_max_r+1), precision)
             self.e_pol_l = np.zeros((self.nstep, self.l_max_r+1), precision)
@@ -841,12 +843,10 @@ class MagicCoeffR(MagicSetup):
             self.e_pol_axi_lM = facT * np.trapz(self.e_pol_axi_l, self.time, axis=0)
             self.e_tor_axi_lM = facT * np.trapz(self.e_tor_axi_l, self.time, axis=0)
 
-    def truncate(self, lCut, field='B'):
+    def truncate(self, lCut):
         """
         :param lCut: truncate to spherical harmonic degree lCut
         :type lCut: int
-        :param field: name of the field ('V', 'B' or 'T')
-        :type field: char
         """
         self.l_max_r = lCut
         self.m_max_r = int((self.l_max_r/self.minc)*self.minc)
@@ -870,10 +870,10 @@ class MagicCoeffR(MagicSetup):
                 k +=1
 
         wlm_new = np.zeros((self.nstep, self.lm_max_r), np.complex128)
-        if field == 'V' or field == 'B':
+        if self.field == 'V' or self.field == 'B':
             dwlm_new = np.zeros((self.nstep, self.lm_max_r), np.complex128)
             zlm_new = np.zeros((self.nstep, self.lm_max_r), np.complex128)
-            if field == 'B':
+            if self.field == 'B':
                 ddwlm_new = np.zeros((self.nstep, self.lm_max_r), np.complex128)
 
             for l in range(1, self.l_max_r+1):
@@ -882,7 +882,7 @@ class MagicCoeffR(MagicSetup):
                     wlm_new[:, lm] = self.wlm[:, self.idx[l,m]]
                     zlm_new[:, lm] = self.zlm[:, self.idx[l,m]]
                     dwlm_new[:, lm] = self.dwlm[:, self.idx[l,m]]
-                    if field == 'B':
+                    if self.field == 'B':
                         ddwlm_new[:, lm] = self.ddwlm[:, self.idx[l,m]]
         else:
             for l in range(1, self.l_max_r+1):
@@ -895,17 +895,17 @@ class MagicCoeffR(MagicSetup):
                 #wlm_new[:, idx_new[l, m]] = self.wlm[:, self.idx[l,m]]
                 #dwlm_new[:, idx_new[l, m]] = self.dwlm[:, self.idx[l,m]]
                 #zlm_new[:, idx_new[l, m]] = self.zlm[:, self.idx[l,m]]
-                #if field == 'B':
+                #if self.field == 'B':
                     #ddwlm_new[:, idx_new[l, m]] = self.ddwlm[:, self.idx[l,m]]
         self.idx = idx_new
         self.ell = ell_new
         self.ms = ms_new
 
         self.wlm = wlm_new
-        if field == 'V' or field == 'B':
+        if self.field == 'V' or self.field == 'B':
             self.dwlm = dwlm_new
             self.zlm = zlm_new
-            if field == 'B':
+            if self.field == 'B':
                 self.ddwlm = ddwlm_new
 
     def movieRad(self, cut=0.5, levels=12, cm='RdYlBu_r', png=False, step=1,
@@ -1089,52 +1089,123 @@ class MagicCoeffR(MagicSetup):
                     else:
                         fig.savefig(filename, dpi=dpi)
 
-    def fft(self, pcolor=False, cm='turbo'):
+    def psd(self, pcolor=False, cm='turbo', windowing=False, padding=False,
+            vmin=None, vmax=None, levels=129, one_sided=True):
         """
-        Fourier transform of the poloidal potential
+        This method handles the fourier transform of the poloidal potential
+        (or temperature or chemical composition) and then compute the power
+        spectral distribution.
 
         :param pcolor: this is a switch to use pcolormesh instead of contourf
         :type pcolor: bool
         :param cm: the name of the colormap (default is 'turbo')
         :type cm: char
+        :param windowing: a switch to multiply the data by a Hanning window
+        :type windowing: bool
+        :param padding: a switch to pad the data with trailing zeros
+        :type padding: bool
+        :param vmax: the maximum value considered in the colorbar
+        :type vmax: float
+        :param vmin: the minimum value considered in the colorbar
+        :type vmin: float
+        :param levels: the number of contour levels
+        :type levels: int
+        :param one_sided: a switch to decide whether one wants, the one-sided
+                          power spectral density (i.e. H(f)=P(f)+P(-f) with
+                          f>0), or the full range of frequencies
+        :type one_sided: bool
         """
 
         dt = np.diff(self.time)
         # If the data is not regularly sampled, use splines to resample them
         if dt.min() != dt.max():
+            print('Time interpolation to resample the data')
             time = np.linspace(self.time[0], self.time[-1], self.nstep)
             it = interp1d(self.time, self.wlm, axis=0)
             wlm = it(time)
+            if self.field == 'V' or self.field == 'B':
+                it = interp1d(self.time, self.dwlm, axis=0)
+                dwlm = it(time)
         else:
             time = self.time
             wlm = self.wlm
+            if self.field == 'V' or self.field == 'B':
+                dwlm = self.dwlm
+
+        if windowing:
+            tmp = wlm.T * np.hanning(len(time))
+            wlm = tmp.T
+            if self.field == 'V' or self.field == 'B':
+                tmp = dwlm.T * np.hanning(len(time))
+                dwlm = tmp.T
+
+        if padding:
+            deltat = time[1]-time[0]
+            time_new = time[-1]+deltat*(np.arange(len(time))+1)
+            time = np.hstack((time, time_new))
+            pad = np.zeros((len(time_new), self.lm_max_r), np.complex128)
+            wlm = np.vstack((wlm, pad))
+            if self.field == 'V' or self.field == 'B':
+                dwlm = np.vstack((dwlm, pad))
 
         wlm_hat = np.fft.fft(wlm, axis=0)
-        ek = np.zeros((self.nstep//2, self.l_max_r+1), np.float64)
+        if self.field == 'V' or self.field == 'B':
+            dwlm_hat = np.fft.fft(dwlm, axis=0)
+
+        if one_sided:
+            if len(time) % 2 == 1: # odd
+                ek = np.zeros((len(time)//2, self.l_max_r+1), np.float64)
+            else:
+                ek = np.zeros((len(time)//2-1, self.l_max_r+1), np.float64)
+        else:
+            ek = np.zeros((len(time), self.l_max_r+1), np.float64)
         for l in range(1, self.l_max_r+1):
             ek[:, l] = 0.
+            dLh = l*(l+1.)/self.radius**2
             for m in range(0, l+1, self.minc):
                 lm = self.idx[l, m]
 
-                if m == 0:
-                    epol = 0.5 * abs(wlm_hat[:, lm])**2
+                if self.field == 'T' or self.field == 'Xi':
+                    if m == 0:
+                        epol = 0.5 * abs(wlm_hat[:, lm])**2
+                    else:
+                        epol = abs(wlm_hat[:, lm])**2
                 else:
-                    epol = abs(wlm_hat[:, lm])**2
+                    if m == 0:
+                        epol = 0.5 * dLh * (dLh * abs(wlm_hat[:, lm])**2 + \
+                                                  abs(dwlm_hat[:, lm])**2)
+                    else:
+                        epol = dLh * (dLh * abs(wlm_hat[:, lm])**2 + \
+                                            abs(dwlm_hat[:, lm])**2)
 
-                ek[:, l] += epol[1:self.nstep//2+1]
+                if one_sided:
+                    if len(time) % 2 == 1: # odd
+                        ek[:, l] += epol[1:len(time)//2+1]+epol[len(time)//2+1:][::-1]
+                    else:
+                        ek[:, l] += epol[1:len(time)//2]+epol[len(time)//2+1:][::-1]
+
+                else:
+                    ek[:, l] += np.fft.fftshift(epol)
         ek = ek[:, 1:] # remove l=0
         self.ek_omega = ek
         dw = 2.*np.pi/(time[-1]-time[0])
-        omega = dw*np.arange(self.nstep)
-        self.omega = omega[1:self.nstep//2+1]
+        omega = np.fft.fftfreq(len(time), d=1./dw/len(time))
+        if one_sided:
+            if len(time) % 2 == 1: # odd
+                self.omega = omega[1:len(time)//2+1]
+            else: #  even
+                self.omega = omega[1:len(time)//2]
+        else:
+            self.omega = np.fft.fftshift(omega)
         ls = np.arange(self.l_max_r+1)
         ls = ls[1:]
 
         dat = np.log10(ek)
-        vmax = dat.max()-0.5
-        #vmin = vmax - 7
-        vmin = max(vmax-10, dat.min()+2)
-        levs = np.linspace(vmin, vmax, 129)
+        if vmax is None:
+            vmax = dat.max()-0.5
+        if vmin is None:
+            vmin = max(vmax-10, dat.min()+2)
+        levs = np.linspace(vmin, vmax, levels)
         fig = plt.figure()
         ax = fig.add_subplot(111)
         if pcolor:
@@ -1144,7 +1215,8 @@ class MagicCoeffR(MagicSetup):
             im = ax.contourf(ls, self.omega, dat, levs, cmap=plt.get_cmap(cm),
                              extend='both')
 
-        ax.set_yscale('log')
+        if one_sided:
+            ax.set_yscale('log')
         cbar = fig.colorbar(im)
 
         ax.set_xlabel('Spherical harmonic degree')
