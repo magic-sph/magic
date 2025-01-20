@@ -73,7 +73,7 @@ Specific inputs
 * **l_max_r** (default :f:var:`l_max_r=l_max <l_max_r>`) is an integer. This is the maximum spherical harmonic degree :math:`\ell` stored in the ``r_field`` file, i.e. only :math:`\ell \leq \ell_{maxcmb}` are stored.
 
 There are two ways to specify the radial grid points where you want to store
-the ``[B|V|T]_coeff_r#.TAG`` files. You can specify a stepping ``n_r_step``: in that
+the ``[B|V|T]_coeff_r#.TAG`` files. You can either specify a stepping ``n_r_step``: in that
 case **5** ``coeff_r#.TAG`` files will be stored at 5 different radial levels every
 ``n_r_step`` grid point:
 
@@ -94,7 +94,7 @@ case **5** ``coeff_r#.TAG`` files will be stored at 5 different radial levels ev
 
 .. _varn_r_step:
 
-* **n_r_step** (default :f:var:`n_r_step=2 <n_r_step>`) is an integer. This specifies the stepping between two consecutive ``[B|V|T]_coeff_r#.TAG`` files.
+* **n_r_step** (default :f:var:`n_r_step=2 <n_r_step>`) is an integer. This specifies the number of radial levels between two consecutive ``[B|V|T]_coeff_r#.TAG`` files.
 
 Alternatively, the input array ``n_r_array`` can be used to specify the radial grid points you exactly want to store:
 
@@ -113,7 +113,7 @@ Alternatively, the input array ``n_r_array`` can be used to specify the radial g
 
 .. _varn_r_array:
 
-* **n_r_array** (default :f:var:`n_r_array=0 0 0 ... <n_r_array>`) a an integer array. You can specify the radial grid points (starting from ``n_r_cmb=1``) where you want to store the coefficients.
+* **n_r_array** (default :f:var:`n_r_array=0 0 0 ... <n_r_array>`) an array of integers. You can specify the radial grid points (starting from ``n_r_cmb=1``) where you want to store the coefficients.
 
 Standard inputs
 +++++++++++++++
