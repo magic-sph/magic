@@ -459,9 +459,10 @@ contains
 
    end subroutine axi_to_spat
 !------------------------------------------------------------------------------
-   subroutine toraxi_to_spat(fl_ax, ft, fp)
+   subroutine toraxi_to_spat(fl_ax, ft, fp, lcut)
 
       !-- Input field
+      integer :: lcut ! Cut-off spherical harmonic degree
       complex(cp), intent(inout) :: fl_ax(l_max+1) !-- Axi-sym toroidal
 
       !-- Output fields on grid
@@ -471,7 +472,7 @@ contains
       !-- Local arrays
       complex(cp) :: tmpt(nlat_padded), tmpp(nlat_padded)
 
-      call SHtor_to_spat_ml(sht_l, 0, fl_ax, tmpt, tmpp, l_max)
+      call SHtor_to_spat_ml(sht_l, 0, fl_ax, tmpt, tmpp, lcut)
       ft(:)=real(tmpt(:))
       fp(:)=real(tmpp(:))
 

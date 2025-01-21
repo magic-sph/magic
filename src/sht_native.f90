@@ -390,16 +390,17 @@ contains
 
    end subroutine axi_to_spat
 !------------------------------------------------------------------------------
-   subroutine toraxi_to_spat(fl_ax, ft, fp)
+   subroutine toraxi_to_spat(fl_ax, ft, fp, lcut)
 
       !-- Input field
+      integer, intent(in) :: lcut ! cut-off spherical harmonic degree
       complex(cp), intent(in) :: fl_ax(l_max+1) !-- Axi-sym toroidal
 
       !-- Output fields on grid
       real(cp), intent(out) :: ft(:)
       real(cp), intent(out) :: fp(:)
 
-      call native_toraxi_to_spat(fl_ax, ft, fp)
+      call native_toraxi_to_spat(fl_ax, ft, fp, lcut)
 
    end subroutine toraxi_to_spat
 !------------------------------------------------------------------------------
