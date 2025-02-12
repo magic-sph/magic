@@ -255,13 +255,13 @@ contains
                &        this%cbtc(nLat,nPhi)*this%bpc(nLat,nPhi) -    &
                &        this%cbpc(nLat,nPhi)*this%btc(nLat,nPhi) )
 
-               !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
-               this%LFt(nLat,nPhi)=  LFfac*or4(nR) * (             &
+               !---- LFt= 1/(E*Pm) * sin(theta)/r * ( curl(B)_p*B_r - curl(B)_r*B_p )
+               this%LFt(nLat,nPhi)=  LFfac*or4(nR) * (                &
                &        this%cbpc(nLat,nPhi)*this%brc(nLat,nPhi) -    &
                &        this%cbrc(nLat,nPhi)*this%bpc(nLat,nPhi) )
 
-               !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
-               this%LFp(nLat,nPhi)=  LFfac*or4(nR) * (             &
+               !---- LFp= 1/(E*Pm) * sin(theta)/r * ( curl(B)_r*B_t - curl(B)_t*B_r )
+               this%LFp(nLat,nPhi)=  LFfac*or4(nR) * (                &
                &        this%cbrc(nLat,nPhi)*this%btc(nLat,nPhi) -    &
                &        this%cbtc(nLat,nPhi)*this%brc(nLat,nPhi) )
             end if      ! Lorentz force required ?
@@ -274,11 +274,11 @@ contains
                   &        this%cvpc(nLat,nPhi)*this%vtc(nLat,nPhi) )
 
                   this%Advt(nLat,nPhi)= -or4(nR)* (                    &
-                  &        this%cvpc(nLat,nPhi)*this%vrc(nLat,nPhi) -     &
+                  &        this%cvpc(nLat,nPhi)*this%vrc(nLat,nPhi) -  &
                   &        this%cvrc(nLat,nPhi)*this%vpc(nLat,nPhi) )
 
                   this%Advp(nLat,nPhi)= -or4(nR)* (                    &
-                  &        this%cvrc(nLat,nPhi)*this%vtc(nLat,nPhi) -     &
+                  &        this%cvrc(nLat,nPhi)*this%vtc(nLat,nPhi) -  &
                   &        this%cvtc(nLat,nPhi)*this%vrc(nLat,nPhi) )
                else ! Advection is u\grad u
                   !------ Get Advection:
@@ -299,11 +299,11 @@ contains
                   &                                   (   this%dvtdrc(nLat,nPhi) - &
                   &                             beta(nR)*this%vtc(nLat,nPhi) )   + &
                   &                                          this%vtc(nLat,nPhi) * &
-                  &                    ( cosn_theta_E2(nLat)*this%vtc(nLat,nPhi) +    &
+                  &                    ( cosn_theta_E2(nLat)*this%vtc(nLat,nPhi) + &
                   &                                       this%dvpdpc(nLat,nPhi) + &
                   &                                   this%dvrdrc(nLat,nPhi) )   + &
                   &                                          this%vpc(nLat,nPhi) * &
-                  &                    ( cosn_theta_E2(nLat)*this%vpc(nLat,nPhi) -    &
+                  &                    ( cosn_theta_E2(nLat)*this%vpc(nLat,nPhi) - &
                   &                                       this%dvtdpc(nLat,nPhi) )  )
 
                   this%Advp(nLat,nPhi)= or4(nR)*orho1(nR) * (                       &
@@ -338,7 +338,7 @@ contains
                &                 this%vtc(nLat,nPhi)/epsPhase**2/penaltyFac**2
                this%Advp(nLat,nPhi)=this%Advp(nLat,nPhi)-or2(nR)*this%phic(nLat,nPhi)* &
                &                 this%vpc(nLat,nPhi)/epsPhase**2/penaltyFac**2
-               this%phiTerms(nLat,nPhi)=-one/epsPhase**2* this%phic(nLat,nPhi)*       &
+               this%phiTerms(nLat,nPhi)=-one/epsPhase**2* this%phic(nLat,nPhi)*    &
                &                      (one-this%phic(nLat,nPhi))*(                 &
                &                      phaseDiffFac*(one-two*this%phic(nLat,nPhi))+ &
                &                      this%sc(nLat,nPhi)-tmelt)
@@ -349,10 +349,10 @@ contains
                &                cos(oek*time+phi(nPhi))*this%vpc(nLat,nPhi)*cosTheta(nLat)+&
                &                sin(oek*time+phi(nPhi))*this%vtc(nLat,nPhi) )
                this%PCt(nLat,nPhi)=   -posnalp*sinTheta(nLat)*or2(nR)*(               &
-               &               cos(oek*time+phi(nPhi))*this%vpc(nLat,nPhi)       + &
+               &               cos(oek*time+phi(nPhi))*this%vpc(nLat,nPhi)       +    &
                &               sin(oek*time+phi(nPhi))*or1(nR)*this%vrc(nLat,nPhi) )
                this%PCp(nLat,nPhi)= posnalp*sinTheta(nLat)*cos(oek*time+phi(nPhi))*   &
-               &                 or2(nR)*(this%vtc(nLat,nPhi)-or1(nR)*             &
+               &                 or2(nR)*(this%vtc(nLat,nPhi)-or1(nR)*                &
                &                 this%vrc(nLat,nPhi)*cosTheta(nLat))
             end if ! precession term required ?
 
@@ -382,11 +382,11 @@ contains
                   &              this%vtc(nLat,nPhi)*this%bpc(nLat,nPhi) -   &
                   &              this%vpc(nLat,nPhi)*this%btc(nLat,nPhi) )
 
-                  this%VxBt(nLat,nPhi)=  orho1(nR)*or4(nR) * (   &
+                  this%VxBt(nLat,nPhi)=  orho1(nR)*or4(nR) * (      &
                   &       this%vpc(nLat,nPhi)*this%brc(nLat,nPhi) - &
                   &       this%vrc(nLat,nPhi)*this%bpc(nLat,nPhi) )
 
-                  this%VxBp(nLat,nPhi)=   orho1(nR)*or4(nR) * (   &
+                  this%VxBp(nLat,nPhi)=   orho1(nR)*or4(nR) * (      &
                   &        this%vrc(nLat,nPhi)*this%btc(nLat,nPhi) - &
                   &        this%vtc(nLat,nPhi)*this%brc(nLat,nPhi) )
                else if ( nBc == 1 .or. nR<=n_r_LCR ) then ! stress free boundary
@@ -403,19 +403,19 @@ contains
             if ( l_anel .and. nBc == 0 ) then
                !------ Get viscous heating
                this%heatTerms(nLat,nPhi)=ViscHeatFac*or4(nR)*           &
-               &                     orho1(nR)*otemp1(nR)*visc(nR)*( &
+               &                     orho1(nR)*otemp1(nR)*visc(nR)*(    &
                &     two*(                     this%dvrdrc(nLat,nPhi) - & ! (1)
                &     (two*or1(nR)+beta(nR))*this%vrc(nLat,nPhi) )**2  + &
-               &     two*( cosn_theta_E2(nLat)*   this%vtc(nLat,nPhi) +    &
+               &     two*( cosn_theta_E2(nLat)*   this%vtc(nLat,nPhi) + &
                &                               this%dvpdpc(nLat,nPhi) + &
                &                               this%dvrdrc(nLat,nPhi) - & ! (2)
                &     or1(nR)*               this%vrc(nLat,nPhi) )**2  + &
                &     two*(                     this%dvpdpc(nLat,nPhi) + &
-               &           cosn_theta_E2(nLat)*   this%vtc(nLat,nPhi) +    & ! (3)
+               &           cosn_theta_E2(nLat)*   this%vtc(nLat,nPhi) + & ! (3)
                &     or1(nR)*               this%vrc(nLat,nPhi) )**2  + &
                &          ( two*               this%dvtdpc(nLat,nPhi) + &
                &                                 this%cvrc(nLat,nPhi) - & ! (6)
-               &    two*cosn_theta_E2(nLat)*this%vpc(nLat,nPhi) )**2  +    &
+               &    two*cosn_theta_E2(nLat)*this%vpc(nLat,nPhi) )**2  + &
                &                        O_sin_theta_E2(nLat) * (        &
                &         ( r(nR)*              this%dvtdrc(nLat,nPhi) - &
                &           (two+beta(nR)*r(nR))*  this%vtc(nLat,nPhi) + & ! (4)
@@ -427,10 +427,10 @@ contains
 
                if ( l_mag_nl .and. nR>n_r_LCR ) then
                   !------ Get ohmic losses
-                  this%heatTerms(nLat,nPhi)=this%heatTerms(nLat,nPhi)+        &
-                  &       OhmLossFac*   or2(nR)*otemp1(nR)*lambda(nR)*  &
-                  &    ( or2(nR)*             this%cbrc(nLat,nPhi)**2 +    &
-                  &      O_sin_theta_E2(nLat)*   this%cbtc(nLat,nPhi)**2 +    &
+                  this%heatTerms(nLat,nPhi)=this%heatTerms(nLat,nPhi)+      &
+                  &       OhmLossFac*   or2(nR)*otemp1(nR)*lambda(nR)*      &
+                  &    ( or2(nR)*             this%cbrc(nLat,nPhi)**2 +     &
+                  &      O_sin_theta_E2(nLat)*   this%cbtc(nLat,nPhi)**2 +  &
                   &      O_sin_theta_E2(nLat)*   this%cbpc(nLat,nPhi)**2  )
                end if ! if l_mag_nl ?
 
@@ -450,12 +450,12 @@ contains
             &        this%cbtc(:,nPhi)*this%bpc(:,nPhi) -    &
             &        this%cbpc(:,nPhi)*this%btc(:,nPhi) )
 
-            !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
+            !---- LFt= 1/(E*Pm) * sin(theta)/r * ( curl(B)_p*B_r - curl(B)_r*B_p )
             this%LFt(:,nPhi)=  LFfac*or4(nR) * (             &
             &        this%cbpc(:,nPhi)*this%brc(:,nPhi) -    &
             &        this%cbrc(:,nPhi)*this%bpc(:,nPhi) )
 
-            !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
+            !---- LFp= 1/(E*Pm) * sin(theta)/r * ( curl(B)_r*B_t - curl(B)_t*B_r )
             this%LFp(:,nPhi)=  LFfac*or4(nR) * (             &
             &        this%cbrc(:,nPhi)*this%btc(:,nPhi) -    &
             &        this%cbtc(:,nPhi)*this%brc(:,nPhi) )
@@ -946,13 +946,13 @@ contains
                   &        this%cbtc(nLat,nR,nPhi)*this%bpc(nLat,nR,nPhi) -    &
                   &        this%cbpc(nLat,nR,nPhi)*this%btc(nLat,nR,nPhi) )
 
-                  !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
-                  this%LFt(nLat,nR,nPhi)=  LFfac*or4(nR) * (                &
+                  !---- LFt= 1/(E*Pm) * sin(theta)/r * ( curl(B)_p*B_r - curl(B)_r*B_p )
+                  this%LFt(nLat,nR,nPhi)=  LFfac*or4(nR) * (                   &
                   &        this%cbpc(nLat,nR,nPhi)*this%brc(nLat,nR,nPhi) -    &
                   &        this%cbrc(nLat,nR,nPhi)*this%bpc(nLat,nR,nPhi) )
 
-                  !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
-                  this%LFp(nLat,nR,nPhi)=  LFfac*or4(nR) * (                &
+                  !---- LFp= 1/(E*Pm) * sin(theta)/r * ( curl(B)_r*B_t - curl(B)_t*B_r )
+                  this%LFp(nLat,nR,nPhi)=  LFfac*or4(nR) * (                   &
                   &        this%cbrc(nLat,nR,nPhi)*this%btc(nLat,nR,nPhi) -    &
                   &        this%cbtc(nLat,nR,nPhi)*this%brc(nLat,nR,nPhi) )
                end if      ! Lorentz force required ?
@@ -964,11 +964,11 @@ contains
                      &        this%cvtc(nLat,nR,nPhi)*this%vpc(nLat,nR,nPhi) -  &
                      &        this%cvpc(nLat,nR,nPhi)*this%vtc(nLat,nR,nPhi) )
 
-                     this%Advt(nLat,nR,nPhi)= -or4(nR)* (                    &
+                     this%Advt(nLat,nR,nPhi)= -or4(nR)* (                       &
                      &        this%cvpc(nLat,nR,nPhi)*this%vrc(nLat,nR,nPhi) -  &
                      &        this%cvrc(nLat,nR,nPhi)*this%vpc(nLat,nR,nPhi) )
 
-                     this%Advp(nLat,nR,nPhi)= -or4(nR)* (                    &
+                     this%Advp(nLat,nR,nPhi)= -or4(nR)* (                       &
                      &        this%cvrc(nLat,nR,nPhi)*this%vtc(nLat,nR,nPhi) -  &
                      &        this%cvtc(nLat,nR,nPhi)*this%vrc(nLat,nR,nPhi) )
                   else ! Advection is u\grad u
@@ -1091,19 +1091,19 @@ contains
                if ( l_anel .and. nBc == 0  ) then
                   !------ Get viscous heating
                   this%heatTerms(nLat,nR,nPhi)=ViscHeatFac*or4(nR)*           &
-                  &                     orho1(nR)*otemp1(nR)*visc(nR)*(    &
+                  &                     orho1(nR)*otemp1(nR)*visc(nR)*(       &
                   &     two*(                     this%dvrdrc(nLat,nR,nPhi) - & ! (1)
                   &     (two*or1(nR)+beta(nR))*this%vrc(nLat,nR,nPhi) )**2  + &
-                  &     two*( cosn_theta_E2(nLat)*   this%vtc(nLat,nR,nPhi) +    &
+                  &     two*( cosn_theta_E2(nLat)*   this%vtc(nLat,nR,nPhi) + &
                   &                               this%dvpdpc(nLat,nR,nPhi) + &
                   &                               this%dvrdrc(nLat,nR,nPhi) - & ! (2)
                   &     or1(nR)*               this%vrc(nLat,nR,nPhi) )**2  + &
                   &     two*(                     this%dvpdpc(nLat,nR,nPhi) + &
-                  &           cosn_theta_E2(nLat)*   this%vtc(nLat,nR,nPhi) +    & ! (3)
+                  &           cosn_theta_E2(nLat)*   this%vtc(nLat,nR,nPhi) + & ! (3)
                   &     or1(nR)*               this%vrc(nLat,nR,nPhi) )**2  + &
                   &          ( two*               this%dvtdpc(nLat,nR,nPhi) + &
                   &                                 this%cvrc(nLat,nR,nPhi) - & ! (6)
-                  &    two*cosn_theta_E2(nLat)*this%vpc(nLat,nR,nPhi) )**2  +    &
+                  &    two*cosn_theta_E2(nLat)*this%vpc(nLat,nR,nPhi) )**2  + &
                   &                        O_sin_theta_E2(nLat) * (           &
                   &         ( r(nR)*              this%dvtdrc(nLat,nR,nPhi) - &
                   &           (two+beta(nR)*r(nR))*  this%vtc(nLat,nR,nPhi) + & ! (4)
@@ -1115,10 +1115,10 @@ contains
 
                   if ( l_mag_nl .and. nR>n_r_LCR ) then
                      !------ Get ohmic losses
-                     this%heatTerms(nLat,nR,nPhi)=this%heatTerms(nLat,nR,nPhi)+     &
-                     &       OhmLossFac*   or2(nR)*otemp1(nR)*lambda(nR)*     &
+                     this%heatTerms(nLat,nR,nPhi)=this%heatTerms(nLat,nR,nPhi)+  &
+                     &       OhmLossFac*   or2(nR)*otemp1(nR)*lambda(nR)*        &
                      &    ( or2(nR)*             this%cbrc(nLat,nR,nPhi)**2 +    &
-                     &      O_sin_theta_E2(nLat)*   this%cbtc(nLat,nR,nPhi)**2 +    &
+                     &      O_sin_theta_E2(nLat)*   this%cbtc(nLat,nR,nPhi)**2 + &
                      &      O_sin_theta_E2(nLat)*   this%cbpc(nLat,nR,nPhi)**2  )
                   end if ! if l_mag_nl ?
 
@@ -1154,11 +1154,11 @@ contains
                      &           this%vtc(nLat,nR,nPhi)*this%bpc(nLat,nR,nPhi) -   &
                      &           this%vpc(nLat,nR,nPhi)*this%btc(nLat,nR,nPhi) )
 
-                     this%VxBt(nLat,nR,nPhi)=  orho1(nR)*or4(nR) * (          &
+                     this%VxBt(nLat,nR,nPhi)=  orho1(nR)*or4(nR) * (             &
                      &           this%vpc(nLat,nR,nPhi)*this%brc(nLat,nR,nPhi) - &
                      &           this%vrc(nLat,nR,nPhi)*this%bpc(nLat,nR,nPhi) )
 
-                     this%VxBp(nLat,nR,nPhi)=   orho1(nR)*or4(nR) * (         &
+                     this%VxBp(nLat,nR,nPhi)=   orho1(nR)*or4(nR) * (            &
                      &           this%vrc(nLat,nR,nPhi)*this%btc(nLat,nR,nPhi) - &
                      &           this%vtc(nLat,nR,nPhi)*this%brc(nLat,nR,nPhi) )
                   else if ( nBc == 1  .or. nR<=n_r_LCR ) then ! stress free boundary
@@ -1180,7 +1180,7 @@ contains
 #else
       !$omp parallel do default(shared) private(nR,nBc)
       do nPhi=1,n_phi_max
-         do nR=nRl, nRu
+         do nR=nRl,nRu
 
             !-- If the computation of nBc does not work well here, we could
             !-- also set the appropriate boundary values to zero after the loop
@@ -1203,12 +1203,12 @@ contains
                &        this%cbtc(:,nR,nPhi)*this%bpc(:,nR,nPhi) -    &
                &        this%cbpc(:,nR,nPhi)*this%btc(:,nR,nPhi) )
 
-               !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
+               !---- LFt= 1/(E*Pm) * sin(theta)/r * ( curl(B)_p*B_r - curl(B)_r*B_p )
                this%LFt(:,nR,nPhi)=  LFfac*or4(nR) * (                &
                &        this%cbpc(:,nR,nPhi)*this%brc(:,nR,nPhi) -    &
                &        this%cbrc(:,nR,nPhi)*this%bpc(:,nR,nPhi) )
 
-               !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
+               !---- LFp= 1/(E*Pm) * sin(theta)/r * ( curl(B)_r*B_t - curl(B)_t*B_r )
                this%LFp(:,nR,nPhi)=  LFfac*or4(nR) * (                &
                &        this%cbrc(:,nR,nPhi)*this%btc(:,nR,nPhi) -    &
                &        this%cbtc(:,nR,nPhi)*this%brc(:,nR,nPhi) )

@@ -316,18 +316,10 @@ contains
 
       !-- Local variables:
       integer :: n_r,n_cheb,n_cheb_int
-      integer :: n_r_ic_tot, k, i
-      integer :: n_const(1)
-
-      !integer :: n_r_start
-      real(cp) :: fac_int
+      integer :: n_r_ic_tot, i
+      real(cp) :: fac_int, fac
       real(cp) :: r_cheb_ic(2*n_r_ic_max-1),r_ic_2(2*n_r_ic_max-1)
       real(cp) :: drho0(n_r_max),dtemp0(n_r_max)
-
-      real(cp) :: hcomp,fac
-      real(cp) :: dtemp0cond(n_r_max),dtemp0ad(n_r_max),hcond(n_r_max)
-      real(cp) :: func(n_r_max)
-
       real(cp), allocatable :: coeffDens(:), coeffTemp(:), coeffAlpha(:)
       real(cp), allocatable :: coeffGrav(:), coeffGrun(:)
       real(cp) :: rrOcmb(n_r_max)

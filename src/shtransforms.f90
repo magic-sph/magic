@@ -402,13 +402,14 @@ contains
 
    end subroutine native_axi_to_spat
 !------------------------------------------------------------------------------
-   subroutine native_toraxi_to_spat(Tlm, btc, bpc)
+   subroutine native_toraxi_to_spat(Tlm, btc, bpc, lcut)
       !
       ! Use spheroidal and toroidal potentials to transform them to angular
       ! vector components btheta and bphi
       !
 
       !-- Input variables:
+      integer, intent(in) :: lcut ! cut-off spherical harmonic degree
       complex(cp), intent(in) :: Tlm(l_max+1)
 
       !-- Output: field on grid (theta,m) for the radial grid point nR
@@ -428,8 +429,13 @@ contains
       complex(cp) :: bhS1M,bhS2M,bhS,bhS1,bhS2
 
       do l=1,l_max+1
-         bhG(l)=-ci*Tlm(l)
-         bhC(l)= ci*Tlm(l)
+         if ( l > lcut+1 ) then
+            bhG(l)=zero
+            bhC(l)=zero
+         else
+            bhG(l)=-ci*Tlm(l)
+            bhC(l)= ci*Tlm(l)
+         end if
       end do
 
       nThetaNHS=0

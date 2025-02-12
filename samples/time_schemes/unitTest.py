@@ -19,6 +19,38 @@ def cleanDir(dir):
         os.remove(f)
     for f in glob.glob('{}/*.test'.format(dir)):
         os.remove(f)
+    for f in glob.glob('{}/*.cnab2'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.sbdf2'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.sbdf3'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.sbdf4'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.ars222'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.ars443'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.bpr353'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.pc2'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.modcnab'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.cnlf'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.lz232'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.kc564'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.ars343'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.cb3'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.kc564_fd'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.kc785_fd'.format(dir)):
+        os.remove(f)
     if os.path.exists('{}/stdout.out'.format(dir)):
         os.remove('{}/stdout.out'.format(dir))
     for f in glob.glob('{}/*.pyc'.format(dir)):
@@ -131,38 +163,6 @@ class TimeSchemes(unittest.TestCase):
         # Cleaning when leaving
         os.chdir(self.startDir)
         cleanDir(self.dir)
-        for f in glob.glob('{}/*.cnab2'.format(self.dir)):
-            os.remove(f)
-        for f in glob.glob('{}/*.sbdf2'.format(self.dir)):
-            os.remove(f)
-        for f in glob.glob('{}/*.sbdf3'.format(self.dir)):
-            os.remove(f)
-        for f in glob.glob('{}/*.sbdf4'.format(self.dir)):
-            os.remove(f)
-        for f in glob.glob('{}/*.ars222'.format(self.dir)):
-            os.remove(f)
-        for f in glob.glob('{}/*.ars443'.format(self.dir)):
-            os.remove(f)
-        for f in glob.glob('{}/*.bpr353'.format(self.dir)):
-            os.remove(f)
-        for f in glob.glob('{}/*.pc2'.format(self.dir)):
-            os.remove(f)
-        for f in glob.glob('{}/*.modcnab'.format(self.dir)):
-            os.remove(f)
-        for f in glob.glob('{}/*.cnlf'.format(self.dir)):
-            os.remove(f)
-        for f in glob.glob('{}/*.lz232'.format(self.dir)):
-            os.remove(f)
-        for f in glob.glob('{}/*.kc564'.format(self.dir)):
-            os.remove(f)
-        for f in glob.glob('{}/*.ars343'.format(self.dir)):
-            os.remove(f)
-        for f in glob.glob('{}/*.cb3'.format(self.dir)):
-            os.remove(f)
-        for f in glob.glob('{}/*.kc564_fd'.format(self.dir)):
-            os.remove(f)
-        for f in glob.glob('{}/*.kc785_fd'.format(self.dir)):
-            os.remove(f)
 
         t = time.time()-self.startTime
         st = time.strftime("%M:%S", time.gmtime(t))

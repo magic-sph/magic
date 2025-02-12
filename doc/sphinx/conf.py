@@ -57,7 +57,7 @@ master_doc = 'contents'
 
 # General information about the project.
 project = 'Magic'
-copyright = u'2023, Thomas Gastine, Johannes Wicht, Ankit Barik, Lùcia Duarte'
+copyright = u'2025, Thomas Gastine, Johannes Wicht, Ankit Barik, Lùcia Duarte'
 author = u'Thomas Gastine, Johannes Wicht, Ankit Barik, Lùcia Duarte'
 
 # The version info for the project you're documenting, acts as replacement for
