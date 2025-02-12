@@ -17,7 +17,7 @@ module updatePhi_mod
    use logic, only: l_finite_diff, l_full_sphere, l_parallel_solve
    use parallel_mod, only: rank, chunksize, n_procs, get_openmp_blocks
    use radial_der, only: get_ddr, get_ddr_ghost, exch_ghosts, bulk_to_ghost
-   use constants, only: zero, one, two
+   use constants, only: zero, one, two, three
    use fields, only: work_LMloc
    use mem_alloc, only: bytes_allocated
    use useful, only: abortRun
@@ -594,6 +594,9 @@ contains
                dphidt%impl(lm,n_r,istage)= phaseDiffFac * ( work_Rloc(lm,n_r) + &
                &                                 two*or1(n_r) *  dphi(lm,n_r) - &
                &                                  dL*or2(n_r) *  phig(lm,n_r) )
+               if ( l_full_sphere .and. l==0 .and. n_r==n_r_icb ) then
+                  dphidt%impl(lm,n_r,istage)=phaseDiffFac*three*work_Rloc(lm,n_r)
+               end if
             end do
          end do
       end if
@@ -925,6 +928,18 @@ contains
             phiMat%up(l,nR) =-tscheme%wimp_lin(1)*phaseDiffFac*(    &
             &                                rscheme_oc%ddr(nR,2) + &
             &                 two*or1(nR)*    rscheme_oc%dr(nR,2) )
+
+            if ( l==0 .and. l_full_sphere .and. nR==n_r_icb ) then
+               !-- Use L'Hôpital's rule to replace 2/r d/dr at the center
+               !-- by 2*d^2/dr^2
+               phiMat%diag(l,nR)=    5.0_cp/6.0_cp*stef*pr-           &
+               &                  tscheme%wimp_lin(1)*phaseDiffFac*   &
+               &                       three*   rscheme_oc%ddr(nR,1)
+               phiMat%low(l,nR)=-tscheme%wimp_lin(1)*phaseDiffFac*    &
+               &                       three*   rscheme_oc%ddr(nR,0)
+               phiMat%up(l,nR) =-tscheme%wimp_lin(1)*phaseDiffFac*    &
+               &                       three*   rscheme_oc%ddr(nR,2)
+            end if
          end do
       end do
       !$omp end do
