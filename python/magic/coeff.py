@@ -1253,7 +1253,7 @@ class MagicCoeffR(MagicSetup):
                          logarithmic scale (linear by default)
         :type logscale: bool
         """
-        assert version > '1.4.0'
+        #assert version > '1.4.0'
 
         dt = np.diff(self.time)
         # If the data is not regularly sampled, use splines to resample them
