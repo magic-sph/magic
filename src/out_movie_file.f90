@@ -18,7 +18,7 @@ module out_movie
        &                 n_movie_fields_ic
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: orho1, orho2, or1, or2, or3, or4, beta,  &
-       &                       r_surface, r_cmb, r, r_ic, temp0
+       &                       r_surface, r_cmb, r, r_ic, temp0, l_R
    use physical_parameters, only: LFfac, radratio, ra, ek, pr, prmag, raxi, sc
    use num_param, only: vScale, tScale
    use blocking, only: lm2l, lm2, llmMag, ulmMag
@@ -1639,21 +1639,16 @@ contains
       !-- Local variables:
       integer :: n_theta         ! No. of theta
       integer :: l,lm            ! Degree, counter for degree/order combinations
-
-      real(cp) :: O_r              ! 1/r
       real(cp) :: tmpt(nlat_padded), tmpp(nlat_padded)
       complex(cp) :: Tl_AX(1:l_max+1)
-
-      !-- Calculate radial dependencies:
-      O_r=or1(n_r)
 
       Tl_AX(1)=zero
       do l=1,l_max
          lm=lm2(l,0)
-         Tl_AX(l+1)=O_r*w_Rloc(lm,n_r)
+         Tl_AX(l+1)=or1(n_r)*w_Rloc(lm,n_r)
       end do
 
-      call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:))
+      call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:), l_R(n_r))
 
       do n_theta=1,n_theta_max
          sl(n_theta)=O_sin_theta(n_theta)*tmpp(n_theta)
@@ -1685,7 +1680,6 @@ contains
       integer :: l,lm            ! Degree, counter for degree/order combinations
 
       real(cp) :: r_ratio          ! r/r_ICB
-      real(cp) :: O_r              ! 1/r
       real(cp) :: r_dep(l_max)     ! (r/r_ICB)**l / r_ICB
       real(cp) :: tmpt(nlat_padded), tmpp(nlat_padded)
       complex(cp) :: Tl_AX(1:l_max+1)
@@ -1696,8 +1690,6 @@ contains
          do l=2,l_max
             r_dep(l)=r_dep(l-1)*r_ratio
          end do
-      else
-         O_r=or1(n_r)
       end if
 
       Tl_AX(1)=zero
@@ -1710,11 +1702,15 @@ contains
                Tl_AX(l+1)=r_dep(l)*bICB(lm)
             end if
          else             ! Outer Core
-            Tl_AX(l+1)=O_r*b_Rloc(lm,n_r)
+            Tl_AX(l+1)=or1(n_r)*b_Rloc(lm,n_r)
          end if
       end do
 
-      call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:))
+      if ( l_ic ) then
+         call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:), l_max)
+      else
+         call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:), l_R(n_r))
+      end if
 
       do n_theta=1,n_theta_max
          fl(n_theta)=O_sin_theta(n_theta)*tmpp(n_theta)

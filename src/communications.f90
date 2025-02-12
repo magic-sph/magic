@@ -13,14 +13,14 @@ module communications
 #else
    use mem_alloc, only: memWrite, bytes_allocated
 #endif
-   use parallel_mod, only: rank, n_procs, ierr
+   use parallel_mod, only: rank, n_procs, ierr, load
    use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max, &
        &                 fd_order, fd_order_bound, m_max, m_min
    use blocking, only: st_map, lo_map, lm_balance, llm, ulm
    use radial_data, only: nRstart, nRstop, radial_balance
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, l_finite_diff, &
        &            l_mag_kin, l_double_curl, l_save_out, l_packed_transp, &
-       &            l_parallel_solve, l_mag_par_solve, l_phase_field
+       &            l_parallel_solve, l_mag_par_solve
    use useful, only: abortRun
    use output_data, only: n_log_file, log_file
    use iso_fortran_env, only: output_unit
@@ -49,7 +49,7 @@ module communications
 #endif
 
    public :: gather_from_lo_to_rank0,scatter_from_rank0_to_lo, allgather_from_Rloc, &
-   &         gather_all_from_lo_to_rank0, gather_from_Rloc
+   &         gather_all_from_lo_to_rank0, gather_from_Rloc, transp_R2Phi, transp_Phi2R
    public :: get_global_sum, finalize_communications, initialize_communications
 
 #ifdef WITH_MPI
@@ -240,10 +240,10 @@ contains
 #endif
       end if
 
+      call lo2r_one%create_comm(1)
+      call r2lo_one%create_comm(1)
       if ( l_packed_transp ) then
-         call lo2r_one%create_comm(1)
          if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
-            call r2lo_one%create_comm(1)
             if ( l_parallel_solve ) then
                if ( l_mag .and. (.not. l_mag_par_solve) ) then
                   call lo2r_flow%create_comm(2)
@@ -259,7 +259,6 @@ contains
                end if
             end if
          else
-            if ( l_phase_field ) call r2lo_one%create_comm(1)
             if ( l_heat ) then
                call lo2r_s%create_comm(2)
                call r2lo_s%create_comm(2)
@@ -282,9 +281,6 @@ contains
                call r2lo_field%create_comm(3)
             end if
          end if
-      else
-         call lo2r_one%create_comm(1)
-         call r2lo_one%create_comm(1)
       end if
 
       ! allocate a temporary array for the gather operations.
@@ -312,16 +308,15 @@ contains
       call destroy_gather_type(gt_OC)
       call destroy_gather_type(gt_IC)
 
+      call lo2r_one%destroy_comm()
+      call r2lo_one%destroy_comm()
       if ( l_packed_transp ) then
-         call lo2r_one%destroy_comm()
          if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
-            call r2lo_one%destroy_comm()
             if ( (.not. l_parallel_solve) .and. (.not. l_mag_par_solve) ) then
                call lo2r_flow%destroy_comm()
                call r2lo_flow%destroy_comm()
             end if
          else
-            if ( l_phase_field ) call r2lo_one%destroy_comm()
             if ( l_heat ) then
                call lo2r_s%destroy_comm()
                call r2lo_s%destroy_comm()
@@ -340,9 +335,6 @@ contains
                call r2lo_field%destroy_comm()
             end if
          end if
-      else
-         call lo2r_one%destroy_comm()
-         call r2lo_one%destroy_comm()
       end if
 
       deallocate( temp_gather_lo )
@@ -965,6 +957,167 @@ contains
 #endif
 
    end subroutine reduce_scalar
+!-------------------------------------------------------------------------------
+   subroutine transp_R2Phi(arr_Rloc, arr_Ploc, phi_balance, nPstart, nPstop)
+      !
+      ! This subroutine is used to compute a MPI transpose between a R-distributed
+      ! array and a Phi-distributed array
+      !
+
+      !-- Input fields
+      integer,    intent(in) :: nPstart ! First index for phi-distributed arrays
+      integer,    intent(in) :: nPstop  ! Last index for phi-distributed arrays
+      type(load), intent(in) :: phi_balance(0:) ! Balancing info along phi
+      real(cp),   intent(in) :: arr_Rloc(:,:,nRstart:) ! Input array (R-distributed)
+
+      !-- Output array
+      real(cp), intent(out) :: arr_Ploc(:,nPstart:,:) ! Output array (Phi-distributed)
+
+#ifdef WITH_MPI
+      !-- Local variables
+      integer :: n_r, n_t, n_p
+      integer :: rcounts(0:n_procs-1), scounts(0:n_procs-1)
+      integer :: rdisp(0:n_procs-1), sdisp(0:n_procs-1)
+      real(cp), allocatable :: sbuff(:), rbuff(:)
+      integer :: p, ii, n_theta, n_phi
+
+      n_theta = size(arr_Rloc, 1)
+      n_phi = size(arr_Rloc, 2)
+
+      !-- Set displacements vectors and buffer sizes
+      do p=0,n_procs-1
+         scounts(p)=(nRstop-nRstart+1)*phi_balance(p)%n_per_rank*n_theta
+         rcounts(p)=radial_balance(p)%n_per_rank*(nPStop-nPStart+1)*n_theta
+      end do
+
+      rdisp(0)=0
+      sdisp(0)=0
+      do p=1,n_procs-1
+         sdisp(p)=sdisp(p-1)+scounts(p-1)
+         rdisp(p)=rdisp(p-1)+rcounts(p-1)
+      end do
+      allocate( sbuff(sum(scounts)), rbuff(sum(rcounts)) )
+      sbuff(:)=0.0_cp
+      rbuff(:)=0.0_cp
+
+      !-- Prepare buffer
+      do p=0,n_procs-1
+         ii=sdisp(p)+1
+         do n_r=nRstart,nRstop
+            do n_p=phi_balance(p)%nStart,phi_balance(p)%nStop
+               do n_t=1,n_theta
+                  sbuff(ii)=arr_Rloc(n_t,n_p,n_r)
+                  ii=ii+1
+               end do
+            end do
+         end do
+      end do
+
+      !-- All to all
+      call MPI_Alltoallv(sbuff, scounts, sdisp, MPI_DEF_REAL, &
+           &             rbuff, rcounts, rdisp, MPI_DEF_REAL, &
+           &             MPI_COMM_WORLD, ierr)
+
+      !-- Reassemble array
+      do p=0,n_procs-1
+         ii=rdisp(p)+1
+         do n_r=radial_balance(p)%nStart,radial_balance(p)%nStop
+            do n_p=nPstart,nPstop
+               do n_t=1,n_theta
+                  arr_Ploc(n_t,n_p,n_r)=rbuff(ii)
+                  ii=ii+1
+               end do
+            end do
+         end do
+      end do
+
+      !-- Clear memory from temporary arrays
+      deallocate( rbuff, sbuff )
+#else
+      arr_Ploc(:,:,:)=arr_Rloc(:,:,:)
+#endif
+
+   end subroutine transp_R2Phi
+!-------------------------------------------------------------------------------
+   subroutine transp_Phi2R(arr_Ploc, arr_Rloc, phi_balance, nPstart, nPstop)
+      !
+      ! This subroutine is used to compute a MPI transpose between a Phi-distributed
+      ! array and a R-distributed array
+      !
+
+      !-- Input array
+      integer,    intent(in) :: nPstart ! First index for phi-distributed arrays
+      integer,    intent(in) :: nPstop  ! Last index for phi-distributed arrays
+      type(load), intent(in) :: phi_balance(0:) ! Balancing info along phi
+      real(cp),   intent(in) :: arr_Ploc(:,nPstart:,:) ! Input array (Phi-distributed)
+
+      !-- Output array
+      real(cp), intent(out) :: arr_Rloc(:,:,nRstart:) ! Output array (R-distributed)
+
+#ifdef WITH_MPI
+      !-- Local variables
+      integer :: n_r, n_t, n_p
+      integer :: rcounts(0:n_procs-1), scounts(0:n_procs-1)
+      integer :: rdisp(0:n_procs-1), sdisp(0:n_procs-1)
+      real(cp), allocatable :: sbuff(:), rbuff(:)
+      integer :: p, ii, n_theta
+
+      n_theta = size(arr_Rloc, 1)
+
+      !-- Set displacements vectors and buffer sizes
+      do p=0,n_procs-1
+         scounts(p)=radial_balance(p)%n_per_rank*(nPstop-nPstart+1)*n_theta
+         rcounts(p)=(nRstop-nRstart+1)*phi_balance(p)%n_per_rank*n_theta
+      end do
+
+      rdisp(0)=0
+      sdisp(0)=0
+      do p=1,n_procs-1
+         sdisp(p)=sdisp(p-1)+scounts(p-1)
+         rdisp(p)=rdisp(p-1)+rcounts(p-1)
+      end do
+      allocate( sbuff(sum(scounts)), rbuff(sum(rcounts)) )
+      sbuff(:)=0.0_cp
+      rbuff(:)=0.0_cp
+
+      !-- Prepare buffer
+      do p=0,n_procs-1
+         ii=sdisp(p)+1
+         do n_r=radial_balance(p)%nStart,radial_balance(p)%nStop
+            do n_p=nPstart,nPstop
+               do n_t=1,n_theta
+                  sbuff(ii)=arr_Ploc(n_t,n_p,n_r)
+                  ii=ii+1
+               end do
+            end do
+         end do
+      end do
+
+      !-- All to all
+      call MPI_Alltoallv(sbuff, scounts, sdisp, MPI_DEF_REAL, &
+           &             rbuff, rcounts, rdisp, MPI_DEF_REAL, &
+           &             MPI_COMM_WORLD, ierr)
+
+      !-- Reassemble array
+      do p=0,n_procs-1
+         ii=rdisp(p)+1
+         do n_r=nRstart,nRstop
+            do n_p=phi_balance(p)%nStart,phi_balance(p)%nStop
+               do n_t=1,n_theta
+                  arr_Rloc(n_t,n_p,n_r)=rbuff(ii)
+                  ii=ii+1
+               end do
+            end do
+         end do
+      end do
+
+      !-- Clear memory from temporary arrays
+      deallocate( rbuff, sbuff )
+#else
+      arr_Rloc(:,:,:)=arr_Ploc(:,:,:)
+#endif
+
+   end subroutine transp_Phi2R
 !-------------------------------------------------------------------------------
    subroutine find_faster_block(idx_type)
 

@@ -16,7 +16,7 @@ module out_dtB_frame
        &             b_ic_LMloc, aj_ic_LMloc, db_ic_LMloc, dj_ic_LMloc
    use radial_data, only: nRstart, nRstop
    use radial_functions, only: r, or1, chebt_ic, r_ic, rscheme_oc, r_icb, &
-       &                       dr_fac_ic, chebt_ic_even
+       &                       dr_fac_ic, chebt_ic_even, l_R
    use blocking, only: lm2l, lm2m, lm2, lo_map, llmMag, ulmMag, llm, ulm
    use horizontal_data, only: cosTheta, n_theta_cal2ord, sinTheta, &
        &                      dLh, O_sin_theta
@@ -637,7 +637,11 @@ contains
          Tl_AX(:)=Tl_AX_loc(:)
       end if
 
-      call toraxi_to_spat(Tl_AX, tmpt, tmpp)
+      if ( l_ic ) then
+         call toraxi_to_spat(Tl_AX, tmpt, tmpp, l_max)
+      else
+         call toraxi_to_spat(Tl_AX, tmpt, tmpp, l_R(n_r))
+      end if
 
       do n_theta=1,n_theta_max
          dtB(n_theta)=O_sin_theta(n_theta)*tmpp(n_theta)

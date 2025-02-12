@@ -1018,16 +1018,16 @@ class TsLookUpTable:
                 self.mantlerotPower = data[:, 4]
                 self.viscDiss = data[:, 5]
                 self.ohmDiss = data[:, 6]
-                self.icPower = data[:, 7]
-                self.mantlePower = data[:, 8]
+                self.mantlePower = data[:, 7]
+                self.icPower = data[:, 8]
             elif data.shape[1] == 10:
                 self.buoPower_chem = np.zeros_like(self.time)
                 self.icrotPower = data[:, 2]
                 self.mantlerotPower = data[:, 3]
                 self.viscDiss = data[:, 4]
                 self.ohmDiss = data[:, 5]
-                self.icPower = data[:, 6]
-                self.mantlePower = data[:, 7]
+                self.mantlePower = data[:, 6]
+                self.icPower = data[:, 7]
             if abs(self.ohmDiss).max() != 0:
                  self.fohm = -self.ohmDiss/(self.buoPower+self.buoPower_chem)
                  self.fvis = -self.viscDiss/(self.buoPower+self.buoPower_chem)

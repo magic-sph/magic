@@ -13,7 +13,8 @@ module geos
    use constants, only: half, two, pi, one, four, third, zero
    use mem_alloc, only: bytes_allocated
    use radial_data, only: radial_balance, nRstart, nRstop
-   use radial_functions, only: or1, or2, r_ICB, r_CMB, r, orho1, orho2, beta
+   use radial_functions, only: or1, or2, r_ICB, r_CMB, r, orho1, orho2, &
+       &                       beta, l_R
    use output_data, only: sDens, zDens, tag, n_s_max
    use horizontal_data, only: n_theta_cal2ord, O_sin_theta_E2, theta_ord, &
        &                      O_sin_theta, cosTheta, sinTheta
@@ -647,7 +648,7 @@ contains
       if ( rank == 0 ) then
          !-- Legendre transform and unscramble theta's
          do nR=1,n_r_max
-            call toraxi_to_spat(dzVpLMr(:, nR), tmpt(:), tmpp(:,nR))
+            call toraxi_to_spat(dzVpLMr(:, nR), tmpt(:), tmpp(:,nR), l_R(nR))
             do nTheta=1,n_theta_max
                nTheta1=n_theta_cal2ord(nTheta)
                OmP(nTheta1,nR)=tmpp(nTheta,nR)/omega_ic

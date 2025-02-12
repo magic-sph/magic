@@ -10,7 +10,7 @@ module torsional_oscillations
        &                 nlat_padded
    use grid_blocking, only: radlatlon2spat
    use radial_data, only: nRstart, nRstop
-   use radial_functions, only: or1, or2, or3, or4, beta, orho1, dbeta
+   use radial_functions, only: or1, or2, or3, or4, beta, orho1, dbeta, l_R
    use physical_parameters, only: CorFac, kbotv, ktopv, epsPhase, penaltyFac
    use blocking, only: lm2
    use horizontal_data, only: sinTheta, cosTheta, hdif_V, dLh, &
@@ -415,7 +415,7 @@ contains
          Tl_AX(l+1)=cmplx(Tlm(lm),0.0_cp,kind=cp)
       end do
 
-      call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:))
+      call toraxi_to_spat(Tl_AX(1:l_max+1), tmpt(:), tmpp(:), l_R(nR))
 
       !-- Unscramble theta
       do nTheta=1,n_theta_max

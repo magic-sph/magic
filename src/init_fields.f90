@@ -6,10 +6,9 @@ module init_fields
    use precision_mod
    use iso_fortran_env, only: output_unit
    use parallel_mod
-   use mpi_ptop_mod, only: type_mpiptop
-   use mpi_transp_mod, only: type_mpitransp
    use chebyshev, only: type_cheb_odd
    use finite_differences, only: type_fd
+   use communications, only: lo2r_one, r2lo_one, transp_R2Phi, transp_Phi2R
    use truncation, only: n_r_max, n_r_maxMag, n_r_ic_max, m_min, l_max, &
        &                 n_phi_max, n_theta_max, n_r_tot, m_max,       &
        &                 minc, n_cheb_ic_max, lm_max, nlat_padded
@@ -35,8 +34,8 @@ module init_fields
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
        &                zero, one, two, three, four, third, half, sq4pi
-   use useful, only: abortRun
-   use sht, only: scal_to_SH, sht_l_single
+   use useful, only: abortRun, lagrange_interp
+   use sht, only: scal_to_SH, scal_to_spat, sht_l_single
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
        &                          peakS, widthS, radratio, imagcon, opm,  &
        &                          sigma_ratio, O_sr, kbots, ktops, opr,   &
@@ -188,25 +187,18 @@ contains
       real(cp) :: ra1,ra2,c_r,c_i
       real(cp) :: amp_r,rExp
       real(cp) :: rDep(n_r_max)
-      class(type_mpitransp), pointer :: r2lo_initv, lo2r_initv
       real(cp) :: ss,ome(nlat_padded,n_phi_max)
       complex(cp) :: omeLM(lm_max)
-
-      allocate( type_mpiptop :: r2lo_initv )
-      allocate( type_mpiptop :: lo2r_initv )
 
       !-- Initialize rotation according to
       !   given inner core and mantel rotation rate:
       if ( init_v1 == 1 .and. ( omega_ic1 /= 0.0_cp .or. omega_ma1 /= 0.0_cp ) ) then
 
-         call r2lo_initv%create_comm(1)
-         call lo2r_initv%create_comm(1)
-
          !-- From lo distributed to r distributed
 #ifdef WITH_OMP_GPU
          !$omp target update to(z)
 #endif
-         call lo2r_initv%transp_lm2r(z, z_Rloc)
+         call lo2r_one%transp_lm2r(z, z_Rloc)
 #ifdef WITH_OMP_GPU
          !$omp target update from(z_Rloc)
 #endif
@@ -252,25 +244,18 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target update to(z_Rloc)
 #endif
-         call r2lo_initv%transp_r2lm(z_Rloc, z)
+         call r2lo_one%transp_r2lm(z_Rloc, z)
 #ifdef WITH_OMP_GPU
          !$omp target update from(z)
 #endif
 
-         !-- Destroy MPI communicators
-         call r2lo_initv%destroy_comm()
-         call lo2r_initv%destroy_comm()
-
       else if ( init_v1 == 2 ) then
-
-         call r2lo_initv%create_comm(1)
-         call lo2r_initv%create_comm(1)
 
          !-- From lo distributed to r distributed
 #ifdef WITH_OMP_GPU
          !$omp target update to(z)
 #endif
-         call lo2r_initv%transp_lm2r(z, z_Rloc)
+         call lo2r_one%transp_lm2r(z, z_Rloc)
 #ifdef WITH_OMP_GPU
          !$omp target update from(z_Rloc)
 #endif
@@ -312,15 +297,10 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target update to(z_Rloc)
 #endif
-         call r2lo_initv%transp_r2lm(z_Rloc, z)
+         call r2lo_one%transp_r2lm(z_Rloc, z)
 #ifdef WITH_OMP_GPU
          !$omp target update from(z)
 #endif
-
-         !-- Destroy MPI communicators
-         call r2lo_initv%destroy_comm()
-         call lo2r_initv%destroy_comm()
-
 
       else if ( init_v1 > 2 ) then
 
@@ -1512,15 +1492,18 @@ contains
       complex(cp), intent(inout) :: phi(llm:ulm,n_r_max) ! Phase field
 
       !-- Local variables:
-      real(cp) :: temp00(n_r_max), rmelt, phi0(n_r_max)
-      integer :: lm00, n_r, n_r_melt, l, lm
+      real(cp) :: temp00(n_r_max), rmelt, phi0(n_r_max), rphase, x(4), y(4)
+      integer :: lm00, n_r, n_r_melt, l, lm, n_p, n_t, nPstart, nPstop
+      integer :: n_r_phase, n_r_start, n_r_stop
+      complex(cp), allocatable :: s_Rloc(:,:), phi_Rloc(:,:)
+      real(cp), allocatable :: temp_Rloc(:,:,:), temp_Ploc(:,:,:)
+      real(cp), allocatable :: phase_Rloc(:,:,:), phase_Ploc(:,:,:)
+      type(load), allocatable :: phi_balance(:)
 
-      lm00 = lo_map%lm2(0,0) ! spherically-symmetric mode
-
-      if ( init_phi /= 0 ) then
+      if ( init_phi == 1 ) then
          !-- The initial phase field is set as a tanh function of width epsPhase
          !-- centered at the melting temperature
-
+         lm00 = lo_map%lm2(0,0) ! spherically-symmetric mode
          if ( llm <= lm00 .and. ulm >= lm00 ) then
             temp00(:)=osq4pi * real(s(lm00,:))
             do n_r=2,n_r_max
@@ -1532,21 +1515,95 @@ contains
             phi0(:)=half*(one+tanh((r(:)-rmelt)/two/sqrt(two)/epsPhase))
             phi(lm00,:)=sq4pi*cmplx(phi0,0.0_cp,cp)
          end if
-      end if
 
 #ifdef WITH_MPI
-      call MPI_Bcast(phi0,n_r_max,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(phi0,n_r_max,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
 #endif
 
-      !-- Make sure there is no temperature perturbation in the solid phase
-      if ( init_s1 /= 0 .or. init_s2 /= 0 ) then
-         do n_r=1,n_r_max
-            do lm=llm,ulm
-               l = lo_map%lm2l(lm)
-               if ( l == 0 ) cycle
-               s(lm,n_r)=s(lm,n_r)*(one-phi0(n_r))
+         !-- Make sure there is no temperature perturbation in the solid phase
+         if ( init_s1 /= 0 .or. init_s2 /= 0 ) then
+            do n_r=1,n_r_max
+               do lm=llm,ulm
+                  l = lo_map%lm2l(lm)
+                  if ( l == 0 ) cycle
+                  s(lm,n_r)=s(lm,n_r)*(one-phi0(n_r))
+               end do
+            end do
+         end if
+
+      else if ( init_phi == 2 ) then
+         !-- Compute locally the temperature distribution in the physical space
+         !-- and then get the corresponding phase field
+         allocate(s_Rloc(lm_max,nRstart:nRstop), phi_Rloc(lm_max,nRstart:nRstop))
+         allocate( phi_balance(0:n_procs-1) )
+         call getBlocks(phi_balance, n_phi_max, n_procs)
+         nPstart = phi_balance(rank)%nStart
+         nPstop = phi_balance(rank)%nStop
+         allocate( phase_Rloc(nlat_padded,n_phi_max,nRstart:nRstop) )
+         allocate( temp_Rloc(nlat_padded,n_phi_max,nRstart:nRstop) )
+         allocate( phase_Ploc(nlat_padded,nPstart:nPstop,n_r_max) )
+         allocate( temp_Ploc(nlat_padded,nPstart:nPstop,n_r_max) )
+
+         !-- Bring the temperature field on the R-distributed version
+         call lo2r_one%transp_lm2r(s, s_Rloc)
+
+         !-- Compute the temperature on the physical grid
+         do n_r=nRstart,nRstop
+            call scal_to_spat(sht_l_single, s_Rloc(:,n_r), temp_Rloc(:,:,n_r), l_max)
+         end do
+
+         !-- Transpose the temperature on a phi-distributed grid
+         call transp_R2Phi(temp_Rloc, temp_Ploc, phi_balance, nPstart, nPstop)
+
+         !-- Determine the melt radius by 4th order Lagrangian smoothing
+         do n_p=nPstart,nPstop
+            do n_t=1,n_theta_max
+               !-- Determine the radial level where T=Tmelt
+               n_r_phase=1
+               do n_r=2,n_r_max
+                  if ( temp_Ploc(n_t,n_p,n_r) > tmelt .and. &
+                  &    temp_Ploc(n_t,n_p,n_r-1) < tmelt ) then
+                     n_r_phase=n_r
+                  end if
+               end do
+
+               !-- 4th order Lagrangian interpolation of melting point
+               if ( n_r_phase == n_r_cmb ) then
+                  rphase=r_cmb
+               else
+                  if ( n_r_phase == n_r_cmb+1 ) then
+                     n_r_start=n_r_phase-1
+                     n_r_stop =n_r_phase+2
+                  else if ( n_r_phase == n_r_icb ) then
+                     n_r_start=n_r_phase-3
+                     n_r_stop =n_r_phase
+                  else
+                     n_r_start=n_r_phase-2
+                     n_r_stop =n_r_phase+1
+                  end if
+                  x(:)=temp_Ploc(n_t,n_p,n_r_start:n_r_stop)
+                  y(:)=r(n_r_start:n_r_stop)
+                  rphase=lagrange_interp(x,tmelt,y)
+               end if
+
+               phase_Ploc(n_t,n_p,:)=half*(one+tanh((r(:)-rphase)/two/epsPhase))
+
             end do
          end do
+
+         !-- Transpose phase from phi-distributed to r-distributed
+         call transp_Phi2R(phase_Ploc, phase_Rloc, phi_balance, nPstart, nPstop)
+
+         !-- Now bring the phase back to spectral space
+         do n_r=nRstart,nRstop
+            call scal_to_SH(phase_Rloc(:,:,n_r), phi_Rloc(:,n_r), l_max)
+         end do
+
+         !-- Final transpose to get the LM-distributed array for the phase field
+         call r2lo_one%transp_r2lm(phi_Rloc, phi)
+
+         deallocate( temp_Rloc, temp_Ploc, phase_Rloc, phase_Ploc, phi_balance )
+         deallocate( s_Rloc, phi_Rloc )
       end if
 
    end subroutine initPhi
@@ -1564,17 +1621,10 @@ contains
       !-- Local variables
       complex(cp) :: bf_Rloc(lm_max,nRstart:nRstop), bfLM(lm_max)
       integer :: lm,l,m,nR,nTheta,nPhi
-      class(type_mpitransp), pointer :: r2lo_initf, lo2r_initf
       real(cp) :: bf_spat(nlat_padded,n_phi_max)
       real(cp) :: eta_fac, a_force, b_force
 
-      allocate( type_mpiptop :: r2lo_initf )
-      allocate( type_mpiptop :: lo2r_initf )
-
-      call r2lo_initf%create_comm(1)
-      call lo2r_initf%create_comm(1)
-
-      call lo2r_initf%transp_lm2r(bodyForce, bf_Rloc)
+      call lo2r_one%transp_lm2r(bodyForce, bf_Rloc)
 
       eta_fac = 15.0_cp*pi/64.0_cp * (1.0_cp - radratio**6)/(1.0_cp-radratio**5)
       a_force = eta_fac / (r_cmb * (1.0_cp - eta_fac))
@@ -1615,10 +1665,7 @@ contains
 
       end do ! close loop over radial points
 
-      call r2lo_initf%transp_r2lm(bf_Rloc,bodyForce)
-
-      call r2lo_initf%destroy_comm()
-      call lo2r_initf%destroy_comm()
+      call r2lo_one%transp_r2lm(bf_Rloc, bodyForce)
 
    end subroutine initF
 !-----------------------------------------------------------------------

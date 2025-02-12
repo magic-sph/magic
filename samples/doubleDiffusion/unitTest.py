@@ -19,6 +19,10 @@ def cleanDir(dir):
         os.remove(f)
     for f in glob.glob('{}/*.test'.format(dir)):
         os.remove(f)
+    for f in glob.glob('{}/*.test_cheb'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.test_FD'.format(dir)):
+        os.remove(f)
     if os.path.exists('{}/stdout.out'.format(dir)):
         os.remove('{}/stdout.out'.format(dir))
     for f in glob.glob('{}/*.pyc'.format(dir)):

@@ -255,12 +255,12 @@ contains
                &        this%cbtc(nLat,nPhi)*this%bpc(nLat,nPhi) -    &
                &        this%cbpc(nLat,nPhi)*this%btc(nLat,nPhi) )
 
-               !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
+               !---- LFt= 1/(E*Pm) * sin(theta)/r * ( curl(B)_p*B_r - curl(B)_r*B_p )
                this%LFt(nLat,nPhi)=  LFfac*or4(nR) * (                &
                &        this%cbpc(nLat,nPhi)*this%brc(nLat,nPhi) -    &
                &        this%cbrc(nLat,nPhi)*this%bpc(nLat,nPhi) )
 
-               !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
+               !---- LFp= 1/(E*Pm) * sin(theta)/r * ( curl(B)_r*B_t - curl(B)_t*B_r )
                this%LFp(nLat,nPhi)=  LFfac*or4(nR) * (                &
                &        this%cbrc(nLat,nPhi)*this%btc(nLat,nPhi) -    &
                &        this%cbtc(nLat,nPhi)*this%brc(nLat,nPhi) )
@@ -450,12 +450,12 @@ contains
             &        this%cbtc(:,nPhi)*this%bpc(:,nPhi) -    &
             &        this%cbpc(:,nPhi)*this%btc(:,nPhi) )
 
-            !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
+            !---- LFt= 1/(E*Pm) * sin(theta)/r * ( curl(B)_p*B_r - curl(B)_r*B_p )
             this%LFt(:,nPhi)=  LFfac*or4(nR) * (             &
             &        this%cbpc(:,nPhi)*this%brc(:,nPhi) -    &
             &        this%cbrc(:,nPhi)*this%bpc(:,nPhi) )
 
-            !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
+            !---- LFp= 1/(E*Pm) * sin(theta)/r * ( curl(B)_r*B_t - curl(B)_t*B_r )
             this%LFp(:,nPhi)=  LFfac*or4(nR) * (             &
             &        this%cbrc(:,nPhi)*this%btc(:,nPhi) -    &
             &        this%cbtc(:,nPhi)*this%brc(:,nPhi) )
@@ -946,12 +946,12 @@ contains
                   &        this%cbtc(nLat,nR,nPhi)*this%bpc(nLat,nR,nPhi) -    &
                   &        this%cbpc(nLat,nR,nPhi)*this%btc(nLat,nR,nPhi) )
 
-                  !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
+                  !---- LFt= 1/(E*Pm) * sin(theta)/r * ( curl(B)_p*B_r - curl(B)_r*B_p )
                   this%LFt(nLat,nR,nPhi)=  LFfac*or4(nR) * (                   &
                   &        this%cbpc(nLat,nR,nPhi)*this%brc(nLat,nR,nPhi) -    &
                   &        this%cbrc(nLat,nR,nPhi)*this%bpc(nLat,nR,nPhi) )
 
-                  !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
+                  !---- LFp= 1/(E*Pm) * sin(theta)/r * ( curl(B)_r*B_t - curl(B)_t*B_r )
                   this%LFp(nLat,nR,nPhi)=  LFfac*or4(nR) * (                   &
                   &        this%cbrc(nLat,nR,nPhi)*this%btc(nLat,nR,nPhi) -    &
                   &        this%cbtc(nLat,nR,nPhi)*this%brc(nLat,nR,nPhi) )
@@ -1203,12 +1203,12 @@ contains
                &        this%cbtc(:,nR,nPhi)*this%bpc(:,nR,nPhi) -    &
                &        this%cbpc(:,nR,nPhi)*this%btc(:,nR,nPhi) )
 
-               !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
+               !---- LFt= 1/(E*Pm) * sin(theta)/r * ( curl(B)_p*B_r - curl(B)_r*B_p )
                this%LFt(:,nR,nPhi)=  LFfac*or4(nR) * (                &
                &        this%cbpc(:,nR,nPhi)*this%brc(:,nR,nPhi) -    &
                &        this%cbrc(:,nR,nPhi)*this%bpc(:,nR,nPhi) )
 
-               !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
+               !---- LFp= 1/(E*Pm) * sin(theta)/r * ( curl(B)_r*B_t - curl(B)_t*B_r )
                this%LFp(:,nR,nPhi)=  LFfac*or4(nR) * (                &
                &        this%cbrc(:,nR,nPhi)*this%btc(:,nR,nPhi) -    &
                &        this%cbtc(:,nR,nPhi)*this%brc(:,nR,nPhi) )
