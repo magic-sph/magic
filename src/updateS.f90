@@ -23,7 +23,7 @@ module updateS_mod
    use radial_der, only: get_ddr, get_dr, get_dr_Rloc, get_ddr_ghost, &
        &                 exch_ghosts, bulk_to_ghost
    use fields, only:  work_LMloc
-   use constants, only: zero, one, two
+   use constants, only: zero, one, two, three
    use useful, only: abortRun
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray
@@ -785,6 +785,11 @@ contains
                   &                                           work_Rloc(lm,n_r) &
                   &     + ( beta(n_r)+two*or1(n_r)+dLkappa(n_r) ) *  ds(lm,n_r) &
                   &                                    - dL*or2(n_r)*sg(lm,n_r) )
+                  if ( l_full_sphere .and. l==0 .and. n_r==n_r_icb ) then
+                     dsdt%impl(lm,n_r,istage)=  opr*hdif_S(l)* kappa(n_r) *  (  &
+                     &                              three *   work_Rloc(lm,n_r) &
+                     &               + ( beta(n_r)+dLkappa(n_r) ) *  ds(lm,n_r) )
+                  end if
                end do
             end do
          else
@@ -797,6 +802,11 @@ contains
                   &        + ( beta(n_r)+dLtemp0(n_r)+two*or1(n_r)+dLkappa(n_r) )  &
                   &                                              * ds(lm,n_r)      &
                   &        - dL*or2(n_r)                        *  sg(lm,n_r) )
+                  if ( l_full_sphere .and. l==0 .and. n_r==n_r_icb ) then
+                     dsdt%impl(lm,n_r,istage)=  opr*hdif_S(l)*kappa(n_r) *   (     &
+                     &                                  three* work_Rloc(lm,n_r)   &
+                     &   + ( beta(n_r)+dLtemp0(n_r)+dLkappa(n_r) )  * ds(lm,n_r) )
+                  end if
                end do
             end do
          end if
@@ -1196,7 +1206,6 @@ contains
                sMat%up(l,nR)=   -tscheme%wimp_lin(1)*opr*hdif(l)*          &
                &                kappa(nR)*(         rscheme_oc%ddr(nR,2) + &
                &( beta(nR)+two*or1(nR)+dLkappa(nR) )*rscheme_oc%dr(nR,2) )
-
             else
                sMat%diag(l,nR)=one-tscheme%wimp_lin(1)*opr*hdif(l)* &
                &                kappa(nR)*(  rscheme_oc%ddr(nR,1) + &
@@ -1211,6 +1220,35 @@ contains
                &                kappa(nR)*(  rscheme_oc%ddr(nR,2) + &
                & ( beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR) )*  &
                &                              rscheme_oc%dr(nR,2) )
+            end if
+
+            if ( l==0 .and. l_full_sphere .and. nR==n_r_icb ) then
+               !-- Use L'Hôpital's rule to replace 2/r d/dr at the center
+               !-- by 2*d^2/dr^2
+               if ( l_anelastic_liquid ) then
+                  sMat%diag(l,nR)=  one - tscheme%wimp_lin(1)*opr*hdif(l)*&
+                  &            kappa(nR)*(  three* rscheme_oc%ddr(nR,1) + &
+                  &        ( beta(nR)+dLkappa(nR) )*rscheme_oc%dr(nR,1))
+                  sMat%low(l,nR)=   -tscheme%wimp_lin(1)*opr*hdif(l)*     &
+                  &            kappa(nR)*( three*  rscheme_oc%ddr(nR,0) + &
+                  &        ( beta(nR)+dLkappa(nR) )*rscheme_oc%dr(nR,0) )
+                  sMat%up(l,nR)=   -tscheme%wimp_lin(1)*opr*hdif(l)*      &
+                  &            kappa(nR)*( three*  rscheme_oc%ddr(nR,2) + &
+                  &        ( beta(nR)+dLkappa(nR) )*rscheme_oc%dr(nR,2) )
+               else
+                  sMat%diag(l,nR)=one-tscheme%wimp_lin(1)*opr*hdif(l)* &
+                  &           kappa(nR)*( three*rscheme_oc%ddr(nR,1) + &
+                  &             ( beta(nR)+dLtemp0(nR)+dLkappa(nR) )*  &
+                  &                              rscheme_oc%dr(nR,1) )
+                  sMat%low(l,nR)=   -tscheme%wimp_lin(1)*opr*hdif(l)*  &
+                  &          kappa(nR)*(  three*rscheme_oc%ddr(nR,0) + &
+                  &             ( beta(nR)+dLtemp0(nR)+dLkappa(nR) )*  &
+                  &                              rscheme_oc%dr(nR,0) )
+                  sMat%up(l,nR) =   -tscheme%wimp_lin(1)*opr*hdif(l)*  &
+                  &           kappa(nR)*( three*rscheme_oc%ddr(nR,2) + &
+                  & ( beta(nR)+dLtemp0(nR)+dLkappa(nR) )*  &
+                  &                              rscheme_oc%dr(nR,2) )
+               end if
             end if
          end do
       end do
@@ -1257,6 +1295,6 @@ contains
       !-- LU decomposition:
       call sMat%prepare_mat()
 
-   end subroutine get_Smat_Rdist
+   end subroutine get_sMat_Rdist
 !-----------------------------------------------------------------------------
 end module updateS_mod

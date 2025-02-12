@@ -5,7 +5,7 @@ module radial_data
 
    use iso_fortran_env, only: output_unit
    use parallel_mod, only: rank, n_procs, nR_per_rank, load, getBlocks
-   use logic, only: l_mag, lVerbose, l_finite_diff
+   use logic, only: l_mag, lVerbose
 
    implicit none
 

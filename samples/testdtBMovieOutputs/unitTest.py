@@ -19,6 +19,8 @@ def cleanDir(dir):
         os.remove(f)
     for f in glob.glob('{}/*.test'.format(dir)):
         os.remove(f)
+    for f in glob.glob('{}/*.start'.format(dir)):
+        os.remove(f)
     if os.path.exists('{}/stdout.out'.format(dir)):
         os.remove('{}/stdout.out'.format(dir))
     for f in glob.glob('{}/*.pyc'.format(dir)):
@@ -86,8 +88,6 @@ class TestdtBMovieOutputs(unittest.TestCase):
         print('Description :           {}'.format(self.description))
         self.startTime = time.time()
         cleanDir(self.dir)
-        for f in glob.glob('{}/*.start'.format(self.dir)):
-            os.remove(f)
         os.chdir(self.dir)
         cmd = '{} {}/input.nml'.format(self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
@@ -97,8 +97,6 @@ class TestdtBMovieOutputs(unittest.TestCase):
         # Cleaning when leaving
         os.chdir(self.startDir)
         cleanDir(self.dir)
-        for f in glob.glob('{}/*.start'.format(self.dir)):
-            os.remove(f)
 
         t = time.time()-self.startTime
         st = time.strftime("%M:%S", time.gmtime(t))

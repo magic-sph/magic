@@ -19,6 +19,12 @@ def cleanDir(dir):
         os.remove(f)
     for f in glob.glob('{}/*.test'.format(dir)):
         os.remove(f)
+    for f in glob.glob('{}/*.cheb'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.map'.format(dir)):
+        os.remove(f)
+    for f in glob.glob('{}/*.fd'.format(dir)):
+        os.remove(f)
     if os.path.exists('{}/stdout.out'.format(dir)):
         os.remove('{}/stdout.out'.format(dir))
     for f in glob.glob('{}/*.pyc'.format(dir)):
@@ -72,12 +78,6 @@ class VariableProperties(unittest.TestCase):
         # Cleaning when leaving
         os.chdir(self.startDir)
         cleanDir(self.dir)
-        for f in glob.glob('{}/*.cheb'.format(self.dir)):
-            os.remove(f)
-        for f in glob.glob('{}/*.map'.format(self.dir)):
-            os.remove(f)
-        for f in glob.glob('{}/*.fd'.format(self.dir)):
-            os.remove(f)
 
         t = time.time()-self.startTime
         st = time.strftime("%M:%S", time.gmtime(t))
