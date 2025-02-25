@@ -1,26 +1,30 @@
-#include "perflib_preproc.cpp"
 module communications
+   !
+   ! This module contains the different MPI communicators used in MagIC.
+   !
 
 #ifdef WITH_MPI
    use mpimod
 #endif
+   use constants, only: zero
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated
    use parallel_mod, only: rank, n_procs, ierr
-   use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max, l_axi, &
-       &                 fd_order, fd_order_bound
+   use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max, &
+       &                 fd_order, fd_order_bound, m_max, m_min
    use blocking, only: st_map, lo_map, lm_balance, llm, ulm
    use radial_data, only: nRstart, nRstop, radial_balance
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, l_finite_diff, &
-       &            l_mag_kin, l_double_curl, l_save_out, l_packed_transp
+       &            l_mag_kin, l_double_curl, l_save_out, l_packed_transp, &
+       &            l_parallel_solve, l_mag_par_solve, l_phase_field, l_tidal
    use useful, only: abortRun
    use output_data, only: n_log_file, log_file
    use iso_fortran_env, only: output_unit
    use mpi_ptop_mod, only: type_mpiptop
-   use mpi_alltoall_mod, only: type_mpiatoav, type_mpiatoaw
+   use mpi_alltoall_mod, only: type_mpiatoav, type_mpiatoaw, type_mpiatoap
    use charmanip, only: capitalize
    use num_param, only: mpi_transp, mpi_packing
-   use mpi_transp, only: type_mpitransp
+   use mpi_transp_mod, only: type_mpitransp
 
    implicit none
 
@@ -36,7 +40,7 @@ module communications
       integer :: dim2
    end type gather_type
 
-   public :: gather_from_lo_to_rank0,scatter_from_rank0_to_lo, &
+   public :: gather_from_lo_to_rank0,scatter_from_rank0_to_lo, allgather_from_Rloc, &
    &         gather_all_from_lo_to_rank0, gather_from_Rloc
    public :: get_global_sum, finalize_communications, initialize_communications
 
@@ -44,19 +48,27 @@ module communications
    public :: myAllGather
 #endif
 
+   interface send_lm_pair_to_master
+      module procedure send_lm_pair_to_master_arr
+      module procedure send_lm_pair_to_master_scal_cmplx
+      module procedure send_lm_pair_to_master_scal_real
+      module procedure send_scal_lm_to_master
+   end interface
+
    interface reduce_radial
       module procedure reduce_radial_1D
       module procedure reduce_radial_2D
    end interface
 
-   public :: reduce_radial, reduce_scalar
+   public :: reduce_radial, reduce_scalar, send_lm_pair_to_master
 
    ! declaration of the types for the redistribution
    class(type_mpitransp), public, pointer :: lo2r_s, r2lo_s, lo2r_press
    class(type_mpitransp), public, pointer :: lo2r_flow, r2lo_flow, r2lo_one
    class(type_mpitransp), public, pointer :: lo2r_field, r2lo_field
    class(type_mpitransp), public, pointer :: lo2r_xi, r2lo_xi, lo2r_one
-
+   class(type_mpitransp), public, pointer :: lo2r_tidal, r2lo_tidal
+   
    type(gather_type), public :: gt_OC,gt_IC,gt_cheb
 
    complex(cp), allocatable :: temp_gather_lo(:)
@@ -112,17 +124,22 @@ contains
          &         index(mpi_transp, 'ALL2ALLW') /= 0 .or. &
          &         index(mpi_transp, 'ALL-TO-ALLW') /= 0 ) then
             idx = 3
+         else if ( index(mpi_transp, 'ATOAP') /= 0 .or. index(mpi_transp, 'A2AP') /=0&
+         &         .or. index(mpi_transp, 'ALLTOALLP') /= 0 .or. &
+         &         index(mpi_transp, 'ALL2ALLP') /= 0 .or. &
+         &         index(mpi_transp, 'ALL-TO-ALLP') /= 0 ) then
+            idx = 4
          end if
       end if
 
       if ( rank == 0 ) then
          do n=1,2
             if ( n==1 ) then
-               n_out = n_log_file
                if ( l_save_out ) then
                   open(newunit=n_log_file, file=log_file, status='unknown', &
                   &    position='append')
                end if
+               n_out = n_log_file
             else
                n_out = output_unit
             end if
@@ -137,6 +154,8 @@ contains
                write(n_out,*) '! -> I choose alltoallv'
             else if ( idx == 3 ) then
                write(n_out,*) '! -> I choose alltoallw'
+            else if ( idx == 4 ) then
+               write(n_out,*) '! -> I choose padded alltoall'
             end if
             write(n_out,*)
             if ( n==1 .and. l_save_out ) close(n_log_file)
@@ -156,6 +175,8 @@ contains
          allocate( type_mpiptop :: r2lo_field )
          allocate( type_mpiptop :: lo2r_xi )
          allocate( type_mpiptop :: r2lo_xi )
+         allocate( type_mpiptop :: lo2r_tidal )
+         allocate( type_mpiptop :: r2lo_tidal )
          allocate( type_mpiptop :: lo2r_press )
       else if ( idx == 2 ) then
          allocate( type_mpiatoav :: lo2r_one )
@@ -168,10 +189,12 @@ contains
          allocate( type_mpiatoav :: r2lo_field )
          allocate( type_mpiatoav :: lo2r_xi )
          allocate( type_mpiatoav :: r2lo_xi )
+         allocate( type_mpiatoav :: lo2r_tidal )
+         allocate( type_mpiatoav :: r2lo_tidal )
          allocate( type_mpiatoav :: lo2r_press )
       else if ( idx == 3 ) then
-         allocate( type_mpiatoav :: lo2r_one )
-         allocate( type_mpiatoav :: r2lo_one )
+         allocate( type_mpiatoaw :: lo2r_one )
+         allocate( type_mpiatoaw :: r2lo_one )
          allocate( type_mpiatoaw :: lo2r_s )
          allocate( type_mpiatoaw :: r2lo_s )
          allocate( type_mpiatoaw :: lo2r_flow )
@@ -180,21 +203,45 @@ contains
          allocate( type_mpiatoaw :: r2lo_field )
          allocate( type_mpiatoaw :: lo2r_xi )
          allocate( type_mpiatoaw :: r2lo_xi )
+         allocate( type_mpiatoaw :: lo2r_tidal )
+         allocate( type_mpiatoaw :: r2lo_tidal )
          allocate( type_mpiatoaw :: lo2r_press )
+      else if ( idx == 4 ) then
+         allocate( type_mpiatoap :: lo2r_one )
+         allocate( type_mpiatoap :: r2lo_one )
+         allocate( type_mpiatoap :: lo2r_s )
+         allocate( type_mpiatoap :: r2lo_s )
+         allocate( type_mpiatoap :: lo2r_flow )
+         allocate( type_mpiatoap :: r2lo_flow )
+         allocate( type_mpiatoap :: lo2r_field )
+         allocate( type_mpiatoap :: r2lo_field )
+         allocate( type_mpiatoap :: lo2r_xi )
+         allocate( type_mpiatoap :: r2lo_xi )
+         allocate( type_mpiatoap :: lo2r_tidal )
+         allocate( type_mpiatoap :: r2lo_tidal )
+         allocate( type_mpiatoap :: lo2r_press )
       end if
 
       if ( l_packed_transp ) then
          call lo2r_one%create_comm(1)
          if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
             call r2lo_one%create_comm(1)
-            if ( l_mag ) then
-               call lo2r_flow%create_comm(5)
-               call r2lo_flow%create_comm(5)
+            if ( l_parallel_solve ) then
+               if ( l_mag .and. (.not. l_mag_par_solve) ) then
+                  call lo2r_flow%create_comm(2)
+                  call r2lo_flow%create_comm(2)
+               end if
             else
-               call lo2r_flow%create_comm(3)
-               call r2lo_flow%create_comm(3)
+               if ( l_mag ) then
+                  call lo2r_flow%create_comm(5)
+                  call r2lo_flow%create_comm(5)
+               else
+                  call lo2r_flow%create_comm(3)
+                  call r2lo_flow%create_comm(3)
+               end if
             end if
          else
+            if ( l_phase_field ) call r2lo_one%create_comm(1)
             if ( l_heat ) then
                call lo2r_s%create_comm(2)
                call r2lo_s%create_comm(2)
@@ -203,6 +250,10 @@ contains
                call lo2r_xi%create_comm(2)
                call r2lo_xi%create_comm(2)
             end if
+            if (l_tidal) then
+               call lo2r_tidal%create_comm(2)
+               call r2lo_tidal%create_comm(2)
+            end if   
             if ( l_conv .or. l_mag_kin) then
                call lo2r_flow%create_comm(5)
                call lo2r_press%create_comm(2)
@@ -244,9 +295,12 @@ contains
          call lo2r_one%destroy_comm()
          if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
             call r2lo_one%destroy_comm()
-            call lo2r_flow%destroy_comm()
-            call r2lo_flow%destroy_comm()
+            if ( (.not. l_parallel_solve) .and. (.not. l_mag_par_solve) ) then
+               call lo2r_flow%destroy_comm()
+               call r2lo_flow%destroy_comm()
+            end if
          else
+            if ( l_phase_field ) call r2lo_one%destroy_comm()
             if ( l_heat ) then
                call lo2r_s%destroy_comm()
                call r2lo_s%destroy_comm()
@@ -254,6 +308,10 @@ contains
             if ( l_chemical_conv ) then
                call lo2r_xi%destroy_comm()
                call r2lo_xi%destroy_comm()
+            end if
+            if ( l_tidal ) then
+               call lo2r_tidal%destroy_comm()
+               call r2lo_tidal%destroy_comm()
             end if
             if ( l_conv .or. l_mag_kin) then
                call lo2r_flow%destroy_comm()
@@ -410,39 +468,23 @@ contains
 
       if ( rank == 0 ) then
          ! reorder
-         if ( .not. l_axi ) then
-            do nR=1,self%dim2
-               do l=0,l_max
-                  do m=0,l,minc
-                     arr_full(st_map%lm2(l,m),nR) = temp_lo(lo_map%lm2(l,m),nR)
-                  end do
+         do nR=1,self%dim2
+            do l=0,l_max
+               do m=m_min,min(l,m_max),minc
+                  arr_full(st_map%lm2(l,m),nR) = temp_lo(lo_map%lm2(l,m),nR)
                end do
             end do
-         else
-            do nR=1,self%dim2
-               do l=0,l_max
-                  arr_full(st_map%lm2(l,0),nR) = temp_lo(lo_map%lm2(l,0),nR)
-               end do
-            end do
-         end if
+         end do
          deallocate(temp_lo)
       end if
 #else
-      if ( .not. l_axi ) then
-         do nR=1,self%dim2
-            do l=0,l_max
-               do m=0,l,minc
-                  arr_full(st_map%lm2(l,m),nR) = arr_lo(lo_map%lm2(l,m),nR)
-               end do
+      do nR=1,self%dim2
+         do l=0,l_max
+            do m=m_min,min(l,m_max),minc
+               arr_full(st_map%lm2(l,m),nR) = arr_lo(lo_map%lm2(l,m),nR)
             end do
          end do
-      else
-         do nR=1,self%dim2
-            do l=0,l_max
-               arr_full(st_map%lm2(l,0),nR) = arr_lo(lo_map%lm2(l,0),nR)
-            end do
-         end do
-      end if
+      end do
 #endif
 
    end subroutine gather_all_from_lo_to_rank0
@@ -513,30 +555,18 @@ contains
 
       if ( rank == 0 ) then
          ! reorder
-         if ( .not. l_axi ) then
-            do l=0,l_max
-               do m=0,l,minc
-                  arr_full(st_map%lm2(l,m)) = temp_gather_lo(lo_map%lm2(l,m))
-               end do
+         do l=0,l_max
+            do m=m_min,min(l,m_max),minc
+               arr_full(st_map%lm2(l,m)) = temp_gather_lo(lo_map%lm2(l,m))
             end do
-         else
-            do l=0,l_max
-               arr_full(st_map%lm2(l,0)) = temp_gather_lo(lo_map%lm2(l,0))
-            end do
-         end if
+         end do
       end if
 #else
-      if ( .not. l_axi ) then
-         do l=0,l_max
-            do m=0,l,minc
-               arr_full(st_map%lm2(l,m)) = arr_lo(lo_map%lm2(l,m))
-            end do
+      do l=0,l_max
+         do m=m_min,min(l,m_max),minc
+            arr_full(st_map%lm2(l,m)) = arr_lo(lo_map%lm2(l,m))
          end do
-      else
-         do l=0,l_max
-            arr_full(st_map%lm2(l,0)) = arr_lo(lo_map%lm2(l,0))
-         end do
-      end if
+      end do
 #endif
 
    end subroutine gather_from_lo_to_rank0
@@ -559,37 +589,196 @@ contains
 
       if ( rank == 0 ) then
          ! reorder
-         if ( .not. l_axi ) then
-            do l=0,l_max
-               do m=0,l,minc
-                  temp_gather_lo(lo_map%lm2(l,m)) = arr_full(st_map%lm2(l,m))
-               end do
+         do l=0,l_max
+            do m=m_min,min(l,m_max),minc
+               temp_gather_lo(lo_map%lm2(l,m)) = arr_full(st_map%lm2(l,m))
             end do
-         else
-            do l=0,l_max
-               temp_gather_lo(lo_map%lm2(l,0)) = arr_full(st_map%lm2(l,0))
-            end do
-         end if
+         end do
       end if
 
       call MPI_ScatterV(temp_gather_lo,sendcounts,displs,MPI_DEF_COMPLEX,&
            &            arr_lo,sendcounts(rank),MPI_DEF_COMPLEX,0,       &
            &            MPI_COMM_WORLD,ierr)
 #else
-      if ( .not. l_axi ) then
-         do l=0,l_max
-            do m=0,l,minc
-               arr_lo(lo_map%lm2(l,m)) = arr_full(st_map%lm2(l,m))
-            end do
+      do l=0,l_max
+         do m=m_min,min(l,m_max),minc
+            arr_lo(lo_map%lm2(l,m)) = arr_full(st_map%lm2(l,m))
          end do
-      else
-         do l=0,l_max
-            arr_lo(lo_map%lm2(l,0)) = arr_full(st_map%lm2(l,0))
-         end do
-      end if
+      end do
 #endif
 
    end subroutine scatter_from_rank0_to_lo
+!-------------------------------------------------------------------------------
+   subroutine send_lm_pair_to_master_arr(b,l,m,blm0)
+
+      !-- Input variables
+      complex(cp), intent(in) :: b(llm:ulm,n_r_max)
+      integer,     intent(in) :: l
+      integer,     intent(in) :: m
+
+      !-- Output variable
+      complex(cp), intent(out) :: blm0(n_r_max)
+
+      !-- Local variables:
+      integer :: lm_pair,sr_tag
+#ifdef WITH_MPI
+      integer :: st(MPI_STATUS_SIZE),request
+#endif
+
+      lm_pair = lo_map%lm2(l,m)
+      sr_tag = 17931+lm_pair
+      if ( llm <= lm_pair .and. ulm >= lm_pair ) then
+         blm0(:) = b(lm_pair,:)
+         if ( rank == 0 ) then
+            return ! Exit if rank==0 already has the data
+         else
+#ifdef WITH_MPI
+            call MPI_Send(blm0, n_r_max, MPI_DEF_COMPLEX, 0, sr_tag, MPI_COMM_WORLD, &
+                 &        ierr)
+#endif
+         end if
+      end if
+
+      if ( rank == 0 ) then
+         if ( lm_pair > 0 ) then! to avoid minc/=1 bugs
+#ifdef WITH_MPI
+            call MPI_IRecv(blm0, n_r_max, MPI_DEF_COMPLEX, MPI_ANY_SOURCE,&
+                 &         sr_tag, MPI_COMM_WORLD, request, ierr)
+            call MPI_Wait(request, st, ierr)
+#endif
+         else
+            blm0(:)=zero
+         end if
+      end if
+
+   end subroutine send_lm_pair_to_master_arr
+!-------------------------------------------------------------------------------
+   subroutine send_lm_pair_to_master_scal_real(b,l,m,blm0)
+
+      !-- Input variables
+      complex(cp), intent(in) :: b(llm:ulm)
+      integer,     intent(in) :: l
+      integer,     intent(in) :: m
+
+      !-- Output variable
+      real(cp), intent(out) :: blm0
+
+      !-- Local variables:
+      integer :: lm_pair,sr_tag
+#ifdef WITH_MPI
+      integer :: st(MPI_STATUS_SIZE),request
+#endif
+
+      lm_pair = lo_map%lm2(l,m)
+      sr_tag = 17952+lm_pair
+      if ( llm <= lm_pair .and. ulm >= lm_pair ) then
+         blm0 = real(b(lm_pair))
+         if ( rank == 0 ) then
+            return ! Exit if rank==0 already has the data
+         else
+#ifdef WITH_MPI
+            call MPI_Send(blm0, 1, MPI_DEF_REAL, 0, sr_tag, MPI_COMM_WORLD, &
+                 &        ierr)
+#endif
+         end if
+      end if
+
+      if ( rank == 0 ) then
+         if ( lm_pair > 0 ) then! to avoid minc/=1 bugs
+#ifdef WITH_MPI
+            call MPI_IRecv(blm0, 1, MPI_DEF_REAL, MPI_ANY_SOURCE, &
+                 &         sr_tag, MPI_COMM_WORLD, request, ierr)
+            call MPI_Wait(request, st, ierr)
+#endif
+         else
+            blm0=0.0_cp
+         end if
+      end if
+
+   end subroutine send_lm_pair_to_master_scal_real
+!-------------------------------------------------------------------------------
+   subroutine send_lm_pair_to_master_scal_cmplx(b,l,m,blm0)
+
+      !-- Input variables
+      complex(cp), intent(in) :: b(llm:ulm)
+      integer,     intent(in) :: l
+      integer,     intent(in) :: m
+
+      !-- Output variable
+      complex(cp), intent(out) :: blm0
+
+      !-- Local variables:
+      integer :: lm_pair,sr_tag
+#ifdef WITH_MPI
+      integer :: st(MPI_STATUS_SIZE),request
+#endif
+      lm_pair = lo_map%lm2(l,m)
+      sr_tag = 18963+lm_pair
+      if ( llm <= lm_pair .and. ulm >= lm_pair ) then
+         blm0 = b(lm_pair)
+         if ( rank == 0 ) then
+            return ! Exit if rank==0 already has the data
+         else
+#ifdef WITH_MPI
+            call MPI_Send(blm0, 1, MPI_DEF_COMPLEX, 0, sr_tag, MPI_COMM_WORLD, &
+                 &        ierr)
+#endif
+         end if
+      end if
+
+      if ( rank == 0 ) then
+         if ( lm_pair > 0 ) then! to avoid minc/=1 bugs
+#ifdef WITH_MPI
+            call MPI_IRecv(blm0, 1, MPI_DEF_COMPLEX, MPI_ANY_SOURCE, &
+                &         sr_tag, MPI_COMM_WORLD, request, ierr)
+            call MPI_Wait(request, st, ierr)
+#endif
+         else
+            blm0=zero
+         end if
+      end if
+
+   end subroutine send_lm_pair_to_master_scal_cmplx
+!-------------------------------------------------------------------------------
+   subroutine send_scal_lm_to_master(blm0,l,m)
+
+      !-- Input variables
+      real(cp), intent(inout) :: blm0
+      integer,  intent(in) :: l
+      integer,  intent(in) :: m
+
+      !-- Local variables:
+      integer :: sr_tag, lm_pair
+#ifdef WITH_MPI
+      integer :: st(MPI_STATUS_SIZE),request
+#endif
+
+      lm_pair = lo_map%lm2(l,m)
+      sr_tag = 17963+lm_pair
+      if ( llm <= lm_pair .and. ulm >= lm_pair ) then
+         if ( rank == 0 ) then
+            return ! Exit if rank==0 already has the data
+         else
+#ifdef WITH_MPI
+            call MPI_Send(blm0, 1, MPI_DEF_REAL, 0, sr_tag, MPI_COMM_WORLD, &
+                 &        ierr)
+#endif
+         end if
+      end if
+
+      if ( rank == 0 ) then
+         if ( lm_pair > 0 ) then! to avoid minc/=1 bugs
+#ifdef WITH_MPI
+            call MPI_IRecv(blm0, 1, MPI_DEF_REAL, MPI_ANY_SOURCE, &
+                 &         sr_tag, MPI_COMM_WORLD, request, ierr)
+            call MPI_Wait(request, st, ierr)
+#endif
+         else
+            blm0=0.0_cp
+         end if
+      end if
+
+   end subroutine send_scal_lm_to_master
 !-------------------------------------------------------------------------------
    subroutine lm2lo_redist(arr_LMloc,arr_lo)
 
@@ -603,21 +792,13 @@ contains
          call abortRun('lm2lo not yet parallelized')
       end if
 
-      if ( .not. l_axi ) then
-         do nR=1,n_r_max
-            do l=0,l_max
-               do m=0,l,minc
-                  arr_lo(lo_map%lm2(l,m),nR) = arr_LMloc(st_map%lm2(l,m),nR)
-               end do
+      do nR=1,n_r_max
+         do l=0,l_max
+            do m=m_min,min(l,m_max),minc
+               arr_lo(lo_map%lm2(l,m),nR) = arr_LMloc(st_map%lm2(l,m),nR)
             end do
          end do
-      else
-         do nR=1,n_r_max
-            do l=0,l_max
-               arr_lo(lo_map%lm2(l,0),nR) = arr_LMloc(st_map%lm2(l,0),nR)
-            end do
-         end do
-      end if
+      end do
 
    end subroutine lm2lo_redist
 !-------------------------------------------------------------------------------
@@ -633,21 +814,13 @@ contains
          call abortRun('lo2lm not yet parallelized')
       end if
 
-      if ( .not. l_axi ) then
-         do nR=1,n_r_max
-            do l=0,l_max
-               do m=0,l,minc
-                  arr_LMloc(st_map%lm2(l,m),nR) = arr_lo(lo_map%lm2(l,m),nR)
-               end do
+      do nR=1,n_r_max
+         do l=0,l_max
+            do m=m_min,min(l,m_max),minc
+               arr_LMloc(st_map%lm2(l,m),nR) = arr_lo(lo_map%lm2(l,m),nR)
             end do
          end do
-      else
-         do nR=1,n_r_max
-            do l=0,l_max
-               arr_LMloc(st_map%lm2(l,0),nR) = arr_lo(lo_map%lm2(l,0),nR)
-            end do
-         end do
-      end if
+      end do
 
    end subroutine lo2lm_redist
 !-------------------------------------------------------------------------------
@@ -684,6 +857,39 @@ contains
 #endif
 
    end subroutine gather_from_Rloc
+!-------------------------------------------------------------------------------
+   subroutine allgather_from_Rloc(arr_Rloc, arr_glob)
+      !
+      ! This subroutine gather a r-distributed array
+      !
+
+      !-- Input variable
+      real(cp), intent(in) :: arr_Rloc(nRstart:nRstop)
+
+      !-- Output variable
+      real(cp), intent(out) :: arr_glob(1:n_r_max)
+
+#ifdef WITH_MPI
+      !-- Local variables:
+      integer :: p
+      integer :: scount, rcounts(0:n_procs-1), rdisp(0:n_procs-1)
+
+      scount = nRstop-nRstart+1
+      do p=0,n_procs-1
+         rcounts(p)=radial_balance(p)%n_per_rank
+      end do
+      rdisp(0)=0
+      do p=1,n_procs-1
+         rdisp(p)=rdisp(p-1)+rcounts(p-1)
+      end do
+
+      call MPI_AllGatherV(arr_Rloc, scount, MPI_DEF_REAL, arr_glob, rcounts, &
+           &              rdisp, MPI_DEF_REAL, MPI_COMM_WORLD, ierr)
+#else
+      arr_glob(:)=arr_Rloc(:)
+#endif
+
+   end subroutine allgather_from_Rloc
 !-------------------------------------------------------------------------------
    subroutine reduce_radial_2D(arr_dist, arr_glob, irank)
 
@@ -763,6 +969,8 @@ contains
          allocate( type_mpiatoav :: lo2r_test )
       else if ( idx_type == 3 ) then
          allocate( type_mpiatoaw :: lo2r_test )
+      else if ( idx_type == 4 ) then
+         allocate( type_mpiatoap :: lo2r_test )
       end if
       do iblock=1,size(block_size)
 
@@ -872,7 +1080,7 @@ contains
       complex(cp) :: arr_Rloc(lm_max,nRstart:nRstop,n_fields)
       complex(cp) :: arr_LMloc(llm:ulm,n_r_max,n_fields)
       real(cp) :: tStart, tStop, tAlltoAllv, tPointtoPoint, tAlltoAllw
-      real(cp) :: rdm_real, rdm_imag, timers(3)
+      real(cp) :: rdm_real, rdm_imag, timers(4), tAlltoAllp
       integer :: n_f, n_r, lm, n_t, n, n_out, ind(1)
       integer, parameter :: n_transp=10
       character(len=80) :: message
@@ -936,12 +1144,30 @@ contains
       call lo2r_test%destroy_comm()
       deallocate( lo2r_test)
 
+      !-- Try the padded all-to-all strategy (10 back and forth transposes)
+      allocate( type_mpiatoap :: lo2r_test )
+      call lo2r_test%create_comm(n_fields)
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
+      tStart = MPI_Wtime()
+      do n_t=1,n_transp
+         call lo2r_test%transp_r2lm(arr_Rloc, arr_LMloc)
+         call MPI_Barrier(MPI_COMM_WORLD, ierr)
+         call lo2r_test%transp_lm2r(arr_LMloc, arr_Rloc)
+         call MPI_Barrier(MPI_COMM_WORLD, ierr)
+      end do
+      tStop = MPI_Wtime()
+      tAlltoAllp = tStop-tStart
+      call lo2r_test%destroy_comm()
+      deallocate( lo2r_test)
+
       !-- Now determine the average over the ranks and send it to rank=0
       call MPI_Reduce(tPointtoPoint, timers(1), 1, MPI_DEF_REAL, MPI_SUM, 0, &
            &          MPI_COMM_WORLD, ierr)
       call MPI_Reduce(tAlltoAllv, timers(2), 1, MPI_DEF_REAL, MPI_SUM, 0, &
            &          MPI_COMM_WORLD, ierr)
       call MPI_Reduce(tAlltoAllw, timers(3), 1, MPI_DEF_REAL, MPI_SUM, 0, &
+           &          MPI_COMM_WORLD, ierr)
+      call MPI_Reduce(tAlltoAllp, timers(4), 1, MPI_DEF_REAL, MPI_SUM, 0, &
            &          MPI_COMM_WORLD, ierr)
 
       if ( rank == 0 ) then
@@ -978,6 +1204,9 @@ contains
             write(n_out,'(A80)') message
             write(message,'('' ! alltoallw communicator          ='', &
             &               ES10.3, '' s'')') timers(3)
+            write(n_out,'(A80)') message
+            write(message,'('' ! padded alltoall communicator    ='', &
+            &               ES10.3, '' s'')') timers(4)
             write(n_out,'(A80)') message
 
             if ( n==1 .and. l_save_out ) close(n_log_file)
@@ -1074,7 +1303,6 @@ contains
       integer :: sendtype, new_sendtype
       integer(kind=MPI_ADDRESS_KIND) :: lb,extent,extent_dcmplx
 
-      PERFON('mk_dt')
       ! definition of the datatype (will later be pulled out of here)
       ! we assume dim1=lm_max and dim2=n_r_max
       call MPI_Type_get_extent(MPI_DEF_COMPLEX,lb,extent_dcmplx,ierr)
@@ -1091,12 +1319,9 @@ contains
       do irank=0,n_procs-1
          displs(irank) = sum(recvcounts(0:irank-1))
       end do
-      PERFOFF
-      PERFON('comm')
       call MPI_AllGatherV(MPI_IN_PLACE,sendcount,new_sendtype,&
            &              arr,recvcounts,displs,new_sendtype, &
            &              MPI_COMM_WORLD,ierr)
-      PERFOFF
 
    end subroutine myAllGather
 !------------------------------------------------------------------------------

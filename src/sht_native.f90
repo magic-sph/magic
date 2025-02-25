@@ -1,21 +1,15 @@
 module sht
-   !
-   ! This module contains is a wrapper of the SHTns routines used in MagIC
-   !
 
-   use iso_c_binding
    use iso_fortran_env, only: output_unit
    use precision_mod, only: cp
    use blocking, only: st_map
    use constants, only: ci, one, zero
-   use truncation, only: m_max, l_max, n_theta_max, n_phi_max, &
-       &                 minc, lm_max, nlat_padded
+   use truncation, only: m_max, l_max, n_theta_max, n_phi_max, minc, lm_max
    use horizontal_data, only: dLh, O_sin_theta_E2, O_sin_theta
    use parallel_mod
+   use shtransforms
 
    implicit none
-
-   include "shtns.f03"
 
    private
 
@@ -26,8 +20,6 @@ module sht
    &         spat_to_qst, sphtor_to_spat, toraxi_to_spat, finalize_sht,         &
    &         axi_to_spat
 
-   type(c_ptr) :: sht_l
-
 contains
 
    subroutine initialize_sht(l_scrambled_theta)
@@ -35,68 +27,14 @@ contains
       !-- Output variable
       logical, intent(out) :: l_scrambled_theta
 
-      !-- Local variables
-      integer :: norm, layout
-      real(cp) :: eps_polar
-      type(shtns_info), pointer :: sht_info
-      complex(cp) :: tmp(l_max+1)
-      real(cp), allocatable :: tmpr(:)
-
-      if ( rank == 0 ) then
-         write(output_unit,*) ''
-         call shtns_verbose(1)
-      end if
-
-      nthreads =  shtns_use_threads(0)
-
-      norm = SHT_ORTHONORMAL + SHT_NO_CS_PHASE
-#ifdef SHT_PADDING
-      !layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
-      layout = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
-#else
-      !layout = SHT_QUICK_INIT + SHT_THETA_CONTIGUOUS
-      layout = SHT_GAUSS + SHT_THETA_CONTIGUOUS
-#endif
-      eps_polar = 1.e-10_cp
-
-      sht_l = shtns_create(l_max, m_max/minc, minc, norm)
-      call shtns_set_grid(sht_l, layout, eps_polar, n_theta_max, n_phi_max)
-
-      call c_f_pointer(cptr=sht_l, fptr=sht_info)
-#ifdef SHT_PADDING
-      nlat_padded = sht_info%nlat_padded
-      if ( nlat_padded /= n_theta_max .and. rank == 0 ) then
-         write(output_unit,*) '! SHTns uses theta padding with nlat_padded=', nlat_padded
-      end if
-#else
-      nlat_padded = n_theta_max
-#endif
-      call shtns_robert_form(sht_l, 1) ! Use Robert's form
-
-      if ( rank == 0 ) then
-         call shtns_verbose(0)
-         write(output_unit,*) ''
-      end if
-
-      !-- Set a l=1, m=0 mode to determine whether scrambling is there or not
-      allocate( tmpr(nlat_padded) )
-      tmp(:)=zero
-      tmp(2)=(1.0_cp, 0.0_cp)
-      call axi_to_spat(tmp, tmpr)
-      if ( abs(tmpr(2)+tmpr(1)) <= 10.0_cp * epsilon(1.0_cp) ) then
-         l_scrambled_theta=.true.
-      else
-         l_scrambled_theta=.false.
-      end if
-
-      deallocate( tmpr )
+      l_scrambled_theta=.true.
+      call initialize_transforms()
 
    end subroutine initialize_sht
 !------------------------------------------------------------------------------
-   subroutine finalize_sht
+   subroutine finalize_sht()
 
-      call shtns_unset_grid(sht_l)
-      call shtns_destroy(sht_l)
+      call finalize_transforms()
 
    end subroutine finalize_sht
 !------------------------------------------------------------------------------
@@ -104,13 +42,13 @@ contains
       ! transform a spherical harmonic field into grid space
 
       !-- Input variables
-      complex(cp), intent(inout) :: Slm(:)
+      complex(cp), intent(in) :: Slm(:)
       integer,     intent(in) :: lcut
 
       !-- Output variable
       real(cp), intent(out) :: fieldc(:,:)
 
-      call SH_to_spat_l(sht_l, Slm, fieldc, lcut)
+      call native_sph_to_spat(Slm, fieldc, lcut)
 
    end subroutine scal_to_spat
 !------------------------------------------------------------------------------
@@ -119,14 +57,14 @@ contains
       ! on the grid
 
       !-- Input variables
-      complex(cp), intent(inout) :: Slm(:)
+      complex(cp), intent(in) :: Slm(:)
       integer,     intent(in) :: lcut
 
       !-- Output variables
       real(cp), intent(out) :: gradtc(:,:)
       real(cp), intent(out) :: gradpc(:,:)
 
-      call SHsph_to_spat_l(sht_l, Slm, gradtc, gradpc, lcut)
+      call native_sph_to_grad_spat(Slm, gradtc, gradpc, lcut)
 
    end subroutine scal_to_grad_spat
 !------------------------------------------------------------------------------
@@ -155,15 +93,14 @@ contains
       end do
       !$omp end parallel do
 
-      call SHsph_to_spat_l(sht_l, Qlm, gradtc, gradpc, lcut)
+      call native_sph_to_grad_spat(Qlm, gradtc, gradpc, lcut)
 
    end subroutine pol_to_grad_spat
 !------------------------------------------------------------------------------
    subroutine torpol_to_spat(Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: Wlm(:)
-      complex(cp), intent(inout) :: dWlm(:), Zlm(:)
+      complex(cp), intent(in) :: Wlm(:), dWlm(:), Zlm(:)
       integer,     intent(in) :: lcut
 
       !-- Output variables
@@ -186,21 +123,21 @@ contains
       end do
       !$omp end parallel do
 
-      call SHqst_to_spat_l(sht_l, Qlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+      call native_qst_to_spat(Qlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
 
    end subroutine torpol_to_spat
 !------------------------------------------------------------------------------
    subroutine sphtor_to_spat(dWlm, Zlm, vtc, vpc, lcut)
 
       !-- Input variables
-      complex(cp), intent(inout) :: dWlm(:), Zlm(:)
+      complex(cp), intent(in) :: dWlm(:), Zlm(:)
       integer,     intent(in) :: lcut
 
       !-- Output variables
       real(cp), intent(out) :: vtc(:,:)
       real(cp), intent(out) :: vpc(:,:)
 
-      call SHsphtor_to_spat_l(sht_l, dWlm, Zlm, vtc, vpc, lcut)
+      call native_sphtor_to_spat(dWlm, Zlm, vtc, vpc, lcut)
 
    end subroutine sphtor_to_spat
 !------------------------------------------------------------------------------
@@ -245,7 +182,7 @@ contains
          end do
       end do
 
-      call SHqst_to_spat(sht_l, Qlm, Slm, Tlm, cbr, cbt, cbp)
+      call native_qst_to_spat(Qlm, Slm, Tlm, cbr, cbt, cbp, l_max)
 
    end subroutine torpol_to_curl_spat_IC
 !------------------------------------------------------------------------------
@@ -288,7 +225,7 @@ contains
          end do
       end do
 
-      call SHqst_to_spat(sht_l, Qlm, Slm, Tlm, Br, Bt, Bp)
+      call native_qst_to_spat(Qlm, Slm, Tlm, Br, Bt, Bp, l_max)
 
    end subroutine torpol_to_spat_IC
 !------------------------------------------------------------------------------
@@ -324,7 +261,7 @@ contains
       end do
       !$omp end parallel do
 
-      call SHsphtor_to_spat_l(sht_l, Slm, Tlm, dvtdp, dvpdp, lcut)
+      call native_sphtor_to_spat(Slm, Tlm, dvtdp, dvpdp, lcut)
 
       !$omp parallel do default(shared) private(ip)
       do ip=1, n_phi_max
@@ -359,7 +296,7 @@ contains
       end do
       !$omp end parallel do
 
-      call SH_to_spat_l(sht_l, dQlm, cvrc, lcut)
+      call native_sph_to_spat(dQlm, cvrc, lcut)
 
    end subroutine pol_to_curlr_spat
 !------------------------------------------------------------------------------
@@ -367,8 +304,8 @@ contains
               &                   lcut)
 
       !-- Input variables
-      complex(cp), intent(in) :: Blm(:), ddBlm(:), Jlm(:)
-      complex(cp), intent(inout) :: dJlm(:)
+      complex(cp), intent(in) :: Blm(:), ddBlm(:)
+      complex(cp), intent(in) :: Jlm(:), dJlm(:)
       real(cp),    intent(in) :: or2
       integer,     intent(in) :: lcut
 
@@ -395,20 +332,17 @@ contains
       !
       !$omp end parallel do
 
-      call SHqst_to_spat_l(sht_l, Qlm, dJlm, Tlm, cvrc, cvtc, cvpc, lcut)
+      call native_qst_to_spat(Qlm, dJlm, Tlm, cvrc, cvtc, cvpc, lcut)
 
    end subroutine torpol_to_curl_spat
 !------------------------------------------------------------------------------
    subroutine scal_to_SH(f, fLM, lcut)
 
-      !-- Input variables
       real(cp), intent(inout) :: f(:,:)
       integer,  intent(in) :: lcut
-
-      !-- Output variable
       complex(cp), intent(out) :: fLM(:)
 
-      call spat_to_SH_l(sht_l, f, fLM, lcut)
+      call native_spat_to_sph(f, fLM, lcut)
 
    end subroutine scal_to_SH
 !------------------------------------------------------------------------------
@@ -425,7 +359,8 @@ contains
       complex(cp), intent(out) :: sLM(:)
       complex(cp), intent(out) :: tLM(:)
 
-      call spat_to_SHqst_l(sht_l, f, g, h, qLM, sLM, tLM, lcut)
+      call native_spat_to_sph(f, qLM, lcut)
+      call native_spat_to_sph_tor(g, h, sLM, tLM, lcut)
 
    end subroutine spat_to_qst
 !------------------------------------------------------------------------------
@@ -440,56 +375,44 @@ contains
       complex(cp), intent(out) :: fLM(:)
       complex(cp), intent(out) :: gLM(:)
 
-      call spat_to_SHsphtor_l(sht_l, f, g, fLM, gLM, lcut)
+      call native_spat_to_sph_tor(f, g, fLM, gLM, lcut)
 
    end subroutine spat_to_sphertor
 !------------------------------------------------------------------------------
    subroutine axi_to_spat(fl_ax, f)
 
       !-- Input field
-      complex(cp), intent(inout) :: fl_ax(l_max+1) !-- Axi-sym toroidal
+      complex(cp), intent(in) :: fl_ax(l_max+1) !-- Axi-sym field
 
       !-- Output field on grid
       real(cp), intent(out) :: f(:)
 
-      !-- Local arrays
-      complex(cp) :: tmp(nlat_padded)
-
-      call SH_to_spat_ml(sht_l, 0, fl_ax, tmp, l_max)
-      f(:)=real(tmp(:))
+      call native_axi_to_spat(fl_ax, f)
 
    end subroutine axi_to_spat
 !------------------------------------------------------------------------------
    subroutine toraxi_to_spat(fl_ax, ft, fp)
 
       !-- Input field
-      complex(cp), intent(inout) :: fl_ax(l_max+1) !-- Axi-sym toroidal
+      complex(cp), intent(in) :: fl_ax(l_max+1) !-- Axi-sym toroidal
 
       !-- Output fields on grid
       real(cp), intent(out) :: ft(:)
       real(cp), intent(out) :: fp(:)
 
-      !-- Local arrays
-      complex(cp) :: tmpt(nlat_padded), tmpp(nlat_padded)
-
-      call SHtor_to_spat_ml(sht_l, 0, fl_ax, tmpt, tmpp, l_max)
-      ft(:)=real(tmpt(:))
-      fp(:)=real(tmpp(:))
+      call native_toraxi_to_spat(fl_ax, ft, fp)
 
    end subroutine toraxi_to_spat
 !------------------------------------------------------------------------------
    subroutine spat_to_SH_axi(f, fLM)
 
-      real(cp), intent(in) :: f(:)
+      !-- Input array
+      real(cp), intent(in) :: f(n_theta_max)
+
+      !-- Output array
       real(cp), intent(out) :: fLM(:)
 
-      !-- Local arrays
-      complex(cp) :: tmp(nlat_padded)
-      complex(cp) :: tmpLM(size(fLM))
-
-      tmp(:)=cmplx(f(:),0.0_cp,kind=cp)
-      call spat_to_SH_ml(sht_l, 0, tmp, tmpLM, l_max)
-      fLM(:)=real(tmpLM(:))
+      call native_spat_to_SH_axi(f, fLM, l_max+1)
 
    end subroutine spat_to_SH_axi
 !------------------------------------------------------------------------------

@@ -38,10 +38,10 @@ contains
 
    subroutine solve_mat_complex_rhs(a,len_a,n,pivot,rhs)
       !
-      !  This routine does the backward substitution into a lu-decomposed real 
-      !  matrix a (to solve a * x = bc1) were bc1 is the right hand side  
-      !  vector. On return x is stored in bc1.                            
-      !                                                                     
+      !  This routine does the backward substitution into a LU-decomposed real
+      !  matrix a (to solve a * x = bc1) were bc1 is the right hand side
+      !  vector. On return x is stored in bc1.
+      !
 
       !-- Input variables:
       integer,  intent(in) :: n          ! dimension of problem
@@ -77,7 +77,7 @@ contains
 !-----------------------------------------------------------------------------
    subroutine solve_mat_real_rhs_multi(a,len_a,n,pivot,rhs,nRHSs)
       !
-      !  This routine does the backward substitution into a lu-decomposed real
+      !  This routine does the backward substitution into a LU-decomposed real
       !  matrix a (to solve a * x = bc ) simultaneously for nRHSs real
       !  vectors bc. On return the results are stored in the bc.
       !
@@ -104,11 +104,8 @@ contains
 !-----------------------------------------------------------------------------
    subroutine solve_mat_real_rhs(a,len_a,n,pivot,rhs)
       !
-      !     like the linpack routine
-      !     backward substitution of vector b into lu-decomposed matrix a
-      !     to solve  a * x = b for a single real vector b
-      !
-      !     sub sgefa must be called once first to initialize a and pivot
+      !  Backward substitution of vector b into lu-decomposed matrix a
+      !  to solve  a * x = b for a single real vector b
       !
 
       !-- Input variables:
@@ -131,9 +128,7 @@ contains
 !-----------------------------------------------------------------------------
    subroutine prepare_mat(a,len_a,n,pivot,info)
       !
-      !     like the linpack routine
-      !
-      !     lu decomposes the real matrix a(n,n) via gaussian elimination
+      ! LU decomposition of the real matrix a(n,n) via gaussian elimination
       !
 
       !-- Input variables:
@@ -333,7 +328,7 @@ contains
    end subroutine solve_band_complex_rhs
 !-----------------------------------------------------------------------------
    subroutine solve_band_real_rhs_multi(A, lenA, kl, ku, pivotA, rhs, nRHSs)
-   
+
       !-- Input variables
       integer,  intent(in) :: kl
       integer,  intent(in) :: ku
@@ -402,14 +397,14 @@ contains
       integer,  intent(in) :: pivotA4(n_boundaries)
       real(cp), intent(in) :: A1(2*kl+ku+1,lenA1)
       real(cp), intent(in) :: A2(lenA1,n_boundaries)
-      real(cp), intent(in) :: A3(n_boundaries,lenA1)
+      real(cp), intent(in) :: A3(lenA1)
       real(cp), intent(in) :: A4(n_boundaries,n_boundaries)
 
       !-- Output variable
       real(cp), intent(inout) :: rhs(lenRhs)
 
       !-- Local variables:
-      integer :: nStart, n_bands_A1, info
+      integer :: nStart, n_bands_A1, info, k
 
       nStart = lenA1+1
       n_bands_A1 = 2*kl+ku+1
@@ -420,8 +415,9 @@ contains
            &      rhs(1:lenA1), lenA1, info)
 
       !-- rhs2 <- rhs2-A3*rhs1
-      call sgemv('N', n_boundaries, lenA1, -one, A3, n_boundaries,  &
-           &     rhs(1:lenA1), 1, one, rhs(nStart:), 1)
+      do k=1,lenA1
+         rhs(nStart)=rhs(nStart)-A3(k)*rhs(k)
+      end do
 
       !-- Solve A4*y = rhs2
       call sgetrs('N', n_boundaries, 1, A4, n_boundaries, pivotA4, &
@@ -436,8 +432,9 @@ contains
            &      rhs(1:lenA1), lenA1, info)
 
       !-- rhs2 <- rhs2-A3*rhs1
-      call dgemv('N', n_boundaries, lenA1, -one, A3, n_boundaries,  &
-           &     rhs(1:lenA1), 1, one, rhs(nStart:), 1)
+      do k=1,lenA1
+         rhs(nStart)=rhs(nStart)-A3(k)*rhs(k)
+      end do
 
       !-- Solve A4*y = rhs2
       call dgetrs('N', n_boundaries, 1, A4, n_boundaries, pivotA4, &
@@ -463,14 +460,14 @@ contains
       integer,  intent(in) :: pivotA4(n_boundaries)
       real(cp), intent(in) :: A1(2*kl+ku+1,lenA1)
       real(cp), intent(in) :: A2(lenA1,n_boundaries)
-      real(cp), intent(in) :: A3(n_boundaries,lenA1)
+      real(cp), intent(in) :: A3(lenA1)
       real(cp), intent(in) :: A4(n_boundaries,n_boundaries)
 
       !-- Output variable
       complex(cp), intent(inout) :: rhs(lenRhs)
 
       !-- Local variables:
-      integer :: nStart, n_bands_A1, info
+      integer :: nStart, n_bands_A1, info, k
       real(cp) :: tmpr(lenRhs), tmpi(lenRhs)
 
       nStart = lenA1+1
@@ -487,10 +484,10 @@ contains
            &      tmpi(1:lenA1), lenA1, info)
 
       !-- rhs2 <- rhs2-A3*rhs1
-      call sgemv('N', n_boundaries, lenA1, -one, A3, n_boundaries,  &
-           &     tmpr(1:lenA1), 1, one, tmpr(nStart:), 1)
-      call sgemv('N', n_boundaries, lenA1, -one, A3, n_boundaries,  &
-           &     tmpi(1:lenA1), 1, one, tmpi(nStart:), 1)
+      do k=1,lenA1
+         tmpr(nStart)=tmpr(nStart)-A3(k)*tmpr(k)
+         tmpi(nStart)=tmpi(nStart)-A3(k)*tmpi(k)
+      end do
 
       !-- Solve A4*y = rhs2
       call sgetrs('N', n_boundaries, 1, A4, n_boundaries, pivotA4, &
@@ -511,10 +508,10 @@ contains
            &      tmpi(1:lenA1), lenA1, info)
 
       !-- rhs2 <- rhs2-A3*rhs1
-      call dgemv('N', n_boundaries, lenA1, -one, A3, n_boundaries,  &
-           &     tmpr(1:lenA1), 1, one, tmpr(nStart:), 1)
-      call dgemv('N', n_boundaries, lenA1, -one, A3, n_boundaries,  &
-           &     tmpi(1:lenA1), 1, one, tmpi(nStart:), 1)
+      do k=1,lenA1
+         tmpr(nStart)=tmpr(nStart)-A3(k)*tmpr(k)
+         tmpi(nStart)=tmpi(nStart)-A3(k)*tmpi(k)
+      end do
 
       !-- Solve A4*y = rhs2
       call dgetrs('N', n_boundaries, 1, A4, n_boundaries, pivotA4, &
@@ -546,53 +543,65 @@ contains
       integer,  intent(in) :: pivotA4(n_boundaries)
       real(cp), intent(in) :: A1(2*kl+ku+1,lenA1)
       real(cp), intent(in) :: A2(lenA1,n_boundaries)
-      real(cp), intent(in) :: A3(n_boundaries,lenA1)
+      real(cp), intent(in) :: A3(lenA1)
       real(cp), intent(in) :: A4(n_boundaries,n_boundaries)
 
       !-- Output variable
       real(cp), intent(inout) :: rhs(:,:)
 
       !-- Local variables:
-      integer :: nStart, n_bands_A1, info
+      real(cp) :: tmp1(lenA1,nRHSs), tmp2(n_boundaries,nRHSs)
+      integer :: nStart, n_bands_A1, info, k, nrhs
 
       nStart = lenA1+1
       n_bands_A1 = 2*kl+ku+1
 
+      !-- Copy to avoid temporary array creation in LAPACK's calls
+      do nrhs=1,nRHSs
+         tmp1(:,nrhs)=rhs(1:lenA1,nrhs)
+         tmp2(:,nrhs)=rhs(nStart:,nrhs)
+      end do
+
 #if (DEFAULT_PRECISION==sngl)
       !-- Solve A1*w = rhs1
       call sgbtrs('N', lenA1, kl, ku, nRHSs, A1, n_bands_A1, pivotA1, &
-           &      rhs(1:lenA1,:), lenA1, info)
+           &      tmp1, lenA1, info)
 
       !-- rhs2 <- rhs2-A3*rhs1
-      call sgemm('N', 'N', n_boundaries, nRHSs, lenA1, -one, A3,  &
-           &     n_boundaries, rhs(1:lenA1,:), lenA1, one, rhs(nStart:,:), &
-           &     n_boundaries)
+      do k=1,lenA1
+         tmp2(1,:)=tmp2(1,:)-A3(k)*tmp1(k,:)
+      end do
 
       !-- Solve A4*y = rhs2
       call sgetrs('N', n_boundaries, nRHSs, A4, n_boundaries, pivotA4, &
-           &      rhs(nStart:,:), n_boundaries, info)
+           &      tmp2, n_boundaries, info)
 
       !-- Assemble rhs1 <- rhs1-A2*rhs2
       call sgemm('N', 'N', lenA1, nRHSs, n_boundaries, -one, A2, lenA1, &
-           &      rhs(nStart:,:), n_boundaries, one, rhs(1:lenA1,:), lenA1)
+           &      tmp2, n_boundaries, one, tmp1, lenA1)
 #elif (DEFAULT_PRECISION==dble)
       !-- Solve A1*w = rhs1
       call dgbtrs('N', lenA1, kl, ku, nRHSs, A1, n_bands_A1, pivotA1, &
-           &      rhs(1:lenA1,:), lenA1, info)
+           &      tmp1, lenA1, info)
 
       !-- rhs2 <- rhs2-A3*rhs1
-      call dgemm('N', 'N', n_boundaries, nRHSs, lenA1, -one, A3,  &
-           &     n_boundaries, rhs(1:lenA1,:), lenA1, one, rhs(nStart:,:), &
-           &     n_boundaries)
+      do k=1,lenA1
+         tmp2(1,:)=tmp2(1,:)-A3(k)*tmp1(k,:)
+      end do
 
       !-- Solve A4*y = rhs2
       call dgetrs('N', n_boundaries, nRHSs, A4, n_boundaries, pivotA4, &
-           &      rhs(nStart:,:), n_boundaries, info)
+           &      tmp2, n_boundaries, info)
 
       !-- Assemble rhs1 <- rhs1-A2*rhs2
       call dgemm('N', 'N', lenA1, nRHSs, n_boundaries, -one, A2, lenA1, &
-           &      rhs(nStart:,:), n_boundaries, one, rhs(1:lenA1,:), lenA1)
+           &     tmp2, n_boundaries, one, tmp1, lenA1)
 #endif
+
+      do nrhs=1,nRHSs
+         rhs(1:lenA1,nrhs)=tmp1(:,nrhs)
+         rhs(nStart:,nrhs)=tmp2(:,nrhs)
+      end do
 
    end subroutine solve_bordered_real_rhs_multi
 !-----------------------------------------------------------------------------
@@ -608,14 +617,14 @@ contains
       !-- Output variables
       real(cp), intent(inout) :: A1(2*kl+ku+1,lenA1)
       real(cp), intent(inout) :: A2(lenA1,n_boundaries)
-      real(cp), intent(inout) :: A3(n_boundaries,lenA1)
+      real(cp), intent(inout) :: A3(lenA1)
       real(cp), intent(inout) :: A4(n_boundaries,n_boundaries)
       integer,  intent(out)   :: pivotA1(lenA1)
       integer,  intent(out)   :: pivotA4(n_boundaries)
       integer,  intent(out)   :: info
 
       !-- Local variables
-      integer :: n_bands_A1
+      integer :: n_bands_A1, i, j
 
       n_bands_A1 = 2*kl+ku+1
 
@@ -631,8 +640,11 @@ contains
            &      A2, lenA1, info)
 
       !-- Assemble the Schur complement of A1: A4 <- A4-A3*v
-      call sgemm('N', 'N', n_boundaries, n_boundaries, lenA1, -one, A3,  &
-           &     n_boundaries, A2, lenA1, one, A4,  n_boundaries)
+      do i=1,n_boundaries
+         do j=1,lenA1
+            A4(1,i)=A4(1,i)-A3(j)*A2(j,i)
+         end do
+      end do
 
       !-- LU factorisation of the Schur complement
       call sgetrf(n_boundaries, n_boundaries, A4, n_boundaries, pivotA4, info)
@@ -645,8 +657,11 @@ contains
            &      A2, lenA1, info)
 
       !-- Assemble the Schur complement of A1: A4 <- A4-A3*v
-      call dgemm('N', 'N', n_boundaries, n_boundaries, lenA1, -one, A3,  &
-           &     n_boundaries, A2, lenA1, one, A4,  n_boundaries)
+      do i=1,n_boundaries
+         do j=1,lenA1
+            A4(1,i)=A4(1,i)-A3(j)*A2(j,i)
+         end do
+      end do
 
       !-- LU factorisation of the Schur complement
       call dgetrf(n_boundaries, n_boundaries, A4, n_boundaries, pivotA4, info)

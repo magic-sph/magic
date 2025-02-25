@@ -42,10 +42,10 @@ contains
 
    subroutine solve_mat_complex_rhs(a,ia,n,ip,bc1)
       !
-      !  This routine does the backward substitution into a lu-decomposed real 
-      !  matrix a (to solve a * x = bc1) were bc1 is the right hand side  
-      !  vector. On return x is stored in bc1.                            
-      !                                                                     
+      !  This routine does the backward substitution into a LU-decomposed real
+      !  matrix a (to solve a * x = bc1) were bc1 is the right hand side
+      !  vector. On return x is stored in bc1.
+      !
 
       !-- Input variables:
       integer,  intent(in) :: n         ! dimension of problem
@@ -106,7 +106,7 @@ contains
 !-----------------------------------------------------------------------------
    subroutine solve_mat_real_rhs_multi(a,ia,n,ip,bc,nRHSs)
       !
-      !  This routine does the backward substitution into a lu-decomposed real
+      !  This routine does the backward substitution into a LU-decomposed real
       !  matrix a (to solve a * x = bc ) simultaneously for nRHSs real
       !  vectors bc. On return the results are stored in the bc.
       !
@@ -213,26 +213,18 @@ contains
 !-----------------------------------------------------------------------------
    subroutine solve_mat_real_rhs(a,ia,n,ip,b)
       !
-      !     like the linpack routine
-      !     backward substitution of vector b into lu-decomposed matrix a
-      !     to solve  a * x = b for a single real vector b
-      !
-      !     sub sgefa must be called once first to initialize a and ip
-      !
-      !     a: (input)  nxn real matrix
-      !     n: (input)  size of a and b
-      !     ip: (input) pivot pointer array of length n
-      !     b: (in/output) rhs-vector on input, solution on output
+      !  Backward substitution of vector b into lu-decomposed matrix a
+      !  to solve  a * x = b for a single real vector b
       !
 
       !-- Input variables:
       integer,  intent(in) :: n      ! dim of problem
       integer,  intent(in) :: ia     ! first dim of a
       integer,  intent(in) :: ip(*)  ! pivot information
-      real(cp), intent(in) :: a(ia,*)
+      real(cp), intent(in) :: a(ia,*)! n*n real matrix
 
       !-- Output: solution stored in b(n)
-      real(cp), intent(inout) :: b(*)
+      real(cp), intent(inout) :: b(*)! rhs-vector on input, solution on output
 
       !-- Local variables:
       integer :: nm1,i
@@ -281,24 +273,17 @@ contains
 !-----------------------------------------------------------------------------
    subroutine prepare_mat(a,ia,n,ip,info)
       !
-      !     like the linpack routine
-      !
-      !     lu decomposes the real matrix a(n,n) via gaussian elimination
-      !
-      !     a: (in/output) real nxn matrix on input, lu-decomposed matrix on output
-      !     ia: (input) first dimension of a (must be >= n)
-      !     n: (input) 2nd dimension and rank of a
-      !     ip: (output) pivot pointer array
-      !     info: (output) error message when  /=  0
+      ! LU decomposition the real matrix a(n,n) via gaussian elimination
       !
 
       !-- Input variables:
-      integer,  intent(in) :: ia,n
-      real(cp), intent(inout) :: a(ia,*)
+      integer,  intent(in) :: ia ! first dimension of a (must be >= n)
+      integer,  intent(in) :: n  ! 2nd dimension and rank of a
+      real(cp), intent(inout) :: a(ia,*) ! real nxn matrix on input, lu-decomposed matrix on output
 
       !-- Output variables:
-      integer, intent(out) :: ip(*)   ! pivoting information
-      integer, intent(out) :: info
+      integer, intent(out) :: ip(*)   ! pivot pointer array
+      integer, intent(out) :: info    ! error message when  /= 0
 
       !-- Local variables:
       integer :: nm1,k,kp1,l,i,j
@@ -366,7 +351,7 @@ contains
       real(cp), intent(in) :: abd(2*kl+ku+1, n)
 
       !-- Output variable
-      real(cp), intent(out) :: rhs(n)
+      real(cp), intent(inout) :: rhs(n)
 
       !-- Local variables
       real(cp) :: t
@@ -412,7 +397,7 @@ contains
       real(cp), intent(in) :: abd(2*kl+ku+1, n)
 
       !-- Output variable
-      complex(cp), intent(out) :: rhs(n)
+      complex(cp), intent(inout) :: rhs(n)
 
       !-- Local variables
       complex(cp) :: t
@@ -628,8 +613,8 @@ contains
       integer,  intent(in) :: n         ! dim of problem
       integer,  intent(in) :: pivot(:)  ! pivot information
       real(cp), intent(in) :: d(:)      ! Diagonal
-      real(cp), intent(in) :: dl(:)     ! Lower 
-      real(cp), intent(in) :: du(:)     ! Lower 
+      real(cp), intent(in) :: dl(:)     ! Lower
+      real(cp), intent(in) :: du(:)     ! Lower
       real(cp), intent(in) :: du2(:)    ! Upper
 
       !-- Output: solution stored in rhs(n)
@@ -785,14 +770,14 @@ contains
       integer,  intent(in) :: pivotA4(n_boundaries)
       real(cp), intent(in) :: A1(2*kl+ku+1,lenA1)
       real(cp), intent(in) :: A2(lenA1,n_boundaries)
-      real(cp), intent(in) :: A3(n_boundaries,lenA1)
+      real(cp), intent(in) :: A3(lenA1)
       real(cp), intent(in) :: A4(n_boundaries,n_boundaries)
 
       !-- Output variable
       real(cp), intent(inout) :: rhs(lenRhs)
 
       !-- Local variables:
-      integer :: nStart
+      integer :: nStart, k
 
       nStart = lenA1+1
 
@@ -800,8 +785,9 @@ contains
       call solve_band_real_rhs(A1, lenA1, kl, ku, pivotA1, rhs(1:lenA1))
 
       !-- rhs2 <- rhs2-A3*rhs1
-      call gemv(n_boundaries, lenA1, -one, A3, n_boundaries, rhs(1:lenA1), &
-           &    one, rhs(nStart:))
+      do k=1,lenA1
+         rhs(nStart)=rhs(nStart)-A3(k)*rhs(k)
+      end do
 
       !-- Solve A4*y = rhs2
       call solve_mat_real_rhs(A4, n_boundaries, n_boundaries, pivotA4, &
@@ -826,14 +812,14 @@ contains
       integer,  intent(in) :: pivotA4(n_boundaries)
       real(cp), intent(in) :: A1(2*kl+ku+1,lenA1)
       real(cp), intent(in) :: A2(lenA1,n_boundaries)
-      real(cp), intent(in) :: A3(n_boundaries,lenA1)
+      real(cp), intent(in) :: A3(lenA1)
       real(cp), intent(in) :: A4(n_boundaries,n_boundaries)
 
       !-- Output variable
       complex(cp), intent(inout) :: rhs(lenRhs)
 
       !-- Local variables:
-      integer :: nStart
+      integer :: nStart, k
       real(cp) :: tmpr(lenRhs), tmpi(lenRhs)
 
       nStart = lenA1+1
@@ -846,10 +832,10 @@ contains
       call solve_band_real_rhs(A1, lenA1, kl, ku, pivotA1, tmpi(1:lenA1))
 
       !-- rhs2 <- rhs2-A3*rhs1
-      call gemv(n_boundaries, lenA1, -one, A3, n_boundaries, tmpr(1:lenA1), &
-           &    one, tmpr(nStart:))
-      call gemv(n_boundaries, lenA1, -one, A3, n_boundaries, tmpi(1:lenA1), &
-           &    one, tmpi(nStart:))
+      do k=1,lenA1
+         tmpr(nStart)=tmpr(nStart)-A3(k)*tmpr(k)
+         tmpi(nStart)=tmpi(nStart)-A3(k)*tmpi(k)
+      end do
 
       !-- Solve A4*y = rhs2
       call solve_mat_real_rhs(A4, n_boundaries, n_boundaries, pivotA4, &
@@ -880,14 +866,14 @@ contains
       integer,  intent(in) :: pivotA4(n_boundaries)
       real(cp), intent(in) :: A1(2*kl+ku+1,lenA1)
       real(cp), intent(in) :: A2(lenA1,n_boundaries)
-      real(cp), intent(in) :: A3(n_boundaries,lenA1)
+      real(cp), intent(in) :: A3(lenA1)
       real(cp), intent(in) :: A4(n_boundaries,n_boundaries)
 
       !-- Output variable
       real(cp), intent(inout) :: rhs(:,:)
 
       !-- Local variables:
-      integer :: nStart
+      integer :: nStart,k
 
       nStart = lenA1+1
 
@@ -896,8 +882,9 @@ contains
            &                         rhs(1:lenA1,:), nRHSs)
 
       !-- rhs2 <- rhs2-A3*rhs1
-      call gemm(n_boundaries, nRHSs, lenA1, -one, A3, n_boundaries, &
-           &    rhs(1:lenA1,:), lenA1, one, rhs(nStart:,:), n_boundaries)
+      do k=1,lenA1
+         rhs(nStart,:)=rhs(nStart,:)-A3(k)*rhs(k,:)
+      end do
 
       !-- Solve A4*y = rhs2
       call solve_mat_real_rhs_multi(A4, n_boundaries, n_boundaries, pivotA4, &
@@ -921,11 +908,14 @@ contains
       !-- Output variables
       real(cp), intent(inout) :: A1(2*kl+ku+1,lenA1)
       real(cp), intent(inout) :: A2(lenA1,n_boundaries)
-      real(cp), intent(inout) :: A3(n_boundaries,lenA1)
+      real(cp), intent(inout) :: A3(lenA1)
       real(cp), intent(inout) :: A4(n_boundaries,n_boundaries)
       integer,  intent(out)   :: pivotA1(lenA1)
       integer,  intent(out)   :: pivotA4(n_boundaries)
       integer,  intent(out)   :: info
+
+      !-- Local variables
+      integer :: i,j
 
       !-- LU factorisation for the banded block
       call prepare_band(A1, lenA1, kl, ku, pivotA1, info)
@@ -934,8 +924,11 @@ contains
       call solve_band_real_rhs_multi(A1, lenA1, kl, ku, pivotA1, A2, n_boundaries)
 
       !-- Assemble the Schur complement of A1: A4 <- A4-A3*v
-      call gemm(n_boundaries, n_boundaries, lenA1, -one, A3,  &
-           &    n_boundaries, A2, lenA1, one, A4,  n_boundaries)
+      do i=1,n_boundaries
+         do j=1,lenA1
+            A4(1,i)=A4(1,i)-A3(j)*A2(j,i)
+         end do
+      end do
 
       !-- LU factorisation of the Schur complement
       call prepare_mat(A4, n_boundaries, n_boundaries, pivotA4, info)

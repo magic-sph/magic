@@ -7,32 +7,43 @@ module RMS
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use blocking, only: st_map, nThetaBs, nfs, sizeThetaB, lo_map, lm2, &
-       &               lm2m, llm, ulm, llmMag, ulmMag
+   use blocking, only: st_map, lo_map, lm2, lm2m, llm, ulm, llmMag, ulmMag, &
+       &               lm2lmA, lm2l, lm2lmS
    use finite_differences, only: type_fd
    use chebyshev, only: type_cheb_odd
    use radial_scheme, only: type_rscheme
    use truncation, only: n_r_max, n_cheb_max, n_r_maxMag, lm_max, lm_maxMag, &
        &                 l_max, n_phi_max, n_theta_max, minc, n_r_max_dtB,   &
-       &                 lm_max_dtB, fd_ratio, fd_stretch
-   use physical_parameters, only: ra, ek, pr, prmag, radratio
-   use radial_data, only: nRstop, nRstart, radial_balance
-   use radial_functions, only: rscheme_oc, r, r_cmb, r_icb
-   use logic, only: l_save_out, l_heat, l_chemical_conv, l_conv_nl, l_mag_LF, &
-       &            l_conv, l_corr, l_mag, l_finite_diff, l_newmap, l_2D_RMS
+       &                 lm_max_dtB, fd_ratio, fd_stretch, nlat_padded
+   use physical_parameters, only: ra, ek, pr, prmag, radratio, CorFac, n_r_LCR, &
+       &                          BuoFac, ChemFac, ThExpNb, ViscHeatFac
+   use radial_data, only: nRstop, nRstart, radial_balance, nRstartMag, nRstopMag
+   use radial_functions, only: rscheme_oc, r, r_cmb, r_icb, or1, or2, or3, or4, &
+       &                       rho0, rgrav, beta, dLvisc, dbeta, ogrun, alpha0, &
+       &                       temp0, visc, l_R
+   use logic, only: l_save_out, l_heat, l_chemical_conv, l_conv_nl, l_mag_LF,    &
+       &            l_conv, l_corr, l_mag, l_finite_diff, l_newmap, l_2D_RMS,    &
+       &            l_parallel_solve, l_mag_par_solve, l_adv_curl, l_double_curl,&
+       &            l_anelastic_liquid, l_mag_nl, l_non_rot, l_tidal
    use num_param, only: tScale, alph1, alph2
-   use horizontal_data, only: phi, theta_ord
-   use constants, only: zero, one, half, four, third, vol_oc, pi
+   use horizontal_data, only: phi, theta_ord, cosTheta, sinTheta, O_sin_theta_E2,  &
+       &                      cosn_theta_E2, O_sin_theta, dTheta2A, dPhi, dTheta2S,&
+       &                      dLh, hdif_V
+   use constants, only: zero, one, half, four, third, vol_oc, pi, two, three
    use integration, only: rInt_R
-   use radial_der, only: get_dr
+   use radial_der, only: get_dr, get_dr_Rloc
    use output_data, only: rDea, rCut, tag, runid
    use cosine_transform_odd
-   use RMS_helpers, only: hInt2dPol, get_PolTorRms, hInt2dPolLM
+   use RMS_helpers, only: hInt2dPol, get_PolTorRms, hInt2dPolLM, hIntRms
    use dtB_mod, only: PdifLM_LMloc, TdifLM_LMloc, PstrLM_LMloc, PadvLM_LMloc, &
        &              TadvLM_LMloc, TstrLM_LMloc, TomeLM_LMloc
    use useful, only: abortRun
    use mean_sd, only: mean_sd_type, mean_sd_2D_type
-
+   use time_schemes, only: type_tscheme
+   use sht, only: spat_to_sphertor, spat_to_qst, scal_to_SH, scal_to_grad_spat
+   use fields, only:dwtidal_Rloc
+   use init_fields, only:vrtidal,vttidal,vptidal
+   
    implicit none
 
    private
@@ -45,22 +56,27 @@ module RMS
    real(cp), allocatable :: rC(:)        ! Cut-off radii
    real(cp), public, allocatable :: dr_facC(:)
 
-   real(cp), public, allocatable :: dtBPol2hInt(:,:)
-   real(cp), public, allocatable :: dtBTor2hInt(:,:)
+   real(cp), public, allocatable :: dtBPol2hInt(:,:), dtBTor2hInt(:,:)
    complex(cp), public, allocatable :: dtBPolLMr(:,:)
 
-   real(cp), public, allocatable :: DifPol2hInt(:,:)
-   real(cp), public, allocatable :: DifTor2hInt(:,:)
+   real(cp), public, allocatable :: DifPol2hInt(:,:), DifTor2hInt(:,:)
    complex(cp), public, allocatable :: DifPolLMr(:,:)
 
-   real(cp), public, allocatable :: Adv2hInt(:,:), Cor2hInt(:,:)
-   real(cp), public, allocatable :: LF2hInt(:,:), Buo_temp2hInt(:,:)
-   real(cp), public, allocatable :: Buo_xi2hInt(:,:)
-   real(cp), public, allocatable :: Pre2hInt(:,:), Geo2hInt(:,:)
-   real(cp), public, allocatable :: Mag2hInt(:,:), Arc2hInt(:,:)
-   real(cp), public, allocatable :: ArcMag2hInt(:,:), CIA2hInt(:,:)
-   real(cp), public, allocatable :: CLF2hInt(:,:), PLF2hInt(:,:)
-   real(cp), public, allocatable :: Iner2hInt(:,:)
+   real(cp), allocatable :: Adv2hInt(:,:), Cor2hInt(:,:), LF2hInt(:,:), Buo_temp2hInt(:,:)
+   real(cp), allocatable :: Buo_xi2hInt(:,:), Pre2hInt(:,:), Geo2hInt(:,:)
+   real(cp), allocatable :: Mag2hInt(:,:), Arc2hInt(:,:), ArcMag2hInt(:,:), CIA2hInt(:,:)
+   real(cp), allocatable :: CLF2hInt(:,:), PLF2hInt(:,:), Iner2hInt(:,:)
+
+   !-- Arrays on the physical grid
+   real(cp), allocatable :: Advt2(:,:), Advp2(:,:), dpdtc(:,:), dpdpc(:,:)
+   real(cp), allocatable :: CFt2(:,:), CFp2(:,:), LFt2(:,:), LFp2(:,:)
+   real(cp), allocatable :: dpkindrc(:,:), dtVr(:,:), dtVt(:,:), dtVp(:,:)
+   real(cp), allocatable :: vr_old(:,:,:), vt_old(:,:,:), vp_old(:,:,:)
+
+   complex(cp), allocatable :: dtVrLM(:), dtVtLM(:), dtVpLM(:)
+   complex(cp), allocatable :: dpkindrLM(:), Advt2LM(:), Advp2LM(:)
+   complex(cp), allocatable :: PFt2LM(:), PFp2LM(:), LFt2LM(:), LFp2LM(:)
+   complex(cp), allocatable :: CFt2LM(:), CFp2LM(:), LFrLM(:)
 
    !-- Time-averaged spectra
    type(mean_sd_type) :: InerRmsL, CorRmsL, LFRmsL, AdvRmsL
@@ -77,25 +93,38 @@ module RMS
    integer :: n_dtvrms_file, n_dtbrms_file
    character(len=72) :: dtvrms_file, dtbrms_file
 
-   public :: dtVrms, dtBrms, initialize_RMS, zeroRms, finalize_RMS
+   public :: dtVrms, dtBrms, initialize_RMS, zeroRms, finalize_RMS, get_nl_RMS, &
+   &         transform_to_lm_RMS, compute_lm_forces, transform_to_grid_RMS
 
 contains
 
    subroutine initialize_RMS
       !
-      ! Memory allocation
+      ! Memory allocation of arrays used in the computation of r.m.s. force balance
       !
 
-      allocate( dtBPol2hInt(llmMag:ulmMag,n_r_maxMag) )
-      allocate( dtBTor2hInt(llmMag:ulmMag,n_r_maxMag) )
-      allocate( dtBPolLMr(llmMag:ulmMag,n_r_maxMag) )
-      bytes_allocated = bytes_allocated+                               &
-      &                 2*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_REAL+&
-      &                 (llmMag-ulmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
+      if ( l_mag_par_solve ) then
+         allocate( dtBPol2hInt(lm_maxMag,nRstartMag:nRstopMag) )
+         allocate( dtBTor2hInt(lm_maxMag,nRstartMag:nRstopMag) )
+         allocate( dtBPolLMr(lm_maxMag,nRstartMag:nRstopMag) )
+         bytes_allocated = bytes_allocated+2*lm_maxMag*(nRstopMag-nRstartMag+1)*&
+         &                 SIZEOF_DEF_REAL+lm_maxMag*(nRstopMag-nRstartMag+1)*  &
+         &                 SIZEOF_DEF_COMPLEX
+      else
+         allocate( dtBPol2hInt(llmMag:ulmMag,n_r_maxMag) )
+         allocate( dtBTor2hInt(llmMag:ulmMag,n_r_maxMag) )
+         allocate( dtBPolLMr(llmMag:ulmMag,n_r_maxMag) )
+         bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*n_r_maxMag*   &
+         &                 SIZEOF_DEF_REAL+(llmMag-ulmMag+1)*n_r_maxMag*     &
+         &                 SIZEOF_DEF_COMPLEX
+      end if
 
-      allocate( DifPol2hInt(0:l_max,n_r_max) )
-      allocate( DifTor2hInt(0:l_max,n_r_max) )
-      allocate( DifPolLMr(llm:ulm,n_r_max) )
+      allocate( DifPol2hInt(0:l_max,n_r_max), DifTor2hInt(0:l_max,n_r_max) )
+      if ( l_parallel_solve ) then
+         allocate( DifPolLMr(lm_max,nRstart:nRstop) )
+      else
+         allocate( DifPolLMr(llm:ulm,n_r_max) )
+      end if
       bytes_allocated = bytes_allocated+                      &
       &                 2*(l_max+1)*n_r_max*SIZEOF_DEF_REAL+  &
       &                 (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
@@ -115,6 +144,42 @@ contains
       if ( l_chemical_conv ) then
          allocate( Buo_xi2hInt(0:l_max,n_r_max) )
          bytes_allocated = bytes_allocated+(l_max+1)*n_r_max*SIZEOF_DEF_REAL
+      end if
+
+      !-- RMS Calculations
+      allocate( Advt2(nlat_padded,n_phi_max), Advp2(nlat_padded,n_phi_max) )
+      allocate( dtVr(nlat_padded,n_phi_max), dtVt(nlat_padded,n_phi_max) )
+      allocate( dtVp(nlat_padded,n_phi_max) )
+      allocate( LFt2(nlat_padded,n_phi_max), LFp2(nlat_padded,n_phi_max) )
+      allocate( CFt2(nlat_padded,n_phi_max), CFp2(nlat_padded,n_phi_max) )
+      allocate( dpdtc(nlat_padded,n_phi_max), dpdpc(nlat_padded,n_phi_max) )
+      bytes_allocated=bytes_allocated + 11*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
+
+      allocate( vt_old(nlat_padded,n_phi_max,nRstart:nRstop) )
+      allocate( vp_old(nlat_padded,n_phi_max,nRstart:nRstop) )
+      allocate( vr_old(nlat_padded,n_phi_max,nRstart:nRstop) )
+      bytes_allocated=bytes_allocated + 3*n_phi_max*nlat_padded*(nRstop-nRstart+1)*&
+      &               SIZEOF_DEF_REAL
+
+      dtVr(:,:)=0.0_cp
+      dtVt(:,:)=0.0_cp
+      dtVp(:,:)=0.0_cp
+      vt_old(:,:,:) =0.0_cp
+      vr_old(:,:,:) =0.0_cp
+      vp_old(:,:,:) =0.0_cp
+
+      if ( l_adv_curl ) then
+         allocate ( dpkindrc(nlat_padded,n_phi_max) )
+         bytes_allocated=bytes_allocated + n_phi_max*nlat_padded*SIZEOF_DEF_REAL
+      end if
+
+      allocate( dtVrLM(lm_max), dtVtLM(lm_max), dtVpLM(lm_max), LFrLM(lm_max) )
+      allocate( Advt2LM(lm_max), Advp2LM(lm_max), LFt2LM(lm_max), LFp2LM(lm_max) )
+      allocate( CFt2LM(lm_max), CFp2LM(lm_max), PFt2LM(lm_max), PFp2LM(lm_max) )
+      bytes_allocated = bytes_allocated + 12*lm_max*SIZEOF_DEF_COMPLEX
+      if ( l_adv_curl ) then
+         allocate( dpkindrLM(lm_max) )
+         bytes_allocated = bytes_allocated + lm_max*SIZEOF_DEF_COMPLEX
       end if
 
       call InerRmsL%initialize(0,l_max)
@@ -169,20 +234,29 @@ contains
          end if
       end if
 
+      call zeroRms() ! zero's the fields
+
    end subroutine initialize_RMS
 !----------------------------------------------------------------------------
    subroutine finalize_RMS
+      !
+      ! Deallocate arrays used for r.m.s. force balance computation
+      !
 
-      deallocate( rC )
-      deallocate( dtBPol2hInt, dtBTor2hInt, dtBPolLMr )
+      deallocate( rC, dtBPol2hInt, dtBTor2hInt, dtBPolLMr )
       deallocate( DifPol2hInt, DifTor2hInt, DifPolLMr )
-      deallocate( Adv2hInt, Cor2hInt, LF2hInt, Iner2hInt )
-      deallocate( Pre2hInt )
+      deallocate( Adv2hInt, Cor2hInt, LF2hInt, Iner2hInt, Pre2hInt )
       deallocate( Geo2hInt, Mag2hInt, Arc2hInt, CIA2hInt )
       deallocate( CLF2hInt, PLF2hInt, ArcMag2hInt )
 
       if ( l_chemical_conv )  deallocate( Buo_xi2hInt )
       if ( l_heat )  deallocate( Buo_temp2hInt )
+
+      deallocate ( Advt2, Advp2, LFt2, LFp2, CFt2, CFp2, dpdtc, dpdpc )
+      deallocate ( dtVr, dtVt, dtVp, vr_old, vt_old, vp_old )
+      deallocate( Advt2LM, Advp2LM, LFt2LM, LFp2LM, CFt2LM, CFp2LM, PFt2LM, PFp2LM )
+      deallocate( dtVrLM, dtVtLM, dtVpLM, LFrLM )
+      if ( l_adv_curl ) deallocate ( dpkindrLM, dpkindrc )
 
       call InerRmsL%finalize()
       call CorRmsL%finalize()
@@ -250,9 +324,21 @@ contains
       CIA2hInt(:,:)   =0.0_cp
       CLF2hInt(:,:)   =0.0_cp
       PLF2hInt(:,:)   =0.0_cp
-
       if ( l_chemical_conv ) Buo_xi2hInt(:,:)=0.0_cp
       if ( l_heat ) Buo_temp2hInt(:,:)=0.0_cp
+
+      Advt2LM(:)=zero
+      Advp2LM(:)=zero
+      LFp2LM(:) =zero
+      LFt2LM(:) =zero
+      CFt2LM(:) =zero
+      CFp2LM(:) =zero
+      PFt2LM(:) =zero
+      PFp2LM(:) =zero
+      dtVtLM(:) =zero
+      dtVpLM(:) =zero
+      dtVrLM(:) =zero
+      if ( l_adv_curl ) dpkindrLM(:)=zero
 
       DifPolLMr(:,:)=zero
       dtBPolLMr(:,:)=zero
@@ -385,10 +471,438 @@ contains
 
    end subroutine init_rNB
 !----------------------------------------------------------------------------
+   subroutine get_nl_RMS(nR,vr,vt,vp,dvrdr,dvrdt,dvrdp,dvtdr,dvtdp,dvpdr,dvpdp, &
+              &          cvr,Advt,Advp,LFt,LFp,tscheme,lRmsCalc)
+      !
+      ! This subroutine computes the r.m.s. force balance terms which need to
+      ! be computed on the grid
+      !
+
+      !-- Input variables
+      real(cp),            intent(in) :: vr(:,:), vt(:,:), vp(:,:), cvr(:,:)
+      real(cp),            intent(in) :: dvrdr(:,:), dvrdt(:,:), dvrdp(:,:)
+      real(cp),            intent(in) :: dvtdp(:,:), dvpdp(:,:)
+      real(cp),            intent(in) :: dvtdr(:,:), dvpdr(:,:)
+      real(cp),            intent(in) :: Advt(:,:),Advp(:,:),LFt(:,:),LFp(:,:)
+      class(type_tscheme), intent(in) :: tscheme ! time scheme
+      integer,             intent(in) :: nR      ! radial level
+      logical,             intent(in) :: lRmsCalc
+
+      !-- Local variables
+      real(cp) ::  O_dt
+      integer :: nPhi, nPhStart, nPhStop
+
+      !$omp parallel default(shared) private(nPhStart,nPhStop,nPhi)
+      nPhStart=1; nPhStop=n_phi_max
+      call get_openmp_blocks(nPhStart,nPhStop)
+
+      do nPhi=nPhStart,nPhStop
+
+         if ( lRmsCalc ) then
+            dpdtc(:,nPhi)=dpdtc(:,nPhi)*or1(nR)
+            dpdpc(:,nPhi)=dpdpc(:,nPhi)*or1(nR)
+            CFt2(:,nPhi)=-two*CorFac*cosTheta(:)*(vp(:,nPhi))*or1(nR)
+            CFp2(:,nPhi)= two*CorFac*sinTheta(:)* (or1(nR)*cosTheta(:)*&
+                 &                  O_sin_theta(:)*(vt(:,nPhi))&
+                 &        +or2(nR)*sinTheta(:)*(vr(:,nPhi)) )
+            if (l_tidal) then
+               CFt2(:,nPhi)=CFt2(:,nPhi)-two*CorFac*cosTheta(:)*(vptidal(:,nPhi,nR))*or1(nR)
+               CFp2(:,nPhi)=CFp2(:,nPhi)+two*CorFac*sinTheta(:)* (or1(nR)*cosTheta(:)*&
+                    &                  O_sin_theta(:)*(vttidal(:,nPhi,nR))&
+                    &        +or2(nR)*sinTheta(:)*(vrtidal(:,nPhi,nR)) )
+            end if
+            if ( l_conv_nl ) then
+               Advt2(:,nPhi)=r(nR)*Advt(:,nPhi)
+               Advp2(:,nPhi)=r(nR)*Advp(:,nPhi)
+            end if
+            if ( l_mag_LF .and. nR > n_r_LCR ) then
+               LFt2(:,nPhi)=r(nR)*LFt(:,nPhi)
+               LFp2(:,nPhi)=r(nR)*LFp(:,nPhi)
+            end if
+
+            if ( l_adv_curl ) then
+               dpdtc(:,nPhi)=dpdtc(:,nPhi)-or3(nR)*( or2(nR)*  &
+               &             vr(:,nPhi)*dvrdt(:,nPhi) -        &
+               &             vt(:,nPhi)*(dvrdr(:,nPhi)+        &
+               &             dvpdp(:,nPhi)+cosn_theta_E2(:) *  &
+               &             vt(:,nPhi))+ vp(:,nPhi)*(         &
+               &             cvr(:,nPhi)+dvtdp(:,nPhi)-        &
+               &             cosn_theta_E2(:)*vp(:,nPhi)) )
+               dpdpc(:,nPhi)=dpdpc(:,nPhi)- or3(nR)*( or2(nR)*  &
+               &             vr(:,nPhi)*dvrdp(:,nPhi) +         &
+               &             vt(:,nPhi)*dvtdp(:,nPhi) +         &
+               &             vp(:,nPhi)*dvpdp(:,nPhi) )
+               if ( l_conv_nl ) then
+                  Advt2(:,nPhi)=Advt2(:,nPhi)-or3(nR)*( or2(nR)*  &
+                  &             vr(:,nPhi)*dvrdt(:,nPhi) -        &
+                  &             vt(:,nPhi)*(dvrdr(:,nPhi)+        &
+                  &             dvpdp(:,nPhi)+cosn_theta_E2(:) *  &
+                  &             vt(:,nPhi))+vp(:,nPhi)*(          &
+                  &             cvr(:,nPhi)+dvtdp(:,nPhi)-        &
+                  &             cosn_theta_E2(:)*vp(:,nPhi)) )
+                  Advp2(:,nPhi)=Advp2(:,nPhi)-or3(nR)*( or2(nR)* &
+                  &             vr(:,nPhi)*dvrdp(:,nPhi) +       &
+                  &             vt(:,nPhi)*dvtdp(:,nPhi) +       &
+                  &             vp(:,nPhi)*dvpdp(:,nPhi) )
+               end if
+
+               !- dpkin/dr = 1/2 d (u^2) / dr = ur*dur/dr+ut*dut/dr+up*dup/dr
+               dpkindrc(:,nPhi)=or4(nR)*vr(:,nPhi)*(dvrdr(:,nPhi)-           &
+               &                two*or1(nR)*vr(:,nPhi))+or2(nR)*             &
+               &                O_sin_theta_E2(:)*(         vt(:,nPhi)*(     &
+               &                      dvtdr(:,nPhi)-or1(nR)*vt(:,nPhi) ) +   &
+               &                vp(:,nPhi)*(dvpdr(:,nPhi)-or1(nR)*vp(:,nPhi) ) )
+            end if
+         end if
+
+         if ( tscheme%istage == 1 ) then
+            O_dt = 1.0_cp/tscheme%dt(1)
+            dtVr(:,nPhi)=O_dt*or2(nR)*(vr(:,nPhi)-vr_old(:,nPhi,nR))
+            dtVt(:,nPhi)=O_dt*or1(nR)*(vt(:,nPhi)-vt_old(:,nPhi,nR))
+            dtVp(:,nPhi)=O_dt*or1(nR)*(vp(:,nPhi)-vp_old(:,nPhi,nR))
+
+            vr_old(:,nPhi,nR)=vr(:,nPhi)
+            vt_old(:,nPhi,nR)=vt(:,nPhi)
+            vp_old(:,nPhi,nR)=vp(:,nPhi)
+         end if
+
+      end do
+      !$omp end parallel
+
+   end subroutine get_nl_RMS
+!----------------------------------------------------------------------------
+   subroutine transform_to_grid_RMS(nR, p_Rloc)
+      !
+      ! This subroutine is used to transform the arrays used in r.m.s. force
+      ! calculations from the spectral space to the physical grid.
+      !
+
+      !-- Input variables
+      integer,     intent(in) :: nR ! radial level
+      complex(cp), intent(inout) :: p_Rloc(lm_max,nRstart:nRstop) ! pressure in LM space
+
+      call scal_to_grad_spat(p_Rloc(:,nR), dpdtc, dpdpc, l_R(nR))
+
+   end subroutine transform_to_grid_RMS
+!----------------------------------------------------------------------------
+   subroutine transform_to_lm_RMS(nR, LFr)
+      !
+      ! This subroutine is used to transform the arrays used in r.m.s. force
+      ! calculations from the physical grid to spectral space.
+      !
+
+      !-- Input variables
+      integer,  intent(in) :: nR ! radial level
+      real(cp), intent(inout) :: LFr(:,:) ! radial component of the Lorentz force
+
+      Advt2LM(:)=zero
+      Advp2LM(:)=zero
+      LFrLM(:)  =zero
+      LFp2LM(:) =zero
+      LFt2LM(:) =zero
+      CFt2LM(:) =zero
+      CFp2LM(:) =zero
+      PFt2LM(:) =zero
+      PFp2LM(:) =zero
+      dtVtLM(:) =zero
+      dtVpLM(:) =zero
+      dtVrLM(:) =zero
+      if ( l_adv_curl ) dpkindrLM(:)=zero
+
+      if ( l_mag_LF .and. nR>n_r_LCR ) call scal_to_SH(LFr, LFrLM, l_R(nR))
+      call spat_to_sphertor(dpdtc, dpdpc, PFt2LM, PFp2LM, l_R(nR))
+      call spat_to_sphertor(CFt2, CFp2, CFt2LM, CFp2LM, l_R(nR))
+      call spat_to_qst(dtVr, dtVt, dtVp, dtVrLM, dtVtLM, dtVpLM, l_R(nR))
+      if ( l_conv_nl ) call spat_to_sphertor(Advt2, Advp2, Advt2LM, Advp2LM, l_R(nR))
+      !-- Kinetic pressure : 1/2 d u^2 / dr
+      if ( l_adv_curl ) call scal_to_SH(dpkindrc, dpkindrLM, l_R(nR))
+      if ( l_mag_nl .and. nR>n_r_LCR ) call spat_to_sphertor(LFt2, LFp2,  &
+                                            &                LFt2LM, LFp2LM, l_R(nR))
+
+   end subroutine transform_to_lm_RMS
+!----------------------------------------------------------------------------
+   subroutine compute_lm_forces(nR, w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, s_Rloc, &
+              &                 xi_Rloc, p_Rloc, dp_Rloc, AdvrLM)
+      !
+      ! This subroutine finalizes the computation of the r.m.s. spectra once
+      ! the quantities are back in spectral space.
+      !
+
+      !-- Input variables
+      integer,     intent(in) :: nR
+      complex(cp), intent(in) :: w_Rloc(:), dw_Rloc(:), z_Rloc(:)
+      complex(cp), intent(in) :: s_Rloc(:), p_Rloc(:), dp_Rloc(:)
+      complex(cp), intent(in) :: xi_Rloc(:), ddw_Rloc(:)
+      complex(cp), intent(in) :: AdvrLM(:)
+
+      !-- Local variables
+      complex(cp) :: dpdr(lm_max), Buo_temp(lm_max), Buo_xi(lm_max)
+      complex(cp) :: LFPol(lm_max), AdvPol(lm_max), CorPol(lm_max)
+      complex(cp) :: Geo(lm_max),CLF(lm_max),PLF(lm_max)
+      complex(cp) :: ArcMag(lm_max),Mag(lm_max),CIA(lm_max),Arc(lm_max)
+      complex(cp) :: CorPol_loc, AdvPol_loc, tidaltmp
+      integer :: lm, lmA, lmS, l, m
+
+      !-- l=m=0 spherically-symmetric contributions
+      lm=1
+      lmA=lm2lmA(lm)
+
+      if ( l_conv_nl ) then
+         AdvPol(lm)=or2(nR)*AdvrLM(lm)
+         if ( l_adv_curl ) AdvPol(lm)=AdvPol(lm)-dpkindrLM(lm)
+      else
+         AdvPol(lm)=zero
+      end if
+
+      if ( l_corr ) then
+         CorPol(lm)=two*CorFac*or1(nR)*dTheta2A(lm)*z_Rloc(lmA)
+      else
+         CorPol(lm)=zero
+      end if
+
+      if (l_heat) then
+         Buo_temp(lm)=BuoFac*rgrav(nR)*rho0(nR)*s_Rloc(lm)
+      else
+         Buo_temp(lm)=0.0_cp
+      end if
+
+      if (l_chemical_conv) then
+         Buo_xi(lm)=ChemFac*rgrav(nR)*rho0(nR)*xi_Rloc(lm)
+      else
+         Buo_xi(lm)=0.0_cp
+      end if
+
+      if ( l_mag_LF .and. nR>n_r_LCR ) then
+         LFPol(lm) =or2(nR)*LFrLM(lm)
+         AdvPol(lm)=AdvPol(lm)-LFPol(lm)
+      end if
+
+      if ( l_double_curl ) then
+         !-- Recalculate the pressure gradient based on the poloidal
+         !-- equation equilibrium
+         dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)+beta(nR)*p_Rloc(lm)+AdvPol(lm)+CorPol(lm)
+      else
+         dpdr(lm)=dp_Rloc(lm)
+      end if
+
+      !-- Loop over the other (l,m) modes
+      !$omp parallel do default(shared) private(lm,l,m,lmS,lmA) &
+      !$omp private(AdvPol_loc,CorPol_loc)
+      do lm=2,lm_max
+         l   =lm2l(lm)
+         m   =lm2m(lm)
+         lmS =lm2lmS(lm)
+         lmA =lm2lmA(lm)
+
+         if ( l_anelastic_liquid ) then
+            if (l_heat) then
+               Buo_temp(lm) =BuoFac*alpha0(nR)*rgrav(nR)*(      &
+               &       rho0(nR)*s_Rloc(lm)-ViscHeatFac*         &
+               &     (ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*  &
+               &     p_Rloc(lm) )
+            else
+               Buo_temp(lm)=zero
+            end if
+
+            if (l_chemical_conv) then
+               Buo_xi(lm)=ChemFac*alpha0(nR)*rgrav(nR)*rho0(nR)*xi_Rloc(lm)
+            else
+               Buo_xi(lm)=zero
+            end if
+         else
+            if (l_heat) then
+               Buo_temp(lm)=BuoFac*rho0(nR)*rgrav(nR)*s_Rloc(lm)
+            else
+               Buo_temp(lm)=zero
+            end if
+            if (l_chemical_conv) then
+               Buo_xi(lm) =ChemFac*rho0(nR)*rgrav(nR)*xi_Rloc(lm)
+            else
+               Buo_xi(lm)=zero
+            end if
+         end if
+
+         if (l_tidal) then
+            tidaltmp=dwtidal_Rloc(lm,nR)
+         else
+            tidaltmp=0.0_cp
+         end if
+         !-- We need to compute the Coriolis term once again
+         if ( l_corr ) then
+            if ( l < l_max .and. l > m ) then
+               CorPol_loc =two*CorFac*or1(nR) * (  &
+               &           dPhi(lm)*(dw_Rloc(lm)+tidaltmp) +  & ! phi-deriv of dw/dr
+               &       dTheta2A(lm)*z_Rloc(lmA) -  & ! sin(theta) dtheta z
+               &       dTheta2S(lm)*z_Rloc(lmS) )
+            else if ( l == l_max ) then
+               CorPol_loc=zero
+            else if ( l == m ) then
+               CorPol_loc = two*CorFac*or1(nR) * (  &
+               &            dPhi(lm)*(dw_Rloc(lm)+tidaltmp)  + &
+               &        dTheta2A(lm)*z_Rloc(lmA) )
+            end if
+         else
+            CorPol_loc=zero
+         end if
+
+         ! We also need to recompute AdvPol_loc here
+         if ( l_conv_nl ) then
+            AdvPol_loc=or2(nR)*AdvrLM(lm)
+         else
+            AdvPol_loc=zero
+         end if
+
+         if ( l_double_curl ) then
+            !-- Recalculate the pressure gradient based on the poloidal
+            !-- equation equilibrium
+            dpdr(lm)=Buo_temp(lm)+Buo_xi(lm)-dtVrLM(lm)+               &
+            &        dLh(lm)*or2(nR)*hdif_V(l)*visc(nR)*(              &
+            &                                        ddw_Rloc(lm)+     &
+            &         (two*dLvisc(nR)-third*beta(nR))*dw_Rloc(lm)-     &
+            &         ( dLh(lm)*or2(nR)+four*third*( dbeta(nR)+        &
+            &         dLvisc(nR)*beta(nR)+(three*dLvisc(nR)+beta(nR))* &
+            &         or1(nR)) )*                      w_Rloc(lm))+    &
+            &        beta(nR)*p_Rloc(lm)+AdvPol_loc+CorPol_loc
+         else
+            dpdr(lm)=dp_Rloc(lm)
+         end if
+
+         ! We need to correct from kinetic pressure
+         ! after computation of dpdr in case FD (l_double_curl) is used
+         if ( l_conv_nl .and. l_adv_curl ) AdvPol_loc=AdvPol_loc-dpkindrLM(lm)
+
+         if ( l_mag_LF .and. nR>n_r_LCR ) then
+            LFPol(lm) =or2(nR)*LFrLM(lm)
+            AdvPol(lm)=AdvPol_loc-LFPol(lm)
+         else
+            AdvPol(lm)=AdvPol_loc
+         end if
+         CorPol(lm)=CorPol_loc
+      end do
+
+      !-- Now compute R.M.S spectra
+      if ( l_conv_nl ) then
+         call hIntRms(AdvPol,nR,1,lm_max,Adv2hInt(:,nR),st_map, .false.)
+         call hIntRms(Advt2LM,nR,1,lm_max,Adv2hInt(:,nR),st_map,.true.)
+         call hIntRms(Advp2LM,nR,1,lm_max,Adv2hInt(:,nR),st_map,.true.)
+         do lm=1,lm_max
+            !-- Use Geo as work array
+            Geo(lm)=AdvPol(lm)-dtVrLM(lm)
+         end do
+         call hIntRms(Geo,nR,1,lm_max,Iner2hInt(:,nR),st_map, .false.)
+         do lm=1,lm_max
+            !-- Use Geo as work array
+            Geo(lm)=Advt2LM(lm)-dtVtLM(lm)
+         end do
+         call hIntRms(Geo,nR,1,lm_max,Iner2hInt(:,nR),st_map,.true.)
+         do lm=1,lm_max
+            !-- Use Geo as work array
+            Geo(lm)=Advp2LM(lm)-dtVpLM(lm)
+         end do
+         call hIntRms(Geo,nR,1,lm_max,Iner2hInt(:,nR),st_map,.true.)
+      end if
+
+      if ( l_anelastic_liquid ) then
+         call hIntRms(dpdr,nR,1,lm_max,Pre2hInt(:,nR),st_map,.false.)
+      else
+         ! rho* grad(p/rho) = grad(p) - beta*p
+         !-- Geo is used to store the pressure Gradient
+         if ( l_adv_curl ) then
+            do lm=1,lm_max
+               !-- Use Geo as work array
+               Geo(lm)=dpdr(lm)-beta(nR)*p_Rloc(lm)-dpkindrLM(lm)
+            end do
+         else
+            do lm=1,lm_max
+               !-- Use Geo as work array
+               Geo(lm)=dpdr(lm)-beta(nR)*p_Rloc(lm)
+            end do
+         end if
+         call hIntRms(Geo,nR,1,lm_max,Pre2hInt(:,nR),st_map,.false.)
+      end if
+      call hIntRms(PFt2LM,nR,1,lm_max,Pre2hInt(:,nR),st_map,.true.)
+      call hIntRms(PFp2LM,nR,1,lm_max,Pre2hInt(:,nR),st_map,.true.)
+
+      if ( l_heat ) then
+         call hIntRms(Buo_temp,nR,1,lm_max,Buo_temp2hInt(:,nR),st_map,.false.)
+      end if
+      if ( l_chemical_conv ) then
+         call hIntRms(Buo_xi,nR,1,lm_max,Buo_xi2hInt(:,nR),st_map,.false.)
+      end if
+      if ( l_corr ) then
+         call hIntRms(CorPol,nR,1,lm_max,Cor2hInt(:,nR),st_map,.false.)
+         call hIntRms(CFt2LM,nR,1,lm_max,Cor2hInt(:,nR),st_map,.true.)
+         call hIntRms(CFp2LM,nR,1,lm_max,Cor2hInt(:,nR),st_map,.true.)
+      end if
+      if ( l_mag_LF .and. nR>n_r_LCR ) then
+         call hIntRms(LFPol,nR,1,lm_max,LF2hInt(:,nR),st_map,.false.)
+         call hIntRms(LFt2LM,nR,1,lm_max,LF2hInt(:,nR),st_map,.true.)
+         call hIntRms(LFp2LM,nR,1,lm_max,LF2hInt(:,nR),st_map,.true.)
+      end if
+
+      do lm=1,lm_max
+         Geo(lm)=CorPol(lm)-dpdr(lm)+beta(nR)*p_Rloc(lm)
+         PLF(lm)=LFPol(lm)-dpdr(lm)+beta(nR)*p_Rloc(lm)
+         if ( l_adv_curl ) then
+            Geo(lm)=Geo(lm)+dpkindrLM(lm)
+            PLF(lm)=PLF(lm)+dpkindrLM(lm)
+         end if
+         CLF(lm)=CorPol(lm)+LFPol(lm)
+         Mag(lm)=Geo(lm)+LFPol(lm)
+         Arc(lm)=Geo(lm)+Buo_temp(lm)+Buo_xi(lm)
+         ArcMag(lm)=Mag(lm)+Buo_temp(lm)+Buo_xi(lm)
+         CIA(lm)=ArcMag(lm)+AdvPol(lm)-dtVrLM(lm)
+         !CIA(lm)=CorPol(lm)+Buo_temp(lm)+Buo_xi(lm)+AdvPol(lm)
+      end do
+      call hIntRms(Geo,nR,1,lm_max,Geo2hInt(:,nR),st_map,.false.)
+      call hIntRms(CLF,nR,1,lm_max,CLF2hInt(:,nR),st_map,.false.)
+      call hIntRms(PLF,nR,1,lm_max,PLF2hInt(:,nR),st_map,.false.)
+      call hIntRms(Mag,nR,1,lm_max,Mag2hInt(:,nR),st_map,.false.)
+      call hIntRms(Arc,nR,1,lm_max,Arc2hInt(:,nR),st_map,.false.)
+      call hIntRms(ArcMag,nR,1,lm_max,ArcMag2hInt(:,nR),st_map,.false.)
+      call hIntRms(CIA,nR,1,lm_max,CIA2hInt(:,nR),st_map,.false.)
+
+      do lm=1,lm_max
+         Geo(lm)=-CFt2LM(lm)-PFt2LM(lm)
+         CLF(lm)=-CFt2LM(lm)+LFt2LM(lm)
+         PLF(lm)=LFt2LM(lm)-PFt2LM(lm)
+         Mag(lm)=Geo(lm)+LFt2LM(lm)
+         Arc(lm)=Geo(lm)
+         ArcMag(lm)=Mag(lm)
+         CIA(lm)=ArcMag(lm)+Advt2LM(lm)-dtVtLM(lm)
+         !CIA(lm)=-CFt2LM(lm)+Advt2LM(lm)
+      end do
+      call hIntRms(Geo,nR,1,lm_max,Geo2hInt(:,nR),st_map,.true.)
+      call hIntRms(CLF,nR,1,lm_max,CLF2hInt(:,nR),st_map,.true.)
+      call hIntRms(PLF,nR,1,lm_max,PLF2hInt(:,nR),st_map,.true.)
+      call hIntRms(Mag,nR,1,lm_max,Mag2hInt(:,nR),st_map,.true.)
+      call hIntRms(Arc,nR,1,lm_max,Arc2hInt(:,nR),st_map,.true.)
+      call hIntRms(ArcMag,nR,1,lm_max,ArcMag2hInt(:,nR),st_map,.true.)
+      call hIntRms(CIA,nR,1,lm_max,CIA2hInt(:,nR),st_map,.true.)
+
+      do lm=1,lm_max
+         Geo(lm)=-CFp2LM(lm)-PFp2LM(lm)
+         CLF(lm)=-CFp2LM(lm)+LFp2LM(lm)
+         PLF(lm)=LFp2LM(lm)-PFp2LM(lm)
+         Mag(lm)=Geo(lm)+LFp2LM(lm)
+         Arc(lm)=Geo(lm)
+         ArcMag(lm)=Mag(lm)
+         CIA(lm)=ArcMag(lm)+Advp2LM(lm)-dtVpLM(lm)
+         !CIA(lm)=-CFp2LM(lm)+Advp2LM(lm)
+      end do
+      call hIntRms(Geo,nR,1,lm_max,Geo2hInt(:,nR),st_map,.true.)
+      call hIntRms(CLF,nR,1,lm_max,CLF2hInt(:,nR),st_map,.true.)
+      call hIntRms(PLF,nR,1,lm_max,PLF2hInt(:,nR),st_map,.true.)
+      call hIntRms(Mag,nR,1,lm_max,Mag2hInt(:,nR),st_map,.true.)
+      call hIntRms(Arc,nR,1,lm_max,Arc2hInt(:,nR),st_map,.true.)
+      call hIntRms(ArcMag,nR,1,lm_max,ArcMag2hInt(:,nR),st_map,.true.)
+      call hIntRms(CIA,nR,1,lm_max,CIA2hInt(:,nR),st_map,.true.)
+
+   end subroutine compute_lm_forces
+!----------------------------------------------------------------------------
    subroutine get_force(Force2hInt,ForceRms,ForceRmsL,ForceRmsLnR,      &
               &         volC,nRMS_sets,timePassed,timeNorm,l_stop_time, &
               &         ForcePol2hInt,ForceTor2hInt)
-
       !
       ! This subroutine is used to compute the contributions of the
       ! forces in the Navier-Stokes equation
@@ -463,6 +977,7 @@ contains
       integer,  intent(inout) :: nRMS_sets
 
       !-- Output:
+      real(cp) :: CLFRel     =0.0_cp
       real(cp) :: InerRms    =0.0_cp
       real(cp) :: CorRms     =0.0_cp
       real(cp) :: AdvRms     =0.0_cp
@@ -484,11 +999,13 @@ contains
       real(cp) :: volC
       real(cp) :: Dif2hInt(n_r_max)
 
-      complex(cp) :: workA(llm:ulm,n_r_max)
+      complex(cp) :: workA(llm:ulm,n_r_max), work_Rloc(lm_max,nRstart:nRstop)
+      character(len=80) :: fileName
+#ifdef WITH_MPI
+      integer :: irank,sendcount
       integer :: recvcounts(0:n_procs-1),displs(0:n_procs-1)
       real(cp) :: global_sum(l_max+1,n_r_max)
-      integer :: irank,sendcount
-      character(len=80) :: fileName
+#endif
 
       nRC=nCut+1
 
@@ -498,25 +1015,26 @@ contains
          call get_dr(DifPolLMr(llm:ulm,:),workA(llm:ulm,:),ulm-llm+1,1, &
               &      ulm-llm+1,n_r_max,rscheme_oc,nocopy=.true.)
       else
-         call get_dr(DifPolLMr(llm:ulm,:),workA(llm:ulm,:),ulm-llm+1,1, &
-              &      ulm-llm+1,n_r_max,rscheme_oc)
+         if ( l_parallel_solve ) then
+            call get_dr_Rloc(DifPolLMr,work_Rloc,lm_max,nRstart,nRstop,n_r_max,&
+                 &           rscheme_oc)
+         else
+            call get_dr(DifPolLMr(llm:ulm,:),workA(llm:ulm,:),ulm-llm+1,1, &
+                 &      ulm-llm+1,n_r_max,rscheme_oc)
+         end if
       end if
 
-      do nR=1,n_r_max
-         call hInt2dPol(workA(llm:ulm,nR),llm,ulm,DifPol2hInt(:,nR), &
-              &         lo_map)
-      end do
-#ifdef WITH_MPI
-      call MPI_Reduce(DifPol2hInt(:,:),global_sum,n_r_max*(l_max+1), &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) DifPol2hInt(:,:)=global_sum
-#endif
+      if ( l_parallel_solve ) then
+         do nR=nRstart,nRstop
+            call hInt2dPol(work_Rloc(:,nR),1,lm_max,DifPol2hInt(:,nR),st_map)
+         end do
+      else
+         do nR=1,n_r_max
+            call hInt2dPol(workA(llm:ulm,nR),llm,ulm,DifPol2hInt(:,nR),lo_map)
+         end do
+      end if
 
-      ! First gather all needed arrays on rank 0
-      ! some more arrays to gather for the dtVrms routine
-      ! we need some more fields for the dtBrms routine
 #ifdef WITH_MPI
-
       ! The following fields are only 1D and R distributed.
       sendcount = nR_per_rank*(l_max+1)
       do irank=0,n_procs-1
@@ -526,6 +1044,22 @@ contains
       do irank=1,n_procs-1
          displs(irank) = displs(irank-1)+recvcounts(irank-1)
       end do
+
+      if ( l_parallel_solve ) then
+         call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,         &
+              &              DifPol2hInt,recvcounts,displs,MPI_DEF_REAL,  &
+              &              MPI_COMM_WORLD,ierr)
+      else
+         call MPI_Reduce(DifPol2hInt(:,:),global_sum,n_r_max*(l_max+1), &
+              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+         if ( rank == 0 ) DifPol2hInt(:,:)=global_sum
+      end if
+#endif
+
+      ! First gather all needed arrays on rank 0
+      ! some more arrays to gather for the dtVrms routine
+      ! we need some more fields for the dtBrms routine
+#ifdef WITH_MPI
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              Cor2hInt,recvcounts,displs,MPI_DEF_REAL,   &
            &              MPI_COMM_WORLD,ierr)
@@ -575,13 +1109,15 @@ contains
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
            &              PLF2hInt,recvcounts,displs,MPI_DEF_REAL,   &
            &              MPI_COMM_WORLD,ierr)
-
-      ! The following fields are LM distributed and have to be gathered:
-      ! dtVPolLMr, DifPolLMr
-
-      call MPI_Reduce(DifTor2hInt(:,:),global_sum,n_r_max*(l_max+1), &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) DifTor2hInt(:,:)=global_sum
+      if ( l_parallel_solve ) then
+         call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,         &
+              &              DifTor2hInt,recvcounts,displs,MPI_DEF_REAL,  &
+              &              MPI_COMM_WORLD,ierr)
+      else
+         call MPI_Reduce(DifTor2hInt(:,:),global_sum,n_r_max*(l_max+1), &
+              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+         if ( rank == 0 ) DifTor2hInt(:,:)=global_sum
+      end if
 #endif
 
       if ( rank == 0 ) then
@@ -655,10 +1191,8 @@ contains
          end if
 
          !-- Buoyancy/Pressure/Coriolis balance:
-         if ( l_corr ) then
-            call get_force(Arc2hInt,ArcRms,ArcRmsL,ArcRmsLnR,volC,    &
-                 &         nRMS_sets,timePassed,timeNorm,l_stop_time)
-         end if
+         call get_force(Arc2hInt,ArcRms,ArcRmsL,ArcRmsLnR,volC,    &
+              &         nRMS_sets,timePassed,timeNorm,l_stop_time)
 
          !-- Coriolis/Inertia/Archimedian balance:
          if (l_corr) then
@@ -683,13 +1217,18 @@ contains
             open(newunit=n_dtvrms_file, file=dtvrms_file, &
             &    form='formatted', status='unknown', position='append')
          end if
+         if ( l_non_rot .and. (.not. l_mag ) ) then
+            CLFrel=0.0_cp
+         else
+            CLFrel=CLFRms/(CorRms+LFRms)
+         end if
          write(n_dtvrms_file,'(1P,ES20.12,8ES16.8,7ES14.6)')          &
          &     time*tScale, InerRms, CorRms, LFRms, AdvRms, DifRms,   &
          &     Buo_tempRms, Buo_xiRms, PreRms, GeoRms/(CorRms+PreRms),&
          &     MagRms/(CorRms+PreRms+LFRms),                          &
          &     ArcRms/(CorRms+PreRms+Buo_tempRms+Buo_xiRms),          &
          &     ArcMagRms/(CorRms+PreRms+LFRms+Buo_tempRms+Buo_xiRms), &
-         &     CLFRms/(CorRms+LFRms), PLFRms/(PreRms+LFRms),          &
+         &     CLFrel, PLFRms/(PreRms+LFRms),                         &
          &     CIARms/(CorRms+PreRms+Buo_tempRms+Buo_xiRms+InerRms+LFRms)
          if ( l_save_out) then
             close(n_dtvrms_file)
@@ -751,7 +1290,7 @@ contains
       real(cp), intent(in) :: time
 
       !-- Local
-      integer :: nR,l1m0,l1m1,lm,m
+      integer :: nR,l1m0,l1m1,lm,l,m
 
       real(cp) :: dtBPolRms,dtBPolAsRms
       real(cp) :: dtBTorRms,dtBTorAsRms
@@ -764,6 +1303,7 @@ contains
       complex(cp) :: drPdynLM(llmMag:ulmMag,n_r_max_dtB)
       complex(cp) :: TdynLM(llmMag:ulmMag,n_r_max_dtB)
       complex(cp) :: work_LMloc(llmMag:ulmMag,n_r_max_dtB)
+      complex(cp) :: work_Rloc(lm_maxMag,nRstartMag:nRstopMag)
 
       real(cp) :: dtBP(n_r_max),dtBPAs(n_r_max)
       real(cp) :: dtBT(n_r_max),dtBTAs(n_r_max)
@@ -771,18 +1311,6 @@ contains
       real(cp) :: dtBT_global(n_r_max),dtBTAs_global(n_r_max)
 
       real(cp) :: PdifRms, PdifAsRms, TdifRms, TdifAsRms, TomeRms, TomeAsRms
-
-      !-- For new movie output
-      ! character(len=80) :: fileName
-      ! integer :: nField,nFields,nFieldSize
-      ! integer :: nTheta,nThetaN,nThetaS,nThetaStart
-      ! integer :: nPos, fileHandle
-      ! real(cp) :: dumm(12),rS
-      ! real(cp) :: fOut(n_theta_max*n_r_max)
-      ! real(cp) :: outBlock(nfs)
-      ! character(len=80) :: version
-      ! logical :: lRmsMov
-
 
       !--- Stretching
       call get_dr(PstrLM_LMloc(llmMag:ulmMag,:),work_LMloc(llmMag:ulmMag,:), &
@@ -833,27 +1361,48 @@ contains
            &             dummy1,TomeRms,dummy2,TomeAsRms,lo_map)
 
       !--- B changes:
-      call get_dr(dtBPolLMr(llmMag:ulmMag,:),work_LMloc(llmMag:ulmMag,:), &
-           &      ulmMag-llmMag+1,1,ulmMag-llmMag+1,n_r_max,rscheme_oc,   &
-           &      nocopy=.true.)
-
-      do nR=1,n_r_max
-         call hInt2dPolLM(work_LMloc(llm:ulm,nR),llm,ulm, &
-              &           dtBPol2hInt(llm:ulm,nR),lo_map)
-         dtBP(nR)  =0.0_cp
-         dtBT(nR)  =0.0_cp
-         dtBPAs(nR)=0.0_cp
-         dtBTAs(nR)=0.0_cp
-         do lm=llm,ulm
-            m=lo_map%lm2m(lm)
-            dtBP(nR)=dtBP(nR)+dtBPol2hInt(lm,nR)
-            dtBT(nR)=dtBT(nR)+dtBTor2hInt(lm,nR)
-            if ( m == 0 ) then
-               dtBPAs(nR)=dtBPAs(nR)+dtBPol2hInt(lm,nR)
-               dtBTAs(nR)=dtBTAs(nR)+dtBTor2hInt(lm,nR)
-            end if
+      dtBP(:)  =0.0_cp
+      dtBT(:)  =0.0_cp
+      dtBPAs(:)=0.0_cp
+      dtBTAs(:)=0.0_cp
+      if ( l_mag_par_solve ) then
+         call get_dr_Rloc(dtBPolLMr,work_Rloc,lm_maxMag,nRstartMag,nRstopMag, &
+              &           n_r_max,rscheme_oc)
+         do nR=nRstartMag,nRstopMag
+            call hInt2dPolLM(work_Rloc(:,nR),1,lm_max,dtBPol2hInt(:,nR),st_map)
+            do lm=1,lm_maxMag
+               l=st_map%lm2l(lm)
+               if ( l == 0 ) cycle
+               m=st_map%lm2m(lm)
+               dtBP(nR)=dtBP(nR)+dtBPol2hInt(lm,nR)
+               dtBT(nR)=dtBT(nR)+dtBTor2hInt(lm,nR)
+               if ( m == 0 ) then
+                  dtBPAs(nR)=dtBPAs(nR)+dtBPol2hInt(lm,nR)
+                  dtBTAs(nR)=dtBTAs(nR)+dtBTor2hInt(lm,nR)
+               end if
+            end do
          end do
-      end do
+      else
+         call get_dr(dtBPolLMr(llmMag:ulmMag,:),work_LMloc(llmMag:ulmMag,:), &
+              &      ulmMag-llmMag+1,1,ulmMag-llmMag+1,n_r_max,rscheme_oc,   &
+              &      nocopy=.true.)
+
+         do nR=1,n_r_max
+            call hInt2dPolLM(work_LMloc(llm:ulm,nR),llm,ulm, &
+                 &           dtBPol2hInt(llm:ulm,nR),lo_map)
+            do lm=llm,ulm
+               l=lo_map%lm2l(lm)
+               m=lo_map%lm2m(lm)
+               if ( l == 0 ) cycle
+               dtBP(nR)=dtBP(nR)+dtBPol2hInt(lm,nR)
+               dtBT(nR)=dtBT(nR)+dtBTor2hInt(lm,nR)
+               if ( m == 0 ) then
+                  dtBPAs(nR)=dtBPAs(nR)+dtBPol2hInt(lm,nR)
+                  dtBTAs(nR)=dtBTAs(nR)+dtBTor2hInt(lm,nR)
+               end if
+            end do
+         end do
+      end if
 
 #ifdef WITH_MPI
       call MPI_Reduce(dtBP, dtBP_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
@@ -872,7 +1421,6 @@ contains
 #endif
 
       if ( rank == 0 ) then
-
          dtBPolRms  =rInt_R(dtBP_global,r,rscheme_oc)
          dtBPolAsRms=rInt_R(dtBPAs_global,r,rscheme_oc)
          dtBTorRms  =rInt_R(dtBT_global,r,rscheme_oc)
@@ -882,119 +1430,6 @@ contains
          dtBPolAsRms=sqrt(dtBPolAsRms/vol_oc)
          dtBTorRms  =sqrt(dtBTorRms  /vol_oc)
          dtBTorAsRms=sqrt(dtBTorAsRms/vol_oc)
-
-
-         !-- Output of movie files for axisymmetric toroidal field changes:
-         !   Tstr,Tome,Tdyn=Tstr+Tadv,
-         ! lRmsMov=.false.
-         ! if ( lRmsMov ) then
-
-         !    nFieldSize=n_theta_max*n_r_max
-         !    nFields=7
-         !    fileName='dtTas_mov.'//tag
-         !    open(newunit=fileHandle, file=fileName, status='unknown', &
-         !    &    form='unformatted')
-
-         !    !------ Write header
-         !    version='JW_Movie_Version_2'
-         !    write(fileHandle) version
-         !    dumm(1)=112           ! type of input
-         !    dumm(2)=3             ! marker for constant phi plane
-         !    dumm(3)=0.0_cp          ! surface constant
-         !    dumm(4)=nFields       ! no of fields
-         !    write(fileHandle) (real(dumm(n),kind=outp),n=1,4)
-
-         !    !------ Define marker for output fields stored in movie field
-         !    dumm(1)=101           ! Field marker for AS Br stretching
-         !    dumm(2)=102           ! Field marker for AS Br dynamo term
-         !    dumm(3)=103           ! Field marker for AS Br diffusion
-         !    dumm(4)=104           ! Field marker for AS Bp stretching
-         !    dumm(5)=105           ! Field marker for AS Bp dynamo term
-         !    dumm(6)=106           ! Field marker for AS Bp omega effect
-         !    dumm(7)=107           ! Field marker for AS Bp diffusion
-         !    write(fileHandle) (real(dumm(n),kind=outp),n=1,nFields)
-
-         !    !------ Now other info about grid and parameters:
-         !    write(fileHandle) runid        ! run identifier
-         !    dumm( 1)=n_r_max          ! total number of radial points
-         !    dumm( 2)=n_r_max          ! no of radial point in outer core
-         !    dumm( 3)=n_theta_max      ! no. of theta points
-         !    dumm( 4)=n_phi_max        ! no. of phi points
-         !    dumm( 5)=minc             ! imposed symmetry
-         !    dumm( 6)=ra               ! control parameters
-         !    dumm( 7)=ek               ! (for information only)
-         !    dumm( 8)=pr               !      -"-
-         !    dumm( 9)=prmag            !      -"-
-         !    dumm(10)=radratio         ! ratio of inner / outer core
-         !    dumm(11)=tScale           ! timescale
-         !    write(fileHandle) (real(dumm(n),kind=outp),     n=1,11)
-         !    write(fileHandle) (real(r(n)/r_cmb,kind=outp),  n=1,n_r_max)
-         !    write(fileHandle) (real(theta_ord(n),kind=outp),n=1,n_theta_max)
-         !    write(fileHandle) (real(phi(n),kind=outp),      n=1,n_phi_max)
-
-         !    dumm(1)=1    ! time frame number for movie
-         !    dumm(2)=0.0_cp ! time
-         !    dumm(3)=0.0_cp
-         !    dumm(4)=0.0_cp
-         !    dumm(5)=0.0_cp
-         !    dumm(6)=0.0_cp
-         !    dumm(7)=0.0_cp
-         !    dumm(8)=0.0_cp
-         !    write(fileHandle) (real(dumm(n),kind=outp),n=1,8)
-
-         !    !------ Loop over different output field:
-         !    do nField=1,nFields
-
-         !       !------ Loop over r and theta:
-         !       do nR=1,n_r_max ! Loop over radial points
-         !          rS=r(nR)
-         !          do n=1,nThetaBs ! Loop over theta blocks
-         !             nThetaStart=(n-1)*sizeThetaB+1
-
-         !             !------ Convert from lm to theta block and store in outBlock:
-         !             if ( nField == 1 ) then
-         !                call get_RAS(PstrLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 2 ) then
-         !                ! Note that PadvLM stores PdynLM=PstrLM+PadvLM at this point!
-         !                call get_RAS(PdynLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 3 ) then
-         !                ! Note that PdynLM stores PdifLM at this point!
-         !                call get_RAS(PdifLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 4 ) then
-         !                call get_PASLM(TstrLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 5 ) then
-         !                call get_PASLM(TdynLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 6 ) then
-         !                call get_PASLM(TomeLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             else if ( nField == 7 ) then
-         !                call get_PASLM(TdifLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
-         !             end if
-
-         !             !------ Storage of field in fout for theta block
-         !             do nTheta=1,sizeThetaB,2
-         !                !-- Convert to correct order in theta grid points
-         !                !-- and store of fOut:
-         !                nThetaN=(nThetaStart+nTheta)/2
-         !                nPos=(nR-1)*n_theta_max+nThetaN
-         !                fOut(nPos)=outBlock(nTheta)
-         !                nThetaS=n_theta_max-nThetaN+1
-         !                nPos=(nR-1)*n_theta_max+nThetaS
-         !                fOut(nPos)=outBlock(nTheta+1)
-         !             end do ! Loop over thetas in block
-
-         !          end do ! Loop over theta blocks
-
-         !       end do ! Loop over R
-
-         !       !------ Output of field:
-         !       write(fileHandle) (real(fOut(nPos),kind=outp),nPos=1,nFieldSize)
-
-         !    end do ! Loop over different fields
-
-         !    close(fileHandle)
-
-         ! end if ! output of mov fields ?
-
       end if
 
       !-- Get dipole dynamo contribution:

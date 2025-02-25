@@ -25,6 +25,7 @@ module radial_scheme
       real(cp), allocatable :: dr(:,:)
       real(cp), allocatable :: ddr(:,:)
       real(cp), allocatable :: dddr(:,:)
+      real(cp), allocatable :: ddddr(:,:)
       real(cp), allocatable :: dr_top(:,:)
       real(cp), allocatable :: dr_bot(:,:)
       real(cp), allocatable :: ddr_top(:,:)
@@ -45,15 +46,13 @@ module radial_scheme
       procedure(get_grid_if),    deferred :: get_grid
       procedure(robin_bc_if),    deferred :: robin_bc
       procedure :: costf1_complex
-      procedure :: costf1_real
       procedure :: costf1_complex_1d
       procedure :: costf1_real_1d
-      generic :: costf1 => costf1_complex, costf1_real, costf1_complex_1d, &
-                 costf1_real_1d
+      generic :: costf1 => costf1_complex, costf1_complex_1d, costf1_real_1d
 
    end type type_rscheme
 
-   interface 
+   interface
 
       subroutine empty_if(this)
          import
@@ -112,20 +111,6 @@ contains
       complex(cp), optional, target, intent(inout) :: work_array(n_f_max,this%nRmax)
 
    end subroutine costf1_complex
-!------------------------------------------------------------------------------
-   subroutine costf1_real(this,f,n_f_max,n_f_start,n_f_stop,f2)
-
-      class(type_rscheme) :: this
-
-      !-- Input variables:
-      integer,  intent(in) :: n_f_max            ! number of columns in f,f2
-      integer,  intent(in) :: n_f_start,n_f_stop ! columns to be transformed
-
-      !-- Output variables:
-      real(cp), intent(inout) :: f(n_f_max,this%nRmax)  ! data/coeff input
-      real(cp), intent(out) :: f2(n_f_max,this%nRmax)   ! work array of the same size as f
-
-   end subroutine costf1_real
 !------------------------------------------------------------------------------
    subroutine costf1_real_1d(this,f)
 

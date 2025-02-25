@@ -7,16 +7,18 @@ module readCheckPoints
    use iso_fortran_env, only: output_unit
    use precision_mod
    use parallel_mod
-   use communications, only: scatter_from_rank0_to_lo
+   use communications, only: scatter_from_rank0_to_lo, lo2r_one
    use fields, only: dw_LMloc, ddw_LMloc, ds_LMloc, dp_LMloc, dz_LMloc,   &
        &             dxi_LMloc, db_LMloc, ddb_LMloc, dj_LMloc, ddj_LMloc, &
-       &             db_ic_LMloc, ddb_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc
-   use truncation, only: n_r_max,lm_max,n_r_maxMag,lm_maxMag,n_r_ic_max, &
-       &                 n_r_ic_maxMag,nalias,n_phi_tot,l_max,m_max,     &
-       &                 minc,lMagMem,fd_stretch,fd_ratio
-   use logic, only: l_rot_ma,l_rot_ic,l_SRIC,l_SRMA,l_cond_ic,l_heat,l_mag, &
-       &            l_mag_LF, l_chemical_conv, l_AB1, l_bridge_step,        &
-       &            l_double_curl, l_z10Mat, l_single_matrix
+       &             db_ic_LMloc, ddb_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc,&
+       &             z0v_Rloc, dz0v_Rloc,z0v_LMloc
+   use truncation, only: n_r_max, lm_max, n_r_maxMag, lm_maxMag, n_r_ic_max, &
+       &                 n_r_ic_maxMag, nalias, n_phi_tot, l_max, m_max,     &
+       &                 minc, lMagMem, fd_stretch, fd_ratio, m_min
+   use logic, only: l_rot_ma,l_rot_ic,l_SRIC,l_SRMA,l_cond_ic,l_heat,l_mag,    &
+       &            l_mag_LF, l_chemical_conv, l_AB1, l_bridge_step,           &
+       &            l_double_curl, l_z10Mat, l_single_matrix, l_parallel_solve,&
+       &            l_mag_par_solve, l_phase_field, l_force_v, l_tidal
    use blocking, only: lo_map, lm2l, lm2m, lm_balance, llm, ulm, llmMag, &
        &               ulmMag, st_map
    use init_fields, only: start_file,inform,tOmega_ic1,tOmega_ic2,             &
@@ -26,6 +28,7 @@ module readCheckPoints
        &                  tShift_ma1,tShift_ma2,tipdipole, scale_b, scale_v,   &
        &                  scale_s,scale_xi
    use radial_functions, only: rscheme_oc, chebt_ic, cheb_norm_ic, r
+   use radial_der, only: get_dr
    use num_param, only: alph1, alph2, alpha
    use radial_data, only: n_r_icb, n_r_cmb
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio, &
@@ -66,11 +69,11 @@ module readCheckPoints
 
 contains
 
-   subroutine readStartFields_old(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,b,     &
-              &                   dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic,    &
-              &                   omega_ic,omega_ma,domega_ic_dt,domega_ma_dt,&
-              &                   lorentz_torque_ic_dt,lorentz_torque_ma_dt,  &
-              &                   time,tscheme,n_time_step)
+   subroutine readStartFields_old(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,phi,   &
+              &                   dphidt,b,dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,   &
+              &                   djdt_ic,omega_ic,omega_ma,domega_ic_dt,     &
+              &                   domega_ma_dt,lorentz_torque_ic_dt,          &
+              &                   lorentz_torque_ma_dt,time,tscheme,n_time_step)
       !
       ! This subroutine is used to read the old restart files produced
       ! by MagIC. This is now deprecated with the change of the file format.
@@ -85,11 +88,12 @@ contains
       complex(cp),         intent(out) :: w(llm:ulm,n_r_max),z(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: s(llm:ulm,n_r_max),p(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: xi(llm:ulm,n_r_max)
+      complex(cp),         intent(out) :: phi(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(out) :: aj(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(out) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp),         intent(out) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
+      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt, dphidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ma_dt, domega_ic_dt
       type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt,lorentz_torque_ic_dt
@@ -108,12 +112,16 @@ contains
 
       character(len=72) :: rscheme_version_old
       real(cp) :: r_icb_old, r_cmb_old, dom_ic, dom_ma, coex
-      integer :: n_in, n_in_2, l1m0
+      integer :: n_in, n_in_2, l1m0, m_max_old, m_min_old
 
       complex(cp), allocatable :: wo(:,:),zo(:,:),po(:,:),so(:,:),xio(:,:)
       complex(cp), allocatable :: workA(:,:),workB(:,:),workC(:,:)
       complex(cp), allocatable :: workD(:,:),workE(:,:)
       real(cp), allocatable :: r_old(:), dt_array_old(:)
+
+#ifdef WITH_MPI
+      if ( l_parallel_solve ) call abortRun('! In readStartFields_old with l_parallel_solve=.true.???')
+#endif
 
       if ( rscheme_oc%version == 'cheb') then
          ratio1 = alph1
@@ -190,6 +198,8 @@ contains
             l_max_old=nalias_old*n_phi_tot_old/60
             l_axi_old=.false.
          end if
+         m_max_old = 0
+         m_min_old = 0
          l_mag_old=.false.
          if ( pm_old /= 0.0_cp ) l_mag_old= .true.
 
@@ -240,9 +250,13 @@ contains
             allocate ( type_cheb_odd :: rscheme_oc_old )
          end if
 
-
-         r_icb_old=radratio_old/(one-radratio_old)
-         r_cmb_old=one/(one-radratio_old)
+         if (l_tidal) then
+            r_icb_old=radratio_old
+            r_cmb_old=one
+         else
+            r_icb_old=radratio_old/(one-radratio_old)
+            r_cmb_old=one/(one-radratio_old)
+         end if
 
          call rscheme_oc_old%initialize(n_r_max_old, n_in, n_in_2)
 
@@ -255,8 +269,8 @@ contains
 
          allocate( lm2lmo(lm_max) )
 
-         call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_max, &
-              &         minc,minc_old,lm_max,lm_max_old,lm2lmo)
+         call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_min,m_min_old, &
+              &         m_max,m_max_old,minc,minc_old,lm_max,lm_max_old,lm2lmo)
 
          ! allocation of local arrays.
          ! if this becomes a performance bottleneck, one can make a module
@@ -350,6 +364,10 @@ contains
          xi(:,:)=zero
       end if
 
+      if ( l_phase_field ) then ! No phase field before
+         phi(:,:)=zero
+      end if
+
       workA(:,:)=zero
       workB(:,:)=zero
       workC(:,:)=zero
@@ -396,13 +414,13 @@ contains
          if ( l_single_matrix ) then
             call get_single_rhs_imp(s, ds_LMloc, w, dw_LMloc, ddw_LMloc, p,     &
                  &                  dp_LMloc, dsdt, dwdt, dpdt, tscheme, 1,     &
-                 &                  .true., .false.)
+                 &                  .true., .false., time =time)
          else
             call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
                  &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
                  &               .false., z)
             !-- z is a work array in the above expression
-            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, 1, .true.)
+            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, phi, 1, .true.)
          end if
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
          if ( .not. l_double_curl ) dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
@@ -555,7 +573,7 @@ contains
                           &                        djdt_ic%expl(llm:ulm,nR,2))
                   end do
 
-                  call get_mag_ic_rhs_imp(b_ic, db_ic_LMloc, ddb_ic_LMloc, aj_ic,  & 
+                  call get_mag_ic_rhs_imp(b_ic, db_ic_LMloc, ddb_ic_LMloc, aj_ic,  &
                        &                  dj_ic_LMloc, ddj_ic_LMloc, dbdt_ic,      &
                        &                  djdt_ic, 1, .true.)
                   dbdt_ic%expl(:,:,2)=dbdt_ic%expl(:,:,2)+coex*dbdt_ic%impl(:,:,1)
@@ -570,8 +588,8 @@ contains
 
                do lm=llm,ulm
                   do nR=1,n_r_ic_max
-                     b_ic(lm,nR)   =b(lm,n_r_CMB)
-                     aj_ic(lm,nR)  =aj(lm,n_r_CMB)
+                     b_ic(lm,nR)   =b(lm,n_r_cmb)
+                     aj_ic(lm,nR)  =aj(lm,n_r_cmb)
                   end do
                end do
             end if
@@ -764,11 +782,11 @@ contains
 
    end subroutine readStartFields_old
 !------------------------------------------------------------------------------
-   subroutine readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,b,dbdt, &
-              &               aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic,omega_ic, &
-              &               omega_ma,domega_ic_dt,domega_ma_dt,          &
-              &               lorentz_torque_ic_dt,lorentz_torque_ma_dt,   &
-              &               time,tscheme,n_time_step)
+   subroutine readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,phi,    &
+              &               dphidt,b,dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,    &
+              &               djdt_ic,omega_ic,omega_ma,domega_ic_dt,      &
+              &               domega_ma_dt,lorentz_torque_ic_dt,           &
+              &               lorentz_torque_ma_dt,time,tscheme,n_time_step)
       !
       ! This subroutine is used to read the restart files produced
       ! by MagIC.
@@ -783,11 +801,12 @@ contains
       complex(cp),         intent(out) :: w(llm:ulm,n_r_max),z(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: s(llm:ulm,n_r_max),p(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: xi(llm:ulm,n_r_max)
+      complex(cp),         intent(out) :: phi(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(out) :: aj(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(out) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp),         intent(out) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
+      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt, dphidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ma_dt, domega_ic_dt
       type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt,lorentz_torque_ic_dt
@@ -795,12 +814,13 @@ contains
       !-- Local:
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
       integer :: l_max_old,n_r_max_old,n_r_ic_max_old, io_status,lm,nR
-      real(cp) :: pr_old,ra_old,pm_old,raxi_old,sc_old
+      real(cp) :: pr_old,ra_old,pm_old,raxi_old,sc_old,stef_old
       real(cp) :: ek_old,radratio_old,sigma_ratio_old,coex
       logical :: l_mag_old, l_heat_old, l_cond_ic_old, l_chemical_conv_old
+      logical :: l_phase_field_old
       logical :: startfile_does_exist
-      integer :: nimp_old, nexp_old, nold_old
-      logical :: l_press_store_old
+      integer :: nimp_old, nexp_old, nold_old, m_max_old, m_min_old
+      logical :: l_press_store_old, l_transp
       integer :: n_r_maxL,n_r_ic_maxL,lm_max_old, n_o
       integer, allocatable :: lm2lmo(:)
       real(cp) :: dom_ic, dom_ma
@@ -810,10 +830,15 @@ contains
       character(len=10) :: tscheme_family_old
       character(len=72) :: rscheme_version_old
       real(cp) :: r_icb_old, r_cmb_old
-      integer :: n_in, n_in_2, version, l1m0
+      integer :: n_in, n_in_2, version, l1m0, dim1
 
       complex(cp), allocatable :: workOld(:,:), work(:,:)
       real(cp), allocatable :: r_old(:), dt_array_old(:)
+      complex(cp) ::dz0v_LMloc(llm:ulm,n_r_max)
+
+#ifdef WITH_MPI
+      if ( l_parallel_solve ) call abortRun('! In readStartFields with l_parallel_solve=.true.???')
+#endif
 
       if ( rscheme_oc%version == 'cheb') then
          ratio1 = alph1
@@ -843,8 +868,18 @@ contains
                &    form='unformatted', access='stream')
 
                read(n_start_file, iostat=io_status) version
-               if ( io_status /= 0 ) then
+               if ( io_status /= 0 .or. abs(version) > 100 ) then
+#ifdef WITH_MPI
                   call abortRun('! The restart file has a wrong formatting !')
+#else
+                  write(output_unit,*) '! The binary format is probably little_endian...'
+                  close(n_start_file)
+                  !-- Last attempt, forcing little endian+stream, this is the backup
+                  !-- solution when reading a MPI-IO code using the serial version of MagIC
+                  open(newunit=n_start_file, file=start_file, status='old', &
+                  &    form='unformatted', access='stream', convert='little_endian')
+                  read(n_start_file, iostat=io_status) version
+#endif
                end if
             end if
          else
@@ -889,17 +924,31 @@ contains
          end if
 
 
-         read(n_start_file) ra_old,pr_old,raxi_old,sc_old,pm_old, &
-         &                  ek_old,radratio_old,sigma_ratio_old
+         if ( version <= 2 ) then
+            read(n_start_file) ra_old,pr_old,raxi_old,sc_old,pm_old, &
+            &                  ek_old,radratio_old,sigma_ratio_old
+            stef_old=0.0_cp
+         else
+            read(n_start_file) ra_old,pr_old,raxi_old,sc_old,pm_old, &
+            &                  ek_old,stef_old,radratio_old,sigma_ratio_old
+         end if
+
          read(n_start_file) n_r_max_old,n_theta_max_old,n_phi_tot_old,&
          &                  minc_old,nalias_old,n_r_ic_max_old
 
-         if ( n_phi_tot_old == 1 ) then ! Axisymmetric restart file
-            l_max_old=nalias_old*n_theta_max_old/30
-            l_axi_old=.true.
+         if ( version > 3 ) then
+            read(n_start_file) l_max_old, m_min_old, m_max_old
+            if ( n_phi_tot_old == 1 ) l_axi_old=.true.
          else
-            l_max_old=nalias_old*n_phi_tot_old/60
-            l_axi_old=.false.
+            m_max_old = 0 ! To be defined later
+            m_min_old = 0
+            if ( n_phi_tot_old == 1 ) then ! Axisymmetric restart file
+               l_max_old=nalias_old*n_theta_max_old/30
+               l_axi_old=.true.
+            else
+               l_max_old=nalias_old*n_phi_tot_old/60
+               l_axi_old=.false.
+            end if
          end if
 
          !---- Compare parameters:
@@ -935,8 +984,8 @@ contains
 
          !-- Determine the old mapping
          allocate( lm2lmo(lm_max) )
-         call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_max,minc, &
-              &         minc_old,lm_max,lm_max_old,lm2lmo)
+         call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_min,m_min_old, &
+              &         m_max,m_max_old,minc,minc_old,lm_max,lm_max_old,lm2lmo)
          n_r_maxL = max(n_r_max,n_r_max_old)
 
          !-- Read Lorentz torques and rotation rates:
@@ -1006,9 +1055,14 @@ contains
             read(n_start_file) l_heat_old, l_chemical_conv_old, l_mag_old, &
             &                  l_cond_ic_old
             l_press_store_old = .true.
-         else
+            l_phase_field_old = .false.
+         else if ( version == 2 ) then
             read(n_start_file) l_heat_old, l_chemical_conv_old, l_mag_old, &
             &                  l_press_store_old, l_cond_ic_old
+            l_phase_field_old = .false.
+         else
+            read(n_start_file) l_heat_old, l_chemical_conv_old, l_phase_field_old, &
+            &                  l_mag_old, l_press_store_old, l_cond_ic_old
          end if
 
       end if ! rank == 0
@@ -1031,6 +1085,7 @@ contains
       call MPI_Bcast(l_heat_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(l_press_store_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(l_chemical_conv_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(l_phase_field_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(l_cond_ic_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(minc_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(time,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
@@ -1100,24 +1155,43 @@ contains
          allocate( work(1,n_r_max), workOld(1,1), r_old(1), lm2lmo(1) )
       end if
 
+      l_transp = .not. l_parallel_solve
+
       !-- Read the poloidal flow
       call read_map_one_field( n_start_file, tscheme, workOld, work, scale_v,    &
            &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,    &
            &                   nexp_old, nimp_old, nold_old, tscheme_family_old, &
-           &                   w, dwdt, .true.)
+           &                   w, dwdt, .true., l_transp)
 
       !-- Read the toroidal flow
       call read_map_one_field( n_start_file, tscheme, workOld, work, scale_v,    &
            &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,    &
            &                   nexp_old, nimp_old, nold_old, tscheme_family_old, &
-           &                   z, dzdt, .true.)
+           &                   z, dzdt, .true., l_transp)
+
+      !read the forced flow !Careful: UNTESTED function
+      if (l_force_v) then
+         if ( rank == 0 ) then
+            work(:,:)=zero
+            read(n_start_file) workOld
+            call mapOneField(workOld,scale_v,r_old,lm2lmo,n_r_max_old, &
+                 &            n_r_maxL,dim1,.false.,.false.,work)
+         end if
+         do nR=1,dim1
+            call scatter_from_rank0_to_lo(work(:,nR),z0v_LMloc(llm:ulm,nR))
+         end do
+         call get_dr(z0v_LMloc,dz0v_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
+              &      nocopy=.true.)
+         call lo2r_one%transp_lm2r(z0v_LMloc,z0v_Rloc)
+         call lo2r_one%transp_lm2r(dz0v_LMloc,dz0v_Rloc)
+      end if
 
       !-- Read the pressure
       if ( l_press_store_old ) then
          call read_map_one_field( n_start_file, tscheme, workOld, work, scale_v,   &
               &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,   &
               &                   nexp_old, nimp_old, nold_old, tscheme_family_old,&
-              &                   p, dpdt, .not. l_double_curl)
+              &                   p, dpdt, .not. l_double_curl, l_transp)
       end if
 
       !-- Read the entropy
@@ -1125,7 +1199,7 @@ contains
          call read_map_one_field( n_start_file, tscheme, workOld, work, scale_s,    &
               &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,    &
               &                   nexp_old, nimp_old, nold_old,  tscheme_family_old,&
-              &                   s, dsdt, l_heat)
+              &                   s, dsdt, l_heat, l_transp)
       end if
 
       !-- Read the chemical composition
@@ -1133,10 +1207,20 @@ contains
          call read_map_one_field( n_start_file, tscheme, workOld, work, scale_xi,  &
               &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,   &
               &                   nexp_old, nimp_old, nold_old, tscheme_family_old,&
-              &                   xi, dxidt, l_chemical_conv)
+              &                   xi, dxidt, l_chemical_conv, l_transp)
       end if
+
+      !-- Read the phase field
+      if ( l_phase_field_old ) then
+         call read_map_one_field( n_start_file, tscheme, workOld, work, one,       &
+              &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,   &
+              &                   nexp_old, nimp_old, nold_old, tscheme_family_old,&
+              &                   phi, dphidt, l_phase_field, l_transp)
+      end if
+
       if ( l_heat .and. .not. l_heat_old ) s(:,:)=zero
       if ( l_chemical_conv .and. .not. l_chemical_conv_old ) xi(:,:)=zero
+      if ( l_phase_field .and. .not. l_phase_field_old ) phi(:,:)=zero
       if ( .not. l_double_curl .and. .not. l_press_store_old ) p(:,:)=zero
 
       if ( (l_mag .or. l_mag_LF) .and.  l_mag_old ) then
@@ -1145,13 +1229,13 @@ contains
          call read_map_one_field( n_start_file, tscheme, workOld, work, scale_b,    &
               &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,    &
               &                   nexp_old, nimp_old, nold_old,  tscheme_family_old,&
-              &                   b, dbdt, .true. )
+              &                   b, dbdt, .true., l_transp )
 
          !-- Read the toroidal magnetic field
          call read_map_one_field( n_start_file, tscheme, workOld, work, scale_b,    &
               &                   r_old, lm2lmo, n_r_max_old, n_r_maxL, n_r_max,    &
               &                   nexp_old, nimp_old, nold_old,  tscheme_family_old,&
-              &                   aj, djdt, .true. )
+              &                   aj, djdt, .true., l_transp )
 
          if ( l_cond_ic ) then
 
@@ -1195,7 +1279,7 @@ contains
                      if ( n_o <= tscheme%nexp .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                dbdt_ic%expl(llm:ulm,nR,n_o))
+                                &                        dbdt_ic%expl(llm:ulm,nR,n_o))
                         end do
                      end if
                   end do
@@ -1212,7 +1296,7 @@ contains
                      if ( n_o <= tscheme%nimp .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                dbdt_ic%impl(llm:ulm,nR,n_o))
+                                &                        dbdt_ic%impl(llm:ulm,nR,n_o))
                         end do
                      end if
                   end do
@@ -1226,11 +1310,10 @@ contains
                         !-- Cancel the spherically-symmetric part
                         work(1,:)=zero
                      end if
-                     if ( n_o <= tscheme%nold .and. &
-                     &   tscheme%family=='MULTISTEP' ) then
+                     if ( n_o <= tscheme%nold .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                dbdt_ic%old(llm:ulm,nR,n_o))
+                                &                        dbdt_ic%old(llm:ulm,nR,n_o))
                         end do
                      end if
                   end do
@@ -1265,7 +1348,7 @@ contains
                      if ( n_o <= tscheme%nexp  .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                djdt_ic%expl(llm:ulm,nR,n_o))
+                                &                        djdt_ic%expl(llm:ulm,nR,n_o))
                         end do
                      end if
                   end do
@@ -1282,7 +1365,7 @@ contains
                      if ( n_o <= tscheme%nimp .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                djdt_ic%impl(llm:ulm,nR,n_o))
+                                &                        djdt_ic%impl(llm:ulm,nR,n_o))
                         end do
                      end if
                   end do
@@ -1296,11 +1379,10 @@ contains
                         !-- Cancel the spherically-symmetric part
                         work(1,:)=zero
                      end if
-                     if ( n_o <= tscheme%nold .and. &
-                     &   tscheme%family=='MULTISTEP' ) then
+                     if ( n_o <= tscheme%nold .and. tscheme%family=='MULTISTEP' ) then
                         do nR=1,n_r_ic_max
                            call scatter_from_rank0_to_lo(work(:,nR),  &
-                                &                djdt_ic%old(llm:ulm,nR,n_o))
+                                &                        djdt_ic%old(llm:ulm,nR,n_o))
                         end do
                      end if
                   end do
@@ -1314,10 +1396,10 @@ contains
 
                do lm=llm,ulm
                   do nR=1,n_r_ic_max
-                     b_ic(lm,nR) =b(lm,n_r_CMB)
-                     aj_ic(lm,nR)=aj(lm,n_r_CMB)
-                     !dbdt_ic(lm,nR)=dbdt(lm,n_r_CMB)
-                     !djdt_ic(lm,nR)=djdt(lm,n_r_CMB)
+                     b_ic(lm,nR) =b(lm,n_r_cmb)
+                     aj_ic(lm,nR)=aj(lm,n_r_cmb)
+                     !dbdt_ic(lm,nR)=dbdt(lm,n_r_cmb)
+                     !djdt_ic(lm,nR)=djdt(lm,n_r_cmb)
                   end do
                end do
 
@@ -1349,13 +1431,14 @@ contains
          if ( l_single_matrix ) then
             call get_single_rhs_imp(s, ds_LMloc, w, dw_LMloc, ddw_LMloc, p,     &
                  &                  dp_LMloc, dsdt, dwdt, dpdt, tscheme, 1,     &
-                 &                  .true., .false.)
+                 &                  .true., .false., time=time)
          else
             call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
                  &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
                  &               .false., z)
             !-- z is a work array in the above expression
-            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, 1, .true.)
+            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, phi, &
+                               &                   1, .true.)
          end if
 
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
@@ -1452,12 +1535,13 @@ contains
    end subroutine read_map_one_scalar
 !------------------------------------------------------------------------------
    subroutine read_map_one_field( fh, tscheme, wOld, work, scale_w, r_old, lm2lmo,&
-              &                   n_r_max_old,  n_r_maxL, dim1, nexp_old,   &
+              &                   n_r_max_old,  n_r_maxL, dim1, nexp_old,         &
               &                   nimp_old, nold_old, tscheme_family_old, w, dwdt,&
-              &                   l_map)
+              &                   l_map, l_transp)
 
       !--- Input variables
       logical,             intent(in) :: l_map
+      logical,             intent(in) :: l_transp ! do we need to transpose to lm-loc
       integer,             intent(in) :: fh, nold_old
       integer,             intent(in) :: nexp_old, nimp_old
       character(len=*),    intent(in) :: tscheme_family_old
@@ -1498,9 +1582,13 @@ contains
                     &            n_r_maxL,dim1,.true.,.false.,work )
             end if
             if ( n_o <= tscheme%nexp .and. l_map .and. tscheme%family == 'MULTISTEP') then
-               do nR=1,n_r_max
-                  call scatter_from_rank0_to_lo(work(:,nR),dwdt%expl(llm:ulm,nR,n_o))
-               end do
+               if ( l_transp ) then
+                  do nR=1,n_r_max
+                     call scatter_from_rank0_to_lo(work(:,nR),dwdt%expl(llm:ulm,nR,n_o))
+                  end do
+               else
+                  dwdt%expl(:,:,n_o)=work(:,:)
+               end if
             end if
          end do
          do n_o=2,nimp_old
@@ -1511,9 +1599,13 @@ contains
                     &            n_r_maxL,dim1,.true.,.false.,work )
             end if
             if ( n_o <= tscheme%nimp .and. l_map .and. tscheme%family=='MULTISTEP') then
-               do nR=1,n_r_max
-                  call scatter_from_rank0_to_lo(work(:,nR),dwdt%impl(llm:ulm,nR,n_o))
-               end do
+               if ( l_transp ) then
+                  do nR=1,n_r_max
+                     call scatter_from_rank0_to_lo(work(:,nR),dwdt%impl(llm:ulm,nR,n_o))
+                  end do
+               else
+                  dwdt%impl(:,:,n_o)=work(:,:)
+               end if
             end if
          end do
          do n_o=2,nold_old
@@ -1523,11 +1615,14 @@ contains
                call mapOneField( wOld,scale_w,r_old,lm2lmo,n_r_max_old, &
                     &            n_r_maxL,dim1,.true.,.false.,work )
             end if
-            if ( n_o <= tscheme%nold .and. l_map .and. &
-            &    tscheme%family == 'MULTISTEP' ) then
-               do nR=1,n_r_max
-                  call scatter_from_rank0_to_lo(work(:,nR),dwdt%old(llm:ulm,nR,n_o))
-               end do
+            if ( n_o <= tscheme%nold .and. l_map .and. tscheme%family == 'MULTISTEP' ) then
+               if ( l_transp ) then
+                  do nR=1,n_r_max
+                     call scatter_from_rank0_to_lo(work(:,nR),dwdt%old(llm:ulm,nR,n_o))
+                  end do
+               else
+                  dwdt%old(:,:,n_o)=work(:,:)
+               end if
             end if
          end do
       end if
@@ -1535,12 +1630,12 @@ contains
    end subroutine read_map_one_field
 !------------------------------------------------------------------------------
 #ifdef WITH_MPI
-   subroutine readStartFields_mpi(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,b,   &
-              &                   dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic,  &
-              &                   omega_ic,omega_ma,domega_ic_dt,           &
+   subroutine readStartFields_mpi(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,phi, &
+              &                   dphidt,b,dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic, &
+              &                   djdt_ic,omega_ic,omega_ma,domega_ic_dt,   &
               &                   domega_ma_dt,lorentz_torque_ic_dt,        &
               &                   lorentz_torque_ma_dt,time,tscheme,        &
-              &                   n_time_step)   
+              &                   n_time_step)
       !
       ! This subroutine is used to read the restart files produced
       ! by MagIC using MPI-IO
@@ -1554,11 +1649,12 @@ contains
       complex(cp),         intent(out) :: w(llm:ulm,n_r_max),z(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: s(llm:ulm,n_r_max),p(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: xi(llm:ulm,n_r_max)
+      complex(cp),         intent(out) :: phi(llm:ulm,n_r_max)
       complex(cp),         intent(out) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(out) :: aj(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(out) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp),         intent(out) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
+      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt, dphidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ma_dt, domega_ic_dt
       type(type_tscalar),  intent(inout) :: lorentz_torque_ma_dt,lorentz_torque_ic_dt
@@ -1566,10 +1662,11 @@ contains
       !-- Local:
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
       integer :: l_max_old,n_r_max_old,lm,nR,n_r_ic_max_old
+      integer :: m_max_old, m_min_old
       real(cp) :: pr_old,ra_old,pm_old,raxi_old,sc_old,coex
-      real(cp) :: ek_old,radratio_old,sigma_ratio_old
+      real(cp) :: ek_old,radratio_old,sigma_ratio_old, stef_old
       logical :: l_mag_old, l_heat_old, l_cond_ic_old, l_chemical_conv_old
-      logical :: startfile_does_exist
+      logical :: startfile_does_exist, l_phase_field_old
       integer :: n_r_maxL,n_r_ic_maxL,lm_max_old
       integer, allocatable :: lm2lmo(:)
 
@@ -1583,7 +1680,7 @@ contains
       integer :: nR_per_rank_old, datatype, l1m0
       integer :: istat(MPI_STATUS_SIZE)
       integer :: nimp_old, nexp_old, nold_old
-      logical :: l_press_store_old
+      logical :: l_press_store_old, l_transp
       integer(lip) :: disp, offset, size_old
 
       complex(cp), allocatable :: workOld(:,:)
@@ -1591,6 +1688,8 @@ contains
       real(cp), allocatable :: r_old(:), dt_array_old(:)
       type(load), allocatable :: radial_balance_old(:)
 
+      complex(cp) ::dz0v_LMloc(llm:ulm,n_r_max)
+      
       if ( rscheme_oc%version == 'cheb') then
          ratio1 = alph1
          ratio2 = alph2
@@ -1618,7 +1717,7 @@ contains
 
       !-- Read the header
       call MPI_File_Read(fh, version, 1, MPI_INTEGER, istat, ierr)
-      !-- Little trick if wrong-endianness is detected 
+      !-- Little trick if wrong-endianness is detected
       !-- version gets crazy large, so flip back to default reader then
       if ( abs(version) > 100 ) then
          call MPI_File_close(fh, ierr)
@@ -1626,11 +1725,11 @@ contains
             write(output_unit,*) '! I cannot read it with MPI-IO'
             write(output_unit,*) '! I try to fall back on serial reader...'
          end if
-         call readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,b,dbdt, &
-              &               aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic,omega_ic, &
-              &               omega_ma,domega_ic_dt, domega_ma_dt,         &
-              &               lorentz_torque_ic_dt, lorentz_torque_ma_dt,  &
-              &               time,tscheme,n_time_step)
+         call readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,phi,    &
+              &               dphidt,b,dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,    &
+              &               djdt_ic,omega_ic,omega_ma,domega_ic_dt,      &
+              &               domega_ma_dt,lorentz_torque_ic_dt,           &
+              &               lorentz_torque_ma_dt,time,tscheme,n_time_step)
          return
       end if
       call MPI_File_Read(fh, time, 1, MPI_DEF_REAL, istat, ierr)
@@ -1669,6 +1768,11 @@ contains
       call MPI_File_Read(fh, sc_old, 1, MPI_DEF_REAL, istat, ierr)
       call MPI_File_Read(fh, pm_old, 1, MPI_DEF_REAL, istat, ierr)
       call MPI_File_Read(fh, ek_old, 1, MPI_DEF_REAL, istat, ierr)
+      if ( version > 2 ) then
+         call MPI_File_Read(fh, stef_old, 1, MPI_DEF_REAL, istat, ierr)
+      else
+         stef_old=0.0_cp
+      end if
       call MPI_File_Read(fh, radratio_old, 1, MPI_DEF_REAL, istat, ierr)
       call MPI_File_Read(fh, sigma_ratio_old, 1, MPI_DEF_REAL, istat, ierr)
       call MPI_File_Read(fh, n_r_max_old, 1, MPI_INTEGER, istat, ierr)
@@ -1677,13 +1781,21 @@ contains
       call MPI_File_Read(fh, minc_old, 1, MPI_INTEGER, istat, ierr)
       call MPI_File_Read(fh, nalias_old, 1, MPI_INTEGER, istat, ierr)
       call MPI_File_Read(fh, n_r_ic_max_old, 1, MPI_INTEGER, istat, ierr)
-
-      if ( n_phi_tot_old == 1 ) then ! Axisymmetric restart file
-         l_max_old=nalias_old*n_theta_max_old/30
-         l_axi_old=.true.
+      if ( version > 3 ) then
+         call MPI_File_Read(fh, l_max_old, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Read(fh, m_min_old, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Read(fh, m_max_old, 1, MPI_INTEGER, istat, ierr)
+         if ( n_phi_tot_old == 1 ) l_axi_old=.true.
       else
-         l_max_old=nalias_old*n_phi_tot_old/60
-         l_axi_old=.false.
+         m_max_old = 0 ! Those will be defined later
+         m_min_old = 0
+         if ( n_phi_tot_old == 1 ) then ! Axisymmetric restart file
+            l_max_old=nalias_old*n_theta_max_old/30
+            l_axi_old=.true.
+         else
+            l_max_old=nalias_old*n_phi_tot_old/60
+            l_axi_old=.false.
+         end if
       end if
 
       !---- Compare parameters:
@@ -1726,8 +1838,8 @@ contains
 
       !-- Determine the old mapping
       allocate( lm2lmo(lm_max) )
-      call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_max,minc, &
-           &         minc_old,lm_max,lm_max_old,lm2lmo)
+      call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_min,m_min_old,&
+           &         m_max,m_max_old,minc,minc_old,lm_max,lm_max_old,lm2lmo)
       n_r_maxL = max(n_r_max,n_r_max_old)
 
       !-- Read Lorentz-torques and rotation rates:
@@ -1746,7 +1858,7 @@ contains
            &                       tscheme_family_old, lorentz_torque_ma_dt)
 
       call MPI_File_Read(fh, omega_ic1Old, 1, MPI_DEF_REAL, istat, ierr)
-      call MPI_File_Read(fh, omegaOsz_ic2Old, 1, MPI_DEF_REAL, istat, ierr)
+      call MPI_File_Read(fh, omegaOsz_ic1Old, 1, MPI_DEF_REAL, istat, ierr)
       call MPI_File_Read(fh, tOmega_ic1, 1, MPI_DEF_REAL, istat, ierr)
       call MPI_File_Read(fh, omega_ic2Old, 1, MPI_DEF_REAL, istat, ierr)
       call MPI_File_Read(fh, omegaOsz_ic2Old, 1, MPI_DEF_REAL, istat, ierr)
@@ -1819,6 +1931,11 @@ contains
       !-- Read logical to know how many fields are stored
       call MPI_File_Read(fh, l_heat_old, 1, MPI_LOGICAL, istat, ierr)
       call MPI_File_Read(fh, l_chemical_conv_old, 1, MPI_LOGICAL, istat, ierr)
+      if ( version > 2 ) then
+         call MPI_File_Read(fh, l_phase_field_old, 1, MPI_LOGICAL, istat, ierr)
+      else
+         l_phase_field_old = .false.
+      end if
       call MPI_File_Read(fh, l_mag_old, 1, MPI_LOGICAL, istat, ierr)
       if ( version > 1 ) then
          call MPI_File_Read(fh, l_press_store_old, 1, MPI_LOGICAL, istat, ierr)
@@ -1827,7 +1944,7 @@ contains
       end if
       call MPI_File_Read(fh, l_cond_ic_old, 1, MPI_LOGICAL, istat, ierr)
 
-      !-- Measure offset 
+      !-- Measure offset
       call MPI_File_get_position(fh, offset, ierr)
       call MPI_File_get_byte_offset(fh, offset, disp, ierr)
 
@@ -1852,13 +1969,15 @@ contains
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
 
+      l_transp = l_parallel_solve ! Do we need to transpose d?dt arrays
       !-- Poloidal potential: w
       call read_map_one_field_mpi(fh, info, datatype, tscheme, workOld,   &
            &                      lm_max_old, n_r_max_old, nRstart_old,   &
            &                      nRstop_old, radial_balance_old, lm2lmo, &
            &                      r_old, n_r_maxL, n_r_max, scale_v,      &
            &                      nexp_old, nimp_old, nold_old,           &
-           &                      tscheme_family_old, w, dwdt, disp, .true. )
+           &                      tscheme_family_old, w, dwdt, disp,      &
+           &                      .true., l_transp )
 
       !-- Toroidal potential: z
       call read_map_one_field_mpi(fh, info, datatype, tscheme, workOld,   &
@@ -1866,8 +1985,30 @@ contains
            &                      nRstop_old, radial_balance_old, lm2lmo, &
            &                      r_old, n_r_maxL, n_r_max, scale_v,      &
            &                      nexp_old, nimp_old, nold_old,           &
-           &                      tscheme_family_old, z, dzdt, disp, .true. )
+           &                      tscheme_family_old, z, dzdt, disp,      &
+           &                      .true., l_transp )
 
+      !---forcing vphi z0v
+      if (l_force_v) then
+         nR_per_rank_old = nRstop_old-nRstart_old+1   
+         call MPI_File_Read_All(fh, workOld, lm_max_old*nR_per_rank_old, &
+           &                 MPI_DEF_COMPLEX, istat, ierr)
+         size_old = int(n_r_max_old,kind=lip)*int(lm_max_old,kind=lip)* &
+              &          int(SIZEOF_DEF_COMPLEX,kind=lip)
+         disp = disp+size_old
+         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
+              &                 info, ierr)
+         
+         call mapOneField_mpi( workOld, lm_max_old, n_r_max_old, nRstart_old, &
+              &                nRstop_old, radial_balance_old, lm2lmo,     &
+              &                r_old, n_r_maxL, n_r_max, .false., .false., &
+              &                scale_v, z0v_LMloc)
+         call get_dr(z0v_LMloc,dz0v_LMloc,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
+              &      nocopy=.true.)
+         call lo2r_one%transp_lm2r(z0v_LMloc,z0v_Rloc)
+         call lo2r_one%transp_lm2r(dz0v_LMloc,dz0v_Rloc)
+      end if
+      
       !-- Pressure: p
       if ( l_press_store_old ) then
          call read_map_one_field_mpi(fh, info, datatype, tscheme, workOld,   &
@@ -1876,7 +2017,8 @@ contains
               &                      r_old, n_r_maxL, n_r_max, scale_v,      &
               &                      nexp_old, nimp_old, nold_old,           &
               &                      tscheme_family_old, p, dpdt, disp,      &
-              &                      .not. l_double_curl )
+              &                      .not. l_double_curl, l_transp,          &
+              &                      l_press_store_old )
       end if
 
       !-- Entropy: s
@@ -1886,7 +2028,8 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo, &
               &                      r_old, n_r_maxL, n_r_max, scale_s,      &
               &                      nexp_old, nimp_old, nold_old,           &
-              &                      tscheme_family_old, s, dsdt, disp, l_heat )
+              &                      tscheme_family_old, s, dsdt, disp,      &
+              &                      l_heat, l_transp )
       end if
 
       !-- Chemical composition: xi
@@ -1897,21 +2040,35 @@ contains
               &                      r_old, n_r_maxL, n_r_max, scale_xi,     &
               &                      nexp_old, nimp_old, nold_old,           &
               &                      tscheme_family_old, xi, dxidt, disp,    &
-              &                      l_chemical_conv )
+              &                      l_chemical_conv, l_transp )
+      end if
+
+      !-- Phase field: phi
+      if ( l_phase_field_old ) then
+         call read_map_one_field_mpi(fh, info, datatype, tscheme, workOld,   &
+              &                      lm_max_old, n_r_max_old, nRstart_old,   &
+              &                      nRstop_old, radial_balance_old, lm2lmo, &
+              &                      r_old, n_r_maxL, n_r_max, one,          &
+              &                      nexp_old, nimp_old, nold_old,           &
+              &                      tscheme_family_old, phi, dphidt, disp,  &
+              &                      l_phase_field, l_transp )
       end if
 
       if ( .not. l_double_curl .and. .not. l_press_store_old ) p(:,:)=zero
       if ( l_heat .and. (.not. l_heat_old) ) s(:,:)=zero
       if ( l_chemical_conv .and. .not. l_chemical_conv_old ) xi(:,:)=zero
+      if ( l_phase_field .and. .not. l_phase_field_old ) phi(:,:)=zero
 
       if ( (l_mag .or. l_mag_LF) .and. l_mag_old ) then
+         l_transp = l_mag_par_solve ! Do we need to transpose d?dt arrays
          !-- Read poloidal potential: b
          call read_map_one_field_mpi(fh, info, datatype, tscheme, workOld,   &
               &                      lm_max_old, n_r_max_old, nRstart_old,   &
               &                      nRstop_old, radial_balance_old, lm2lmo, &
               &                      r_old, n_r_maxL, n_r_max, scale_b,      &
               &                      nexp_old, nimp_old, nold_old,           &
-              &                      tscheme_family_old, b, dbdt, disp, .true. )
+              &                      tscheme_family_old, b, dbdt, disp,      &
+              &                      .true., l_transp )
 
          !-- Read toroidal potential: aj
          call read_map_one_field_mpi(fh, info, datatype, tscheme, workOld,   &
@@ -1919,7 +2076,8 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo, &
               &                      r_old, n_r_maxL, n_r_max, scale_b,      &
               &                      nexp_old, nimp_old, nold_old,           &
-              &                      tscheme_family_old, aj, djdt, disp, .true. )
+              &                      tscheme_family_old, aj, djdt, disp,     &
+              &                      .true., l_transp )
       end if
 
       deallocate(workOld)
@@ -2101,10 +2259,10 @@ contains
 
             do lm=llm,ulm
                do nR=1,n_r_ic_max
-                  b_ic(lm,nR)   =b(lm,n_r_CMB)
-                  aj_ic(lm,nR)  =aj(lm,n_r_CMB)
-                  !dbdt_ic(lm,nR)=dbdt(lm,n_r_CMB)
-                  !djdt_ic(lm,nR)=djdt(lm,n_r_CMB)
+                  b_ic(lm,nR)   =b(lm,n_r_cmb)
+                  aj_ic(lm,nR)  =aj(lm,n_r_cmb)
+                  !dbdt_ic(lm,nR)=dbdt(lm,n_r_cmb)
+                  !djdt_ic(lm,nR)=djdt(lm,n_r_cmb)
                end do
             end do
          end if
@@ -2126,13 +2284,14 @@ contains
          if ( l_single_matrix ) then
             call get_single_rhs_imp(s, ds_LMloc, w, dw_LMloc, ddw_LMloc, p,     &
                  &                  dp_LMloc, dsdt, dwdt, dpdt, tscheme, 1,     &
-                 &                  .true., .false.)
+                 &                  .true., .false., time=time)
          else
             call get_pol_rhs_imp(s, xi, w, dw_LMloc, ddw_LMloc, p, dp_LMloc, &
                  &               dwdt, dpdt, tscheme, 1, .true., .false.,    &
                  &               .false., z)
             !-- z is a work array in the above expression
-            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, 1, .true.)
+            if ( l_heat ) call get_entropy_rhs_imp(s, ds_LMloc, dsdt, phi, &
+                               &                   1, .true.)
          end if
          dwdt%expl(:,:,2)=dwdt%expl(:,:,2)+coex*dwdt%impl(:,:,1)
          if ( .not. l_double_curl ) dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
@@ -2240,10 +2399,12 @@ contains
               &                      nRstop_old, radial_balance_old, lm2lmo,   &
               &                      r_old, n_r_maxL, dim1, scale_w, nexp_old, &
               &                      nimp_old, nold_old, tscheme_family_old,   &
-              &                      w, dwdt, disp, l_map )
+              &                      w, dwdt, disp, l_map, l_transp,           &
+              &                      l_read_field_only )
 
       !--- Input variables
       logical,             intent(in) :: l_map
+      logical, optional,   intent(in) :: l_read_field_only
       integer,             intent(in) :: nexp_old, nimp_old
       integer,             intent(in) :: nold_old
       character(len=*),    intent(in) :: tscheme_family_old
@@ -2256,6 +2417,7 @@ contains
       type(load),          intent(in) :: radial_balance_old(0:n_procs-1)
       complex(cp),         intent(in) :: wOld(lm_max_old,nRstart_old:nRstop_old)
       real(cp),            intent(in) :: scale_w
+      logical,             intent(in) :: l_transp ! Do we need to transpose d?dt arrays?
 
       !--- Output variables
       integer(lip),      intent(inout) :: disp
@@ -2263,9 +2425,17 @@ contains
       type(type_tarray), intent(inout) :: dwdt
 
       !-- Local variables:
+      logical :: l_field
+      complex(cp) :: work(llm:ulm, n_r_max)
       integer(lip) :: size_old
       integer :: istat(MPI_STATUS_SIZE)
       integer :: n_o, nR_per_rank_old
+
+      if ( present(l_read_field_only) ) then
+         l_field=l_read_field_only
+      else
+         l_field=.false.
+      end if
 
       nR_per_rank_old = nRstop_old-nRstart_old+1
 
@@ -2278,7 +2448,7 @@ contains
       call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
            &                 info, ierr)
 
-      if ( l_map ) then
+      if ( l_map .or. l_field ) then
          call mapOneField_mpi( wOld, lm_max_old, n_r_max_old, nRstart_old, &
               &                nRstop_old, radial_balance_old, lm2lmo,     &
               &                r_old, n_r_maxL, n_r_max, .false., .false., &
@@ -2297,7 +2467,12 @@ contains
                call mapOneField_mpi( wOld, lm_max_old, n_r_max_old, nRstart_old, &
                     &                nRstop_old, radial_balance_old, lm2lmo,     &
                     &                r_old, n_r_maxL, n_r_max, .true., .false.,  &
-                    &                scale_w, dwdt%expl(:,:,n_o) )
+                    &                scale_w, work )
+               if ( l_transp ) then
+                  call lo2r_one%transp_lm2r(work, dwdt%expl(:,:,n_o) )
+               else
+                  dwdt%expl(:,:,n_o)=work(:,:)
+               end if
             end if
          end do
          do n_o=2,nimp_old
@@ -2310,7 +2485,12 @@ contains
                call mapOneField_mpi( wOld, lm_max_old, n_r_max_old, nRstart_old, &
                     &                nRstop_old, radial_balance_old, lm2lmo,     &
                     &                r_old, n_r_maxL, n_r_max, .true., .false.,  &
-                    &                scale_v, dwdt%impl(:,:,n_o) )
+                    &                scale_v, work )
+               if ( l_transp ) then
+                  call lo2r_one%transp_lm2r(work, dwdt%impl(:,:,n_o) )
+               else
+                  dwdt%impl(:,:,n_o)=work(:,:)
+               end if
             end if
          end do
          do n_o=2,nold_old
@@ -2319,12 +2499,17 @@ contains
             disp = disp+size_old
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
                  &                 info, ierr)
-            if ( n_o <= tscheme%nold .and. l_map .and. & 
+            if ( n_o <= tscheme%nold .and. l_map .and. &
             &    tscheme%family=='MULTISTEP' ) then
                call mapOneField_mpi( wOld, lm_max_old, n_r_max_old, nRstart_old, &
                     &                nRstop_old, radial_balance_old, lm2lmo,     &
                     &                r_old, n_r_maxL, n_r_max, .true., .false.,  &
-                    &                scale_v, dwdt%old(:,:,n_o) )
+                    &                scale_v, work )
+               if ( l_transp ) then
+                  call lo2r_one%transp_lm2r(work, dwdt%old(:,:,n_o) )
+               else
+                  dwdt%old(:,:,n_o)=work(:,:)
+               end if
             end if
          end do
       end if
@@ -2332,29 +2517,32 @@ contains
    end subroutine read_map_one_field_mpi
 #endif
 !------------------------------------------------------------------------------
-   subroutine getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_max,minc, &
-              &         minc_old,lm_max,lm_max_old,lm2lmo)
+   subroutine getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old,m_min,m_min_old, &
+              &         m_max,m_max_old,minc,minc_old,lm_max,lm_max_old,lm2lmo)
 
       !--- Input variables
-      integer, intent(in) :: n_r_max,l_max,m_max,minc
-      integer, intent(in) :: n_r_max_old,l_max_old,minc_old
+      integer, intent(in) :: n_r_max,l_max,m_max,minc,m_min
+      integer, intent(in) :: n_r_max_old,l_max_old,minc_old,m_min_old
       integer, intent(in) :: lm_max
+      integer, intent(inout) :: m_max_old
 
       !--- Output variables
-      integer,intent(out) :: lm2lmo(lm_max)
-      integer,intent(out) :: lm_max_old
+      integer, intent(out) :: lm2lmo(lm_max)
+      integer, intent(out) :: lm_max_old
 
       !--- Local variables
-      integer :: m_max_old,l,m,lm,lmo,lo,mo
+      integer :: l,m,lm,lmo,lo,mo
 
-      if ( .not. l_axi_old ) then
-         m_max_old=(l_max_old/minc_old)*minc_old
-      else
-         m_max_old=0
+      if ( m_max_old == 0 ) then
+         if ( .not. l_axi_old ) then
+            m_max_old=(l_max_old/minc_old)*minc_old
+         else
+            m_max_old=0
+         end if
       end if
 
       if ( l_max==l_max_old .and. minc==minc_old .and. n_r_max==n_r_max_old &
-      &    .and. m_max==m_max_old ) then
+      &    .and. m_max==m_max_old .and. m_min==m_min_old ) then
 
          !----- Direct reading of fields, grid not changed:
          if (rank == 0 ) write(output_unit,'(/,'' ! Reading fields directly.'')')
@@ -2368,9 +2556,12 @@ contains
          if ( mod(minc_old,minc) /= 0 .and. rank == 0)                &
          &     write(output_unit,'('' ! Warning: Incompatible old/new minc= '',2i3)')
 
-         lm_max_old=m_max_old*(l_max_old+1)/minc_old -                &
-         &          m_max_old*(m_max_old-minc_old)/(2*minc_old) +     &
-         &          l_max_old-m_max_old+1
+         lm_max_old=0
+         do m=m_min_old,m_max_old,minc_old
+            do l=m,l_max_old
+               lm_max_old=lm_max_old+1
+            end do
+         end do
 
          !-- Write info to STdoUT:
          if ( rank == 0 ) then
@@ -2384,37 +2575,21 @@ contains
 
       end if
 
-      if ( .not. l_axi_old ) then
-         do lm=1,lm_max
-            l=lm2l(lm)
-            m=lm2m(lm)
-            lm2lmo(lm)=-1 ! -1 means that there is no data in the startfile
-            lmo=0
-            do mo=0,l_max_old,minc_old
-               do lo=mo,l_max_old
-                  lmo=lmo+1
-                  if ( lo==l .and. mo==m ) then
-                     lm2lmo(lm)=lmo ! data found in startfile
-                     cycle
-                  end if
-               end do
-            end do
-         end do
-      else
-         do lm=1,lm_max
-            l=lm2l(lm)
-            m=lm2m(lm)
-            lm2lmo(lm)=-1 ! -1 means that there is no data in the startfile
-            lmo=0
-            do lo=0,l_max_old
+      do lm=1,lm_max
+         l=lm2l(lm)
+         m=lm2m(lm)
+         lm2lmo(lm)=-1 ! -1 means that there is no data in the startfile
+         lmo=0
+         do mo=m_min_old,m_max_old,minc_old
+            do lo=mo,l_max_old
                lmo=lmo+1
-               if ( lo==l .and. m==0 ) then
+               if ( lo==l .and. mo==m ) then
                   lm2lmo(lm)=lmo ! data found in startfile
                   cycle
                end if
             end do
          end do
-      end if
+      end do
 
    end subroutine getLm2lmO
 !------------------------------------------------------------------------------
@@ -2485,6 +2660,8 @@ contains
       max_recv = sum(rcounts)
 
       allocate( sbuff(1:max_send), rbuff(1:max_recv) )
+      sbuff(:)=zero
+      rbuff(:)=zero
 
       !$omp barrier
       !$omp parallel do default(shared) &
@@ -2562,8 +2739,17 @@ contains
       complex(cp), intent(out) :: w(lm_max,dim1)
 
       !--- Local variables
+      type(costf_odd_t) :: chebt_ic_old
+      logical :: l_remap
       integer :: lm,lmo,lmStart,lmStop,n_proc
       complex(cp) :: woR(n_r_maxL)
+
+      l_remap=.false.
+      if ( dim1 /= n_r_max_old .or. ratio1 /= ratio1_old .or. ratio2 /= ratio2_old &
+      &    .or. rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary         &
+      &    .or. rscheme_oc%version /= rscheme_oc_old%version ) l_remap=.true.
+
+      if ( l_IC ) call chebt_ic_old%initialize(n_r_max_old, 2*n_r_maxL+2, 2*n_r_maxL+5)
 
       !$omp parallel do default(shared) private(n_proc,lmStart,lmStop,lm,lmo,woR)
       do n_proc=0,n_procs-1 ! Blocking of loop over all (l,m)
@@ -2573,13 +2759,10 @@ contains
          do lm=lmStart,lmStop
             lmo=lm2lmo(lm)
             if ( lmo > 0 ) then
-               if ( dim1 /= n_r_max_old .or. ratio1 /= ratio1_old .or.        &
-               &    ratio2 /= ratio2_old .or.                                 &
-               &    rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary&
-               &    .or. rscheme_oc%version /= rscheme_oc_old%version ) then
-
+               if ( l_remap ) then
                   woR(1:n_r_max_old)=wo(lmo,:)
-                  call mapDataR(woR,r_old,dim1,n_r_max_old,n_r_maxL,lBc1,l_IC)
+                  call mapDataR(woR,r_old,dim1,n_r_max_old,n_r_maxL,lBc1,l_IC, &
+                       &        chebt_ic_old)
                   w(lm,:)=scale_w*woR(1:dim1)
                else
                   w(lm,:)=scale_w*wo(lmo,:)
@@ -2590,6 +2773,8 @@ contains
          end do
       end do
       !$omp end parallel do
+
+      if ( l_IC ) call chebt_ic_old%finalize()
 
    end subroutine mapOneField
 !------------------------------------------------------------------------------
@@ -2730,18 +2915,20 @@ contains
       complex(cp), intent(out) :: p(lm_maxMag,dim1),s(lm_maxMag,dim1)
 
       !--- Local variables
+      type(costf_odd_t) :: chebt_ic_old
       integer :: lm,lmo,lmStart,lmStop,n_proc
       complex(cp), allocatable :: woR(:),zoR(:),poR(:),soR(:)
 
       allocate( woR(n_r_maxL),zoR(n_r_maxL) )
       allocate( poR(n_r_maxL),soR(n_r_maxL) )
       bytes_allocated = bytes_allocated + 4*n_r_maxL*SIZEOF_DEF_COMPLEX
+      if ( l_IC ) call chebt_ic_old%initialize(n_r_max_old, 2*n_r_maxL+2, 2*n_r_maxL+5)
 
       !PERFON('mD_map')
       do n_proc=0,n_procs-1 ! Blocking of loop over all (l,m)
          lmStart=lm_balance(n_proc)%nStart
          lmStop =lm_balance(n_proc)%nStop
-         lmStart=max(2,lmStart)
+         !lmStart=max(2,lmStart)
          do lm=lmStart,lmStop
             lmo=lm2lmo(lm)
             if ( lmo > 0 ) then
@@ -2753,10 +2940,14 @@ contains
                   zoR(1:n_r_max_old)=zo(lmo,:)
                   poR(1:n_r_max_old)=po(lmo,:)
                   soR(1:n_r_max_old)=so(lmo,:)
-                  call mapDataR(woR,r_old,dim1,n_r_max_old,n_r_maxL,.false.,l_IC)
-                  call mapDataR(zoR,r_old,dim1,n_r_max_old,n_r_maxL,.true.,l_IC)
-                  call mapDataR(poR,r_old,dim1,n_r_max_old,n_r_maxL,.true.,l_IC)
-                  call mapDataR(soR,r_old,dim1,n_r_max_old,n_r_maxL,.false.,l_IC)
+                  call mapDataR(woR,r_old,dim1,n_r_max_old,n_r_maxL,.false.,l_IC,&
+                       &        chebt_ic_old)
+                  call mapDataR(zoR,r_old,dim1,n_r_max_old,n_r_maxL,.true.,l_IC, &
+                       &        chebt_ic_old)
+                  call mapDataR(poR,r_old,dim1,n_r_max_old,n_r_maxL,.true.,l_IC, &
+                       &        chebt_ic_old)
+                  call mapDataR(soR,r_old,dim1,n_r_max_old,n_r_maxL,.false.,l_IC,&
+                       &        chebt_ic_old)
                   w(lm,:)=scale_b*woR(:)
                   z(lm,:)=scale_b*zoR(:)
                   p(lm,:)=scale_b*poR(:)
@@ -2778,18 +2969,16 @@ contains
       !PERFOFF
       deallocate(woR,zoR,poR,soR)
       bytes_allocated = bytes_allocated - 4*n_r_maxL*SIZEOF_DEF_COMPLEX
+      if ( l_IC ) call chebt_ic_old%finalize()
 
    end subroutine mapDataMag
 !------------------------------------------------------------------------------
-   subroutine mapDataR(dataR,r_old,n_rad_tot,n_r_max_old,n_r_maxL,lBc,l_IC)
-      !
+   subroutine mapDataR(dataR,r_old,n_rad_tot,n_r_max_old,n_r_maxL,lBc,l_IC, &
+              &        chebt_ic_old)
       !
       !  Copy (interpolate) data (read from disc file) from old grid structure
       !  to new grid. Linear interploation is used in r if the radial grid
-      !  structure differs
-      !
-      !  called in mapdata
-      !
+      !  structure differs.
       !
 
       !--- Input variables
@@ -2797,6 +2986,7 @@ contains
       integer,  intent(in) :: n_r_maxL,n_rad_tot
       real(cp), intent(in) :: r_old(:)
       logical,  intent(in) :: lBc,l_IC
+      type(costf_odd_t), optional, intent(in) :: chebt_ic_old
 
       !--- Output variables
       complex(cp), intent(inout) :: dataR(:)  ! old data
@@ -2807,8 +2997,6 @@ contains
       complex(cp) :: yold(4)
       complex(cp), allocatable :: work(:)
       real(cp) :: cheb_norm_old,scale
-      type(costf_odd_t) :: chebt_oc_old
-
 
       !-- If **both** the old and the new schemes are Chebyshev, we can
       !-- use costf to get the new data
@@ -2827,9 +3015,7 @@ contains
          !----- Transform old data to cheb space:
          if ( l_IC ) then
             allocate( work(n_r_maxL) )
-            call chebt_oc_old%initialize(n_r_max_old, 2*n_r_maxL+2, 2*n_r_maxL+5)
-            call chebt_oc_old%costf1(dataR, work)
-            call chebt_oc_old%finalize()
+            call chebt_ic_old%costf1(dataR, work)
          else
             call rscheme_oc_old%costf1(dataR)
          end if
@@ -2873,13 +3059,8 @@ contains
 
             allocate( work(n_r_maxL) )
 
-            !-- This is needed for the inner core
-            call chebt_oc_old%initialize(n_r_max_old, 2*n_r_maxL+2, 2*n_r_maxL+5)
-
             !----- Transform old data to cheb space:
-            call chebt_oc_old%costf1(dataR, work)
-
-            call chebt_oc_old%finalize()
+            call chebt_ic_old%costf1(dataR, work)
 
             !----- Fill up cheb polynomial with zeros:
             if ( n_rad_tot>n_r_max_old ) then
@@ -2888,7 +3069,6 @@ contains
                   dataR(nR)=zero
                end do
             end if
-
 
             call chebt_ic%costf1(dataR,work)
             !----- Rescale :
@@ -3008,7 +3188,7 @@ contains
       !       5) Flow driven by prescribed inner core rotation
       !       l_SRIC=.true. (spherical Couette case)
       l1m0=lo_map%lm2(1,0)
-      if ( l_rot_ic ) then
+      if ( l_rot_ic .and. .not. kbotv == 3) then
          if ( l_SRIC .or. omega_ic1 /= 0.0_cp ) then
             if ( tShift_ic1 == 0.0_cp ) tShift_ic1=tOmega_ic1-time
             if ( tShift_ic2 == 0.0_cp ) tShift_ic2=tOmega_ic2-time
@@ -3035,7 +3215,7 @@ contains
 
       !----- Mantle rotation, same as for inner core (see above)
       !      exept the l_SRIC case.
-      if ( l_rot_ma ) then
+      if ( l_rot_ma .and. .not. ktopv==3 ) then
          if ( l_SRMA .or. omega_ma1 /= 0.0_cp ) then
             if ( tShift_ma1 == 0.0_cp ) tShift_ma1=tOmega_ma1-time
             if ( tShift_ma2 == 0.0_cp ) tShift_ma2=tOmega_ma2-time

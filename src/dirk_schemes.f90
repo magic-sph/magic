@@ -34,6 +34,7 @@ module dirk_schemes
       procedure :: set_weights
       procedure :: set_dt_array
       procedure :: set_imex_rhs
+      procedure :: set_imex_rhs_ghost
       procedure :: set_imex_rhs_scalar
       procedure :: rotate_imex
       procedure :: rotate_imex_scalar
@@ -143,6 +144,26 @@ contains
          this%nimp = 6
          this%nexp = 6
          this%nstages = 6
+         this%istage = 1
+         courfac_loc = 0.5_cp
+         alffac_loc  = 0.2_cp
+         intfac_loc  = 1.0_cp
+         this%l_assembly = .true.
+      else if ( index(time_scheme, 'KC674') /= 0 ) then
+         this%time_scheme = 'KC674'
+         this%nimp = 7
+         this%nexp = 7
+         this%nstages = 7
+         this%istage = 1
+         courfac_loc = 0.5_cp
+         alffac_loc  = 0.2_cp
+         intfac_loc  = 1.0_cp
+         this%l_assembly = .true.
+      else if ( index(time_scheme, 'KC785') /= 0 ) then
+         this%time_scheme = 'KC785'
+         this%nimp = 8
+         this%nexp = 8
+         this%nstages = 8
          this%istage = 1
          courfac_loc = 0.5_cp
          alffac_loc  = 0.2_cp
@@ -269,8 +290,8 @@ contains
       this%l_imp_calc_rhs(:) = .true.
       bytes_allocated=bytes_allocated+2*this%nstages*SIZEOF_LOGICAL
 
-      allocate( this%butcher_c(sizet) )
-      bytes_allocated=bytes_allocated+sizet*SIZEOF_LOGICAL
+      allocate( this%butcher_c(sizet-1) )
+      bytes_allocated=bytes_allocated+(sizet-1)*SIZEOF_LOGICAL
 
    end subroutine initialize
 !------------------------------------------------------------------------------
@@ -514,6 +535,116 @@ contains
             this%butcher_ass_exp(:)=this%butcher_ass_imp(:)
             this%butcher_c(:)=[half, 0.332_cp, 0.62_cp, 0.85_cp, one]
 
+         case ('KC674')
+            this%wimp_lin(1) = 0.1235_cp
+
+            this%butcher_imp(:,:) = reshape([0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp,        &
+            &    0.0_cp, 0.0_cp, 0.0_cp, 0.1235_cp, 0.1235_cp, 0.0_cp, 0.0_cp,      &
+            &    0.0_cp, 0.0_cp, 0.0_cp, 624185399699.0_cp/4186980696204.0_cp,      &
+            &    624185399699.0_cp/4186980696204.0_cp, 0.1235_cp, 0.0_cp, 0.0_cp,   &
+            &    0.0_cp, 0.0_cp, 1258591069120.0_cp/10082082980243.0_cp,            &
+            &    1258591069120.0_cp/10082082980243.0_cp, -322722984531.0_cp/        &
+            &    8455138723562.0_cp, 0.1235_cp, 0.0_cp, 0.0_cp, 0.0_cp,             &
+            &    -436103496990.0_cp/5971407786587.0_cp, -436103496990.0_cp/         &
+            &    5971407786587.0_cp, -2689175662187.0_cp/11046760208243.0_cp,       &
+            &    4431412449334.0_cp/12995360898505.0_cp, 0.1235_cp, 0.0_cp, 0.0_cp, &
+            &    -2207373168298.0_cp/14430576638973.0_cp, -2207373168298.0_cp/      &
+            &    14430576638973.0_cp, 242511121179.0_cp/3358618340039.0_cp,         &
+            &    3145666661981.0_cp/7780404714551.0_cp,  5882073923981.0_cp/        &
+            &    14490790706663.0_cp, 0.1235_cp, 0.0_cp, 0.0_cp, 0.0_cp,            &
+            &    9164257142617.0_cp/17756377923965.0_cp, -10812980402763.0_cp/      &
+            &    74029279521829.0_cp, 1335994250573.0_cp/5691609445217.0_cp,        &
+            &    2273837961795.0_cp/8368240463276.0_cp, 0.1235_cp], [7,7], order=[2,1])
+
+            this%butcher_ass_imp(:) = [0.0_cp, 0.0_cp, 9164257142617.0_cp/        &
+            &                          17756377923965.0_cp, -10812980402763.0_cp/ &
+            &                          74029279521829.0_cp, 1335994250573.0_cp/   &
+            &                          5691609445217.0_cp,  2273837961795.0_cp/   &
+            &                          8368240463276.0_cp, 0.1235_cp]
+
+            this%butcher_exp(:,:) = reshape([ 0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp,      &
+            &    0.0_cp, 0.0_cp, 0.0_cp, 0.247_cp, 0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp, &
+            &    0.0_cp, 0.0_cp, 0.06175_cp, 2694949928731.0_cp/7487940209513.0_cp,&
+            &    0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp, 464650059369.0_cp/        &
+            &    8764239774964.0_cp, 878889893998.0_cp/2444806327765.0_cp,         &
+            &    -952945855348.0_cp/12294611323341.0_cp, 0.0_cp, 0.0_cp, 0.0_cp,   &
+            &    0.0_cp, 476636172619.0_cp/8159180917465.0_cp, -1271469283451.0_cp/&
+            &    7793814740893.0_cp, -859560642026.0_cp/4356155882851.0_cp,        &
+            &    1723805262919.0_cp/4571918432560.0_cp, 0.0_cp, 0.0_cp, 0.0_cp,    &
+            &    6338158500785.0_cp/11769362343261.0_cp, -4970555480458.0_cp/      &
+            &    10924838743837.0_cp, 3326578051521.0_cp/2647936831840.0_cp,       &
+            &    -880713585975.0_cp/1841400956686.0_cp, -1428733748635.0_cp/       &
+            &    8843423958496.0_cp, 0.0_cp, 0.0_cp, 760814592956.0_cp/            &
+            &    3276306540349.0_cp, 760814592956.0_cp/3276306540349.0_cp,         &
+            &    -47223648122716.0_cp/6934462133451.0_cp, 71187472546993.0_cp/     &
+            &    9669769126921.0_cp, -13330509492149.0_cp/9695768672337.0_cp,      &
+            &    11565764226357.0_cp/8513123442827.0_cp, 0.0_cp], [7,7], order=[2,1])
+
+            this%butcher_ass_exp(:)=this%butcher_ass_imp(:)
+            this%butcher_c(:)=[0.247_cp, 4276536705230.0_cp/10142255878289.0_cp, &
+            &                  0.335_cp, 0.075_cp, 0.7_cp, one]
+
+         case ('KC785')
+            this%wimp_lin(1) = 2.0_cp/9.0_cp
+
+            this%butcher_imp(:,:) = reshape([0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp,          &
+            &  0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp, 2.0_cp/9.0_cp, 2.0_cp/9.0_cp,          &
+            &  0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp, 2366667076620.0_cp/    &
+            &  8822750406821.0_cp, 2366667076620.0_cp/8822750406821.0_cp,             &
+            &  2.0_cp/9.0_cp, 0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp,                 &
+            &  -257962897183.0_cp/4451812247028.0_cp, -257962897183.0_cp/             &
+            &  4451812247028.0_cp, 128530224461.0_cp/14379561246022.0_cp,             &
+            &  2.0_cp/9.0_cp, 0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp, -486229321650.0_cp/     &
+            &  11227943450093.0_cp, -486229321650.0_cp/11227943450093.0_cp,           &
+            &  -225633144460.0_cp/6633558740617.0_cp, 1741320951451.0_cp/             &
+            &  6824444397158.0_cp, 2.0_cp/9.0_cp, 0.0_cp, 0.0_cp, 0.0_cp,             &
+            &  621307788657.0_cp/4714163060173.0_cp, 621307788657.0_cp/               &
+            &  4714163060173.0_cp, -125196015625.0_cp/3866852212004.0_cp,             &
+            &  940440206406.0_cp/7593089888465.0_cp, 961109811699.0_cp/               &
+            &  6734810228204.0_cp, 2.0_cp/9.0_cp, 0.0_cp, 0.0_cp, 2036305566805.0_cp/ &
+            &  6583108094622.0_cp, 2036305566805.0_cp/6583108094622.0_cp,             &
+            &  -3039402635899.0_cp/4450598839912.0_cp, -1829510709469.0_cp/           &
+            &  31102090912115.0_cp, -286320471013.0_cp/6931253422520.0_cp,            &
+            &  8651533662697.0_cp/9642993110008.0_cp, 2.0_cp/9.0_cp, 0.0_cp, 0.0_cp,  &
+            &  0.0_cp, 3517720773327.0_cp/20256071687669.0_cp, 4569610470461.0_cp/    &
+            &  17934693873752.0_cp,  2819471173109.0_cp/11655438449929.0_cp,          &
+            &  3296210113763.0_cp/10722700128969.0_cp, -1142099968913.0_cp/           &
+            &  5710983926999.0_cp, 2.0_cp/9.0_cp], [8,8], order=[2,1])
+
+            this%butcher_ass_imp(:) = [0.0_cp, 0.0_cp, 3517720773327.0_cp/    &
+            &    20256071687669.0_cp, 4569610470461.0_cp/17934693873752.0_cp, &
+            &    2819471173109.0_cp/11655438449929.0_cp, 3296210113763.0_cp/  &
+            &    10722700128969.0_cp, -1142099968913.0_cp/5710983926999.0_cp, &
+            &    2.0_cp/9.0_cp]
+
+            this%butcher_exp(:,:) = reshape([ 0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp,  &
+            &  0.0_cp, 0.0_cp, 0.0_cp, 4.0_cp/9.0_cp, 0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp,  &
+            &  0.0_cp, 0.0_cp, 0.0_cp, 1.0_cp/9.0_cp, 1183333538310.0_cp/              &
+            &  1827251437969.0_cp, 0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp, 0.0_cp,     &
+            &  895379019517.0_cp/9750411845327.0_cp, 477606656805.0_cp/                &
+            &  13473228687314.0_cp, -112564739183.0_cp/9373365219272.0_cp, 0.0_cp,     &
+            &  0.0_cp, 0.0_cp, 0.0_cp,0.0_cp, -4458043123994.0_cp/13015289567637.0_cp, &
+            &  -2500665203865.0_cp/9342069639922.0_cp, 983347055801.0_cp/              &
+            &  8893519644487.0_cp, 2185051477207.0_cp/2551468980502.0_cp, 0.0_cp,      &
+            &  0.0_cp, 0.0_cp, 0.0_cp, -167316361917.0_cp/17121522574472.0_cp,         &
+            &  1605541814917.0_cp/7619724128744.0_cp, 991021770328.0_cp/               &
+            &  13052792161721.0_cp,  2342280609577.0_cp/11279663441611.0_cp,           &
+            &  3012424348531.0_cp/12792462456678.0_cp, 0.0_cp, 0.0_cp, 0.0_cp,         &
+            &  6680998715867.0_cp/14310383562358.0_cp, 5029118570809.0_cp/             &
+            &  3897454228471.0_cp, 2415062538259.0_cp/6382199904604.0_cp,              &
+            &  -3924368632305.0_cp/6964820224454.0_cp, -4331110370267.0_cp/            &
+            &  15021686902756.0_cp, -3944303808049.0_cp/11994238218192.0_cp, 0.0_cp,   &
+            &  0.0_cp, 2193717860234.0_cp/3570523412979.0_cp, 2193717860234.0_cp/      &
+            &  3570523412979.0_cp, 5952760925747.0_cp/18750164281544.0_cp,             &
+            &  -4412967128996.0_cp/6196664114337.0_cp, 4151782504231.0_cp/             &
+            &  36106512998704.0_cp,  572599549169.0_cp/6265429158920.0_cp,             &
+            &  -457874356192.0_cp/11306498036315.0_cp, 0.0_cp], [8,8], order=[2,1])
+
+            this%butcher_ass_exp(:)=this%butcher_ass_imp(:)
+            this%butcher_c(:)=[4.0_cp/9.0_cp, 6456083330201.0_cp/8509243623797.0_cp,  &
+            &   1632083962415.0_cp/14158861528103.0_cp, 6365430648612.0_cp/           &
+            &   17842476412687.0_cp,  0.72_cp, 0.955_cp, one]
+
          case ('LZ232')
             this%wimp_lin(1) = half
             this%butcher_imp(:,:) = reshape([  0.0_cp,  0.0_cp, 0.0_cp,  &
@@ -653,7 +784,7 @@ contains
 
       this%butcher_ass_imp(:) = this%dt(1)*this%butcher_ass_imp(:)
       this%butcher_ass_exp(:) = this%dt(1)*this%butcher_ass_exp(:)
-         
+
    end subroutine set_weights
 !------------------------------------------------------------------------------
    subroutine set_dt_array(this, dt_new, dt_min, time, n_log_file,  &
@@ -668,7 +799,7 @@ contains
       real(cp), intent(in) :: dt_new
       real(cp), intent(in) :: dt_min
       real(cp), intent(in) :: time
-      integer,  intent(in) :: n_log_file
+      integer,  intent(inout) :: n_log_file
       integer,  intent(in) :: n_time_step
       logical,  intent(in) :: l_new_dtNext
 
@@ -687,7 +818,7 @@ contains
             &    " ! Time step too small, dt=",dt_new, &
             &    " ! I thus stop the run !"
             if ( l_save_out ) then
-               open(n_log_file, file=log_file, status='unknown', &
+               open(newunit=n_log_file, file=log_file, status='unknown', &
                &    position='append')
             end if
             write(n_log_file,'(1p,/,A,ES14.4,/,A)')    &
@@ -707,7 +838,7 @@ contains
             &    "                      last dt=",dt_old,                       &
             &    "                       new dt=",dt_new
             if ( l_save_out ) then
-               open(n_log_file, file=log_file, status='unknown', &
+               open(newunit=n_log_file, file=log_file, status='unknown', &
                &    position='append')
             end if
             write(n_log_file,                                         &
@@ -722,7 +853,7 @@ contains
 
    end subroutine set_dt_array
 !------------------------------------------------------------------------------
-   subroutine set_imex_rhs(this, rhs, dfdt, lmStart, lmStop, len_rhs)
+   subroutine set_imex_rhs(this, rhs, dfdt)
       !
       ! This subroutine assembles the right-hand-side of an IMEX scheme
       !
@@ -730,45 +861,84 @@ contains
       class(type_dirk) :: this
 
       !-- Input variables:
-      integer,     intent(in) :: lmStart
-      integer,     intent(in) :: lmStop
-      integer,     intent(in) :: len_rhs
       type(type_tarray), intent(in) :: dfdt
 
       !-- Output variable
-      complex(cp), intent(out) :: rhs(lmStart:lmStop,len_rhs)
+      complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
 
       !-- Local variables
-      integer :: n_stage, n_r, startR, stopR
+      integer :: n_stage, n_r, start_lm, stop_lm
 
-      !$omp parallel default(shared) private(startR,stopR,n_r)
-      startR=1; stopR=len_rhs
-      call get_openmp_blocks(startR,stopR)
+      !$omp parallel default(shared) private(start_lm, stop_lm)
+      start_lm=dfdt%llm; stop_lm=dfdt%ulm
+      call get_openmp_blocks(start_lm,stop_lm)
 
-      do n_r=startR,stopR
-         rhs(lmStart:lmStop,n_r)=dfdt%old(lmStart:lmStop,n_r,1)
+      do n_r=dfdt%nRstart,dfdt%nRstop
+         rhs(start_lm:stop_lm,n_r)=dfdt%old(start_lm:stop_lm,n_r,1)
       end do
 
       do n_stage=1,this%istage
-         do n_r=startR,stopR
-            rhs(lmStart:lmStop,n_r)=rhs(lmStart:lmStop,n_r) +                &
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
             &                       this%butcher_exp(this%istage+1,n_stage)* &
-            &                       dfdt%expl(lmStart:lmStop,n_r,n_stage)
+            &                       dfdt%expl(start_lm:stop_lm,n_r,n_stage)
          end do
       end do
 
       do n_stage=1,this%istage
-         do n_r=startR,stopR
-            rhs(lmStart:lmStop,n_r)=rhs(lmStart:lmStop,n_r) +                &
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
             &                       this%butcher_imp(this%istage+1,n_stage)* &
-            &                       dfdt%impl(lmStart:lmStop,n_r,n_stage)
+            &                       dfdt%impl(start_lm:stop_lm,n_r,n_stage)
          end do
       end do
       !$omp end parallel
 
    end subroutine set_imex_rhs
 !------------------------------------------------------------------------------
-   subroutine assemble_imex(this, rhs, dfdt, lmStart, lmStop, len_rhs)
+   subroutine set_imex_rhs_ghost(this, rhs, dfdt, start_lm, stop_lm, ng)
+      !
+      ! This subroutine assembles the right-hand-side of an IMEX scheme in case
+      ! an array with ghosts zones is provided
+      !
+
+      class(type_dirk) :: this
+
+      !-- Input variables:
+      type(type_tarray), intent(in) :: dfdt
+      integer,           intent(in) :: start_lm ! Starting lm index
+      integer,           intent(in) :: stop_lm  ! Stopping lm index
+      integer,           intent(in) :: ng       ! Number of ghost zones
+
+      !-- Output variable
+      complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart-ng:dfdt%nRstop+ng)
+
+      !-- Local variables
+      integer :: n_stage, n_r
+
+      do n_r=dfdt%nRstart,dfdt%nRstop
+         rhs(start_lm:stop_lm,n_r)=dfdt%old(start_lm:stop_lm,n_r,1)
+      end do
+
+      do n_stage=1,this%istage
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
+            &                       this%butcher_exp(this%istage+1,n_stage)* &
+            &                       dfdt%expl(start_lm:stop_lm,n_r,n_stage)
+         end do
+      end do
+
+      do n_stage=1,this%istage
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +            &
+            &                       this%butcher_imp(this%istage+1,n_stage)* &
+            &                       dfdt%impl(start_lm:stop_lm,n_r,n_stage)
+         end do
+      end do
+
+   end subroutine set_imex_rhs_ghost
+!------------------------------------------------------------------------------
+   subroutine assemble_imex(this, rhs, dfdt)
       !
       ! This subroutine performs the assembly stage of an IMEX-RK scheme
       !
@@ -776,38 +946,35 @@ contains
       class(type_dirk) :: this
 
       !-- Input variables:
-      integer,     intent(in) :: lmStart
-      integer,     intent(in) :: lmStop
-      integer,     intent(in) :: len_rhs
       type(type_tarray), intent(in) :: dfdt
 
       !-- Output variable
-      complex(cp), intent(out) :: rhs(lmStart:lmStop,len_rhs)
+      complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
 
       !-- Local variables
-      integer :: n_stage, n_r, startR, stopR
+      integer :: n_stage, n_r, start_lm, stop_lm
 
-      !$omp parallel default(shared) private(startR,stopR,n_r)
-      startR=1; stopR=len_rhs
-      call get_openmp_blocks(startR,stopR)
+      !$omp parallel default(shared) private(start_lm,stop_lm,n_r)
+      start_lm=dfdt%llm; stop_lm=dfdt%ulm
+      call get_openmp_blocks(start_lm,stop_lm)
 
-      do n_r=startR,stopR
-         rhs(lmStart:lmStop,n_r)=dfdt%old(lmStart:lmStop,n_r,1)
+      do n_r=dfdt%nRstart,dfdt%nRstop
+         rhs(start_lm:stop_lm,n_r)=dfdt%old(start_lm:stop_lm,n_r,1)
       end do
 
       do n_stage=1,this%nstages
-         do n_r=startR,stopR
-            rhs(lmStart:lmStop,n_r)=rhs(lmStart:lmStop,n_r) +              &
-            &                       this%butcher_ass_exp(n_stage)*         &
-            &                       dfdt%expl(lmStart:lmStop,n_r,n_stage)
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +        &
+            &                       this%butcher_ass_exp(n_stage)*       &
+            &                       dfdt%expl(start_lm:stop_lm,n_r,n_stage)
          end do
       end do
 
       do n_stage=1,this%nstages
-         do n_r=startR,stopR
-            rhs(lmStart:lmStop,n_r)=rhs(lmStart:lmStop,n_r) +             &
-            &                       this%butcher_ass_imp(n_stage)*        &
-            &                       dfdt%impl(lmStart:lmStop,n_r,n_stage)
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r) +       &
+            &                       this%butcher_ass_imp(n_stage)*      &
+            &                       dfdt%impl(start_lm:stop_lm,n_r,n_stage)
          end do
       end do
       !$omp end parallel
@@ -869,17 +1036,12 @@ contains
 
    end subroutine assemble_imex_scalar
 !------------------------------------------------------------------------------
-   subroutine rotate_imex(this, dfdt, lmStart, lmStop, n_r_max)
+   subroutine rotate_imex(this, dfdt)
       !
       ! This subroutine is used to roll the time arrays from one time step
       !
 
       class(type_dirk) :: this
-
-      !-- Input variables:
-      integer, intent(in) :: lmStart
-      integer, intent(in) :: lmStop
-      integer, intent(in) :: n_r_max
 
       !-- Output variables:
       type(type_tarray), intent(inout) :: dfdt
@@ -916,7 +1078,9 @@ contains
       real(cp), intent(in) :: tlast
       real(cp), intent(out) :: tstage
 
-      tstage = tlast+this%dt(1)*this%butcher_c(this%istage)
+      if ( (.not. this%l_assembly) .or. (this%istage /= this%nstages) ) then
+         tstage = tlast+this%dt(1)*this%butcher_c(this%istage)
+      end if
 
    end subroutine get_time_stage
 !------------------------------------------------------------------------------

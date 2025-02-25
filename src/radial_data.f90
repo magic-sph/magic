@@ -12,8 +12,8 @@ module radial_data
 
    type(load), public, allocatable :: radial_balance(:)
  
-   integer, public :: nRstart,nRstop,nRstartMag,nRstopMag
-   integer, public :: n_r_cmb,n_r_icb
+   integer, protected, public :: nRstart,nRstop,nRstartMag,nRstopMag
+   integer, protected, public :: n_r_cmb,n_r_icb
  
    public :: initialize_radial_data, finalize_radial_data
 

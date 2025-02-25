@@ -1,6 +1,6 @@
 module useful
    !
-   !  library with several useful subroutines
+   !  This module contains several useful routines.
    !
 
    use iso_fortran_env, only: output_unit
@@ -14,7 +14,7 @@ module useful
 
    private
 
-   public :: l_correct_step, random, factorise, cc2real, cc22real, round_off, &
+   public :: l_correct_step, factorise, cc2real, cc22real, round_off, &
    &         logWrite, polynomial_interpolation, abortRun
 
 contains
@@ -31,8 +31,7 @@ contains
       ! In both cases l_correct_step=true for n=n_max.
       !
       ! The argument controls whether in addition n should be
-      !       even: n_eo=2
-      !    or  odd: n_eo=1
+      ! even (n_eo=2) or odd (n_eo=1)
       !
 
       !-- Input variables:
@@ -41,46 +40,45 @@ contains
       real(cp), intent(in) :: t_last       ! last time at current step
       integer,  intent(in) :: n_max        ! max number of steps
       integer,  intent(in) :: n_step       ! action interval
-      integer,  intent(in) :: n_intervals ! number of actions
+      integer,  intent(in) :: n_intervals  ! number of actions
       integer,  intent(in) :: n_ts         ! number of times t
       real(cp), intent(in) :: times(*)     ! times where l_correct_step == true
       integer,  intent(in) :: n_eo         ! even/odd controller
-  
+
       !-- Local variables:
       integer :: n_delta      ! corrector for even/odd n
       integer :: n_offset     ! offset with no action
       integer :: n_t          ! counter for times
       integer :: n_steps      ! local step width
-  
-  
+
       if ( n_step /= 0 .and. n_intervals /= 0 ) then
          write(output_unit,*) '! Error message from function l_correct_step:'
          write(output_unit,*) '! Either n_step or n_interval have to be zero!'
          call abortRun('Stop run in l_correct_step')
       end if
-  
+
       l_correct_step=.false.
-  
+
       if ( n_intervals /= 0 ) then
          n_steps=n_max/n_intervals
          if ( ( n_eo == 2 .and. mod(n_step,2) /= 0 ) .or. &
-              ( n_eo == 1 .and. mod(n_step,2) /= 1 ) ) then
+         &    ( n_eo == 1 .and. mod(n_step,2) /= 1 ) ) then
             n_steps=n_steps+1
          end if
-  
+
          n_offset=n_max-n_steps*n_intervals
-  
-         if ( n > n_offset .and. mod(n-n_offset,n_steps) == 0 ) l_correct_step= .true. 
+
+         if ( n > n_offset .and. mod(n-n_offset,n_steps) == 0 ) l_correct_step=.true.
       else if ( n_step /= 0 ) then
          n_delta=0
          if ( ( n_eo == 1 .and. mod(n,2) == 0 ) .or. &
-              ( n_eo == 2 .and. mod(n,2) == 1 ) ) then
+         &    ( n_eo == 2 .and. mod(n,2) == 1 ) ) then
             n_delta=1
          end if
-  
-         if ( n == n_max .or. mod(n-n_delta,n_step) == 0 ) l_correct_step= .true. 
+
+         if ( n == n_max .or. mod(n-n_delta,n_step) == 0 ) l_correct_step=.true.
       end if
-  
+
       if ( n_ts >= 1 ) then
          do n_t=1,n_ts
             if ( times(n_t) < t .and. times(n_t) >= t_last ) then
@@ -89,78 +87,29 @@ contains
             end if
          end do
       end if
-               
-   end function l_correct_step
-!----------------------------------------------------------------------------
-   real(cp) function random(r)
-      !
-      !     random number generator
-      !
-      !     if ( r == 0 ) then
-      !        random(r) = next random number (between 0. and 1.)
-      !     if ( r < 0 ) then
-      !        random(r) = previous random number
-      !     if ( r > 0 ) then
-      !        random(r) = a new sequence of random numbers is started
-      !                  with seed r mod 1
-      !                  note: r must be a non-integer to get a different seq
-      !
-      !     called in sinit
-      !
 
-      !-- Input variables:
-      real(cp), intent(in) :: r
-  
-      !-- Local variables:
-      integer :: ia1, ia0, ia1ma0, ic
-      integer :: iy0, iy1
-      integer, save :: ix1, ix0
-  
-      ia1   =1536
-      ia0   =1029
-      ia1ma0=507
-      ic    =1731
-  
-      if ( r == 0.0_cp ) then
-         iy0 = ia0*ix0
-         iy1 = ia1*ix1 + ia1ma0*(ix0-ix1) + iy0
-         iy0 = iy0 + ic
-  
-         ix0 = mod(iy0,2048)
-         iy1 = iy1 + (iy0-ix0)/2048
-         ix1 = mod(iy1,2048)
-      else if ( r > 0.0_cp ) then
-         ix1 = int(mod(r,one)*4194304.0_cp + half)
-         ix0 = mod(ix1,2048)
-         ix1 = (ix1-ix0)/2048
-      end if
-       
-      random = ix1*2048 + ix0
-      random = random / 4194304.0_cp
-  
-   end function random
+   end function l_correct_step
 !----------------------------------------------------------------------------
    subroutine factorise(n,n_facs,fac,n_factors,factor)
       !
-      !  Purpose of this subroutine is factorize n into a number of      
-      !  given factors fac(i).                                           
+      !  Purpose of this subroutine is factorize n into a number of
+      !  given factors fac(i).
       !
-      
 
       !-- Input variables:
       integer, intent(in) :: n         ! number to be factorised    !
       integer, intent(in) :: fac(*)    ! list of fators to be tried !
       integer, intent(in) :: n_facs    ! number of facs to be tried !
-  
+
       !-- Output:
       integer, intent(out) :: n_factors ! number of factors used
       integer, intent(out) :: factor(*) ! list of factors used
-  
+
       !-- Local variables:
       character(len=14) :: str
       integer :: n_rest,n_fac
       integer :: factor_tot,factor_test
-  
+
       if ( n < 1 )  then
          write(output_unit,*) '! Error message from factorise:'
          write(output_unit,*) '! n should be larger than 0.'
@@ -170,11 +119,11 @@ contains
          factor(1)=0
          return
       end if
-  
+
       n_factors=0    ! number of factors
       factor_tot=1   ! total factor
       n_rest=n       ! remaining
-  
+
       do n_fac=1,n_facs  ! use new factor !
          factor_test=fac(n_fac)
          do while ( mod(n_rest,factor_test) == 0 )
@@ -185,7 +134,7 @@ contains
             if ( n_rest == 1 ) return
          end do
       end do
-  
+
       if ( n_rest /= 1 ) then
          write(str,*) n
          call abortRun('Sorry, no factorisation possible of:'//trim(adjustl(str)))
@@ -194,11 +143,15 @@ contains
    end subroutine factorise
 !----------------------------------------------------------------------------
    real(cp)  function cc2real(c,m)
+      !
+      ! This function computes the norm of complex number, depending on the
+      ! azimuthal wavenumber.
+      !
 
       !-- Input variables:
-      complex(cp), intent(in) :: c
-      integer,     intent(in) :: m
-  
+      complex(cp), intent(in) :: c ! A complex number
+      integer,     intent(in) :: m ! Azimuthal wavenumber
+
       if ( m == 0 ) then
          cc2real=real(c)*real(c)
       else
@@ -212,7 +165,7 @@ contains
       !-- Input variables:
       complex(cp), intent(in) :: c1,c2
       integer,         intent(in) :: m
-  
+
       if ( m == 0 ) then
          cc22real=real(c1)*real(c2)
       else
@@ -222,9 +175,13 @@ contains
    end function cc22real
 !----------------------------------------------------------------------------
    subroutine logWrite(message)
+      !
+      ! This subroutine writes a message in the log.TAG file and in the STDOUT
+      ! If l_save_out is set to .true. the log.TAG file is opened and closed.
+      !
 
       !-- Input variable:
-      character(len=*), intent(in) :: message
+      character(len=*), intent(in) :: message ! Message to be written
 
        if ( rank == 0 ) then
           if ( l_save_out ) then
@@ -241,12 +198,12 @@ contains
    subroutine polynomial_interpolation(xold, yold, xnew ,ynew)
 
       !-- Input variables
-      real(cp),    intent(in) :: xold(4) 
+      real(cp),    intent(in) :: xold(4)
       complex(cp), intent(in) :: yold(4)
       real(cp),    intent(in) :: xnew
 
       !-- Output variables
-      complex(cp), intent(out) :: ynew 
+      complex(cp), intent(out) :: ynew
 
       !-- Local variables
       real(cp) :: yold_real(4), yold_imag(4)
@@ -263,14 +220,18 @@ contains
    end subroutine polynomial_interpolation
 !----------------------------------------------------------------------------
    subroutine polynomial_interpolation_real(xold,yold,xnew,ynew)
+      !
+      ! This subroutine performs a polynomial interpolation of ynew(xnew) using
+      ! input data xold and yold.
+      !
 
       !-- Input variables:
-      real(cp), intent(in) :: xold(:)
-      real(cp), intent(in) :: yold(:)
-      real(cp), intent(in) :: xnew
+      real(cp), intent(in) :: xold(:) ! Old grid
+      real(cp), intent(in) :: yold(:) ! Old data
+      real(cp), intent(in) :: xnew    ! Point of interpolation
 
       !-- Output variables:
-      real(cp), intent(out) :: ynew
+      real(cp), intent(out) :: ynew   ! Data interpolated at xnew
 
       !-- Local variables:
       integer :: n_stencil
@@ -326,23 +287,26 @@ contains
       !
 
       !-- Input variable
-      character(len=*), intent(in) :: message
+      character(len=*), intent(in) :: message ! Message printing before termination
 
       !-- Local variables:
       integer :: code
 
-      code = 32
 
-      write(output_unit,*)
-      write(output_unit,*)
-      write(output_unit,*)
-      write(output_unit,*) '! Something went wrong, MagIC will stop now'
-      write(output_unit,*) '! See below the error message:'
-      write(output_unit,*)
-      write(output_unit,*) message
-      write(output_unit,*)
+      if ( rank == 0 ) then
+         write(output_unit,*)
+         write(output_unit,*)
+         write(output_unit,*)
+         write(output_unit,*) '! Something went wrong, MagIC will stop now'
+         write(output_unit,*) '! See below the error message:'
+         write(output_unit,*)
+         write(output_unit,*) message
+         write(output_unit,*)
+         code = 32
+      end if
 
 #ifdef WITH_MPI
+      call MPI_BCast(code, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ierr)
       call MPI_Abort(MPI_COMM_WORLD, code, ierr)
 #else
       stop
@@ -350,13 +314,27 @@ contains
 
    end subroutine abortRun
 !----------------------------------------------------------------------------
-   real(cp) function round_off(param, ref)
+   real(cp) function round_off(param, ref, cut)
+      !
+      ! This function rounds off tiny numbers. This is only used for some
+      ! outputs.
+      !
 
       !-- Input variable
-      real(cp), intent(in) :: param        ! parameter to be checked
-      real(cp), intent(in) :: ref          ! reference value
+      real(cp), intent(in) :: param   ! parameter to be checked
+      real(cp), intent(in) :: ref     ! reference value
+      real(cp), optional, intent(in) :: cut ! cutoff factor compared to machine epsilon
 
-      if ( abs(param) < 1.0e3_cp*epsilon(one)*abs(ref) ) then
+      !-- Local variables
+      real(cp) :: fac
+
+      if (present(cut)) then
+         fac = cut
+      else
+         fac = 1e3_cp
+      end if
+
+      if ( abs(param) < fac*epsilon(one)*abs(ref) ) then
          round_off = 0.0_cp
       else
          round_off = param

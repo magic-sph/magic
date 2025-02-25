@@ -7,27 +7,29 @@ module storeCheckPoints
    use iso_fortran_env, only: output_unit
    use precision_mod
    use parallel_mod
-   use mpi_alltoall_mod, only: type_mpiatoav
-   use communications, only: gt_OC, gt_IC, gather_all_from_lo_to_rank0
-   use truncation, only: n_r_max,n_r_ic_max,minc,nalias,n_theta_max,n_phi_tot, &
-       &                 lm_max,lm_maxMag,n_r_maxMag,n_r_ic_maxMag,l_max,      &
-       &                 fd_stretch, fd_ratio
+   use communications, only: gt_OC, gt_IC, gather_from_lo_to_rank0, &
+       &                     gather_all_from_lo_to_rank0, lo2r_one, r2lo_one
+   use truncation, only: n_r_max, n_r_ic_max, minc, nalias, n_theta_max,  &
+       &                 n_phi_tot, lm_max, lm_maxMag, n_r_maxMag, m_max, &
+       &                 n_r_ic_maxMag, l_max, fd_stretch, fd_ratio, m_min
    use radial_functions, only: rscheme_oc, r
    use physical_parameters, only: ra, pr, prmag, radratio, ek, sigma_ratio, &
-       &                          raxi, sc
+       &                          raxi, sc, stef
    use blocking, only: llm, ulm, llmMag, ulmMag
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag
    use num_param, only: tScale, alph1, alph2
    use init_fields, only: inform,omega_ic1,omegaOsz_ic1,tOmega_ic1, &
        &                  omega_ic2,omegaOsz_ic2,tOmega_ic2,        &
        &                  omega_ma1,omegaOsz_ma1,tOmega_ma1,        &
-       &                  omega_ma2,omegaOsz_ma2,tOmega_ma2
+       &                  omega_ma2,omegaOsz_ma2,tOmega_ma2 
    use logic, only: l_heat, l_mag, l_cond_ic, l_chemical_conv, l_save_out, &
-       &            l_double_curl
+       &            l_double_curl, l_parallel_solve, l_mag_par_solve,      &
+       &            l_phase_field, l_force_v
    use output_data, only: tag, log_file, n_log_file
    use charmanip, only: dble2str
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray, type_tscalar
+   use fields, only: z0v_Rloc
 
    implicit none
 
@@ -41,9 +43,9 @@ module storeCheckPoints
 
 contains
 
-   subroutine store(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,    &
-              &     l_ave_file,w,z,p,s,xi,b,aj,b_ic,aj_ic,dwdt,dzdt,        &
-              &     dpdt,dsdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt, &
+   subroutine store(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,           &
+              &     l_ave_file,w,z,p,s,xi,phi,b,aj,b_ic,aj_ic,dwdt,dzdt,           &
+              &     dpdt,dsdt,dxidt,dphidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt, &
               &     domega_ic_dt,lorentz_torque_ma_dt,lorentz_torque_ic_dt)
       !
       ! This subroutine stores the results in a checkpoint file.
@@ -69,12 +71,13 @@ contains
       complex(cp),         intent(in) :: p(llm:ulm,n_r_max)
       complex(cp),         intent(in) :: s(llm:ulm,n_r_max)
       complex(cp),         intent(in) :: xi(llm:ulm,n_r_max)
+      complex(cp),         intent(in) :: phi(llm:ulm,n_r_max)
       complex(cp),         intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp),         intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
       type(type_tarray),   intent(in) :: dwdt, dzdt, dpdt, dsdt, dxidt, dbdt
-      type(type_tarray),   intent(in) :: djdt, dbdt_ic, djdt_ic
+      type(type_tarray),   intent(in) :: djdt, dbdt_ic, djdt_ic, dphidt
       type(type_tscalar),  intent(in) :: domega_ic_dt, domega_ma_dt
       type(type_tscalar),  intent(in) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
@@ -84,8 +87,10 @@ contains
 
       integer :: n_rst_file, version, n_o
       character(len=72) :: string,rst_file
+      !l_force_v
+      complex(cp) :: z0v_LMloc(llm:ulm,n_r_max)
 
-      version = 2
+      version = 4
       l_press_store = ( .not. l_double_curl ) 
 
       if ( l_ave_file ) then
@@ -99,6 +104,18 @@ contains
          end if
       end if
 
+#ifdef WITH_MPI
+      if ( m_min == 0 ) then
+         if ( l_parallel_solve ) then
+            call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+            call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,n_procs-1,MPI_COMM_WORLD,ierr)
+         else
+            call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+            call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+         end if
+      end if
+#endif
+
       if ( rank == 0 ) then
          open(newunit=n_rst_file, file=rst_file, status='unknown', &
          &    form='unformatted', access='stream')
@@ -109,9 +126,10 @@ contains
          write(n_rst_file) tscheme%family, tscheme%nexp, tscheme%nimp, tscheme%nold
          write(n_rst_file) tscheme%dt(:)*tScale
          write(n_rst_file) n_time_step
-         write(n_rst_file) ra,pr,raxi,sc,prmag,ek,radratio,sigma_ratio
+         write(n_rst_file) ra,pr,raxi,sc,prmag,ek,stef,radratio,sigma_ratio
          write(n_rst_file) n_r_max,n_theta_max,n_phi_tot,minc,nalias, &
          &                 n_r_ic_max
+         write(n_rst_file) l_max, m_min, m_max
 
          !-- Store radius and scheme version (FD or CHEB)
          if ( rscheme_oc%version == 'cheb' ) then
@@ -170,8 +188,8 @@ contains
          &                 omega_ma2,omegaOsz_ma2,tOmega_ma2
 
          !-- Write logical to know how many fields are stored
-         write(n_rst_file) l_heat, l_chemical_conv, l_mag, l_press_store, &
-         &                 l_cond_ic
+         write(n_rst_file) l_heat, l_chemical_conv, l_phase_field, l_mag, &
+         &                 l_press_store, l_cond_ic
       end if
 
       !-- Memory allocation of global arrays to write outputs
@@ -189,6 +207,12 @@ contains
       !-- Toroidal flow
       call write_one_field(n_rst_file, tscheme, z, dzdt, work)
 
+      if (l_force_v) then !UNTESTED Function without mpi
+         call r2lo_one%transp_r2lm(z0v_Rloc,z0v_LMloc)
+         call gather_all_from_lo_to_rank0(gt_OC, z0v_LMloc, work)
+         if ( rank == 0 ) write(n_rst_file) work
+      end if
+      
       !-- Pressure
       if ( l_press_store ) call write_one_field(n_rst_file, tscheme, p, dpdt, work)
 
@@ -197,6 +221,9 @@ contains
 
       !-- Chemical composition
       if ( l_chemical_conv) call write_one_field(n_rst_file, tscheme, xi, dxidt, work)
+
+      !-- Phase field
+      if ( l_phase_field) call write_one_field(n_rst_file, tscheme, phi, dphidt, work)
 
       !-- Outer core magnetic field
       if ( l_mag ) then
@@ -250,7 +277,6 @@ contains
 
       !-- Deallocate work array
       deallocate( work)
-
 
       !-- Close checkpoint file and display a message in the log file
       if ( rank == 0 ) then
@@ -316,9 +342,10 @@ contains
 !-----------------------------------------------------------------------------------
 #ifdef WITH_MPI
    subroutine store_mpi(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,  &
-              &         l_ave_file,w,z,p,s,xi,b,aj,b_ic,aj_ic,dwdt,dzdt,dpdt, &
-              &         dsdt,dxidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,    &
-              &         domega_ic_dt,lorentz_torque_ma_dt,lorentz_torque_ic_dt)
+              &         l_ave_file,w,z,p,s,xi,phi,b,aj,b_ic,aj_ic,dwdt,dzdt,  &
+              &         dpdt,dsdt,dxidt,dphidt,dbdt,djdt,dbdt_ic,djdt_ic,     &
+              &         domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt,       &
+              &         lorentz_torque_ic_dt)
       !
       ! This subroutine stores the results in a checkpoint file.
       ! In addition to the magnetic field and velocity potentials
@@ -343,30 +370,29 @@ contains
       complex(cp),         intent(in) :: p(lm_max,nRstart:nRstop)
       complex(cp),         intent(in) :: s(lm_max,nRstart:nRstop)
       complex(cp),         intent(in) :: xi(lm_max,nRstart:nRstop)
+      complex(cp),         intent(in) :: phi(lm_max,nRstart:nRstop)
       complex(cp),         intent(in) :: b(lm_maxMag,nRstartMag:nRstopMag)
       complex(cp),         intent(in) :: aj(lm_maxMag,nRstartMag:nRstopMag)
       complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp),         intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
       type(type_tarray),   intent(in) :: dwdt, dzdt, dpdt, dsdt, dxidt, dbdt
-      type(type_tarray),   intent(in) :: djdt, dbdt_ic, djdt_ic
+      type(type_tarray),   intent(in) :: djdt, dbdt_ic, djdt_ic, dphidt
       type(type_tscalar),  intent(in) :: domega_ic_dt, domega_ma_dt
       type(type_tscalar),  intent(in) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
       !-- Local variables
-      complex(cp), allocatable :: work(:,:)
-
-      type(type_mpiatoav) :: lo2r
-      logical :: l_press_store
-      integer :: version, info, fh, datatype
+      real(cp) :: dtscale(size(tscheme%dt))
+      complex(cp), allocatable :: work(:,:), tmp(:)
+      logical :: l_press_store, l_transp
+      integer :: version, info, fh, datatype, n_r
       character(len=72) :: string, rst_file
       integer :: istat(MPI_STATUS_SIZE)
       integer :: arr_size(2), arr_loc_size(2), arr_start(2), n_o
       integer(lip) :: disp, offset, size_tmp
 
-      version = 2
+      version = 4
       l_press_store = (.not. l_double_curl)
 
-      call lo2r%create_comm(1)
       allocate( work(lm_max,nRstart:nRstop) )
 
       if ( l_ave_file ) then
@@ -379,6 +405,18 @@ contains
             rst_file='checkpoint_t='//trim(string)//'.'//tag
          end if
       end if
+
+#ifdef WITH_MPI
+      if ( m_min == 0 ) then
+         if ( l_parallel_solve ) then
+            call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+            call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,n_procs-1,MPI_COMM_WORLD,ierr)
+         else
+            call MPI_Bcast(omega_ma1,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+            call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+         end if
+      end if
+#endif
 
       !-- MPI-IO setup
       call mpiio_setup(info)
@@ -401,7 +439,8 @@ contains
          call MPI_File_Write(fh, tscheme%nexp, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, tscheme%nimp, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, tscheme%nold, 1, MPI_INTEGER, istat, ierr)
-         call MPI_File_Write(fh, tscheme%dt*tScale, size(tscheme%dt), MPI_DEF_REAL, &
+         dtscale(:)=tscheme%dt*tScale
+         call MPI_File_Write(fh, dtscale, size(tscheme%dt), MPI_DEF_REAL, &
               &              istat, ierr)
          call MPI_File_Write(fh, n_time_step, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, ra, 1, MPI_DEF_REAL, istat, ierr)
@@ -410,6 +449,7 @@ contains
          call MPI_File_Write(fh, sc, 1, MPI_DEF_REAL, istat, ierr)
          call MPI_File_Write(fh, prmag, 1, MPI_DEF_REAL, istat, ierr)
          call MPI_File_Write(fh, ek, 1, MPI_DEF_REAL, istat, ierr)
+         call MPI_File_Write(fh, stef, 1, MPI_DEF_REAL, istat, ierr)
          call MPI_File_Write(fh, radratio, 1, MPI_DEF_REAL, istat, ierr)
          call MPI_File_Write(fh, sigma_ratio, 1, MPI_DEF_REAL, istat, ierr)
          call MPI_File_Write(fh, n_r_max, 1, MPI_INTEGER, istat, ierr)
@@ -418,6 +458,9 @@ contains
          call MPI_File_Write(fh, minc, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, nalias, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, n_r_ic_max, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Write(fh, l_max, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Write(fh, m_min, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Write(fh, m_max, 1, MPI_INTEGER, istat, ierr)
 
          !-- Store radius and scheme version (FD or CHEB)
          call MPI_File_Write(fh, rscheme_oc%version, len(rscheme_oc%version), &
@@ -506,10 +549,12 @@ contains
          !-- Write logical to know how many fields are stored
          call MPI_File_Write(fh, l_heat, 1, MPI_LOGICAL, istat, ierr)
          call MPI_File_Write(fh, l_chemical_conv, 1, MPI_LOGICAL, istat, ierr)
+         call MPI_File_Write(fh, l_phase_field, 1, MPI_LOGICAL, istat, ierr)
          call MPI_File_Write(fh, l_mag, 1, MPI_LOGICAL, istat, ierr)
          call MPI_File_Write(fh, l_press_store, 1, MPI_LOGICAL, istat, ierr)
          call MPI_File_Write(fh, l_cond_ic, 1, MPI_LOGICAL, istat, ierr)
 
+         
          !-- Rank 0 gets the displacement
          call MPI_File_get_position(fh, offset, ierr)
          call MPI_File_get_byte_offset(fh, offset, disp, ierr)
@@ -539,39 +584,55 @@ contains
       !--------------------
       !-- Now finally write the fields
       !--------------------
+      l_transp = .not. l_parallel_solve ! Do we need to transpose the d?dt arrays?
 
       !-- Poloidal potential: w
       call write_one_field_mpi(fh, info, datatype, tscheme, w, dwdt, &
-           &                   work, lo2r, size_tmp,  disp)
+           &                   work, size_tmp,  disp, l_transp)
 
       !-- Toroidal potential: z
       call write_one_field_mpi(fh, info, datatype, tscheme, z, dzdt, &
-           &                   work, lo2r, size_tmp,  disp)
+           &                   work, size_tmp,  disp, l_transp)
+
+      if (l_force_v) then
+         call MPI_File_Write_all(fh, z0v_Rloc, lm_max*nR_per_rank, &
+              &                  MPI_DEF_COMPLEX, istat, ierr)
+         disp = disp+size_tmp
+         call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
+              &                 info, ierr)
+      end if
 
       !-- Pressure: p
       if ( l_press_store ) then
          call write_one_field_mpi(fh, info, datatype, tscheme, p, dpdt, &
-              &                   work, lo2r, size_tmp,  disp)
+              &                   work, size_tmp,  disp, l_transp)
       end if
 
       !-- Entropy: s
       if ( l_heat ) then
          call write_one_field_mpi(fh, info, datatype, tscheme, s, dsdt, &
-              &                   work, lo2r, size_tmp,  disp)
+              &                   work, size_tmp,  disp, l_transp)
       end if
 
       !-- Chemical composition: xi
       if ( l_chemical_conv ) then
          call write_one_field_mpi(fh, info, datatype, tscheme, xi, dxidt, &
-              &                   work, lo2r, size_tmp,  disp)
+              &                   work, size_tmp,  disp, l_transp)
+      end if
+
+      !-- Phase field: phi
+      if ( l_phase_field ) then
+         call write_one_field_mpi(fh, info, datatype, tscheme, phi, dphidt, &
+              &                   work, size_tmp,  disp, l_transp)
       end if
 
       !-- Outer core magnetic field:
       if ( l_mag ) then
+         l_transp = .not. l_mag_par_solve
          call write_one_field_mpi(fh, info, datatype, tscheme, b, dbdt, &
-              &                   work, lo2r, size_tmp,  disp)
+              &                   work, size_tmp,  disp, l_transp)
          call write_one_field_mpi(fh, info, datatype, tscheme, aj, djdt, &
-              &                   work, lo2r, size_tmp,  disp)
+              &                   work, size_tmp,  disp, l_transp)
       end if
 
       !-- Displacement at the end of the file
@@ -587,34 +648,47 @@ contains
       !-- Inner core magnetic field (only written by rank 0 for now)
       if ( l_mag .and. l_cond_ic ) then
 
+         allocate( tmp(lm_max) )
          if ( rank == 0 ) then
             allocate ( work(lm_max, n_r_ic_max) )
          else
-            allocate ( work(1,1) )
+            allocate ( work(1,n_r_ic_max) )
          end if
 
-         call gather_all_from_lo_to_rank0(gt_IC,b_ic,work)
+         do n_r=1,n_r_ic_max
+            call gather_from_lo_to_rank0(b_ic(:,n_r), tmp)
+            if ( rank == 0 ) work(:,n_r)=tmp(:)
+         end do
          if ( rank == 0 ) then
             call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                  &              istat, ierr)
          end if
          if ( tscheme%family == 'MULTISTEP' ) then
             do n_o=2,tscheme%nexp
-               call gather_all_from_lo_to_rank0(gt_IC,dbdt_ic%expl(:,:,n_o),work)
+               do n_r=1,n_r_ic_max
+                  call gather_from_lo_to_rank0(dbdt_ic%expl(:,n_r,n_o), tmp)
+                  if ( rank == 0 ) work(:,n_r)=tmp(:)
+               end do
                if ( rank == 0 ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
             end do
             do n_o=2,tscheme%nimp
-               call gather_all_from_lo_to_rank0(gt_IC,dbdt_ic%impl(:,:,n_o),work)
+               do n_r=1,n_r_ic_max
+                  call gather_from_lo_to_rank0(dbdt_ic%impl(:,n_r,n_o), tmp)
+                  if ( rank == 0 ) work(:,n_r)=tmp(:)
+               end do
                if ( rank == 0 ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
             end do
             do n_o=2,tscheme%nold
-               call gather_all_from_lo_to_rank0(gt_IC,dbdt_ic%old(:,:,n_o),work)
+               do n_r=1,n_r_ic_max
+                  call gather_from_lo_to_rank0(dbdt_ic%old(:,n_r,n_o), tmp)
+                  if ( rank == 0 ) work(:,n_r)=tmp(:)
+               end do
                if ( rank == 0 ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
@@ -622,28 +696,40 @@ contains
             end do
          end if
 
-         call gather_all_from_lo_to_rank0(gt_IC,aj_ic,work)
+         do n_r=1,n_r_ic_max
+            call gather_from_lo_to_rank0(aj_ic(:,n_r), tmp)
+            if ( rank == 0 ) work(:,n_r)=tmp(:)
+         end do
          if ( rank == 0 ) then
             call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                  &              istat, ierr)
          end if
          if ( tscheme%family == 'MULTISTEP' ) then
             do n_o=2,tscheme%nexp
-               call gather_all_from_lo_to_rank0(gt_IC,djdt_ic%expl(:,:,n_o),work)
+               do n_r=1,n_r_ic_max
+                  call gather_from_lo_to_rank0(djdt_ic%expl(:,n_r,n_o), tmp)
+                  if ( rank == 0 ) work(:,n_r)=tmp(:)
+               end do
                if ( rank == 0 ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
             end do
             do n_o=2,tscheme%nimp
-               call gather_all_from_lo_to_rank0(gt_IC,djdt_ic%impl(:,:,n_o),work)
+               do n_r=1,n_r_ic_max
+                  call gather_from_lo_to_rank0(djdt_ic%impl(:,n_r,n_o), tmp)
+                  if ( rank == 0 ) work(:,n_r)=tmp(:)
+               end do
                if ( rank == 0 ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
                end if
             end do
             do n_o=2,tscheme%nold
-               call gather_all_from_lo_to_rank0(gt_IC,djdt_ic%old(:,:,n_o),work)
+               do n_r=1,n_r_ic_max
+                  call gather_from_lo_to_rank0(djdt_ic%old(:,n_r,n_o), tmp)
+                  if ( rank == 0 ) work(:,n_r)=tmp(:)
+               end do
                if ( rank == 0 ) then
                   call MPI_File_Write(fh, work, lm_max*n_r_ic_max, MPI_DEF_COMPLEX, &
                        &              istat, ierr)
@@ -651,14 +737,11 @@ contains
             end do
          end if
 
-         deallocate( work ) 
+         deallocate( work, tmp )
 
       end if
 
-      !-- Destroy the MPI communicator
-      call lo2r%destroy_comm()
-
-      !-- Close file 
+      !-- Close file
       call MPI_Info_free(info, ierr)
       call MPI_File_close(fh, ierr)
 
@@ -687,7 +770,12 @@ contains
    end subroutine store_mpi
 !-----------------------------------------------------------------------------------
    subroutine write_one_field_mpi(fh, info, datatype, tscheme, w, dwdt, &
-              &                   work, lo2r, size_tmp,  disp)
+              &                   work, size_tmp,  disp, l_transp)
+      !
+      ! This subroutine is used to write one field and its associated possible
+      ! help arrays (d?dt) which are required to time advance the solution.
+      ! This is using MPI-IO with R-distributed arrays.
+      !
 
       !-- Input variables
       integer,             intent(in) :: fh ! file unit
@@ -696,12 +784,12 @@ contains
       class(type_tscheme), intent(in) :: tscheme
       integer(lip),        intent(in) :: size_tmp
       complex(cp),         intent(in) :: w(llm:ulm, n_r_max) ! field
-      type(type_tarray),   intent(in) :: dwdt
-      type(type_mpiatoav), intent(in) :: lo2r
+      type(type_tarray),   intent(in) :: dwdt ! time advance arrays
+      logical,             intent(in) :: l_transp ! Do we need to transpose anything?
 
       !-- Output variables
       integer(lip),        intent(inout) :: disp
-      complex(cp),         intent(inout) :: work(llm:ulm, n_r_max) 
+      complex(cp),         intent(inout) :: work(llm:ulm, n_r_max)
 
       !-- Local variables
       integer :: n_o
@@ -716,27 +804,42 @@ contains
       if ( tscheme%family == 'MULTISTEP' ) then
 
          do n_o=2,tscheme%nexp
-            call lo2r%transp_lm2r(dwdt%expl(:,:,n_o), work)
-            call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
-                 &                  MPI_DEF_COMPLEX, istat, ierr)
+            if ( l_transp ) then
+               call lo2r_one%transp_lm2r(dwdt%expl(:,:,n_o), work)
+               call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
+                    &                  MPI_DEF_COMPLEX, istat, ierr)
+            else
+               call MPI_File_Write_all(fh, dwdt%expl(:,:,n_o), lm_max*nR_per_rank, &
+                    &                  MPI_DEF_COMPLEX, istat, ierr)
+            end if
             disp = disp+size_tmp
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
                  &                 info, ierr)
          end do
 
          do n_o=2,tscheme%nimp
-            call lo2r%transp_lm2r(dwdt%impl(:,:,n_o), work)
-            call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
-                 &                  MPI_DEF_COMPLEX, istat, ierr)
+            if ( l_transp ) then
+               call lo2r_one%transp_lm2r(dwdt%impl(:,:,n_o), work)
+               call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
+                    &                  MPI_DEF_COMPLEX, istat, ierr)
+            else
+               call MPI_File_Write_all(fh, dwdt%impl(:,:,n_o), lm_max*nR_per_rank, &
+                    &                  MPI_DEF_COMPLEX, istat, ierr)
+            end if
             disp = disp+size_tmp
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
                  &                 info, ierr)
          end do
 
          do n_o=2,tscheme%nold
-            call lo2r%transp_lm2r(dwdt%old(:,:,n_o), work)
-            call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
-                 &                  MPI_DEF_COMPLEX, istat, ierr)
+            if ( l_transp ) then
+               call lo2r_one%transp_lm2r(dwdt%old(:,:,n_o), work)
+               call MPI_File_Write_all(fh, work, lm_max*nR_per_rank, &
+                    &                  MPI_DEF_COMPLEX, istat, ierr)
+            else
+               call MPI_File_Write_all(fh, dwdt%old(:,:,n_o), lm_max*nR_per_rank, &
+                    &                  MPI_DEF_COMPLEX, istat, ierr)
+            end if
             disp = disp+size_tmp
             call MPI_File_Set_View(fh, disp, MPI_DEF_COMPLEX, datatype, "native", &
                  &                 info, ierr)

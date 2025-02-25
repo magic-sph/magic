@@ -14,6 +14,7 @@ module physical_parameters
    integer :: ktopv,kbotv  ! Velocity boundary condition
    integer :: ktopb,kbotb  ! Magnetic boundary condition
    integer :: ktopp        ! Boundary condition for spherically-symmetric pressure
+   integer :: ktopphi,kbotphi! Boundary conditions for phase field
 
    !-- Parameters for a localized temperature (entropy) disturbance at CMB
    integer :: impS         ! Heat boundary condition
@@ -48,11 +49,12 @@ module physical_parameters
    real(cp) :: Bn             ! Normalisation of He burning
    real(cp) :: strat          ! number of density scale heights
    real(cp) :: polind         ! polytropic index
+   real(cp) :: stef           ! Stefan number
    real(cp) :: ViscHeatFac    ! Prefactor for viscous heating: :math:`Di\,Pr/Ra`
    real(cp) :: OhmLossFac     ! Prefactor for Ohmic heating: :math:`Di\,Pr/(Ra\,E\,Pm^2)`
    real(cp) :: DissNb         ! Dissipation number
    real(cp) :: ThExpNb        ! Thermal expansion * temperature :math:`\alpha_0 T_0`
-   real(cp) :: GrunNb         ! Grüneisen paramater :math:`\Gamma=(\gamma-1)/\alpha T$
+   real(cp) :: GrunNb         ! Grüneisen paramater :math:`\Gamma=(\gamma-1)/\alpha T`
    real(cp) :: epsS           ! Deviation from the adiabat
    real(cp) :: cmbHflux       ! stratified Layer
    real(cp) :: slopeStrat     ! stratified Layer
@@ -101,4 +103,20 @@ module physical_parameters
    real(cp) :: po             ! Poincaré number
    real(cp) :: prec_angle     ! Precession angle
    real(cp) :: dilution_fac   ! Omega^2 d/g_top for centrifugal acceleration, named after Chandrasekhar (1987)
+   real(cp) :: epsPhase       ! Cahn number for phase field equatioo
+   real(cp) :: phaseDiffFac   ! Diffusion term of phase field
+   real(cp) :: penaltyFac     ! Factor that enters the penalty method in the NS equations
+   real(cp) :: tmelt          ! Melting temperature
+
+   real(cp) :: ellipticity_cmb    ! Ellipticity of CMB, used for libration
+   real(cp) :: ellipticity_icb    ! Ellipticity of ICB, used for libration
+   real(cp) :: ellip_fac_cmb      ! d/d\phi (Y22) * d/dt exp(i\omega t) at CMB
+   real(cp) :: ellip_fac_icb      ! d/d\phi (Y22) * d/dt exp(i\omega t) at ICB
+
+   real(cp) :: ampForce           ! Amplitude of external body force
+   real(cp) :: w_orbit            ! Input orbital frequency for tidal force
+   real(cp) :: w_orbit_th         ! Theorital orbital frequency for resonance
+   real(cp) :: tidalFac           ! Prefactor for the tidal force
+   real(cp) :: amp_tidal          ! Amplitude of the tidal potential (N^2/w_d^2)
+   
 end module physical_parameters

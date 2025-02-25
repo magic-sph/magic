@@ -26,8 +26,9 @@ module radial_der
       module procedure get_dcheb_complex
    end interface get_dcheb
 
-   public :: get_ddr, get_dddr, get_dcheb, get_dr, initialize_der_arrays, &
-   &         finalize_der_arrays, get_dr_Rloc, get_ddr_Rloc
+   public :: get_ddr, get_dddr, get_dcheb, get_dr, initialize_der_arrays,   &
+   &         finalize_der_arrays, get_dr_Rloc, get_ddr_Rloc, get_ddr_ghost, &
+   &         bulk_to_ghost, exch_ghosts, get_ddddr_ghost
 
    complex(cp), allocatable :: work(:,:)
    real(cp), allocatable :: work_1d_real(:)
@@ -65,9 +66,9 @@ contains
    subroutine get_dcheb_complex(f,df,n_f_max,n_f_start,n_f_stop, &
               &                 n_r_max,n_cheb_max,d_fac)
       !
-      !  Returns Chebyshev coeffitients of first derivative df and second  
-      !  derivative ddf for a function whose cheb-coeff. are given as     
-      !  columns in array f(n_f_max,n_r_max).                             
+      !  Returns Chebyshev coeffitients of first derivative df and second
+      !  derivative ddf for a function whose cheb-coeff. are given as
+      !  columns in array f(n_f_max,n_r_max).
       !
 
       !-- Input variables:
@@ -155,11 +156,11 @@ contains
    subroutine get_ddcheb(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
               &          n_r_max,n_cheb_max,d_fac)
       !
-      !  Returns Chebyshev coefficients of first derivative df and second  
-      !  derivative ddf for a function whose cheb-coeff. are given as     
-      !  columns in array f(n_c_tot,n_r_max).                             
+      !  Returns Chebyshev coefficients of first derivative df and second
+      !  derivative ddf for a function whose cheb-coeff. are given as
+      !  columns in array f(n_c_tot,n_r_max).
       !
-    
+
       !-- Input variables:
       integer,     intent(in) :: n_f_start  ! No of column to start with
       integer,     intent(in) :: n_f_stop   ! No of column to stop with
@@ -168,15 +169,15 @@ contains
       integer,     intent(in) :: n_cheb_max ! Number of cheb modes
       complex(cp), intent(in) :: f(n_f_max,n_r_max)
       real(cp),    intent(in) :: d_fac      ! factor for interval mapping
-    
+
       !-- Output variables:
       complex(cp), intent(out) ::  df(n_f_max,n_r_max)
       complex(cp), intent(out) ::  ddf(n_f_max,n_r_max)
-    
+
       !-- local variables:
       integer :: n_f,n_cheb
       real(cp) :: fac_cheb
-    
+
       !----- initialize derivatives:
       do n_cheb=n_cheb_max,n_r_max
          do n_f=n_f_start,n_f_stop
@@ -196,7 +197,7 @@ contains
          df(n_f,n_cheb) =fac_cheb*f(n_f,n_cheb+1)
          ddf(n_f,n_cheb)=zero
       end do
-    
+
       !----- recursion
       do n_cheb=n_cheb_max-2,1,-1
          fac_cheb=d_fac*real(2*n_cheb,kind=cp)
@@ -211,11 +212,11 @@ contains
    subroutine get_dddcheb(f,df,ddf,dddf,n_f_max,n_f_start,n_f_stop, &
               &           n_r_max,n_cheb_max,d_fac)
       !
-      !  Returns chebychev coeffitiens of first derivative df and second  
-      !  derivative ddf for a function whose cheb-coeff. are given as     
-      !  columns in array f(n_c_tot,n_r_max).                             
+      !  Returns chebychev coeffitiens of first derivative df and second
+      !  derivative ddf for a function whose cheb-coeff. are given as
+      !  columns in array f(n_c_tot,n_r_max).
       !
-         
+
       !-- Input variables:
       integer,     intent(in) :: n_f_start  ! No of column to start with
       integer,     intent(in) :: n_f_stop   ! No of column to stop with
@@ -269,35 +270,35 @@ contains
    end subroutine get_dddcheb
 !---------------------------------------------------------------------------
    subroutine get_dr_real_1d(f,df,n_r_max,r_scheme)
- 
+
       !-- Input variables:
       integer,             intent(in) :: n_r_max    ! number of radial grid points
       real(cp),            intent(in) :: f(n_r_max)
       class(type_rscheme), intent(in) :: r_scheme
-    
+
       !-- Output variables:
       real(cp), intent(out) :: df(n_r_max)   ! first derivative of f
-    
+
       !-- Local:
       integer :: n_r, od
-    
-    
+
+
       if ( r_scheme%version == 'cheb' ) then
 
          !-- Copy input functions:
          do n_r=1,n_r_max
             work_1d_real(n_r)=f(n_r)
          end do
-    
+
          !-- Transform f to cheb space:
          call r_scheme%costf1(work_1d_real)
-    
+
          !-- Get derivatives:
          call get_dcheb(work_1d_real,df,n_r_max,r_scheme%n_max,one)
-    
+
          !-- Transform back:
          call r_scheme%costf1(df)
-    
+
          !-- New map:
          do n_r=1,n_r_max
             df(n_r)=r_scheme%drx(n_r)*df(n_r)
@@ -331,13 +332,13 @@ contains
    subroutine get_dr_complex(f,df,n_f_max,n_f_start,n_f_stop, &
               &              n_r_max,r_scheme,nocopy,l_dct_in)
       !
-      !  Returns first radial derivative df of the input function f.      
-      !  Array f(n_f_max,*) may contain several functions numbered by     
-      !  the first index. The subroutine calculates the derivaties of     
-      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming      
-      !  to a Chebychev representation using n_r_max radial grid points . 
+      !  Returns first radial derivative df of the input function f.
+      !  Array f(n_f_max,*) may contain several functions numbered by
+      !  the first index. The subroutine calculates the derivaties of
+      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming
+      !  to a Chebychev representation using n_r_max radial grid points .
       !
-    
+
       !-- Input variables:
       integer,             intent(in) :: n_r_max          ! number of radial grid points
       integer,             intent(in) :: n_f_max          ! first dim of f
@@ -347,14 +348,14 @@ contains
       class(type_rscheme), intent(in) :: r_scheme
       logical, optional,   intent(in) :: nocopy
       logical, optional,   intent(in) :: l_dct_in
-    
+
       !-- Output variables:
       complex(cp), intent(out) :: df(n_f_max,n_r_max)   ! first derivative of f
-    
+
       !-- Local:
       integer :: n_r,n_f,od
       logical :: copy_array, l_dct_in_loc
-    
+
       if ( r_scheme%version == 'cheb' ) then
 
          if ( present(l_dct_in) ) then
@@ -368,23 +369,23 @@ contains
          else
             copy_array=.true.
          end if
-    
+
          if ( copy_array )  then
             do n_r=1,n_r_max
                do n_f=n_f_start,n_f_stop
                   work(n_f,n_r)=f(n_f,n_r)
                end do
             end do
-       
+
             !-- Transform f to cheb space:
             if ( l_dct_in_loc ) then
                call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop)
             end if
-          
+
             !-- Get derivatives:
             call get_dcheb(work,df,n_f_max,n_f_start,n_f_stop,n_r_max, &
                  &         r_scheme%n_max,one)
-          
+
             !-- Transform back:
             call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop)
 
@@ -394,11 +395,11 @@ contains
             if ( l_dct_in_loc ) then
                call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop)
             end if
-          
+
             !-- Get derivatives:
             call get_dcheb(f,df,n_f_max,n_f_start,n_f_stop,n_r_max, &
                  &         r_scheme%n_max,one)
-          
+
             !-- Transform back:
             if ( l_dct_in_loc ) then
                call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop)
@@ -406,7 +407,7 @@ contains
             call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop)
 
          end if
-       
+
          !-- New map:
          do n_r=1,n_r_max
             do n_f=n_f_start,n_f_stop
@@ -424,23 +425,19 @@ contains
          end do
 
          !-- Bulk points for 1st derivative
-         do od=0,r_scheme%order
-            do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
+         do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order
                   df(n_f,n_r)=df(n_f,n_r)+r_scheme%dr(n_r,od)*f(n_f,n_r-r_scheme%order/2+od)
                end do
             end do
          end do
 
          !-- Boundary points for 1st derivative
-         do od=0,r_scheme%order_boundary
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
+         do n_r=1,r_scheme%order/2
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order_boundary
                   df(n_f,n_r) = df(n_f,n_r)+r_scheme%dr_top(n_r,od) * f(n_f,od+1)
-               end do
-            end do
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
                   df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
                   &                       r_scheme%dr_bot(n_r,od)*f(n_f,n_r_max-od)
                end do
@@ -454,14 +451,14 @@ contains
    subroutine get_ddr(f,df,ddf,n_f_max,n_f_start,n_f_stop,n_r_max,r_scheme, &
               &       l_dct_in)
       !
-      !  Returns first radial derivative df and second radial             
-      !  derivative ddf of the input function f.                          
-      !  Array f(n_f_max,*) may contain several functions numbered by     
-      !  the first index. The subroutine calculates the derivatives of    
-      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming      
-      !  to a Chebychev representation using n_r_max radial grid points.  
+      !  Returns first radial derivative df and second radial
+      !  derivative ddf of the input function f.
+      !  Array f(n_f_max,*) may contain several functions numbered by
+      !  the first index. The subroutine calculates the derivatives of
+      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming
+      !  to a Chebychev representation using n_r_max radial grid points.
       !
-    
+
       !-- Input variables:
       integer,             intent(in) :: n_r_max       ! number of radial grid points
       integer,             intent(in) :: n_f_max       ! first dim of f
@@ -470,11 +467,11 @@ contains
       integer,             intent(in) :: n_f_stop      ! last function to be treated
       class(type_rscheme), intent(in) :: r_scheme
       logical, optional,   intent(in) :: l_dct_in
-    
+
       !-- Output variables:
       complex(cp), intent(out) :: df(n_f_max,n_r_max)   ! first derivative of f
       complex(cp), intent(out) :: ddf(n_f_max,n_r_max)  ! second derivative of f
-    
+
       !-- Local variables:
       integer :: n_r,n_f,od
       logical :: l_dct_in_loc
@@ -486,27 +483,27 @@ contains
          else
             l_dct_in_loc=.true.
          end if
-    
+
          !-- Copy input functions:
          do n_r=1,n_r_max
             do n_f=n_f_start,n_f_stop
                work(n_f,n_r)=f(n_f,n_r)
             end do
          end do
-    
+
          !-- Transform f to cheb space:
          if ( l_dct_in_loc ) then
             call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop)
          end if
-    
+
          !-- Get derivatives:
          call get_ddcheb(work,df,ddf,n_f_max,n_f_start,n_f_stop, &
               &          n_r_max,r_scheme%n_max,one)
-    
+
          !-- Transform back:
          call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop)
          call r_scheme%costf1(ddf,n_f_max,n_f_start,n_f_stop)
-    
+
          !-- New map:
          do n_r=1,n_r_max
             do n_f=n_f_start,n_f_stop
@@ -527,9 +524,9 @@ contains
          end do
 
          !-- Bulk points for 1st and 2nd derivatives
-         do od=0,r_scheme%order
-            do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
+         do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order
                   df(n_f,n_r)  = df(n_f,n_r) + r_scheme%dr(n_r,od) * f(n_f,n_r-r_scheme%order/2+od)
                   ddf(n_f,n_r) = ddf(n_f,n_r)+r_scheme%ddr(n_r,od) * f(n_f,n_r-r_scheme%order/2+od)
                end do
@@ -537,14 +534,10 @@ contains
          end do
 
          !-- Boundary points for 1st derivative
-         do od=0,r_scheme%order_boundary
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
+         do n_r=1,r_scheme%order/2
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order_boundary
                   df(n_f,n_r) = df(n_f,n_r)+r_scheme%dr_top(n_r,od) * f(n_f,od+1)
-               end do
-            end do
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
                   df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
                   &                       r_scheme%dr_bot(n_r,od)*f(n_f,n_r_max-od)
                end do
@@ -552,14 +545,10 @@ contains
          end do
 
          !-- Boundary points for 2nd derivative
-         do od=0,r_scheme%order_boundary+1
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
+         do n_r=1,r_scheme%order/2
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order_boundary+1
                   ddf(n_f,n_r) = ddf(n_f,n_r)+r_scheme%ddr_top(n_r,od) * f(n_f,od+1)
-               end do
-            end do
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
                   ddf(n_f,n_r_max-n_r+1) = ddf(n_f,n_r_max-n_r+1)+               &
                   &                       r_scheme%ddr_bot(n_r,od)*f(n_f,n_r_max-od)
                end do
@@ -574,11 +563,11 @@ contains
               &        n_r_max,r_scheme,l_dct_in)
       !
       !  Returns first radial derivative df, the second radial deriv. ddf,
-      !  and the third radial derivative dddf of the input function f.    
-      !  Array f(n_f_max,*) may contain several functions numbered by     
-      !  the first index. The subroutine calculates the derivaties of     
-      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming      
-      !  to a Chebychev representation using n_r_max radial grid points.  
+      !  and the third radial derivative dddf of the input function f.
+      !  Array f(n_f_max,*) may contain several functions numbered by
+      !  the first index. The subroutine calculates the derivaties of
+      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming
+      !  to a Chebychev representation using n_r_max radial grid points.
       !
 
       !-- Input variables:
@@ -589,7 +578,7 @@ contains
       integer,             intent(in) :: n_f_stop        ! last function to be treated
       class(type_rscheme), intent(in) :: r_scheme
       logical, optional,   intent(in) :: l_dct_in
-    
+
       !-- Output variables:
       complex(cp), intent(out) :: df(n_f_max,n_r_max)    ! first derivative of f
       complex(cp), intent(out) :: ddf(n_f_max,n_r_max)   ! second derivative of f
@@ -654,9 +643,9 @@ contains
          end do
 
          !-- Bulk points for 1st and 2nd derivatives
-         do od=0,r_scheme%order
-            do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
+         do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order
                   df(n_f,n_r)  = df(n_f,n_r) + r_scheme%dr(n_r,od) * f(n_f,n_r-r_scheme%order/2+od)
                   ddf(n_f,n_r) = ddf(n_f,n_r)+r_scheme%ddr(n_r,od) * f(n_f,n_r-r_scheme%order/2+od)
                end do
@@ -664,23 +653,19 @@ contains
          end do
 
          !-- Bulk points for 3rd derivative
-         do od=0,r_scheme%order+2
-            do n_r=2+r_scheme%order/2,n_r_max-r_scheme%order/2-1
-               do n_f=n_f_start,n_f_stop
+         do n_r=2+r_scheme%order/2,n_r_max-r_scheme%order/2-1
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order+2
                   dddf(n_f,n_r)=dddf(n_f,n_r)+r_scheme%dddr(n_r,od)*f(n_f,n_r-r_scheme%order/2-1+od)
                end do
             end do
          end do
 
          !-- Boundary points for 1st derivative
-         do od=0,r_scheme%order_boundary
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
+         do n_r=1,r_scheme%order/2
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order_boundary
                   df(n_f,n_r) = df(n_f,n_r)+r_scheme%dr_top(n_r,od) * f(n_f,od+1)
-               end do
-            end do
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
                   df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
                   &                       r_scheme%dr_bot(n_r,od)*f(n_f,n_r_max-od)
                end do
@@ -688,14 +673,10 @@ contains
          end do
 
          !-- Boundary points for 2nd derivative
-         do od=0,r_scheme%order_boundary+1
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
+         do n_r=1,r_scheme%order/2
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order_boundary+1
                   ddf(n_f,n_r) = ddf(n_f,n_r)+r_scheme%ddr_top(n_r,od) * f(n_f,od+1)
-               end do
-            end do
-            do n_r=1,r_scheme%order/2
-               do n_f=n_f_start,n_f_stop
                   ddf(n_f,n_r_max-n_r+1) = ddf(n_f,n_r_max-n_r+1)+               &
                   &                       r_scheme%ddr_bot(n_r,od)*f(n_f,n_r_max-od)
                end do
@@ -703,14 +684,10 @@ contains
          end do
 
          !-- Boundary points for 3rd derivative
-         do od=0,r_scheme%order_boundary+2
-            do n_r=1,r_scheme%order/2+1
-               do n_f=n_f_start,n_f_stop
+         do n_r=1,r_scheme%order/2+1
+            do n_f=n_f_start,n_f_stop
+               do od=0,r_scheme%order_boundary+2
                   dddf(n_f,n_r) = dddf(n_f,n_r)+r_scheme%dddr_top(n_r,od) * f(n_f,od+1)
-               end do
-            end do
-            do n_r=1,r_scheme%order/2+1
-               do n_f=n_f_start,n_f_stop
                   dddf(n_f,n_r_max-n_r+1) = dddf(n_f,n_r_max-n_r+1)+               &
                   &                       r_scheme%dddr_bot(n_r,od)*f(n_f,n_r_max-od)
                end do
@@ -740,19 +717,21 @@ contains
       complex(cp) :: work_ghost(lm_max,nRstart-r_scheme%order/2:nRstop+r_scheme%order/2)
       complex(cp) :: ftop(lm_max,r_scheme%order_boundary+1)
       complex(cp) :: fbot(lm_max,n_r_max-r_scheme%order_boundary:n_r_max)
-      integer :: n_r, od, start_lm, stop_lm
+      integer :: n_r, od, start_lm, stop_lm, lm
 
       if ( (r_scheme%order>2 .or. r_scheme%order_boundary>2) .and. &
-       &   (nRstop-nRstart+1)<r_scheme%order ) then
+      &    (nRstop-nRstart+1)<r_scheme%order ) then
          call abortRun('Distributed r-der not implemented in this case yet!')
       end if
 
-      !$omp parallel default(shared) private(start_lm,stop_lm)
+      !$omp parallel default(shared) private(start_lm,stop_lm,lm)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
 
       !-- Copy input array
       work_ghost(start_lm:stop_lm,nRstart:nRstop)=f_Rloc(start_lm:stop_lm,:)
+      if ( rank == 0 ) work_ghost(start_lm:stop_lm,nRstart-1)=zero
+      if ( rank == n_procs-1) work_ghost(start_lm:stop_lm,nRstop+1)=zero
       do n_r=1,r_scheme%order_boundary+1
          if (n_r >= nRstart .and. n_r <= nRstop) then
             ftop(start_lm:stop_lm,n_r)=f_Rloc(start_lm:stop_lm,n_r)
@@ -772,17 +751,12 @@ contains
       !$omp end master
       !$omp barrier
 
-      !-- Initialize to zero:
-      do n_r=nRstart,nRstop
-         df_Rloc(start_lm:stop_lm,n_r) =zero
-      end do
-
       !-- Bulk points for 1st derivative
-      do od=0,r_scheme%order
-         do n_r=nRstart,nRstop
-            df_Rloc(start_lm:stop_lm,n_r)=df_Rloc(start_lm:stop_lm,n_r) + &
-            &                             r_scheme%dr(n_r,od)*            &
-            &              work_ghost(start_lm:stop_lm,n_r-r_scheme%order/2+od)
+      do n_r=nRstart,nRstop
+         do lm=start_lm,stop_lm
+            df_Rloc(lm,n_r)=r_scheme%dr(n_r,0)*work_ghost(lm,n_r-1)+ &
+            &               r_scheme%dr(n_r,1)*work_ghost(lm,n_r)+   &
+            &               r_scheme%dr(n_r,2)*work_ghost(lm,n_r+1)
          end do
       end do
 
@@ -796,18 +770,21 @@ contains
 
       !-- Boundary points for 1st derivative
       if ( rank == 0 ) then
-         df_Rloc(start_lm:stop_lm,1)=zero
-         do od=0,r_scheme%order_boundary
-            df_Rloc(start_lm:stop_lm,1)=df_Rloc(start_lm:stop_lm,1) + &
-            &            r_scheme%dr_top(1,od)*ftop(start_lm:stop_lm,od+1)
+         do lm=start_lm,stop_lm
+            df_Rloc(lm,1)=zero
+            do od=0,r_scheme%order_boundary
+               df_Rloc(lm,1)=df_Rloc(lm,1) + r_scheme%dr_top(1,od)*ftop(lm,od+1)
+            end do
          end do
       end if
 
       if ( rank == n_procs -1 ) then
-         df_Rloc(start_lm:stop_lm,n_r_max)=zero
-         do od=0,r_scheme%order_boundary
-            df_Rloc(start_lm:stop_lm,n_r_max)=df_Rloc(start_lm:stop_lm,n_r_max)+  &
-            &           r_scheme%dr_bot(1,od)*fbot(start_lm:stop_lm,n_r_max-od)
+         do lm=start_lm,stop_lm
+            df_Rloc(lm,n_r_max)=zero
+            do od=0,r_scheme%order_boundary
+               df_Rloc(lm,n_r_max)=df_Rloc(lm,n_r_max)+r_scheme%dr_bot(1,od)* &
+               &                   fbot(lm,n_r_max-od)
+            end do
          end do
       end if
 
@@ -836,10 +813,10 @@ contains
       complex(cp) :: work_ghost(lm_max,nRstart-r_scheme%order/2:nRstop+r_scheme%order/2)
       complex(cp) :: ftop(lm_max,r_scheme%order_boundary+2)
       complex(cp) :: fbot(lm_max,n_r_max-r_scheme%order_boundary-1:n_r_max)
-      integer :: n_r, od, start_lm, stop_lm
+      integer :: n_r, od, start_lm, stop_lm, lm
 
       if ( (r_scheme%order>2 .or. r_scheme%order_boundary>2) .and. &
-       &   (nRstop-nRstart+1)<r_scheme%order ) then
+      &    (nRstop-nRstart+1)<r_scheme%order ) then
          call abortRun('Distributed r-der not implemented in this case yet!')
       end if
 
@@ -868,21 +845,15 @@ contains
       !$omp end master
       !$omp barrier
 
-      !-- Initialize to zero:
-      do n_r=nRstart,nRstop
-         df_Rloc(start_lm:stop_lm,n_r) =zero
-         ddf_Rloc(start_lm:stop_lm,n_r)=zero
-      end do
-
       !-- Bulk points for 1st and 2nd derivatives
-      do od=0,r_scheme%order
-         do n_r=nRstart,nRstop
-            df_Rloc(start_lm:stop_lm,n_r)=df_Rloc(start_lm:stop_lm,n_r)+   &
-            &                             r_scheme%dr(n_r,od)*             &
-            &              work_ghost(start_lm:stop_lm,n_r-r_scheme%order/2+od)
-            ddf_Rloc(start_lm:stop_lm,n_r)=ddf_Rloc(start_lm:stop_lm,n_r)+ &
-            &                            r_scheme%ddr(n_r,od)*             &
-            &              work_ghost(start_lm:stop_lm,n_r-r_scheme%order/2+od)
+      do n_r=nRstart,nRstop
+         do lm=start_lm,stop_lm
+            df_Rloc(lm,n_r)=r_scheme%dr(n_r,0)*work_ghost(lm,n_r-1)+ &
+            &               r_scheme%dr(n_r,1)*work_ghost(lm,n_r)+   &
+            &               r_scheme%dr(n_r,2)*work_ghost(lm,n_r+1)
+            ddf_Rloc(lm,n_r)=r_scheme%ddr(n_r,0)*work_ghost(lm,n_r-1)+ &
+            &                r_scheme%ddr(n_r,1)*work_ghost(lm,n_r)+   &
+            &                r_scheme%ddr(n_r,2)*work_ghost(lm,n_r+1)
          end do
       end do
 
@@ -896,34 +867,126 @@ contains
 
       !-- Boundary points
       if ( rank == 0 ) then
-         df_Rloc(start_lm:stop_lm,1) =zero
-         ddf_Rloc(start_lm:stop_lm,1)=zero
-         do od=0,r_scheme%order_boundary
-            df_Rloc(start_lm:stop_lm,1)=df_Rloc(start_lm:stop_lm,1) + &
-            &                 r_scheme%dr_top(1,od)*ftop(start_lm:stop_lm,od+1)
-         end do
-         do od=0,r_scheme%order_boundary+1
-            ddf_Rloc(start_lm:stop_lm,1) = ddf_Rloc(start_lm:stop_lm,1) + &
-            &                 r_scheme%ddr_top(1,od)*ftop(start_lm:stop_lm,od+1)
+         do lm=start_lm,stop_lm
+            df_Rloc(lm,1) =zero
+            ddf_Rloc(lm,1)=zero
+            do od=0,r_scheme%order_boundary
+               df_Rloc(lm,1)=df_Rloc(lm,1) + r_scheme%dr_top(1,od)*ftop(lm,od+1)
+            end do
+            do od=0,r_scheme%order_boundary+1
+               ddf_Rloc(lm,1) = ddf_Rloc(lm,1) + r_scheme%ddr_top(1,od)*ftop(lm,od+1)
+            end do
          end do
       end if
 
       if ( rank == n_procs-1 ) then
-         df_Rloc(start_lm:stop_lm,n_r_max) =zero
-         ddf_Rloc(start_lm:stop_lm,n_r_max)=zero
-         do od=0,r_scheme%order_boundary
-            df_Rloc(start_lm:stop_lm,n_r_max)=df_Rloc(start_lm:stop_lm,n_r_max)+  &
-            &             r_scheme%dr_bot(1,od)*fbot(start_lm:stop_lm,n_r_max-od)
-         end do
-         do od=0,r_scheme%order_boundary+1
-            ddf_Rloc(start_lm:stop_lm,n_r_max)=ddf_Rloc(start_lm:stop_lm,n_r_max)+  &
-            &             r_scheme%ddr_bot(1,od)*fbot(start_lm:stop_lm,n_r_max-od)
+         do lm=start_lm,stop_lm
+            df_Rloc(lm,n_r_max) =zero
+            ddf_Rloc(lm,n_r_max)=zero
+            do od=0,r_scheme%order_boundary
+               df_Rloc(lm,n_r_max)=df_Rloc(lm,n_r_max)+  &
+               &             r_scheme%dr_bot(1,od)*fbot(lm,n_r_max-od)
+            end do
+            do od=0,r_scheme%order_boundary+1
+               ddf_Rloc(lm,n_r_max)=ddf_Rloc(lm,n_r_max)+  &
+               &             r_scheme%ddr_bot(1,od)*fbot(lm,n_r_max-od)
+            end do
          end do
       end if
 
       !$omp end parallel
 
    end subroutine get_ddr_Rloc
+!------------------------------------------------------------------------------
+   subroutine get_ddr_ghost(f_Rloc, df_Rloc, ddf_Rloc, lm_max, start_lm, stop_lm, &
+              &             nRstart, nRstop, r_scheme)
+      !
+      ! Purpose of this subroutine is to take the first and second
+      ! radial derivatives of an input complex array distributed over radius that
+      ! has the ghost zones properly filled.
+      !
+
+      !-- Input variables
+      integer,             intent(in) :: lm_max, nRstart, nRstop, start_lm, stop_lm
+      class(type_rscheme), intent(in) :: r_scheme
+      complex(cp),         intent(in) :: f_Rloc(lm_max,nRstart-1:nRstop+1)
+
+      !-- Output variable
+      complex(cp), intent(out) ::  df_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) ::  ddf_Rloc(lm_max,nRstart:nRstop)
+
+      !-- Local variables:
+      integer :: n_r, lm
+
+      if ( (r_scheme%order>2 .or. r_scheme%order_boundary>2) .and. &
+      &    (nRstop-nRstart+1)<r_scheme%order ) then
+         call abortRun('Distributed r-der not implemented in this case yet!')
+      end if
+
+      !-- Bulk points for 1st and 2nd derivatives
+      do n_r=nRstart,nRstop
+         do lm=start_lm,stop_lm
+            df_Rloc(lm,n_r)=r_scheme%dr(n_r,0)*f_Rloc(lm,n_r-1) + &
+            &               r_scheme%dr(n_r,1)*f_Rloc(lm,n_r)   + &
+            &               r_scheme%dr(n_r,2)*f_Rloc(lm,n_r+1)
+            ddf_Rloc(lm,n_r)=r_scheme%ddr(n_r,0)*f_Rloc(lm,n_r-1) + &
+            &                r_scheme%ddr(n_r,1)*f_Rloc(lm,n_r)   + &
+            &                r_scheme%ddr(n_r,2)*f_Rloc(lm,n_r+1)
+         end do
+      end do
+
+   end subroutine get_ddr_ghost
+!------------------------------------------------------------------------------
+   subroutine get_ddddr_ghost(f_Rloc, df_Rloc, ddf_Rloc, dddf_Rloc, ddddf_Rloc, &
+              &               lm_max, start_lm, stop_lm, nRstart, nRstop, r_scheme)
+      !
+      ! Purpose of this subroutine is to take the first and second
+      ! radial derivatives of an input complex array distributed over radius that
+      ! has the ghost zones properly filled.
+      !
+
+      !-- Input variables
+      integer,             intent(in) :: lm_max, nRstart, nRstop, start_lm, stop_lm
+      class(type_rscheme), intent(in) :: r_scheme
+      complex(cp),         intent(in) :: f_Rloc(lm_max,nRstart-2:nRstop+2)
+
+      !-- Output variable
+      complex(cp), intent(out) ::  df_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) ::  ddf_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) ::  dddf_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) ::  ddddf_Rloc(lm_max,nRstart:nRstop)
+
+      !-- Local variables:
+      integer :: n_r, lm
+
+      if ( (r_scheme%order>2 .or. r_scheme%order_boundary>2) .and. &
+      &    (nRstop-nRstart+1)<r_scheme%order ) then
+         call abortRun('Distributed r-der not implemented in this case yet!')
+      end if
+
+      !-- 1st and 2nd derivatives
+      do n_r=nRstart,nRstop
+         do lm=start_lm,stop_lm
+            df_Rloc(lm,n_r)=r_scheme%dr(n_r,0)*f_Rloc(lm,n_r-1) + &
+            &               r_scheme%dr(n_r,1)*f_Rloc(lm,n_r)   + &
+            &               r_scheme%dr(n_r,2)*f_Rloc(lm,n_r+1)
+            ddf_Rloc(lm,n_r)=r_scheme%ddr(n_r,0)*f_Rloc(lm,n_r-1) + &
+            &                r_scheme%ddr(n_r,1)*f_Rloc(lm,n_r)   + &
+            &                r_scheme%ddr(n_r,2)*f_Rloc(lm,n_r+1)
+            dddf_Rloc(lm,n_r)=r_scheme%dddr(n_r,0)*f_Rloc(lm,n_r-2) + &
+            &                 r_scheme%dddr(n_r,1)*f_Rloc(lm,n_r-1) + &
+            &                 r_scheme%dddr(n_r,2)*f_Rloc(lm,n_r)   + &
+            &                 r_scheme%dddr(n_r,3)*f_Rloc(lm,n_r+1) + &
+            &                 r_scheme%dddr(n_r,4)*f_Rloc(lm,n_r+2)
+            ddddf_Rloc(lm,n_r)=r_scheme%ddddr(n_r,0)*f_Rloc(lm,n_r-2) + &
+            &                  r_scheme%ddddr(n_r,1)*f_Rloc(lm,n_r-1) + &
+            &                  r_scheme%ddddr(n_r,2)*f_Rloc(lm,n_r)   + &
+            &                  r_scheme%ddddr(n_r,3)*f_Rloc(lm,n_r+1) + &
+            &                  r_scheme%ddddr(n_r,4)*f_Rloc(lm,n_r+2)
+         end do
+      end do
+
+   end subroutine get_ddddr_ghost
 !------------------------------------------------------------------------------
    subroutine exch_ghosts(f, lm_max, nRstart, nRstop, nghosts)
 
@@ -1021,5 +1084,31 @@ contains
 #endif
 
    end subroutine get_bound_vals
+!------------------------------------------------------------------------------
+   subroutine bulk_to_ghost(x, x_g, ng, nRstart, nRstop, lm_max, start_lm, stop_lm)
+      !
+      ! This subroutine is used to copy an array that is defined from nRstart to
+      ! nRstop to an array that is defined from nRstart-1 to nRstop+1
+      !
+
+      !-- Input variables
+      integer,     intent(in) :: start_lm, stop_lm, nRstart, nRstop
+      integer,     intent(in) :: lm_max
+      integer,     intent(in) :: ng ! Number of ghost zones
+      complex(cp), intent(in) :: x(lm_max,nRstart:nRstop)
+
+      !-- Output variable
+      complex(cp), intent(out) :: x_g(lm_max,nRstart-ng:nRstop+ng)
+
+      !-- Local variables
+      integer :: n_r, lm
+
+      do n_r=nRstart,nRstop
+         do lm=start_lm,stop_lm
+            x_g(lm,n_r)=x(lm,n_r)
+         end do
+      end do
+
+   end subroutine bulk_to_ghost
 !------------------------------------------------------------------------------
 end module radial_der

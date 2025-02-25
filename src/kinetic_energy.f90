@@ -1,7 +1,12 @@
 module kinetic_energy
+   !
+   ! This module handles the computation of kinetic energy and the time-averaged
+   ! radial profiles.
+   !
 
    use parallel_mod
    use precision_mod
+   use ieee_arithmetic, only: ieee_is_nan
    use mem_alloc, only: bytes_allocated
    use communications, only: reduce_radial
    use truncation, only: n_r_max, l_max
@@ -9,14 +14,13 @@ module kinetic_energy
        &                       orho1, orho2, sigma
    use physical_parameters, only: prmag, ek, nVarCond
    use num_param, only: tScale, eScale
-   use blocking, only: lo_map, st_map, llm, ulm
-   use horizontal_data, only: dLh
-   use logic, only: l_save_out, l_non_rot, l_anel
+   use blocking, only: lo_map, llm, ulm
+   use logic, only: l_save_out, l_non_rot, l_anel, l_mag
    use output_data, only: tag
    use constants, only: pi, vol_oc, one, two, three, half, four, osq4pi
-   use communications, only: get_global_sum
    use integration, only: rInt_R
-   use useful, only: cc2real
+   use useful, only: cc2real, abortRun
+   use fields, only: z0v_LMloc
 
    implicit none
 
@@ -65,15 +69,11 @@ contains
 !-----------------------------------------------------------------------------
    subroutine get_e_kin(time,l_write,l_stop_time,n_e_sets, &
               &         w,dw,z,e_p,e_t,e_p_as,e_t_as,ekinR)
-
       !
-      !  calculates kinetic energy  = 1/2 Integral (v^2 dV)
-      !  integration in theta,phi by summation of spherical harmonics
-      !  integration in r by using Chebycheff integrals
-      !
-      !  Output:
-      !  e_p: Total poloidal        e_t: Total toroidal
-      !  e_p_as: Axisym. poloidal   e_t_as: Axisym. toroidal
+      !  Calculates kinetic energy  = 1/2 Integral (v^2 dV).
+      !  Integration in theta,phi is handled by summation of spherical harmonics
+      !  Integration in r by using Chebyshev integrals or Simpson rules if
+      !  FD are used.
       !
 
       !-- Input variables:
@@ -84,7 +84,7 @@ contains
       complex(cp), intent(in) :: w(llm:ulm,n_r_max)    ! Array containing kinetic field poloidal potential
       complex(cp), intent(in) :: dw(llm:ulm,n_r_max)   ! Array containing radial derivative of w
       complex(cp), intent(in) :: z(llm:ulm,n_r_max)    ! Array containing kinetic field toroidal potential
-
+      
       !-- Output variables:
       real(cp), intent(out), optional :: ekinR(n_r_max)  ! Radial profile of kinetic energy
       real(cp), intent(out) :: e_p     ! poloidal energy
@@ -122,8 +122,8 @@ contains
       real(cp) :: dt, osurf
       real(cp), save :: timeLast,timeTot
 
-      !write(*,"(A,6ES22.14)") "ekin: w,dw,z = ",get_global_sum( w(llm:ulm,:) ),&
-      !     & get_global_sum( dw(llm:ulm,:) ), get_global_sum( z(llm:ulm,:) )
+      !--forcing volume force
+      complex(cp) :: tmp_z
 
       do nR=1,n_r_max
          e_p_r(nR)    =0.0_cp
@@ -136,15 +136,14 @@ contains
          e_t_eas_r(nR)=0.0_cp
          O_rho        =orho1(nR)
          !do lm=2,lm_max
-         do lm=max(2,llm),ulm
+         do lm=llm,ulm
             l=lo_map%lm2l(lm)
             m=lo_map%lm2m(lm)
-
-            e_p_temp= O_rho*dLh(st_map%lm2(l,m)) * (                     &
-            &           dLh(st_map%lm2(l,m))*or2(nR)*cc2real(w(lm,nR),m) &
+            tmp_z = z(lm,nR) + z0v_LMloc(lm,nR)
+            e_p_temp= O_rho*real(l*(l+1),cp) * (                     &
+            &           real(l*(l+1),cp)*or2(nR)*cc2real(w(lm,nR),m) &
             &           + cc2real(dw(lm,nR),m) )
-            e_t_temp= O_rho*dLh(st_map%lm2(l,m)) * cc2real(z(lm,nR),m)
-            !write(*,"(A,3I4,ES22.14)") "e_p_temp = ",nR,l,m,e_p_temp
+            e_t_temp= O_rho*real(l*(l+1),cp) * cc2real(tmp_z,m)!cc2real(z(lm,nR),m) 
             if ( m == 0 ) then  ! axisymmetric part
                e_p_as_r(nR) = e_p_as_r(nR) + e_p_temp
                e_t_as_r(nR) = e_t_as_r(nR) + e_t_temp
@@ -163,12 +162,9 @@ contains
                e_t_es_r(nR)=e_t_es_r(nR)+e_t_temp
             end if
 
-            !write(*,"(8X,A,4I4,ES22.14)") "e_p_r: ",lm,l,m,nR,e_p_r(nR)
-
          end do    ! do loop over lms in block
          e_p_r(nR)=e_p_r(nR)+e_p_as_r(nR)
          e_t_r(nR)=e_t_r(nR)+e_t_as_r(nR)
-         !write(*,"(4X,A,I4,2ES22.14)") "e_p_r: ",nR,e_p_r(nR),e_p_as_r(nR)
       end do    ! radial grid points
 
       ! reduce over the ranks
@@ -183,9 +179,6 @@ contains
       call reduce_radial(e_t_eas_r, e_t_eas_r_global, 0)
 
       if ( rank == 0 ) then
-         !do nR=1,n_r_max
-         !   write(*,"(4X,A,I4,ES22.14)") "e_p_r_global: ",nR,e_p_r_global(nR)
-         !end do
          !-- Radial Integrals:
          e_p    =rInt_R(e_p_r_global,r,rscheme_oc)
          e_t    =rInt_R(e_t_r_global,r,rscheme_oc)
@@ -246,7 +239,6 @@ contains
             e_t_asA=e_t_asA + dt*e_t_as_r_global
          end if
 
-         !write(*,"(A,2ES22.14)") "e_pA, e_tA = ",SUM( e_pA ),SUM( e_tA )
          if ( l_stop_time .and. (n_e_sets > 1) ) then
             fac=half*eScale
             filename='eKinR.'//tag
@@ -281,15 +273,16 @@ contains
       end if
 #endif
 
+      if ( ieee_is_nan(e_p) .or. ieee_is_nan(e_t) ) then
+         call abortRun('! Time series of e_kin contains NaNs, run will stop now')
+      end if
+
    end subroutine get_e_kin
 !-----------------------------------------------------------------------------
    subroutine get_u_square(time,w,dw,z,RolR)
       !
-      !  calculates square velocity  = 1/2 Integral (v^2 dV)
-      !  integration in theta,phi by summation of spherical harmonics
-      !  integration in r by using Chebychef integrals
-      !
-      !  Write the different contributions in u_square.TAG file
+      !  Calculates square velocity  = 1/2 Integral (v^2 dV)
+      !  Writes the different contributions in u_square.TAG file
       !
 
       !-- Input of scalar fields:
@@ -313,8 +306,8 @@ contains
       real(cp) :: e_t_r(n_r_max),e_t_r_global(n_r_max)
       real(cp) :: e_p_as_r(n_r_max),e_p_as_r_global(n_r_max)
       real(cp) :: e_t_as_r(n_r_max),e_t_as_r_global(n_r_max)
-      real(cp) :: e_lr(n_r_max,l_max), e_lr_global(n_r_max,l_max)
-      real(cp) :: e_lr_c(n_r_max,l_max), e_lr_c_global(n_r_max,l_max)
+      real(cp) :: e_lr(n_r_max,0:l_max), e_lr_global(n_r_max,0:l_max)
+      real(cp) :: e_lr_c(n_r_max,0:l_max), e_lr_c_global(n_r_max,0:l_max)
       real(cp) :: ER(n_r_max),ELR(n_r_max),ReR(n_r_max),RoR(n_r_max)
       real(cp) :: ekinR(n_r_max)
       real(cp) :: RmR(n_r_max),dlR(n_r_max)
@@ -323,6 +316,8 @@ contains
       integer :: nR,lm,l,m
       real(cp) :: fac
       real(cp) :: O_rho ! 1/rho**2 (anelastic)
+      !for volume force
+      complex(cp) :: tmp_z
 
       !-- property parameters
       real(cp) :: Re,Rm,Ro,Rol,dl,dlc
@@ -334,22 +329,19 @@ contains
          e_p_as_r(nR)=0.0_cp
          e_t_as_r(nR)=0.0_cp
          O_rho       =orho2(nR) ! divided by rho**2
-         do l=1,l_max
+         do l=0,l_max
             e_lr(nR,l)  =0.0_cp
             e_lr_c(nR,l)=0.0_cp
          end do
 
-         do lm=max(2,llm),ulm
+         do lm=llm,ulm
             l=lo_map%lm2l(lm)
             m=lo_map%lm2m(lm)
-            !do lm=2,lm_max
-            !  l=lm2l(lm)
-            !  m=lm2m(lm)
-
-            e_p_temp= O_rho*dLh(st_map%lm2(l,m)) * (                     &
-            &           dLh(st_map%lm2(l,m))*or2(nR)*cc2real(w(lm,nR),m) &
+            tmp_z=z(lm,nR)+z0v_LMloc(lm,nR)
+            e_p_temp= O_rho*real(l*(l+1),cp) * (                     &
+            &           real(l*(l+1),cp)*or2(nR)*cc2real(w(lm,nR),m) &
             &           + cc2real(dw(lm,nR),m) )
-            e_t_temp= O_rho*dLh(st_map%lm2(l,m))*cc2real(z(lm,nR),m)
+            e_t_temp= O_rho*real(l*(l+1),cp)*cc2real(tmp_z,m)!cc2real(z(lm,nR),m)
             if ( m == 0 ) then  ! axisymmetric part
                e_p_as_r(nR)=e_p_as_r(nR)+ e_p_temp
                e_t_as_r(nR)=e_t_as_r(nR)+ e_t_temp
@@ -451,7 +443,11 @@ contains
             else
                RolR(nR)=RoR(nR)
             end if
-            RmR(nR)=ReR(nR)*prmag*sigma(nR)*r(nR)*r(nR)
+            if ( l_mag ) then
+               RmR(nR)=ReR(nR)*prmag*sigma(nR)*r(nR)*r(nR)
+            else
+               RmR(nR)=ReR(nR)*r(nR)*r(nR)
+            end if
          end do
 
          !-- Magnetic reynolds number

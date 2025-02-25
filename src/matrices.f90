@@ -74,9 +74,9 @@ module real_matrices
 
    end interface
 
-contains 
+contains
 
-   function mat_add(this, B) 
+   function mat_add(this, B)
       class(type_realmat), intent(in) :: this
       class(type_realmat), intent(in) :: B
 
@@ -102,7 +102,7 @@ module dense_matrices
    implicit none
 
    type, public, extends(type_realmat) :: type_densemat
-   contains 
+   contains
       procedure :: initialize
       procedure :: finalize
       procedure :: prepare
@@ -112,7 +112,7 @@ module dense_matrices
       procedure :: set_data
    end type type_densemat
 
-contains 
+contains
 
    subroutine initialize(this, nx, ny, l_pivot, nfull)
       !
@@ -207,7 +207,7 @@ module band_matrices
       real(cp), allocatable :: du2(:)
       integer :: kl
       integer :: ku
-   contains 
+   contains
       procedure :: initialize
       procedure :: finalize
       procedure :: prepare
@@ -219,7 +219,7 @@ module band_matrices
 !      generic :: operator(+) => mat_add
    end type type_bandmat
 
-contains 
+contains
 
    subroutine initialize(this, nx, ny, l_pivot, nfull)
       !
@@ -336,7 +336,7 @@ contains
       class(type_bandmat) :: this
       real(cp), intent(in) :: dat(:,:)
 
-      !-- Local variables 
+      !-- Local variables
       integer :: i, j
 
       if ( this%nrow == 3 ) then
@@ -355,7 +355,7 @@ contains
 
    end subroutine set_data
 !------------------------------------------------------------------------------
-!   function mat_add(this, B) 
+!   function mat_add(this, B)
 !      class(type_bandmat), intent(in) :: this
 !      class(type_bandmat), intent(in) :: B
 !
@@ -383,14 +383,14 @@ module bordered_matrices
    type, public, extends(type_realmat) :: type_bordmat
       real(cp), allocatable :: A1(:,:)
       real(cp), allocatable :: A2(:,:)
-      real(cp), allocatable :: A3(:,:)
+      real(cp), allocatable :: A3(:)
       real(cp), allocatable :: A4(:,:)
       integer, allocatable :: pivA1(:)
       integer, allocatable :: pivA4(:)
       integer :: kl
       integer :: ku
       integer :: nfull
-   contains 
+   contains
       procedure :: initialize
       procedure :: finalize
       procedure :: prepare
@@ -402,7 +402,7 @@ module bordered_matrices
 !      generic :: operator(+) => mat_add
    end type type_bordmat
 
-contains 
+contains
 
    subroutine initialize(this, nx, ny, l_pivot, nfull)
       !
@@ -424,13 +424,13 @@ contains
 
       allocate( this%A1(nx+(nx-1)/2, ny) )
       allocate( this%A2(ny,nfull) )
-      allocate( this%A3(nfull,ny) )
+      allocate( this%A3(ny) )
       allocate( this%A4(nfull,nfull) )
       this%A1(:,:)=0.0_cp
       this%A2(:,:)=0.0_cp
-      this%A3(:,:)=0.0_cp
+      this%A3(:)  =0.0_cp
       this%A4(:,:)=0.0_cp
-      bytes_allocated = bytes_allocated+(nfull*nfull+2*nfull*ny+ &
+      bytes_allocated = bytes_allocated+(nfull*nfull+nfull*ny+ny+ &
       &                 (nx+(nx-1)/2)*ny)*SIZEOF_DEF_REAL
 
       if ( this%l_pivot ) then
@@ -450,7 +450,7 @@ contains
       class(type_bordmat) :: this
 
       deallocate( this%A1, this%A2, this%A3, this%A4 )
-      if ( this%l_pivot  ) deallocate( this%pivA1, this%pivA4 ) 
+      if ( this%l_pivot  ) deallocate( this%pivA1, this%pivA4 )
 
    end subroutine finalize
 !------------------------------------------------------------------------------
@@ -525,9 +525,7 @@ contains
       end do
 
       do j=1,this%ncol
-         do i=1,this%nfull
-            this%A3(i,j)=dat(this%ncol+i,j)
-         end do
+         this%A3(j)=dat(this%ncol+1,j)
       end do
 
       do j=1,this%nfull

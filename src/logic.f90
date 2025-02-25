@@ -38,6 +38,7 @@ module logic
    logical :: l_2D_RMS       ! Switch for storing of time-averaged r-l-spectra of forces
    logical :: l_r_field      ! Switch for radial coefficients
    logical :: l_r_fieldT     ! Switch for radial T coefficients
+   logical :: l_r_fieldXi    ! Switch for radial Xi coefficients
    logical :: l_b_nl_cmb     ! Switch for non-linear magnetic field at OC
    logical :: l_b_nl_icb     ! Switch for non-linear magnetic field at IC
    logical :: l_correct_AMe  ! Switch for correction of equatorial angular mom.
@@ -52,9 +53,10 @@ module logic
    logical :: l_DTrMagSpec   ! Switch for magnetic spectra at different depths at movie output times
    logical :: l_TO           ! Switch for TO output in TOnhs.TAG, TOshs.TAG
    logical :: l_TOmovie      ! Switch for TO movie output
+   logical :: l_MRI          ! Switch for MRI output in MaxReySMRI.TAG, MaxReyavgMRI.TAG
+   logical :: l_MRICalc      ! Switch for MRI output related calculations in radial Loop
    logical :: l_gw           ! Switch for gravitational wave outputs in gwPressure.TAG, gwEntropy.TAG
    logical :: l_hel          ! Switch for helicity calculation, output in misc.TAG
-   logical :: l_mag_hel      ! Switch for magnetic helicity <A,B>, A = vector potential
    logical :: l_anel         ! Switch for anelastic calculation
    logical :: l_isothermal   ! Switch for isothermal calculation
    logical :: l_anelastic_liquid ! Switch for anelastic liquid calculation
@@ -79,6 +81,7 @@ module logic
    logical :: l_temperature_diff ! diffusion of temperature instead of entropy
 
    logical :: l_chemical_conv ! Switch for chemical convection
+   logical :: l_phase_field ! Switch when phase field is used
    logical :: l_non_adia ! Switch in case the reference state is non-adiabatic
 
    logical :: l_probe        ! Switch for artifical sensors
@@ -95,5 +98,17 @@ module logic
    logical :: l_var_l ! When set to .true., degree varies with radius
    logical :: l_bridge_step ! Used to bridge missing steps when changing the time integrator
    logical :: l_packed_transp ! Pack or don't pack MPI transposes
+   logical :: l_parallel_solve ! Use R-distributed parallel solver (work only for F.D.)
+   logical :: l_mag_par_solve ! Can be remove once inner core has also been ported
+   logical :: l_hemi ! Compute North/South asymmetry of energies
+   logical :: l_onset ! A flag to turn MagIC into a linear stability analysis code
+   logical :: l_scramble_theta ! A flag to set theta scrambling
+   logical :: l_geosMovie ! A flag to trigger the production of geos movies
 
+   logical :: l_force_v ! forcing non-zero vp
+   logical :: l_drag !radiative drag force !CAREFUL NOT IMPLEMENTED FOR DOUBLE CURL formulation
+   logical :: l_tidal !activate tidal force
+   logical :: l_tidal_nl !activate non linear terms of equilibrium tides
+
+   
 end module logic

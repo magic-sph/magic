@@ -13,6 +13,10 @@ module time_array
    private
 
    type, public :: type_tarray
+      integer :: llm ! Start index of first dimension
+      integer :: ulm  ! Stop index of first dimension
+      integer :: nRStart ! Start index of second dimension
+      integer :: nRStop  ! Stop index of second dimension
       complex(cp), allocatable :: impl(:,:,:) ! Array that contains the implicit states
       complex(cp), pointer :: expl(:,:,:) ! Array that contains the explicit states
       complex(cp), allocatable :: old(:,:,:) ! Array that contains the old states
@@ -33,7 +37,7 @@ module time_array
 
 contains
 
-   subroutine initialize(this, llm, ulm, n_r_max, nold, nexp, nimp, &
+   subroutine initialize(this, llm, ulm, nRstart, nRstop, nold, nexp, nimp, &
               &          l_allocate_exp)
       !
       ! Memory allocation of the arrays and initial values set to zero
@@ -44,7 +48,8 @@ contains
       !-- Input variables
       integer,           intent(in) :: llm ! Lower boundary of first dimension
       integer,           intent(in) :: ulm ! Upper boundary of first dimension
-      integer,           intent(in) :: n_r_max ! Second dimension
+      integer,           intent(in) :: nRstart ! Lower boundary of second dimension
+      integer,           intent(in) :: nRstop  ! Upper boundary of second dimension
       integer,           intent(in) :: nold ! Number of old states
       integer,           intent(in) :: nexp ! Number of explicit states
       integer,           intent(in) :: nimp ! Number of implicit states
@@ -59,20 +64,25 @@ contains
          l_allocate = .false.
       end if
 
+      this%llm = llm
+      this%ulm = ulm
+      this%nRstart = nRstart
+      this%nRstop = nRstop
       this%l_exp = l_allocate
 
-      allocate( this%impl(llm:ulm,n_r_max,nimp) )
-      allocate( this%old(llm:ulm,n_r_max,nold) )
+      allocate( this%impl(llm:ulm,nRstart:nRstop,nimp) )
+      allocate( this%old(llm:ulm,nRstart:nRstop,nold) )
 
-      bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*(&
+      bytes_allocated = bytes_allocated + (ulm-llm+1)*(nRstop-nRstart+1)*(&
       &                 nold+nimp)*SIZEOF_DEF_COMPLEX
 
       this%old(:,:,:) =zero
       this%impl(:,:,:)=zero
 
       if ( l_allocate ) then
-         allocate( this%expl(llm:ulm,n_r_max,nexp) )
-         bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*nexp*SIZEOF_DEF_COMPLEX
+         allocate( this%expl(llm:ulm,nRstart:nRstop,nexp) )
+         bytes_allocated = bytes_allocated + (ulm-llm+1)*(nRstop-nRstart+1)*nexp* &
+         &                 SIZEOF_DEF_COMPLEX
          this%expl(:,:,:)=zero
       end if
 

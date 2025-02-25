@@ -8,32 +8,29 @@ module outPar_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use communications, only: gather_from_Rloc
-   use truncation, only: n_r_max, n_r_maxMag, l_max, lm_max, l_maxMag
-   use blocking, only: nfs, nThetaBs, sizeThetaB, lm2m
+   use blocking, only: llm, ulm, lo_map
+   use truncation, only: n_r_max, n_r_maxMag, l_max, lm_max, l_maxMag, &
+       &                 n_theta_max, n_phi_max
    use logic, only: l_viscBcCalc, l_anel, l_fluxProfs, l_mag_nl, &
        &            l_perpPar, l_save_out, l_temperature_diff,   &
-       &            l_anelastic_liquid
-   use horizontal_data, only: gauss
-   use fields, only: s_Rloc, ds_Rloc, p_Rloc, dp_Rloc
+       &            l_anelastic_liquid, l_mag, l_heat, l_chemical_conv
+   use horizontal_data, only: gauss, gauss, O_sin_theta_E2, cosTheta, &
+       &                      sinTheta_E2
    use physical_parameters, only: ek, prmag, OhmLossFac, ViscHeatFac, &
        &                          opr, kbots, ktops, ThExpNb, ekScaled
    use num_param, only: eScale
-   use constants, only: pi, mass, osq4pi, sq4pi, half, two, four
+   use constants, only: pi, mass, osq4pi, sq4pi, half, two, four, third, one
    use radial_functions, only: r, or2, sigma, rho0, kappa, temp0, &
        &                       rscheme_oc, orho1, dLalpha0,       &
-       &                       dLtemp0, beta, alpha0
-   use radial_data, only: n_r_icb, nRstart, nRstop, nRstartMag, &
-       &                  nRstopMag
+       &                       dLtemp0, beta, alpha0, or1, orho2, &
+       &                       visc
+   use radial_data, only: n_r_icb, nRstart, nRstop, nRstartMag, nRstopMag, &
+       &                  n_r_cmb
    use num_param, only: tScale
    use output_data, only: tag
    use useful, only: cc2real, round_off
    use mean_sd, only: mean_sd_type
    use integration, only: rInt_R
-#ifdef WITH_SHTNS
-   use shtns, only: axi_to_spat
-#else
-   use legendre_spec_to_grid, only: lmAS2pt
-#endif
 
    implicit none
 
@@ -41,19 +38,24 @@ module outPar_mod
    
    type(mean_sd_type) :: fcond, fconv, fkin, fvisc, fres,  fpoyn
    type(mean_sd_type) :: Eperp, Epar, Eperpaxi, Eparaxi
-   type(mean_sd_type) :: uh, duh, gradT2, entropy
+   type(mean_sd_type) :: uh, duh, gradT2, entropy, comp
    type(mean_sd_type) :: dlV, dlVc, Rm, Rol, uRol, dlPolpeak
+   real(cp), allocatable :: fconvASr(:), fkinASr(:), fviscASr(:), gradT2ASr(:)
+   real(cp), allocatable :: fpoynASr(:), fresASr(:), uhASr(:), duhASr(:)
+   real(cp), allocatable :: EperpASr(:), EparASr(:), EperpaxiASr(:), EparaxiASr(:)
 
    integer :: n_perpPar_file, n_calls
    character(len=72) :: perpPar_file
 
-   public initialize_outPar_mod, finalize_outPar_mod, outPar, outPerpPar
+   public initialize_outPar_mod, finalize_outPar_mod, outPar, outPerpPar, &
+   &      get_fluxes, get_nlBlayers, get_perpPar
 
 contains
 
-   subroutine initialize_outPar_mod
+   subroutine initialize_outPar_mod()
       !
-      ! Memory allocation and file openings
+      ! Memory allocation and file openings of several outputs (perpPar, fluxes,
+      ! bLayers). Mostly time-averaged radial outputs.
       !
 
       n_calls = 0 
@@ -68,9 +70,16 @@ contains
 
       if ( l_viscBcCalc ) then
          call entropy%initialize(1,n_r_max)
+         call comp%initialize(1,n_r_max)
          call uh%initialize(1,n_r_max)
          call duh%initialize(1,n_r_max)
          call gradT2%initialize(1,n_r_max)
+         allocate( uhASr(nRstart:nRstop), duhASr(nRstart:nRstop) )
+         allocate( gradT2ASr(nRstart:nRstop) )
+         uhASr(:)    =0.0_cp
+         duhASr(:)   =0.0_cp
+         gradT2ASr(:)=0.0_cp
+         bytes_allocated=bytes_allocated+3*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
       end if
 
       if ( l_fluxProfs ) then
@@ -80,6 +89,18 @@ contains
          call fvisc%initialize(1,n_r_max)
          call fres%initialize(1,n_r_max)
          call fpoyn%initialize(1,n_r_max)
+         allocate( fconvASr(nRstart:nRstop), fkinASr(nRstart:nRstop) )
+         allocate( fviscASr(nRstart:nRstop) )
+         fconvASr(:)=0.0_cp
+         fkinASr(:) =0.0_cp
+         fviscASr(:)=0.0_cp
+         bytes_allocated=bytes_allocated+3*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
+         if ( l_mag ) then
+            allocate( fresASr(nRstart:nRstop), fpoynASr(nRstartMag:nRstopMag) )
+            fresASr(:) =0.0_cp
+            fpoynASr(:)=0.0_cp
+            bytes_allocated=bytes_allocated+2*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
+         end if
       end if
 
       if ( l_perpPar ) then
@@ -87,6 +108,13 @@ contains
          call Epar%initialize(1,n_r_max)
          call Eperpaxi%initialize(1,n_r_max)
          call Eparaxi%initialize(1,n_r_max)
+         allocate( EperpASr(nRstart:nRstop), EparASr(nRstart:nRstop) )
+         allocate( EperpaxiASr(nRstart:nRstop), EparaxiASr(nRstart:nRstop) )
+         EperpASr(:)   =0.0_cp
+         EparASr(:)    =0.0_cp
+         EperpaxiASr(:)=0.0_cp
+         EparaxiASr(:) =0.0_cp
+         bytes_allocated=bytes_allocated+4*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
 
          if ( rank == 0 .and. (.not. l_save_out) ) then
             open(newunit=n_perpPar_file, file=perpPar_file, status='new')
@@ -95,7 +123,11 @@ contains
 
    end subroutine initialize_outPar_mod
 !-----------------------------------------------------------------------
-   subroutine finalize_outPar_mod
+   subroutine finalize_outPar_mod()
+      !
+      ! Closing and memory deallocation of outPar related outputs: fluxesR.TAG,
+      ! perpar.TAG, bLayersR.TAG, ...
+      !
 
       call dlV%finalize()
       call dlVc%finalize()
@@ -105,13 +137,16 @@ contains
       call dlPolPeak%finalize()
 
       if ( l_viscBcCalc ) then
+         deallocate( uhASr, duhASr, gradT2ASr )
          call entropy%finalize()
+         call comp%finalize()
          call uh%finalize()
          call duh%finalize()
          call gradT2%finalize()
       end if
 
       if ( l_fluxProfs ) then
+         deallocate( fkinASr, fconvASr, fviscASr, fpoynASr, fresASr )
          call fcond%finalize()
          call fconv%finalize()
          call fkin%finalize()
@@ -121,6 +156,7 @@ contains
       end if
 
       if ( l_perpPar ) then
+         deallocate( EperpaxiASr, EparaxiASr, EperpASr, EparASr)
          call Eperp%finalize()
          call Epar%finalize()
          call Eperpaxi%finalize()
@@ -130,189 +166,90 @@ contains
 
    end subroutine finalize_outPar_mod
 !-----------------------------------------------------------------------
-   subroutine outPar(timePassed, timeNorm, l_stop_time, ekinR, RolRu2,  &
-              &      dlVR, dlVRc, dlPolPeakR, uhLMr, duhLMr, gradsLMr,  &
-              &      fconvLMr, fkinLMr, fviscLMr, fpoynLMr, fresLMr, RmR)
+   subroutine outPar(s, ds, xi, p, dp, timePassed, timeNorm, l_stop_time, ekinR, &
+              &      RolRu2, dlVR, dlVRc, dlPolPeakR, RmR )
+      !
+      ! This routine handles the computation and the writing of parR.TAG
+      ! and bLayersR.TAG files
+      !
 
       !--- Input of variables
-      real(cp), intent(in) :: timePassed,timeNorm
-      logical,  intent(in) :: l_stop_time
-      real(cp), intent(in) :: RolRu2(n_r_max),dlPolPeakR(n_r_max)
-      real(cp), intent(in) :: dlVR(n_r_max),dlVRc(n_r_max)
-      real(cp), intent(in) :: ekinR(n_r_max)     ! kinetic energy w radius
-      real(cp), intent(in) :: uhLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: duhLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: gradsLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: fkinLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: fconvLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: fviscLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: fpoynLMr(l_maxMag+1,nRstartMag:nRstopMag)
-      real(cp), intent(in) :: fresLMr(l_maxMag+1,nRstartMag:nRstopMag)
+      complex(cp), intent(in) :: s(llm:ulm,n_r_max) ! Entropy or temperature
+      complex(cp), intent(in) :: ds(llm:ulm,n_r_max) ! Radial der. of entropy or temperature
+      complex(cp), intent(in) :: xi(llm:ulm,n_r_max) ! Chemical composition
+      complex(cp), intent(in) :: p(llm:ulm,n_r_max) ! Pressure
+      complex(cp), intent(in) :: dp(llm:ulm,n_r_max) ! Radial derivative of pressure
+      real(cp),    intent(in) :: timePassed,timeNorm
+      logical,     intent(in) :: l_stop_time ! Is it the end of the run
+      real(cp),    intent(in) :: RolRu2(n_r_max),dlPolPeakR(n_r_max)
+      real(cp),    intent(in) :: dlVR(n_r_max),dlVRc(n_r_max)
+      real(cp),    intent(in) :: ekinR(n_r_max)     ! kinetic energy w radius
 
       !--- Output of variables
-      real(cp), intent(out):: RmR(n_r_max)
+      real(cp), intent(out):: RmR(n_r_max) ! Radial profile of magnetic Reynolds number
 
       !-- Local variables
-      integer :: nR,n
+      integer :: nR,fileHandle,lm00
       real(cp) :: ReR(n_r_max), RoR(n_r_max), RolR(n_r_max)
       character(len=76) :: filename
-      integer :: nTheta,nThetaStart,nThetaBlock,nThetaNHS
-      real(cp) :: duhR(nRstart:nRstop), uhR(nRstart:nRstop)
-      real(cp) :: gradT2R(nRstart:nRstop), sR(nRstart:nRstop)
-      real(cp) :: fkinR(nRstart:nRstop), fcR(nRstart:nRstop)
-      real(cp) :: fconvR(nRstart:nRstop), fviscR(nRstart:nRstop)
-      real(cp) :: fresR(nRstartMag:nRstopMag),fpoynR(nRstartMag:nRstopMag)
-      real(cp) :: duhR_global(n_r_max), uhR_global(n_r_max)
-      real(cp) :: gradT2R_global(n_r_max), sR_global(n_r_max)
-      real(cp) :: fkinR_global(n_r_max), fcR_global(n_r_max)
+      real(cp) :: fcR(n_r_max), duhR_global(n_r_max), uhR_global(n_r_max)
+      real(cp) :: gradT2R_global(n_r_max), fkinR_global(n_r_max)
       real(cp) :: fconvR_global(n_r_max), fviscR_global(n_r_max)
       real(cp) :: fresR_global(n_r_maxMag), fpoynR_global(n_r_maxMag)
-      real(cp) :: duhTh(nfs), uhTh(nfs), gradT2Th(nfs)
-      real(cp) :: fkinTh(nfs), fconvTh(nfs), fviscTh(nfs), fresTh(nfs), fpoynTh(nfs)
-
-      integer :: fileHandle
 
       n_calls = n_calls+1
 
-
+      lm00 = lo_map%lm2(0,0)
       if ( l_viscBcCalc ) then
-         sR(:) = real(s_Rloc(1,:))
+         duhASr(:)=half*duhASr(:) ! Normalisation for the theta integration
+         uhASr(:) =half* uhASr(:) ! Normalisation for the theta integration
+         gradT2ASr(:)=half*gradT2ASr(:) ! Normalisation for the theta integration
 
-         do nR=nRstart,nRstop
-            uhR(nR)    =0.0_cp
-            gradT2R(nR)=0.0_cp
-            duhR(nR)   =0.0_cp
-#ifdef WITH_SHTNS
-            call axi_to_spat(duhLMr(:,nR),duhTh)
-            call axi_to_spat(uhLMr(:,nR),uhTh)
-            call axi_to_spat(gradsLMr(:,nR),gradT2Th)
-#endif
-            do n=1,nThetaBs ! Loop over theta blocks
-               nTheta=(n-1)*sizeThetaB
-               nThetaStart=nTheta+1
-#ifndef WITH_SHTNS
-               call lmAS2pt(duhLMr(:,nR),duhTh,nThetaStart,sizeThetaB)
-               call lmAS2pt(uhLMr(:,nR),uhTh,nThetaStart,sizeThetaB)
-               call lmAS2pt(gradsLMr(:,nR),gradT2Th,nThetaStart,sizeThetaB)
-#endif
-               do nThetaBlock=1,sizeThetaB
-                  nTheta=nTheta+1
-                  nThetaNHS=(nTheta+1)/2
-                  duhR(nR)=duhR(nR)+gauss(nThetaNHS)*duhTh(nThetaBlock)
-                  uhR(nR) =uhR(nR) +gauss(nThetaNHS)* uhTh(nThetaBlock)
-                  gradT2R(nR)=gradT2R(nR)+gauss(nThetaNHS)*gradT2Th(nThetaBlock)
-               end do
-            end do
-         end do
-         duhR=half*duhR ! Normalisation for the theta integration
-         uhR =half* uhR ! Normalisation for the theta integration
-         gradT2R =half*gradT2R ! Normalisation for the theta integration
-
-         call gather_from_RLoc(duhR, duhR_global, 0)
-         call gather_from_RLoc(uhR, uhR_global, 0)
-         call gather_from_RLoc(gradT2R, gradT2R_global, 0)
-         call gather_from_RLoc(sR, sR_global, 0)
-
+         call gather_from_RLoc(duhASR, duhR_global, 0)
+         call gather_from_RLoc(uhASR, uhR_global, 0)
+         call gather_from_RLoc(gradT2ASR, gradT2R_global, 0)
       end if
 
-      if ( l_fluxProfs ) then
+      if ( l_fluxProfs .and. ( llm <= lm00 .and. ulm >= lm00) ) then
          if ( l_anelastic_liquid ) then
             if ( l_temperature_diff ) then
-               do nR=nRstart,nRstop
-                  fcR(nR)=-real(ds_Rloc(1,nR))*kappa(nR)*rho0(nR)* &
-                  &        r(nR)*r(nR)*sq4pi
-               end do
+               fcR(:)=-real(ds(lm00,:))*kappa(:)*rho0(:)*r(:)*r(:)*sq4pi
             else
-               do nR=nRstart,nRstop
-                  fcR(nR)=-kappa(nR)*r(nR)*r(nR)*                 &
-                  &       sq4pi*( rho0(nR)*(real(ds_Rloc(1,nR))-  &
-                  &       dLtemp0(nR)*real(s_Rloc(1,nR)))-ThExpNb*&
-                  &       ViscHeatFac*alpha0(nR)*temp0(nR)*(      &
-                  &       real(dp_Rloc(1,nR))+(dLalpha0(nR)-      &
-                  &       beta(nR))*real(p_Rloc(1,nR))) )
-               end do
+               fcR(:)=-kappa(:)*r(:)*r(:)*sq4pi*( rho0(:)*(real(ds(lm00,:))-     &
+               &       dLtemp0(:)*real(s(lm00,:)))-ThExpNb*ViscHeatFac*alpha0(:)*&
+               &       temp0(:)*( real(dp(lm00,:))+(dLalpha0(:)-                 &
+               &                                    beta(:))*real(p(lm00,:))) )
             end if
          else
             if  ( l_temperature_diff ) then
-               do nR=nRstart,nRstop
-                  fcR(nR)=-sq4pi*r(nR)*r(nR)*kappa(nR)*rho0(nR)*temp0(nR)*&
-                  &        (dLtemp0(nR)*real(s_Rloc(1,nR)) +              &
-                  &                     real(ds_Rloc(1,nR))+              &
-                  &        ViscHeatFac*ThExpNb*alpha0(nR)*                &
-                  &        orho1(nR)*((dLalpha0(nR)+dLtemp0(nR)-beta(nR))*&
-                  &                     real(p_Rloc(1,nR))+               &
-                  &                     real(dp_Rloc(1,nR))))
-               end do
+               fcR(:)=-sq4pi*r(:)*r(:)*kappa(:)*rho0(:)*temp0(:)*(            &
+               &       dLtemp0(:)*real(s(lm00,:)) + real(ds(lm00,:))+         &
+               &       ViscHeatFac*ThExpNb*alpha0(:)*orho1(:)*(               &
+               &       (dLalpha0(:)+dLtemp0(:)-beta(:))*real(p(lm00,:))+      &
+               &       real(dp(lm00,:))))
             else
-               do nR=nRstart,nRstop
-                  fcR(nR)=-real(ds_Rloc(1,nR))*kappa(nR)*rho0(nR)* &
-                  &        temp0(nR)*r(nR)*r(nR)*sq4pi
-               end do
+               fcR(:)=-real(ds(lm00,:))*kappa(:)*rho0(:)*temp0(:)*r(:)*r(:)*sq4pi
             end if
          end if
-         do nR=nRstart,nRstop
-            fkinR(nR) =0.0_cp
-            fconvR(nR)=0.0_cp
-            fviscR(nR)=0.0_cp
-#ifdef WITH_SHTNS
-            call axi_to_spat(fkinLMr(:,nR),fkinTh)
-            call axi_to_spat(fconvLMr(:,nR),fconvTh)
-            call axi_to_spat(fviscLMr(:,nR),fviscTh)
-#endif
-            do n=1,nThetaBs ! Loop over theta blocks
-               nTheta=(n-1)*sizeThetaB
-               nThetaStart=nTheta+1
-#ifndef WITH_SHTNS
-               call lmAS2pt(fkinLMr(:,nR),fkinTh,nThetaStart,sizeThetaB)
-               call lmAS2pt(fconvLMr(:,nR),fconvTh,nThetaStart,sizeThetaB)
-               call lmAS2pt(fviscLMr(:,nR),fviscTh,nThetaStart,sizeThetaB)
-#endif
-               do nThetaBlock=1,sizeThetaB
-                  nTheta=nTheta+1
-                  nThetaNHS=(nTheta+1)/2
-                  fkinR(nR) =fkinR(nR) +gauss(nThetaNHS)* fkinTh(nThetaBlock)
-                  fconvR(nR)=fconvR(nR)+gauss(nThetaNHS)*fconvTh(nThetaBlock)
-                  fviscR(nR)=fviscR(nR)+gauss(nThetaNHS)*fviscTh(nThetaBlock)
-               end do
-            end do
-         end do
-
-         if ( l_mag_nl ) then
-            do nR=nRstart,nRstop
-               fresR(nR) =0.0_cp
-               fpoynR(nR)=0.0_cp
-#ifdef WITH_SHTNS
-               call axi_to_spat(fpoynLMr(:,nR),fpoynTh)
-               call axi_to_spat(fresLMr(:,nR),fresTh)
-#endif
-               do n=1,nThetaBs ! Loop over theta blocks
-                  nTheta=(n-1)*sizeThetaB
-                  nThetaStart=nTheta+1
-#ifndef WITH_SHTNS
-                  call lmAS2pt(fpoynLMr(:,nR),fpoynTh,nThetaStart,sizeThetaB)
-                  call lmAS2pt(fresLMr(:,nR),fresTh,nThetaStart,sizeThetaB)
-#endif
-                  do nThetaBlock=1,sizeThetaB
-                     nTheta=nTheta+1
-                     nThetaNHS=(nTheta+1)/2
-                     fpoynR(nR)=fpoynR(nR)+gauss(nThetaNHS)*fpoynTh(nThetaBlock)
-                     fresR(nR) =fresR(nR) +gauss(nThetaNHS)*fresTh(nThetaBlock)
-                  end do
-               end do
-            end do
-         end if
-
-         call gather_from_Rloc(fkinR, fkinR_global, 0)
-         call gather_from_Rloc(fconvR, fconvR_global, 0)
-         call gather_from_Rloc(fviscR, fviscR_global, 0)
-         call gather_from_Rloc(fcR, fcR_global, 0)
-         if ( l_mag_nl ) then
-            call gather_from_Rloc(fpoynR, fpoynR_global, 0)
-            call gather_from_Rloc(fresR, fresR_global, 0)
-         end if
-
       end if
 
+      if ( l_fluxProfs ) then
+         call gather_from_Rloc(fkinASr, fkinR_global, 0)
+         call gather_from_Rloc(fconvASr, fconvR_global, 0)
+         call gather_from_Rloc(fviscASr, fviscR_global, 0)
+         if ( l_mag_nl ) then
+            call gather_from_Rloc(fpoynASr, fpoynR_global, 0)
+            call gather_from_Rloc(fresASr, fresR_global, 0)
+         end if
+      end if
+
+      !-- Compute mean and spatial STD of temperature and chemical composition
+      if ( l_viscBcCalc ) then
+         if ( l_heat ) call entropy%compute(s, llm, ulm, n_r_max, n_calls, &
+                            &               timePassed, timeNorm)
+         if ( l_chemical_conv ) call comp%compute(xi, llm, ulm, n_r_max, n_calls, &
+                                     &            timePassed, timeNorm)
+      end if
 
       if ( rank == 0 ) then
          do nR=1,n_r_max
@@ -344,14 +281,13 @@ contains
          call dlPolPeak%compute(dlPolPeakR, n_calls, timePassed, timeNorm)
 
          if ( l_viscBcCalc ) then
-            call entropy%compute(osq4pi*sR_global, n_calls, timePassed, timeNorm)
             call uh%compute(uhR_global, n_calls, timePassed, timeNorm)
             call duh%compute(duhR_global, n_calls, timePassed, timeNorm)
             call gradT2%compute(gradT2R_global, n_calls, timePassed, timeNorm)
          end if
 
          if ( l_fluxProfs ) then
-            call fcond%compute(opr*fcR_global, n_calls, timePassed, timeNorm)
+            call fcond%compute(opr*fcR, n_calls, timePassed, timeNorm)
             call fconv%compute(fconvR_global, n_calls, timePassed, timeNorm)
             call fkin%compute(ViscHeatFac*fkinR_global, n_calls, timePassed, &
                  &            timeNorm)
@@ -375,7 +311,9 @@ contains
             call dlPolPeak%finalize_SD(timeNorm)
 
             if ( l_viscBcCalc ) then
-               call entropy%finalize_SD(timeNorm)
+               !-- Due to small round-off errors values can be negative-epsilon at boundaries
+               entropy%SD(:)=sqrt(abs(entropy%SD(:)))
+               comp%SD(:)=sqrt(abs(comp%SD(:)))
                call uh%finalize_SD(timeNorm)
                call duh%finalize_SD(timeNorm)
                call gradT2%finalize_SD(timeNorm)
@@ -416,12 +354,14 @@ contains
                filename='bLayersR.'//tag
                open(newunit=fileHandle, file=filename, status='unknown')
                do nR=1,n_r_max
-                  write(fileHandle,'(ES20.10,4ES15.7,4ES13.4)')                 &
+                  write(fileHandle,'(ES20.10,5ES15.7,5ES13.4)')                 &
                   &     r(nR),round_off(entropy%mean(nR),maxval(entropy%mean)), &
+                  &     round_off(comp%mean(nR),maxval(comp%mean)),             &
                   &     round_off(uh%mean(nR),maxval(uh%mean)),                 &
                   &     round_off(duh%mean(nR),maxval(duh%mean)),               &
                   &     round_off(gradT2%mean(nR),maxval(gradT2%mean)),         &
                   &     round_off(entropy%SD(nR),maxval(entropy%SD)),           &
+                  &     round_off(comp%SD(nR),maxval(comp%SD)),                 &
                   &     round_off(uh%SD(nR),maxval(uh%SD)),                     &
                   &     round_off(duh%SD(nR),maxval(duh%SD)),                   &
                   &     round_off(gradT2%SD(nR),maxval(gradT2%SD))
@@ -456,70 +396,34 @@ contains
 
    end subroutine outPar
 !----------------------------------------------------------------------------
-   subroutine outPerpPar(time,timePassed,timeNorm,l_stop_time, &
-              &          EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
-
+   subroutine outPerpPar(time,timePassed,timeNorm,l_stop_time)
+      !
+      ! This subroutine handles the writing the time series perpar.tag which
+      ! stores kinetic energy content perpendicular and parallel to rotation
+      ! axis.
+      !
 
       !--- Input of variables
       real(cp), intent(in) :: time,timePassed,timeNorm
       logical,  intent(in) :: l_stop_time
-      real(cp), intent(in) :: EparLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: EperpLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: EparaxiLMr(l_max+1,nRstart:nRstop)
-      real(cp), intent(in) :: EperpaxiLMr(l_max+1,nRstart:nRstop)
 
       !--- Local variables
-      integer :: nR,n,nTheta,nThetaStart,nThetaBlock,nThetaNHS
+      integer :: nR,fileHandle
       character(len=76) :: filename
 
-      real(cp) ::EperpaxiR(nRstart:nRstop), EparaxiR(nRstart:nRstop)
-      real(cp) :: EperpR(nRstart:nRstop), EparR(nRstart:nRstop)
       real(cp) :: EperpR_global(n_r_max), EparR_global(n_r_max)
       real(cp) :: EperpaxiR_global(n_r_max), EparaxiR_global(n_r_max)
-      real(cp) :: EperpTh(nfs), EparTh(nfs), EperpaxiTh(nfs), EparaxiTh(nfs)
       real(cp) :: EperpT,EparT,EperpaxT,EparaxT
 
-      integer :: fileHandle
+      EperpASr(:)   =half*EperpASr(:)    ! Normalisation for the theta integration
+      EparASr(:)    =half*EparASr(:)     ! Normalisation for the theta integration
+      EperpaxiASr(:)=half*EperpaxiASr(:) ! Normalisation for the theta integration
+      EparaxiASr(:) =half*EparaxiASr(:)  ! Normalisation for the theta integration
 
-      do nR=nRstart,nRstop
-         EperpR(nR)   =0.0_cp
-         EparR(nR)    =0.0_cp
-         EparaxiR(nR) =0.0_cp
-         EperpaxiR(nR)=0.0_cp
-#ifdef WITH_SHTNS
-         call axi_to_spat(EperpLMr(:,nR),EperpTh)
-         call axi_to_spat(EparLMr(:,nR),EparTh)
-         call axi_to_spat(EperpaxiLMr(:,nR),EperpaxiTh)
-         call axi_to_spat(EparaxiLMr(:,nR),EparaxiTh)
-#endif
-         do n=1,nThetaBs ! Loop over theta blocks
-            nTheta=(n-1)*sizeThetaB
-            nThetaStart=nTheta+1
-#ifndef WITH_SHTNS
-            call lmAS2pt(EperpLMr(:,nR),EperpTh,nThetaStart,sizeThetaB)
-            call lmAS2pt(EparLMr(:,nR),EparTh,nThetaStart,sizeThetaB)
-            call lmAS2pt(EperpaxiLMr(:,nR),EperpaxiTh,nThetaStart,sizeThetaB)
-            call lmAS2pt(EparaxiLMr(:,nR),EparaxiTh,nThetaStart,sizeThetaB)
-#endif
-            do nThetaBlock=1,sizeThetaB
-               nTheta=nTheta+1
-               nThetaNHS=(nTheta+1)/2
-               EperpR(nR)=EperpR(nR)+gauss(nThetaNHS)*EperpTh(nThetaBlock)
-               EparR(nR) =EparR(nR) +gauss(nThetaNHS)* EparTh(nThetaBlock)
-               EperpaxiR(nR)=EperpaxiR(nR)+gauss(nThetaNHS)*EperpaxiTh(nThetaBlock)
-               EparaxiR(nR)=EparaxiR(nR)+gauss(nThetaNHS)*EparaxiTh(nThetaBlock)
-            end do
-         end do
-      end do
-      EperpR   =half*EperpR    ! Normalisation for the theta integration
-      EparR    =half*EparR     ! Normalisation for the theta integration
-      EperpaxiR=half*EperpaxiR ! Normalisation for the theta integration
-      EparaxiR =half*EparaxiR  ! Normalisation for the theta integration
-
-      call gather_from_Rloc(EperpR, EperpR_global, 0)
-      call gather_from_Rloc(EparR, EparR_global, 0)
-      call gather_from_Rloc(EperpaxiR, EperpaxiR_global, 0)
-      call gather_from_Rloc(EparaxiR, EparaxiR_global, 0)
+      call gather_from_Rloc(EperpASr, EperpR_global, 0)
+      call gather_from_Rloc(EparASr, EparR_global, 0)
+      call gather_from_Rloc(EperpaxiASr, EperpaxiR_global, 0)
+      call gather_from_Rloc(EparaxiASr, EparaxiR_global, 0)
 
       if ( rank == 0 ) then
          EperpT  =four*pi*rInt_R(EperpR_global*r*r,r,rscheme_oc)
@@ -565,5 +469,262 @@ contains
       end if
 
    end subroutine outPerpPar
+!----------------------------------------------------------------------------
+   subroutine get_fluxes(vr,vt,vp,dvrdr,dvtdr,dvpdr,dvrdt,dvrdp,sr,pr,br,bt, &
+              &          bp,cbt,cbp,nR)
+      !
+      !   This routine computes the various contribution to heat fluxes:
+      !
+      !     * Convective flux: :math:`F_c= \rho T (u_r s)`
+      !     * Kinetic flux: :math:`F_k = 1/2\,\rho u_r (u_r^2+u_\theta^2+u_\phi^2)`
+      !     * Viscous flux: :math:`F_= -(u \cdot S )_r`)
+      !
+      !   If the run is magnetic, then this routine also computes:
+      !
+      !     * Poynting flux
+      !     * Resistive flux
+      !
+
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
+      real(cp), intent(in) :: dvrdr(:,:),dvtdr(:,:),dvpdr(:,:)
+      real(cp), intent(in) :: dvrdt(:,:),dvrdp(:,:)
+      real(cp), intent(in) :: sr(:,:),pr(:,:)
+      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
+      real(cp), intent(in) :: cbt(:,:),cbp(:,:)
+
+      !-- Local variables:
+      real(cp) :: fkinAS,fconvAS,fviscAS,fresAS,fpoynAS
+      real(cp) :: fkin,fconv,phiNorm,fvisc,fpoyn,fres
+      integer :: nTheta,nPhi
+
+      phiNorm=two*pi/real(n_phi_max,cp)
+
+      fkinAS =0.0_cp
+      fconvAS=0.0_cp
+      fviscAS=0.0_cp
+      fvisc  =0.0_cp
+      !$omp parallel do default(shared)                  &
+      !$omp& private(nTheta, nPhi, fconv, fkin, fvisc)   &
+      !$omp& reduction(+:fkinAS,fconvAS,fviscAS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            if ( l_anelastic_liquid ) then
+               fconv=vr(nTheta,nPhi)*sr(nTheta,nPhi)
+            else
+               fconv=temp0(nr)*vr(nTheta,nPhi)*sr(nTheta,nPhi)     +    &
+               &          ViscHeatFac*ThExpNb*alpha0(nr)*temp0(nr)*     &
+               &          orho1(nr)*vr(nTheta,nPhi)*pr(nTheta,nPhi)
+            end if
+
+            fkin=half*or2(nR)*orho2(nR)*(O_sin_theta_E2(nTheta)*(    &
+            &                  vt(nTheta,nPhi)*vt(nTheta,nPhi)  +    &
+            &                  vp(nTheta,nPhi)*vp(nTheta,nPhi) )+    &
+            &          or2(nR)*vr(nTheta,nPhi)*vr(nTheta,nPhi) )*    &
+            &                             vr(nTheta,nPhi)
+
+            if ( nR/=n_r_icb .and. nR/=n_r_cmb ) then
+               fvisc=-two*visc(nR)*orho1(nR)*vr(nTheta,nPhi)*or2(nR)* (     &
+               &                             dvrdr(nTheta,nPhi)             &
+               & -(two*or1(nR)+two*third*beta(nR))*vr(nTheta,nPhi) )-       &
+               &                       visc(nR)*orho1(nR)*vt(nTheta,nPhi)*  &
+               &                     O_sin_theta_E2(nTheta)* (              &
+               &                       or2(nR)*dvrdt(nTheta,nPhi)           &
+               &                              +dvtdr(nTheta,nPhi)           &
+               &       -(two*or1(nR)+beta(nR))*vt(nTheta,nPhi) )  -         &
+               &       visc(nR)*orho1(nR)*vp(nTheta,nPhi)*                  &
+               &                        O_sin_theta_E2(nTheta)* (           &
+               &                       or2(nR)*dvrdp(nTheta,nPhi)           &
+               &                              +dvpdr(nTheta,nPhi)           &
+               &       -(two*or1(nR)+beta(nR))*vp(nTheta,nPhi) )
+            else
+               fvisc=0.0_cp
+            end if
+
+            fkinAS = fkinAS+phiNorm*gauss(nTheta)*fkin
+            fconvAS=fconvAS+phiNorm*gauss(nTheta)*fconv
+            fviscAS=fviscAS+phiNorm*gauss(nTheta)*fvisc
+         end do
+      end do
+      !$omp end parallel do
+
+      fkinASr(nR) =fkinAS
+      fconvASr(nR)=fconvAS
+      fviscASr(nR)=fviscAS
+
+      if ( l_mag_nl) then
+         fresAS =0.0_cp
+         fpoynAS=0.0_cp
+         !$omp parallel do default(shared)           &
+         !$omp& private(nTheta, nPhi, fres, fpoyn)   &
+         !$omp& reduction(+:fresAS,fpoynAS)
+         do nPhi=1,n_phi_max
+            do nTheta=1,n_theta_max
+               fres =O_sin_theta_E2(nTheta)*(                     &
+               &              cbt(nTheta,nPhi)*bp(nTheta,nPhi)  - &
+               &              cbp(nTheta,nPhi)*bt(nTheta,nPhi) )
+
+               fpoyn=-orho1(nR)*or2(nR)*O_sin_theta_E2(nTheta)*(              &
+               &           vp(nTheta,nPhi)*br(nTheta,nPhi)*bp(nTheta,nPhi)  - &
+               &           vr(nTheta,nPhi)*bp(nTheta,nPhi)*bp(nTheta,nPhi)  - &
+               &           vr(nTheta,nPhi)*bt(nTheta,nPhi)*bt(nTheta,nPhi)  + &
+               &           vt(nTheta,nPhi)*br(nTheta,nPhi)*bt(nTheta,nPhi) )
+
+               fresAS = fresAS+phiNorm*gauss(nTheta)*fres
+               fpoynAS=fpoynAS+phiNorm*gauss(nTheta)*fpoyn
+            end do
+         end do
+         !$omp end parallel do
+
+         fpoynASr(nR)=fpoynAS
+         fresASr(nR) =fresAS
+      end if
+
+   end subroutine get_fluxes
+!----------------------------------------------------------------------------
+   subroutine get_nlBLayers(vt,vp,dvtdr,dvpdr,dsdr,dsdt,dsdp,nR)
+      !
+      !   This subroutine calculates the axisymmetric contributions of:
+      !
+      !     * the horizontal velocity :math:`u_h = \sqrt{u_\theta^2+u_\phi^2}`
+      !     * its radial derivative :math:`|\partial u_h/\partial r|`
+      !     * The thermal dissipation rate :math:`(\nabla T)^2`
+      !
+      !   This subroutine is used when one wants to evaluate viscous and thermal
+      !   dissipation layers
+      !
+
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vt(:,:),vp(:,:)
+      real(cp), intent(in) :: dvtdr(:,:),dvpdr(:,:)
+      real(cp), intent(in) :: dsdr(:,:),dsdt(:,:),dsdp(:,:)
+
+      !-- Local variables:
+      real(cp):: uhAS,duhAS,gradsAS,uh,duh,phiNorm,grads
+      integer :: nTheta,nPhi
+
+      phiNorm=one/real(n_phi_max,cp)
+      uhAS   =0.0_cp
+      duhAS  =0.0_cp
+      gradsAS=0.0_cp
+
+      !--- Horizontal velocity uh and duh/dr + (grad T)**2
+      !$omp parallel do default(shared)            &
+      !$omp& private(nTheta, nPhi, uh, duh, grads) &
+      !$omp& reduction(+:uhAS,duhAS,gradsAS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            uh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(     &
+            &             vt(nTheta,nPhi)*vt(nTheta,nPhi)+    &
+            &             vp(nTheta,nPhi)*vp(nTheta,nPhi)  )
+            duh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(          &
+            &                    dvtdr(nTheta,nPhi)*vt(nTheta,nPhi)-&
+            &    (or1(nR)+beta(nR))*vt(nTheta,nPhi)*vt(nTheta,nPhi)+&
+            &                    dvpdr(nTheta,nPhi)*vp(nTheta,nPhi)-&
+            &    (or1(nR)+beta(nR))*vp(nTheta,nPhi)*vp(nTheta,nPhi) )
+
+            grads =  dsdr(nTheta,nPhi)*dsdr(nTheta,nPhi)          &
+            &      +or2(nR)*O_sin_theta_E2(nTheta)*(              &
+            &              dsdt(nTheta,nPhi)*dsdt(nTheta,nPhi)    &
+            &             +dsdp(nTheta,nPhi)*dsdp(nTheta,nPhi) )
+
+            uhAS=uhAS+phiNorm*gauss(nTheta)*sqrt(uh)
+            if (uh /= 0.0_cp) then
+               duhAS=duhAS+phiNorm*gauss(nTheta)*abs(duh)/sqrt(uh)
+            end if
+            gradsAS=gradsAS+phiNorm*gauss(nTheta)*grads
+         end do
+      end do
+      !$omp end parallel do
+
+      uhASr(nR)    =uhAS
+      duhASr(nR)   =duhAS
+      gradT2ASr(nR)=gradsAS
+
+   end subroutine get_nlBLayers
+!----------------------------------------------------------------------------
+   subroutine get_perpPar(vr,vt,vp,nR)
+      !
+      !   This subroutine calculates the energies parallel and perpendicular
+      !   to the rotation axis
+      !
+      !     * :math:`E_\perp = 0.5 (v_s^2+v_\phi^2)` with
+      !       :math:`v_s= v_r\sin\theta+v_\theta\cos\theta`
+      !     * :math:`E_\parallel  = 0.5v_z^2` with
+      !       :math:`v_z= v_r\cos\theta-v_\theta*\sin\theta`
+      !
+
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: vr(:,:),vt(:,:),vp(:,:)
+
+      !-- Local variables:
+      real(cp) :: vras(n_theta_max),vtas(n_theta_max),vpas(n_theta_max),phiNorm
+      real(cp) :: Eperp,Epar,Eperpaxi,Eparaxi
+      real(cp) :: EperpAS,EparAS,EperpaxiAS,EparaxiAS
+      integer :: nTheta,nPhi
+
+      phiNorm=one/real(n_phi_max,cp)
+      EperpAS   =0.0_cp
+      EparAS    =0.0_cp
+      EperpaxiAS=0.0_cp
+      EparaxiAS =0.0_cp
+      vras(:)   =0.0_cp
+      vtas(:)   =0.0_cp
+      vpas(:)   =0.0_cp
+
+      do nPhi=1,n_phi_max
+         vras(:)=vras(:)+vr(1:n_theta_max,nPhi)
+         vtas(:)=vtas(:)+vt(1:n_theta_max,nPhi)
+         vpas(:)=vpas(:)+vp(1:n_theta_max,nPhi)
+      end do
+      vras(:)=vras(:)*phiNorm
+      vtas(:)=vtas(:)*phiNorm
+      vpas(:)=vpas(:)*phiNorm
+
+      !$omp parallel do default(shared)                 &
+      !$omp& private(nTheta,nPhi)                       &
+      !$omp& private(Eperp, Epar, Eperpaxi, Eparaxi)    &
+      !$omp& reduction(+:EparAS,EperpAS,EparaxiAS,EperpaxiAS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            Eperp=half*or2(nR)*orho2(nR)*(        or2(nR)*sinTheta_E2(nTheta)*     &
+            &                                    vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            &       (O_sin_theta_E2(nTheta)-one)*vt(nTheta,nPhi)*vt(nTheta,nPhi) + &
+            &       two*or1(nR)*cosTheta(nTheta)*vr(nTheta,nPhi)*vt(nTheta,nPhi) + &
+            &       O_sin_theta_E2(nTheta)*      vp(nTheta,nPhi)*vp(nTheta,nPhi) )
+
+            Epar =half*or2(nR)*orho2(nR)*(   or2(nR)*(one-sinTheta_E2(nTheta))*    &
+            &                                    vr(nTheta,nPhi)*vr(nTheta,nPhi) + &
+            &                                    vt(nTheta,nPhi)*vt(nTheta,nPhi) - &
+            &       two*or1(nR)*cosTheta(nTheta)*vr(nTheta,nPhi)*vt(nTheta,nPhi) )
+
+            Eperpaxi=half*or2(nR)*orho2(nR)*(     or2(nR)*sinTheta_E2(nTheta)* &
+            &                                      vras(nTheta)*vras(nTheta) + &
+            &         (O_sin_theta_E2(nTheta)-one)*vtas(nTheta)*vtas(nTheta) + &
+            &         two*or1(nR)*cosTheta(nTheta)*vras(nTheta)*vtas(nTheta) + &
+            &         O_sin_theta_E2(nTheta)*      vpas(nTheta)*vpas(nTheta) )
+
+            Eparaxi =half*or2(nR)*orho2(nR)*(or2(nR)*(one-sinTheta_E2(nTheta))*&
+            &                                      vras(nTheta)*vras(nTheta) + &
+            &                                      vtas(nTheta)*vtas(nTheta) - &
+            &         two*or1(nR)*cosTheta(nTheta)*vras(nTheta)*vtas(nTheta) )
+
+            EperpAS   =   EperpAS+phiNorm*gauss(nTheta)*Eperp
+            EparAS    =    EparAS+phiNorm*gauss(nTheta)*Epar
+            EperpaxiAS=EperpaxiAS+phiNorm*gauss(nTheta)*Eperpaxi
+            EparaxiAS = EparaxiAS+phiNorm*gauss(nTheta)*Eparaxi
+         end do
+      end do
+      !$omp end parallel do
+
+      EperpASr(nR)   =EperpAS
+      EparASr(nR)    =EparAS
+      EperpaxiASr(nR)=EperpaxiAS
+      EparaxiASr(nR) =EparaxiAS
+
+   end subroutine get_perpPar
 !----------------------------------------------------------------------------
 end module outPar_mod

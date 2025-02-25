@@ -8,10 +8,10 @@ module output_data
    implicit none
 
    private
-
+ 
    !----- Identification of run:
    character(len=64), public :: runid
-
+ 
    !----- Output time control:
    real(cp), public :: t_graph_start,t_graph_stop,dt_graph
    real(cp), public :: t_rst_start,t_rst_stop,dt_rst
@@ -20,7 +20,6 @@ module output_data
    real(cp), public :: t_cmb_start,t_cmb_stop,dt_cmb
    real(cp), public :: t_r_field_start,t_r_field_stop,dt_r_field
    real(cp), public :: t_TO_start,t_TO_stop,dt_TO
-   real(cp), public :: t_TOZ_start,t_TOZ_stop,dt_TOZ
    real(cp), public :: t_movie_start,t_movie_stop,dt_movie
    real(cp), public :: t_TOmovie_start,t_TOmovie_stop,dt_TOmovie
    real(cp), public :: t_pot_start,t_pot_stop,dt_pot
@@ -34,9 +33,8 @@ module output_data
    integer, public :: n_r_field_step,n_r_fields,n_t_r_field
    integer, public :: n_movie_step,n_movie_frames,n_t_movie
    integer, public :: n_TO_step,n_TOs,n_t_TO
-   integer, public :: n_TOZ_step,n_TOZs,n_t_TOZ
    integer, public :: n_TOmovie_step,n_TOmovie_frames,n_t_TOmovie
-   integer, public :: n_pot_step,n_pots,n_t_pot
+   integer, public :: n_pot_step,n_pots,n_t_pot      
    integer, public :: n_probe_step,n_probe_out,n_t_probe
    integer, public :: n_gw_step,n_gws,n_t_gw
    integer, public, parameter :: n_time_hits=5000
@@ -48,30 +46,31 @@ module output_data
    real(cp), public ::  t_r_field(n_time_hits)
    real(cp), public ::  t_movie(n_time_hits)
    real(cp), public ::  t_TO(n_time_hits)
-   real(cp), public ::  t_TOZ(n_time_hits)
    real(cp), public ::  t_TOmovie(n_time_hits)
    real(cp), public ::  t_pot(n_time_hits)
    real(cp), public ::  t_probe(n_time_hits)
    real(cp), public ::  t_gw(n_time_hits)
-
+ 
    !----- Output radii and degrees for coeff files:
    integer, public :: n_coeff_r_max
    integer, public, allocatable :: n_coeff_r(:)
    integer, public :: n_r_array(100)
    integer, public :: l_max_cmb
    integer, public :: l_max_comp ! Maximum spherical harmonic degree to estimate Earth-likeness
+   integer, public :: l_geo ! max degree for geomagnetic field seen on Earth
    integer, public :: l_max_r
    integer, public :: n_r_step
    integer, public :: m_max_modes
-
+ 
    !----- Output files:
    integer, public :: n_log_file
-
+ 
    character(len=55), public :: tag
    character(len=72), public :: log_file
    character(len=72), public :: lp_file
    !----- Z-integrated output:
-   real(cp), public :: zDens,sDens
+   real(cp), public :: sDens ! Density in s when using z-integration
+   real(cp), public :: zDens ! Density in z when using z-integration
 
    !----- RMS cut radius and dealiasing:
    real(cp), public :: rCut, rDea

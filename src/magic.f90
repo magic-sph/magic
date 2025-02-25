@@ -86,18 +86,19 @@ program magic
 !      if imagcon  <  0, imposed poloidal field via inner bc on B(l=1,m=0)
 !
 
+   use iso_fortran_env
+   use charmanip, only: write_long_string
    use truncation
    use precision_mod
    use physical_parameters
-   use iso_fortran_env, only: output_unit
    use courant_mod, only: initialize_courant, finalize_courant
    use radial_der, only: initialize_der_arrays, finalize_der_arrays
    use radial_functions, only: initialize_radial_functions, &
        &                       finalize_radial_functions
    use num_param
    use torsional_oscillations
+   use mri
    use init_fields
-   use special, only: initialize_Grenoble, finalize_Grenoble
    use blocking, only: initialize_blocking, finalize_blocking, llm, ulm
    use timing, only: timer_type
    use horizontal_data
@@ -110,24 +111,24 @@ program magic
    use dtB_mod, only: initialize_dtB_mod, finalize_dtB_mod
    use radial_data, only: initialize_radial_data, finalize_radial_data
    use radialLoop, only: initialize_radialLoop, finalize_radialLoop
-   use LMLoop_mod,only: initialize_LMLoop, finalize_LMLoop
+   use LMLoop_mod,only: initialize_LMLoop, finalize_LMLoop, test_LMLoop
    use preCalculations
    use start_fields, only: getStartFields
    use kinetic_energy
    use magnetic_energy
    use fields_average_mod
-   use geos_mod, only: initialize_geos_mod, finalize_geos_mod
+   use geos, only: initialize_geos, finalize_geos
    use spectra, only: initialize_spectra, finalize_spectra
    use output_data, only: tag, log_file, n_log_file
    use output_mod, only: initialize_output, finalize_output
    use outTO_mod,only: initialize_outTO_mod, finalize_outTO_mod
+   use outMRI_mod, only: initialize_outMRI_mod, finalize_outMRI_mod
    use parallel_mod
    use Namelists
    use step_time_mod, only: initialize_step_time, step_time
    use communications, only:initialize_communications, finalize_communications
    use power, only: initialize_output_power, finalize_output_power
    use outPar_mod, only: initialize_outPar_mod, finalize_outPar_mod
-   use out_coeff, only: initialize_coeffs, finalize_coeffs
    use outMisc_mod, only: initialize_outMisc_mod, finalize_outMisc_mod
    use outRot, only: initialize_outRot, finalize_outRot
    use mem_alloc
@@ -140,9 +141,8 @@ program magic
 #  include "likwid_f90.h"
 #endif
 
-#ifdef WITH_SHTNS
-   use shtns
-#endif
+   use sht, only: initialize_sht, finalize_sht
+
    implicit none
 
    !-- Local variables:
@@ -156,15 +156,22 @@ program magic
    real(cp) :: time
    class(type_tscheme), pointer :: tscheme
    type(timer_type) :: run_time, run_time_start
-
    integer :: n_stop_signal=0     ! signal returned from step_time
+#ifdef COMP_OPT
+   character(len=:), allocatable :: long_str
+#endif
 
 
    ! MPI specific variables
+#ifdef WITH_MPI
+   integer :: mpi_ver, mpi_subver
+   character(len=14) :: str
+   character(len=MPI_MAX_LIBRARY_VERSION_STRING) :: lib_mpi
 #ifdef WITHOMP
    integer :: required_level,provided_level
    character(len=100) :: message
-   character(len=14) :: str, str_1
+   character(len=14) :: str_1
+#endif
 #endif
 
 #ifdef WITH_MPI
@@ -211,6 +218,20 @@ program magic
 #else
       write(output_unit, '(A)') ' !  Build date: unknown'
 #endif
+#ifdef COMP_OPT
+      long_str = trim(compiler_version())
+      call write_long_string(' !  Compiler version: ', long_str, output_unit)
+      long_str = trim(compiler_options())
+      call write_long_string(' !  Compiler options: ', long_str, output_unit)
+#endif
+#ifdef WITH_MPI
+      call MPI_Get_version(mpi_ver, mpi_subver, ierr)
+      write(str,'(I0,A1,I0)') mpi_ver,'.', mpi_subver
+      call write_long_string(' !  MPI version:        ', trim(str), output_unit)
+
+      call MPI_Get_Library_version(lib_mpi, mpi_ver, ierr)
+      call write_long_string(' !  MPI implementation: ', trim(lib_mpi), output_unit)
+#endif
       write(date, '(i4,''/'',i0.2,''/'',i0.2,'' '', i0.2,'':'',i0.2,'':'',i0.2)') &
       &     values(1), values(2), values(3), values(5), values(6), values(7)
       write(output_unit, '(A,A)') ' !  Start date:  ', date
@@ -229,12 +250,12 @@ program magic
    if ( rank == 0 ) then
       open(newunit=n_log_file, file=log_file, status='new')
 
-      write(n_log_file,*) '!      __  __             _____ _____   _____ ___        '
-      write(n_log_file,*) '!     |  \/  |           |_   _/ ____| | ____/ _ \       '
-      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |      | |__| (_) |      '
-      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |___ \\__, |      '
-      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____   ___) | / /       '
-      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____| |____(_)_/        '
+      write(n_log_file,*) '!      __  __             _____ _____     __   ___       '
+      write(n_log_file,*) '!     |  \/  |           |_   _/ ____|   / /  |__ \      '
+      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |       / /_     ) |     '
+      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |  _ \   / /      '
+      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____  | (_) | / /_      '
+      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____|  \___(_)____|     '
       write(n_log_file,*) '!                    __/ |                               '
       write(n_log_file,*) '!                   |___/                                '
       write(n_log_file,*) '!                                                        '
@@ -266,6 +287,20 @@ program magic
 #else
       write(n_log_file, '(A)') ' ! Build date: unknown'
 #endif
+#ifdef COMP_OPT
+      long_str = trim(compiler_version())
+      call write_long_string(' ! Compiler version: ', long_str, n_log_file)
+      long_str = trim(compiler_options())
+      call write_long_string(' ! Compiler options: ', long_str, n_log_file)
+#endif
+#ifdef WITH_MPI
+      call MPI_Get_version(mpi_ver, mpi_subver, ierr)
+      write(str,'(I0,A1,I0)') mpi_ver,'.', mpi_subver
+      call write_long_string(' ! MPI version:        ', trim(str), n_log_file)
+
+      call MPI_Get_Library_version(lib_mpi, mpi_ver, ierr)
+      call write_long_string(' ! MPI implementation: ', trim(lib_mpi), n_log_file)
+#endif
       write(n_log_file, '(A,A)') ' ! Start date:  ', date
 
       if ( l_save_out ) close(n_log_file)
@@ -275,6 +310,7 @@ program magic
 
    !-- Blocking/radial/horizontal
    call initialize_blocking()
+   if (.not. l_onset ) call initialize_sht(l_scramble_theta)
    local_bytes_used=bytes_allocated
    call initialize_radial_data(n_r_max)
    call initialize_radial_functions()
@@ -291,7 +327,6 @@ program magic
 
    call initialize_num_param()
    call initialize_init_fields()
-   call initialize_Grenoble()
 
    local_bytes_used=bytes_allocated
    call initialize_fields()
@@ -313,15 +348,9 @@ program magic
    call initialize_outMisc_mod()
    call initialize_outRot()
    if ( l_power ) call initialize_output_power()
-   call initialize_coeffs()
    call initialize_fields_average_mod()
    if ( l_TO ) call initialize_TO()
-
-
-
-#ifdef WITH_SHTNS
-   call init_shtns()
-#endif
+   if (l_MRI ) call initialize_MRI
 
    if ( rank == 0 ) then
       call tscheme%print_info(n_log_file)
@@ -330,9 +359,10 @@ program magic
    !--- Do pre-calculations:
    call preCalc(tscheme)
 
-   if ( l_par ) call initialize_geos_mod(l_par) ! Needs to be called after preCalc, r_icb needed
    if ( l_TO ) call initialize_outTO_mod() ! Needs to be called after preCalc, r_icb needed
+   if ( l_MRI) call initialize_outMRI_mod
    if ( l_movie ) call initialize_movie_data() !Needs to be called after preCalc to get correct coordinate values
+   call initialize_geos(l_par, l_SRIC, l_geosMovie) ! Needs to be called after preCalc, l_geosMovie defined in movie
    if ( ldtBmem == 1 ) call initialize_dtB_mod() ! Needs to be called after movie to make sure l_dtBmovie has been set
    if (l_probe) call initialize_probes()       !Needs to be called after preCalc to get correct coordinate values
    if ( l_RMS ) call initialize_RMS()
@@ -342,7 +372,6 @@ program magic
    call memWrite('Total I/O', local_bytes_used)
 
    if (rank == 0) print*, '-----> rank 0 has', bytes_allocated, ' B allocated'
-
 
    call finalize_memory_counter()
 
@@ -375,6 +404,8 @@ program magic
       call writeInfo(n_log_file)
       if ( l_save_out ) close(n_log_file)
    end if
+
+   if ( l_parallel_solve ) call test_LMLoop(tscheme)
 
    !--- AND NOW FOR THE TIME INTEGRATION:
 
@@ -450,13 +481,15 @@ program magic
 
    !--- Closing the movie files (if any)
    call finalize_movie_data
-   if ( l_RMS ) call finalize_RMS
-   if ( l_TO ) call finalize_outTO_mod
-   if ( l_TO ) call finalize_TO
-   if ( l_par ) call finalize_geos_mod(l_par)
+
+   if ( l_RMS ) call finalize_RMS()
+   if ( l_TO ) call finalize_outTO_mod()
+   if ( l_MRI )call finalize_outMRI_mod
+   if ( l_MRI )call finalize_MRI
+   if ( l_TO ) call finalize_TO()
+   call finalize_geos(l_par, l_SRIC, l_geosMovie)
    if ( ldtBmem == 1 ) call finalize_dtB_mod
    call finalize_fields_average_mod()
-   call finalize_coeffs()
    if ( l_power ) call finalize_output_power()
    call finalize_outRot()
    call finalize_outMisc_mod()
@@ -472,12 +505,12 @@ program magic
    call finalize_fieldsLast()
    call finalize_fields()
 
-   call finalize_Grenoble()
    call finalize_init_fields()
    call finalize_num_param()
    call finalize_LMLoop(tscheme)
    call finalize_radialLoop()
 
+   if (.not. l_onset ) call finalize_sht()
    call finalize_der_arrays()
 
    call finalize_horizontal_data()

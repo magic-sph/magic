@@ -1,6 +1,6 @@
 module timing
    !
-   ! Useful functions for time-stepping
+   ! This module contains functions that are used to measure the time spent.
    !
 
    use iso_fortran_env, only: output_unit
@@ -43,8 +43,8 @@ contains
 
       class(timer_type) :: this
 
-      character(len=*), intent(in) :: message
-      integer,          intent(in) :: n_log_file
+      character(len=*), optional, intent(in) :: message
+      integer, optional,          intent(in) :: n_log_file
 
       !-- Local variables
       integer :: n, n_out
@@ -57,7 +57,7 @@ contains
       this%tTot=this%tTot/real(n_procs,cp)
 #endif
 
-      if ( rank == 0 ) then
+      if ( rank == 0 .and. present(n_log_file) .and. present(message) ) then
          if ( this%n_counts > 0 ) then
             do n=1,2
                if ( n == 1 ) then

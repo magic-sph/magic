@@ -31,6 +31,7 @@ module multistep_schemes
       procedure :: set_weights
       procedure :: set_dt_array
       procedure :: set_imex_rhs
+      procedure :: set_imex_rhs_ghost
       procedure :: set_imex_rhs_scalar
       procedure :: rotate_imex
       procedure :: rotate_imex_scalar
@@ -44,14 +45,18 @@ module multistep_schemes
 contains
 
    subroutine initialize(this, time_scheme, courfac_nml, intfac_nml, alffac_nml)
+      !
+      ! This subroutine allocates the arrays involved in the time advance of
+      ! an IMEX multistep scheme.
+      !
 
       class(type_multistep) :: this
 
       !-- Input/output variables
-      real(cp),          intent(in) :: courfac_nml
-      real(cp),          intent(in) :: intfac_nml
-      real(cp),          intent(in) :: alffac_nml
-      character(len=72), intent(inout) :: time_scheme
+      real(cp),          intent(in) :: courfac_nml ! CFL factor for velocity
+      real(cp),          intent(in) :: intfac_nml  ! CFL factor for Coriolis term
+      real(cp),          intent(in) :: alffac_nml  ! CFL factor for Lorentz force
+      character(len=72), intent(inout) :: time_scheme ! Name of time scheme
 
       !-- Local variables
       real(cp) :: courfac_loc, alffac_loc, intfac_loc
@@ -161,6 +166,10 @@ contains
    end subroutine initialize
 !------------------------------------------------------------------------------
    subroutine finalize(this)
+      !
+      ! This subroutine deallocates the arrays involved in the time advance
+      ! of an IMEX multistep scheme.
+      !
 
       class(type_multistep) :: this
 
@@ -170,6 +179,10 @@ contains
    end subroutine finalize
 !------------------------------------------------------------------------------
    subroutine set_weights(this, lMatNext)
+      !
+      ! This subroutine computes the weights involved in the time advance of
+      ! an IMEX multistep scheme.
+      !
 
       class(type_multistep) :: this
       logical, intent(inout) :: lMatNext
@@ -177,13 +190,13 @@ contains
       !-- Local variables
       real(cp) :: delta, delta_n, delta_n_1, delta_n_2
       real(cp) :: a0, a1, a2, a3, a4, b0, b1, b2, b3, c0, c1, c2, c3
-      real(cp) :: gam, theta, c 
+      real(cp) :: gam, theta, c
       real(cp) :: wimp_old
 
       wimp_old = this%wimp_lin(1)
 
       select case ( this%time_scheme )
-         case ('CNAB2') 
+         case ('CNAB2')
             this%wimp(1)    =one
             this%wimp_lin(1)=alpha*this%dt(1)
             this%wimp_lin(2)=(1-alpha)*this%dt(1)
@@ -200,7 +213,7 @@ contains
 
             this%wexp(1)=(one+delta)*this%dt(1)
             this%wexp(2)=0.0_cp
-         case ('MODCNAB') 
+         case ('MODCNAB')
             delta = this%dt(1)/this%dt(2)
             this%wimp(1)    =one
             this%wimp(2)    =0.0_cp
@@ -349,10 +362,10 @@ contains
       class(type_multistep) :: this
 
       !-- Input variables
-      real(cp), intent(in) :: dt_new
-      real(cp), intent(in) :: dt_min
-      real(cp), intent(in) :: time
-      integer,  intent(in) :: n_log_file
+      real(cp), intent(in) :: dt_new  ! New time step size
+      real(cp), intent(in) :: dt_min  ! Minimum elligible time step before MagIC stops
+      real(cp), intent(in) :: time    ! Time
+      integer,  intent(inout) :: n_log_file
       integer,  intent(in) :: n_time_step
       logical,  intent(in) :: l_new_dtNext
 
@@ -373,7 +386,7 @@ contains
             &    " ! Time step too small, dt=",dt_new, &
             &    " ! I thus stop the run !"
             if ( l_save_out ) then
-               open(n_log_file, file=log_file, status='unknown', &
+               open(newunit=n_log_file, file=log_file, status='unknown', &
                &    position='append')
             end if
             write(n_log_file,'(1p,/,A,ES14.4,/,A)')    &
@@ -393,7 +406,7 @@ contains
             &    "                      last dt=",dt_old,                       &
             &    "                       new dt=",dt_new
             if ( l_save_out ) then
-               open(n_log_file, file=log_file, status='unknown', &
+               open(newunit=n_log_file, file=log_file, status='unknown', &
                &    position='append')
             end if
             write(n_log_file,                                         &
@@ -408,7 +421,7 @@ contains
 
    end subroutine set_dt_array
 !------------------------------------------------------------------------------
-   subroutine set_imex_rhs(this, rhs, dfdt, lmStart, lmStop, len_rhs)
+   subroutine set_imex_rhs(this, rhs, dfdt)
       !
       ! This subroutine assembles the right-hand-side of an IMEX scheme
       !
@@ -416,51 +429,93 @@ contains
       class(type_multistep) :: this
 
       !-- Input variables:
-      integer,     intent(in) :: lmStart
-      integer,     intent(in) :: lmStop
-      integer,     intent(in) :: len_rhs
       type(type_tarray), intent(in) :: dfdt
 
       !-- Output variable
-      complex(cp), intent(out) :: rhs(lmStart:lmStop,len_rhs)
+      complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
 
       !-- Local variables
-      integer :: n_o, n_r, startR, stopR
+      integer :: n_o, n_r, start_lm, stop_lm
 
-      !$omp parallel default(shared) private(startR, stopR,n_r)
-      startR=1; stopR=len_rhs
-      call get_openmp_blocks(startR,stopR)
-      
-      do n_o=1,this%nold
-         if ( n_o == 1 ) then
-            do n_r=startR,stopR
-               rhs(lmStart:lmStop,n_r)=this%wimp(n_o)*dfdt%old(lmStart:lmStop,n_r,n_o)
-            end do
-         else
-            do n_r=startR,stopR
-               rhs(lmStart:lmStop,n_r)=rhs(lmStart:lmStop,n_r)+&
-               &       this%wimp(n_o)*dfdt%old(lmStart:lmStop,n_r,n_o)
-            end do
-         end if
+      !$omp parallel default(shared) private(start_lm, stop_lm)
+      start_lm=dfdt%llm; stop_lm=dfdt%ulm
+      call get_openmp_blocks(start_lm,stop_lm)
+
+      do n_r=dfdt%nRstart,dfdt%nRstop
+         rhs(start_lm:stop_lm,n_r)=this%wimp(1)* &
+         &                          dfdt%old(start_lm:stop_lm,n_r,1)
+      end do
+
+      do n_o=2,this%nold
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+&
+            &       this%wimp(n_o)*dfdt%old(start_lm:stop_lm,n_r,n_o)
+         end do
       end do
 
       do n_o=1,this%nimp
-         do n_r=startR,stopR
-            rhs(lmStart:lmStop,n_r)=rhs(lmStart:lmStop,n_r)+  &
-            &               this%wimp_lin(n_o+1)*dfdt%impl(lmStart:lmStop,n_r,n_o)
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+  &
+            &               this%wimp_lin(n_o+1)*dfdt%impl(start_lm:stop_lm,n_r,n_o)
          end do
       end do
 
       do n_o=1,this%nexp
-         do n_r=startR,stopR
-            rhs(lmStart:lmStop,n_r)=rhs(lmStart:lmStop,n_r)+   &
-            &               this%wexp(n_o)*dfdt%expl(lmStart:lmStop,n_r,n_o)
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+   &
+            &               this%wexp(n_o)*dfdt%expl(start_lm:stop_lm,n_r,n_o)
          end do
       end do
-
       !$omp end parallel
 
    end subroutine set_imex_rhs
+!------------------------------------------------------------------------------
+   subroutine set_imex_rhs_ghost(this, rhs, dfdt, start_lm, stop_lm, ng)
+      !
+      ! This subroutine assembles the right-hand-side of an IMEX scheme for
+      ! R-distributed arrays (finite difference with parallel solvers).
+      !
+
+      class(type_multistep) :: this
+
+      !-- Input variables:
+      type(type_tarray), intent(in) :: dfdt
+      integer,           intent(in) :: start_lm ! Starting lm index
+      integer,           intent(in) :: stop_lm  ! Stopping lm index
+      integer,           intent(in) :: ng       ! Number of ghosts zones
+
+      !-- Output variable
+      complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart-ng:dfdt%nRstop+ng)
+
+      !-- Local variables
+      integer :: n_o, n_r
+
+      do n_r=dfdt%nRstart,dfdt%nRstop
+         rhs(start_lm:stop_lm,n_r)=this%wimp(1)*dfdt%old(start_lm:stop_lm,n_r,1)
+      end do
+
+      do n_o=2,this%nold
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+&
+            &       this%wimp(n_o)*dfdt%old(start_lm:stop_lm,n_r,n_o)
+         end do
+      end do
+
+      do n_o=1,this%nimp
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+  &
+            &               this%wimp_lin(n_o+1)*dfdt%impl(start_lm:stop_lm,n_r,n_o)
+         end do
+      end do
+
+      do n_o=1,this%nexp
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            rhs(start_lm:stop_lm,n_r)=rhs(start_lm:stop_lm,n_r)+   &
+            &               this%wexp(n_o)*dfdt%expl(start_lm:stop_lm,n_r,n_o)
+         end do
+      end do
+
+   end subroutine set_imex_rhs_ghost
 !------------------------------------------------------------------------------
    subroutine set_imex_rhs_scalar(this, rhs, dfdt)
       !
@@ -496,46 +551,41 @@ contains
 
    end subroutine set_imex_rhs_scalar
 !------------------------------------------------------------------------------
-   subroutine rotate_imex(this, dfdt, lmStart, lmStop, n_r_max)
+   subroutine rotate_imex(this, dfdt)
       !
       ! This subroutine is used to roll the time arrays from one time step
       !
 
       class(type_multistep) :: this
 
-      !-- Input variables:
-      integer,     intent(in) :: lmStart
-      integer,     intent(in) :: lmStop
-      integer,     intent(in) :: n_r_max
-
       !-- Output variables:
       type(type_tarray), intent(inout) :: dfdt
 
       !-- Local variables:
-      integer :: n_o, n_r, startR, stopR
+            !-- Local variables:
+      integer :: n_o, n_r, lm_start, lm_stop
 
-      !$omp parallel default(shared) private(startR,stopR,n_r)
-      startR=1; stopR=n_r_max
-      call get_openmp_blocks(startR,stopR)
+      !$omp parallel default(shared) private(lm_start,lm_stop)
+      lm_start=dfdt%llm; lm_stop=dfdt%ulm
+      call get_openmp_blocks(lm_start,lm_stop)
 
       do n_o=this%nexp,2,-1
-         do n_r=startR,stopR
-            dfdt%expl(lmStart:lmStop,n_r,n_o)=dfdt%expl(lmStart:lmStop,n_r,n_o-1)
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            dfdt%expl(lm_start:lm_stop,n_r,n_o)=dfdt%expl(lm_start:lm_stop,n_r,n_o-1)
          end do
       end do
 
       do n_o=this%nold,2,-1
-         do n_r=startR,stopR
-            dfdt%old(lmStart:lmStop,n_r,n_o)=dfdt%old(lmStart:lmStop,n_r,n_o-1)
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            dfdt%old(lm_start:lm_stop,n_r,n_o)=dfdt%old(lm_start:lm_stop,n_r,n_o-1)
          end do
       end do
 
       do n_o=this%nimp,2,-1
-         do n_r=startR,stopR
-            dfdt%impl(lmStart:lmStop,n_r,n_o)=dfdt%impl(lmStart:lmStop,n_r,n_o-1)
+         do n_r=dfdt%nRstart,dfdt%nRstop
+            dfdt%impl(lm_start:lm_stop,n_r,n_o)=dfdt%impl(lm_start:lm_stop,n_r,n_o-1)
          end do
       end do
-
       !$omp end parallel
 
    end subroutine rotate_imex
@@ -568,6 +618,10 @@ contains
    end subroutine rotate_imex_scalar
 !------------------------------------------------------------------------------
    subroutine bridge_with_cnab2(this)
+      !
+      ! This subroutine is used to run the first bridging steps of an IMEX
+      ! multistep scheme using a CN/AB2 scheme.
+      !
 
       class(type_multistep) :: this
 
@@ -594,6 +648,10 @@ contains
    end subroutine bridge_with_cnab2
 !------------------------------------------------------------------------------
    subroutine start_with_ab1(this)
+      !
+      ! This subroutine is used to compute the first explicit iteration with
+      ! an explicit Euler (AB1) scheme.
+      !
 
       class(type_multistep) :: this
 
@@ -614,14 +672,11 @@ contains
 
    end subroutine get_time_stage
 !------------------------------------------------------------------------------
-   subroutine assemble_imex(this, rhs, dfdt, lmStart, lmStop, len_rhs)
+   subroutine assemble_imex(this, rhs, dfdt)
 
       class(type_multistep) :: this
-      integer,           intent(in) :: lmStart
-      integer,           intent(in) :: lmStop
-      integer,           intent(in) :: len_rhs
       type(type_tarray), intent(in) :: dfdt
-      complex(cp),       intent(out) :: rhs(lmStart:lmStop,len_rhs)
+      complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
 
    end subroutine assemble_imex
 !------------------------------------------------------------------------------

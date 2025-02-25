@@ -1,4 +1,8 @@
 module magnetic_energy
+   !
+   ! This module handles the computation and the writing of the diagnostic files
+   ! related to magnetic energy: e_mag_oc.TAG, e_mag_ic.TAG, dipole.TAG, eMagR.TAG
+   !
 
    use parallel_mod
    use precision_mod
@@ -6,24 +10,24 @@ module magnetic_energy
    use truncation, only: n_r_maxMag, n_r_ic_maxMag, n_r_max, n_r_ic_max, &
        &                 lm_max, minc
    use radial_data, only: n_r_cmb
+   use radial_der, only: get_dr
    use radial_functions, only: r_icb, r_cmb, r_ic, dr_fac_ic, chebt_ic, &
        &                       sigma, orho1, r, or2, rscheme_oc
    use physical_parameters, only: LFfac, kbotb, ktopb
    use num_param, only: eScale, tScale
    use blocking, only: st_map, lo_map, llmMag, ulmMag
-   use horizontal_data, only: dLh
    use logic, only: l_cond_ic, l_mag, l_mag_LF, l_save_out, l_earth_likeness, &
        &            l_full_sphere
    use movie_data, only: movieDipColat, movieDipLon, movieDipStrength, &
        &                 movieDipStrengthGeo
-   use output_data, only: tag, l_max_comp
-   use constants, only: pi, zero, one, two, half, four, osq4pi
+   use output_data, only: tag, l_max_comp, l_geo
+   use constants, only: pi, zero, one, two, half, four, osq4pi,third, y11_norm, y10_norm
    use special, only: n_imp, rrMP
    use integration, only: rInt_R,rIntIC
-   use useful, only: cc2real,cc22real
+   use useful, only: cc2real, cc22real
    use plms_theta, only: plm_theta
    use communications, only: gather_from_lo_to_rank0, reduce_radial, &
-       &                     reduce_scalar
+       &                     reduce_scalar, send_lm_pair_to_master
 
    implicit none
 
@@ -63,7 +67,8 @@ contains
       allocate( e_dipA(n_r_max) )
       allocate( e_pA(n_r_max),e_p_asA(n_r_max) )
       allocate( e_tA(n_r_max),e_t_asA(n_r_max) )
-      bytes_allocated = bytes_allocated+5*n_r_max*SIZEOF_DEF_REAL
+!      allocate(bdipolar(2,n_rmax),db_dipolar(2,n_rmax),ddb_dipolar(2,n_rmax))
+      bytes_allocated = bytes_allocated+5*n_r_max*SIZEOF_DEF_REAL !+ 6*n_r_max*SIZEOF_DEF_COMPLEX
 
       e_mag_ic_file='e_mag_ic.'//tag
       e_mag_oc_file='e_mag_oc.'//tag
@@ -101,7 +106,7 @@ contains
             do nTheta=1,n_theta_max_comp
                theta = pi*(nTheta-half)/real(n_theta_max_comp,cp)
                !-- Schmidt normalisation --!
-               call plm_theta(theta, l_max_comp, l_max_comp, minc, &
+               call plm_theta(theta, l_max_comp, 0, l_max_comp, minc, &
                     &         plma, dtheta_plma, lm_max_comp, 1)
                lm = 1
                do m=0,l_max_comp,minc
@@ -118,6 +123,7 @@ contains
          end if
       end if
 
+
    end subroutine initialize_magnetic_energy
 !----------------------------------------------------------------------------
    subroutine finalize_magnetic_energy
@@ -131,6 +137,7 @@ contains
          if ( .not. l_save_out ) close(n_compliance_file)
       end if
       deallocate( e_dipA, e_pA, e_p_asA, e_tA, e_t_asA)
+!      deallocate( bdipolar,db_dipolar, ddb_dipolar)
 
       if ( rank == 0 .and. (.not. l_save_out) ) then
          close(n_e_mag_oc_file)
@@ -183,8 +190,8 @@ contains
 
       !-- local:
       integer :: nR,lm,l,m,l1m0,l1m1
-      integer :: l_geo
-
+      logical :: rank_has_l1m0,rank_has_l1m1
+      
       real(cp) :: e_p_r(n_r_max), e_p_r_global(n_r_max)
       real(cp) :: e_t_r(n_r_max), e_t_r_global(n_r_max)
       real(cp) :: els_r(n_r_max), els_r_global(n_r_max)
@@ -225,23 +232,15 @@ contains
       real(cp) :: e_dip_cmb,eTot,eDR
       real(cp) :: theta_dip,phi_dip
 
-      complex(cp) :: r_dr_b,b10,b11
+      complex(cp) :: r_dr_b
+      complex(cp) :: b10(n_r_max), b11(n_r_max)
+      real(cp) :: dipolar_moment_oc(3)
 
       !-- time averaging of e(r):
       character(len=80) :: filename
       real(cp) :: dt, osurf
       real(cp), save :: timeLast,timeTot
-      logical :: rank_has_l1m0,rank_has_l1m1
-#ifdef WITH_MPI
-      integer :: status(MPI_STATUS_SIZE)
-#endif
       integer :: fileHandle
-      integer :: sr_tag,request1,request2
-
-      ! some arbitrary send recv tag
-      sr_tag=18654
-
-      l_geo=11   ! max degree for geomagnetic field seen on Earth
 
       e_p      =0.0_cp
       e_t      =0.0_cp
@@ -286,15 +285,15 @@ contains
             l=lo_map%lm2l(lm)
             m=lo_map%lm2m(lm)
 
-            e_p_temp= dLh(st_map%lm2(l,m))*( dLh(st_map%lm2(l,m))*    &
+            e_p_temp= real(l*(l+1),cp)*( real(l*(l+1),cp)*            &
             &                            or2(nR)*cc2real( b(lm,nR),m) &
             &                                  + cc2real(db(lm,nR),m) )
-            e_t_temp= dLh(st_map%lm2(l,m)) * cc2real(aj(lm,nR),m)
+            e_t_temp= real(l*(l+1),cp) * cc2real(aj(lm,nR),m)
 
             if ( m == 0 ) then  ! axisymmetric part
                e_p_as_r(nR)=e_p_as_r(nR) + e_p_temp
                e_t_as_r(nR)=e_t_as_r(nR) + e_t_temp
-               if ( mod(l,2) == 1 ) then
+               if ( mod(l,2) == 1 ) then ! equatorially-asymmetric part
                   e_p_eas_r(nR)=e_p_eas_r(nR)+e_p_temp
                else
                   e_t_eas_r(nR)=e_t_eas_r(nR)+e_t_temp
@@ -303,7 +302,7 @@ contains
                e_p_r(nR)=e_p_r(nR) + e_p_temp
                e_t_r(nR)=e_t_r(nR) + e_t_temp
             end if
-            if ( mod(l+m,2) == 1 ) then
+            if ( mod(l+m,2) == 1 ) then ! equatorially-asymmetric part
                e_p_es_r(nR)=e_p_es_r(nR) + e_p_temp
             else
                e_t_es_r(nR)=e_t_es_r(nR) + e_t_temp
@@ -331,9 +330,9 @@ contains
 
                if ( nR ==  n_r_cmb .and. l >= 2 .and. l <= l_max_comp ) then
                   if ( mod(l+m,2) == 1 ) then
-                     sym = sym + e_p_temp
+                     asym = asym + e_p_temp
                   else
-                     asym = asym+e_p_temp
+                     sym = sym + e_p_temp
                   end if
                   if ( m == 0 ) then
                      zon = zon + e_p_temp
@@ -393,33 +392,27 @@ contains
          ! NOTE: n_e_sets=0 prevents averaging
          if ( n_e_sets == 1 ) then
             timeTot=one
-            do nR=1,n_r_max
-               e_dipA(nR) =e_dipole_r_global(nR)
-               e_pA(nR)   =e_p_r_global(nR)
-               e_p_asA(nR)=e_p_as_r_global(nR)
-               e_tA(nR)   =e_t_r_global(nR)
-               e_t_asA(nR)=e_t_as_r_global(nR)
-            end do
+            e_dipA(:) =e_dipole_r_global(:)
+            e_pA(:)   =e_p_r_global(:)
+            e_p_asA(:)=e_p_as_r_global(:)
+            e_tA(:)   =e_t_r_global(:)
+            e_t_asA(:)=e_t_as_r_global(:)
          else if ( n_e_sets == 2 ) then
             dt=time-timeLast
             timeTot=two*dt
-            do nR=1,n_r_max
-               e_dipA(nR) =dt*(e_dipA(nR) +e_dipole_r_global(nR))
-               e_pA(nR)   =dt*(e_pA(nR)   +e_p_r_global(nR)     )
-               e_p_asA(nR)=dt*(e_p_asA(nR)+e_p_as_r_global(nR)  )
-               e_tA(nR)   =dt*(e_tA(nR)   +e_t_r_global(nR)     )
-               e_t_asA(nR)=dt*(e_t_asA(nR)+e_t_as_r_global(nR)  )
-            end do
+            e_dipA(:) =dt*(e_dipA(:) +e_dipole_r_global(:))
+            e_pA(:)   =dt*(e_pA(:)   +e_p_r_global(:)     )
+            e_p_asA(:)=dt*(e_p_asA(:)+e_p_as_r_global(:)  )
+            e_tA(:)   =dt*(e_tA(:)   +e_t_r_global(:)     )
+            e_t_asA(:)=dt*(e_t_asA(:)+e_t_as_r_global(:)  )
          else
             dt=time-timeLast
             timeTot=timeTot+dt
-            do nR=1,n_r_max
-               e_dipA(nR) =e_dipA(nR) +dt*e_dipole_r_global(nR)
-               e_pA(nR)   =e_pA(nR)   +dt*e_p_r_global(nR)
-               e_p_asA(nR)=e_p_asA(nR)+dt*e_p_as_r_global(nR)
-               e_tA(nR)   =e_tA(nR)   +dt*e_t_r_global(nR)
-               e_t_asA(nR)=e_t_asA(nR)+dt*e_t_as_r_global(nR)
-            end do
+            e_dipA(:) =e_dipA(:) +dt*e_dipole_r_global(:)
+            e_pA(:)   =e_pA(:)   +dt*e_p_r_global(:)
+            e_p_asA(:)=e_p_asA(:)+dt*e_p_as_r_global(:)
+            e_tA(:)   =e_tA(:)   +dt*e_t_r_global(:)
+            e_t_asA(:)=e_t_asA(:)+dt*e_t_as_r_global(:)
          end if
          if ( ktopb == 1) then
             e_tA(1)   =0.0_cp
@@ -429,7 +422,7 @@ contains
             e_tA(n_r_max)   =0.0_cp
             e_t_asA(n_r_max)=0.0_cp
          endif
-         if ( l_stop_time ) then
+         if ( l_stop_time .and. n_e_sets > 1 ) then
             fac=half*LFfac*eScale
             filename='eMagR.'//tag
             open(newunit=fileHandle, file=filename, status='unknown')
@@ -517,12 +510,11 @@ contains
                m=lo_map%lm2m(lm)
                r_dr_b=r_ic(nR)*db_ic(lm,nR)
 
-               e_p_temp=     dLh(st_map%lm2(l,m))*O_r_icb_E_2*r_ratio**(2*l) * (     &
-               &                real((l+1)*(2*l+1),cp)*cc2real(b_ic(lm,nR),m)     +  &
-               &                real(2*(l+1),cp)*cc22real(b_ic(lm,nR),r_dr_b,m)   +  &
-               &                                      cc2real(r_dr_b,m)            )
-               e_t_temp=  dLh(st_map%lm2(l,m))*r_ratio**(2*l+2) *                  &
-               &                                  cc2real(aj_ic(lm,nR),m)
+               e_p_temp=real(l*(l+1),cp)*O_r_icb_E_2*r_ratio**(2*l) * (         &
+               &           real((l+1)*(2*l+1),cp)*cc2real(b_ic(lm,nR),m)     +  &
+               &           real(2*(l+1),cp)*cc22real(b_ic(lm,nR),r_dr_b,m)   +  &
+               &                              cc2real(r_dr_b,m)            )
+               e_t_temp=real(l*(l+1),cp)*r_ratio**(2*l+2)*cc2real(aj_ic(lm,nR),m)
 
                if ( m == 0 ) then  ! axisymmetric part
                   e_p_as_ic_r(nR)=e_p_as_ic_r(nR) + e_p_temp
@@ -584,7 +576,6 @@ contains
 
 
       !-- Outside energy:
-      nR=n_r_cmb
       e_p_os   =0.0_cp
       e_p_as_os=0.0_cp
       !do lm=2,lm_max
@@ -592,7 +583,7 @@ contains
          l=lo_map%lm2l(lm)
          m=lo_map%lm2m(lm)
          fac=real( l*l*(l+1),cp)
-         e_p_temp=fac*cc2real(b(lm,nR),m)
+         e_p_temp=fac*cc2real(b(lm,n_r_cmb),m)
          e_p_os  =e_p_os + e_p_temp
          if ( m == 0 ) e_p_as_os=e_p_as_os + e_p_temp
       end do
@@ -616,7 +607,7 @@ contains
             l=lo_map%lm2l(lm)
             m=lo_map%lm2m(lm)
             fac=real(l*(l+1)**2*(2*l+1),cp)*one/(rrMP**(2*l+1)-one)
-            e_p_temp=fac*cc2real(b(lm,nR),m)
+            e_p_temp=fac*cc2real(b(lm,n_r_cmb),m)
             e_p_e   =e_p_e  + e_p_temp
             if ( m == 0 ) e_p_as_e =e_p_as_e  + e_p_temp
             if ( l == 1 ) e_dipole_e=e_dipole_e+e_p_temp
@@ -667,64 +658,26 @@ contains
          end if
       end if
 
-      l1m0=lo_map%lm2(1,0)
-      l1m1=lo_map%lm2(1,1)
-
-      rank_has_l1m0=.false.
-      rank_has_l1m1=.false.
-
-      if ( (l1m0 >= llmMag) .and. (l1m0 <= ulmMag) ) then
-         b10=b(l1m0,n_r_cmb)
-#ifdef WITH_MPI
-         if (rank /= 0) then
-            call MPI_Send(b10,1,MPI_DEF_COMPLEX,0,sr_tag,MPI_COMM_WORLD,ierr)
-         end if
-#endif
-         rank_has_l1m0=.true.
-      end if
-      if ( l1m1 > 0 ) then
-         if ( (l1m1 >= llmMag) .and. (l1m1 <= ulmMag) ) then
-            b11=b(l1m1,n_r_cmb)
-#ifdef WITH_MPI
-            if (rank /= 0) then
-               call MPI_Send(b11,1,MPI_DEF_COMPLEX,0,sr_tag+1,MPI_COMM_WORLD,ierr)
-            end if
-#endif
-            rank_has_l1m1=.true.
-         end if
-      else
-         b11=zero
-         rank_has_l1m1=.true.
-      end if
+      b11(:)=zero
+      b10(:)=zero
+      call send_lm_pair_to_master(b(:,:),1,0,b10)
+      call send_lm_pair_to_master(b(:,:),1,1,b11)
 
 
       if ( rank == 0 ) then
          !-- Calculate pole position:
          rad =180.0_cp/pi
-#ifdef WITH_MPI
-         if (.not.rank_has_l1m0) then
-            call MPI_IRecv(b10,1,MPI_DEF_COMPLEX,MPI_ANY_SOURCE,&
-                 &         sr_tag,MPI_COMM_WORLD,request1, ierr)
-         end if
-         if ( .not. rank_has_l1m1 ) then
-            call MPI_IRecv(b11,1,MPI_DEF_COMPLEX,MPI_ANY_SOURCE,&
-                 &         sr_tag+1,MPI_COMM_WORLD,request2,ierr)
-         end if
-         if ( .not. rank_has_l1m0 ) then
-            call MPI_Wait(request1,status,ierr)
-         end if
-         if ( .not. rank_has_l1m1 ) then
-            call MPI_Wait(request2,status,ierr)
-         end if
-#endif
+
+         !compute dipolar_moment
+         call get_dipolar_moment(b10,b11,dipolar_moment_oc)
 
          !print*, "------------", b10, b11
-         theta_dip= rad*atan2(sqrt(two)*abs(b11),real(b10))
+         theta_dip= rad*atan2(sqrt(two)*abs(b11(n_r_cmb)),real(b10(n_r_cmb)))
          if ( theta_dip < 0.0_cp ) theta_dip=180.0_cp+theta_dip
-         if ( abs(b11) < 1.e-20_cp ) then
+         if ( abs(b11(n_r_cmb)) < 1.e-20_cp ) then
             phi_dip=0.0_cp
          else
-            phi_dip=-rad*atan2(aimag(b11),real(b11))
+            phi_dip=-rad*atan2(aimag(b11(n_r_cmb)),real(b11(n_r_cmb)))
          end if
          Dip      =e_dipole_ax/(e_p+e_t)
          DipCMB   =e_dipole_ax_cmb/e_cmb
@@ -740,10 +693,7 @@ contains
             else
                e_p_e_ratio=e_dipole_e/e_p_e
             end if
-            !write(*,"(A,4ES25.17)") "e_cmb = ",e_cmb,e_es_cmb,e_cmb-e_es_cmb,(e_cmb-e_es_cmb)/e_cmb
-            ! There are still differences in field 17 of the dipole file. These
-            ! differences are due to the summation for e_es_cmb and are only of the order
-            ! of machine accuracy.
+
             write(n_dipole_file,'(1P,ES20.12,19ES14.6)')   &
             &            time*tScale,                      &! 1
             &            theta_dip,phi_dip,                &! 2,3
@@ -760,7 +710,11 @@ contains
             &            (e_cmb-e_es_cmb)/e_cmb,           &! 17
             &            (e_cmb-e_as_cmb)/e_cmb,           &! 18
             &            (e_geo-e_es_geo)/e_geo,           &! 19
-            &            (e_geo-e_as_geo)/e_geo             ! 20
+            &            (e_geo-e_as_geo)/e_geo            &! 20
+            &      ,dipolar_moment_oc(1),                  &! 21
+            &       dipolar_moment_oc(2),                  &! 22
+            &       dipolar_moment_oc(3)                    ! 23
+
             if ( l_save_out ) close(n_dipole_file)
 
             if ( l_earth_likeness ) then
@@ -777,8 +731,8 @@ contains
                else
                   ad=0.0_cp
                end if
-               if ( asym_global /= 0.0_cp ) then
-                  sym=sym_global/asym_global
+               if ( sym_global /= 0.0_cp ) then
+                  sym=asym_global/sym_global
                else
                   sym=0.0_cp
                end if
@@ -869,5 +823,73 @@ contains
       Br_skew= Br4/(Br2*Br2)
 
    end subroutine get_Br_skew
+!------------------------------------------------------------------------------
+   subroutine get_dipolar_moment(b10,b11,dipolar_moment_oc)
+
+      !    Calculates dipolar momentum of outer core. For outer core we need b(l=1|m=0,1|r)
+      !-- Input of scalar fields:
+
+     complex(cp), intent(in) :: b10(n_r_max),b11(n_r_max)
+
+     !-- output:
+      real(cp), intent(out) :: dipolar_moment_oc(:)
+
+      !-- local variables:
+
+      integer :: n_r,n
+      integer :: l1m0,l1m1
+      real(cp) :: f(n_r_max,3)
+      real(cp) :: r_E_2             ! r**2
+      real(cp) :: or_E_2            !1/r**2
+      real(cp) :: fac
+      complex(cp) :: b10real(1,n_r_max), b11real(1,n_r_max)! b11im(n_r_max)
+      complex(cp) :: db10real(1,n_r_max), db11real(1,n_r_max)! db11im(n_r_max)
+      complex(cp) :: ddb10real(1,n_r_max), ddb11real(1,n_r_max)! ddb11im(n_r_max)
+
+
+      !-- Copy input functions:
+      do n_r=1,n_r_max
+         b10real(1,n_r)=b10(n_r)!real(b10(n_r))
+         b11real(1,n_r)=b11(n_r)!real(b11(n_r))
+      !   b11im(n_r)= aimag(b11(n_r))
+      end do
+
+      l1m1=lo_map%lm2(1,1)
+
+      !-- Transform f to cheb space:
+      call get_dr(b10real,db10real,1,1,1,n_r_max,rscheme_oc,nocopy=.true.)
+      call get_dr(db10real,ddb10real,1,1,1,n_r_max,rscheme_oc,nocopy=.true.)
+      call get_dr(b11real,db11real,1,1,1,n_r_max,rscheme_oc,nocopy=.true.)
+      call get_dr(db11real,ddb11real,1,1,1,n_r_max,rscheme_oc, nocopy=.true.)
+      !call get_dr(b11im,db11im,n_r_max,rscheme_oc)
+      !call get_dr(db11im,ddb11im,n_r_max,rscheme_oc)
+
+      do n_r=1,n_r_max
+         r_E_2=r(n_r)*r(n_r)
+         or_E_2= 1/r_E_2
+         if ( l1m1 > 0 ) then
+            f(n_r,1)=r_E_2*real(2*b11real(1,n_r)*or_E_2 - ddb11real(1,n_r))
+            f(n_r,2)=r_E_2*aimag(2*b11real(1,n_r)*or_E_2 - ddb11real(1,n_r))
+         else
+            f(n_r,1)=0.0_cp
+            f(n_r,2)=0.0_cp
+         end if
+         f(n_r,3)=r_E_2*real(2*b10real(1,n_r)*or_E_2 - ddb10real(1,n_r))
+      end do
+
+      !----- Perform radial integral:
+     do n=1,3
+         dipolar_moment_oc(n)=rInt_R(f(:,n),r,rscheme_oc)
+      end do
+
+      !----- Apply normalisation factors of chebs and other factor
+      !      plus the sign correction for y-component:
+
+      fac=8.0_cp*third*pi
+      dipolar_moment_oc(1)= two*fac*y11_norm * dipolar_moment_oc(1)
+      dipolar_moment_oc(2)=-two*fac*y11_norm * dipolar_moment_oc(2)
+      dipolar_moment_oc(3)=     fac*y10_norm * dipolar_moment_oc(3)
+
+   end subroutine get_dipolar_moment
 !----------------------------------------------------------------------------
 end module magnetic_energy

@@ -12,7 +12,7 @@ module time_schemes
 
    implicit none
 
-   private 
+   private
 
    type, abstract, public :: type_tscheme
 
@@ -25,14 +25,14 @@ module time_schemes
       character(len=8) :: time_scheme ! Name of the time scheme
       logical :: l_assembly
       real(cp), allocatable :: dt(:) ! Array that contains the timesteps
-      real(cp), allocatable :: wimp_lin(:) ! Weighting factor 
+      real(cp), allocatable :: wimp_lin(:) ! Weighting factor
       logical,  allocatable :: l_exp_calc(:) ! Array of booleans to specify the calculation of an explicit stage
       logical, allocatable :: l_imp_calc_rhs(:) ! Array of booleans to specify the calculation of an implicit stage
       real(cp) :: courfac ! Courant factor
       real(cp) :: alffac ! Courant factor for Alfven waves
       real(cp) :: intfac ! Coriolis factor
 
-   contains 
+   contains
 
       procedure(initialize_if), deferred :: initialize
       procedure(finalize_if),  deferred :: finalize
@@ -41,6 +41,7 @@ module time_schemes
       procedure(assemble_imex_if),  deferred :: assemble_imex
       procedure(assemble_imex_scalar_if),  deferred :: assemble_imex_scalar
       procedure(set_imex_rhs_if),  deferred :: set_imex_rhs
+      procedure(set_imex_rhs_ghost_if),  deferred :: set_imex_rhs_ghost
       procedure(set_imex_rhs_scalar_if),  deferred :: set_imex_rhs_scalar
       procedure(rotate_imex_if), deferred :: rotate_imex
       procedure(rotate_imex_scalar_if), deferred :: rotate_imex_scalar
@@ -81,29 +82,33 @@ module time_schemes
          real(cp), intent(in) :: dt_new
          real(cp), intent(in) :: dt_min
          real(cp), intent(in) :: time
-         integer,  intent(in) :: n_log_file
+         integer,  intent(inout) :: n_log_file
          integer,  intent(in) :: n_time_step
          logical,  intent(in) :: l_new_dtNext
       end subroutine set_dt_array_if
 
-      subroutine set_imex_rhs_if(this, rhs, dfdt, lmStart, lmStop, len_rhs)
+      subroutine set_imex_rhs_if(this, rhs, dfdt)
          import
          class(type_tscheme) :: this
-         integer,     intent(in) :: lmStart
-         integer,     intent(in) :: lmStop
-         integer,     intent(in) :: len_rhs
          type(type_tarray), intent(in) :: dfdt
-         complex(cp), intent(out) :: rhs(lmStart:lmStop,len_rhs)
+         complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
       end subroutine set_imex_rhs_if
 
-      subroutine assemble_imex_if(this, rhs, dfdt, lmStart, lmStop, len_rhs)
+      subroutine set_imex_rhs_ghost_if(this, rhs, dfdt, start_lm, stop_lm, ng)
          import
          class(type_tscheme) :: this
-         integer,     intent(in) :: lmStart
-         integer,     intent(in) :: lmStop
-         integer,     intent(in) :: len_rhs
          type(type_tarray), intent(in) :: dfdt
-         complex(cp), intent(out) :: rhs(lmStart:lmStop,len_rhs)
+         integer,           intent(in) :: start_lm ! Starting index
+         integer,           intent(in) :: stop_lm  ! Stopping index
+         integer,           intent(in) :: ng       ! Number of ghosts zones
+         complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart-ng:dfdt%nRstop+ng)
+      end subroutine set_imex_rhs_ghost_if
+
+      subroutine assemble_imex_if(this, rhs, dfdt)
+         import
+         class(type_tscheme) :: this
+         type(type_tarray), intent(in) :: dfdt
+         complex(cp), intent(out) :: rhs(dfdt%llm:dfdt%ulm,dfdt%nRstart:dfdt%nRstop)
       end subroutine assemble_imex_if
 
       subroutine assemble_imex_scalar_if(this, rhs, dfdt)
@@ -120,12 +125,9 @@ module time_schemes
          real(cp), intent(out) :: rhs
       end subroutine set_imex_rhs_scalar_if
 
-      subroutine rotate_imex_if(this, dfdt, lmStart, lmStop, n_r_max)
+      subroutine rotate_imex_if(this, dfdt)
          import
          class(type_tscheme) :: this
-         integer,     intent(in) :: lmStart
-         integer,     intent(in) :: lmStop
-         integer,     intent(in) :: n_r_max
          type(type_tarray), intent(inout) :: dfdt
       end subroutine rotate_imex_if
 
@@ -164,7 +166,7 @@ contains
       class(type_tscheme) :: this
 
       !-- Input variable
-      integer, intent(in) :: n_log_file ! File unit of the log.TAG file
+      integer, intent(inout) :: n_log_file ! File unit of the log.TAG file
 
       !-- Local variables
       integer :: n, n_out
@@ -173,8 +175,9 @@ contains
          if ( n == 1 ) n_out=output_unit
          if ( n == 2 ) n_out=n_log_file
          if ( n == 2 .and. l_save_out ) then
-            open(n_log_file, file=log_file, status='unknown', &
+            open(newunit=n_log_file, file=log_file, status='unknown', &
             &    position='append')
+            n_out=n_log_file
          end if
          write(n_out,*) ''
          write(n_out, '('' ! Time integrator   :'',1p,A10)') this%time_scheme

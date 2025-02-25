@@ -10,20 +10,13 @@ module LMmapping
    private
  
    type, public :: mappings
-      integer :: l_max,m_max,lm_max,lmP_max
+      integer :: l_max, m_max, lm_max ,m_min
       integer, allocatable :: lm2(:,:),lm2l(:),lm2m(:)
-      integer, allocatable :: lm2mc(:),l2lmAS(:)      
-      integer, allocatable :: lm2lmS(:),lm2lmA(:)     
-                                                     
-      integer, allocatable :: lmP2(:,:),lmP2l(:),lmP2m(:)
-      integer, allocatable :: lmP2lmPS(:),lmP2lmPA(:) 
-                                                     
-      integer, allocatable :: lm2lmP(:),lmP2lm(:)     
- 
+      integer, allocatable :: lm2lmS(:), lm2lmA(:)
    end type mappings
  
    type, public :: subblocks_mappings
-      integer :: nLMBs,l_max,m_max,sizeLMB2max
+      integer :: nLMBs,l_max,m_max,sizeLMB2max,m_min
       integer, allocatable :: nLMBs2(:)
       integer, allocatable :: sizeLMB2(:,:)
       integer, allocatable :: lm22lm(:,:,:)
@@ -36,32 +29,25 @@ module LMmapping
 
 contains
 
-   subroutine allocate_mappings(self,l_max,lm_max,lmP_max)
+   subroutine allocate_mappings(self,l_max,m_min,m_max,lm_max)
 
       type(mappings) :: self
-      integer, intent(in) :: l_max, lm_max, lmP_max
+      integer, intent(in) :: l_max, m_min, lm_max, m_max
 
       self%l_max = l_max
       if ( .not. l_axi ) then
-         self%m_max = l_max
+         self%m_max = m_max
+         self%m_min = m_min
       else
          self%m_max = 0
+         self%m_min = 0
       end if
       self%lm_max = lm_max
-      self%lmP_max = lmP_max
 
       allocate( self%lm2(0:l_max,0:l_max),self%lm2l(lm_max),self%lm2m(lm_max) )
-      allocate( self%lm2mc(lm_max),self%l2lmAS(0:l_max) )
       allocate( self%lm2lmS(lm_max),self%lm2lmA(lm_max) )
       bytes_allocated = bytes_allocated + &
-                        ((l_max+1)*(l_max+1)+5*lm_max+l_max+1)*SIZEOF_INTEGER
-
-      allocate( self%lmP2(0:l_max+1,0:l_max+1),self%lmP2l(lmP_max) )
-      allocate( self%lmP2m(lmP_max) )
-      allocate( self%lmP2lmPS(lmP_max),self%lmP2lmPA(lmP_max) )
-      allocate( self%lm2lmP(lm_max),self%lmP2lm(lmP_max) )
-      bytes_allocated = bytes_allocated + &
-                        ((l_max+2)*(l_max+2)+5*lmP_max+lm_max)*SIZEOF_INTEGER
+      &                 ((l_max+1)*(l_max+1)+4*lm_max)*SIZEOF_INTEGER
 
    end subroutine allocate_mappings
 !-------------------------------------------------------------------------------
@@ -69,19 +55,16 @@ contains
 
       type(mappings) :: self
 
-      deallocate( self%lm2, self%lm2l, self%lm2m, self%lm2mc, self%l2lmAS )
-      deallocate( self%lm2lmS, self%lm2lmA, self%lmP2, self%lmP2l )
-      deallocate( self%lmP2m, self%lmP2lmPS, self%lmP2lmPA, self%lm2lmP )
-      deallocate( self%lmP2lm )
+      deallocate( self%lm2, self%lm2l, self%lm2m, self%lm2lmS, self%lm2lmA )
 
    end subroutine deallocate_mappings
 !-------------------------------------------------------------------------------
-   subroutine allocate_subblocks_mappings(self,map,nLMBs,l_max,lm_balance)
+   subroutine allocate_subblocks_mappings(self,map,nLMBs,l_max,m_min,m_max,lm_balance)
 
       !-- Input variables
       type(subblocks_mappings) :: self
       type(mappings), intent(in) :: map
-      integer,        intent(in) :: nLMBs, l_max
+      integer,        intent(in) :: nLMBs, l_max, m_min, m_max
       type(load),     intent(in) :: lm_balance(0:nLMBs-1)
 
       !-- Local variables
@@ -92,9 +75,11 @@ contains
       self%l_max = l_max
 
       if ( .not. l_axi ) then
-         self%m_max = l_max
+         self%m_max = m_max
+         self%m_min = m_min
       else
          self%m_max = 0
+         self%m_min = 0
       end if
 
       ! now determine the maximal size of a subblock (was sizeLMB2max parameter
@@ -119,9 +104,9 @@ contains
       allocate( self%lm22lm(self%sizeLMB2max,l_max+1,nLMBs) )
       allocate( self%lm22l(self%sizeLMB2max,l_max+1,nLMBs) )
       allocate( self%lm22m(self%sizeLMB2max,l_max+1,nLMBs) )
-      bytes_allocated = bytes_allocated + &
-                        (nLMBs+(l_max+1)*nLMBs+ &
-                        3*(l_max+1)*nLMBS*self%sizeLMB2max)*SIZEOF_INTEGER
+      bytes_allocated = bytes_allocated +       &
+      &                 (nLMBs+(l_max+1)*nLMBs+ &
+      &                 3*(l_max+1)*nLMBS*self%sizeLMB2max)*SIZEOF_INTEGER
 
    end subroutine allocate_subblocks_mappings
 !-------------------------------------------------------------------------------

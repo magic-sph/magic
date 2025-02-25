@@ -5,19 +5,16 @@ module finite_differences
    !
 
    use precision_mod
-   use parallel_mod, only: rank
-   use constants, only: zero, one, two
-   use useful, only: logWrite
+   use constants, only: zero, one, two, half
+   use useful, only: logWrite, abortRun
    use mem_alloc, only: bytes_allocated
    use radial_scheme, only: type_rscheme
-   use useful, only: abortRun
 
    implicit none
 
    private
 
    type, public, extends(type_rscheme) :: type_fd
-      real(cp), allocatable :: ddddr(:,:)
       real(cp), allocatable :: ddddr_top(:,:)
       real(cp), allocatable :: ddddr_bot(:,:)
    contains
@@ -51,7 +48,9 @@ contains
       allocate( this%dr(this%n_max,0:order) )
       allocate( this%ddr(this%n_max,0:order) )
       allocate( this%dddr(this%n_max,0:order+2) )
+      this%dddr(:,:) =0.0_cp
       allocate( this%ddddr(this%n_max,0:order+2) )
+      this%ddddr(:,:)=0.0_cp
       allocate( this%dr_top(order/2,0:order_boundary) )
       allocate( this%dr_bot(order/2,0:order_boundary) )
       allocate( this%ddr_top(order/2,0:order_boundary+1) )
@@ -125,7 +124,6 @@ contains
          end do
 
       else  ! irregular grid
-
 
          n_boundary_points = int( real(n_r_max-1,cp)/(two*(one+ratio1)) )
          ratio1 = real(n_r_max-1, cp)/real(two*n_boundary_points)-one
@@ -206,6 +204,7 @@ contains
       !-- Local quantities:
       real(cp), allocatable :: dr_spacing(:)
       real(cp), allocatable :: taylor_exp(:,:)
+      real(cp) :: drl
       integer :: n_r, od
 
       !
@@ -214,20 +213,50 @@ contains
       allocate( dr_spacing(this%order+1) )
       allocate( taylor_exp(0:this%order,0:this%order) )
 
-
-      do n_r=1+this%order/2,this%n_max-this%order/2
-         do od=0,this%order
-            dr_spacing(od+1)=r(n_r-this%order/2+od)-r(n_r)
+      if ( this%order == 2 ) then
+         do n_r=1,this%n_max
+            if ( n_r == 1) then
+               drl = r(2)-r(1)
+               this%dr(n_r,0)=-half/drl
+               this%dr(n_r,1)=0.0_cp
+               this%dr(n_r,2)=half/drl
+               this%ddr(n_r,0)=one/drl/drl
+               this%ddr(n_r,1)=-two/drl/drl
+               this%ddr(n_r,2)=one/drl/drl
+            else if ( n_r == this%n_max ) then
+               drl=r(this%n_max)-r(this%n_max-1)
+               this%dr(n_r,0)=-half/drl
+               this%dr(n_r,1)=0.0_cp
+               this%dr(n_r,2)=half/drl
+               this%ddr(n_r,0)=one/drl/drl
+               this%ddr(n_r,1)=-two/drl/drl
+               this%ddr(n_r,2)=one/drl/drl
+            else
+               do od=0,2
+                  dr_spacing(od+1)=r(n_r-1+od)-r(n_r)
+               end do
+               call populate_fd_weights(0.0_cp,dr_spacing,2,2,taylor_exp)
+               do od=0,2
+                  this%dr(n_r,od) =taylor_exp(od,1)
+                  this%ddr(n_r,od)=taylor_exp(od,2)
+               end do
+            end if
          end do
+      else
+         do n_r=1+this%order/2,this%n_max-this%order/2
+            do od=0,this%order
+               dr_spacing(od+1)=r(n_r-this%order/2+od)-r(n_r)
+            end do
 
-         call populate_fd_weights(0.0_cp,dr_spacing,this%order, &
-              &                   this%order,taylor_exp)
+            call populate_fd_weights(0.0_cp,dr_spacing,this%order, &
+                 &                   this%order,taylor_exp)
 
-         do od=0,this%order
-            this%dr(n_r,od) =taylor_exp(od,1)
-            this%ddr(n_r,od)=taylor_exp(od,2)
+            do od=0,this%order
+               this%dr(n_r,od) =taylor_exp(od,1)
+               this%ddr(n_r,od)=taylor_exp(od,2)
+            end do
          end do
-      end do
+      end if
 
       deallocate( dr_spacing, taylor_exp )
 
@@ -311,18 +340,38 @@ contains
       allocate( dr_spacing(this%order+3) )
       allocate( taylor_exp(0:this%order+2,0:this%order+2) )
 
-      do n_r=2+this%order/2,this%n_max-this%order/2-1
-         do od=0,this%order+2
-            dr_spacing(od+1)=r(n_r-this%order/2-1+od)-r(n_r)
-         end do
+      if ( this%order == 2 ) then
+         do n_r=2,this%n_max-1
+            do od=0,4
+               if ( n_r==2 .and. od==0 ) then
+                  dr_spacing(od+1)=two*(r(1)-r(2)) ! Symmetric ghost zone
+               else if ( n_r==this%n_max-1 .and. od==4 ) then
+                  dr_spacing(od+1)=two*(r(this%n_max)-r(this%n_max-1))
+               else
+                  dr_spacing(od+1)=r(n_r-2+od)-r(n_r)
+               end if
+            end do
 
-         call populate_fd_weights(0.0_cp,dr_spacing,this%order+2,this%order+2, &
-              &                   taylor_exp)
-         do od=0,this%order+2
-            this%dddr(n_r,od) =taylor_exp(od,3)
-            this%ddddr(n_r,od)=taylor_exp(od,4)
+            call populate_fd_weights(0.0_cp,dr_spacing,4,4,taylor_exp)
+            do od=0,4
+               this%dddr(n_r,od) =taylor_exp(od,3)
+               this%ddddr(n_r,od)=taylor_exp(od,4)
+            end do
          end do
-      end do
+      else
+         do n_r=2+this%order/2,this%n_max-this%order/2-1
+            do od=0,this%order+2
+               dr_spacing(od+1)=r(n_r-this%order/2-1+od)-r(n_r)
+            end do
+
+            call populate_fd_weights(0.0_cp,dr_spacing,this%order+2,this%order+2, &
+                 &                   taylor_exp)
+            do od=0,this%order+2
+               this%dddr(n_r,od) =taylor_exp(od,3)
+               this%ddddr(n_r,od)=taylor_exp(od,4)
+            end do
+         end do
+      end if
 
       deallocate( dr_spacing, taylor_exp )
 
@@ -407,7 +456,12 @@ contains
       !
       ! This routine is used to derive the values of f at both boundaries
       ! when f is subject to Robin boundary conditions on both sides:
-      ! atop * df/dr + btop * f = rhs_top;  abot * df/dr + bbot * f = rhs_bot
+      !
+      ! .. code-block: fortran
+      !
+      !      atop * df/dr + btop * f = rhs_top;  abot * df/dr + bbot * f = rhs_bot
+      !
+      !
       ! With finite differences, this yields two uncoupled equations that
       ! can be solved sequentially.
       !
@@ -457,6 +511,7 @@ contains
             this%drMat(i,j) =0.0_cp
             this%d2rMat(i,j)=0.0_cp
             this%d3rMat(i,j)=0.0_cp
+            this%d4rMat(i,j)=0.0_cp
             this%rMat(i,j)  =0.0_cp
          end do
          this%rMat(j,j)=1.0_cp
@@ -502,31 +557,18 @@ contains
 !----------------------------------------------------------------------------
    subroutine populate_fd_weights(z, x, nd, m, c)
       !
-      !  Input Parameters
-      !    z            -  location where approximations are to be
-      !                    accurate
-      !    x(0:nd)      -  grid point locations, found in x(0:n)
-      !    nd           -  dimension of x- and c-arrays in calling
-      !                    program x(0:nd) and c(0:nd, 0:m), respectively
-      !    m            -  highest derivative for which weights are
-      !                    sought
+      ! Generation of Finite Difference Formulas on Arbitrarily
+      ! Spaced Grids, Bengt Fornberg, Mathematics of compuation, 51, 184, 1988, 699-706
       !
-      !  Output Parameter
-      !    c(0:nd,0:m)  -  weights at grid locations x(0:n) for
-      !                    derivatives of order 0:m, found in c(0:nd, 0:m)
-      !
-      !  Reference:
-      !      Generation of Finite Difference Formulas on Arbitrarily
-      !          Spaced Grids, Bengt Fornberg,
-      !          Mathematics of compuation, 51, 184, 1988, 699-706
 
       !-- Input quantities:
-      real(cp), intent(in) :: z
-      integer,  intent(in) :: nd, m
-      real(cp), intent(in) :: x(0:nd)
+      real(cp), intent(in) :: z ! grid points where approximations are to be accurate
+      integer,  intent(in) :: nd ! dimension of ``x`` and ``c``
+      integer,  intent(in) :: m  ! highest deriative for which weights are sought
+      real(cp), intent(in) :: x(0:nd) ! hrid point locations
 
       !-- Output:
-      real(cp), intent(out) :: c(0:nd, 0:m)
+      real(cp), intent(out) :: c(0:nd, 0:m) ! weights at grid locations x(0:n) for derivatives of order 0:m
 
       !-- Local variables
       real(cp) :: c1, c2, c3, c4, c5

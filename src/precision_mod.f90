@@ -3,6 +3,7 @@ module precision_mod
    ! This module controls the precision used in MagIC
    !
 
+   use iso_fortran_env, only: real32, real64, int32, int64
 #ifdef WITH_MPI
    use mpimod
 #endif
@@ -14,17 +15,17 @@ module precision_mod
    !-- Current precision for calculations
 
 #if (DEFAULT_PRECISION==sngl)
-   integer, public, parameter :: cp=selected_real_kind(6)
+   integer, public, parameter :: cp=real32
 #elif (DEFAULT_PRECISION==dble)
-   integer, public, parameter :: cp=selected_real_kind(15)
+   integer, public, parameter :: cp=real64
 !#elif (DEFAULT_PRECISION==quad)
-!   integer, public, parameter :: cp=selected_real_kind(20)
+!   integer, public, parameter :: cp=real128
 #endif
    !-- Precision for outputs in unformatted files (G files, movie files)
 #if (DEFAULT_OUTPUT_PRECISION==sngl)
-   integer, public, parameter :: outp=selected_real_kind(6)
+   integer, public, parameter :: outp=real32
 #elif (DEFAULT_OUTPUT_PRECISION==dble)
-   integer, public, parameter :: outp=selected_real_kind(15)
+   integer, public, parameter :: outp=real64
 #endif
 
    !-- SIZEOFs
@@ -33,8 +34,8 @@ module precision_mod
    integer, public, parameter :: SIZEOF_OUT_REAL=outp
 
    !-- Precision for long integers
-   integer, public, parameter :: lip=selected_int_kind(12)
-   integer, public, parameter :: SIZEOF_INTEGER=4
+   integer, public, parameter :: lip=int64
+   integer, public, parameter :: SIZEOF_INTEGER=int32
    integer, public, parameter :: SIZEOF_LOGICAL=2
    integer, public, parameter :: SIZEOF_CHARACTER=1
 

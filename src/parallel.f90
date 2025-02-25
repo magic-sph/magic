@@ -14,6 +14,7 @@ module parallel_mod
    integer :: rank,n_procs
    integer :: nR_per_rank
    integer :: rank_with_l1m0
+   integer :: rank_with_r_LCR
    integer :: chunksize
    integer :: ierr
 
@@ -77,21 +78,15 @@ contains
       integer, intent(in) :: n_procs
       integer, intent(in) :: n_points
 
-      integer :: n_points_loc, check, p
+      integer :: n_points_loc, rem, p
 
       n_points_loc = n_points/n_procs
-
-      check = mod(n_points,n_procs)!-1
-
-      bal(0)%nStart = 1
-
+      rem = n_points-n_points_loc*n_procs
       do p =0, n_procs-1
+         bal(p)%nStart=n_points_loc*p    +max(p+rem-n_procs,0)+1
+         bal(p)%nStop =n_points_loc*(p+1)+max(p+rem+1-n_procs,0)
          if ( p /= 0 ) bal(p)%nStart=bal(p-1)%nStop+1
-         bal(p)%n_per_rank=n_points_loc
-         if ( p == n_procs-1 ) then
-            bal(p)%n_per_rank=n_points_loc+check
-         end if
-         bal(p)%nStop=bal(p)%nStart+bal(p)%n_per_rank-1
+         bal(p)%n_per_rank=bal(p)%nStop-bal(p)%nStart+1
       end do
 
    end subroutine getBlocks
@@ -110,6 +105,7 @@ contains
 #endif
 
       n_points=nStop-nStart+1
+      if ( n_points == 1) return ! No need to split one point among threads
       n_glob_start=nStart
 
 #ifdef WITHOMP
