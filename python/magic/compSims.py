@@ -378,7 +378,7 @@ class CompSims:
             label += ' Ra = %.1e' % gr.ra
 
             if self.field not in ('vortz'):
-                equator = data[:, gr.ntheta/2,:]
+                equator = data[:, int(gr.ntheta/2),:]
 
             equator = symmetrize(equator, gr.minc)
 

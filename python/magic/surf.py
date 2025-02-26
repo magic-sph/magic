@@ -758,6 +758,33 @@ class Surf:
             Btm = self.gr.Btheta.mean(axis=0)
             data = 1./rr2D*(rderavg(rr2D*Btm, eta=self.gr.radratio) - \
                             thetaderavg(Brm))
+        elif field in ('vA'):
+            if labTex:
+                label = r'$V_A$'
+            else:
+                label = 'Alfven speed'
+            ra = MagicRadial(field='anel',iplot=False)
+            if hasattr(self.gr,'RESCALED'):
+                ra.rho0*=self.gr.dim_density
+            theta3D = self.gr.colatitude[np.newaxis, :, np.newaxis]
+            data = self.gr.Bphi/np.sqrt(4*np.pi*ra.rho0[np.newaxis,np.newaxis,:])
+        elif field in ('fA'):
+            if labTex:
+                label = r'$f_A$'
+            else:
+                label = 'Alfven frequency'
+            ra = MagicRadial(field='anel',iplot=False)
+            if hasattr(self.gr,'RESCALED'):
+                ra.rho0*=self.gr.dim_density
+                #self.gr.rho0 = ra.rho0
+            theta3D = self.gr.colatitude[np.newaxis, :, np.newaxis]
+            rr3D = self.gr.radius[np.newaxis, np.newaxis, :]
+            data = self.gr.Bphi/np.sqrt(4*np.pi*ra.rho0[np.newaxis,np.newaxis,:])
+            data/= 2*np.pi*rr3D*np.sin(theta3D)
+            #self.gr.fA = data
+            #print (10*'mask')
+            #mask = np.where(rr3D*np.sin(theta3D)<10e6)
+            #data[mask] = 0.0
         elif field in ('ohm'):
             if labTex:
                 label = r'$\lambda\,j^2$'
