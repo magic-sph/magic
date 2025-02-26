@@ -122,6 +122,7 @@ contains
       &    l_max_cmb,l_r_field,l_r_fieldT,l_r_fieldXi,         &
       &    n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,    &
       &    lVerbose,l_AM,l_power,l_drift,sDens,zDens,          &
+      &    l_gw,n_gw_step, n_gws, t_gw_start, t_gw_stop, dt_gw,&
       &    l_RMS,l_par,l_corrMov,rCut,rDea,l_hemi,             &
       &    l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,          &
       &    l_PressGraph,l_energy_modes,m_max_modes,l_probe,    &
@@ -1201,6 +1202,11 @@ contains
       write(n_out,'(''  t_movie_start   ='',ES14.6,'','')') t_movie_start
       write(n_out,'(''  t_movie_stop    ='',ES14.6,'','')') t_movie_stop
       write(n_out,'(''  dt_movie        ='',ES14.6,'','')') dt_movie
+      write(n_out,'(''  n_gw_step       ='',i5,'','')') n_gw_step
+      write(n_out,'(''  n_gws           ='',i5,'','')') n_gws
+      write(n_out,'(''  t_gw_start      ='',ES14.6,'','')') t_gw_start
+      write(n_out,'(''  t_gw_stop       ='',ES14.6,'','')') t_gw_stop
+      write(n_out,'(''  dt_gw           ='',ES14.6,'','')') dt_gw
       do n=1,n_movies_max
          length=len_trim(movie(n))
          if ( length > 0 ) then
@@ -1238,6 +1244,7 @@ contains
       write(n_out,'(''  l_geo           ='',i3,'','')') l_geo
       write(n_out,'(''  l_hel           ='',l3,'','')') l_hel
       write(n_out,'(''  l_hemi          ='',l3,'','')') l_hemi
+      write(n_out,'(''  l_gw            ='',l3,'','')') l_gw
       write(n_out,'(''  l_AM            ='',l3,'','')') l_AM
       write(n_out,'(''  l_power         ='',l3,'','')') l_power
       write(n_out,'(''  l_viscBcCalc    ='',l3,'','')') l_viscBcCalc
@@ -1644,6 +1651,14 @@ contains
       t_TOmovie_start =0.0_cp
       t_TOmovie_stop  =0.0_cp
       dt_TOmovie      =0.0_cp
+
+      !----- Output GW:
+      l_gw          =.false. ! Gravitational wave outputs in gwPressure.TAG, gwEntropy.TAG
+      n_gw_step     =1       ! Do not change this value
+      n_gws         =0
+      t_gw_start    =0.0_cp
+      t_gw_stop     =0.0_cp
+      dt_gw         =0.0_cp
 
       !----- Magnetic spectra for different depths
       !      at times of log output or movie frames:

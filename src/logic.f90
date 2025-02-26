@@ -54,6 +54,7 @@ module logic
    logical :: l_DTrMagSpec   ! Switch for magnetic spectra at different depths at movie output times
    logical :: l_TO           ! Switch for TO output in TOnhs.TAG, TOshs.TAG
    logical :: l_TOmovie      ! Switch for TO movie output
+   logical :: l_gw           ! Switch for gravitational wave outputs in gwPressure.TAG, gwEntropy.TAG
    logical :: l_hel          ! Switch for helicity calculation, output in misc.TAG
    logical :: l_anel         ! Switch for anelastic calculation
    logical :: l_isothermal   ! Switch for isothermal calculation

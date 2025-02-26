@@ -24,7 +24,7 @@ module step_time_mod
        &            l_TOmovie, l_r_field, l_cmb_field, l_HTmovie,      &
        &            l_DTrMagSpec, lVerbose, l_b_nl_icb, l_par,         &
        &            l_b_nl_cmb, l_FluxProfs, l_ViscBcCalc, l_perpPar,  &
-       &            l_HT, l_dtBmovie, l_heat, l_conv, l_movie,         &
+       &            l_HT, l_dtBmovie, l_heat, l_conv, l_movie, l_gw,   &
        &            l_runTimeLimit, l_save_out, l_bridge_step,         &
        &            l_dt_cmb_field, l_chemical_conv, l_mag_kin, l_hemi,&
        &            l_power, l_double_curl, l_PressGraph, l_probe,     &
@@ -50,6 +50,7 @@ module step_time_mod
        &                  n_r_fields, dt_r_field, t_r_field, n_TO_step,   &
        &                  n_TOs, dt_TO, t_TO, n_probe_step, n_probe_out,  &
        &                  dt_probe, t_probe, log_file, n_log_file,        &
+       &                  n_gw_step, n_gws, dt_gw, t_gw,                  &
        &                  n_time_hits
    use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp, b_ghost, aj_ghost, &
        &                  get_mag_rhs_imp_ghost, fill_ghosts_B
@@ -130,6 +131,7 @@ contains
       logical :: lPressCalc,lPressNext,lP00Next,lP00Transp
       logical :: lMat, lMatNext   ! update matrices
       logical :: l_probe_out      ! Sensor output
+      logical :: l_gw_out         ! gw output
 
       !-- Timers:
       type(timer_type) :: rLoop_counter, lmLoop_counter, comm_counter
@@ -337,6 +339,10 @@ contains
          l_store= l_new_rst_file .or.                                            &
          &             l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
          &                            0,n_stores,0.0_cp,t_rst)
+
+         l_gw_out = l_gw .and.                                                   &
+              & l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
+              &                       n_gw_step,n_gws,dt_gw,t_gw)
 
          l_log= l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
          &                            n_log_step,n_logs,dt_log,t_log)
@@ -673,11 +679,12 @@ contains
                call io_counter%start_count()
                if ( l_parallel_solve .and. (l_log .or. l_spectrum .or. lTOCalc .or. &
                &    l_dtB .or. l_cmb .or. l_r .or. lOnsetCalc .or. l_pot .or.       &
-               &    l_store .or. l_frame) ) then
+               &    l_store .or. l_frame .or. l_gw_out) ) then
                   call transp_Rloc_to_LMloc_IO(lPressCalc .or. lP00Transp)
                end if
                call output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,       &
                     &      l_graph,lRmsCalc,l_store,l_new_rst_file,lOnsetCalc,     &
+                    &      l_gw_out,                                               &
                     &      l_spectrum,lTOCalc,lTOframe,                            &
                     &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                   &
                     &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc)

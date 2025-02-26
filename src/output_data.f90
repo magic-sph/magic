@@ -26,6 +26,7 @@ module output_data
    real(cp), public :: t_TOmovie_start,t_TOmovie_stop,dt_TOmovie
    real(cp), public :: t_pot_start,t_pot_stop,dt_pot
    real(cp), public :: t_probe_start,t_probe_stop,dt_probe
+   real(cp), public :: t_gw_start,t_gw_stop,dt_gw
    integer, public :: n_graph_step,n_graphs
    integer, public :: n_rst_step,n_rsts,n_stores
    integer, public :: n_log_step,n_logs
@@ -37,6 +38,7 @@ module output_data
    integer, public :: n_TOmovie_step,n_TOmovie_frames
    integer, public :: n_pot_step,n_pots
    integer, public :: n_probe_step,n_probe_out
+   integer, public :: n_gw_step,n_gws,n_t_gw
    integer, public, parameter :: n_time_hits=30 ! Maximum number of specific times for I/O in input namelist
    real(cp), allocatable, public ::  t_graph(:)
    real(cp), allocatable, public ::  t_rst(:)
@@ -49,6 +51,8 @@ module output_data
    real(cp), allocatable, public ::  t_TOmovie(:)
    real(cp), allocatable, public ::  t_pot(:)
    real(cp), allocatable, public ::  t_probe(:)
+   real(cp), allocatable, public ::  t_gw(:)
+
 
    !----- Output radii and degrees for coeff files:
    integer, public :: n_coeff_r_max
@@ -89,13 +93,14 @@ contains
       allocate(t_spec(n_time_hits), t_cmb(n_time_hits), t_r_field(n_time_hits))
       allocate(t_movie(n_time_hits), t_pot(n_time_hits), t_TO(n_time_hits))
       allocate(t_TOmovie(n_time_hits), t_probe(n_time_hits))
+      allocate(t_gw(n_time_hits))
       bytes_allocated=bytes_allocated+11*n_time_hits*SIZEOF_DEF_REAL
 
       !-- Fill with negative values
       t_graph(:)  =-one; t_rst(:)    =-one; t_log(:)    =-one
       t_spec(:)   =-one; t_cmb(:)    =-one; t_r_field(:)=-one
       t_movie(:)  =-one; t_pot(:)    =-one; t_TO(:)     =-one
-      t_TOmovie(:)=-one; t_probe(:)  =-one
+      t_TOmovie(:)=-one; t_probe(:)  =-one; t_gw(:)     =-one
 
    end subroutine initialize_output_data
 !-----------------------------------------------------------------------------------

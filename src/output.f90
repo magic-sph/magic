@@ -24,7 +24,7 @@ module output_mod
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,          &
        &            l_chemical_conv, l_movie, l_full_sphere, l_spec_avg,      &
        &            l_phase_field, l_hemi, l_dtBmovie, l_phaseMovie,          &
-       &            l_dtPhaseMovie, l_geosMovie
+       &            l_dtPhaseMovie, l_geosMovie, l_gw
    use fields, only: omega_ic, omega_ma, b_ic,db_ic, aj_ic,                  &
        &             w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,        &
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
@@ -43,7 +43,7 @@ module output_mod
    use output_data, only: tag, l_max_cmb, n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three, zero
    use outMisc_mod, only: outHeat, outHelicity, outHemi, outPhase, get_onset, &
-       &                  calc_melt_frame
+       &                  calc_melt_frame, outGWentropy, outGWpressure
    use geos, only: outGeos, outOmega, calc_geos_frame
    use outRot, only: write_rot
    use integration, only: rInt_R
@@ -209,6 +209,7 @@ contains
 !----------------------------------------------------------------------------
    subroutine output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,    &
               &      l_graph,lRmsCalc,l_store,l_new_rst_file,lOnsetCalc,  &
+              &      l_gw_out,                                            &
               &      l_spectrum,lTOCalc,lTOframe,l_frame,n_frame,l_cmb,   &
               &      n_cmb_sets,l_r,lorentz_torque_ic,lorentz_torque_ma,  &
               &      dbdt_CMB_LMloc)
@@ -226,6 +227,7 @@ contains
       logical,             intent(in) :: l_new_rst_file, l_spectrum
       logical,             intent(in) :: lTOCalc,lTOframe
       logical,             intent(in) :: l_frame, l_cmb, l_r
+      logical,             intent(in) :: l_gw_out
       integer,             intent(inout) :: n_frame
       integer,             intent(inout) :: n_cmb_sets
 
@@ -457,6 +459,13 @@ contains
          else
             dlB=0.0_cp
             dmB=0.0_cp
+         end if
+      end if
+
+      if ( l_gw_out ) then
+         call outGWpressure(timeScaled,p_LMloc)
+         if ( l_heat .or. l_chemical_conv ) then
+            call outGWentropy(timeScaled,s_LMloc)
          end if
       end if
 

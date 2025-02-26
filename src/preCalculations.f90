@@ -23,7 +23,7 @@ module preCalculations
        &            l_cmb_field, l_save_out, l_TO, l_TOmovie, l_r_field, &
        &            l_movie, l_LCR, l_dt_cmb_field, l_non_adia,          &
        &            l_temperature_diff, l_chemical_conv, l_probe,        &
-       &            l_precession, l_finite_diff, l_full_sphere
+       &            l_precession, l_finite_diff, l_full_sphere, l_gw
    use radial_data, only: radial_balance
    use radial_functions, only: rscheme_oc, temp0, r_CMB, ogrun,            &
        &                       r_surface, visc, or2, r, r_ICB, dLtemp0,    &
@@ -833,6 +833,11 @@ contains
       if ( l_probe ) then
          call get_hit_times(t_probe,t_probe_start,t_probe_stop,dt_probe, &
               &             n_probe_out,n_probe_step,'probe',time,tScale)
+      end if
+
+      if ( l_gw ) then
+         call get_hit_times(t_gw,t_gw_start,t_gw_stop,dt_gw,  &
+              &             n_gws,n_gw_step,'gw',time,tScale)
       end if
 
       if ( l_cmb_field ) then
