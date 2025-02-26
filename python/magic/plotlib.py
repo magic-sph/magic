@@ -246,7 +246,7 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
         ax.set_title(label, fontsize=24)
     else:
         if cbar:
-            fig = plt.figure(figsize=(6.5,5))
+            fig = plt.figure(figsize=(5,4))
             ax = fig.add_axes([0.01, 0.01, 0.76, 0.98])
         else:
             fig = plt.figure(figsize=(5, 5))
@@ -335,17 +335,18 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
         if title and label is not None:
             cax = fig.add_axes([0.85, 0.46-0.7*h/2., 0.03, 0.7*h])
         else:
-            cax = fig.add_axes([0.85, 0.5-0.7*h/2., 0.03, 0.7*h])
+            cax = fig.add_axes([0.85, 0.51-0.7*h/2., 0.05, 0.7*h])
+            #cax = fig.add_axes([0.9, 0.51-0.7*h/2., 0.03, 0.7*h])
         mir = fig.colorbar(im, cax=cax)
 
     #To avoid white lines on pdfs
     if not pcolor:
-        for c in im.collections:
+        for c in ax.collections:
             c.set_edgecolor('face')
             if rasterized:
                 c.set_rasterized(True)
 
-    return fig, xx, yy
+    return fig, xx, yy, im
 
 
 def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
@@ -473,7 +474,7 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
 
     # To avoid white lines on pdfs
     if not pcolor:
-        for c in im.collections:
+        for c in ax.collections:
             c.set_edgecolor('face')
             if rasterized:
                 c.set_rasterized(True)
@@ -730,9 +731,9 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
 
     # To avoid white lines on pdfs
     if not pcolor:
-        for c in im.collections:
+        for c in ax.collections:
             c.set_edgecolor('face')
             if rasterized:
                 c.set_rasterized(True)
 
-    return fig, x, y
+    return fig, x, y, im

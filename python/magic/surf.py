@@ -529,9 +529,9 @@ class Surf:
         if cm is None:
             cm = default_cmap(field)
 
-        fig, xx, yy = equatContour(equator, self.gr.radius, self.gr.minc,
-                                   label, levels, cm, normed, vmax, vmin,
-                                   cbar, title, normRad, pcolor=pcolor)
+        fig, xx, yy, im = equatContour(equator, self.gr.radius, self.gr.minc,
+                                       label, levels, cm, normed, vmax, vmin,
+                                       cbar, title, normRad, pcolor=pcolor)
         ax = fig.get_axes()[0]
 
         if ic and data_ic is not None:
