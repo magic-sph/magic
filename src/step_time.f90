@@ -31,7 +31,7 @@ module step_time_mod
        &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix,  &
        &            l_packed_transp, l_rot_ic, l_rot_ma, l_cond_ma,    &
        &            l_parallel_solve, l_mag_par_solve, l_phase_field,  &
-       &            l_onset, l_geosMovie, l_MRI, l_MRICalc, l_gw
+       &            l_onset, l_geosMovie, l_MRI, l_MRICalc, l_gw, l_mag_hel
    use init_fields, only: omega_ic1, omega_ma1
    use radialLoop, only: radialLoopG
    use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage, &
@@ -117,6 +117,7 @@ contains
       logical :: l_r              ! Store coeff at various depths
       logical :: lHelCalc         ! Calculate helicity for output
       logical :: lHemiCalc        ! Calculate hemisphericity for output
+      logical :: lMagHelCalc      ! Calculate magnetic helicity for output
       logical :: lPowerCalc       ! Calculate viscous heating in the physical space
       logical :: lviscBcCalc      ! Calculate horizontal velocity and (grad T)**2
       logical :: lFluxProfCalc    ! Calculate radial flux components
@@ -131,7 +132,6 @@ contains
       logical :: lMat, lMatNext   ! update matrices
       logical :: l_probe_out      ! Sensor output
       logical :: l_gw_out         ! gw output
-      
       !-- Timers:
       type(timer_type) :: rLoop_counter, lmLoop_counter, comm_counter
       type(timer_type) :: mat_counter, tot_counter, io_counter, pure_counter
@@ -159,6 +159,27 @@ contains
 
       !--- Lorentz torques:
       real(cp) :: lorentz_torque_ma,lorentz_torque_ic
+
+      ! PNS
+      ! !-- Arrays for m_outMisc.F90 and m_outPar.F90
+      ! real(cp) :: HelLMr_Rloc(l_max+1,nRstart:nRstop)
+      ! real(cp) :: Hel2LMr_Rloc(l_max+1,nRstart:nRstop)
+      ! real(cp) :: HelnaLMr_Rloc(l_max+1,nRstart:nRstop)
+      ! real(cp) :: Helna2LMr_Rloc(l_max+1,nRstart:nRstop)
+      ! real(cp) :: viscLMr_Rloc(l_max+1,nRstart:nRstop)
+      ! real(cp) :: magHelLMr_Rloc(l_max+1,nRstart:nRstop)
+      ! real(cp) :: uhLMr_Rloc(l_max+1,nRstart:nRstop)
+      ! real(cp) :: duhLMr_Rloc(l_max+1,nRstart:nRstop)
+      ! real(cp) :: gradsLMr_Rloc(l_max+1,nRstart:nRstop)
+      ! real(cp) :: fconvLMr_Rloc(l_max+1,nRstart:nRstop)
+      ! real(cp) :: fkinLMr_Rloc(l_max+1,nRstart:nRstop)
+      ! real(cp) :: fviscLMr_Rloc(l_max+1,nRstart:nRstop)
+      ! real(cp) :: fpoynLMr_Rloc(l_maxMag+1,nRstartMag:nRstopMag)
+      ! real(cp) :: fresLMr_Rloc(l_maxMag+1,nRstartMag:nRstopMag)
+      ! real(cp) :: EperpLMr_Rloc(l_max+1,nRstart:nRstop)
+      ! real(cp) :: EparLMr_Rloc(l_max+1,nRstart:nRstop)
+      ! real(cp) :: EperpaxiLMr_Rloc(l_max+1,nRstart:nRstop)
+      ! real(cp) :: EparaxiLMr_Rloc(l_max+1,nRstart:nRstop)
 
       !--- Nonlinear magnetic boundary conditions needed in s_updateB.f :
       complex(cp) :: br_vt_lm_cmb(lm_max)    ! product br*vt at CMB
@@ -344,7 +365,6 @@ contains
          & l_correct_step(n_time_step-1,time,timeLast,n_time_steps,              &
          &                       n_gw_step,n_gws,n_t_gw,t_gw,0)
 
-         
          l_log= l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
          &                            n_log_step,n_logs,n_t_log,t_log,0)
          l_cmb= l_cmb_field .and.                                                &
@@ -423,6 +443,7 @@ contains
          lFluxProfCalc=l_FluxProfs  .and. l_log
          lViscBcCalc  =l_ViscBcCalc .and. l_log
          lOnsetCalc   =l_onset      .and. (l_log .or. l_logNext)
+         lMagHelCalc  =l_mag_hel    .and. l_log
 
          l_HT  = (l_frame .and. l_movie) .or. lViscBcCalc
          lPressCalc=lRmsCalc .or. ( l_PressGraph .and. l_graph )  &
@@ -482,6 +503,7 @@ contains
             lPerpParCalc  = lPerpParCalc  .and. (tscheme%istage==1) .and. (.not. l_onset)
             lGeosCalc     = lGeosCalc     .and. (tscheme%istage==1) .and. (.not. l_onset)
             l_probe_out   = l_probe_out   .and. (tscheme%istage==1) .and. (.not. l_onset)
+            lMagHelCalc   = lMagHelCalc   .and. (tscheme%istage==1) .and. (.not. l_onset)
 
             if ( tscheme%l_exp_calc(n_stage) ) then
 
@@ -542,6 +564,24 @@ contains
                        &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,dtrkc_Rloc,   &
                        &           dthkc_Rloc)
                end if
+! ======= PNS
+!                call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,           &
+!                     &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
+!                     &           lMagHelCalc,                                       &
+!                     &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,         &
+!                     &           lViscBcCalc,lFluxProfCalc,lperpParCalc,l_probe_out,&
+!                     &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,&
+!                     &           dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,dVxBhLM_Rloc,     &
+!                     &           dVSrLM_Rloc,dVXirLM_Rloc,                          &
+!                     &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,  &
+!                     &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelLMr_Rloc,&
+!                     &           Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,         &
+!                     &           viscLMr_Rloc,magHelLMr_Rloc,                       &
+!                     &           uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,              &
+!                     &           fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,          &
+!                     &           fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,          &
+!                     &           EparLMr_Rloc,EperpaxiLMr_Rloc,EparaxiLMr_Rloc,     &
+!                     &           dtrkc_Rloc,dthkc_Rloc)
                call rLoop_counter%stop_count()
 
                if ( lVerbose ) write(output_unit,*) '! r-loop finished!'
@@ -688,6 +728,18 @@ contains
                     &      l_spectrum,lTOCalc,lTOframe,                            &
                     &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                   &
                     &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,l_gw_out)
+!======= PNS
+!               call output(time,tscheme,n_time_step,l_stop_time,l_pot,l_log,     &
+!                    &      l_graph,lRmsCalc,l_store,l_new_rst_file,l_gw_out,     &
+!                    &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,                &
+                    ! &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                 &
+                    ! &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,   &
+                    ! &      HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,&
+                    ! &      viscLMr_Rloc,magHelLMr_Rloc,                          &
+                    ! &      uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,                 &
+                    ! &      fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,             &
+                    ! &      fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,EparLMr_Rloc,&
+                    ! &      EperpaxiLMr_Rloc,EparaxiLMr_Rloc)
                call io_counter%stop_count()
                if ( lVerbose ) write(output_unit,*) "! output finished"
 

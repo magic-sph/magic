@@ -8,10 +8,10 @@ module output_data
    implicit none
 
    private
- 
+
    !----- Identification of run:
    character(len=64), public :: runid
- 
+
    !----- Output time control:
    real(cp), public :: t_graph_start,t_graph_stop,dt_graph
    real(cp), public :: t_rst_start,t_rst_stop,dt_rst
@@ -34,7 +34,7 @@ module output_data
    integer, public :: n_movie_step,n_movie_frames,n_t_movie
    integer, public :: n_TO_step,n_TOs,n_t_TO
    integer, public :: n_TOmovie_step,n_TOmovie_frames,n_t_TOmovie
-   integer, public :: n_pot_step,n_pots,n_t_pot      
+   integer, public :: n_pot_step,n_pots,n_t_pot
    integer, public :: n_probe_step,n_probe_out,n_t_probe
    integer, public :: n_gw_step,n_gws,n_t_gw
    integer, public, parameter :: n_time_hits=5000
@@ -50,7 +50,7 @@ module output_data
    real(cp), public ::  t_pot(n_time_hits)
    real(cp), public ::  t_probe(n_time_hits)
    real(cp), public ::  t_gw(n_time_hits)
- 
+
    !----- Output radii and degrees for coeff files:
    integer, public :: n_coeff_r_max
    integer, public, allocatable :: n_coeff_r(:)
@@ -61,10 +61,10 @@ module output_data
    integer, public :: l_max_r
    integer, public :: n_r_step
    integer, public :: m_max_modes
- 
+
    !----- Output files:
    integer, public :: n_log_file
- 
+
    character(len=55), public :: tag
    character(len=72), public :: log_file
    character(len=72), public :: lp_file

@@ -109,7 +109,7 @@ contains
       &    amp_s1,amp_s2,amp_v1,amp_b1, init_xi1, init_xi2,    &
       &    amp_xi1, amp_xi2, init_phi,q_rot,pertur_z,pertur_w, &
       &    init_b_length_min,init_b_length_max,init_b_index,   &
-      &    rand_num, norm_ome, force_z_vol, tau 
+      &    rand_num, norm_ome, force_z_vol, tau
 
       namelist/output_control/                                 &
       &    n_graph_step,n_graphs,t_graph,                      &
@@ -139,7 +139,13 @@ contains
       &    r_probe,theta_probe,n_phi_probes,n_probe_step,      &
       &    n_probe_out,t_probe_start,t_probe_stop,dt_probe,    &
       &    l_earth_likeness,l_max_comp,l_geo,l_2D_spectra,     &
-      &    l_2D_RMS, l_spec_avg,l_gw, l_MRI
+      &    l_2D_RMS, l_spec_avg, l_MRI, l_mag_hel, l_gw,       &
+      &    n_gw_step, n_gws, t_gw_start, t_gw_stop, dt_gw
+!      &    dt_movie,n_TO_step,n_TOs,t_TO,t_TO_start,t_TO_stop,& !PNS
+!      &    dt_TO,n_TOZ_step,n_TOZs,t_TOZ,t_TOZ_start,         &
+!      &    t_TOZ_stop,dt_TOZ,n_TOmovie_step,n_TOmovie_frames, &
+ !     &    l_dt_cmb_field,l_max_cmb,l_r_field,l_r_fieldT,     &
+ !     &    l_earth_likeness,l_max_comp,l_2D_spectra,l_2D_RMS, &
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
       &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
@@ -421,7 +427,7 @@ contains
          l_rot_ma =.false.
          l_onset  =.false.
       end if
-      
+
       if ( m_min > 0 .and. mode /= 5 ) then
          call abortRun('! m_min>0 is for now only compatible with onset mode=5')
       end if
@@ -607,13 +613,45 @@ contains
          nVarDiff=6
          radratio    = 0.10D0
          r_cut_model = 1.0D0
-      
+
       else if ( index(interior_model, 'MESA_5M_ZAMS') /= 0 ) then
          l_anel=.true.
+      else if ( index(interior_model, 'PNS_0V2S') /= 0 ) then
+         ! Proto-Neutron Star interior model
+         ! at time 0.2s
+         l_anel=.true.
+         ! nVarVisc=5
+         ! nVarDiff=8
+         radratio    = 0.5D0
+         r_cut_model = 1.0D0
+      else if ( index(interior_model, 'PNS_1S') /= 0 ) then
+         ! Proto-Neutron Star interior model
+         ! at time 1s
+         l_anel=.true.
+         radratio    = 0.60D0
+         r_cut_model = 1.0D0
+      else if ( index(interior_model, 'PNS_2S') /= 0 ) then
+         ! Proto-Neutron Star interior model
+         ! at time 2s
+         l_anel=.true.
+         radratio    = 0.40D0
+         r_cut_model = 1.0D0
+      else if ( index(interior_model, 'PNS_5S') /= 0 ) then
+         ! Proto-Neutron Star interior model
+         ! at time 5s
+         l_anel=.true.
+         radratio    = 0.10D0
+         r_cut_model = 1.0D0
       end if
 
       !-- If anelastic, the curl formulation is set to .false.
       if ( l_anel ) l_adv_curl=.false.
+
+#ifndef WITH_SHTNS
+      if ( l_mag_hel) then
+         call abortRun('! magnetic helicity not implemented with native transforms! Rerun with SHTns')
+      end if
+#endif
 
       if ( prmag == 0.0_cp ) then
          l_mag   =.false.
@@ -699,6 +737,7 @@ contains
          l_mag_nl =.false.
          l_cond_ic=.false.
          lMagMem  =0
+         l_mag_hel = .false.
       end if
 
       if ( l_corrMov ) l_par= .true.
@@ -1242,6 +1281,11 @@ contains
       write(n_out,'(''  t_movie_start   ='',ES14.6,'','')') t_movie_start
       write(n_out,'(''  t_movie_stop    ='',ES14.6,'','')') t_movie_stop
       write(n_out,'(''  dt_movie        ='',ES14.6,'','')') dt_movie
+      write(n_out,'(''  n_gw_step       ='',i5,'','')') n_gw_step
+      write(n_out,'(''  n_gws           ='',i5,'','')') n_gws
+      write(n_out,'(''  t_gw_start      ='',ES14.6,'','')') t_gw_start
+      write(n_out,'(''  t_gw_stop       ='',ES14.6,'','')') t_gw_stop
+      write(n_out,'(''  dt_gw           ='',ES14.6,'','')') dt_gw
       do n=1,n_movies_max
          length=len_trim(movie(n))
          if ( length > 0 ) then
@@ -1278,8 +1322,8 @@ contains
       write(n_out,'(''  l_max_comp      ='',i3,'','')') l_max_comp
       write(n_out,'(''  l_geo           ='',i3,'','')') l_geo
       write(n_out,'(''  l_hel           ='',l3,'','')') l_hel
+      write(n_out,'(''  l_mag_hel       ='',l3,'','')') l_mag_hel
       write(n_out,'(''  l_gw            ='',l3,'','')') l_gw
-      write(n_out,'(''  l_hemi          ='',l3,'','')') l_hemi
       write(n_out,'(''  l_AM            ='',l3,'','')') l_AM
       write(n_out,'(''  l_power         ='',l3,'','')') l_power
       write(n_out,'(''  l_viscBcCalc    ='',l3,'','')') l_viscBcCalc
@@ -1491,7 +1535,7 @@ contains
       l_tidal    =.False.
       w_orbit    =0.0
       amp_tidal  =0.0
-      
+
       ktopb      =1
       kbotb      =1
       ktopp      =1
@@ -1710,6 +1754,14 @@ contains
       t_TOmovie_stop  =0.0_cp
       dt_TOmovie      =0.0_cp
 
+      !----- Output GW:
+      l_gw          =.false. ! Gravitational wave outputs in gwPressure.TAG, gwEntropy.TAG
+      n_gw_step     =1       ! Do not change this value
+      n_gws         =0
+      t_gw_start    =0.0_cp
+      t_gw_stop     =0.0_cp
+      dt_gw         =0.0_cp
+
       !----- Times for different output:
       do n=1,n_time_hits
          t_graph(n)  =-one
@@ -1723,6 +1775,7 @@ contains
          t_TO(n)     =-one
          t_TOmovie(n)=-one
          t_probe     =-one
+         t_gw(n)     =-one
       end do
 
       !----- Magnetic spectra for different depths

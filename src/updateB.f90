@@ -629,7 +629,7 @@ contains
       !$omp end single
 
 !       WRITE (*,*) "Before dealiazing",rank
-      
+
       !-- Set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       !   for inner core modes > 2*n_cheb_ic_max = 0
       !$omp do private(n_r_out,lm1) collapse(2)
@@ -1823,7 +1823,7 @@ contains
       !   we thus have to construct bmat and ajmat for each l:
 
 !      write (*,*) "in get_bMat",rank
-      
+
       l_P_1=real(l+1,kind=cp)
 
       do nR_out=1,n_r_max

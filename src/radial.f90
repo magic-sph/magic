@@ -60,8 +60,8 @@ module radial_functions
    real(cp), public, allocatable :: dLalpha0(:)  ! :math:`1/\alpha d\alpha/dr`
    real(cp), public, allocatable :: ddLalpha0(:) ! :math:`d/dr(1/alpha d\alpha/dr)`
    real(cp), public, allocatable :: ogrun(:)     ! :math:`1/\Gamma`
-   real(cp), public, allocatable :: drag0(:)     ! Radiative drag neutrinos          
-   
+   real(cp), public, allocatable :: drag0(:)     ! Radiative drag neutrinos
+
    real(cp), public :: dr_fac_ic                 ! For IC: :math:`2/(2 r_i)`
    real(cp), public :: alpha1   ! Input parameter for non-linear map to define degree of spacing (0.0:2.0)
    real(cp), public :: alpha2   ! Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
@@ -264,7 +264,7 @@ contains
          r_cmb=one/(one-radratio)
          r_icb=r_cmb-one
       end if
-      
+
       if ( .not. l_finite_diff ) then
          ratio1=alph1
          ratio2=alph2
@@ -505,6 +505,20 @@ contains
          call polynomialBackground(coeffDens,coeffTemp)
          deallocate( coeffDens, coeffTemp)
 
+      else if ( index(interior_model,'PNS_2S') /= 0 ) then
+         allocate( coeffDens(6), coeffTemp(6) , coeffGrav(6) )
+         coeffDens = [14.5649560668_cp, -26.1462235672_cp, 52.8432513624_cp, &
+              -82.837369536_cp, 58.2910747189_cp, -15.7212352085_cp]
+
+         coeffTemp = [-6.33078724295_cp, 74.0516826175_cp, -202.268812325_cp, &
+              258.6129266_cp, -161.782859987_cp, 38.7217973339_cp]
+
+         coeffGrav = [0.0961974297099_cp, 3.06791065527_cp, 3.91870769838_cp, &
+              -14.5167546463_cp, 11.5773447456_cp, -3.14354794653_cp]
+
+         call polynomialBackground(coeffDens,coeffTemp,coeffGrav)
+         deallocate( coeffDens, coeffTemp, coeffGrav )
+
       else if ( index(interior_model,'PNS_5S') /= 0 ) then
          allocate( coeffDens(6), coeffTemp(6) )
          coeffDens = [5.56892773949_cp, -0.532496149403_cp, -1.63704759716_cp, &
@@ -690,7 +704,7 @@ contains
          if (ra*dentropy0(1)<0) then
             dentropy0(:) = -dentropy0(:)
          end if
-         
+
          rgrav(:)=rgrav(:)*alpha0(:)*temp0(:)
          call get_dr(temp0,dtemp0,n_r_max,rscheme_oc)
          dLtemp0(:)=dtemp0(:)/temp0(:)
@@ -714,10 +728,9 @@ contains
          if (l_drag) then
             drag0(:) = (6000.0_cp*(0.5390537718711352_cp*temp0)**6)*1.7342490808689306_cp !damping rate in viscous units
          end if
-         
+
          deallocate( coeffDens, coeffTemp, coeffGrav, coeffDentropy,coeffAlpha,coeffGrun)
 
-         
       else if ( index(interior_model,'EARTH') /= 0 ) then
          DissNb =0.3929_cp ! Di = \alpha_O g d / c_p
          ThExpNb=0.0566_cp ! Co = \alpha_O T_O
@@ -1197,7 +1210,7 @@ contains
              dLlambda=dsigma/lambda
           else if ( nVarCond == 5 ) then
              ! 'PNS magnetic diffusivity profile'
-             ! this formula assume generate protons
+             ! this formula assume degenerate protons
              lambda = temp0**2/rho0**(3./2.)
              sigma = one/lambda
              call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
@@ -1212,8 +1225,54 @@ contains
              sigma = one/lambda
              call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
              dLlambda=dsigma/lambda
+          else if ( nVarCond == 7 ) then
+             ! PNS magnetic diffusivity profile
+             ! Thompson & Duncan, ApJ (1993)
+             ! lambda \propto (\rho Y_e)**(-1/3)
+             if ( index(interior_model, 'PNS_5S') /= 0 ) then
+                !! Y_e polynomial fit
+                a0 = 3.6070973312516563
+                a1 = 0.024205264127999757
+                a2 = -1.623849893276523
+                a3 = 1.9655839620692974
+                a4 = -2.9551512201779615
+                do n_r=1,n_r_max
+                   rrOcmb = r(n_r)/r_cmb*r_cut_model
+                   lambda(n_r)= (rho0(n_r)*(a0 + a1*rrOcmb + a2*rrOcmb**2 + a3*rrOcmb**3 + a4*rrOcmb**4))**(-1./3.)
+                end do
+             else
+                call abortRun('Conductivity profile not defined at this time')
+             end if
+             lambda = lambda/lambda(1)
+             sigma = one/lambda
+             call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
+             dLlambda=dsigma/lambda
+          else if ( nVarCond == 8 ) then ! fit PNS magnetic diffusivity
+             if ( index(interior_model, 'PNS_2S') /= 0 ) then
+                a0 = -29.3468638288
+                a1 = 335.929657508
+                a2 = -1617.65787705
+                a3 = 4286.501036
+                a4 = -6746.07848196
+                a5 = 6308.95415428
+                a6 = -3247.58459547
+                a7 = 710.280067712
+             else
+                call abortRun('Conductivity profile not defined')
+             end if
+             do n_r=1,n_r_max
+                rrOcmb = r(n_r)/r_cmb*r_cut_model
+                lambda(n_r)= a0 + a1*rrOcmb    + a2*rrOcmb**2 &
+                     + a3*rrOcmb**3 + a4*rrOcmb**4 &
+                     + a5*rrOcmb**5 + a6*rrOcmb**6 &
+                     + a7*rrOcmb**7
+             end do
+             lambda = lambda/lambda(1)
+             sigma = one/lambda
+             call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
+             dLlambda=dsigma/lambda
           end if
-      end if
+       end if
 
       !-- Variable thermal diffusivity
       if ( l_heat ) then
@@ -1305,19 +1364,19 @@ contains
             &         (-half*ampKap + half)*tanh(slopeKap*(r - rStrat)) + half)* &
             &         (half*ampKap + (half*ampKap - half)*tanh(slopeKap*(r -     &
             &         rStrat - thickStrat)) + half))
-         else if ( nVarDiff == 7 ) then ! Bottom stratified
-            ampKap = 10.0_cp
-            slopeKap = 30.0_cp
-            if ( rStrat <= r_icb ) then
-               kappa(:) = one
-            else
-               kappa(:)=(half*(ampKap-one)*tanh(slopeKap* &
-                    &       (r(:)-rStrat))+half*(ampKap+one))/ampKap
-            end if
-            dLkappa(:)=slopeKap*(half*ampKap-half)*(-tanh(slopeKap*(r(:)-rStrat))**2&
-                 &         +one)/(half*ampKap+(half*ampKap-half)*tanh(slopeKap*(r(:)-    &
-                 &         rStrat))+half)
-         else if (nVarDiff == 8) then ! PNS thermal diffusivity
+          else if ( nVarDiff == 7 ) then ! Bottom stratified
+             ampKap = 10.0_cp
+             slopeKap = 30.0_cp
+             if ( rStrat <= r_icb ) then
+                kappa(:) = one
+             else
+                kappa(:)=(half*(ampKap-one)*tanh(slopeKap* &
+                &       (r(:)-rStrat))+half*(ampKap+one))/ampKap
+             end if
+             dLkappa(:)=slopeKap*(half*ampKap-half)*(-tanh(slopeKap*(r(:)-rStrat))**2&
+             &         +one)/(half*ampKap+(half*ampKap-half)*tanh(slopeKap*(r(:)-    &
+             &         rStrat))+half)
+         else if (nVarDiff == 8) then ! fit PNS thermal diffusivity
             ! warning: reversed order for coefficients a_i
             ! compared to nVarDiff==3 above
             if ( index(interior_model,'PNS_0V2S') /= 0 ) then
@@ -1338,6 +1397,15 @@ contains
                a5 = 160897.639922
                a6 = -70265.4062536
                a7 = 13117.1344588
+            else if ( index(interior_model, 'PNS_2S') /= 0 ) then
+               a0 = -95.9735911526
+               a1 = 1087.08663925
+               a2 = -5203.4624924
+               a3 = 13653.9408117
+               a4 = -21218.8320365
+               a5 = 19540.2406991
+               a6 = -9879.84517647
+               a7 = 2117.83593177
             else if ( index(interior_model, 'PNS_5S') /= 0 ) then
                a0 = 0.0556428940038
                a1 = 1.57277204681
@@ -1361,8 +1429,23 @@ contains
             kappa=kappa/kappatop
             call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
             dLkappa=dkappa/kappa
+         else if ( nVarDiff == 9 ) then
+            ! PNS thermal diffusivity
+            ! approximation given by Thompson & Duncan (93), Eq. 7
+            kappa = otemp1*rho0**(-2.0/3.0)
+            kappatop=kappa(1) ! normalise by the value at the top
+            kappa=kappa/kappatop
+            call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
+            dLkappa=dkappa/kappa
+         else if ( nVarDiff == 10 ) then
+            ! PNS thermal diffusivity
+            ! approximation given by Thompson & Duncan (93), Eq. 7
+            kappa = rho0**(-4.0/3.0)
+            kappatop=kappa(1) ! normalise by the value at the top
+            kappa=kappa/kappatop
+            call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
+            dLkappa=dkappa/kappa
          end if
-
       end if
 
       !-- Eps profiles
@@ -1498,11 +1581,12 @@ contains
 !         dsigma  =-a*b/cosh(b*(r0-r))
 !         visc  =one/(a*tanh(b*(r0-r))+c)
 !         dLvisc=(a*b/(cosh(b*(r0-r))))/(a*tanh(b*(r0-r))+c)
-      else if ( nVarVisc == 5 ) then
-         ! Neutrino viscosity for PNS model
+      else if ( nVarVisc == 5 ) then ! neutrino viscosity
+         ! Neutrino viscosity
          ! Guilet et al, MNRAS 447, 3992-4003 (2015)
          ! Eq. (10)
          visc = temp0**2*rho0**(-2)
+         visc = visc/visc(1)
          call get_dr(visc,dvisc,n_r_max,rscheme_oc)
          dLvisc(:)=dvisc(:)/visc(:)
          call get_dr(dLvisc,ddLvisc,n_r_max,rscheme_oc)
@@ -1525,7 +1609,7 @@ contains
      integer :: n_r, i
      real(cp), allocatable :: coeffdEntropy0(:)
      real(cp) :: N_profile(n_r_max)
-     
+
       if ( nVarEntropyGrad == 0 ) then ! Default: isentropic
          dEntropy0(:)=0.0_cp
          l_non_adia = .false.

@@ -16,14 +16,14 @@ module output_mod
    use physical_parameters, only: opm,ek,ktopv,prmag,nVarCond,LFfac,ekScaled
    use num_param, only: tScale,eScale
    use blocking, only: st_map, lm2, lo_map, llm, ulm, llmMag, ulmMag
-   use horizontal_data, only: hdif_B, dPl0Eq
+   use horizontal_data, only: hdif_B, dPl0Eq !PNS
    use logic, only: l_average, l_mag, l_power, l_anel, l_mag_LF, lVerbose,    &
        &            l_dtB, l_RMS, l_r_field, l_r_fieldT, l_r_fieldXi,         &
        &            l_SRIC, l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,  &
        &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,       &
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,          &
        &            l_chemical_conv, l_movie, l_full_sphere, l_spec_avg,      &
-       &            l_phase_field, l_hemi, l_MRI, l_gw  
+       &            l_phase_field, l_hemi, l_MRI, l_gw, l_mag_hel
    use fields, only: omega_ic, omega_ma, b_ic,db_ic, ddb_ic, aj_ic, dj_ic,   &
        &             w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,        &
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
@@ -44,7 +44,7 @@ module output_mod
    use output_data, only: tag, l_max_cmb,n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three, zero
    use outMisc_mod, only: outHeat, outHelicity, outHemi, outPhase, get_onset, &
-       &                  outGWentropy, outGWpressure
+       &                  outGWentropy, outGWpressure !, outMagneticHelicity !PNS
    use geos, only: outGeos, outOmega
    use outRot, only: write_rot
    use integration, only: rInt_R
@@ -216,6 +216,12 @@ contains
               &      l_spectrum,lTOCalc,lTOframe,l_frame,n_frame,l_cmb,   &
               &      n_cmb_sets,l_r,lorentz_torque_ic,lorentz_torque_ma,  &
               &      dbdt_CMB_LMloc,l_gw_out)
+!======= PNS
+!              &      HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,magHelLMr, &
+!              &      uhLMr,                                               &
+!              &      duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,fpoynLMr,  &
+!              &      fresLMr,EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
+
       !
       !  This subroutine controls most of the output.
       !
@@ -262,6 +268,27 @@ contains
       !    for calculating axisymmetric helicity.
       !    Parallelization note: These fields are R-distribute on input
       !    and must also be collected on the processor performing this routine.
+
+      ! PNS Branch !To check
+      ! real(cp),    intent(in) :: HelLMr(l_max+1,nRstart:nRstop)
+      ! real(cp),    intent(in) :: Hel2LMr(l_max+1,nRstart:nRstop)
+      ! real(cp),    intent(in) :: HelnaLMr(l_max+1,nRstart:nRstop)
+      ! real(cp),    intent(in) :: Helna2LMr(l_max+1,nRstart:nRstop)
+      ! real(cp),    intent(in) :: viscLMr(l_max+1,nRstart:nRstop)
+      ! real(cp),    intent(in) :: magHelLMr(l_max+1,nRstart:nRstop)
+      ! real(cp),    intent(in) :: uhLMr(l_max+1,nRstart:nRstop)
+      ! real(cp),    intent(in) :: gradsLMr(l_max+1,nRstart:nRstop)
+      ! real(cp),    intent(in) :: duhLMr(l_max+1,nRstart:nRstop)
+      ! real(cp),    intent(in) :: fconvLMr(l_max+1,nRstart:nRstop)
+      ! real(cp),    intent(in) :: fkinLMr(l_max+1,nRstart:nRstop)
+      ! real(cp),    intent(in) :: fviscLMr(l_max+1,nRstart:nRstop)
+      ! real(cp),    intent(in) :: fpoynLMr(l_maxMag+1,nRstartMag:nRstopMag)
+      ! real(cp),    intent(in) :: fresLMr(l_maxMag+1,nRstartMag:nRstopMag)
+      ! real(cp),    intent(in) :: EperpLMr(l_max+1,nRstart:nRstop)
+      ! real(cp),    intent(in) :: EparLMr(l_max+1,nRstart:nRstop)
+      ! real(cp),    intent(in) :: EperpaxiLMr(l_max+1,nRstart:nRstop)
+      ! real(cp),    intent(in) :: EparaxiLMr(l_max+1,nRstart:nRstop)
+
       complex(cp), intent(in) :: dbdt_CMB_LMloc(llmMag:ulmMag)
 
       !--- Local stuff:
@@ -447,10 +474,19 @@ contains
             end if
          end if
 
+!======= PNS
+!         if ( l_mag_hel ) then
+!            call outMagneticHelicity(timeScaled,magHelLMr)
+!         end if
+
          if ( l_par ) then
             call outGeos(timeScaled,Geos,GeosA,GeosZ,GeosM,GeosNAP,EC)
             dpV=0.0_cp ! To be handled later
             dzV=0.0_cp
+!======= PNS
+!            call getEgeos(timeScaled,nLogs,w_LMloc,dw_LMloc,ddw_LMloc,    &
+!                 &        z_LMloc,dz_LMloc,Geos,GeosA,GeosZ,GeosM,GeosNA, &
+!                 &        GeosNAP,dpV,dzV,volume,EC)
          else
             Geos   =0.0_cp
             GeosA  =0.0_cp
@@ -469,6 +505,13 @@ contains
          else
             dlB=0.0_cp
             dmB=0.0_cp
+         end if
+      end if
+
+      if ( l_gw_out ) then
+         call outGWpressure(timeScaled,p_LMloc)
+         if ( l_heat .or. l_chemical_conv ) then
+            call outGWentropy(timeScaled,s_LMloc)
          end if
       end if
 
@@ -869,6 +912,7 @@ contains
                GeosAMean  =GeosAMean/timeNormLog
                GeosZMean  =GeosZMean/timeNormLog
                GeosMMean  =GeosMMean/timeNormLog
+               !GeosNAMean =GeosNAMean/timeNormLog !PNS
                GeosNAPMean=GeosNAPMean/timeNormLog
                RelA       =RelA/timeNormLog
                RelZ       =RelZ/timeNormLog

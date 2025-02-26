@@ -12,6 +12,7 @@ module rIteration
 
    private
 
+!<<<<<<< HEAD
    type, abstract, public :: rIter_t
    contains
       procedure(initialize_if), deferred :: initialize
@@ -32,7 +33,7 @@ module rIteration
       end subroutine finalize_if
 
       subroutine radialLoop_if(this,l_graph,l_frame,time,timeStage,tscheme,dtLast, &
-              &                lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,       &
+              &                lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,       & !lMagHelCalc !PNS
               &                lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,         &
               &                lFluxProfCalc,lPerpParCalc,lGeosCalc,lHemiCalc,     &
               &                l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,  &
@@ -43,7 +44,7 @@ module rIteration
          class(rIter_t) :: this
          !--- Input of variables:
          logical,             intent(in) :: l_graph,l_frame
-         logical,             intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc
+         logical,             intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc !, lMagHelCalc !PNS
          logical,             intent(in) :: lPowerCalc,lHemiCalc
          logical,             intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
          logical,             intent(in) :: lRmsCalc,lGeosCalc

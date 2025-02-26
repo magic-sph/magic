@@ -57,6 +57,7 @@ module logic
    logical :: l_MRICalc      ! Switch for MRI output related calculations in radial Loop
    logical :: l_gw           ! Switch for gravitational wave outputs in gwPressure.TAG, gwEntropy.TAG
    logical :: l_hel          ! Switch for helicity calculation, output in misc.TAG
+   logical :: l_mag_hel      ! Switch for magnetic helicity <A,B>, A = vector potential
    logical :: l_anel         ! Switch for anelastic calculation
    logical :: l_isothermal   ! Switch for isothermal calculation
    logical :: l_anelastic_liquid ! Switch for anelastic liquid calculation
@@ -110,5 +111,5 @@ module logic
    logical :: l_tidal !activate tidal force
    logical :: l_tidal_nl !activate non linear terms of equilibrium tides
 
-   
+
 end module logic

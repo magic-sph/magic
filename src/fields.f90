@@ -5,13 +5,14 @@ module fields
    ! LM-distributed arrays and the R-distributed arrays.
    !
    use precision_mod
+   use constants, only: zero
    use mem_alloc, only: bytes_allocated
    use constants, only: zero
    use physical_parameters, only: ampForce
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
        &                 n_r_ic_maxMag, fd_order, fd_order_bound
    use logic, only: l_chemical_conv, l_finite_diff, l_mag, l_parallel_solve, &
-       &            l_mag_par_solve, l_phase_field, l_tidal
+       &            l_mag_par_solve, l_phase_field, l_tidal, l_mag_hel
    use blocking, only: llm, ulm, llmMag, ulmMag
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag
    use parallel_mod, only: rank
@@ -32,7 +33,7 @@ module fields
    complex(cp), public, pointer :: z_Rloc(:,:), dz_Rloc(:,:)
    complex(cp), public, pointer :: z0v_Rloc(:,:), dz0v_Rloc(:,:)
    complex(cp), public, pointer :: z0v_LMloc(:,:)
-   
+
    !-- Entropy:
    complex(cp), public, allocatable, target :: s_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: s_Rloc_container(:,:,:)
@@ -44,7 +45,7 @@ module fields
    complex(cp), public, allocatable, target :: xi_Rloc_container(:,:,:)
    complex(cp), public, pointer :: xi_LMloc(:,:), dxi_LMloc(:,:)
    complex(cp), public, pointer :: xi_Rloc(:,:), dxi_Rloc(:,:)
-   
+
    !-- Phase field
    complex(cp), public, allocatable :: phi_LMloc(:,:), phi_Rloc(:,:)
 
@@ -90,8 +91,8 @@ module fields
    complex(cp), public, allocatable :: dwtidal_Rloc(:,:)
    complex(cp), public, allocatable :: ddwtidal_Rloc(:,:)
 
-   
-   
+   complex(cp), public, allocatable :: zeros_alike_b_Rloc(:) ! trick magnetic helicity
+
    !-- Rotation rates:
    real(cp), public :: omega_ic,omega_ma
 
@@ -253,7 +254,7 @@ contains
          dz_Rloc(1:,nRstart:)  => flow_Rloc_container(1:lm_max,nRstart:nRstop,5)
          z0v_Rloc(1:,nRstart:)   => flow_Rloc_container(1:lm_max,nRstart:nRstop,6)
          dz0v_Rloc(1:,nRstart:)  => flow_Rloc_container(1:lm_max,nRstart:nRstop,7)
-         
+
          !-- Entropy:
          allocate( s_LMloc_container(llm:ulm,n_r_max,1:2) )
          s_LMloc_container(:,:,:)=zero
@@ -340,7 +341,7 @@ contains
          dwtidal_LMloc(:,:)=zero
          ddwtidal_LMloc(:,:)=zero
          wtidal_LMloc(:,:)=zero
-         
+
          allocate( wtidal_Rloc(1:lm_max,nRstart:nRstop) )
          allocate(dwtidal_Rloc(1:lm_max,nRstart:nRstop) )
          allocate(ddwtidal_Rloc(1:lm_max,nRstart:nRstop) )
@@ -348,7 +349,7 @@ contains
          dwtidal_Rloc(:,:)=zero
          wtidal_Rloc(:,:)=zero
          ddwtidal_Rloc(:,:)=zero
-         
+
          bytes_allocated = bytes_allocated + &
          &                 3*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
          bytes_allocated = bytes_allocated + &
@@ -375,7 +376,12 @@ contains
       else ! For debugging
          allocate( phi_LMloc(1:1,1:1), phi_Rloc(1:1,1:1) )
       end if
+      if (l_mag_hel) then
+         allocate(zeros_alike_b_Rloc(1:lm_maxMag))
+         bytes_allocated = bytes_allocated+lm_maxMag*SIZEOF_DEF_COMPLEX
 
+         zeros_alike_b_Rloc(:) = zero
+      end if
 
       !-- Magnetic field potentials in inner core:
       !   NOTE: n_r-dimension may be smaller once CHEBFT is adopted
@@ -455,6 +461,8 @@ contains
          deallocate(bodyForce_LMloc)
          if ( l_parallel_solve ) deallocate(bodyForce_Rloc)
       end if
+      if (l_mag_hel) deallocate(zeros_alike_b_Rloc)
+
    end subroutine finalize_fields
 !----------------------------------------------------------------------------
 end module fields

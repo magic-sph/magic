@@ -51,6 +51,16 @@ contains
       integer :: n
       character(len=72) :: string
 
+       ! DISAPPEARED in master // import !PNS branch
+       ! if ( l_mag ) then
+       !    if ( rank == 0 ) then
+       !       allocate( bICB(lm_max) )
+       !       bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
+       !    else
+       !       allocate( bICB(1) )
+       !    end if
+       ! end if
+
       !-- Coeffs at radial levels:
       allocate ( n_coeff_r(n_coeff_r_max))
       allocate ( n_v_r_file(n_coeff_r_max), v_r_file(n_coeff_r_max) )

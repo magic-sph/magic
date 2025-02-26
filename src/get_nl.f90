@@ -31,9 +31,11 @@ module grid_space_arrays_mod
    use parallel_mod, only: get_openmp_blocks
    use constants, only: two, third, one
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, l_adv_curl, &
-        &            l_chemical_conv, l_precession, l_centrifuge, l_phase_field, l_force_v
+        &           l_chemical_conv, l_precession, l_centrifuge, l_phase_field,   &
+        &           l_force_v, l_mag_hel, l_RMS     !PNS branch
    !use init_fields, only: d2X
-   
+   use time_schemes, only: type_tscheme !PNS branch
+
    implicit none
 
    private
@@ -59,6 +61,7 @@ module grid_space_arrays_mod
       real(cp), allocatable :: cbrc(:,:), cbtc(:,:), cbpc(:,:)
       real(cp), allocatable :: pc(:,:), xic(:,:), cvtc(:,:), cvpc(:,:)
       real(cp), allocatable :: dsdtc(:,:), dsdpc(:,:), phic(:,:)
+      real(cp), pointer :: arc(:,:), atc(:,:), apc(:,:) !PNS branch
 
    contains
 
@@ -160,6 +163,11 @@ contains
       this%dsdpc(:,:) =0.0_cp
       bytes_allocated=bytes_allocated + 22*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
 
+      if ( l_mag_hel) then !PNS
+         allocate( this%arc(nlat_padded,n_phi_max),this%atc(nlat_padded,n_phi_max),this%apc(nlat_padded,n_phi_max) ) !Previously (nrp, nfs)
+         bytes_allocated=bytes_allocated+3*nlat_padded*n_phi_max*SIZEOF_DEF_REAL
+      end if
+
       if ( l_chemical_conv ) then
          allocate( this%xic(nlat_padded,n_phi_max) )
          this%xic(:,:)=0.0_cp
@@ -201,6 +209,8 @@ contains
       if ( l_adv_curl ) deallocate( this%cvtc, this%cvpc )
       if ( l_phase_field ) deallocate( this%phic, this%phiTerms )
       deallocate( this%heatTerms )
+      if ( l_mag_hel ) deallocate ( this%arc, this%atc, this%apc ) !PNS
+      !deallocate( this%ViscHeat, this%OhmLoss ) !PNS
 
       !----- Fields calculated from these help arrays by legtf:
       deallocate( this%vrc,this%vtc,this%vpc )
@@ -329,9 +339,9 @@ contains
             !     this%VSr(:,nPhi)= this%VSr(:,nPhi)+this%vrc(:,nPhi)*d2X(nR)*cphi*sinTheta(:)**2
             !     this%VSt(:,nPhi)= this%VSr(:,nPhi)+or2(nR)*this%vtc(:,nPhi)*d2X(nR)*cphi*sinTheta(:)**2
             !     this%VSp(:,nPhi)= this%VSr(:,nPhi)+or2(nR)*this%vpc(:,nPhi)*d2X(nR)*cphi*sinTheta(:)**2
-            ! end if   
+            ! end if
          end if     ! heat equation required ?
-         
+
          if ( l_chemical_conv .and. nBc == 0 .or. (nBc ==2 .and. l_force_v )) then
             this%VXir(:,nPhi)=this%vrc(:,nPhi)*this%xic(:,nPhi)
             this%VXit(:,nPhi)=or2(nR)*this%vtc(:,nPhi)*this%xic(:,nPhi)
@@ -404,7 +414,7 @@ contains
                   this%VxBt(:,nPhi)=or4(nR)*orho1(nR)*this%vpc(:,nPhi)*this%brc(:,nPhi)
                   this%VxBp(:,nPhi)= 0.0_cp
             end if  ! boundary ?
-               
+
          end if ! l_mag_nl ?
 
          if ( l_anel .and. nBc == 0) then

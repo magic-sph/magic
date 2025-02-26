@@ -104,7 +104,7 @@ contains
       end if
 
       !---- Scale according to scdIFf:
-      
+
       vScale  =lScale/tScale
       pScale  =tScale**2/lScale**2
       eScale  =vScale*vScale/enscale
@@ -435,6 +435,15 @@ contains
 
             tops(0,0)=0.0_cp
             bots(0,0)=sq4pi
+!======= PNS
+!            tops(0,0)=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
+!            bots(0,0)= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
+!
+!         else if ( ktops == 3 .and. kbots == 3 ) then ! Fixed temperature contrast
+!
+!            tops(0,0)=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
+!            bots(0,0)= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
+!>>>>>>> pns
 
          else if ( (ktops==2 .and. kbots==2) .or. (ktops == 4 .and. kbots==4) ) then
 
@@ -523,6 +532,16 @@ contains
                   write(message, '(''! real(bots(0,0))/sq4pi ='',ES16.6)') real(bots(0,0))/sq4pi
                   call logWrite(message)
                end if
+               if ( index(interior_model,'PNS_2S') /= 0 .and. &
+                    ktops==2 .and. kbots==2 ) then
+                  call logWrite('! FIXING bots = f(tops) / epsc==0')
+                  bots(0,0) = r_cmb**2*real(tops(0,0))*topconduc/(r_icb**2*botconduc)
+                  write(message, '(''! real(bots(0,0))       ='',ES16.6)') real(bots(0,0))
+                  call logWrite(message)
+                  write(message, '(''! real(bots(0,0))/sq4pi ='',ES16.6)') real(bots(0,0))/sq4pi
+                  call logWrite(message)
+               end if
+
                epsc=four*pi/pr/facIH *          &
                     (r_icb**2*real(bots(0,0))*botconduc - &
                      r_cmb**2*real(tops(0,0))*topconduc)
@@ -637,6 +656,9 @@ contains
 
             topxi(0,0)=0.0_cp
             botxi(0,0)=sq4pi
+! PNS
+!            topxi(0,0)=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
+!            botxi(0,0)= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
 
          else if ( (ktopxi==2 .and. kbotxi==2) ) then
 
@@ -795,7 +817,7 @@ contains
       l_tidal_nl=.false.
       if (l_tidal) then
          if (raScaled<0) then
-            w_orbit_th=(w_orbit*sqrt(-raScaled*opr)) 
+            w_orbit_th=(w_orbit*sqrt(-raScaled*opr))
             !l_conv_nl=.false.
             !l_heat_nl =.false.
          else if (raScaled>0) then
@@ -815,11 +837,11 @@ contains
          dtMin  =dtMax/1.0e6_cp
          write(output_unit,*) 'dtMax=', dtMax
       end if
-      
+
       write(output_unit,*) 'Tidal orbit freq =', w_orbit_th
       write(output_unit,*) 'Tidal Fac =', tidalFac
-      
-      
+
+
    end subroutine preCalc
 !-------------------------------------------------------------------------------
    subroutine preCalcTimes(time,n_time_step)
