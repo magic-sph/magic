@@ -123,6 +123,9 @@ class Movie2Vtk(Movie):
                 b = tPattern.search(ff[1]+'_'+ff[2]).groups()[1]
                 self.thetaCut = float(a+'.'+b)
 
+        # Get the version
+        self._get_version(os.path.join(datadir, filename))
+
         # Read the movie file
         infile = npfile(os.path.join(datadir, filename), endian='B')
 
@@ -132,7 +135,7 @@ class Movie2Vtk(Movie):
             self.theta = np.linspace(0., np.pi, self.n_theta_max)
 
         # Get the number of lines
-        self._get_nlines(datadir, filename, nvar, lastar)
+        self._get_nlines(datadir, filename, nvar, lastvar)
 
         # Determine the shape of the data
         self._get_data_shape(precision, allocate=False)
@@ -145,7 +148,7 @@ class Movie2Vtk(Movie):
                     prefix = 'AV_mov'
                 elif 'T' in field:
                     prefix = 'ATmov'
-                elif 'C' in field:
+                elif 'C' in field or 'XI' in field:
                     prefix = 'ACmov'
                 tag = filename.split('.')[-1]
                 av_mov = prefix + '.' + tag
@@ -244,6 +247,23 @@ class Movie2Vtk(Movie):
                     self.rcut2vtk(fname, dat, self.rCut, fieldName)
 
         infile.close()
+
+    def _get_version(self, filename):
+        """
+        This routine determines the version of the movie files
+
+        :param filename: name of the movie file
+        :type filename: str
+        """
+        with open(filename, 'rb') as fi:
+            rm = np.fromfile(fi, np.float32, count=1) # record marker
+            self.version = np.fromfile(fi, '>i4', count=1)[0]
+            rm = np.fromfile(fi, np.float32, count=1)
+        if abs(self.version) > 100:
+            fi = npfile(filename, endian='B')
+            version = fi.fort_read('|S64')[0].decode().rstrip()
+            self.version = int(version[-1])
+            fi.close()
 
     def scal3D2vtk(self, fname, data, name):
         """
