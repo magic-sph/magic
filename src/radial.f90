@@ -538,6 +538,57 @@ contains
          call polynomialBackground(coeffDens,coeffTemp)
          deallocate( coeffDens, coeffTemp)
 
+      else if ( index(interior_model,'PNS_0V2S') /= 0 ) then
+         allocate( coeffDens(6), coeffTemp(6) , coeffGrav(6) )
+         coeffDens = [ 59.62268063_cp, -217.70124346_cp, &
+              375.50063468_cp, -373.12779855_cp, 203.17403157_cp, -46.46897763_cp]
+
+         coeffTemp = [-1.97868071_cp,   47.94900753_cp, -138.94186903_cp,  &
+              176.44670046_cp, -109.98867268_cp,   27.51435739_cp]
+
+         coeffGrav = [4.923996388662253_cp, -1.293518887100434_cp, &
+              &     -26.037072977949265_cp, 55.59002270949802_cp,  &
+              &     -45.9222941604744_cp, 13.739417490581724_cp]
+
+         call polynomialBackground(coeffDens,coeffTemp,coeffGrav)
+         deallocate( coeffDens, coeffTemp, coeffGrav )
+
+      else if ( index(interior_model,'PNS_1S') /= 0 ) then
+         allocate( coeffDens(6), coeffTemp(6) )
+         coeffDens = [ 40.16045646_cp, -109.48920696_cp,  186.02134783_cp, &
+              -204.74056538_cp, 105.44630174_cp,  -16.39774328_cp]
+
+         coeffTemp = [ -20.1583557_cp, 160.49531633_cp, -412.24886308_cp, &
+              520.77920394_cp, -334.07999285_cp, 86.21287296_cp]
+
+         call polynomialBackground(coeffDens,coeffTemp)
+         deallocate( coeffDens, coeffTemp)
+
+      else if ( index(interior_model,'PNS_2S') /= 0 ) then
+         allocate( coeffDens(6), coeffTemp(6) , coeffGrav(6) )
+         coeffDens = [14.5649560668_cp, -26.1462235672_cp, 52.8432513624_cp, &
+              -82.837369536_cp, 58.2910747189_cp, -15.7212352085_cp]
+
+         coeffTemp = [-6.33078724295_cp, 74.0516826175_cp, -202.268812325_cp, &
+              258.6129266_cp, -161.782859987_cp, 38.7217973339_cp]
+
+         coeffGrav = [0.0961974297099_cp, 3.06791065527_cp, 3.91870769838_cp, &
+              -14.5167546463_cp, 11.5773447456_cp, -3.14354794653_cp]
+
+         call polynomialBackground(coeffDens,coeffTemp,coeffGrav)
+         deallocate( coeffDens, coeffTemp, coeffGrav )
+
+      else if ( index(interior_model,'PNS_5S') /= 0 ) then
+         allocate( coeffDens(6), coeffTemp(6) )
+         coeffDens = [5.56892773949_cp, -0.532496149403_cp, -1.63704759716_cp, &
+              -10.02819404_cp, 13.8052508126_cp, -6.16775910685_cp]
+
+         coeffTemp = [4.32220656771_cp, -0.729605496043_cp, 0.860028766401_cp, &
+              -9.29530062905_cp, 9.28443065708_cp, -3.44528845237_cp]
+
+         call polynomialBackground(coeffDens,coeffTemp)
+         deallocate( coeffDens, coeffTemp)
+
       else if (index(interior_model,'MESA_5M_ZAMS') /= 0) then
 
          l_non_adia = .true.
@@ -871,8 +922,8 @@ contains
       ! Calculates the transport properties: electrical conductivity,
       ! kinematic viscosity and thermal conductivity.
       !
-      real(cp) :: a,b,c,s1,s2,r0,a0,a1,a2,a3,a4,a5
-      real(cp) :: dsigma0, ampVisc, ampKap, slopeVisc, slopeKap
+      real(cp) :: a,b,c,s1,s2,r0,a0,a1,a2,a3,a4,a5,a6,a7
+      real(cp) :: dsigma0, ampVisc, ampKap, slopeVisc, slopeKap, kappatop
       real(cp) :: dvisc(n_r_max), dkappa(n_r_max), dsigma(n_r_max)
       real(cp) :: rrOcmb(n_r_max), kcond(n_r_max)
       !real(cp) :: condBot(n_r_max), condTop(n_r_max), func(n_r_max)
@@ -925,6 +976,60 @@ contains
                call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
                dLlambda(:)=dsigma(:)/lambda(:)
 
+            case(5) ! analytic PNS conductivity scaling assuming
+               ! degenerate protons
+               lambda = temp0**2/rho0**(3./2.)
+               sigma = one/lambda
+               call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
+               dLlambda=dsigma/lambda
+
+            case(6) ! other analytic PNS conductivity scaling assuming
+               ! degenerate relativistic electrons
+               ! non degenerate protons
+               ! Thompson & Duncan, ApJ (1993)
+               ! NB: this scaling neglects the Ye dependence
+               lambda = rho0**(-1./3.)
+               sigma = one/lambda
+               call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
+               dLlambda=dsigma/lambda
+
+            case(7)
+               ! polynomial fit for PNS conductivity
+               ! Thompson & Duncan, ApJ (1993)
+               ! lambda \propto (\rho Y_e)**(-1/3)
+               rrOcmb(:) = r(:)/r_cmb*r_cut_model
+
+               if ( index(interior_model, 'PNS_5S') /= 0 ) then
+                  a0 = 3.6070973312516563
+                  a1 = 0.024205264127999757
+                  a2 = -1.623849893276523
+                  a3 = 1.9655839620692974
+                  a4 = -2.9551512201779615
+                  lambda(:) = (rho0(:)*(a0 + a1*rrOcmb(:) + a2*rrOcmb(:)**2 &
+                          + a3*rrOcmb(:)**3 + a4*rrOcmb(:)**4))**(-1./3.)
+
+               else if ( index(interior_model, 'PNS_2S') /= 0 ) then
+                  a0 = -29.3468638288
+                  a1 = 335.929657508
+                  a2 = -1617.65787705
+                  a3 = 4286.501036
+                  a4 = -6746.07848196
+                  a5 = 6308.95415428
+                  a6 = -3247.58459547
+                  a7 = 710.280067712
+                  lambda(:) = a0 + a1*rrOcmb(:)    + a2*rrOcmb(:)**2 &
+                       + a3*rrOcmb(:)**3 + a4*rrOcmb(:)**4 &
+                       + a5*rrOcmb(:)**5 + a6*rrOcmb(:)**6 &
+                       + a7*rrOcmb(:)**7
+
+               else
+                  call abortRun('Fit coefficients not defined for this background.')
+               end if
+               lambda = lambda/lambda(1)
+               sigma = one/lambda
+               call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
+               dLlambda=dsigma/lambda
+
             case default ! Constant diffusivity
                lambda(:)  =one
                sigma(:)   =one
@@ -937,6 +1042,7 @@ contains
       if ( l_heat ) then
 
          select case(nVarDiff)
+
 
             case(1) ! Constant conductivity
                ! kappa(:)=one/rho0(:) Denise Tortorella's version
@@ -1017,12 +1123,83 @@ contains
                &          rStrat(1)))**2+one)/(half*ampKap+(half*ampKap-half)* &
                &          tanh(slopeKap*(r(:)-rStrat(1)))+half)
 
+
+            case(8) ! fit PNS thermal diffusivity
+               ! warning: reversed order for coefficients a_i
+               ! compared to nVarDiff==3 above
+               if ( index(interior_model,'PNS_0V2S') /= 0 ) then
+                  a0 = -15.4045660979
+                  a1 = 167.416944961
+                  a2 = -773.523043238
+                  a3 = 1971.51233444
+                  a4 = -2995.52988304
+                  a5 = 2717.20296952
+                  a6 = -1364.75385894
+                  a7 = 294.078979841
+               else if ( index(interior_model, 'PNS_1S') /= 0 ) then
+                  a0 = -1892.77098523
+                  a1 = 17646.3340418
+                  a2 = -70253.2335883
+                  a3 = 154843.933552
+                  a4 = -204092.633188
+                  a5 = 160897.639922
+                  a6 = -70265.4062536
+                  a7 = 13117.1344588
+               else if ( index(interior_model, 'PNS_2S') /= 0 ) then
+                  a0 = -95.9735911526
+                  a1 = 1087.08663925
+                  a2 = -5203.4624924
+                  a3 = 13653.9408117
+                  a4 = -21218.8320365
+                  a5 = 19540.2406991
+                  a6 = -9879.84517647
+                  a7 = 2117.83593177
+               else if ( index(interior_model, 'PNS_5S') /= 0 ) then
+                  a0 = 0.0556428940038
+                  a1 = 1.57277204681
+                  a2 = -17.4234841566
+                  a3 = 92.3174440711
+                  a4 = -256.540091374
+                  a5 = 387.399928018
+                  a6 = -299.886696812
+                  a7 = 93.4823970453
+               else
+                  call abortRun('Stop the run in radial.f90. Thermal diffusivity profile is not defined !')
+               endif
+               rrOcmb = r(:)/r_cmb*r_cut_model
+               kappa(:)= a0 + a1*rrOcmb(:)    + a2*rrOcmb(:)**2 &
+                       + a3*rrOcmb(:)**3 + a4*rrOcmb(:)**4 &
+                       + a5*rrOcmb(:)**5 + a6*rrOcmb(:)**6 &
+                       + a7*rrOcmb(:)**7
+
+               kappatop=kappa(1) ! normalise by the value at the top
+               kappa=kappa/kappatop
+               call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
+               dLkappa=dkappa/kappa
+
+            case(9) ! PNS thermal diffusivity
+               ! approximation given by Thompson & Duncan (93), Eq. 7
+               kappa = otemp1*rho0**(-2.0/3.0)
+               kappatop=kappa(1) ! normalise by the value at the top
+               kappa=kappa/kappatop
+               call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
+               dLkappa=dkappa/kappa
+
+            case(10) ! PNS thermal diffusivity scaling
+               ! that matches T. Janka 1D profiles
+               ! in a PNS 5s after core bounce
+               ! see: Raynaud et al., MNRAS 509, 3410–3426 (2022), Eq. (10)
+               kappa = rho0**(-4.0/3.0)
+               kappatop=kappa(1) ! normalise by the value at the top
+               kappa=kappa/kappatop
+               call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
+               dLkappa=dkappa/kappa
+
             case default
                kappa(:)  =one
                dLkappa(:)=0.0_cp
 
          end select
-
       end if
 
       !-- Eps profiles
@@ -1149,6 +1326,15 @@ contains
             &          ampVisc-half)*(-tanh(slopeVisc*(r(:)-rStrat(1)))**2+one)*tanh(  &
             &          slopeVisc*(r(:)-rStrat(1)))/(half*ampVisc+(half*ampVisc-half)*  &
             &          tanh(slopeVisc*(r(:)-rStrat(1)))+half)
+
+         case(5) ! Neutrino viscosity
+            ! Guilet et al, MNRAS 447, 3992-4003 (2015)
+            ! Eq. (10)
+            visc = temp0**2*rho0**(-2)
+            visc = visc/visc(1)
+            call get_dr(visc,dvisc,n_r_max,rscheme_oc)
+            dLvisc(:)=dvisc(:)/visc(:)
+            call get_dr(dLvisc,ddLvisc,n_r_max,rscheme_oc)
 
          case default ! default: constant kinematic viscosity
             visc(:)   =one
