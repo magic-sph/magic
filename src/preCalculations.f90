@@ -501,6 +501,17 @@ contains
             &                               bots(0,0) /= 0.0_cp ) ) then
                !--- Correct epsc0 to balance the difference between
                !    flux through the inner and outer boundary:
+               if ( ( index(interior_model,'PNS_0V2S') /= 0 .or. &
+                      index(interior_model,'PNS_2S')   /= 0 )    &
+                      .and. ktops==2 .and. kbots==2 ) then
+                  call logWrite('! FIXING bots = f(tops) / epsc==0')
+                  bots(0,0) = r_cmb**2*real(tops(0,0))*topconduc/(r_icb**2*botconduc)
+                  write(message, '(''! real(bots(0,0))       ='',ES16.6)') real(bots(0,0))
+                  call logWrite(message)
+                  write(message, '(''! real(bots(0,0))/sq4pi ='',ES16.6)') real(bots(0,0))/sq4pi
+                  call logWrite(message)
+               end if
+
                epsc=four*pi/pr/facIH *                    &
                &    (r_icb**2*real(bots(0,0))*botconduc - &
                &     r_cmb**2*real(tops(0,0))*topconduc)
