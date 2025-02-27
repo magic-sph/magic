@@ -24,6 +24,7 @@ class MagicTs(MagicSetup):
        * Taylorization measures: :ref:`Tay.TAG <secTayFile>`
        * Heat transfer: :ref:`heat.TAG <secHeatFile>`
        * Helicity: :ref:`helicity.TAG <secHelicityFile>`
+       * Magnetic Helicity: :ref:`helicity_mag.TAG <secMagHelicityFile>`
        * Velocity square: :ref:`u_square.TAG <secu_squareFile>`
        * Angular momentum: :ref:`AM.TAG <secAMFile>`
        * Power budget: :ref:`power.TAG <secpowerFile>`
@@ -67,7 +68,8 @@ class MagicTs(MagicSetup):
         pattern = os.path.join(datadir, 'log.*')
         logFiles = scanDir(pattern)
 
-        if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
+        if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor',
+                          'gwEntropy','gwPressure'):
             binary = True
         else:
             binary = False
@@ -95,7 +97,10 @@ class MagicTs(MagicSetup):
             # Concatenate the files that correspond to the tag
             for k, file in enumerate(files):
                 filename = file
-                data = fast_read(filename, binary=binary)
+                if self.field in  ('gwEntropy','gwPressure'):
+                    data = ReadBinaryTimeseries(filename,ncols=14)
+                else:
+                    data = fast_read(filename, binary=binary)
                 if k == 0:
                     tslut = TsLookUpTable(data, self.field)
                 else:
@@ -107,13 +112,19 @@ class MagicTs(MagicSetup):
                 MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
                 name = '{}.{}'.format(self.field, self.tag)
                 filename = os.path.join(datadir, name)
-                data = fast_read(filename, binary=binary)
+                if self.field in  ('gwEntropy','gwPressure'):
+                    data = ReadBinaryTimeseries(filename,ncols=14)
+                else:
+                    data = fast_read(filename, binary=binary)
             else:
                 mot = '{}.*'.format(self.field)
                 dat = [(os.stat(i).st_mtime, i) for i in glob.glob(mot)]
                 dat.sort()
                 filename = dat[-1][1]
-                data = fast_read(filename, binary=binary)
+                if self.field in ('gwEntropy','gwPressure'):
+                    data = ReadBinaryTimeseries(filename,ncols=14)
+                else:
+                    data = fast_read(filename, binary=binary)
             tslut = TsLookUpTable(data, self.field)
 
         # If no tag is specified but all=True, all the directory is plotted
@@ -124,7 +135,10 @@ class MagicTs(MagicSetup):
             files = scanDir(pattern)
             for k, file in enumerate(files):
                 filename = file
-                data = fast_read(filename, binary=binary)
+                if self.field in  ('gwEntropy','gwPressure'):
+                    data = ReadBinaryTimeseries(filename,ncols=14)
+                else:
+                    data = fast_read(filename, binary=binary)
                 if len(data) > 0: # File is not empty
                     if k == 0:
                         tslut = TsLookUpTable(data, self.field)
@@ -493,6 +507,12 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Helicity')
             fig.tight_layout()
+        elif self.field == 'helicity_mag':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.mhel, label='magnetic helicity')
+            ax.legend(loc='lower right')
+            ax.set_xlabel('Time')
         elif self.field == 'u_square':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -869,6 +889,9 @@ class TsLookUpTable:
             self.helnaS = data[:, 6]
             self.helnaRMSN = data[:, 7]
             self.helnaRMSS = data[:, 8]
+        elif self.field == 'helicity_mag':
+            self.time = data[:, 0]
+            self.mhel = data[:, 1]
         elif self.field == 'earth_like':
             self.time = data[:, 0]
             self.axial_dipole = data[:, 1]
@@ -1030,7 +1053,7 @@ class TsLookUpTable:
                 self.icPower = data[:, 7]
             if abs(self.ohmDiss).max() != 0:
                  self.fohm = -self.ohmDiss/(self.buoPower+self.buoPower_chem)
-                 self.fvis = -self.viscDiss/(self.buoPower+self.buoPower_chem)
+            self.fvis = -self.viscDiss/(self.buoPower+self.buoPower_chem)
         elif self.field == 'SRIC':
             self.time = data[:,0]
             self.omega_ic = data[:,1]
@@ -1044,6 +1067,66 @@ class TsLookUpTable:
                             'am_kin_pol', 'am_kin_tor'):
             self.time = data[:, 0]
             self.coeffs = data[:, 1:]
+        elif self.field in ('gwPressure'):
+            self.component = 'gw-pressure'
+            self.time = data[:,0]
+            self.Qc_pressure_20 = data[:,1]
+            self.Qc_pressure_21 = data[:,2]
+            self.Qs_pressure_21 =-data[:,3]
+            self.Qc_pressure_22 = data[:,4]
+            self.Qs_pressure_22 =-data[:,5]
+            self.dPhiQc_pressure_21 = data[:,6]
+            self.dPhiQs_pressure_21 =-data[:,7]
+            self.dPhiQc_pressure_22 = data[:,8]
+            self.dPhiQs_pressure_22 =-data[:,9]
+            self.ddPhiQc_pressure_21 = data[:,10]
+            self.ddPhiQs_pressure_21 =-data[:,11]
+            self.ddPhiQc_pressure_22 = data[:,12]
+            self.ddPhiQs_pressure_22 =-data[:,13]
+            #### compute 2nd time derivatives
+            self.ddotQc_P_20 = secondtimeder(self.time, self.Qc_pressure_20)
+            self.ddotQc_P_21 = (secondtimeder(self.time, self.Qc_pressure_21) +
+                                timeder(self.time, self.dPhiQc_pressure_21) +
+                                self.ddPhiQc_pressure_21)
+            self.ddotQs_P_21 = (secondtimeder(self.time, self.Qs_pressure_21) +
+                                timeder(self.time, self.dPhiQs_pressure_21) +
+                                self.ddPhiQs_pressure_21)
+            self.ddotQc_P_22 = (secondtimeder(self.time, self.Qc_pressure_22) +
+                                timeder(self.time, self.dPhiQc_pressure_22) +
+                                self.ddPhiQc_pressure_22)
+            self.ddotQs_P_22 = (secondtimeder(self.time, self.Qs_pressure_22) +
+                                timeder(self.time, self.dPhiQs_pressure_22) +
+                                self.ddPhiQs_pressure_22)
+        elif self.field in ('gwEntropy'):
+            self.component = 'gw-entropy'
+            self.time = data[:,0]
+            self.Qc_entropy_20 = data[:,1]
+            self.Qc_entropy_21 = data[:,2]
+            self.Qs_entropy_21 =-data[:,3]
+            self.Qc_entropy_22 = data[:,4]
+            self.Qs_entropy_22 =-data[:,5]
+            self.dPhiQc_entropy_21 = data[:,6]
+            self.dPhiQs_entropy_21 =-data[:,7]
+            self.dPhiQc_entropy_22 = data[:,8]
+            self.dPhiQs_entropy_22 =-data[:,9]
+            self.ddPhiQc_entropy_21 = data[:,10]
+            self.ddPhiQs_entropy_21 =-data[:,11]
+            self.ddPhiQc_entropy_22 = data[:,12]
+            self.ddPhiQs_entropy_22 =-data[:,13]
+
+            self.ddotQc_S_20 = secondtimeder(self.time, self.Qc_entropy_20)
+            self.ddotQc_S_21 = (secondtimeder(self.time, self.Qc_entropy_21) +
+                                timeder(self.time, self.dPhiQc_entropy_21) +
+                                self.ddPhiQc_entropy_21)
+            self.ddotQs_S_21 = (secondtimeder(self.time, self.Qs_entropy_21) +
+                                timeder(self.time, self.dPhiQs_entropy_21) +
+                                self.ddPhiQs_entropy_21)
+            self.ddotQc_S_22 = (secondtimeder(self.time, self.Qc_entropy_22) +
+                                timeder(self.time, self.dPhiQc_entropy_22) +
+                                self.ddPhiQc_entropy_22)
+            self.ddotQs_S_22 = (secondtimeder(self.time, self.Qs_entropy_22) +
+                                timeder(self.time, self.dPhiQs_entropy_22) +
+                                self.ddPhiQs_entropy_22)
         else:
             print('The field "{}" is not know'.format(self.field))
 
