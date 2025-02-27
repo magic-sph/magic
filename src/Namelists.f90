@@ -57,7 +57,7 @@ contains
       integer :: inputHandle, cacheblock_size_in_B
       character(len=100) :: input_filename, errmess
 
-      !-- Name lists:
+      !-- Namelists:
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
       &     n_r_ic_max,n_cheb_ic_max,minc,nalias,l_axi,       &
       &     fd_order,fd_order_bound,fd_ratio,fd_stretch,      &
@@ -67,7 +67,7 @@ contains
       &    mode,tag,n_time_steps,n_cour_step,               &
       &    n_tScale,n_lScale,alpha,enscale,                 &
       &    l_update_v,l_update_b,l_update_s,l_update_xi,    &
-      &    dtMax,courfac,alffac,intfac,                     &
+      &    l_update_phi,dtMax,courfac,alffac,intfac,        &
       &    difnu,difeta,difkap,difchem,ldif,ldifexp,        &
       &    l_correct_AMe,l_correct_AMz,tEND,l_non_rot,      &
       &    l_newmap,alph1,alph2,l_cour_alf_damp,            &
@@ -78,17 +78,17 @@ contains
 
       namelist/phys_param/                                     &
       &    ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,Bn,   &
-      &    ktops,kbots,ktopv,kbotv,l_force_v,ktopb,kbotb,kbotxi,ktopxi,  &
+      &    ktops,kbots,ktopv,kbotv,ktopb,kbotb,kbotxi,ktopxi,  &
       &    s_top,s_bot,impS,sCMB,xi_top,xi_bot,impXi,xiCMB,    &
       &    nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch,  &
       &    con_LambdaOut,con_FuncWidth,ThExpNb,GrunNb,         &
       &    strat,polind,DissNb,g0,g1,g2,r_cut_model,thickStrat,&
-      &    epsS,slopeStrat,rStrat,ampStrat,cmbHflux,r_LCR,     &
+      &    epsS,slopeStrat,rStrat,ampStrat,r_LCR,              & !,cmbHflux
       &    nVarDiff,nVarVisc,difExp,nVarEps,interior_model,    &
       &    nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,   &
       &    dilution_fac,stef,tmelt,phaseDiffFac,penaltyFac,    &
-      &    epsPhase,ktopphi,kbotphi,ampForce, l_drag, l_tidal, &
-      &    w_orbit, amp_tidal
+      &    epsPhase,ktopphi,kbotphi,ampForce,l_force_v, l_drag,&
+      &    l_tidal, w_orbit, amp_tidal
 
       namelist/B_external/                                     &
       &    rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,         &
@@ -150,24 +150,19 @@ contains
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
       &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
       &    omega_ma2,omegaOsz_ma2,tShift_ma2,             &
-      &    amp_RiMa,omega_RiMa,m_RiMa,RiSymmMa,           &
-      &    ellipticity_cmb
+      &    amp_mode_ma,omega_mode_ma,m_mode_ma,           &
+      &    mode_symm_ma,ellipticity_cmb, amp_tide,        &
+      &    omega_tide
 
       namelist/inner_core/sigma_ratio,nRotIc,rho_ratio_ic, &
       &    omega_ic1,omegaOsz_ic1,tShift_ic1,              &
       &    omega_ic2,omegaOsz_ic2,tShift_ic2,BIC,          &
-      &    amp_RiIc,omega_RiIc,m_RiIc,RiSymmIc,            &
-      &    ellipticity_icb
+      &    amp_mode_ic,omega_mode_ic,m_mode_ic,            &
+      &    mode_symm_ic,ellipticity_icb,gammatau_gravi
 
 
-      do n=1,4*n_impS_max
-         sCMB(n)=0.0_cp
-      end do
-
-      do n=1,4*n_impXi_max
-         xiCMB(n)=0.0_cp
-      end do
-
+      sCMB(:)   =0.0_cp
+      xiCMB(:)  =0.0_cp
       runHours  =0
       runMinutes=0
       runSeconds=0
@@ -331,8 +326,6 @@ contains
 
       !-- Determine what has to be calculated depending on mode:
       lMagMem  =1
-      ldtBMem  =0
-      lStressMem=0
       l_conv   =.true.
       l_conv_nl=.true.
       l_mag    =.true.
@@ -446,7 +439,6 @@ contains
             call abortRun("nRotIC=-2 and kbotv <3 are not compatible")
          end if
       end if
-      !Alexis : Should it not be nRotMa>0 ?
       if ( nRotMa > 0 ) then
          l_rot_ma=.true.
       else if ( nRotMa == 0 ) then
@@ -754,6 +746,12 @@ contains
          elseif ( l_newmap .and. (alph1 < 0.0_cp) ) then
             alph1=abs(alph1)
          end if
+      !-- Tee & Trefethen or Jafari-Varzadeh mappings
+      else if ( index(map_function, 'TT') /= 0 .or. index(map_function, 'TEE') /= 0 &
+      &         .or. index(map_function, 'JAFARI') /= 0 ) then
+         if ( (alph2 < -one) .or. (alph2 > one) ) then
+            call abortRun('! Chebyshev mapping parameter is not correct !')
+         end if
       !-- This is the case of the Kosloff & Tal-Ezer mapping (1993)
       else if ( index(map_function, 'ARCSIN') /= 0 .or. &
       &         index(map_function, 'KTL') /= 0 ) then
@@ -802,18 +800,13 @@ contains
          radratio =half
       end if
 
-      if ( l_rot_ma ) then
+      if ( l_rot_ma .and. ktopv == 1 .and. .not. l_cond_ma .and. &
+      &    abs(gammatau_gravi) == 0.0_cp ) then
+         l_rot_ma=.false.
          if ( rank == 0 ) then
             write(output_unit,*)
-            write(output_unit,*) '! I ALLOW FOR ROTATING MANTLE.'
-         end if
-         if ( ktopv == 1 .and. .not. l_cond_ma ) then
-            if ( rank == 0 ) then
-               write(output_unit,*)
-               write(output_unit,*) '! No torques on mantle!'
-               write(output_unit,*) '! I dont update mantle rotation omega_ma.'
-            end if
-            l_rot_ma=.false.
+            write(output_unit,*) '! No torques on mantle!'
+            write(output_unit,*) '! I dont update mantle rotation omega_ma.'
          end if
       end if
 
@@ -852,13 +845,13 @@ contains
       if ( ( l_rot_ma .and. ktopv >= 2 ) .or. &
            ( l_rot_ic .and. kbotv >= 2 )      ) l_z10mat= .true.
 
-      !-- Check whether memory has been reserved:
-      if ( l_TO .or. l_MRI) lStressMem=1
-      if ( l_RMS .or. l_DTrMagSpec ) ldtBMem=1
-
       !-- Output of angular moment?
       l_AM=l_AM .or. l_correct_AMe .or. l_correct_AMz
       l_AM=l_AM .or. l_power
+
+      ! Radial flow BC?
+      if (ellipticity_cmb /= 0.0_cp .or. ellipticity_icb /= 0.0_cp .or. &
+      &   amp_tide /=0.0_cp ) l_radial_flow_bc=.true.
 
       !-- Heat boundary condition
       if ( impS /= 0 ) then
@@ -968,7 +961,7 @@ contains
       integer :: length
 
 
-      !-- Output of name lists:
+      !-- Output of namelists:
 
       write(n_out,*) " "
       write(n_out,*) "&grid"
@@ -1002,6 +995,7 @@ contains
       write(n_out,'(''  l_update_b      ='',l3,'','')') l_update_b
       write(n_out,'(''  l_update_s      ='',l3,'','')') l_update_s
       write(n_out,'(''  l_update_xi     ='',l3,'','')') l_update_xi
+      write(n_out,'(''  l_update_phi    ='',l3,'','')') l_update_phi
       write(n_out,'(''  l_newmap        ='',l3,'','')') l_newmap
       length=len_trim(map_function)
       write(n_out,*) " map_function    = """,map_function(1:length),""","
@@ -1060,12 +1054,34 @@ contains
       write(n_out,'(''  ThExpNb         ='',ES14.6,'','')') ThExpNb
       !write(n_out,'(''  GrunNb          ='',ES14.6,'','')') GrunNb
       write(n_out,'(''  epsS            ='',ES14.6,'','')') epsS
-      write(n_out,'(''  cmbHflux        ='',ES14.6,'','')') cmbHflux
-      write(n_out,'(''  slopeStrat      ='',ES14.6,'','')') slopeStrat
-      write(n_out,'(''  rStrat          ='',ES14.6,'','')') rStrat
-      write(n_out,'(''  ampStrat        ='',ES14.6,'','')') ampStrat
-      write(n_out,'(''  thickStrat      ='',ES14.6,'','')') thickStrat
-      write(n_out,'(''  nVarEntropyGrad ='',i3,'','')') nVarEntropyGrad
+      write(n_out,'("  ampStrat        =")',advance="no")
+      do i=1,size(ampStrat)
+         if ( ampStrat(i) > 0.0_cp ) &
+         &  write(n_out,'(1p,ES14.6,'','')',advance="no") ampStrat(i)
+      end do
+      write(n_out,*) ""
+
+      write(n_out,'("  rStrat          =")',advance="no")
+      do i=1,size(ampStrat)
+         if ( ampStrat(i) > 0.0_cp ) &
+         &  write(n_out,'(1p,ES14.6,'','')',advance="no") rStrat(i)
+      end do
+      write(n_out,*) ""
+
+      write(n_out,'("  thickStrat      =")',advance="no")
+      do i=1,size(ampStrat)
+         if ( ampStrat(i) > 0.0_cp ) &
+         &  write(n_out,'(1p,ES14.6,'','')',advance="no") thickStrat(i)
+      end do
+      write(n_out,*) ""
+
+      write(n_out,'("  slopeStrat      =")',advance="no")
+      do i=1,size(ampStrat)
+         if ( ampStrat(i) > 0.0_cp ) &
+         &  write(n_out,'(1p,ES14.6,'','')',advance="no") slopeStrat(i)
+      end do
+      write(n_out,*) ""
+
       write(n_out,'(''  radratio        ='',ES14.6,'','')') radratio
       write(n_out,'(''  l_isothermal    ='',l3,'','')') l_isothermal
       write(n_out,'(''  phaseDiffFac    ='',ES14.6,'','')') phaseDiffFac
@@ -1359,11 +1375,13 @@ contains
       write(n_out,'(''  omega_ma2       ='',ES14.6,'','')') omega_ma2
       write(n_out,'(''  omegaOsz_ma2    ='',ES14.6,'','')') omegaOsz_ma2
       write(n_out,'(''  tShift_ma2      ='',ES14.6,'','')') tShift_ma2
-      write(n_out,'(''  amp_RiMa        ='',ES14.6,'','')') amp_RiMa
-      write(n_out,'(''  omega_RiMa      ='',ES14.6,'','')') omega_RiMa
-      write(n_out,'(''  m_RiMa          ='',i4,'','')')  m_RiMa
-      write(n_out,'(''  RiSymmMa        ='',i4,'','')')  RiSymmMa
+      write(n_out,'(''  amp_mode_ma     ='',ES14.6,'','')') amp_mode_ma
+      write(n_out,'(''  omega_mode_ma   ='',ES14.6,'','')') omega_mode_ma
+      write(n_out,'(''  m_mode_ma       ='',i4,'','')')  m_mode_ma
+      write(n_out,'(''  mode_symm_ma    ='',i4,'','')')  mode_symm_ma
       write(n_out,'(''  ellipticity_cmb ='',ES14.6,'','')') ellipticity_cmb
+      write(n_out,'(''  amp_tide        ='',ES14.6,'','')') amp_tide
+      write(n_out,'(''  omega_tide      ='',ES14.6,'','')') omega_tide
       write(n_out,*) "/"
 
       write(n_out,*) "&inner_core"
@@ -1377,11 +1395,12 @@ contains
       write(n_out,'(''  omegaOsz_ic2    ='',ES14.6,'','')') omegaOsz_ic2
       write(n_out,'(''  tShift_ic2      ='',ES14.6,'','')') tShift_ic2
       write(n_out,'(''  BIC             ='',ES14.6,'','')') BIC
-      write(n_out,'(''  amp_RiIc        ='',ES14.6,'','')') amp_RiIc
-      write(n_out,'(''  omega_RiIc      ='',ES14.6,'','')') omega_RiIc
-      write(n_out,'(''  m_RiIc          ='',i4,'','')') m_RiIc
-      write(n_out,'(''  RiSymmIc        ='',i4,'','')')  RiSymmIc
+      write(n_out,'(''  amp_mode_ic     ='',ES14.6,'','')') amp_mode_ic
+      write(n_out,'(''  omega_mode_ic   ='',ES14.6,'','')') omega_mode_ic
+      write(n_out,'(''  m_mode_ic       ='',i4,'','')') m_mode_ic
+      write(n_out,'(''  mode_symm_ic    ='',i4,'','')')  mode_symm_ic
       write(n_out,'(''  ellipticity_icb ='',ES14.6,'','')') ellipticity_icb
+      write(n_out,'(''  gammatau_gravi  ='',ES14.6,'','')') gammatau_gravi
       write(n_out,*) "/"
       write(n_out,*) " "
 
@@ -1392,9 +1411,6 @@ contains
       !  Purpose of this subroutine is to set default parameters
       !  for the namelists.
       !
-
-      !-- Local variable:
-      integer :: n
 
       !----- Namelist grid
       ! must be of form 4*integer+1
@@ -1456,6 +1472,7 @@ contains
       l_update_b    =.true.
       l_update_s    =.true.
       l_update_xi   =.true.
+      l_update_phi  =.true.
       l_correct_AMe =.false.  ! Correct equatorial AM
       l_correct_AMz =.false.  ! Correct axial AM
       l_non_rot     =.false.  ! No Coriolis force !
@@ -1496,6 +1513,8 @@ contains
       radratio    =0.35_cp
       dilution_fac=0.0_cp    ! centrifugal acceleration
       ampForce    =0.0_cp    ! External body force amplitude
+      amp_tide    =0.0_cp    ! Amplitude of tide
+      omega_tide  =0.0_cp    ! Frequency of tide
 
       !-- Phase field
       tmelt       =0.0_cp    ! Melting temperature
@@ -1513,11 +1532,14 @@ contains
       r_cut_model=0.98_cp    ! outer radius when using interior model
       !----- Stably stratified layer
       epsS       =0.0_cp
-      cmbHflux   =0.0_cp
-      slopeStrat =20.0_cp
-      rStrat     =1.3_cp
-      ampStrat   =10.0_cp
-      thickStrat =0.1_cp
+      slopeStrat(1) =20.0_cp
+      slopeStrat(2:)=0.0_cp
+      rStrat(1)     =1.3_cp
+      rStrat(2:)    =0.0_cp
+      ampStrat(1)   =10.0_cp
+      ampStrat(2:)  =0.0_cp
+      thickStrat(1) =0.1_cp
+      thickStrat(2:)=0.0_cp
       nVarEntropyGrad=0
       !----- Gravity parameters: defaut value g propto r (i.e. g1=1)
       g0         =0.0_cp
@@ -1539,28 +1561,20 @@ contains
       ktopb      =1
       kbotb      =1
       ktopp      =1
-      do n=1,4*n_s_bounds
-         s_top(n)=0.0_cp
-         s_bot(n)=0.0_cp
-      end do
+      s_top(:)   =0.0_cp
+      s_bot(:)   =0.0_cp
       impS=0
-      do n=1,n_impS_max
-         peakS(n) =0.0_cp
-         thetaS(n)=0.0_cp
-         phiS(n)  =0.0_cp
-         widthS(n)=0.0_cp
-      end do
-      do n=1,4*n_xi_bounds
-         xi_top(n)=0.0_cp
-         xi_bot(n)=0.0_cp
-      end do
+      peakS(:)   =0.0_cp
+      thetaS(:)  =0.0_cp
+      phiS(:)    =0.0_cp
+      widthS(:)  =0.0_cp
+      xi_top(:)  =0.0_cp
+      xi_bot(:)  =0.0_cp
       impXi=0
-      do n=1,n_impXi_max
-         peakXi(n) =0.0_cp
-         thetaXi(n)=0.0_cp
-         phiXi(n)  =0.0_cp
-         widthXi(n)=0.0_cp
-      end do
+      peakXi(:)  =0.0_cp
+      thetaXi(:) =0.0_cp
+      phiXi(:)   =0.0_cp
+      widthXi(:) =0.0_cp
       ktopphi    =1
       kbotphi    =1
 
@@ -1691,9 +1705,7 @@ contains
       l_r_fieldXi   =.false.
       l_max_r       =l_max
       n_r_step      =2
-      do n=1,size(n_r_array)
-         n_r_array(n)=0
-      end do
+      n_r_array(:)  =0
       n_r_field_step =0
       n_r_fields     =0
       t_r_field_start=0.0_cp
@@ -1717,9 +1729,7 @@ contains
       t_movie_start =0.0_cp
       t_movie_stop  =0.0_cp
       dt_movie      =0.0_cp
-      do n=1,n_movies_max
-         movie(n)=' '
-      end do
+      movie(:)      =' '
       r_surface     =2.8209_cp    ! in units of (r_cmb-r_icb)
 
       !----- Output from probes:
@@ -1762,21 +1772,21 @@ contains
       t_gw_stop     =0.0_cp
       dt_gw         =0.0_cp
 
-      !----- Times for different output:
-      do n=1,n_time_hits
-         t_graph(n)  =-one
-         t_rst(n)    =-one
-         t_log(n)    =-one
-         t_spec(n)   =-one
-         t_cmb(n)    =-one
-         t_r_field(n)=-one
-         t_movie(n)  =-one
-         t_pot(n)    =-one
-         t_TO(n)     =-one
-         t_TOmovie(n)=-one
-         t_probe     =-one
-         t_gw(n)     =-one
-      end do
+      !----- Times for different output: !ARS: done somewhere else now ?
+      ! do n=1,n_time_hits
+      !    t_graph(n)  =-one
+      !    t_rst(n)    =-one
+      !    t_log(n)    =-one
+      !    t_spec(n)   =-one
+      !    t_cmb(n)    =-one
+      !    t_r_field(n)=-one
+      !    t_movie(n)  =-one
+      !    t_pot(n)    =-one
+      !    t_TO(n)     =-one
+      !    t_TOmovie(n)=-one
+      !    t_probe     =-one
+      !    t_gw(n)     =-one
+      ! end do
 
       !----- Magnetic spectra for different depths
       !      at times of log output or movie frames:
@@ -1812,38 +1822,39 @@ contains
       rDea          =0.0_cp  ! Controls dealiazing in  RMS calculation
       ! rDea=0.1 means that highest 10% of cheb modes are set to zero
 
-      !----- Mantle name list:
-      conductance_ma=0.0_cp    ! insulation mantle is default
-      nRotMa        =0         ! non rotating mantle is default
-      rho_ratio_ma  =one       ! same density as outer core
-      omega_ma1     =0.0_cp    ! prescribed rotation rate
-      omegaOsz_ma1  =0.0_cp    ! oscillation frequency of mantle rotation rate
-      tShift_ma1    =0.0_cp    ! time shift
-      omega_ma2     =0.0_cp    ! second mantle rotation rate
-      omegaOsz_ma2  =0.0_cp    ! oscillation frequency of second mantle rotation
-      tShift_ma2    =0.0_cp    ! time shift for second rotation
-      amp_RiMa      =0.0_cp    ! amplitude of Rieutord forcing
-      omega_RiMa    =0.0_cp    ! frequency of Rieutord forcing
-      m_RiMa        =0         ! default forcing -> axisymmetric
-      RiSymmMa      =0         ! default symmetry -> eq antisymmetric
-      ellipticity_cmb=0.0_cp   ! default is sphere
+      !----- Mantle namelist:
+      conductance_ma =0.0_cp    ! insulation mantle is default
+      nRotMa         =0         ! non rotating mantle is default
+      rho_ratio_ma   =one       ! same density as outer core
+      omega_ma1      =0.0_cp    ! prescribed rotation rate
+      omegaOsz_ma1   =0.0_cp    ! oscillation frequency of mantle rotation rate
+      tShift_ma1     =0.0_cp    ! time shift
+      omega_ma2      =0.0_cp    ! second mantle rotation rate
+      omegaOsz_ma2   =0.0_cp    ! oscillation frequency of second mantle rotation
+      tShift_ma2     =0.0_cp    ! time shift for second rotation
+      amp_mode_ma    =0.0_cp    ! amplitude of Rieutord forcing
+      omega_mode_ma  =0.0_cp    ! frequency of Rieutord forcing
+      m_mode_ma      =0         ! default forcing -> axisymmetric
+      mode_symm_ma   =0         ! default symmetry -> eq antisymmetric
+      ellipticity_cmb=0.0_cp    ! default is sphere
 
-      !----- Inner core name list:
-      sigma_ratio   =0.0_cp    ! no conducting inner core is default
-      nRotIc        =0         ! non rotating inner core is default
-      rho_ratio_ic  =one       ! same density as outer core
-      omega_ic1     =0.0_cp    ! prescribed rotation rate, added to first one
-      omegaOsz_ic1  =0.0_cp    ! oscillation frequency of IC rotation rate
-      tShift_ic1    =0.0_cp    ! time shift
-      omega_ic2     =0.0_cp    ! second prescribed rotation rate
-      omegaOsz_ic2  =0.0_cp    ! oscillation frequency of second IC rotation rate
-      tShift_ic2    =0.0_cp    ! tims shift for second IC rotation
-      BIC           =0.0_cp    ! Imposed dipole field strength at ICB
-      amp_RiIc      =0.0_cp    ! amplitude of Rieutord forcing
-      omega_RiIc    =0.0_cp    ! frequency of Rieutord forcing
-      m_RiIc        =0         ! default forcing -> axisymmetric
-      RiSymmIc      =0         ! default symmetry -> eq antisymmetric
-      ellipticity_icb=0.0_cp   ! default is sphere
+      !----- Inner core namelist:
+      sigma_ratio    =0.0_cp    ! no conducting inner core is default
+      nRotIc         =0         ! non rotating inner core is default
+      rho_ratio_ic   =one       ! same density as outer core
+      omega_ic1      =0.0_cp    ! prescribed rotation rate, added to first one
+      omegaOsz_ic1   =0.0_cp    ! oscillation frequency of IC rotation rate
+      tShift_ic1     =0.0_cp    ! time shift
+      omega_ic2      =0.0_cp    ! second prescribed rotation rate
+      omegaOsz_ic2   =0.0_cp    ! oscillation frequency of second IC rotation rate
+      tShift_ic2     =0.0_cp    ! tims shift for second IC rotation
+      BIC            =0.0_cp    ! Imposed dipole field strength at ICB
+      amp_mode_ic    =0.0_cp    ! amplitude of Rieutord forcing
+      omega_mode_ic  =0.0_cp    ! frequency of Rieutord forcing
+      m_mode_ic      =0         ! default forcing -> axisymmetric
+      mode_symm_ic   =0         ! default symmetry -> eq antisymmetric
+      ellipticity_icb=0.0_cp    ! default is sphere
+      gammatau_gravi =0.0_cp    ! default is no gravitationnal coupling
 
    end subroutine defaultNamelists
 !------------------------------------------------------------------------------

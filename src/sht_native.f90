@@ -16,9 +16,8 @@ module sht
    public :: initialize_sht, scal_to_spat, scal_to_grad_spat, pol_to_grad_spat, &
    &         torpol_to_spat, pol_to_curlr_spat, torpol_to_curl_spat,            &
    &         torpol_to_dphspat, scal_to_SH, spat_to_sphertor,                   &
-   &         torpol_to_spat_IC, torpol_to_curl_spat_IC, spat_to_SH_axi,         &
-   &         spat_to_qst, sphtor_to_spat, toraxi_to_spat, finalize_sht,         &
-   &         axi_to_spat
+   &         torpol_to_spat_IC, torpol_to_curl_spat_IC, axi_to_spat,            &
+   &         spat_to_qst, sphtor_to_spat, toraxi_to_spat, finalize_sht
 
 contains
 
@@ -391,29 +390,18 @@ contains
 
    end subroutine axi_to_spat
 !------------------------------------------------------------------------------
-   subroutine toraxi_to_spat(fl_ax, ft, fp)
+   subroutine toraxi_to_spat(fl_ax, ft, fp, lcut)
 
       !-- Input field
+      integer, intent(in) :: lcut ! cut-off spherical harmonic degree
       complex(cp), intent(in) :: fl_ax(l_max+1) !-- Axi-sym toroidal
 
       !-- Output fields on grid
       real(cp), intent(out) :: ft(:)
       real(cp), intent(out) :: fp(:)
 
-      call native_toraxi_to_spat(fl_ax, ft, fp)
+      call native_toraxi_to_spat(fl_ax, ft, fp, lcut)
 
    end subroutine toraxi_to_spat
-!------------------------------------------------------------------------------
-   subroutine spat_to_SH_axi(f, fLM)
-
-      !-- Input array
-      real(cp), intent(in) :: f(n_theta_max)
-
-      !-- Output array
-      real(cp), intent(out) :: fLM(:)
-
-      call native_spat_to_SH_axi(f, fLM, l_max+1)
-
-   end subroutine spat_to_SH_axi
 !------------------------------------------------------------------------------
 end module sht

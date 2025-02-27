@@ -3,9 +3,8 @@ module outMRI_mod
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_r_max, n_r_maxStr, n_theta_maxStr, l_max, &
-       &                 n_theta_max, n_phi_max, minc, lStressMem,   &
-       &                 lm_max
+   use truncation, only: n_r_max, n_r_max, n_theta_max, l_max, &
+       &                 n_theta_max, n_phi_max, minc, lm_max
    use radial_functions, only: r_ICB, rscheme_oc, r, r_CMB, orho1, rscheme_oc
    use radial_data, only: nRstart, nRstop, n_r_cmb, radial_balance
    use physical_parameters, only: ra, ek, pr, prmag, radratio, LFfac
@@ -20,9 +19,8 @@ module outMRI_mod
    use useful, only: logWrite, abortRun
    use cosine_transform_odd
    use init_fields, only: q_rot, norm_ome
-   use sht, only: spat_to_SH_axi
    use integration, only: simps,cylmean_otc,cylmean_itc
-   
+
    implicit none
 
    private
@@ -38,9 +36,9 @@ module outMRI_mod
 !   real(cp), allocatable :: zZ(:,:)
 
    !-- (l,r) Representation of the different contributions
-   real(cp), allocatable :: cyl(:) ! Cylindrical grid                                              
-   real(cp), allocatable :: h(:)   ! height                                     
-   real(cp), allocatable :: Oh(:)  ! 1/h    
+   real(cp), allocatable :: cyl(:) ! Cylindrical grid
+   real(cp), allocatable :: h(:)   ! height
+   real(cp), allocatable :: Oh(:)  ! 1/h
    real(cp), allocatable :: BpsAS(:,:)
    real(cp), allocatable :: VpsAS(:,:)
    real(cp), allocatable :: BpAS(:,:)
@@ -57,12 +55,12 @@ module outMRI_mod
    real(cp), allocatable :: Vp2AS(:,:)
    integer :: n_s_otc, n_s_max
    real(cp) :: volcyl_oc
-   
+
 !   real(cp), allocatable :: EkinLMr_Rloc(:,:)
 !   real(cp), allocatable :: EmagLMr_Rloc(:,:)
 !   real(cp), allocatable :: EkinLMr(:,:)
 !   real(cp), allocatable :: EmagLMr(:,:)
-  
+
 
    !-- Output files
    character(len=64) :: MRIfilemean,MRI2DFile
@@ -73,12 +71,12 @@ module outMRI_mod
 
    subroutine initialize_outMRI_mod
 
-      !-- Local variables                                                         
+      !-- Local variables
       integer :: n_s, nFields, n
       real(cp) :: smin, smax, ds
       if ( lVerbose ) write(*,*) '! Before Initialisation outMRI!'
 
-      if ( rank == 0 ) then 
+      if ( rank == 0 ) then
          allocate( VpAS(n_theta_max,n_r_max), VsAS(n_theta_max,n_r_max) )
          allocate( VzAS(n_theta_max,n_r_max), BpAS(n_theta_max,n_r_max) )
          allocate( BsAS(n_theta_max,n_r_max), BzAS(n_theta_max,n_r_max) )
@@ -94,32 +92,32 @@ module outMRI_mod
          allocate( BpsAS(1,1), VpsAS(1,1))
       end if
 
-      !-- Cylindrical radius      
+      !-- Cylindrical radius
       n_s_max = n_r_max+int(r_ICB*n_r_max)
       n_s_max = int(sDens*n_s_max)
       allocate( cyl(n_s_max) )
       bytes_allocated=bytes_allocated+n_s_max*SIZEOF_DEF_REAL
 
-      ! Minimum and maximum cylindrical radii                                                            
+      ! Minimum and maximum cylindrical radii
       smin = r_CMB*sin(theta_ord(1))
-      !smin = 0.0_cp              
+      !smin = 0.0_cp
       smax = r_CMB
 
-      !-- Grid spacing            
+      !-- Grid spacing
       ds = (smax-smin)/(n_s_max-1)
 
-      !-- Cylindrical grid        
+      !-- Cylindrical grid
       do n_s=1,n_s_max
          cyl(n_s)=r_cmb-(n_s-1)*ds
       end do
 
-      !-- Height                  
+      !-- Height
       allocate( h(n_s_max), Oh(n_s_max) )
       bytes_allocated=bytes_allocated+2*n_s_max*SIZEOF_DEF_REAL
       do n_s=1,n_s_max
          if ( cyl(n_s) >= r_ICB ) then
             h(n_s)=two*sqrt(r_CMB**2-cyl(n_s)**2)
-            n_s_otc=n_s ! Last index outside TC                                                                
+            n_s_otc=n_s ! Last index outside TC
          else
             h(n_s)=sqrt(r_CMB**2-cyl(n_s)**2)-sqrt(r_ICB**2-cyl(n_s)**2)
          end if
@@ -127,12 +125,12 @@ module outMRI_mod
 
       Oh(1)=0.0_cp
       Oh(2:n_s_max)=one/h(2:n_s_max)
-      
+
       !-- R-distributed arrays
 !      nSmax=n_r_max+int(r_ICB*real(n_r_max,cp))
 !      nSmax=int(sDens*nSmax)
 !      nZmaxA=2*nSmax+1
-      !-- Determine the volume of the spherical shell interpolated on the cylindrical grid                          
+      !-- Determine the volume of the spherical shell interpolated on the cylindrical grid
       volcyl_oc = two * pi * (simps(h*cyl, cyl)+simps(h(n_s_otc+1:)*cyl(n_s_otc+1:), &
       &           cyl(n_s_otc+1:)))
 
@@ -195,22 +193,22 @@ module outMRI_mod
       real(cp) :: Bp2intS(n_s_max), Vp2intS(n_s_max)
       real(cp) :: Bs2intS(n_s_max), Vs2intS(n_s_max)
       real(cp) :: Bz2intS(n_s_max), Vz2intS(n_s_max)
-      
+
       real(cp) :: zMax_global(n_s_max)
       real(cp):: PowerVol_fR(nRstart:nRstop)
       real(cp):: PowerVol_global(n_r_max)
       real(cp):: V0_th,V_temp
       real(cp) :: fvisc_nr_cmb
       real(cp) :: fvisc_nr_1,zMax,zMin
-      
+
       !-- mean values
       real(cp) :: Maxwellstress, Reynoldsstress,Bs2,Bz2,Bp2,Vs2,Vz2,Vp2,Ekin,Emag,PowerVol
       real(cp) :: Bs,Bz,Bp,Vs,Vz,Vp
 
-      !-- For boundaries:                  
+      !-- For boundaries:
 !      real(cp) :: BpsB(2),BpsdB(2),BpsdB(2),zMin,zMax,dumm(8)
 !      real(cp) :: Bs2B(2),BszB(2),BpzB(2),BzpdB(2),BpzdB(2)
-      
+
       character(len=255) :: message
       character(len=64) :: version,fileName
 
@@ -227,7 +225,7 @@ module outMRI_mod
 
       !if ( lVerbose ) write(*,*) '! Before LGTransform outMRI!'
 
-      !-- Gather R-distributed arrays on rank == 0                                                  
+      !-- Gather R-distributed arrays on rank == 0
       call gather_from_Rloc_to_rank0(BspAS_Rloc, BpsAS)
       call gather_from_Rloc_to_rank0(VspAS_Rloc, VpsAS)
       call gather_from_Rloc_to_rank0(BpAS_Rloc, BpAS)
@@ -258,7 +256,7 @@ module outMRI_mod
          call cylmean(Bz2AS, Bz2IntN, Bz2IntS)
          call cylmean(VpsAS, VpsIntN, VpsIntS)
          call cylmean(BpsAS, BpsIntN, BpsIntS)
-         
+
          if  ( nMRIsets == 1 ) then
             do n_s=1,n_s_max
                zMax = sqrt(r_CMB*r_CMB-cyl(n_s)*cyl(n_s))
@@ -266,15 +264,15 @@ module outMRI_mod
                zMax_global(n_s)= zMax
             end do
          end if
- 
+
          ! Integration finished
-         
+
          if (lVerbose) write (*,*) '!Before Volume Force Work '
-         
+
 !   if (nRstop > n_r_cmb +2 .AND. nRstart < n_r_cmb+1) then
 !      fvisc_nr_cmb=0.0_cp
 !      fvisc_nr_1 = 0.0_cp
-!      do nTheta=1,n_theta_maxStr ! Loop over theta blocks
+!      do nTheta=1,n_theta_max ! Loop over theta blocks
 !         nThetaNHS=(nTheta+1)/2
 !         fvisc_nr_cmb=fvisc_nr_cmb+gauss(nThetaNHS)*fvisc_nr_cmbAS(nThetaNHS)
 !         fvisc_nr_1=fvisc_nr_1+gauss(nThetaNHS)*fvisc_nr_1AS(nThetaNHS)
@@ -283,7 +281,7 @@ module outMRI_mod
 
 !   do nR=nRstart,nRstop
 !      PowerVol_fR(nR)=0.0_cp
-!      do n=1,n_theta_maxStr ! Loop over theta blocks
+!      do n=1,n_theta_max ! Loop over theta blocks
 !         nThetaNHS=(nTheta+1)/2
 !         ss=r(nR)*sinTheta(nTheta)/(0.4*r_cmb)
 !         V0_th = r(nR)*norm_ome/(one+ss**(20.0_cp*q_rot))**0.05_cp - r(nR)/ek
@@ -300,10 +298,10 @@ module outMRI_mod
          open(newunit=nOutFile, file=NMRIfileSprofile, status='unknown',    &
               &       form='unformatted', position='append')
          if ( nMRIsets == 1 ) then
-            
+
             write(message,'(" ! MRI: No. of s-values:",i4)') int(n_s_max/r_cmb)
             call logWrite(message)
-            
+
             write(nOutFile) real(n_s_max,kind=outp)                        ! 1
             write(nOutFile) (real(cyl(nS),kind=outp),nS=1,n_s_max)          ! 2
             write(nOutFile) (real(zMax_global(nS),kind=outp),ns=1,n_s_max) ! 3 Zmax
@@ -324,42 +322,42 @@ module outMRI_mod
               &  (real(Bz2IntN(nS)*LFfac,kind=outp)     ,nS=1,n_s_max),       &! 17 Bz2
               &  (real(Vz2IntN(nS),kind=outp)     ,nS=1,n_s_max)               ! 18 Vz2
 
-         
+
          !           &  (real(EkinS(nS),kind=outp)     ,nS=1,n_s_max),            &! 12 Ekin
          !           &  (real(EmagS(nS),kind=outp)     ,nS=1,n_s_max)              ! 13 Emag
          close(nOutFile)
-         
-         !--- Output of z-integral southern hemisphere: 
+
+         !--- Output of z-integral southern hemisphere:
          open(newunit=nOutFile3, file=SMRIfileSprofile, status='unknown',    &
               &       form='unformatted', position='append')
          if ( nMRIsets == 1 ) then
-            
+
             write(message,'(" ! MRI: No. of s-values:",i4)') int(n_s_max/r_cmb)
             call logWrite(message)
 
-            write(nOutFile3) real(n_s_max,kind=outp)                        ! 1                                    
-            write(nOutFile3) (real(cyl(nS),kind=outp),nS=1,n_s_max)          ! 2                                    
-            write(nOutFile3) (real(zMax_global(nS),kind=outp),ns=1,n_s_max) ! 3 Zmax                               
+            write(nOutFile3) real(n_s_max,kind=outp)                        ! 1
+            write(nOutFile3) (real(cyl(nS),kind=outp),nS=1,n_s_max)          ! 2
+            write(nOutFile3) (real(zMax_global(nS),kind=outp),ns=1,n_s_max) ! 3 Zmax
          end if
-         write(nOutFile3)  real(time,kind=outp),                          &! 4                                     
-              &  (real(BpsIntS(nS)*LFfac,kind=outp)     ,nS=1,n_s_max),       &! 5  Bps                              
-              &  (real(VpsIntS(nS),kind=outp)     ,nS=1,n_s_max),             &! 6  Vps                              
-              &  (real(BsIntS(nS)*LFfac,kind=outp)     ,nS=1,n_s_max),        &! 7  Bs                               
-              &  (real(VsIntS(nS),kind=outp)     ,nS=1,n_s_max),              &! 8  Vs                               
-              &  (real(BpIntS(nS)*LFfac,kind=outp)     ,nS=1,n_s_max),        &! 9  Bp                               
-              &  (real(VpIntS(nS),kind=outp)     ,nS=1,n_s_max),              &! 10  Vp                              
-              &  (real(BzIntS(nS)*LFfac,kind=outp)     ,nS=1,n_s_max),        &! 11 Bz                               
-              &  (real(VzIntS(nS),kind=outp)     ,nS=1,n_s_max),              &! 12 Vz                               
-              &  (real(Bs2IntS(nS)*LFfac,kind=outp)     ,nS=1,n_s_max),       &! 13  Bs2                             
-              &  (real(Vs2IntS(nS),kind=outp)     ,nS=1,n_s_max),             &! 14  Vs2                             
-              &  (real(Bp2IntS(nS)*LFfac,kind=outp)     ,nS=1,n_s_max),       &! 15  Bp2                             
-              &  (real(Vp2IntS(nS),kind=outp)     ,nS=1,n_s_max),             &! 16  Vp2                             
-              &  (real(Bz2IntS(nS)*LFfac,kind=outp)     ,nS=1,n_s_max),       &! 17 Bz2                              
-              &  (real(Vz2IntS(nS),kind=outp)     ,nS=1,n_s_max)               ! 18 Vz2                              
-         !           &  (real(EkinS(nS),kind=outp)     ,nS=1,n_s_max),            &! 12 Ekin                           
-         !           &  (real(EmagS(nS),kind=outp)     ,nS=1,n_s_max)              ! 13 Emag                          
+         write(nOutFile3)  real(time,kind=outp),                          &! 4
+              &  (real(BpsIntS(nS)*LFfac,kind=outp)     ,nS=1,n_s_max),       &! 5  Bps
+              &  (real(VpsIntS(nS),kind=outp)     ,nS=1,n_s_max),             &! 6  Vps
+              &  (real(BsIntS(nS)*LFfac,kind=outp)     ,nS=1,n_s_max),        &! 7  Bs
+              &  (real(VsIntS(nS),kind=outp)     ,nS=1,n_s_max),              &! 8  Vs
+              &  (real(BpIntS(nS)*LFfac,kind=outp)     ,nS=1,n_s_max),        &! 9  Bp
+              &  (real(VpIntS(nS),kind=outp)     ,nS=1,n_s_max),              &! 10  Vp
+              &  (real(BzIntS(nS)*LFfac,kind=outp)     ,nS=1,n_s_max),        &! 11 Bz
+              &  (real(VzIntS(nS),kind=outp)     ,nS=1,n_s_max),              &! 12 Vz
+              &  (real(Bs2IntS(nS)*LFfac,kind=outp)     ,nS=1,n_s_max),       &! 13  Bs2
+              &  (real(Vs2IntS(nS),kind=outp)     ,nS=1,n_s_max),             &! 14  Vs2
+              &  (real(Bp2IntS(nS)*LFfac,kind=outp)     ,nS=1,n_s_max),       &! 15  Bp2
+              &  (real(Vp2IntS(nS),kind=outp)     ,nS=1,n_s_max),             &! 16  Vp2
+              &  (real(Bz2IntS(nS)*LFfac,kind=outp)     ,nS=1,n_s_max),       &! 17 Bz2
+              &  (real(Vz2IntS(nS),kind=outp)     ,nS=1,n_s_max)               ! 18 Vz2
+         !           &  (real(EkinS(nS),kind=outp)     ,nS=1,n_s_max),            &! 12 Ekin
+         !           &  (real(EmagS(nS),kind=outp)     ,nS=1,n_s_max)              ! 13 Emag
          close(nOutFile3)
-      
+
          !      PowerVol=rInt_R(PowerVol_global,r,rscheme_oc)
 
          ! S-Integration
@@ -405,7 +403,7 @@ module outMRI_mod
          Bz2 = simps(Bz2IntN*cyl*h, cyl)
          Bz2 = Bz2+simps(Bz2IntS(n_s_otc+1:n_s_max)*cyl(n_s_otc+1:n_s_max)* &
               &                        h(n_s_otc+1:n_s_max),cyl(n_s_otc+1:n_s_max))
-         
+
          Maxwellstress = two*pi*Maxwellstress/volcyl_oc
          Reynoldsstress = two*pi*Reynoldsstress/volcyl_oc
          Vs = two*pi*Vs/volcyl_oc
@@ -439,7 +437,7 @@ module outMRI_mod
          !           & real(fvisc_nr_cmb,kind = outp),                                        &!Visc Flux at the boundary
          !           & real(fvisc_nr_1,kind = outp)
          close(nOutFile2)
-         
+
 !      open(newunit=nOutFile3,file=MRI2DFile,status='unknown',    &
 !           &       form='unformatted', position='append')
 !      if ( nMRIsets == 1 ) then
@@ -486,49 +484,49 @@ module outMRI_mod
 !      end do
          close(nOutFile3)
       end if
-  
+
     end subroutine outMRI
 
  subroutine cylmean(dat, datN, datS)
-   !                                       
-   ! This routine computes the z-average inside and outside TC                                                           
-   !                                       
-   
-   !-- Input variables                     
-   real(cp), intent(in) :: dat(:,:) ! input data                                                                         
-   
-   !-- Output variables                    
-   real(cp), intent(out) :: datN(n_s_max)   ! z-average outside T.C. + N.H.                                              
-   real(cp), intent(out) :: datS(n_s_max)   ! z-average outside T.C. + S.H.                                              
-   
-   !-- Local variables                     
+   !
+   ! This routine computes the z-average inside and outside TC
+   !
+
+   !-- Input variables
+   real(cp), intent(in) :: dat(:,:) ! input data
+
+   !-- Output variables
+   real(cp), intent(out) :: datN(n_s_max)   ! z-average outside T.C. + N.H.
+   real(cp), intent(out) :: datS(n_s_max)   ! z-average outside T.C. + S.H.
+
+   !-- Local variables
    real(cp) :: dat_OTC(n_s_max), dat_ITC_N(n_s_max), dat_ITC_S(n_s_max)
-   
-   !-- z-averaging                         
+
+   !-- z-averaging
    call cylmean_otc(dat,dat_OTC,n_s_max,n_s_otc,r,cyl,theta_ord,zDens)
    call cylmean_itc(dat,dat_ITC_N,dat_ITC_S,n_s_max,n_s_otc,r,cyl,theta_ord,zDens)
-   
-   !-- rearange                            
+
+   !-- rearange
    datN(1:n_s_otc)=dat_OTC(1:n_s_otc)
    datS(1:n_s_otc)=dat_OTC(1:n_s_otc)
    datN(n_s_otc+1:n_s_max)=dat_ITC_N(n_s_otc+1:n_s_max)
    datS(n_s_otc+1:n_s_max)=dat_ITC_S(n_s_otc+1:n_s_max)
-   
- end subroutine cylmean
-!------------------------------------------------------------------------------------                                       
-   subroutine gather_from_Rloc_to_rank0(arr_Rloc, arr)
-      !                                       
-      ! This subroutine gathers the r-distributed array                                                                     
-      !                                       
 
-      !-- Input variable                      
+ end subroutine cylmean
+!------------------------------------------------------------------------------------
+   subroutine gather_from_Rloc_to_rank0(arr_Rloc, arr)
+      !
+      ! This subroutine gathers the r-distributed array
+      !
+
+      !-- Input variable
       real(cp), intent(in) :: arr_Rloc(n_theta_max,nRstart:nRstop)
 
-      !-- Output variable                     
+      !-- Output variable
       real(cp), intent(out) :: arr(n_theta_max,n_r_max)
 
 #ifdef WITH_MPI
-      !-- Local variables:                    
+      !-- Local variables:
       integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
       integer :: p
 

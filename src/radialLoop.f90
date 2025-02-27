@@ -42,8 +42,8 @@ contains
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,     & !lMagHelCalc
               &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,       &
               &          lFluxProfCalc,lPerpParCalc,lGeosCalc,lHemiCalc,   &
-              &          l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,&
-              &          djdt,dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,              &
+              &          lPhaseCalc,l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt, &
+              &          dphidt,dbdt,djdt,dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,  &
               &          lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb, &
               &          br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,dtrkc,dthkc)
 !======= !PNS
@@ -72,7 +72,7 @@ contains
       logical,             intent(in) :: lPowerCalc,lGeosCalc
 !      logical,             intent(in) :: lMagHelCalc !PNS
       logical,             intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
-      logical,             intent(in) :: lRmsCalc,lHemiCalc
+      logical,             intent(in) :: lRmsCalc,lHemiCalc,lPhaseCalc
       logical,             intent(in) :: l_probe_out
       logical,             intent(in) :: lPressCalc
       logical,             intent(in) :: lPressNext
@@ -127,14 +127,14 @@ contains
       !---- Output for Courant criteria:
       real(cp),    intent(out) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
 
-      call rIter%radialLoop(l_graph,l_frame,time,timeStage,tscheme,dtLast,      &
-           &             lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,          &
-           &             lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,            &
-           &             lFluxProfCalc,lPerpParCalc,lGeosCalc,lHemiCalc,        &
-           &             l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,&
-           &             dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,lorentz_torque_ic,      &
-           &             lorentz_torque_ma, br_vt_lm_cmb,br_vp_lm_cmb,          &
-           &             br_vt_lm_icb,br_vp_lm_icb,dtrkc,dthkc)
+      call rIter%radialLoop(l_graph,l_frame,time,timeStage,tscheme,dtLast,    &
+           &             lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,        &
+           &             lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,          &
+           &             lFluxProfCalc,lPerpParCalc,lGeosCalc,lHemiCalc,      &
+           &             lPhaseCalc,l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,    &
+           &             dphidt,dbdt,djdt,dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,     &
+           &             lorentz_torque_ic,lorentz_torque_ma, br_vt_lm_cmb,   &
+           &             br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,dtrkc,dthkc)
 
 ! ======= PNS
 !       !--- Local variables:

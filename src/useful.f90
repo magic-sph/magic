@@ -15,12 +15,12 @@ module useful
    private
 
    public :: l_correct_step, factorise, cc2real, cc22real, round_off, &
-   &         logWrite, polynomial_interpolation, abortRun
+   &         logWrite, polynomial_interpolation, abortRun, lagrange_interp
 
 contains
 
    logical function l_correct_step(n,t,t_last,n_max,n_step,n_intervals, &
-                                   n_ts,times,n_eo)
+                    &              dt_output,times)
       !
       ! Suppose we have a (loop) maximum of n_max steps!
       ! If n_intervals times in these steps a certain action should be carried out
@@ -41,14 +41,11 @@ contains
       integer,  intent(in) :: n_max        ! max number of steps
       integer,  intent(in) :: n_step       ! action interval
       integer,  intent(in) :: n_intervals  ! number of actions
-      integer,  intent(in) :: n_ts         ! number of times t
-      real(cp), intent(in) :: times(*)     ! times where l_correct_step == true
-      integer,  intent(in) :: n_eo         ! even/odd controller
+      real(cp), intent(in) :: dt_output    ! Output frequency
+      real(cp), intent(inout) :: times(:)  ! times where l_correct_step == true
 
       !-- Local variables:
-      integer :: n_delta      ! corrector for even/odd n
       integer :: n_offset     ! offset with no action
-      integer :: n_t          ! counter for times
       integer :: n_steps      ! local step width
 
       if ( n_step /= 0 .and. n_intervals /= 0 ) then
@@ -58,34 +55,24 @@ contains
       end if
 
       l_correct_step=.false.
-
       if ( n_intervals /= 0 ) then
          n_steps=n_max/n_intervals
-         if ( ( n_eo == 2 .and. mod(n_step,2) /= 0 ) .or. &
-         &    ( n_eo == 1 .and. mod(n_step,2) /= 1 ) ) then
-            n_steps=n_steps+1
-         end if
-
          n_offset=n_max-n_steps*n_intervals
-
          if ( n > n_offset .and. mod(n-n_offset,n_steps) == 0 ) l_correct_step=.true.
       else if ( n_step /= 0 ) then
-         n_delta=0
-         if ( ( n_eo == 1 .and. mod(n,2) == 0 ) .or. &
-         &    ( n_eo == 2 .and. mod(n,2) == 1 ) ) then
-            n_delta=1
-         end if
-
-         if ( n == n_max .or. mod(n-n_delta,n_step) == 0 ) l_correct_step=.true.
+         if ( n == n_max .or. mod(n,n_step) == 0 ) l_correct_step=.true.
       end if
+      if ( l_correct_step ) return
 
-      if ( n_ts >= 1 ) then
-         do n_t=1,n_ts
-            if ( times(n_t) < t .and. times(n_t) >= t_last ) then
-               l_correct_step=.true.
-               exit
-            end if
-         end do
+      if ( size(times) == 1 ) then
+         !-- Time array has one single entry for the next output
+         if ( times(1) < t .and. times(1) >= t_last ) then
+            l_correct_step=.true.
+            times(1)=times(1)+dt_output ! In this case, increment the target time for next output
+         end if
+      else if ( size(times) > 1 ) then
+         !-- Time array contains multiple entries
+         l_correct_step=any((times(:) >= t_last) .and. (times(:) < t), dim=1)
       end if
 
    end function l_correct_step
@@ -142,7 +129,7 @@ contains
 
    end subroutine factorise
 !----------------------------------------------------------------------------
-   real(cp)  function cc2real(c,m)
+   real(cp) function cc2real(c,m)
       !
       ! This function computes the norm of complex number, depending on the
       ! azimuthal wavenumber.
@@ -341,5 +328,32 @@ contains
       end if
 
    end function round_off
+!----------------------------------------------------------------------------
+   real(cp) function lagrange_interp(xp, x, yp)
+      !
+      ! This function performs a Lagrange interpolation around the point
+      ! x. The order depends on the size of the input arrays x and y
+      !
+
+      !-- Input variables
+      real(cp), intent(in) :: xp(:) ! Grid points where the quantity is known
+      real(cp), intent(in) :: x ! Point where the quantity is interpolated
+      real(cp), intent(in) :: yp(:) ! value
+
+      !-- Local variables
+      real(cp) :: lag_i ! Lagrange polynomial of order n
+      integer :: i, j, n
+
+      n = size(xp) ! Degree of the Lagrange interpolant
+      lagrange_interp=0.0_cp
+      do i=1,n
+         lag_i=one
+         do j=1,n
+            if (i /= j) lag_i = lag_i*(x - xp(j))/(xp(i) - xp(j))
+         end do
+         lagrange_interp=lagrange_interp+lag_i*yp(i)
+      end do
+
+   end function lagrange_interp
 !----------------------------------------------------------------------------
 end module useful

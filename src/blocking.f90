@@ -47,44 +47,15 @@ module blocking
 
    type(subblocks_mappings), public, target :: st_sub_map, lo_sub_map
 
-
-   !------------------------------------------------------------------------
-   !  Following divides loops over points in theta-direction (index ic) into
-   !  blocks. Enhances performance by trying to decrease memory access
-   !  but is not relevant for SMP parallel processing.
-   !  It is tried to divide the theta loop into parts whose data
-   !  fit into cache. Thus ideal block sizes (nfs) highly depend on the
-   !  used computer.
-   !  The value nfs used here has been determined experientally
-   !  by Uli Christensen for an IBM SP2. It represents an upper bound.
-   !  The real block size sizeThetaB used in the code is determined in
-   !  s_prep.f by decreasing the size starting with nfs,
-   !  until n_theta_max is a multiple of sizeThetaB. The maximum number of
-   !  blocks is limited to 8 here (see s_prep.f).
-   !  To find a new blocking for a different computer I suggest to
-   !  vary the number of blocks nThetaBs (see s_prep.f) for a fixed
-   !  resolution. If the ideal no. of blocks nThetaBsI has been found
-   !  this determins the ideal block size:
-   !         sizeThetaBI=((n_theta_max-1)/nThetaBsI+1)*n_phi_max
-   !  This can than be rescaled for different resolutions n_phi_max:
-   !         nfs=sizeThetaBI/n_phi_max+1
-   !  The resulting block number can be kept down by multiplying this
-   !  with an integer number nBDown, Uli has used K=8 here.
-   !  For the memory access this is equivalent to inceasing the
-   !  number of blocks.
-   !  I dont know exactly why Uli has the additional 16. It may just
-   !  decrease the block size to be on the safe side, which is a good
-   !  idea, since you dont want to end up with blocks that are just
-   !  a little bit larger than the cache.
-   !  Thus it seems a good idea to use
-   !        nfs=sizeThetaBI/(n_phi_max+nBSave)+1)*nBDown
-   !
-
    public :: initialize_blocking, finalize_blocking
 
 contains
 
-   subroutine initialize_blocking
+   subroutine initialize_blocking()
+      !
+      ! This subroutine allocates and initializes the different LM mappings
+      ! employed in the code.
+      !
 
       integer :: n
       integer(lip) :: local_bytes_used
@@ -186,7 +157,7 @@ contains
            &                           m_min,m_max,lm_balance)
 
       !--- Getting lm sub-blocks:
-      call get_subblocks(st_map, st_sub_map) 
+      call get_subblocks(st_map, st_sub_map)
       !PRINT*," ---------------- Making the lorder subblocks ---------------- "
       call get_subblocks(lo_map, lo_sub_map)
       !PRINT*," ---------------- Making the snake order subblocks ----------- "
@@ -203,7 +174,10 @@ contains
 
    end subroutine initialize_blocking
 !------------------------------------------------------------------------
-   subroutine finalize_blocking
+   subroutine finalize_blocking()
+      !
+      ! This subroutine deallocates the LM mappings used in MagIC.
+      !
 
       call deallocate_mappings(st_map)
       call deallocate_mappings(lo_map)
@@ -316,12 +290,12 @@ contains
                write(output_unit,"(4X,2(A,I4))") "Subblocks of Block ",n,"/",n_procs
                do n2=1,sub_map%nLMBs2(n)
                   write(output_unit,"(8X,3(A,I4))") "subblock no. ",n2,", of ",&
-                       & sub_map%nLMBs2(n)," with size ",sub_map%sizeLMB2(n2,n)
+                  &      sub_map%nLMBs2(n)," with size ",sub_map%sizeLMB2(n2,n)
                   do n3=1,sub_map%sizeLMB2(n2,n)
-                     write(output_unit,"(10X,A,I4,A,I6,2I4)") "local lm is ",n3,      &
-                          &" translates into global lm,l,m : ",             &
-                          & sub_map%lm22lm(n3,n2,n),sub_map%lm22l(n3,n2,n), &
-                          & sub_map%lm22m(n3,n2,n)
+                     write(output_unit,"(10X,A,I4,A,I6,2I4)") "local lm is ",n3,  &
+                     &    " translates into global lm,l,m : ",                    &
+                     &     sub_map%lm22lm(n3,n2,n),sub_map%lm22l(n3,n2,n),        &
+                     &     sub_map%lm22m(n3,n2,n)
                   end do
                end do
             end if
@@ -422,7 +396,7 @@ contains
 
       if ( lm /= map%lm_max ) then
          write(output_unit,"(2(A,I6))") 'get_lorder_lm_blocking: Wrong lm = ',lm, &
-                              " != map%lm_max = ",map%lm_max
+         &                              " != map%lm_max = ",map%lm_max
          call abortRun('Stop run in blocking')
       end if
       do lm=1,map%lm_max

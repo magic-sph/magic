@@ -17,14 +17,13 @@ module updateS_mod
    use init_fields, only: tops, bots
    use blocking, only: lo_map, lo_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_S
-   use logic, only: l_update_s, l_anelastic_liquid, l_finite_diff, &
-        &            l_full_sphere, l_parallel_solve, l_phase_field, &
-        &            l_tidal
+   use logic, only: l_anelastic_liquid, l_finite_diff, l_phase_field, &
+       &            l_full_sphere, l_parallel_solve, l_tidal
    use parallel_mod
    use radial_der, only: get_ddr, get_dr, get_dr_Rloc, get_ddr_ghost, &
        &                 exch_ghosts, bulk_to_ghost
    use fields, only:  work_LMloc, wtidal_LMloc
-   use constants, only: zero, one, two, pi
+   use constants, only: zero, one, two, three, pi
    use useful, only: abortRun
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray
@@ -162,7 +161,7 @@ contains
       class(type_tscheme), intent(in) :: tscheme
       complex(cp),         intent(in) :: phi(llm:ulm,n_r_max) ! Phase field
       real(cp),            intent(in) :: time
-      
+
       !-- Input/output of scalar fields:
       complex(cp),       intent(inout) :: s(llm:ulm,n_r_max) ! Entropy
       type(type_tarray), intent(inout) :: dsdt
@@ -180,9 +179,7 @@ contains
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
-      integer :: threadid,iChunk,nChunks,size_of_last_chunk,lmB0, dLh
-      
-      if ( .not. l_update_s ) return
+      integer :: threadid,iChunk,nChunks,size_of_last_chunk,lmB0
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
@@ -340,8 +337,6 @@ contains
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm, l, m
 
-      if ( .not. l_update_s ) return
-
       !-- LU factorisation of the matrix if needed
       if ( .not. lSmat(0) ) then
          call get_sMat_Rdist(tscheme,hdif_S,sMat_FD)
@@ -424,8 +419,6 @@ contains
       integer :: lm, l, m, lm_start, lm_stop
       real(cp) :: dr
 
-      if ( .not. l_update_s ) return
-
       !$omp parallel default(shared) private(lm_start, lm_stop, l, m, lm)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
@@ -490,8 +483,6 @@ contains
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm
 
-      if ( .not. l_update_s ) return
-
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dsdt)
 
@@ -531,7 +522,7 @@ contains
       complex(cp), intent(in) :: w(llm:ulm,n_r_max)
       complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)
       real(cp), intent(in) :: time
-      
+
       !-- Output variables
       complex(cp), intent(inout) :: ds_exp_last(llm:ulm,n_r_max)
 
@@ -544,13 +535,13 @@ contains
       lm2l(1:lm_max) => lo_map%lm2l
       lm2m(1:lm_max) => lo_map%lm2m
       lm2(0:,0:) => lo_map%lm2
-      
+
       if (l_tidal) then
-         eiwt(:,:)=cmplx(cos(-w_orbit_th*time),sin(-w_orbit_th*time),kind=cp)*wtidal_LMloc(:,:) 
+         eiwt(:,:)=cmplx(cos(-w_orbit_th*time),sin(-w_orbit_th*time),kind=cp)*wtidal_LMloc(:,:)
       else
          eiwt=0.0_cp
       end if
-      
+
       !$omp parallel default(shared) private(start_lm, stop_lm)
       start_lm=llm; stop_lm=ulm
       call get_openmp_blocks(start_lm,stop_lm)
@@ -589,7 +580,7 @@ contains
          !$omp end do
       end if
       !$omp end parallel
-      
+
    end subroutine finish_exp_entropy
 !-----------------------------------------------------------------------------
    subroutine finish_exp_entropy_Rdist(w, dVSrLM, ds_exp_last,time)
@@ -611,7 +602,7 @@ contains
       real(cp) :: dL
       integer :: n_r, lm, l, start_lm, stop_lm
       complex(cp):: eiwt
-      
+
       call get_dr_Rloc(dVSrLM, work_Rloc, lm_max, nRstart, nRstop, n_r_max, &
            &           rscheme_oc)
 
@@ -620,7 +611,7 @@ contains
       else
          eiwt=0.0_cp
       end if
-      
+
       !$omp parallel default(shared) private(n_r, lm, l, dL, start_lm, stop_lm)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm, stop_lm)
@@ -815,6 +806,11 @@ contains
                   &                                           work_Rloc(lm,n_r) &
                   &     + ( beta(n_r)+two*or1(n_r)+dLkappa(n_r) ) *  ds(lm,n_r) &
                   &                                    - dL*or2(n_r)*sg(lm,n_r) )
+                  if ( l_full_sphere .and. l==0 .and. n_r==n_r_icb ) then
+                     dsdt%impl(lm,n_r,istage)=  opr*hdif_S(l)* kappa(n_r) *  (  &
+                     &                              three *   work_Rloc(lm,n_r) &
+                     &               + ( beta(n_r)+dLkappa(n_r) ) *  ds(lm,n_r) )
+                  end if
                end do
             end do
          else
@@ -827,6 +823,11 @@ contains
                   &        + ( beta(n_r)+dLtemp0(n_r)+two*or1(n_r)+dLkappa(n_r) )  &
                   &                                              * ds(lm,n_r)      &
                   &        - dL*or2(n_r)                        *  sg(lm,n_r) )
+                  if ( l_full_sphere .and. l==0 .and. n_r==n_r_icb ) then
+                     dsdt%impl(lm,n_r,istage)=  opr*hdif_S(l)*kappa(n_r) *   (     &
+                     &                                  three* work_Rloc(lm,n_r)   &
+                     &   + ( beta(n_r)+dLtemp0(n_r)+dLkappa(n_r) )  * ds(lm,n_r) )
+                  end if
                end do
             end do
          end if
@@ -1189,7 +1190,7 @@ contains
       call sMat%prepare(info)
       if ( info /= 0 ) call abortRun('Singular matrix sMat!')
 
-   end subroutine get_Smat
+   end subroutine get_sMat
 !-----------------------------------------------------------------------------
    subroutine get_sMat_Rdist(tscheme,hdif,sMat)
       !
@@ -1226,7 +1227,6 @@ contains
                sMat%up(l,nR)=   -tscheme%wimp_lin(1)*opr*hdif(l)*          &
                &                kappa(nR)*(         rscheme_oc%ddr(nR,2) + &
                &( beta(nR)+two*or1(nR)+dLkappa(nR) )*rscheme_oc%dr(nR,2) )
-
             else
                sMat%diag(l,nR)=one-tscheme%wimp_lin(1)*opr*hdif(l)* &
                &                kappa(nR)*(  rscheme_oc%ddr(nR,1) + &
@@ -1241,6 +1241,35 @@ contains
                &                kappa(nR)*(  rscheme_oc%ddr(nR,2) + &
                & ( beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR) )*  &
                &                              rscheme_oc%dr(nR,2) )
+            end if
+
+            if ( l==0 .and. l_full_sphere .and. nR==n_r_icb ) then
+               !-- Use L'Hôpital's rule to replace 2/r d/dr at the center
+               !-- by 2*d^2/dr^2
+               if ( l_anelastic_liquid ) then
+                  sMat%diag(l,nR)=  one - tscheme%wimp_lin(1)*opr*hdif(l)*&
+                  &            kappa(nR)*(  three* rscheme_oc%ddr(nR,1) + &
+                  &        ( beta(nR)+dLkappa(nR) )*rscheme_oc%dr(nR,1))
+                  sMat%low(l,nR)=   -tscheme%wimp_lin(1)*opr*hdif(l)*     &
+                  &            kappa(nR)*( three*  rscheme_oc%ddr(nR,0) + &
+                  &        ( beta(nR)+dLkappa(nR) )*rscheme_oc%dr(nR,0) )
+                  sMat%up(l,nR)=   -tscheme%wimp_lin(1)*opr*hdif(l)*      &
+                  &            kappa(nR)*( three*  rscheme_oc%ddr(nR,2) + &
+                  &        ( beta(nR)+dLkappa(nR) )*rscheme_oc%dr(nR,2) )
+               else
+                  sMat%diag(l,nR)=one-tscheme%wimp_lin(1)*opr*hdif(l)* &
+                  &           kappa(nR)*( three*rscheme_oc%ddr(nR,1) + &
+                  &             ( beta(nR)+dLtemp0(nR)+dLkappa(nR) )*  &
+                  &                              rscheme_oc%dr(nR,1) )
+                  sMat%low(l,nR)=   -tscheme%wimp_lin(1)*opr*hdif(l)*  &
+                  &          kappa(nR)*(  three*rscheme_oc%ddr(nR,0) + &
+                  &             ( beta(nR)+dLtemp0(nR)+dLkappa(nR) )*  &
+                  &                              rscheme_oc%dr(nR,0) )
+                  sMat%up(l,nR) =   -tscheme%wimp_lin(1)*opr*hdif(l)*  &
+                  &           kappa(nR)*( three*rscheme_oc%ddr(nR,2) + &
+                  & ( beta(nR)+dLtemp0(nR)+dLkappa(nR) )*  &
+                  &                              rscheme_oc%dr(nR,2) )
+               end if
             end if
          end do
       end do
@@ -1287,6 +1316,6 @@ contains
       !-- LU decomposition:
       call sMat%prepare_mat()
 
-   end subroutine get_Smat_Rdist
+   end subroutine get_sMat_Rdist
 !-----------------------------------------------------------------------------
 end module updateS_mod

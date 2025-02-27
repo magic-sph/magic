@@ -35,7 +35,7 @@ module outPar_mod
    implicit none
 
    private
-   
+
    type(mean_sd_type) :: fcond, fconv, fkin, fvisc, fres,  fpoyn
    type(mean_sd_type) :: Eperp, Epar, Eperpaxi, Eparaxi
    type(mean_sd_type) :: uh, duh, gradT2, entropy, comp
@@ -58,7 +58,7 @@ contains
       ! bLayers). Mostly time-averaged radial outputs.
       !
 
-      n_calls = 0 
+      n_calls = 0
       call dlV%initialize(1,n_r_max)
       call dlVc%initialize(1,n_r_max)
       call Rm%initialize(1,n_r_max)
@@ -252,21 +252,19 @@ contains
       end if
 
       if ( rank == 0 ) then
-         do nR=1,n_r_max
-            ! Re must be independant of the timescale
-            ReR(nR)=sqrt(two*ekinR(nR)*or2(nR)/(4*pi*mass)/eScale)
-            RoR(nR)=ReR(nR)*ekScaled
-            if ( dlVR(nR) /= 0.0_cp ) then
-               RolR(nR)=RoR(nR)/dlVR(nR)
-            else
-               RolR(nR)=RoR(nR)
-            end if
-            if ( l_mag_nl ) then
-               RmR(nR)=ReR(nR)*prmag*sigma(nR)*r(nR)*r(nR)
-            else
-               RmR(nR)=ReR(nR)*r(nR)*r(nR)
-            end if
-         end do
+         ReR(:)=sqrt(two*ekinR(:)*or2(:)/(4*pi*mass)/eScale)
+         RoR(:)=ReR(:)*ekScaled
+         where ( dlVr /= 0.0_cp )
+            RolR=RoR/dlVR
+         else where
+            RolR=RoR
+         end where
+
+         if ( l_mag_nl ) then
+            RmR(:)=ReR(:)*prmag*sigma(:)*r(:)*r(:)
+         else
+            RmR(:)=ReR(:)*r(:)*r(:)
+         end if
 
          call dlV%compute(dlVR, n_calls, timePassed, timeNorm)
          call dlVc%compute(dlVRc, n_calls, timePassed, timeNorm)
@@ -513,9 +511,9 @@ contains
             if ( l_anelastic_liquid ) then
                fconv=vr(nTheta,nPhi)*sr(nTheta,nPhi)
             else
-               fconv=temp0(nr)*vr(nTheta,nPhi)*sr(nTheta,nPhi)     +    &
-               &          ViscHeatFac*ThExpNb*alpha0(nr)*temp0(nr)*     &
-               &          orho1(nr)*vr(nTheta,nPhi)*pr(nTheta,nPhi)
+               fconv=temp0(nR)*vr(nTheta,nPhi)*sr(nTheta,nPhi)     +    &
+               &          ViscHeatFac*ThExpNb*alpha0(nR)*temp0(nR)*     &
+               &          orho1(nR)*vr(nTheta,nPhi)*pr(nTheta,nPhi)
             end if
 
             fkin=half*or2(nR)*orho2(nR)*(O_sin_theta_E2(nTheta)*(    &

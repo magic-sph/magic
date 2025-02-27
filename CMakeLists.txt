@@ -1,7 +1,6 @@
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.5)
 project (magic)
 enable_language (Fortran C)
-cmake_policy(SET CMP0054 NEW)
 
 # generate a Git version string
 execute_process(COMMAND git describe --abbrev=7 --always --tags OUTPUT_VARIABLE GIT_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -22,6 +21,7 @@ set(PRECISION   "dble" CACHE STRING "Precision of the calculations")
 set(ARCH        "64"   CACHE STRING "Architecture of the platform: 32/64")
 set(OUT_PREC    "sngl" CACHE STRING "Precision of the binary outputs")
 set(USE_FFTLIB  "MKL"  CACHE STRING "Library for the FFTs")
+set(USE_DCTLIB  "MKL"  CACHE STRING "Library for the DCTs")
 set(USE_MPI     "yes"  CACHE STRING "Use MPI parallelization")
 set(USE_OMP     "yes"  CACHE STRING "Use OpenMP")
 set(USE_LAPACKLIB "MKL"  CACHE STRING "Use the Math Kernel Library for lapack calls")
@@ -54,6 +54,22 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
    set(FFLAG_FPE       "-ffpe-trap=invalid,zero,overflow")
    set(FFLAG_OPT      "-march=native")
 endif()
+if(CMAKE_Fortran_COMPILER_ID MATCHES Cray)
+   set(FFLAG_ARCH      " ")
+   set(FFLAG_STD       "-en")
+   set(FFLAG_NO_STD    " ")
+   set(FFLAG_TRACEBACK " ")
+   set(FFLAG_CONVERT   "-h byteswapio")
+   set(FFLAG_PREPROCESSOR "-eZ")
+   set(FFLAG_WARN_ALL  " ")
+   set(FFLAG_CHECK_ALL "-G 0 -R b")
+   set(FFLAG_FPE       "-K trap=fp")
+   set(FFLAG_OPT       " ")
+   #set(CMAKE_EXE_LINKER_FLAGS "-h dynamic")
+   # Remove -rdynamic option (workaround for test machine):
+   # https://cmake.org/pipermail/cmake/2014-November/059154.html
+   #set(CMAKE_SHARED_LIBRARY_LINK_Fortran_FLAGS "")
+endif()
 if(CMAKE_Fortran_COMPILER_ID MATCHES PGI)
    set(FFLAG_ARCH      "-m${ARCH}")
    set(FFLAG_STD       " ")
@@ -70,7 +86,7 @@ endif()
 # Matrix preconditioning
 if (USE_PRECOND MATCHES yes)
    add_definitions(-DWITH_PRECOND_S -DWITH_PRECOND_Z -DWITH_PRECOND_BJ
-                   -DWITH_PRECOND_S0 -DWITH_PRECOND_Z10)
+                   -DWITH_PRECOND_Z10)
 endif()
 
 # Git version
@@ -95,18 +111,41 @@ set(_MPI_Fortran_COMPILER_NAMES            "mpif90|mpf90|mpif90_r|mpf90_r")
 set(_MPI_GNU_C_COMPILER_NAMES              "mpigcc|mpgcc|mpigcc_r|mpgcc_r")
 set(_MPI_GNU_Fortran_COMPILER_NAMES        "mpigfortran|mpgfortran|mpigfortran_r|mpgfortran_r")
 # Intel MPI compiler names
-set(_MPI_Intel_C_COMPILER_NAMES            "mpiicc")
-set(_MPI_Intel_Fortran_COMPILER_NAMES      "mpiifort")
+set(_MPI_Intel_C_COMPILER_NAMES            "mpiicc|mpiicx")
+set(_MPI_Intel_Fortran_COMPILER_NAMES      "mpiifort|mpiifx")
 # PGI compiler names
 set(_MPI_PGI_C_COMPILER_NAMES              "mpipgcc|mppgcc")
 set(_MPI_PGI_Fortran_COMPILER_NAMES        "mpipgf|mppgf")
+# Cray compiler names
+set(_MPI_Cray_C_COMPILER_NAMES             "cc")
+set(_MPI_Cray_Fortran_COMPILER_NAMES       "ftn")
 # XLC MPI Compiler names
 set(_MPI_XL_C_COMPILER_NAMES               "mpxlc|mpxlc_r|mpixlc|mpixlc_r")
 set(_MPI_XL_Fortran_COMPILER_NAMES         "mpxlf|mpixlf")
 
 # Find CC, CXX and Fortran MPI wrappers
-string(REGEX MATCH "${_MPI_C_COMPILER_NAMES}|${_MPI_GNU_C_COMPILER_NAMES}|${_MPI_Intel_C_COMPILER_NAMES}|${_MPI_PGI_C_COMPILER_NAMES}|${_MPI_XL_C_COMPILER_NAMES}" MPICC_COMPILER "${CMAKE_C_COMPILER}")
-string(REGEX MATCH "${_MPI_Fortran_COMPILER_NAMES}|${_MPI_GNU_Fortran_COMPILER_NAMES}|${_MPI_Intel_Fortran_COMPILER_NAMES}|${_MPI_PGI_Fortran_COMPILER_NAMES}|${_MPI_XL_Fortran_COMPILER_NAMES}" MPIFORTRAN_COMPILER "${CMAKE_Fortran_COMPILER}")
+string(REGEX MATCH "${_MPI_C_COMPILER_NAMES}|${_MPI_GNU_C_COMPILER_NAMES}|${_MPI_Intel_C_COMPILER_NAMES}|${_MPI_PGI_C_COMPILER_NAMES}|${_MPI_XL_C_COMPILER_NAMES}|${_MPI_Cray_C_COMPILER_NAMES}" MPICC_COMPILER "${CMAKE_C_COMPILER}")
+string(REGEX MATCH "${_MPI_Fortran_COMPILER_NAMES}|${_MPI_GNU_Fortran_COMPILER_NAMES}|${_MPI_Intel_Fortran_COMPILER_NAMES}|${_MPI_PGI_Fortran_COMPILER_NAMES}|${_MPI_XL_Fortran_COMPILER_NAMES}|${_MPI_Cray_Fortran_COMPILER_NAMES}" MPIFORTRAN_COMPILER "${CMAKE_Fortran_COMPILER}")
+
+# Check whether compiler_options() is available
+file(WRITE "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testCompOpt.f90"
+"
+program TestCompOpt
+use iso_fortran_env
+print*, compiler_options()
+print*, compiler_version()
+end program TestCompOpt
+")
+try_compile(COMP_OPT_AV ${CMAKE_BINARY_DIR}
+   ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testCompOpt.f90
+   COMPILE_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
+   OUTPUT_VARIABLE OUTPUT)
+if(COMP_OPT_AV)
+   add_definitions(-DCOMP_OPT)
+   message(STATUS "Fortran 2008 compiler_options(), compiler_version() available")
+else()
+   message(STATUS "Fortran 2008 compiler_options(), compiler_version() not available")
+endif()
 
 # Look for MPI and add the required flags if found
 if(USE_MPI MATCHES yes)
@@ -169,11 +208,11 @@ if(USE_LAPACKLIB MATCHES MKL OR USE_FFTLIB MATCHES MKL)
          find_library(MKL64 mkl_gf_lp64 HINTS ${MKLROOT}/lib/intel64)
       endif()
       link_directories(${MKLROOT}/lib/intel64)
-      include_directories(${MKLROOT}/include)
+      include_directories(${MKLROOT}/include ${MKLROOT}/include/fftw)
    else()
       message(STATUS "MKL was not found")
       set(USE_LAPACKLIB "LIBFLAME")
-      set(USE_FFTLIB "JW")
+      set(USE_FFTLIB "FFTW")
    endif()
 endif()
 
@@ -195,6 +234,20 @@ if(USE_LAPACKLIB MATCHES LIBFLAME)
    endif()
 endif()
 
+# Detect LIBSCI (Cray)
+#if(USE_LAPACKLIB MATCHES LIBSCI)
+   #find_library(SCI NAME sci_cray_mp
+      #PATHS $ENV{CRAY_LIBSCI_PREFIX}/lib
+      #      $ENV{HOME}/local/lib
+      #      $ENV{HOME}/local/lib64)
+   #if ( SCI MATCHES SCI-NOTFOUND )
+      #message(STATUS "LIBSCI was not found")
+      #set(USE_LAPACKLIB "LAPACK")
+   #else()
+      #message(STATUS "LIBSCI: '${SCI}'")
+   #endif()
+#endif()
+
 # Detect LAPACK
 if(USE_LAPACKLIB MATCHES LAPACK)
    find_package(LAPACK)
@@ -207,17 +260,17 @@ if(USE_LAPACKLIB MATCHES LAPACK)
    endif()
 endif()
 
-message(STATUS "Use '${USE_FFTLIB}' for the FFTs")
-message(STATUS "Use '${USE_LAPACKLIB}' for the LU factorisations")
 
 find_library(FFTW3 NAME fftw3
     PATHS $ENV{HOME}/local/lib
+          $ENV{HOME}/.local/lib
           $ENV{HOME}/local/lib64
           /usr/local/fftw/3.3.4_openmp/lib
           $ENV{FFTW_ROOT}/lib
+          $ENV{FFTW3_ROOT}/lib
           $ENV{FFTW_HOME}/lib                 #Hydra
           $ENV{FFTWDIR})                      #GWDG
-message(STATUS "FFTW3: '${FFTW3}'")
+
 
 if(USE_OMP)
    find_library(FFTW3_OMP NAME fftw3_omp
@@ -225,9 +278,46 @@ if(USE_OMP)
              $ENV{HOME}/local/lib64
              /usr/local/fftw/3.3.4_openmp/lib
              $ENV{FFTW_ROOT}/lib
+             $ENV{FFTW3_ROOT}/lib
              $ENV{FFTW_HOME}/lib              #Hydra
              $ENV{FFTWDIR})                   #GWDG
    message(STATUS "FFTW3_OMP: '${FFTW3_OMP}'")
+endif()
+
+
+if( USE_FFTLIB MATCHES FFTW )
+   include_directories(/usr/include)
+   if ( FFTW3-NOTFOUND )
+      message(STATUS "FFTW3 was not found")
+      set(USE_FFTLIB "JW")
+   else()
+      message(STATUS "FFTW3: '${FFTW3}'")
+      set(USE_FFTLIB "FFTW")
+   endif()
+endif()
+
+if ( USE_FFTLIB MATCHES MKL )
+   set(USE_DCTLIB "MKL")
+elseif( USE_FFTLIB MATCHES FFTW )
+   set(USE_DCTLIB "FFTW")
+else()
+   set(USE_DCTLIB "JW")
+endif()
+
+if( USE_DCTLIB MATCHES MKL OR USE_DCTLIB MATCHES FFTW )
+   add_definitions(-DUSE_DCT_FFT)
+endif()
+
+message(STATUS "Use '${USE_FFTLIB}' for the FFTs")
+message(STATUS "Use '${USE_DCTLIB}' for the DCTs")
+message(STATUS "Use '${USE_LAPACKLIB}' for the LU factorisations")
+
+if(APPLE)
+    include_directories(/usr/local/include)
+endif()
+
+if (EXISTS /usr/include)
+    include_directories(/usr/include)  #For Ubuntu-like systems
 endif()
 
 # Detect SHTNS
@@ -246,6 +336,30 @@ if(USE_SHTNS MATCHES yes)
    endif()
 else()
    message(STATUS "Use SHTNS: no")
+endif()
+
+# Check whether SHT_ALLOW_PADDING is available
+if(USE_SHTNS MATCHES yes AND NOT SHTNS MATCHES SHTNS-NOTFOUND)
+   file(WRITE "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testPad.f90"
+   "
+   program TestPad
+   use iso_c_binding
+   implicit none
+   include 'shtns.f03'
+   print*, SHT_ALLOW_PADDING
+   end program TestPad
+   ")
+   try_compile(SHT_PAD ${CMAKE_BINARY_DIR}
+      ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testPad.f90
+      CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=$ENV{HOME}/local/include"
+      COMPILE_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
+      OUTPUT_VARIABLE OUTPUT)
+   if(SHT_PAD)
+      add_definitions(-DSHT_PADDING)
+      message(STATUS "theta padding allowed with this version of SHTns")
+   else()
+      message(STATUS "No theta padding allowed with this version of SHTns")
+   endif()
 endif()
 
 # Final Fortran flags (after OpenMP/MPI to avoid the conflict

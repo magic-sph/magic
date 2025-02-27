@@ -131,16 +131,16 @@ contains
 
       !-- Calculate grid points and weights for the
       !   Gauss-Legendre integration of the plms:
-      call gauleg(-one,one,theta_ord,tmp_gauss,n_theta_max)
+      call gauleg(-one,one,theta_ord,tmp_gauss)
+
+      ! Get dP for all degrees and order m=0 at the equator only
+      ! Usefull to estimate the flow velocity at the equator
+      call plm_theta(half*pi,l_max,0,0,minc,Pl0Eq,dPl0Eq,norm)
 
       !-- Legendre polynomials and cos(theta) derivative:
       do n_theta=1,n_theta_max/2  ! Loop over colat in NHS
 
          colat=theta_ord(n_theta)
-
-         ! Get dP for all degrees and order m=0 at the equator only
-         ! Usefull to estimate the flow velocity at the equator
-         call plm_theta(half*pi,l_max,0,0,minc,Pl0Eq,dPl0Eq,l_max+1,norm)
 
          if ( l_scramble_theta ) then
             O_sin_theta(2*n_theta-1)   =one/sin(colat)
@@ -192,9 +192,7 @@ contains
 
       !----- Same for longitude output grid:
       fac=two*pi/real(n_phi_max*minc,cp)
-      do n_phi=1,n_phi_max
-         phi(n_phi)=fac*real(n_phi-1,cp)
-      end do
+      phi(:)=[((n_phi-1)*fac, n_phi=1,n_phi_max)]
 
       !-- Initialize fast fourier transform for phis:
       if ( .not. l_axi ) call init_fft(n_phi_max)
@@ -280,7 +278,7 @@ contains
 
    end subroutine horizontal
 !------------------------------------------------------------------------------
-   subroutine gauleg(sinThMin,sinThMax,theta_ord,gauss,n_th_max)
+   subroutine gauleg(sinThMin,sinThMax,theta_ord,gauss)
       !
       ! Subroutine is based on a NR code.
       ! Calculates N zeros of legendre polynomial P(l=N) in
@@ -292,16 +290,17 @@ contains
       !-- Input variables:
       real(cp), intent(in) :: sinThMin ! lower bound in radiants
       real(cp), intent(in) :: sinThMax ! upper bound in radiants
-      integer,  intent(in) :: n_th_max ! desired maximum degree
 
       !-- Output variables:
-      real(cp), intent(out) :: theta_ord(n_th_max) ! zeros cos(theta)
-      real(cp), intent(out) :: gauss(n_th_max)     ! associated Gauss-Legendre weights
+      real(cp), intent(out) :: theta_ord(:) ! zeros cos(theta)
+      real(cp), intent(out) :: gauss(:)     ! associated Gauss-Legendre weights
 
       !-- Local variables:
-      integer :: m,i,j
+      integer :: m,i,j,n_th_max
       real(cp) :: sinThMean,sinThDiff,p1,p2,p3,pp,z,z1
       real(cp), parameter :: eps = 10.0_cp*epsilon(one)
+
+      n_th_max=size(theta_ord)
 
       ! use symmetry
       m=(n_th_max+1)/2

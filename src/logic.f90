@@ -9,6 +9,7 @@ module logic
    logical :: l_update_b     ! Switch off magnetic field update
    logical :: l_update_s     ! Switch off entropy update
    logical :: l_update_xi    ! Switch off update of chemical composition
+   logical :: l_update_phi   ! Switch off update of phase field
    logical :: l_mag          ! Switch off magnetic terms calculation
    logical :: l_conv         ! Switch off convection
    logical :: l_mag_kin      ! Switch related for kinematic dynamo
@@ -105,6 +106,8 @@ module logic
    logical :: l_onset ! A flag to turn MagIC into a linear stability analysis code
    logical :: l_scramble_theta ! A flag to set theta scrambling
    logical :: l_geosMovie ! A flag to trigger the production of geos movies
+   logical :: l_phaseMovie ! A flag to trigger the production of a movie for the melting radius
+   logical :: l_dtphaseMovie ! A flag to trigger the production of a movie for the temperature gradient at the melting radius
 
    logical :: l_force_v ! forcing non-zero vp
    logical :: l_drag !radiative drag force !CAREFUL NOT IMPLEMENTED FOR DOUBLE CURL formulation

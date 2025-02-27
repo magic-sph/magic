@@ -22,9 +22,8 @@ module sht
    public :: initialize_sht, scal_to_spat, scal_to_grad_spat, pol_to_grad_spat, &
    &         torpol_to_spat, pol_to_curlr_spat, torpol_to_curl_spat,            &
    &         torpol_to_dphspat, scal_to_SH, spat_to_sphertor,                   &
-   &         torpol_to_spat_IC, torpol_to_curl_spat_IC, spat_to_SH_axi,         &
-   &         spat_to_qst, sphtor_to_spat, toraxi_to_spat, finalize_sht,         &
-   &         axi_to_spat
+   &         torpol_to_spat_IC, torpol_to_curl_spat_IC, axi_to_spat,            &
+   &         spat_to_qst, sphtor_to_spat, toraxi_to_spat, finalize_sht
 
    type(c_ptr) :: sht_l
 
@@ -460,9 +459,10 @@ contains
 
    end subroutine axi_to_spat
 !------------------------------------------------------------------------------
-   subroutine toraxi_to_spat(fl_ax, ft, fp)
+   subroutine toraxi_to_spat(fl_ax, ft, fp, lcut)
 
       !-- Input field
+      integer :: lcut ! Cut-off spherical harmonic degree
       complex(cp), intent(inout) :: fl_ax(l_max+1) !-- Axi-sym toroidal
 
       !-- Output fields on grid
@@ -472,25 +472,10 @@ contains
       !-- Local arrays
       complex(cp) :: tmpt(nlat_padded), tmpp(nlat_padded)
 
-      call SHtor_to_spat_ml(sht_l, 0, fl_ax, tmpt, tmpp, l_max)
+      call SHtor_to_spat_ml(sht_l, 0, fl_ax, tmpt, tmpp, lcut)
       ft(:)=real(tmpt(:))
       fp(:)=real(tmpp(:))
 
    end subroutine toraxi_to_spat
-!------------------------------------------------------------------------------
-   subroutine spat_to_SH_axi(f, fLM)
-
-      real(cp), intent(in) :: f(:)
-      real(cp), intent(out) :: fLM(:)
-
-      !-- Local arrays
-      complex(cp) :: tmp(nlat_padded)
-      complex(cp) :: tmpLM(size(fLM))
-
-      tmp(:)=cmplx(f(:),0.0_cp,kind=cp)
-      call spat_to_SH_ml(sht_l, 0, tmp, tmpLM, l_max)
-      fLM(:)=real(tmpLM(:))
-
-   end subroutine spat_to_SH_axi
 !------------------------------------------------------------------------------
 end module sht

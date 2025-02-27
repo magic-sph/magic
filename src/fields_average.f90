@@ -37,8 +37,7 @@ module fields_average_mod
    use radial_der_even, only: get_drNS_even, get_ddrNS_even
    use radial_der, only: get_dr
    use fieldsLast, only: dwdt, dpdt, dzdt, dsdt, dxidt, dbdt, djdt, dbdt_ic, &
-       &                 djdt_ic, domega_ma_dt, domega_ic_dt, dphidt,        &
-       &                 lorentz_torque_ic_dt, lorentz_torque_ma_dt
+       &                 djdt_ic, domega_ma_dt, domega_ic_dt, dphidt
    use storeCheckPoints
    use time_schemes, only: type_tscheme
 
@@ -65,6 +64,9 @@ module fields_average_mod
 contains
 
    subroutine initialize_fields_average_mod
+      !
+      ! Allocate arrays for computations of time-averaged fields
+      !
 
       allocate( w_ave_LMloc(llm:ulm,n_r_max), z_ave_LMloc(llm:ulm,n_r_max) )
       allocate( s_ave_LMloc(llm:ulm,n_r_max), p_ave_LMloc(llm:ulm,n_r_max) )
@@ -133,6 +135,9 @@ contains
    end subroutine initialize_fields_average_mod
 !----------------------------------------------------------------------------
    subroutine finalize_fields_average_mod
+      !
+      ! Deallocate arrays used to compute time-averaged fields
+      !
 
       deallocate( w_ave_LMloc, z_ave_LMloc, s_ave_LMloc, p_ave_LMloc )
       deallocate( w_ave_Rloc, z_ave_Rloc, s_ave_Rloc, p_ave_Rloc )
@@ -146,7 +151,10 @@ contains
       &                      time_passed,time_norm,omega_ic,omega_ma, &
       &                      w,z,p,s,xi,phi,b,aj,b_ic,aj_ic)
       !
-      ! This subroutine averages fields b and v over time.
+      ! This subroutine averages the fields in spectral space over time
+      ! to produce spectra and checkpoints of the time-averaged field.
+      ! It also computes the spherical harmonic transforms to produce the
+      ! corresponding average graphic file G_ave.TAG.
       !
 
       !-- Input of variables:
@@ -155,18 +163,18 @@ contains
       real(cp),            intent(in) :: time_passed  ! time passed since last log
       real(cp),            intent(in) :: time_norm    ! time passed since start of time loop
       real(cp),            intent(in) :: omega_ic,omega_ma
-      class(type_tscheme), intent(in) :: tscheme
+      class(type_tscheme), intent(in) :: tscheme ! Time scheme
       real(cp),            intent(in) :: simtime
-      complex(cp),         intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: z(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: p(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: s(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: xi(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: phi(llm:ulm,n_r_max)
-      complex(cp),         intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp),         intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp),         intent(in) :: w(llm:ulm,n_r_max) ! Poloidal potential (V)
+      complex(cp),         intent(in) :: z(llm:ulm,n_r_max) ! Toroidal potential (V)
+      complex(cp),         intent(in) :: p(llm:ulm,n_r_max) ! Pressure
+      complex(cp),         intent(in) :: s(llm:ulm,n_r_max) ! Temperature/Entropy
+      complex(cp),         intent(in) :: xi(llm:ulm,n_r_max) ! Chemical composition
+      complex(cp),         intent(in) :: phi(llm:ulm,n_r_max) ! Phase field
+      complex(cp),         intent(in) :: b(llmMag:ulmMag,n_r_maxMag) ! Poloidal potential (B)
+      complex(cp),         intent(in) :: aj(llmMag:ulmMag,n_r_maxMag) ! Toroidal potential (B)
+      complex(cp),         intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag) ! Poloidal potential of the inner core field
+      complex(cp),         intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag) ! Toroidal potential of the inner core field
 
       !-- Local stuff:
       ! fields for the gathering
@@ -186,12 +194,12 @@ contains
       complex(cp) :: dj_ic_ave(llm:ulm,n_r_ic_max)
 
       !----- Work array:
-      complex(cp) :: workA_LMloc(llm:ulm,n_r_max)
+      complex(cp) :: workA_LMloc(llm:ulm,n_r_ic_max)
 
       !----- Fields in grid space:
       real(cp) :: Br(nlat_padded,n_phi_max),Bt(nlat_padded,n_phi_max)
       real(cp) :: Bp(nlat_padded,n_phi_max),Vr(nlat_padded,n_phi_max)
-      real(cp) :: Vt(nlat_padded,n_phi_max),Vp(nlat_padded,n_phi_max) 
+      real(cp) :: Vt(nlat_padded,n_phi_max),Vp(nlat_padded,n_phi_max)
       real(cp) :: Sr(nlat_padded,n_phi_max),Prer(nlat_padded,n_phi_max)
       real(cp) :: Xir(nlat_padded,n_phi_max),Phir(nlat_padded,n_phi_max)
 
@@ -286,9 +294,9 @@ contains
          !      Note: average spectra will be in file no 0
          call spectrum(0,time,.false.,nAve,l_stop_time,time_passed,        &
               &        time_norm,s_ave_LMloc,ds_ave_LMloc,xi_ave_LMloc,    &
-              &        dxi_ave_LMloc,w_ave_LMloc,dw_ave_LMloc,z_ave_LMloc, &
-              &        b_ave_LMloc,db_ave_LMloc,aj_ave_LMloc,b_ic_ave,     &
-              &        db_ic_ave,aj_ic_ave)
+              &        dxi_ave_LMloc,phi_ave_LMloc,w_ave_LMloc,            &
+              &        dw_ave_LMloc,z_ave_LMloc,b_ave_LMloc,db_ave_LMloc,  &
+              &        aj_ave_LMloc,b_ic_ave,db_ic_ave,aj_ic_ave)
 
          if ( rank==0 .and. l_save_out ) then
             open(newunit=n_log_file, file=log_file, status='unknown', &
@@ -450,7 +458,7 @@ contains
          !--- Store potentials of averaged field:
          !    dw_ave_LMloc and db_ave_LMloc used as work arrays here.
          nPotSets=0
-#ifdef WITH_MPI	
+#ifdef WITH_MPI
          call write_Pot_mpi(time,w_ave_Rloc,z_ave_Rloc,b_ic_ave,aj_ic_ave,nPotSets,  &
               &             'V_lmr_ave.',omega_ma,omega_ic)
          if ( l_mag) then
@@ -490,15 +498,13 @@ contains
               &         w_ave_Rloc,z_ave_Rloc,p_ave_Rloc,s_ave_Rloc,          &
               &         xi_ave_Rloc,phi_ave_Rloc,b_ave_Rloc,aj_ave_Rloc,      &
               &         b_ic_ave,aj_ic_ave,dwdt,dzdt,dpdt,dsdt,dxidt,dphidt,  &
-              &         dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,  &
-              &         lorentz_torque_ma_dt,lorentz_torque_ic_dt)
+              &         dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt)
 #else
          call store(simtime,tscheme,-1,l_stop_time,.false.,.true.,        &
               &     w_ave_LMloc,z_ave_LMloc,p_ave_LMloc,s_ave_LMloc,      &
               &     xi_ave_LMloc,phi_ave_LMloc,b_ave_LMloc,aj_ave_LMloc,  &
               &     b_ic_ave,aj_ic_ave,dwdt,dzdt,dpdt,dsdt,dxidt,dphidt,  &
-              &     dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,  &
-              &     lorentz_torque_ma_dt,lorentz_torque_ic_dt)
+              &     dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt)
 #endif
 
          ! now correct the stored average fields by the factor which has been

@@ -18,7 +18,7 @@ module fft
 
    public :: init_fft, finalize_fft, fft_many, ifft_many, fft_to_real
 
-contains 
+contains
 
    subroutine init_fft(n_points)
       !
@@ -115,7 +115,7 @@ contains
 
       !-- Output variable:
       complex(cp), intent(out) :: g(nlat_padded,(n_phi_max/2+1))
-      
+
       call fftw_execute_dft_r2c(plan_fwd, f, g)
       g(:,:)=g(:,:)/n_phi_max
 
@@ -131,7 +131,7 @@ contains
 
       !-- Output variable:
       real(cp),    intent(out) :: f(nlat_padded,n_phi_max)
-      
+
       call fftw_execute_dft_c2r(plan_bwd, g, f)
 
    end subroutine ifft_many

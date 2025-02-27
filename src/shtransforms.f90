@@ -31,7 +31,7 @@ module shtransforms
    public :: initialize_transforms, finalize_transforms, native_qst_to_spat,   &
    &         native_sphtor_to_spat, native_sph_to_spat, native_spat_to_sph,    &
    &         native_spat_to_sph_tor, native_sph_to_grad_spat,                  &
-   &         native_toraxi_to_spat, native_spat_to_SH_axi, native_axi_to_spat
+   &         native_toraxi_to_spat, native_axi_to_spat
 
 contains
 
@@ -42,7 +42,7 @@ contains
       !
 
       !-- Local variables
-      integer :: n_theta, norm, lm, mc, m
+      integer :: n_theta, norm, mc, m
       real(cp) :: colat,theta_ord(n_theta_max), gauss(n_theta_max)
       real(cp) :: plma(lm_max), dtheta_plma(lm_max)
 
@@ -62,20 +62,18 @@ contains
 
       !-- Calculate grid points and weights for the
       !--   Gauss-Legendre integration of the plms:
-      call gauleg(-one,one,theta_ord,gauss,n_theta_max)
+      call gauleg(-one,one,theta_ord,gauss)
 
       do n_theta=1,n_theta_max/2  ! Loop over colat in NHS
          colat=theta_ord(n_theta)
          !----- plmtheta calculates plms and their derivatives
          !      up to degree and order l_max and m_max at
          !      the points cos(theta_ord(n_theta)):
-         call plm_theta(colat,l_max,m_min,m_max,minc,plma,dtheta_plma,lm_max,norm)
-         do lm=1,lm_max
-            Plm(lm,n_theta) =plma(lm)
-            dPlm(lm,n_theta)=dtheta_plma(lm)
-            wPlm(lm,n_theta) =two*pi*gauss(n_theta)*plma(lm)
-            wdPlm(lm,n_theta)=two*pi*gauss(n_theta)*dtheta_plma(lm)
-         end do
+         call plm_theta(colat,l_max,m_min,m_max,minc,plma,dtheta_plma,norm)
+         Plm(:,n_theta) =plma(:)
+         dPlm(:,n_theta)=dtheta_plma(:)
+         wPlm(:,n_theta) =two*pi*gauss(n_theta)*plma(:)
+         wdPlm(:,n_theta)=two*pi*gauss(n_theta)*dtheta_plma(:)
       end do
 
       !-- Build auxiliary index arrays for Legendre transform:
@@ -104,29 +102,29 @@ contains
 !------------------------------------------------------------------------------
    subroutine native_qst_to_spat(Qlm, Slm, Tlm, brc, btc, bpc, lcut)
       !
-      ! Vector spherical harmonic transform: take Q,S,T and transform them 
+      ! Vector spherical harmonic transform: take Q,S,T and transform them
       ! to a vector field
       !
-      
+
       !-- Input variables:
       complex(cp), intent(in) :: Qlm(lm_max) ! Poloidal
       complex(cp), intent(in) :: Slm(lm_max) ! Spheroidal
       complex(cp), intent(in) :: Tlm(lm_max) ! Toroidal
       integer,     intent(in) :: lcut
-    
+
       !-- Output: field on grid (theta,m) for the radial grid point nR
       !           and equatorially symmetric and antisymmetric contribution
       real(cp), intent(out) :: brc(n_theta_max,n_phi_max)
       real(cp), intent(out) :: btc(n_theta_max,n_phi_max)
       real(cp), intent(out) :: bpc(n_theta_max,n_phi_max)
-    
-      !------ Legendre Polynomials 
+
+      !------ Legendre Polynomials
       real(cp) :: PlmG(lm_max),PlmC(lm_max)
       complex(cp) :: bhG(lm_max),bhC(lm_max)
       complex(cp) :: tmpr(n_theta_max,n_phi_max/2+1)
       complex(cp) :: tmpt(n_theta_max,n_phi_max/2+1)
       complex(cp) :: tmpp(n_theta_max,n_phi_max/2+1)
-    
+
       !-- Local variables:
       logical :: l_Odd
       complex(cp) :: brES,brEA
@@ -135,7 +133,7 @@ contains
       real(cp) :: dm
       complex(cp) :: bhN1M,bhN2M,bhN,bhN1,bhN2
       complex(cp) :: bhS1M,bhS2M,bhS,bhS1,bhS2
-    
+
       bhG(1)=zero
       bhC(1)=zero
       do lm=2,lm_max
@@ -170,7 +168,7 @@ contains
          do nThetaN=nThStart,nThStop,2   ! Loop over thetas for north HS
             nThetaS  =nThetaN+1      ! same theta but for southern HS
             nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
- 
+
             brES   =zero
             brEA   =zero
             !--- 6 add/mult, 26 dble words
@@ -189,7 +187,7 @@ contains
             end if
             tmpr(nThetaN,mc)=brES+brEA
             tmpr(nThetaS,mc)=brES-brEA
- 
+
             bhN1=zero
             bhS1=zero
             bhN2=zero
@@ -211,7 +209,7 @@ contains
             bhS1M=half*bhS1
             bhN2M=half*bhN2
             bhS2M=half*bhS2
- 
+
             !--- 6 add/mult, 20 dble words
             tmpt(nThetaN,mc)=bhN1M+bhN2M
             bhN             =bhN1M-bhN2M
@@ -221,7 +219,7 @@ contains
             tmpp(nThetaS,mc)=-ci*bhS
          end do      ! End global loop over nTheta
       end do
- 
+
       !-- Zero out terms with index mc > n_m_max:
       if ( n_m_max < n_phi_max/2+1 ) then
          do mc=n_m_max+1,n_phi_max/2+1
@@ -243,7 +241,7 @@ contains
          btc(:,1)=real(tmpt(:,1))
          bpc(:,1)=real(tmpp(:,1))
       end if
-    
+
    end subroutine native_qst_to_spat
 !------------------------------------------------------------------------------
    subroutine native_sphtor_to_spat(Slm, Tlm, btc, bpc, lcut)
@@ -251,23 +249,23 @@ contains
       ! Use spheroidal and toroidal potentials to transform them to angular
       ! vector components btheta and bphi
       !
-      
+
       !-- Input variables:
       complex(cp), intent(in) :: Slm(lm_max)
       complex(cp), intent(in) :: Tlm(lm_max)
       integer,     intent(in) :: lcut
-    
+
       !-- Output: field on grid (theta,m) for the radial grid point nR
       !           and equatorially symmetric and antisymmetric contribution
       real(cp), intent(out) :: btc(n_theta_max,n_phi_max)
       real(cp), intent(out) :: bpc(n_theta_max,n_phi_max)
-    
-      !------ Legendre Polynomials 
+
+      !------ Legendre Polynomials
       real(cp) :: PlmG(lm_max),PlmC(lm_max)
       complex(cp) :: bhG(lm_max),bhC(lm_max)
       complex(cp) :: tmpt(n_theta_max,n_phi_max/2+1)
       complex(cp) :: tmpp(n_theta_max,n_phi_max/2+1)
-    
+
       !-- Local variables:
       logical :: l_Odd
       integer :: nThetaN,nThetaS,nThetaNHS
@@ -275,7 +273,7 @@ contains
       real(cp) :: dm
       complex(cp) :: bhN1M,bhN2M,bhN,bhN1,bhN2
       complex(cp) :: bhS1M,bhS2M,bhS,bhS1,bhS2
-    
+
       do lm=1,lm_max
          bhG(lm)=Slm(lm)-ci*Tlm(lm)
          bhC(lm)=Slm(lm)+ci*Tlm(lm)
@@ -307,7 +305,7 @@ contains
          do nThetaN=nThStart,nThStop,2   ! Loop over thetas for north HS
             nThetaS  =nThetaN+1      ! same theta but for southern HS
             nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
- 
+
             !--- 6 add/mult, 26 dble words
             do lm=lStart(mc),lmS-1,2
                PlmG(lm)  =dPlm(lm,nThetaNHS)  -dm*Plm(lm,nThetaNHS)
@@ -319,7 +317,7 @@ contains
                PlmG(lmS)=dPlm(lmS,nThetaNHS)-dm*Plm(lmS,nThetaNHS)
                PlmC(lmS)=dPlm(lmS,nThetaNHS)+dm*Plm(lmS,nThetaNHS)
             end if
- 
+
             bhN1=zero
             bhS1=zero
             bhN2=zero
@@ -341,7 +339,7 @@ contains
             bhS1M=half*bhS1
             bhN2M=half*bhN2
             bhS2M=half*bhS2
- 
+
             !--- 6 add/mult, 20 dble words
             tmpt(nThetaN,mc)=bhN1M+bhN2M
             bhN             =bhN1M-bhN2M
@@ -351,7 +349,7 @@ contains
             tmpp(nThetaS,mc)=-ci*bhS
          end do
       end do      ! End global loop over mc
- 
+
       !-- Zero out terms with index mc > n_m_max:
       if ( n_m_max < n_phi_max/2+1 ) then
          do mc=n_m_max+1,n_phi_max/2+1
@@ -370,14 +368,14 @@ contains
          btc(:,1)=real(tmpt(:,1))
          bpc(:,1)=real(tmpp(:,1))
       end if
-    
+
    end subroutine native_sphtor_to_spat
 !------------------------------------------------------------------------------
    subroutine native_axi_to_spat(Slm, sc)
 
       !-- Input variable
       complex(cp), intent(in) :: Slm(l_max+1)
-      
+
       !-- Output variable
       real(cp), intent(out) :: sc(n_theta_max)
 
@@ -404,41 +402,47 @@ contains
 
    end subroutine native_axi_to_spat
 !------------------------------------------------------------------------------
-   subroutine native_toraxi_to_spat(Tlm, btc, bpc)
+   subroutine native_toraxi_to_spat(Tlm, btc, bpc, lcut)
       !
       ! Use spheroidal and toroidal potentials to transform them to angular
       ! vector components btheta and bphi
       !
-      
+
       !-- Input variables:
+      integer, intent(in) :: lcut ! cut-off spherical harmonic degree
       complex(cp), intent(in) :: Tlm(l_max+1)
-    
+
       !-- Output: field on grid (theta,m) for the radial grid point nR
       !           and equatorially symmetric and antisymmetric contribution
       real(cp), intent(out) :: btc(n_theta_max)
       real(cp), intent(out) :: bpc(n_theta_max)
-    
-      !------ Legendre Polynomials 
+
+      !------ Legendre Polynomials
       real(cp) :: PlmG(l_max+1),PlmC(l_max+1)
       complex(cp) :: bhG(l_max+1),bhC(l_max+1)
-    
+
       !-- Local variables:
       integer :: nThetaN,nThetaS,nThetaNHS
       integer :: lm,lmS,l
-    
+
       complex(cp) :: bhN1M,bhN2M,bhN,bhN1,bhN2
       complex(cp) :: bhS1M,bhS2M,bhS,bhS1,bhS2
-    
+
       do l=1,l_max+1
-         bhG(l)=-ci*Tlm(l)
-         bhC(l)= ci*Tlm(l)
+         if ( l > lcut+1 ) then
+            bhG(l)=zero
+            bhC(l)=zero
+         else
+            bhG(l)=-ci*Tlm(l)
+            bhC(l)= ci*Tlm(l)
+         end if
       end do
 
       nThetaNHS=0
       do nThetaN=1,n_theta_max,2   ! Loop over thetas for north HS
          nThetaS  =nThetaN+1      ! same theta but for southern HS
          nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
- 
+
          lmS=lStop(1)
          !--- 6 add/mult, 26 dble words
          do lm=lStart(1),lmS-1,2
@@ -451,7 +455,7 @@ contains
             PlmG(lmS)=dPlm(lmS,nThetaNHS)
             PlmC(lmS)=dPlm(lmS,nThetaNHS)
          end if
- 
+
          lmS=lStop(1)
          bhN1=zero
          bhS1=zero
@@ -483,7 +487,7 @@ contains
          bpc(nThetaN)=real(-ci*bhN)
          bpc(nThetaS)=real(-ci*bhS)
       end do
- 
+
    end subroutine native_toraxi_to_spat
 !------------------------------------------------------------------------------
    subroutine native_sph_to_spat(Slm, sc, lcut)
@@ -544,7 +548,7 @@ contains
             do nThetaN=nThstart,nThStop
                tmp(nThetaN,mc)=zero
             end do ! loop over nThetaN (theta)
-         end do  
+         end do
       end if
       !$omp end parallel
 
@@ -719,7 +723,7 @@ contains
                f1LM(lmS)=f1LM(lmS) + f1ES1*wPlm(lmS,nTheta1) + f1ES2*wPlm(lmS,nTheta2)
             end if
          end do
-      end do 
+      end do
       !$omp end parallel
 
    end subroutine native_spat_to_sph
@@ -855,7 +859,7 @@ contains
             end if
          end do !  loop over theta in block
 
-      end do 
+      end do
       !$omp end parallel
 
       !-- Division by l(l+1) except for (l=0,m=0)
@@ -866,51 +870,5 @@ contains
       end do
 
    end subroutine native_spat_to_sph_tor
-!------------------------------------------------------------------------------
-   subroutine native_spat_to_SH_axi(ft1,flm1,lmMax)
-      !
-      !  Legendre transform for an axisymmetric field
-      !
-
-      !-- Input variables:
-      integer,  intent(in) :: lmMax          ! Number of modes to be processed
-      real(cp), intent(in) :: ft1(*)
-
-      !-- Output: transformed arrays anlc1,anlc2
-      real(cp), intent(out) :: flm1(*)
-
-      !-- Local variables:
-      integer :: nThetaN,nThetaS,nThetaNHS,nTheta1,nTheta2,lm1,lm2
-      real(cp) :: f1p(n_theta_max/2),f1m(n_theta_max/2)
-      
-      flm1(1:lmMax)=0.0_cp
-
-      !-- Prepare arrays of sums and differences:
-      nThetaNHS=0
-      do nThetaN=1,n_theta_max,2 ! thetas in NHS
-         nThetaS=nThetaN+1         ! thetas in SHS
-         nThetaNHS=nThetaNHS+1      ! thetas in one HS
-         f1p(nThetaNHS)=ft1(nThetaN)+ft1(nThetaS) ! Symm
-         f1m(nThetaNHS)=ft1(nThetaN)-ft1(nThetaS) ! ASymm
-      end do
-
-      do nTheta1=1,n_theta_max/2,2
-         nTheta2=nTheta1+1
-
-         do lm1=1,lmMax-1,2
-            lm2=lm1+1
-            flm1(lm1)=flm1(lm1) + f1p(nTheta1)*wPlm(lm1,nTheta1) + &
-            &                     f1p(nTheta2)*wPlm(lm1,nTheta2)
-            flm1(lm2)=flm1(lm2) + f1m(nTheta1)*wPlm(lm2,nTheta1) + &
-            &                     f1m(nTheta2)*wPlm(lm2,nTheta2)
-         end do
-         if ( lm2 < lmMax ) then
-            lm1=lmMax
-            flm1(lm1)=flm1(lm1) + f1p(nTheta1)*wPlm(lm1,nTheta1) + &
-            &                     f1p(nTheta2)*wPlm(lm1,nTheta2)
-         end if
-      end do
-
-   end subroutine native_spat_to_SH_axi
 !------------------------------------------------------------------------------
 end module shtransforms

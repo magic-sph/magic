@@ -6,8 +6,9 @@ module mri
   use iso_fortran_env, only: output_unit
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_phi_maxStr, n_r_maxStr, l_max, n_theta_maxStr, lm_max, &
+   use truncation, only: n_phi_max, n_r_max, l_max, n_theta_max, lm_max, &
         &                 nlat_padded
+
    use radial_data, only: n_r_cmb, nRstart, nRstop
    use radial_functions, only: r, or1, or2, or3, or4, beta, orho1, &
        &                       dbeta,visc
@@ -17,7 +18,6 @@ module mri
        &                      dLh,O_sin_theta_E2 !osn2
    use constants, only: one, two, third
    use logic, only: lVerbose, l_mag, l_MRICalc
-   use sht, only: spat_to_SH_axi
 
    implicit none
 
@@ -139,13 +139,13 @@ contains
 
       if ( lVerbose ) write(*,*) '! Starting getMRI!'
 
-      phiNorm=one/real(n_phi_maxStr, kind=cp)
+      phiNorm=one/real(n_phi_max, kind=cp)
 
       if (nR == n_r_cmb) fvisc_nr_cmbAS=0.0_cp
       if (nR == n_r_cmb+1) fvisc_nr_1AS=0.0_cp
 
       !-- Big loop over thetas in block:
-      do nTheta=1,n_theta_maxStr
+      do nTheta=1,n_theta_max
          nThetaNHS = (nTheta+1)/2
          sinT =sinTheta(nTheta)
          cosT =cosTheta(nTheta)
@@ -181,7 +181,7 @@ contains
          BpMean   =0.0_cp
          BzMean   =0.0_cp
          fvisc = 0
-         do nPhi=1,n_phi_maxStr
+         do nPhi=1,n_phi_max
             Vs2Mean=Vs2Mean   +Bs2F1*vr(nTheta,nPhi)*vr(nTheta,nPhi) &
                    &           +Bs2F2*vt(nTheta,nPhi)*vt(nTheta,nPhi)&
                    &           +Bs2F3*vr(nTheta,nPhi)*vt(nTheta,nPhi)
@@ -228,7 +228,7 @@ contains
             end if
          end do
          Vpmean = phiNorm*Vpmean
-         do nPhi=1,n_phi_maxStr
+         do nPhi=1,n_phi_max
             Vp2Mean=Vp2Mean+(vp(nTheta,nPhi)-Vpmean)*(vp(nTheta,nPhi)-Vpmean)
             VspMean=VspMean + BspF1*vr(nTheta,nPhi)*(vp(nTheta,nPhi)-Vpmean) + &
                  &                 BspF2*vt(nTheta,nPhi)*(vp(nTheta,nPhi)-Vpmean)

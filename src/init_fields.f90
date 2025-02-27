@@ -6,8 +6,9 @@ module init_fields
    use precision_mod
    use iso_fortran_env, only: output_unit
    use parallel_mod
-   use mpi_ptop_mod, only: type_mpiptop
-   use mpi_transp_mod, only: type_mpitransp
+   use chebyshev, only: type_cheb_odd
+   use finite_differences, only: type_fd
+   use communications, only: lo2r_one, r2lo_one, transp_R2Phi, transp_Phi2R
    use truncation, only: n_r_max, n_r_maxMag, n_r_ic_max, m_min, l_max, &
        &                 n_phi_max, n_theta_max, n_r_tot, m_max,        &
        &                 minc, n_cheb_ic_max, lm_max, nlat_padded
@@ -30,9 +31,9 @@ module init_fields
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use radial_der, only: get_dr_Rloc, get_dr
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
-       &                zero, one, two, three, four, third, half,c_moi_oc,c_moi_ic, sq4pi
-   use useful, only: abortRun, cc2real
-   use sht, only: scal_to_SH, torpol_to_spat
+       &                zero, one, two, three, four, third, half, sq4pi,c_moi_oc,c_moi_ic
+   use useful, only: abortRun, lagrange_interp, cc2real
+   use sht, only: scal_to_SH, scal_to_spat, torpol_to_spat
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
        &                          peakS, widthS, radratio, imagcon, opm,  &
        &                          sigma_ratio, O_sr, kbots, ktops, opr,   &
@@ -40,9 +41,8 @@ module init_fields
        &                          impXi, n_impXi_max, n_impXi, phiXi,     &
        &                          thetaXi, peakXi, widthXi, osc, epscxi,  &
        &                          kbotxi, ktopxi, BuoFac, ktopp, oek,     &
-       &                          ktopv, kbotv, LFfac,interior_model,ktopb,&
-       &                          r_cut_model, epsPhase, ampForce, &
-       &                          tidalFac, w_orbit_th
+       &                          epsPhase,ktopv, kbotv, LFfac,interior_model, &
+       &                          ktopb, r_cut_model, tidalFac, w_orbit_th
    use algebra, only: prepare_mat, solve_mat
    use cosine_transform_odd
    use dense_matrices
@@ -51,7 +51,7 @@ module init_fields
    use outRot, only: get_angular_moment
    use integration, only: rInt_R
    use num_param, only: lScale, eScale
-   use special, only: n_imp,amp_imp
+   use special, only: n_imp,amp_imp, ampForce
    use fields, only: z0v_Rloc, dz0v_Rloc, z0v_LMloc
 
    implicit none
@@ -129,7 +129,7 @@ module init_fields
    real(cp), public, allocatable :: vttidal(:,:,:)
    real(cp), public, allocatable :: vptidal(:,:,:)
    real(cp), public, allocatable :: X(:), dX(:), d2X(:)
-   
+
    public :: initialize_init_fields, initV, initS, initB, initPhi, initF, ps_cond, &
    &         pt_cond, initXi, xi_cond, finalize_init_fields, initTidal
 
@@ -185,9 +185,9 @@ contains
          d2X(:)=zero
          bytes_allocated=bytes_allocated + 3*n_r_max*&
               &               SIZEOF_DEF_REAL
-         
+
       end if
-      
+
    end subroutine initialize_init_fields
 !------------------------------------------------------------------------------
    subroutine finalize_init_fields
@@ -199,7 +199,7 @@ contains
       if ( ktopv == 3 )   deallocate( topv)
       if ( kbotv == 3 )   deallocate( botv)
       if (l_tidal) deallocate (vrtidal,vttidal,vptidal,X,dX,d2X)
-      
+
    end subroutine finalize_init_fields
 !------------------------------------------------------------------------------
    subroutine initV(w,z,omega_ic,omega_ma)
@@ -222,39 +222,38 @@ contains
       real(cp) :: amp_r,rExp
       real(cp) :: rDep(n_r_max)
 
-      !For angular momentum computation
+      !For angular momentum computation !ARS
       real(cp):: trash1(3),trash2(3), angular_moment(3)
       real(cp) :: lr_z,r_cut
       integer :: l1m1,rank_with_cmb
       integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
       integer :: irank,i
 
-      class(type_mpitransp), pointer :: r2lo_initv, lo2r_initv, r2lo_initv2, lo2r_initv2
+!      class(type_mpitransp), pointer :: r2lo_initv, lo2r_initv, r2lo_initv2, lo2r_initv2
+
       real(cp) :: ss,ome(nlat_padded,n_phi_max)
       complex(cp) :: omeLM(lm_max)
       complex(cp) :: dz1(llm:ulm,n_r_max)
       real(cp), allocatable :: coeffOmega(:)
 
-      allocate( type_mpiptop :: r2lo_initv )
-      allocate( type_mpiptop :: lo2r_initv )
-      allocate( type_mpiptop :: r2lo_initv2 )
-      allocate( type_mpiptop :: lo2r_initv2 )
-      
+! !<<<<<<< HEAD
+!       allocate( type_mpiptop :: r2lo_initv )
+!       allocate( type_mpiptop :: lo2r_initv )
+!       allocate( type_mpiptop :: r2lo_initv2 )
+!       allocate( type_mpiptop :: lo2r_initv2 )
+
       if (.not. l_force_v) then
          z0v_Rloc(:,:) =0.0_cp
          dz0v_Rloc(:,:) =0.0_cp
          z0v_LMloc(:,:) =0.0_cp
       end if
-      
+
       !-- Initialize rotation according to
       !   given inner core and mantel rotation rate:
       if ( init_v1 == 1 .and. ( omega_ic1 /= 0.0_cp .or. omega_ma1 /= 0.0_cp ) ) then
 
-         call r2lo_initv%create_comm(1)
-         call lo2r_initv%create_comm(1)
-
          !-- From lo distributed to r distributed
-         call lo2r_initv%transp_lm2r(z, z_Rloc)
+         call lo2r_one%transp_lm2r(z, z_Rloc)
 
          !-- Approximating the Stewardson solution:
          do nR=nRstart,nRstop
@@ -294,19 +293,12 @@ contains
          end do ! close loop over radial grid points
 
          !-- Transpose back to lo distributed
-         call r2lo_initv%transp_r2lm(z_Rloc, z)
-
-         !-- Destroy MPI communicators
-         call r2lo_initv%destroy_comm()
-         call lo2r_initv%destroy_comm()
+         call r2lo_one%transp_r2lm(z_Rloc, z)
 
       else if ( init_v1 == 2 ) then
 
-         call r2lo_initv%create_comm(1)
-         call lo2r_initv%create_comm(1)
-
          !-- From lo distributed to r distributed
-         call lo2r_initv%transp_lm2r(z, z_Rloc)
+         call lo2r_one%transp_lm2r(z, z_Rloc)
 
          !-- Approximating the Stewardson solution:
          do nR=nRstart,nRstop
@@ -341,20 +333,13 @@ contains
 
          end do ! close loop over radial grid points
          !-- Transpose back to lo distributed
-         call r2lo_initv%transp_r2lm(z_Rloc, z)
-
-         !-- Destroy MPI communicators
-         call r2lo_initv%destroy_comm()
-         call lo2r_initv%destroy_comm()
+         call r2lo_one%transp_r2lm(z_Rloc, z)
 
       else if (init_v1 == 30) then
          !--- Add a rotation profile proportionnal to r^q where q is a parameter
          ! Amplitude is made to be coherent with the solid body rotation of 1/Ekman
 
-         call r2lo_initv%create_comm(1)
-         call lo2r_initv%create_comm(1)
-
-         call lo2r_initv%transp_lm2r(z, z_Rloc)
+         call lo2r_one%transp_lm2r(z, z_Rloc)
 
          if ( index(interior_model,'PNS_SZ_0V2S') /= 0 .OR. pertur_z == 1 ) then
             r_cut=0.25_cp
@@ -404,7 +389,7 @@ contains
                   topv(l,m) = topv(l,m) + z_Rloc(lm,1)
                end if
             end do
-         end do ! close loop over radial grid points       
+         end do ! close loop over radial grid points
 
          if (ktopv == 3) then !Need to broadcast topv since only the rank_with_cmb has it
 #ifdef WITH_MPI
@@ -416,12 +401,9 @@ contains
             call MPI_Bcast(botv,(l_max+1)*(m_max+1),MPI_DEF_COMPLEX,n_procs-1,MPI_COMM_WORLD,ierr)
 #endif
          end if
-         
-         !-- Transpose back to lo distributed
-         call r2lo_initv%transp_r2lm(z_Rloc, z)
 
-         call r2lo_initv%destroy_comm()
-         call lo2r_initv%destroy_comm()
+         !-- Transpose back to lo distributed
+         call r2lo_one%transp_r2lm(z_Rloc, z)
 
          l1m0 = lo_map%lm2(1,0)
          l1m1 = lo_map%lm2(1,1)
@@ -470,32 +452,25 @@ contains
          end if
 
          z= z*norm_ome
-         
+
          if (force_z_vol > 0 .and. l_force_v) then
             z0v_LMloc(:,:) = z(:,:)
             call get_dr(z,dz1,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
                  &      nocopy=.true.)
-            call r2lo_initv2%create_comm(1)
-            call lo2r_initv2%create_comm(1)
-            call lo2r_initv2%transp_lm2r(z, z0v_Rloc)
-            call lo2r_initv2%transp_lm2r(dz1, dz0v_Rloc)
+            call lo2r_one%transp_lm2r(z, z0v_Rloc)
+            call lo2r_one%transp_lm2r(dz1, dz0v_Rloc)
             !            call get_dr_Rloc(z0v_Rloc, dz0v_Rloc, lm_max, nRstart, nRstop, n_r_max, &
             !     &           rscheme_oc)
-            call r2lo_initv2%destroy_comm()
-            call lo2r_initv2%destroy_comm()
             z=z*0.0_cp
          end if
-         
-         
+
+
       else if (init_v1 == -1) then
-         !--- Add a rotation profile proportionnal to r^-q where q is a parameter                  
-         ! Amplitude is made to be coherent with the solid body rotation of 1/Ekman                
+         !--- Add a rotation profile proportionnal to r^-q where q is a parameter
+         ! Amplitude is made to be coherent with the solid body rotation of 1/Ekman
 
-         call r2lo_initv%create_comm(1)
-         call lo2r_initv%create_comm(1)
-
-         !-- From lo distributed to r distributed      
-         call lo2r_initv%transp_lm2r(z, z_Rloc)
+         !-- From lo distributed to r distributed
+         call lo2r_one%transp_lm2r(z, z_Rloc)
 
          if ( index(interior_model,'PNS_SZ_0V2S') /= 0 .OR. pertur_z == 1 ) then
             r_cut=0.25
@@ -508,20 +483,20 @@ contains
                  + [-5.80099523e-02_cp, -3.16876435e+00_cp,  1.04622507e+00_cp, -4.43496513e+00_cp, &
                  1.91004753e-01_cp, -3.42118359e+00_cp, -6.72642708e-01_cp, -1.03414631e+00_cp, &
                  -3.97218466e+00_cp, -7.47951031e-01_cp,  6.97055459e-03_cp, -9.69161466e-03_cp, &
-                 -3.41950869e-03_cp, -2.82726578e-05_cp, -2.16976377e-06_cp] 
+                 -3.41950869e-03_cp, -2.82726578e-05_cp, -2.16976377e-06_cp]
             norm_ome = oek/q_rot ! to put the profile in visocus units/ in q_rot is encoded the rotation rate
-            !            norm_ome =oek*1.71e-4_cp !to put the profile in viscous units                                                                                                    
+            !            norm_ome =oek*1.71e-4_cp !to put the profile in viscous units
             r_cut=1.0_cp
          else
             r_cut=0.4
          end if
-         !-- Approximating the Stewardson solution:    
-         !if (rank ==0) then         
+         !-- Approximating the Stewardson solution:
+         !if (rank ==0) then
          do nR=nRstart,nRstop
             do nPhi=1,n_phi_max
                do nTheta=1,n_theta_max
                   ss=r(nR)*sinTheta(nTheta)*r_cut_model/(r_cut*r_cmb)
-                  !------------ start with constructing rotation rate ome:                         
+                  !------------ start with constructing rotation rate ome:
                   if ( index(interior_model,'PNS_SZ_0V2S') /= 0 .or.  pertur_z == 1 ) then
                      ome(nTheta,nPhi)=rho0(nR)*one/(one+ss**(20.0_cp*q_rot))**0.05_cp
                   else if (index(interior_model,'HMNS_17MS_SZ') /= 0 .or. pertur_w == 1) then
@@ -529,18 +504,18 @@ contains
                      do i = 1,15
                         ome(nTheta,nPhi) = ome(nTheta,nPhi)+norm_ome*coeffOmega(i)*(ss)**(15-i)
                      end do
-                     ome(nTheta,nPhi) = rho0(nR)*ome(nTheta,nPhi) 
+                     ome(nTheta,nPhi) = rho0(nR)*ome(nTheta,nPhi)
                   else
                      ome(nTheta,nPhi)=one/(one+ss**(20.0_cp*q_rot))**0.05_cp
                   end if
                end do
             end do
-               !------------ Transform to spherical hamonic space for each theta block             
+               !------------ Transform to spherical hamonic space for each theta block
             call scal_to_SH(ome, omeLM, l_max)
 
-            !------- ome now in spherical harmonic space,                                          
-            !        apply operator dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,                 
-            !        additional application of r**2/(l*(l+1)) then yields                          
+            !------- ome now in spherical harmonic space,
+            !        apply operator dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
+            !        additional application of r**2/(l*(l+1)) then yields
             !        the axisymmetric toriodal flow contribution:
             do lm=2,lm_max
                l   =st_map%lm2l(lm)
@@ -563,25 +538,21 @@ contains
                   topv(l,m) = topv(l,m) + z_Rloc(lm,1)
                end if
             end do
-         end do ! close loop over radial grid points   
+         end do ! close loop over radial grid points
 
-         if (ktopv == 3) then !Need to broadcast topv since only the rank_with_cmb has it          
+         if (ktopv == 3) then !Need to broadcast topv since only the rank_with_cmb has it
 #ifdef WITH_MPI
             call MPI_Bcast(topv,(l_max+1)*(m_max+1),MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
 #endif
          end if
-         if (kbotv == 3 ) then !Need to broadcast topv since only the rank_with_icb has it         
+         if (kbotv == 3 ) then !Need to broadcast topv since only the rank_with_icb has it
 #ifdef WITH_MPI
             call MPI_Bcast(botv,(l_max+1)*(m_max+1),MPI_DEF_COMPLEX,n_procs-1,MPI_COMM_WORLD,ierr)
 #endif
          end if
 
-         !-- Transpose back to lo distributed          
-         call r2lo_initv%transp_r2lm(z_Rloc, z)
-
-         !-- Destroy MPI communicators                 
-         call r2lo_initv%destroy_comm()
-         call lo2r_initv%destroy_comm()
+         !-- Transpose back to lo distributed
+         call r2lo_one%transp_r2lm(z_Rloc, z)
 
          l1m0 = lo_map%lm2(1,0)
          l1m1 = lo_map%lm2(1,1)
@@ -590,20 +561,20 @@ contains
               call get_angular_moment(z(l1m0,:),z(l1m1,:),0.D0,0.D0,angular_moment,trash1,trash2)
               lr_z = angular_moment(3)
               do nR=1,n_r_max
-                 z(l1m0,nR)=z(l1m0,nR) - r(nR)*r(nR)*lr_z*rho0(nR)/(c_moi_oc*y10_norm) !TO REMOVE THE UNIFORM ROTATION                
+                 z(l1m0,nR)=z(l1m0,nR) - r(nR)*r(nR)*lr_z*rho0(nR)/(c_moi_oc*y10_norm) !TO REMOVE THE UNIFORM ROTATION
               end do
               norm_ome = c_moi_oc*oek/lr_z
               if (ktopv == 3) then
-                 topv(1,0)= (topv(1,0) - r(1)*r(1)*lr_z*rho0(1)/(c_moi_oc*y10_norm))*c_z10_omega_ma!*rscheme_oc%rnorm 
-                 topv = topv*norm_ome!/rscheme_oc%rnorm   
+                 topv(1,0)= (topv(1,0) - r(1)*r(1)*lr_z*rho0(1)/(c_moi_oc*y10_norm))*c_z10_omega_ma!*rscheme_oc%rnorm
+                 topv = topv*norm_ome!/rscheme_oc%rnorm
                  if( index(interior_model,'PNS_SZ_0V2S') == 0) then
                     omega_ic1 = c_z10_omega_ic*real(z(l1m0,n_r_icb))*norm_ome
                  end if
               end if
               if (kbotv == 3) then
                  botv(1,0)= (botv(1,0) - r(n_r_icb)*r(n_r_icb)*lr_z*rho0(n_r_icb)/(c_moi_oc*y10_norm))&
-                 & *c_z10_omega_ic!*rscheme_oc%rnorm           
-                 botv = botv*norm_ome!/rscheme_oc%rnorm   
+                 & *c_z10_omega_ic!*rscheme_oc%rnorm
+                 botv = botv*norm_ome!/rscheme_oc%rnorm
               end if
            else
               if (ktopv ==3) then
@@ -617,53 +588,48 @@ contains
            end if
 
            write (output_unit,*) "rho0(1)",rho0(1),"r_cut=",r_cut,"ANGULAR MOMENT =", lr_z,&
-                &"c_moi_oc=",c_moi_oc,"oek =", oek,"Norm omega =",norm_ome           
+                &"c_moi_oc=",c_moi_oc,"oek =", oek,"Norm omega =",norm_ome
 
         end if
 
-        
-        !Broadcast norm_ome, omega_ic1, topv           
+
+        !Broadcast norm_ome, omega_ic1, topv
 #ifdef WITH_MPI
          call MPI_Bcast(norm_ome,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
          call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
 #endif
-         if (ktopv == 3 ) then !Need to broadcast topv since only the rank_with_l1m0 has it        
+         if (ktopv == 3 ) then !Need to broadcast topv since only the rank_with_l1m0 has it
 #ifdef WITH_MPI
             call MPI_Bcast(topv,(l_max+1)*(m_max+1),MPI_DEF_COMPLEX,rank_with_l1m0,MPI_COMM_WORLD,ierr)
 #endif
          end if
-         if (kbotv == 3 ) then !Need to broadcast botv since only the rank_with_l1m0 has it        
+         if (kbotv == 3 ) then !Need to broadcast botv since only the rank_with_l1m0 has it
 #ifdef WITH_MPI
             call MPI_Bcast(botv,(l_max+1)*(m_max+1),MPI_DEF_COMPLEX,rank_with_l1m0,MPI_COMM_WORLD,ierr)
 #endif
          end if
-         
+
          if (index(interior_model,'HMNS_17MS_SZ') /= 0 .or. pertur_w ==1 ) then
             norm_ome =1.0_cp
             deallocate(coeffOmega)
          end if
-         
+
          z= z*norm_ome
 
          if (force_z_vol > 0 .and. l_force_v) then
             z0v_LMloc(:,:) = z(:,:)
             call get_dr(z,dz1,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
                  &      nocopy=.true.)
-            call r2lo_initv2%create_comm(1)
-            call lo2r_initv2%create_comm(1)
-            call lo2r_initv2%transp_lm2r(z, z0v_Rloc)
-            call lo2r_initv2%transp_lm2r(dz1, dz0v_Rloc)
+            call lo2r_one%transp_lm2r(z, z0v_Rloc)
+            call lo2r_one%transp_lm2r(dz1, dz0v_Rloc)
             !            call get_dr_Rloc(z0v_Rloc, dz0v_Rloc, lm_max, nRstart, nRstop, n_r_max, &
             !     &           rscheme_oc)
-            call r2lo_initv2%destroy_comm()
-            call lo2r_initv2%destroy_comm()
             omega_ic1=0.0_cp
             omega_ma1=0.0_cp
             omega_ic2=0.0_cp
             omega_ma2=0.0_cp
             z=z*0.0_cp
          end if
-         
 
       else if ( init_v1 > 2 ) then
 
@@ -741,7 +707,7 @@ contains
          !    It decays likes l**(init_v1-1)
          !    Amplitude is chosen so that the (1,0) term resembles amp_v1 *
          !    the 'solid body' rotation set by inner core and mantle rotation.
-         
+
          rExp=4.
          if ( omega_ic1 /= 0 ) then
             amp_r=amp_v1*omega_ic1*r_ICB**(rExp+1.)/y10_norm
@@ -822,7 +788,7 @@ contains
             amp_r=amp_v1*0.05_cp
          end if
          if (pertur_w ==1) pertur_w =-3
-         
+
          !write(output_unit,*) amp_R,"TEST"
          do nR=1,n_r_max
             rDep(nR)=-amp_r*sin( (r_cmb-r(nR))*PI)!-r_ICB)*PI ))/(1+5*sin( (r(nR)-r_ICB)*PI ))
@@ -1050,7 +1016,7 @@ contains
             call abortRun('Stop run in init')
          end if
          lm=lo_map%lm2(l,m)
-         if( (lm>=llm) .and. (lm<=ulm) ) then
+         if ( (lm>=llm) .and. (lm<=ulm) ) then
             do n_r=1,n_r_max
                c_r=s1(n_r)*amp_s1
                s(lm,n_r)=s(lm,n_r)+cmplx(c_r,0.0_cp,kind=cp)
@@ -1078,7 +1044,7 @@ contains
             lm=lo_map%lm2(l,m)
             s_r=amp_s2
             s_i=0.0_cp
-            if( (lm>=llm) .and. (lm<=ulm) ) then
+            if ( (lm>=llm) .and. (lm<=ulm) ) then
                if ( amp_s2 < 0.0_cp .and. m /= 0 ) then
                !-------- Sin(phi)-mode initialized for amp_s2<0
                   s_r = 0.0_cp
@@ -1991,13 +1957,13 @@ contains
             end if
          end if
 
-      else if ( init_b1 == 29 ) then ! toroidal field created by inner core rotation 
-         ! equatorialy asymmetric                           
-         if ( llm <= l2m0 .and. ulm >= l2m0 ) then ! select processor              
+      else if ( init_b1 == 29 ) then ! toroidal field created by inner core rotation
+         ! equatorialy asymmetric
+         if ( llm <= l2m0 .and. ulm >= l2m0 ) then ! select processor
             do n_r=1,n_r_max
                aj0(n_r)=amp_b1*(r_icb*or1(n_r))
             end do
-            do n_r=1,n_r_max             ! Diffusive toroidal field     
+            do n_r=1,n_r_max             ! Diffusive toroidal field
                aj(l2m0,n_r)=aj(l2m0,n_r)+aj0(n_r)
             end do
             if ( l_cond_ic ) then
@@ -2007,7 +1973,7 @@ contains
             end if
          end if
 
-         
+
       else if ( init_b1 == 30 ) then ! small scale random field
          ! random l,m mixture with radial structure that is a random mixture of (almost) Fourrier modes
             WRITE(OUTPUT_UNIT,*) 'enter init_b1..', rank
@@ -2370,9 +2336,9 @@ contains
             WRITE(OUTPUT_UNIT,*) 'LFfac:',LFfac, ' oek:',oek, 'lScale:', lScale, ' eScale:', eScale
          end if
       else if ( init_b1 == 39 ) then  ! l=9,m0 poloidal field
-         ! which is potential field at r_cmb 
+         ! which is potential field at r_cmb
          l3m0 = lo_map%lm2(8,0)
-         if ( llm <= l3m0 .and. ulm >= l3m0 ) then ! select processor    
+         if ( llm <= l3m0 .and. ulm >= l3m0 ) then ! select processor
             b_pol=amp_b1*13.0_cp/6.0_cp*sqrt(pi/19.0_cp)*r_icb**2*radratio !no idea why 7/6
             do n_r=1,n_r_max
                b(l3m0,n_r)=b(l3m0,n_r)+b_pol*(r(n_r)/r_icb)**3 * &
@@ -2406,15 +2372,18 @@ contains
       complex(cp), intent(inout) :: phi(llm:ulm,n_r_max) ! Phase field
 
       !-- Local variables:
-      real(cp) :: temp00(n_r_max), rmelt, phi0(n_r_max)
-      integer :: lm00, n_r, n_r_melt, l, lm
+      real(cp) :: temp00(n_r_max), rmelt, phi0(n_r_max), rphase, x(4), y(4)
+      integer :: lm00, n_r, n_r_melt, l, lm, n_p, n_t, nPstart, nPstop
+      integer :: n_r_phase, n_r_start, n_r_stop
+      complex(cp), allocatable :: s_Rloc(:,:), phi_Rloc(:,:)
+      real(cp), allocatable :: temp_Rloc(:,:,:), temp_Ploc(:,:,:)
+      real(cp), allocatable :: phase_Rloc(:,:,:), phase_Ploc(:,:,:)
+      type(load), allocatable :: phi_balance(:)
 
-      lm00 = lo_map%lm2(0,0) ! spherically-symmetric mode
-
-      if ( init_phi /= 0 ) then
+      if ( init_phi == 1 ) then
          !-- The initial phase field is set as a tanh function of width epsPhase
          !-- centered at the melting temperature
-
+         lm00 = lo_map%lm2(0,0) ! spherically-symmetric mode
          if ( llm <= lm00 .and. ulm >= lm00 ) then
             temp00(:)=osq4pi * real(s(lm00,:))
             do n_r=2,n_r_max
@@ -2426,21 +2395,95 @@ contains
             phi0(:)=half*(one+tanh((r(:)-rmelt)/two/sqrt(two)/epsPhase))
             phi(lm00,:)=sq4pi*cmplx(phi0,0.0_cp,cp)
          end if
-      end if
 
 #ifdef WITH_MPI
-      call MPI_Bcast(phi0,n_r_max,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(phi0,n_r_max,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
 #endif
 
-      !-- Make sure there is no temperature perturbation in the solid phase
-      if ( init_s1 /= 0 .or. init_s2 /= 0 ) then
-         do n_r=1,n_r_max
-            do lm=llm,ulm
-               l = lo_map%lm2l(lm)
-               if ( l == 0 ) cycle
-               s(lm,n_r)=s(lm,n_r)*(one-phi0(n_r))
+         !-- Make sure there is no temperature perturbation in the solid phase
+         if ( init_s1 /= 0 .or. init_s2 /= 0 ) then
+            do n_r=1,n_r_max
+               do lm=llm,ulm
+                  l = lo_map%lm2l(lm)
+                  if ( l == 0 ) cycle
+                  s(lm,n_r)=s(lm,n_r)*(one-phi0(n_r))
+               end do
+            end do
+         end if
+
+      else if ( init_phi == 2 ) then
+         !-- Compute locally the temperature distribution in the physical space
+         !-- and then get the corresponding phase field
+         allocate(s_Rloc(lm_max,nRstart:nRstop), phi_Rloc(lm_max,nRstart:nRstop))
+         allocate( phi_balance(0:n_procs-1) )
+         call getBlocks(phi_balance, n_phi_max, n_procs)
+         nPstart = phi_balance(rank)%nStart
+         nPstop = phi_balance(rank)%nStop
+         allocate( phase_Rloc(nlat_padded,n_phi_max,nRstart:nRstop) )
+         allocate( temp_Rloc(nlat_padded,n_phi_max,nRstart:nRstop) )
+         allocate( phase_Ploc(nlat_padded,nPstart:nPstop,n_r_max) )
+         allocate( temp_Ploc(nlat_padded,nPstart:nPstop,n_r_max) )
+
+         !-- Bring the temperature field on the R-distributed version
+         call lo2r_one%transp_lm2r(s, s_Rloc)
+
+         !-- Compute the temperature on the physical grid
+         do n_r=nRstart,nRstop
+            call scal_to_spat(s_Rloc(:,n_r), temp_Rloc(:,:,n_r), l_max)
+         end do
+
+         !-- Transpose the temperature on a phi-distributed grid
+         call transp_R2Phi(temp_Rloc, temp_Ploc, phi_balance, nPstart, nPstop)
+
+         !-- Determine the melt radius by 4th order Lagrangian smoothing
+         do n_p=nPstart,nPstop
+            do n_t=1,n_theta_max
+               !-- Determine the radial level where T=Tmelt
+               n_r_phase=1
+               do n_r=2,n_r_max
+                  if ( temp_Ploc(n_t,n_p,n_r) > tmelt .and. &
+                  &    temp_Ploc(n_t,n_p,n_r-1) < tmelt ) then
+                     n_r_phase=n_r
+                  end if
+               end do
+
+               !-- 4th order Lagrangian interpolation of melting point
+               if ( n_r_phase == n_r_cmb ) then
+                  rphase=r_cmb
+               else
+                  if ( n_r_phase == n_r_cmb+1 ) then
+                     n_r_start=n_r_phase-1
+                     n_r_stop =n_r_phase+2
+                  else if ( n_r_phase == n_r_icb ) then
+                     n_r_start=n_r_phase-3
+                     n_r_stop =n_r_phase
+                  else
+                     n_r_start=n_r_phase-2
+                     n_r_stop =n_r_phase+1
+                  end if
+                  x(:)=temp_Ploc(n_t,n_p,n_r_start:n_r_stop)
+                  y(:)=r(n_r_start:n_r_stop)
+                  rphase=lagrange_interp(x,tmelt,y)
+               end if
+
+               phase_Ploc(n_t,n_p,:)=half*(one+tanh((r(:)-rphase)/two/epsPhase))
+
             end do
          end do
+
+         !-- Transpose phase from phi-distributed to r-distributed
+         call transp_Phi2R(phase_Ploc, phase_Rloc, phi_balance, nPstart, nPstop)
+
+         !-- Now bring the phase back to spectral space
+         do n_r=nRstart,nRstop
+            call scal_to_SH(phase_Rloc(:,:,n_r), phi_Rloc(:,n_r), l_max)
+         end do
+
+         !-- Final transpose to get the LM-distributed array for the phase field
+         call r2lo_one%transp_r2lm(phi_Rloc, phi)
+
+         deallocate( temp_Rloc, temp_Ploc, phase_Rloc, phase_Ploc, phi_balance )
+         deallocate( s_Rloc, phi_Rloc )
       end if
 
    end subroutine initPhi
@@ -2457,18 +2500,11 @@ contains
 
       !-- Local variables
       complex(cp) :: bf_Rloc(lm_max,nRstart:nRstop), bfLM(lm_max)
-      integer :: lm,l,m,st_lmP, nR,nTheta,nPhi
-      class(type_mpitransp), pointer :: r2lo_initf, lo2r_initf
+      integer :: lm,l,m,nR,nTheta,nPhi
       real(cp) :: bf_spat(nlat_padded,n_phi_max)
       real(cp) :: eta_fac, a_force, b_force
 
-      allocate( type_mpiptop :: r2lo_initf )
-      allocate( type_mpiptop :: lo2r_initf )
-
-      call r2lo_initf%create_comm(1)
-      call lo2r_initf%create_comm(1)
-
-      call lo2r_initf%transp_lm2r(bodyForce, bf_Rloc)
+      call lo2r_one%transp_lm2r(bodyForce, bf_Rloc)
 
       eta_fac = 15.0_cp*pi/64.0_cp * (1.0_cp - radratio**6)/(1.0_cp-radratio**5)
       a_force = eta_fac / (r_cmb * (1.0_cp - eta_fac))
@@ -2487,7 +2523,7 @@ contains
             end do
          end do
 
-         call scal_to_SH(bf_spat,bfLM,l_max)
+         call scal_to_SH(bf_spat, bfLM, l_max)
 
          !------- body force is now in spherical harmonic space,
          !        For toroidal equation, get radial component of
@@ -2509,10 +2545,7 @@ contains
 
       end do ! close loop over radial points
 
-      call r2lo_initf%transp_r2lm(bf_Rloc,bodyForce)
-
-      call r2lo_initf%destroy_comm()
-      call lo2r_initf%destroy_comm()
+      call r2lo_one%transp_r2lm(bf_Rloc, bodyForce)
 
    end subroutine initF
 !-----------------------------------------------------------------------
@@ -2520,7 +2553,7 @@ contains
       !
       ! This subroutine is used to initialize a quasi-equilibrium tides u_e
       !
-      !-- In/out variables        
+      !-- In/out variables
      complex(cp), intent(inout) :: we(llm:ulm,n_r_max)
      complex(cp), intent(inout) :: dwe(llm:ulm,n_r_max)
      complex(cp), intent(inout) :: ddwe(llm:ulm,n_r_max)
@@ -2531,15 +2564,15 @@ contains
      !-- Local variables
      complex(cp) :: work1(lm_max)
      integer :: lm,l,m,st_lmP, nR, l2m2
-     class(type_mpitransp), pointer :: r2lo_initt, lo2r_initt
+     !class(type_mpitransp), pointer :: r2lo_initt, lo2r_initt
      real(cp) ::  r_rcmb, alpha
 
-      allocate( type_mpiptop :: r2lo_initt )
-      allocate( type_mpiptop :: lo2r_initt )
+      ! allocate( type_mpiptop :: r2lo_initt )
+      ! allocate( type_mpiptop :: lo2r_initt )
 
-      call r2lo_initt%create_comm(1)
-      call lo2r_initt%create_comm(1)
-      
+      ! call r2lo_initt%create_comm(1)
+      ! call lo2r_initt%create_comm(1)
+
       l2m2 = lo_map%lm2(2,2) !2
 
       X(:)=(r(:)**2+(2.0D0/3.0D0)*((radratio**5)*or3(:)))&
@@ -2555,29 +2588,29 @@ contains
          m=2
          do nR = 1,n_r_max
             we(l2m2,nR)= - cmplx(0.0,1.0,kind=cp)*r(nR)**2/(l*(l+1))*w_orbit_th &
-                 & *tidalFac*dX(nR)*rho0(nR)/two !last divide by two is due that force is only the real part 
+                 & *tidalFac*dX(nR)*rho0(nR)/two !last divide by two is due that force is only the real part
          end do
          write(*,*) aimag(-we(l2m2,:)*l*(l+1)*or2(:))
       end if
-      
+
       call get_dr(we,dwe,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
            &      nocopy=.true.)
       call get_dr(dwe,ddwe,ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_oc, &
            &      nocopy=.true.)
-      
-      call r2lo_initt%transp_lm2r(we,wer)
-      call r2lo_initt%transp_lm2r(dwe,dwer)
-      call r2lo_initt%transp_lm2r(ddwe,ddwer)
+
+      call r2lo_one%transp_lm2r(we,wer)
+      call r2lo_one%transp_lm2r(dwe,dwer)
+      call r2lo_one%transp_lm2r(ddwe,ddwer)
 
       work1(:)=zero
       do nR = nRstart,nRstop
          call torpol_to_spat(wer(:,nR), dwer(:,nR),  work1, &
               &              vrtidal(:,:,nR), vttidal(:,:,nR),vptidal(:,:,nR), l_R(nR))
       end do
-      
-      call r2lo_initt%destroy_comm()
-      call lo2r_initt%destroy_comm()
-      
+
+      ! call r2lo_initt%destroy_comm()
+      ! call lo2r_initt%destroy_comm()
+
    end subroutine initTidal
 !-----------------------------------------------------------------------
    subroutine j_cond(lm0, aj0, aj0_ic)
@@ -2722,6 +2755,7 @@ contains
       do n_r_out=1,rscheme_oc%n_max
          aj0(n_r_out)=rhs(n_r_out)
       end do
+
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          aj0(n_r_out)=zero
       end do
@@ -3040,18 +3074,20 @@ contains
 
          work(:)=ViscHeatFac*alpha0(:)*(ThExpNb*alpha0(:)*temp0(:)+&
          &       ogrun(:))*r(:)*r(:)
-         call rscheme_oc%costf1(work)
-         work         =work*rscheme_oc%rnorm
-         work(1)      =rscheme_oc%boundary_fac*work(1)
-         work(n_r_max)=rscheme_oc%boundary_fac*work(n_r_max)
 
          work2(:)=-alpha0(:)*rho0(:)*r(:)*r(:)
          call rscheme_oc%costf1(work2)
-         work2         =work2*rscheme_oc%rnorm
-         work2(1)      =rscheme_oc%boundary_fac*work2(1)
-         work2(n_r_max)=rscheme_oc%boundary_fac*work2(n_r_max)
 
-         if ( rscheme_oc%version == 'cheb' ) then
+         select type(rscheme_oc)
+
+         type is(type_cheb_odd)
+            call rscheme_oc%costf1(work)
+            work(:)      =work(:)*rscheme_oc%rnorm
+            work(1)      =rscheme_oc%boundary_fac*work(1)
+            work(n_r_max)=rscheme_oc%boundary_fac*work(n_r_max)
+            work2(:)     =work2(:)*rscheme_oc%rnorm
+            work2(1)      =rscheme_oc%boundary_fac*work2(1)
+            work2(n_r_max)=rscheme_oc%boundary_fac*work2(n_r_max)
 
             do n_cheb=1,rscheme_oc%n_max
                nCheb_p=n_cheb+n_r_max
@@ -3071,7 +3107,7 @@ contains
                end do
             end do
 
-         else
+         type is(type_fd)
 
             !-- In the finite differences case, we restrict the integral boundary
             !-- condition to a trapezoidal rule of integration
@@ -3087,7 +3123,7 @@ contains
             pt0Mat(n_r_max+1,n_r_max)  =half*work2(n_r_max)*( r(n_r_max)-r(n_r_max-1) )
             pt0Mat(n_r_max+1,2*n_r_max)=half* work(n_r_max)*( r(n_r_max)-r(n_r_max-1) )
 
-         end if
+         end select
 
       else
 

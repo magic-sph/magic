@@ -1,11 +1,13 @@
 module integration
    !
-   ! Radial integration functions
+   ! Radial and geostrophic integration functions
    !
 
    use precision_mod
    use constants, only: half, one, two, pi
    use radial_scheme, only: type_rscheme
+   use chebyshev, only: type_cheb_odd
+   use finite_differences, only: type_fd
    use cosine_transform_odd
 
    implicit none
@@ -20,7 +22,7 @@ contains
       !
       !  This function performs the radial integral over a
       !  function f that is given on the appropriate nRmax
-      !  radial Chebychev grid points.
+      !  radial Chebyshev grid points.
       !
 
       !-- Input variables:
@@ -66,9 +68,10 @@ contains
       real(cp), allocatable :: f2(:)
       integer :: nCheb, nRmax
 
-
       !--- Integrals:
-      if ( r_scheme%version == 'cheb' ) then
+      select type(r_scheme)
+
+      type is(type_cheb_odd)
 
          nRmax=size(f)
          allocate( f2(nRmax) )
@@ -91,11 +94,11 @@ contains
 
          deallocate( f2 )
 
-      else
+      type is(type_fd)
 
          rInt=simps(f,r)
 
-      end if
+      end select
 
    end function rInt_R
 !------------------------------------------------------------------------------
@@ -228,7 +231,7 @@ contains
             ac(n_z,n_s)=0.0_cp
             !
             !  **** Interpolate values from (theta,r)-grid onto equidistant
-            !  **** (z,rax)-grid using a fourth-order Lagrangian scheme
+            !  **** (z,s)-grid using a fourth-order Lagrangian scheme
             !
             !--  Find indices of radial grid levels that bracket rc
             n_r2=n_r_max-1
@@ -238,8 +241,8 @@ contains
                   exit rbracket
                end if
             end do rbracket
-            if(n_r2 == n_r_max-1) n_r2=n_r_max-2
-            if(n_r2 == 1 ) n_r2=2
+            if (n_r2 == n_r_max-1) n_r2=n_r_max-2
+            if (n_r2 == 1 ) n_r2=2
             n_r3=n_r2-1
             n_r1=n_r2+1
             n_r0=n_r2+2
@@ -250,7 +253,7 @@ contains
             else
                n_th1=n_theta_max
                tbracket: do n_th=n_theta_max,1,-1
-                  if( theta(n_th) <= thet) then
+                  if ( theta(n_th) <= thet) then
                      n_th1=n_th
                      exit tbracket
                   end if
@@ -413,7 +416,7 @@ contains
             ac(n_z,n_s,2)=0.0_cp
             !
             !  **** Interpolate values from (theta,r)-grid onto equidistant
-            !  **** (z,rax)-grid using a fourth-order Lagrangian scheme
+            !  **** (z,s)-grid using a fourth-order Lagrangian scheme
             !
             !--  Find indices of radial grid levels that bracket rc
             n_r2=n_r_max-1
@@ -435,7 +438,7 @@ contains
             else
                n_th1=n_theta_max
                tbracket: do n_th=n_theta_max,1,-1
-                  if( theta(n_th) <= thet) then
+                  if ( theta(n_th) <= thet) then
                      n_th1=n_th
                      exit tbracket
                   end if
@@ -472,10 +475,10 @@ contains
             t31=1.0_cp/(theta(n_th3)-theta(n_th1))
             t32=1.0_cp/(theta(n_th3)-theta(n_th2))
 
-            !-- Loop over North/Sooth
+            !-- Loop over North/South
             do n_hs=1,2
 
-               !-- Loop over 4 neighboring grid angles
+               !-- Loop over 4 neighbooring grid angles
                do itr=0,3
                   n_th=n_th0+itr
 

@@ -16,16 +16,16 @@ module updateWPS_mod
        &                       ogrun, kappa, orho1, dentropy0, temp0, l_R, drag0
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
        &                          ViscHeatFac, ThExpNb, BuoFac,        &
-       &                          CorFac, ktopp, ellipticity_cmb,      &
-       &                          ellipticity_icb, ellip_fac_cmb,      &
-       &                          ellip_fac_icb, tidalFac, w_orbit_th
+       &                          CorFac, ktopp, tidalFac, w_orbit_th
+   use special, only: ellipticity_cmb, ellipticity_icb, ellip_fac_cmb, &
+       &              ellip_fac_icb
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: tops, bots, omegaOsz_ma1, tShift_ma1,        &
        &                  omegaOsz_ic1, tShift_ic1, force_z_vol
    use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V, hdif_S
-   use logic, only: l_update_v, l_temperature_diff, l_RMS, l_full_sphere &
-        , l_force_v, l_tidal
+   use logic, only: l_temperature_diff, l_RMS, l_full_sphere, &
+                 &  l_force_v, l_tidal
    use RMS, only: DifPol2hInt, DifPolLMr
    use algebra, only: prepare_mat, solve_mat
    use communications, only: get_global_sum
@@ -138,14 +138,12 @@ contains
       real(cp) :: rhs(2*n_r_max)  ! real RHS for l=m=0
       real(cp) :: l2m2 !serves as a bool for tidal effects
       complex(cp) :: eiwt !exp(-i w_orbit_th time)
-      
+
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
-
-      if ( .not. l_update_v ) return
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
@@ -240,7 +238,7 @@ contains
                   lm1=lm22lm(lm,nLMB2,nLMB)
                   m1 =lm22m(lm,nLMB2,nLMB)
                   l2m2=0.0_cp
-                  
+
                   rhs1(1,2*lm-1,threadid)          =0.0_cp
                   rhs1(1,2*lm,threadid)            =0.0_cp
                   rhs1(n_r_max,2*lm-1,threadid)    =0.0_cp
@@ -273,8 +271,8 @@ contains
 
                   do nR=2,n_r_max-1
                      !-- dp and ds used as work arrays here
-                     rhs1(nR,2*lm-1,threadid)          = real(work_LMloc(lm1,nR)) 
-                     rhs1(nR,2*lm,threadid)            =aimag(work_LMloc(lm1,nR)) 
+                     rhs1(nR,2*lm-1,threadid)          = real(work_LMloc(lm1,nR))
+                     rhs1(nR,2*lm,threadid)            =aimag(work_LMloc(lm1,nR))
                      rhs1(nR+n_r_max,2*lm-1,threadid)  = real(dp(lm1,nR))
                      rhs1(nR+n_r_max,2*lm,threadid)    =aimag(dp(lm1,nR))
                      rhs1(nR+2*n_r_max,2*lm-1,threadid)= real(ds(lm1,nR))
@@ -291,7 +289,7 @@ contains
                              &  *cmplx(cos(-w_orbit_th*time),sin(-w_orbit_th*time),kind=cp))
                       end do
                    end if
-                  
+
                   rhs1(:,2*lm-1,threadid)=rhs1(:,2*lm-1,threadid)*wpsMat_fac(:,1,nLMB2)
                   rhs1(:,2*lm,threadid)  =rhs1(:,2*lm,threadid)*wpsMat_fac(:,1,nLMB2)
                end do
@@ -955,7 +953,7 @@ contains
          nR_out_p=nR_out+n_r_max
          nR_out_s=nR_out+2*n_r_max
 
-         
+
          wpsMat(1,nR_out)        =rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
          wpsMat(1,nR_out_p)      =0.0_cp
          wpsMat(1,nR_out_s)      =0.0_cp
@@ -1174,7 +1172,7 @@ contains
                &         -( dLh*or2(nR)+four*third*( dLvisc(nR)*beta(nR)         &
                &          +(three*dLvisc(nR)+beta(nR))*or1(nR)+dbeta(nR) )       &
                &          )                         *rscheme_oc%rMat(nR,nR_out) )&
-               &+ tscheme%wimp_lin(1)*drag0(nR)*rscheme_oc%rMat(nR,nR_out)*dLh*or2(nR) )
+               &+ tscheme%wimp_lin(1)*drag0(nR)*rscheme_oc%rMat(nR,nR_out)*dLh*or2(nR) ) !ARS
 
                ! Buoyancy
                wpsMat(nR,nR_out_s)=-rscheme_oc%rnorm*tscheme%wimp_lin(1)*BuoFac* &

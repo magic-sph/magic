@@ -8,7 +8,7 @@ module fields
    use constants, only: zero
    use mem_alloc, only: bytes_allocated
    use constants, only: zero
-   use physical_parameters, only: ampForce
+   use special, only: ampForce
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
        &                 n_r_ic_maxMag, fd_order, fd_order_bound
    use logic, only: l_chemical_conv, l_finite_diff, l_mag, l_parallel_solve, &
@@ -68,9 +68,7 @@ module fields
    !         for even chebs
    complex(cp), public, allocatable :: b_ic(:,:)
    complex(cp), public, allocatable :: db_ic(:,:)
-   complex(cp), public, allocatable :: ddb_ic(:,:)
    complex(cp), public, allocatable :: aj_ic(:,:)
-   complex(cp), public, allocatable :: dj_ic(:,:)
    complex(cp), public, allocatable :: b_ic_LMloc(:,:)
    complex(cp), public, allocatable :: db_ic_LMloc(:,:)
    complex(cp), public, allocatable :: ddb_ic_LMloc(:,:)
@@ -113,28 +111,22 @@ contains
          bytes_allocated = bytes_allocated + lm_maxMag*SIZEOF_DEF_COMPLEX
          allocate( b_ic(lm_maxMag,n_r_ic_maxMag) )
          allocate( db_ic(lm_maxMag,n_r_ic_maxMag) )
-         allocate( ddb_ic(lm_maxMag,n_r_ic_maxMag) )
          allocate( aj_ic(lm_maxMag,n_r_ic_maxMag) )
-         allocate( dj_ic(lm_maxMag,n_r_ic_maxMag) )
          bytes_allocated = bytes_allocated + &
-         &                 5*lm_maxMag*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
+         &                 3*lm_maxMag*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 
       else
          allocate( bICB(1) )
          bytes_allocated = bytes_allocated + n_r_maxMag*SIZEOF_DEF_COMPLEX
          allocate( b_ic(1,n_r_ic_maxMag) )
          allocate( db_ic(1,n_r_ic_maxMag) )
-         allocate( ddb_ic(1,n_r_ic_maxMag) )
          allocate( aj_ic(1,n_r_ic_maxMag) )
-         allocate( dj_ic(1,n_r_ic_maxMag) )
-         bytes_allocated = bytes_allocated + 5*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated + 3*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
       end if
       bICB(:)    =zero
       b_ic(:,:)  =zero
       db_ic(:,:) =zero
-      ddb_ic(:,:)=zero
       aj_ic(:,:) =zero
-      dj_ic(:,:) =zero
 
       if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
          if ( l_parallel_solve ) then
@@ -196,7 +188,7 @@ contains
             s_Rloc(:,:)=zero
             z0v_Rloc(:,:)=zero
             if ( l_mag ) then
-               if( l_mag_par_solve ) then
+               if ( l_mag_par_solve ) then
                   allocate(b_Rloc(lm_max,nRstart:nRstop), aj_Rloc(lm_max,nRstart:nRstop))
                   b_Rloc(:,:) =zero
                   aj_Rloc(:,:)=zero
@@ -425,7 +417,7 @@ contains
       ! This subroutine deallocates the field arrays used in MagIC
       !
 
-      deallocate( bICB, b_ic, db_ic, ddb_ic, aj_ic, dj_ic )
+      deallocate( bICB, b_ic, db_ic, aj_ic )
       deallocate( press_LMloc_container, press_Rloc_container )
       if ( l_parallel_solve ) then
          deallocate( w_LMloc, z_LMloc, s_LMloc, w_RLoc, z_Rloc, s_Rloc )

@@ -14,17 +14,16 @@ module start_fields
        &                       otemp1, ogrun, dentropy0, dxicond, r_icb
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
        &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
-       &                          ViscHeatFac, impXi, ampForce
+       &                          ViscHeatFac, impXi
    use num_param, only: dtMax, alpha
-   use special, only: lGrenoble
+   use special, only: lGrenoble, ampForce
    use output_data, only: log_file, n_log_file
    use blocking, only: lo_map, st_map, llm, ulm, ulmMag, llmMag
    use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
-       &            l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat,             &
-       &            l_rot_ma, l_temperature_diff, l_single_matrix,       &
+       &            l_mag_kin, l_mag_LF, l_temperature_diff, l_onset,    &
        &            l_chemical_conv, l_anelastic_liquid, l_save_out,     &
        &            l_parallel_solve, l_mag_par_solve, l_phase_field,    &
-       &            l_onset, l_non_adia, l_force_v, l_tidal
+       &            l_single_matrix, l_non_adia, l_tidal
    use init_fields, only: l_start_file, init_s1, init_b1, tops, pt_cond,  &
        &                  initV, initS, initB, initXi, ps_cond,           &
        &                  start_file, init_xi1, topxi, xi_cond, omega_ic1,&
@@ -92,7 +91,7 @@ contains
       type(timer_type) :: t_reader
       complex(cp) :: local_topv(0:l_max,0:m_max)
       complex(cp) :: local_botv(0:l_max,0:m_max)
-      
+
       call t_reader%initialize()
 
       !---- Computations for the Nusselt number if we are anelastic
@@ -219,7 +218,6 @@ contains
                  &                    dphidt,b_LMloc,dbdt,aj_LMloc,djdt,           &
                  &                    b_ic_LMloc,dbdt_ic,aj_ic_LMloc,djdt_ic,      &
                  &                    omega_ic,omega_ma,domega_ic_dt,domega_ma_dt, &
-                 &                    lorentz_torque_ic_dt,lorentz_torque_ma_dt,   &
                  &                    time,tscheme,n_time_step )
          else
 #ifdef WITH_MPI
@@ -228,18 +226,16 @@ contains
                  &                    dphidt,b_LMloc,dbdt,aj_LMloc,djdt,        &
                  &                    b_ic_LMloc,dbdt_ic,aj_ic_LMloc,djdt_ic,   &
                  &                    omega_ic,omega_ma,domega_ic_dt,           &
-                 &                    domega_ma_dt,lorentz_torque_ic_dt,        &
-                 &                    lorentz_torque_ma_dt,time,tscheme,        &
-                 &                    n_time_step )
+                 &                    domega_ma_dt,time,tscheme,n_time_step )
 #else
             call readStartFields( w_LMloc,dwdt,z_LMloc,dzdt,p_LMloc,dpdt,s_LMloc,&
                  &                dsdt,xi_LMloc,dxidt,phi_LMloc,dphidt,b_LMloc,  &
                  &                dbdt,aj_LMloc,djdt,b_ic_LMloc,dbdt_ic,         &
                  &                aj_ic_LMloc,djdt_ic,omega_ic,omega_ma,         &
-                 &                domega_ic_dt,domega_ma_dt,lorentz_torque_ic_dt,&
-                 &                lorentz_torque_ma_dt,time,tscheme,n_time_step )
+                 &                domega_ic_dt,domega_ma_dt,time,tscheme,n_time_step )
 #endif
          end if
+
          call t_reader%stop_count()
          if ( rank == 0 .and. l_save_out ) then
             open(newunit=n_log_file, file=log_file, status='unknown', &
@@ -297,8 +293,8 @@ contains
          if ( l_heat .and. llm <= lm00 .and. ulm >= lm00 ) then
             topval=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
             botval= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
-            if ( abs(s_LMloc(lm00,n_r_cmb)-topval) <= 100.0_cp*epsilon(one) .and. &
-            &    abs(s_LMloc(lm00,n_r_icb)-botval) <= 100.0_cp*epsilon(one) ) then
+            if ( abs(s_LMloc(lm00,n_r_cmb)-topval) <= 10000.0_cp*epsilon(one) .and. &
+            &    abs(s_LMloc(lm00,n_r_icb)-botval) <= 10000.0_cp*epsilon(one) ) then
                s_LMloc(lm00,:)=s_LMloc(lm00,:)-cmplx(topval,0.0_cp,cp)
             end if
          end if
@@ -308,12 +304,12 @@ contains
          if ( l_chemical_conv .and. llm <= lm00 .and. ulm >= lm00 ) then
             topval=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
             botval= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
-            if ( abs(xi_LMloc(lm00,n_r_cmb)-topval) <= 100.0_cp*epsilon(one) .and. &
-            &    abs(xi_LMloc(lm00,n_r_icb)-botval) <= 100.0_cp*epsilon(one) ) then
+            if ( abs(xi_LMloc(lm00,n_r_cmb)-topval) <= 10000.0_cp*epsilon(one) .and. &
+            &    abs(xi_LMloc(lm00,n_r_icb)-botval) <= 10000.0_cp*epsilon(one) ) then
                xi_LMloc(lm00,:)=xi_LMloc(lm00,:)-cmplx(topval,0.0_cp,cp)
             end if
          end if
-         
+
       else ! If there's no restart file
 
          ! Initialize with zero
@@ -333,7 +329,7 @@ contains
             b_ic_LMloc(:,:) =zero
             aj_ic_LMloc(:,:)=zero
          end if
-         
+
          time         =0.0_cp
          tscheme%dt(:)=dtMax !dt   =0.01*dtMax!0.001*dtMax
          n_time_step  =0
@@ -359,13 +355,13 @@ contains
       if ( l_conv .or. l_mag_kin .or. l_SRIC .or. l_SRMA ) then
          call initV(w_LMloc,z_LMloc,omega_ic,omega_ma)
       end if
-      
+
       !----- Initialize/add entropy:
       if ( ( init_s1 /= 0 .or. impS /= 0 ) .and. l_heat ) call initS(s_LMloc,p_LMloc)
 
       !----- Initialize/add chemical convection:
       if ( ( init_xi1 /= 0 .or. impXi /= 0 ) .and. l_chemical_conv ) call initXi(xi_LMloc)
-      
+
       !----- Initialize/add phase field:
       if ( init_phi /= 0 .and. l_phase_field ) call initPhi(s_LMloc, phi_LMloc)
 
@@ -383,7 +379,7 @@ contains
          end if
       end if
 
-      
+
       !----- Assemble initial implicit terms
       if ( l_chemical_conv ) then
          if ( l_parallel_solve ) then
@@ -437,8 +433,6 @@ contains
                  &               .false., .false., work_LMloc)
          end if
       end if
-      lorentz_torque_ma_dt%old(1)=omega_ma
-      lorentz_torque_ic_dt%old(1)=omega_ic
       if ( l_parallel_solve ) then
          call bulk_to_ghost(z_Rloc, z_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
          call exch_ghosts(z_ghost, lm_max, nRstart, nRstop, 1)
@@ -534,7 +528,7 @@ contains
             call logWrite(message)
          end if
       end if
-      
+
       if ( ampForce /= 0.0_cp ) then
          call initF(bodyForce_LMloc)
          if ( l_parallel_solve ) then
@@ -552,7 +546,7 @@ contains
          call initTidal(wtidal_LMloc,dwtidal_LMloc,ddwtidal_LMloc &
               & ,wtidal_Rloc,dwtidal_Rloc,ddwtidal_Rloc)
       end if
-      
+
    end subroutine getStartFields
 !------------------------------------------------------------------------------
 end module start_fields

@@ -164,7 +164,8 @@ contains
       bytes_allocated=bytes_allocated + 22*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
 
       if ( l_mag_hel) then !PNS
-         allocate( this%arc(nlat_padded,n_phi_max),this%atc(nlat_padded,n_phi_max),this%apc(nlat_padded,n_phi_max) ) !Previously (nrp, nfs)
+         allocate( this%arc(nlat_padded,n_phi_max),this%atc(nlat_padded,n_phi_max),&
+              &this%apc(nlat_padded,n_phi_max) ) !Previously (nrp, nfs)
          bytes_allocated=bytes_allocated+3*nlat_padded*n_phi_max*SIZEOF_DEF_REAL
       end if
 
@@ -258,12 +259,12 @@ contains
             &        this%cbtc(:,nPhi)*this%bpc(:,nPhi) -    &
             &        this%cbpc(:,nPhi)*this%btc(:,nPhi) )
 
-            !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
+            !---- LFt= 1/(E*Pm) * sin(theta)/r * ( curl(B)_p*B_r - curl(B)_r*B_p )
             this%LFt(:,nPhi)=  LFfac*or4(nR) * (             &
             &        this%cbpc(:,nPhi)*this%brc(:,nPhi) -    &
             &        this%cbrc(:,nPhi)*this%bpc(:,nPhi) )
 
-            !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
+            !---- LFp= 1/(E*Pm) * sin(theta)/r * ( curl(B)_r*B_t - curl(B)_t*B_r )
             this%LFp(:,nPhi)=  LFfac*or4(nR) * (             &
             &        this%cbrc(:,nPhi)*this%btc(:,nPhi) -    &
             &        this%cbtc(:,nPhi)*this%brc(:,nPhi) )

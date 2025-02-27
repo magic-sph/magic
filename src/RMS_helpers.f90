@@ -7,7 +7,7 @@ module RMS_helpers
    use precision_mod
    use parallel_mod
    use communications, only: reduce_radial
-   use truncation, only: l_max, lm_max_dtB, n_r_max, lm_max
+   use truncation, only: l_max, n_r_max, lm_max
    use radial_functions, only: or2, rscheme_oc, r
    use useful, only: cc2real
    use integration, only: rInt_R
@@ -151,11 +151,11 @@ contains
 
    end subroutine hInt2dPolLM
 !-----------------------------------------------------------------------------
-   subroutine hIntRms(f,nR,lmStart,lmStop,f2hInt,map,sphertor)
+   subroutine hIntRms(f,nR,f2hInt,map,sphertor)
 
       !-- Input variables
-      complex(cp),    intent(in) :: f(*)
-      integer,        intent(in) :: nR, lmStart, lmStop
+      complex(cp),    intent(in) :: f(:)
+      integer,        intent(in) :: nR
       type(mappings), intent(in) :: map
       logical,        intent(in) :: sphertor
 
@@ -167,7 +167,7 @@ contains
       integer :: lm,l,m
 
       rE2=r(nR)*r(nR)
-      do lm=lmStart,lmStop
+      do lm=1,lm_max
          l=map%lm2l(lm)
          m=map%lm2m(lm)
 

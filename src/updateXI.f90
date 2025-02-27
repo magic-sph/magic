@@ -15,12 +15,11 @@ module updateXi_mod
    use init_fields, only: topxi, botxi
    use blocking, only: lo_map, lo_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_Xi
-   use logic, only: l_update_xi, l_finite_diff, l_full_sphere, l_parallel_solve, &
-       &            l_onset
+   use logic, only: l_finite_diff, l_full_sphere, l_parallel_solve, l_onset
    use parallel_mod, only: rank, chunksize, n_procs, get_openmp_blocks
    use radial_der, only: get_ddr, get_dr, get_dr_Rloc, get_ddr_ghost, exch_ghosts,&
        &                 bulk_to_ghost
-   use constants, only: zero, one, two
+   use constants, only: zero, one, two, three
    use fields, only: work_LMloc
    use mem_alloc, only: bytes_allocated
    use useful, only: abortRun
@@ -174,8 +173,6 @@ contains
 
       integer :: threadid,iChunk,nChunks,size_of_last_chunk,lmB0
 
-      if ( .not. l_update_xi ) return
-
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
@@ -321,8 +318,6 @@ contains
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm, l, m
 
-      if ( .not. l_update_xi ) return
-
       !-- LU factorisation of the matrix if needed
       if ( .not. lXimat(0) ) then
          call get_xiMat_Rdist(tscheme,hdif_Xi,xiMat_FD)
@@ -392,8 +387,6 @@ contains
       integer :: lm, l, m, lm_start, lm_stop
       real(cp) :: dr
 
-      if ( .not. l_update_xi ) return
-
       !$omp parallel default(shared) private(lm_start, lm_stop, l, m, lm)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
@@ -454,8 +447,6 @@ contains
 
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm
-
-      if ( .not. l_update_xi ) return
 
       !-- Roll the arrays before filling again the first block
       call tscheme%rotate_imex(dxidt)
@@ -713,6 +704,11 @@ contains
                dxidt%impl(lm,n_r,istage)=                     osc*hdif_Xi(l) *   &
                &     ( work_Rloc(lm,n_r)+(beta(n_r)+two*or1(n_r)) *  dxi(lm,n_r) &
                &                                       - dL*or2(n_r)* xig(lm,n_r) )
+
+               if ( l==0 .and. l_full_sphere .and. n_r==n_r_icb ) then
+                  dxidt%impl(lm,n_r,istage)= osc*hdif_Xi(l) *   &
+                  &               ( three*work_Rloc(lm,n_r)+beta(n_r)*dxi(lm,n_r) )
+               end if
             end do
          end do
       end if
@@ -1029,6 +1025,20 @@ contains
             xiMat%up(l,nR) =-tscheme%wimp_lin(1)*osc*hdif(l)*(             &
             &                                       rscheme_oc%ddr(nR,2) + &
             &           ( beta(nR)+two*or1(nR) )*    rscheme_oc%dr(nR,2) )
+
+            if ( l==0 .and. l_full_sphere .and. nR==n_r_icb ) then
+               !-- Use L'Hôpital's rule to replace 2/r d/dr at the center
+               !-- by 2*d^2/dr^2
+               xiMat%diag(l,nR)=one-tscheme%wimp_lin(1)*osc*hdif(l)*(         &
+               &                               three*  rscheme_oc%ddr(nR,1) + &
+               &                            beta(nR)*   rscheme_oc%dr(nR,1) )
+               xiMat%low(l,nR)=-tscheme%wimp_lin(1)*osc*hdif(l)*(             &
+               &                               three*  rscheme_oc%ddr(nR,0) + &
+               &                            beta(nR)*   rscheme_oc%dr(nR,0) )
+               xiMat%up(l,nR) =-tscheme%wimp_lin(1)*osc*hdif(l)*(             &
+               &                               three*  rscheme_oc%ddr(nR,2) + &
+               &                            beta(nR)*   rscheme_oc%dr(nR,2) )
+            end if
          end do
       end do
       !$omp end do

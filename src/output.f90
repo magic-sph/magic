@@ -23,8 +23,9 @@ module output_mod
        &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,       &
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,          &
        &            l_chemical_conv, l_movie, l_full_sphere, l_spec_avg,      &
-       &            l_phase_field, l_hemi, l_MRI, l_gw, l_mag_hel
-   use fields, only: omega_ic, omega_ma, b_ic,db_ic, ddb_ic, aj_ic, dj_ic,   &
+       &            l_phase_field, l_hemi, l_dtBmovie, l_phaseMovie,          &
+       &            l_dtPhaseMovie, l_geosMovie, l_MRI, l_gw, l_mag_hel
+   use fields, only: omega_ic, omega_ma, b_ic,db_ic, aj_ic,                  &
        &             w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,        &
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
        &             db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc,     &
@@ -33,8 +34,7 @@ module output_mod
        &             dxi_LMloc,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,b_Rloc,   &
        &             aj_Rloc, bICB, phi_Rloc, phi_LMloc
    use fieldsLast, only: dwdt, dzdt, dpdt, dsdt, dbdt, djdt, dbdt_ic, dphidt,&
-       &                 djdt_ic, dxidt, domega_ic_dt, domega_ma_dt,         &
-       &                 lorentz_torque_ma_dt, lorentz_torque_ic_dt
+       &                 djdt_ic, dxidt, domega_ic_dt, domega_ma_dt
    use kinetic_energy, only: get_e_kin, get_u_square
    use magnetic_energy, only: get_e_mag
    use fields_average_mod, only: fields_average
@@ -44,8 +44,8 @@ module output_mod
    use output_data, only: tag, l_max_cmb,n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three, zero
    use outMisc_mod, only: outHeat, outHelicity, outHemi, outPhase, get_onset, &
-       &                  outGWentropy, outGWpressure !, outMagneticHelicity !PNS
-   use geos, only: outGeos, outOmega
+       &                  calc_melt_frame, outGWentropy, outGWpressure !, outMagneticHelicity !PNS
+   use geos, only: outGeos, outOmega, calc_geos_frame
    use outRot, only: write_rot
    use integration, only: rInt_R
    use outPar_mod, only: outPar, outPerpPar
@@ -61,6 +61,7 @@ module output_mod
    use getDlm_mod, only: getDlm
    use movie_data, only: movie_gather_frames_to_rank0
    use dtB_mod, only: get_dtBLMfinish
+   use out_dtB_frame, only: calc_dtB_frame, calc_dtB_frame_IC
    use out_movie, only: write_movie_frame
    use out_movie_IC, only: store_movie_frame_IC
    use RMS, only: zeroRms, dtVrms, dtBrms
@@ -383,10 +384,10 @@ contains
          end if
 
          if ( l_spec_avg ) then
-            call spectrum(-1,time,.true.,nLogs,l_stop_time,timePassedLog,          &
-                 &        timeNormLog,s_LMloc,ds_LMloc,xi_LMloc,dxi_LMloc,w_LMloc, &
-                 &        dw_LMloc,z_LMloc,b_LMloc,db_LMloc,aj_LMloc,b_ic_LMloc,   &
-                 &        db_ic_LMloc,aj_ic_LMloc)
+            call spectrum(-1,time,.true.,nLogs,l_stop_time,timePassedLog,      &
+                 &        timeNormLog,s_LMloc,ds_LMloc,xi_LMloc,dxi_LMloc,     &
+                 &        phi_LMloc,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,db_LMloc, &
+                 &        aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
          end if
 
          if ( l_average ) then
@@ -517,10 +518,10 @@ contains
 
       if ( l_spectrum ) then
          n_spec=n_spec+1
-         call spectrum(n_spec,time,.false.,nLogs,l_stop_time,timePassedLog,     &
-              &        timeNormLog,s_LMloc,ds_LMloc,xi_LMloc,dxi_LMloc,w_LMloc, &
-              &        dw_LMloc,z_LMloc,b_LMloc,db_LMloc,aj_LMloc,b_ic_LMloc,   &
-              &        db_ic_LMloc,aj_ic_LMloc)
+         call spectrum(n_spec,time,.false.,nLogs,l_stop_time,timePassedLog, &
+              &        timeNormLog,s_LMloc,ds_LMloc,xi_LMloc,dxi_LMloc,     &
+              &        phi_LMloc,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,db_LMloc, &
+              &        aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
          if ( rank == 0 ) then
             write(output_unit,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
             &    " ! Storing spectra:",                            &
@@ -568,7 +569,7 @@ contains
          call get_dtBLMfinish(time,n_time_step,omega_ic,b_LMloc,ddb_LMloc, &
               &               aj_LMloc,dj_LMloc,ddj_LMloc,b_ic_LMloc,      &
               &               db_ic_LMloc,ddb_ic_LMloc,aj_ic_LMloc,        &
-              &               dj_ic_LMloc,ddj_ic_LMloc,l_frame)
+              &               dj_ic_LMloc,ddj_ic_LMloc)
       end if
 
       !-- Compute growth rates and drift frequencies of several wavenumbers
@@ -683,50 +684,29 @@ contains
               &         .false.,w_Rloc,z_Rloc,p_Rloc,s_Rloc,xi_Rloc,phi_Rloc, &
               &         b_Rloc,aj_Rloc,b_ic_LMloc,aj_ic_LMloc,dwdt,dzdt,dpdt, &
               &         dsdt,dxidt,dphidt,dbdt,djdt,dbdt_ic,djdt_ic,          &
-              &         domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt,       &
-              &         lorentz_torque_ic_dt)
+              &         domega_ma_dt,domega_ic_dt)
 #else
          call store(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,.false., &
               &     w_LMloc,z_LMloc,p_LMloc,s_LMloc,xi_LMloc,phi_LMloc,b_LMloc,  &
               &     aj_LMloc,b_ic_LMloc,aj_ic_LMloc,dwdt,dzdt,dpdt,dsdt,dxidt,   &
-              &     dphidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,  &
-              &     lorentz_torque_ma_dt,lorentz_torque_ic_dt)
+              &     dphidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt)
 #endif
       end if
 
-
-      ! ===================================================
-      !      GATHERING for output
-      ! ===================================================
-      ! We have all fields in LMloc space. Thus we gather the whole fields on rank 0.
-
       if ( l_frame .or. (l_graph .and. l_mag .and. n_r_ic_max > 0) ) then
-         PERFON('out_comm')
-
          if ( l_mag ) call gather_from_lo_to_rank0(b_LMloc(:,n_r_icb),bICB)
 
          if ( l_cond_ic ) then
             call gather_all_from_lo_to_rank0(gt_IC,b_ic_LMloc,b_ic)
             call gather_all_from_lo_to_rank0(gt_IC,db_ic_LMloc,db_ic)
-            call gather_all_from_lo_to_rank0(gt_IC,ddb_ic_LMloc,ddb_ic)
 
             call gather_all_from_lo_to_rank0(gt_IC,aj_ic_LMloc,aj_ic)
-            call gather_all_from_lo_to_rank0(gt_IC,dj_ic_LMloc,dj_ic)
          else if ( l_mag ) then ! Set to zero (compat with Leg TF)
             if ( rank == 0 ) then
                db_ic(:,1)=zero
                aj_ic(:,1)=zero
-               if ( l_frame ) then
-                  ddb_ic(:,1)=zero
-                  dj_ic(:,1) =zero
-               end if
             end if
          end if
-
-         ! for writing a restart file, we also need the d?dtLast arrays,
-         ! which first have to be gathered on rank 0
-         PERFOFF
-
       end if
 
       !--- Movie output and various supplementary things:
@@ -739,11 +719,20 @@ contains
          ! up to    n_movie_field_stop(1+n_fields_oc+n_fields,n_movie) (n_fields_ic>0
          ! or       n_movie_field_stop(1+n_fields,n_movie)             (n_fields_ic=0)
 
+         if ( l_dtBmovie ) call calc_dtB_frame()
+
+         if ( l_phaseMovie .or. l_dtphaseMovie ) call calc_melt_frame()
+
+         if ( l_geosMovie ) call calc_geos_frame()
+
          call movie_gather_frames_to_rank0()
 
-         if ( l_movie_ic .and. l_store_frame .and. rank == 0 ) then
-            call store_movie_frame_IC(bICB,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
+         if ( l_movie_ic .and. l_store_frame ) then
+            call store_movie_frame_IC(bICB,b_ic_LMloc,db_ic_LMloc,ddb_ic_LMloc, &
+                 &                    aj_ic_LMloc,dj_ic_LMloc)
          end if
+
+         if ( l_movie_ic .and. l_store_frame .and. l_dtBmovie ) call calc_dtB_frame_IC()
 
          n_frame=n_frame+1
          call logWrite(' ')
@@ -755,9 +744,7 @@ contains
          call logWrite(message)
 
          !--- Storing the movie frame:
-         call write_movie_frame(n_frame,timeScaled,b_LMloc,db_LMloc,aj_LMloc, &
-              &                 dj_LMloc,b_ic,db_ic,aj_ic,dj_ic,omega_ic,     &
-              &                 omega_ma)
+         call write_movie_frame(n_frame,timeScaled)
       end if
 
       !----- Plot out inner core magnetic field, outer core

@@ -13,14 +13,16 @@ module updateWP_mod
        &                       alpha0, temp0, beta, dbeta, ogrun, l_R, &
        &                       rscheme_oc, ddLvisc, ddbeta, orho1, drag0
    use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,   &
-       &                          ViscHeatFac, ThExpNb, ktopp,         &
-       &                          ellipticity_cmb, ellipticity_icb,    &
-       &                          ellip_fac_cmb, ellip_fac_icb
+       &                          ViscHeatFac, ThExpNb, ktopp
+   use special, only:  ellipticity_cmb, ellipticity_icb,               &
+       &               ellip_fac_cmb, ellip_fac_icb,                   &
+       &               tide_fac20, tide_fac22p, tide_fac22n,           &
+       &               omega_tide, amp_tide, l_radial_flow_bc
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: omegaOsz_ma1, tShift_ma1, omegaOsz_ic1, tShift_ic1
    use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V
-   use logic, only: l_update_v, l_chemical_conv, l_RMS, l_double_curl, &
+   use logic, only: l_chemical_conv, l_RMS, l_double_curl,             &
        &            l_fluxProfs, l_finite_diff, l_full_sphere, l_heat, &
        &            l_parallel_solve, l_force_v, l_tidal
    use init_fields, only:amp_v1, force_z_vol
@@ -289,8 +291,6 @@ contains
 
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
 
-      if ( .not. l_update_v ) return
-
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
@@ -418,19 +418,49 @@ contains
                   rhs1(n_r_max,2*lm-1,threadid)=0.0_cp
                   rhs1(n_r_max,2*lm,threadid)  =0.0_cp
 
-                  if ( l1 == 2 .and. m1 == 2 ) then
-                     if ( ellipticity_cmb /= 0.0_cp ) then
-                        rhs1(1,2*lm-1,threadid)=ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
-                        &                       *cos(omegaOsz_ma1*(time+tShift_ma1))
-                        rhs1(1,2*lm,threadid)  =ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
-                        &                       *sin(omegaOsz_ma1*(time+tShift_ma1))
+                  if (l_radial_flow_bc) then
+
+                     if ( l1 == 2 .and. m1 == 0 ) then
+                        if ( amp_tide /= 0.0_cp ) then
+                           rhs1(1,2*lm-1,threadid)=rhs1(1,2*lm-1,threadid)         &
+                           &                  + tide_fac20/real(l1*(l1+1),kind=cp) &
+                           &                    * cos(omega_tide*(time))
+                           rhs1(1,2*lm,threadid)  =rhs1(1,2*lm,threadid)           &
+                           &                  + tide_fac20/real(l1*(l1+1),kind=cp) &
+                           &                      * sin(omega_tide*(time))
+                        end if
                      end if
 
-                     if ( ellipticity_icb /= 0.0_cp ) then
-                        rhs1(n_r_max,2*lm-1,threadid)=ellip_fac_icb/real(l1*(l1+1),kind=cp) &
-                        &                             *cos(omegaOsz_ic1*(time+tShift_ic1))
-                        rhs1(n_r_max,2*lm,threadid)  =ellip_fac_icb/real(l1*(l1+1),kind=cp) &
-                        &                             *sin(omegaOsz_ic1*(time+tShift_ic1))
+                     if ( l1 == 2 .and. m1 == 2 ) then
+                        if ( ellipticity_cmb /= 0.0_cp ) then
+                           rhs1(1,2*lm-1,threadid)=ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
+                           &                       *cos(omegaOsz_ma1*(time+tShift_ma1))
+                           rhs1(1,2*lm,threadid)  =ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
+                           &                       *sin(omegaOsz_ma1*(time+tShift_ma1))
+                        end if
+
+                        if ( ellipticity_icb /= 0.0_cp ) then
+                           rhs1(n_r_max,2*lm-1,threadid)=ellip_fac_icb/real(l1*(l1+1),kind=cp) &
+                           &                             *cos(omegaOsz_ic1*(time+tShift_ic1))
+                           rhs1(n_r_max,2*lm,threadid)  =ellip_fac_icb/real(l1*(l1+1),kind=cp) &
+                           &                             *sin(omegaOsz_ic1*(time+tShift_ic1))
+                        end if
+
+                        if ( amp_tide /= 0.0_cp ) then
+                           ! tide_fac22p -> (2,2,1)
+                           ! tide_fac22n -> (2,2,3)
+                           ! (2,2,3) must have the same signed frequency
+                           ! as (2,0,1) above while (2,2,1) has the opposite
+                           ! sign in the rotating frame (Ogilvie, 2014)
+                           rhs1(1,2*lm-1,threadid)=rhs1(1,2*lm-1,threadid)        &
+                           &                 + (tide_fac22p + tide_fac22n)        &
+                           &                      /real(l1*(l1+1),kind=cp)        &
+                           &                      * cos(omega_tide*(time))
+                           rhs1(1,2*lm,threadid)  =rhs1(1,2*lm,threadid)          &
+                           &                 +  (-tide_fac22p + tide_fac22n)      &
+                           &                       /real(l1*(l1+1),kind=cp)       &
+                           &                       * sin(omega_tide*(time))
+                        end if
                      end if
                   end if
 
@@ -439,6 +469,27 @@ contains
                      rhs1(2,2*lm,threadid)          =0.0_cp
                      rhs1(n_r_max-1,2*lm-1,threadid)=0.0_cp
                      rhs1(n_r_max-1,2*lm,threadid)  =0.0_cp
+
+                     ! Special BC for free-slip and radial flow
+                     if (l_radial_flow_bc .and. (ktopv == 1 .or. kbotv == 1)) then
+                        if (l1 == 2 .and. m1 == 2) then
+                           if ( (ellipticity_cmb /= 0.0_cp .or. amp_tide /= 0.0_cp) &
+                           &  .and. ktopv == 1 ) then
+                              rhs1(2,2*lm-1,threadid)=-real(l1*(l1+1),kind=cp)*or2(1)
+                              rhs1(2,2*lm,threadid)  =-real(l1*(l1+1),kind=cp)*or2(1)
+                           else if (ellipticity_icb /= 0.0_cp .and. kbotv == 1) then
+                              rhs1(n_r_max-1,2*lm-1,threadid)=-real(l1*(l1+1),kind=cp)*or2(n_r_max)
+                              rhs1(n_r_max-1,2*lm,threadid)  =-real(l1*(l1+1),kind=cp)*or2(n_r_max)
+                           end if
+                        end if
+
+                        if (l1 == 2 .and. m1 == 0) then
+                           if (amp_tide /= 0.0_cp .and. ktopv == 1) then
+                              rhs1(2,2*lm-1,threadid)=-real(l1*(l1+1),kind=cp)*or2(1)
+                           end if
+                        end if
+                     end if
+
                      do nR=3,n_r_max-2
                         rhs1(nR,2*lm-1,threadid)= real(work_LMloc(lm1,nR))
                         rhs1(nR,2*lm,threadid)  =aimag(work_LMloc(lm1,nR))
@@ -640,8 +691,6 @@ contains
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm, l, m, lm00
 
-      if ( .not. l_update_v ) return
-
       !-- LU factorisation of the matrix if needed
       if ( .not. lWPmat(1) ) then
          call get_wMat_Rdist(tscheme, hdif_V, wMat_FD)
@@ -729,8 +778,6 @@ contains
       integer :: lm, l, lm_start, lm_stop
       real(cp) :: dr
 
-      if ( .not. l_update_v ) return
-
       if ( lPressNext ) then
          if ( nRstart == n_r_cmb ) then
             p0g(nRstart-1)=two*p0g(nRstart)-p0g(nRstart+1)
@@ -808,8 +855,6 @@ contains
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm, l
 
-      if ( .not. l_update_v ) return
-
       if ( lPressNext .and. tscheme%istage == 1) then
          ! Store old dw
          !$omp parallel do collapse(2)
@@ -881,8 +926,6 @@ contains
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
-
-      if ( .not. l_update_v ) return
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2

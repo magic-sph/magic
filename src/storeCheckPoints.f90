@@ -46,7 +46,7 @@ contains
    subroutine store(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,           &
               &     l_ave_file,w,z,p,s,xi,phi,b,aj,b_ic,aj_ic,dwdt,dzdt,           &
               &     dpdt,dsdt,dxidt,dphidt,dbdt,djdt,dbdt_ic,djdt_ic,domega_ma_dt, &
-              &     domega_ic_dt,lorentz_torque_ma_dt,lorentz_torque_ic_dt)
+              &     domega_ic_dt)
       !
       ! This subroutine stores the results in a checkpoint file.
       ! In addition to the magnetic field and velocity potentials
@@ -79,7 +79,6 @@ contains
       type(type_tarray),   intent(in) :: dwdt, dzdt, dpdt, dsdt, dxidt, dbdt
       type(type_tarray),   intent(in) :: djdt, dbdt_ic, djdt_ic, dphidt
       type(type_tscalar),  intent(in) :: domega_ic_dt, domega_ma_dt
-      type(type_tscalar),  intent(in) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
       !-- Local variables
       complex(cp), allocatable :: work(:,:)
@@ -90,8 +89,8 @@ contains
       !l_force_v
       complex(cp) :: z0v_LMloc(llm:ulm,n_r_max)
 
-      version = 4
-      l_press_store = ( .not. l_double_curl ) 
+      version = 5
+      l_press_store = ( .not. l_double_curl )
 
       if ( l_ave_file ) then
          rst_file="checkpoint_ave."//tag
@@ -161,25 +160,6 @@ contains
             end do
             do n_o=2,tscheme%nold
                write(n_rst_file) domega_ma_dt%old(n_o)
-            end do
-
-            do n_o=2,tscheme%nexp
-               write(n_rst_file) lorentz_torque_ic_dt%expl(n_o)
-            end do
-            do n_o=2,tscheme%nimp
-               write(n_rst_file) lorentz_torque_ic_dt%impl(n_o)
-            end do
-            do n_o=2,tscheme%nold
-               write(n_rst_file) lorentz_torque_ic_dt%old(n_o)
-            end do
-            do n_o=2,tscheme%nexp
-               write(n_rst_file) lorentz_torque_ma_dt%expl(n_o)
-            end do
-            do n_o=2,tscheme%nimp
-               write(n_rst_file) lorentz_torque_ma_dt%impl(n_o)
-            end do
-            do n_o=2,tscheme%nold
-               write(n_rst_file) lorentz_torque_ma_dt%old(n_o)
             end do
          end if
          write(n_rst_file) omega_ic1,omegaOsz_ic1,tOmega_ic1,     &
@@ -344,8 +324,7 @@ contains
    subroutine store_mpi(time,tscheme,n_time_step,l_stop_time,l_new_rst_file,  &
               &         l_ave_file,w,z,p,s,xi,phi,b,aj,b_ic,aj_ic,dwdt,dzdt,  &
               &         dpdt,dsdt,dxidt,dphidt,dbdt,djdt,dbdt_ic,djdt_ic,     &
-              &         domega_ma_dt,domega_ic_dt,lorentz_torque_ma_dt,       &
-              &         lorentz_torque_ic_dt)
+              &         domega_ma_dt,domega_ic_dt)
       !
       ! This subroutine stores the results in a checkpoint file.
       ! In addition to the magnetic field and velocity potentials
@@ -378,7 +357,6 @@ contains
       type(type_tarray),   intent(in) :: dwdt, dzdt, dpdt, dsdt, dxidt, dbdt
       type(type_tarray),   intent(in) :: djdt, dbdt_ic, djdt_ic, dphidt
       type(type_tscalar),  intent(in) :: domega_ic_dt, domega_ma_dt
-      type(type_tscalar),  intent(in) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
       !-- Local variables
       real(cp) :: dtscale(size(tscheme%dt))
@@ -390,7 +368,7 @@ contains
       integer :: arr_size(2), arr_loc_size(2), arr_start(2), n_o
       integer(lip) :: disp, offset, size_tmp
 
-      version = 4
+      version = 5
       l_press_store = (.not. l_double_curl)
 
       allocate( work(lm_max,nRstart:nRstop) )
@@ -508,30 +486,6 @@ contains
                     &              istat, ierr)
             end do
 
-            do n_o=2,tscheme%nexp
-               call MPI_File_Write(fh, lorentz_torque_ic_dt%expl(n_o), 1, &
-                    &              MPI_DEF_REAL, istat, ierr)
-            end do
-            do n_o=2,tscheme%nimp
-               call MPI_File_Write(fh, lorentz_torque_ic_dt%impl(n_o), 1, &
-                    &              MPI_DEF_REAL, istat, ierr)
-            end do
-            do n_o=2,tscheme%nold
-               call MPI_File_Write(fh, lorentz_torque_ic_dt%old(n_o), 1, &
-                    &              MPI_DEF_REAL, istat, ierr)
-            end do
-            do n_o=2,tscheme%nexp
-               call MPI_File_Write(fh, lorentz_torque_ma_dt%expl(n_o), 1, &
-                    &              MPI_DEF_REAL, istat, ierr)
-            end do
-            do n_o=2,tscheme%nimp
-               call MPI_File_Write(fh, lorentz_torque_ma_dt%impl(n_o), 1, &
-                    &              MPI_DEF_REAL, istat, ierr)
-            end do
-            do n_o=2,tscheme%nold
-               call MPI_File_Write(fh, lorentz_torque_ma_dt%old(n_o), 1, &
-                    &              MPI_DEF_REAL, istat, ierr)
-            end do
          end if
          call MPI_File_Write(fh, omega_ic1, 1, MPI_DEF_REAL, istat, ierr)
          call MPI_File_Write(fh, omegaOsz_ic1, 1, MPI_DEF_REAL, istat, ierr)

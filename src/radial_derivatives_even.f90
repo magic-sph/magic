@@ -17,10 +17,10 @@ contains
               &            n_r_max,n_cheb_max,dr_fac,work1,work2, &
               &            chebt_odd, chebt_even)
       !
-      !  Returns first rarial derivative df and second radial
+      !  Returns first radial derivative df and second radial
       !  derivative ddf of the input function f.
       !  Array f(n_f_max,*) may contain several functions numbered by
-      !  the first index. The subroutine calculates the derivaties of
+      !  the first index. The subroutine calculates the derivatives of
       !  the functions f(n_f_start,*) to f(n_f_stop) by transforming
       !  to a Chebychev representation using n_r_max radial grid points.
       !  The cheb transforms have to be initialized by calling
@@ -73,10 +73,9 @@ contains
               &             n_r_max,n_cheb_max,dr_fac,work1, &
               &             chebt_odd, chebt_even)
       !
-      !  Returns first rarial derivative df and second radial
-      !  derivative ddf of the input function f.
+      !  Returns first rarial derivative df.
       !  Array f(n_f_max,*) may contain several functions numbered by
-      !  the first index. The subroutine calculates the derivaties of
+      !  the first index. The subroutine calculates the derivative of
       !  the functions f(n_f_start,*) to f(n_f_stop) by transforming
       !  to a Chebychev representation using n_r_max radial grid points.
       !  The cheb transforms have to be initialized by calling
@@ -98,7 +97,6 @@ contains
       complex(cp),       intent(out) :: work1(n_f_max,n_r_max)   ! work array needed for costf
       complex(cp),       intent(out) :: df(n_f_max,n_r_max)  ! first derivative of f
 
-
       !-- Transform f to cheb space:
       call chebt_odd%costf1(f,n_f_max,n_f_start,n_f_stop,work1)
 
@@ -111,17 +109,16 @@ contains
       call chebt_odd%costf1(f,n_f_max,n_f_start,n_f_stop,work1)
       call chebt_even%costf2(df,n_f_max,n_f_start,n_f_stop,work1)
 
-
    end subroutine get_drNS_even
 !------------------------------------------------------------------------------
    subroutine get_ddrNS_even(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
               &              n_r_max,n_cheb_max,dr_fac,work1,     &
               &              chebt_odd, chebt_even)
       !
-      !  Returns first rarial derivative df and second radial
+      !  Returns first radial derivative df and second radial
       !  derivative ddf of the input function f.
       !  Array f(n_f_max,*) may contain several functions numbered by
-      !  the first index. The subroutine calculates the derivaties of
+      !  the first index. The subroutine calculates the derivatives of
       !  the functions f(n_f_start,*) to f(n_f_stop) by transforming
       !  to a Chebychev representation using n_r_max radial grid points.
       !  The cheb transforms have to be initialized by calling
@@ -144,7 +141,6 @@ contains
       complex(cp), intent(out) :: work1(n_f_max,n_r_max)  ! work array needed for costf
       complex(cp), intent(out) :: df(n_f_max,n_r_max)  ! first derivative of f
       complex(cp), intent(out) :: ddf(n_f_max,n_r_max) ! second derivative of f
-
 
       !-- Transform f to cheb space:
       call chebt_odd%costf1(f,n_f_max,n_f_start,n_f_stop,work1)

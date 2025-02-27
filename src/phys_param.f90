@@ -56,12 +56,12 @@ module physical_parameters
    real(cp) :: ThExpNb        ! Thermal expansion * temperature :math:`\alpha_0 T_0`
    real(cp) :: GrunNb         ! Grüneisen paramater :math:`\Gamma=(\gamma-1)/\alpha T`
    real(cp) :: epsS           ! Deviation from the adiabat
-   real(cp) :: cmbHflux       ! stratified Layer
-   real(cp) :: slopeStrat     ! stratified Layer
-   real(cp) :: rStrat         ! stratified Layer
-   real(cp) :: ampStrat       ! stratified Layer
-   real(cp) :: thickStrat     ! stratified Layer
-   integer  :: nVarEntropyGrad! stratified Layer
+   integer, private, parameter :: nSSLmax = 5
+   real(cp) :: slopeStrat(nSSLmax) ! stiffness of the transitions to stratified layers
+   real(cp) :: rStrat(nSSLmax)     ! bottom radii of the stratified layers
+   real(cp) :: ampStrat(nSSLmax)   ! degree of stratification of the stratified layers
+   real(cp) :: thickStrat(nSSLmax) ! thicknesses of the stratified Layers
+   integer  :: nVarEntropyGrad     ! type of stratified Layer
    character(len=72) :: interior_model ! name of the interior model
    real(cp) :: r_cut_model    ! Percentage on the inner part of the interior model to be used
    real(cp) :: g0             ! Set to 1.0 for constant gravity
@@ -108,15 +108,11 @@ module physical_parameters
    real(cp) :: penaltyFac     ! Factor that enters the penalty method in the NS equations
    real(cp) :: tmelt          ! Melting temperature
 
-   real(cp) :: ellipticity_cmb    ! Ellipticity of CMB, used for libration
-   real(cp) :: ellipticity_icb    ! Ellipticity of ICB, used for libration
-   real(cp) :: ellip_fac_cmb      ! d/d\phi (Y22) * d/dt exp(i\omega t) at CMB
-   real(cp) :: ellip_fac_icb      ! d/d\phi (Y22) * d/dt exp(i\omega t) at ICB
+   real(cp) :: gammatau_gravi     ! Constant in front of the core/mantle gravitationnal torque (see Aubert et al. 2013)
 
-   real(cp) :: ampForce           ! Amplitude of external body force
    real(cp) :: w_orbit            ! Input orbital frequency for tidal force
    real(cp) :: w_orbit_th         ! Theorital orbital frequency for resonance
    real(cp) :: tidalFac           ! Prefactor for the tidal force
    real(cp) :: amp_tidal          ! Amplitude of the tidal potential (N^2/w_d^2)
-   
+
 end module physical_parameters

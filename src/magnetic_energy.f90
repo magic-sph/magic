@@ -18,8 +18,6 @@ module magnetic_energy
    use blocking, only: st_map, lo_map, llmMag, ulmMag
    use logic, only: l_cond_ic, l_mag, l_mag_LF, l_save_out, l_earth_likeness, &
        &            l_full_sphere
-   use movie_data, only: movieDipColat, movieDipLon, movieDipStrength, &
-       &                 movieDipStrengthGeo
    use output_data, only: tag, l_max_comp, l_geo
    use constants, only: pi, zero, one, two, half, four, osq4pi,third, y11_norm, y10_norm
    use special, only: n_imp, rrMP
@@ -107,7 +105,7 @@ contains
                theta = pi*(nTheta-half)/real(n_theta_max_comp,cp)
                !-- Schmidt normalisation --!
                call plm_theta(theta, l_max_comp, 0, l_max_comp, minc, &
-                    &         plma, dtheta_plma, lm_max_comp, 1)
+                    &         plma, dtheta_plma, 1)
                lm = 1
                do m=0,l_max_comp,minc
                   do l=m,l_max_comp
@@ -749,11 +747,6 @@ contains
             end if
 
          end if
-         ! Store values needed for movie output:
-         movieDipColat      =theta_dip
-         movieDipLon        =phi_dip
-         movieDipStrength   =e_dip_cmb/e_cmb
-         movieDipStrengthGeo=e_dip_cmb/e_geo
       end if
 
    end subroutine get_e_mag

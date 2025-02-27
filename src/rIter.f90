@@ -21,7 +21,7 @@ module rIter_mod
        &            l_precession, l_centrifuge, l_adv_curl,          &
        &            l_double_curl, l_parallel_solve, l_single_matrix,&
       &            l_temperature_diff, l_RMS, l_phase_field, l_onset,&
-      &            l_MRICalc, l_force_v, l_tidal_nl, l_tidal
+      &            l_DTrMagSpec, l_MRICalc, l_force_v, l_tidal_nl, l_tidal
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop, nRstartMag, &
        &                  nRstopMag
    use radial_functions, only: or2, orho1, l_R
@@ -29,8 +29,6 @@ module rIter_mod
    use nonlinear_lm_mod, only: nonlinear_lm_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
    use mri, only: get_MRI
-   use TO_arrays_mod, only: TO_arrays_t
-   use dtB_arrays_mod, only: dtB_arrays_t
    use torsional_oscillations, only: prep_TO_axi, getTO, getTOnext, getTOfinish
 #ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi, graphOut_mpi_header
@@ -50,26 +48,25 @@ module rIter_mod
    use fields, only: s_Rloc, ds_Rloc, z_Rloc, dz_Rloc, p_Rloc,    &
        &             b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc,dj_Rloc,  &
        &             w_Rloc, dw_Rloc, ddw_Rloc, xi_Rloc, omega_ic,&
-       &             omega_ma, dp_Rloc, phi_Rloc, z0v_Rloc, dz0v_Rloc,&
+       &             omega_ma, phi_Rloc, z0v_Rloc, dz0v_Rloc,&
        &             wtidal_Rloc, dwtidal_Rloc, ddwtidal_Rloc
-   
+
    use time_schemes, only: type_tscheme
    use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv,&
-       &                          ellip_fac_cmb, ellip_fac_icb, w_orbit_th
+       &                         w_orbit_th
    use rIteration, only: rIter_t
    use RMS, only: get_nl_RMS, transform_to_lm_RMS, compute_lm_forces, &
        &          transform_to_grid_RMS
    use probe_mod
    use init_fields, only:vrtidal,vttidal,vptidal
-   
+   use special, only: ellip_fac_icb, l_radial_flow_bc
+
    implicit none
 
    private
 
    type, public, extends(rIter_t) :: rIter_single_t
       type(grid_space_arrays_t) :: gsa
-      type(TO_arrays_t) :: TO_arrays
-      type(dtB_arrays_t) :: dtB_arrays
       type(nonlinear_lm_t) :: nl_lm
    contains
       procedure :: initialize
@@ -86,8 +83,6 @@ contains
       class(rIter_single_t) :: this
 
       call this%gsa%initialize()
-      if ( l_TO ) call this%TO_arrays%initialize()
-      call this%dtB_arrays%initialize()
       call this%nl_lm%initialize(lm_max)
 
    end subroutine initialize
@@ -97,8 +92,6 @@ contains
       class(rIter_single_t) :: this
 
       call this%gsa%finalize()
-      if ( l_TO ) call this%TO_arrays%finalize()
-      call this%dtB_arrays%finalize()
       call this%nl_lm%finalize()
 
    end subroutine finalize
@@ -107,8 +100,8 @@ contains
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,        &
               &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,          &
               &          lFluxProfCalc,lPerpParCalc,lGeosCalc,lHemiCalc,      &
-              &          l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,   &
-              &          djdt,dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,                 &
+              &          lPhaseCalc,l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,    &
+              &          dphidt,dbdt,djdt,dVxVhLM,dVxBhLM,dVSrLM,dVXirLM,     &
               &          lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,    &
               &          br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,dtrkc,dthkc)
       !
@@ -125,7 +118,7 @@ contains
       logical,             intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc
       logical,             intent(in) :: lPowerCalc,lHemiCalc
       logical,             intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
-      logical,             intent(in) :: lRmsCalc,lGeosCalc
+      logical,             intent(in) :: lRmsCalc,lGeosCalc,lPhaseCalc
       logical,             intent(in) :: l_probe_out
       logical,             intent(in) :: lPressCalc
       logical,             intent(in) :: lPressNext
@@ -147,7 +140,7 @@ contains
       complex(cp), intent(out) :: dVxBhLM(lm_maxMag,nRstartMag:nRstopMag)
 
       !---- Output of nonlinear products for nonlinear
-      !     magnetic boundary conditions (needed in s_updateB.f):
+      !     magnetic boundary conditions (needed in updateB.f90):
       complex(cp), intent(out) :: br_vt_lm_cmb(:) ! product br*vt at CMB
       complex(cp), intent(out) :: br_vp_lm_cmb(:) ! product br*vp at CMB
       complex(cp), intent(out) :: br_vt_lm_icb(:) ! product br*vt at ICB
@@ -159,6 +152,15 @@ contains
 
       integer :: nR, nBc
       logical :: lMagNlBc, l_bound, lDeriv
+
+      complex(cp) :: eiwt !ARS !for tidal
+      !local variables
+      complex(cp) :: work1(lm_max)
+      complex(cp) :: work2(lm_max)
+      complex(cp) :: workw(lm_max)
+      complex(cp) :: workdw(lm_max)
+      complex(cp) :: workddw(lm_max)
+
 
       if ( l_graph ) then
 #ifdef WITH_MPI
@@ -186,6 +188,9 @@ contains
          if ( l_double_curl ) dVxVhLM(:,n_r_icb)=zero
       end if
 
+      lorentz_torque_ma = 0.0_cp
+      lorentz_torque_ic = 0.0_cp
+
       !------ Having to calculate non-linear boundary terms?
       lMagNlBc=.false.
       if ( ( l_mag_nl .or. l_mag_kin ) .and.                          &
@@ -195,6 +200,12 @@ contains
            &          ( kbotv >= 2 .and. l_rot_ic ) ) )               &
            &     lMagNlBc=.true.
 
+      !----- Set the temporal term in the tides
+      if (l_tidal) then
+         eiwt=cmplx(cos(-w_orbit_th*time),sin(-w_orbit_th*time)) !ARS time or timeStage?
+      else
+         eiwt=zero
+      end if
 
       do nR=nRstart,nRstop
          l_Bound = ( nR == n_r_icb ) .or. ( nR == n_r_cmb )
@@ -226,14 +237,9 @@ contains
          dtrkc(nR)=1e10_cp
          dthkc(nR)=1e10_cp
 
-         if ( lTOCalc ) call this%TO_arrays%set_zero()
-
          if ( lTOnext .or. lTOnext2 .or. lTOCalc ) then
             call prep_TO_axi(z_Rloc(:,nR), dz_Rloc(:,nR))
          end if
-
-         lorentz_torque_ma = 0.0_cp
-         lorentz_torque_ic = 0.0_cp
 
          call this%nl_lm%set_zero()
 
@@ -242,7 +248,7 @@ contains
             call this%transform_to_grid_space(nR, nBc, lViscBcCalc, lRmsCalc,       &
                  &                            lPressCalc, lTOCalc, lPowerCalc,      &
                  &                            lFluxProfCalc, lPerpParCalc, lHelCalc,&
-                 &                            lGeosCalc, lHemiCalc, l_frame, lDeriv, time)
+                 &                            lGeosCalc, lHemiCalc, l_frame, lDeriv, eiwt)
             call lm2phy_counter%stop_count(l_increment=.false.)
          end if
 
@@ -310,7 +316,7 @@ contains
             call get_lorentz_torque(lorentz_torque_ma, this%gsa%brc, &
                  &                  this%gsa%bpc, nR)
          end if
-         
+
          !--------- Calculate courant condition parameters:
          if ( (.not. l_full_sphere .or. nR /= n_r_icb) .and. (.not. l_onset) ) then
             call courant(nR, dtrkc(nR), dthkc(nR), this%gsa%vrc,              &
@@ -323,7 +329,7 @@ contains
          !    this%gsa%vtc(:,:) = this%gsa%vtc(:,:) - vttidal(:,:,nR)
          !    this%gsa%vpc(:,:) = this%gsa%vpc(:,:) - vptidal(:,:,nR)
          ! end if
-         
+
          !--------- Since the fields are given at gridpoints here, this is a good
          !          point for graphical output:
          if ( l_graph ) then
@@ -382,9 +388,9 @@ contains
          end if
 
          !-- Kinetic energy in the solid and liquid phases
-         if ( l_phase_field ) then
-            call get_ekin_solid_liquid(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
-                 &                     this%gsa%phic,nR)
+         if ( lPhaseCalc ) then
+            call get_ekin_solid_liquid(this%gsa%sc,this%gsa%drsc,this%gsa%vrc, &
+                 &                     this%gsa%vtc,this%gsa%vpc,this%gsa%phic,nR)
          end if
 
          !-- Kinetic energy parallel and perpendicular to rotation axis
@@ -412,15 +418,8 @@ contains
          !--------- Calculation of magnetic field production and advection terms
          !          for graphic output:
          if ( l_dtB ) then
-            call get_dtBLM(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,       &
-                 &         this%gsa%brc,this%gsa%btc,this%gsa%bpc,          &
-                 &         this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,   &
-                 &         this%dtB_arrays%BrVtLM,this%dtB_arrays%BrVpLM,   &
-                 &         this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,   &
-                 &         this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,   &
-                 &         this%dtB_arrays%BpVtBtVpCotLM,                   &
-                 &         this%dtB_arrays%BpVtBtVpSn2LM,                   &
-                 &         this%dtB_arrays%BtVZsn2LM)
+            call get_dtBLM(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,  &
+                 &         this%gsa%brc,this%gsa%btc,this%gsa%bpc)
          end if
 
 
@@ -433,9 +432,7 @@ contains
          if ( lTOCalc ) then
             call getTO(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc,   &
                  &     this%gsa%dvpdrc,this%gsa%brc,this%gsa%btc,this%gsa%bpc, &
-                 &     this%gsa%cbrc,this%gsa%cbtc,this%TO_arrays%dzRstrLM,    &
-                 &     this%TO_arrays%dzAstrLM,this%TO_arrays%dzCorLM,         &
-                 &     this%TO_arrays%dzLFLM,dtLast,nR)
+                 &     this%gsa%cbrc,this%gsa%cbtc,this%gsa%phic,dtLast,nR)
          end if
          if (l_MRICalc) then !Calc for MRI output
             call get_MRI(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,    &
@@ -450,39 +447,45 @@ contains
          !   input flm...  is in (l,m) space at radial grid points nR !
          !   Only dVxBh needed for boundaries !
          !   get_td finally calculates the d*dt terms needed for the
-         !   time step performed in s_LMLoop.f . This should be distributed
-         !   over the different models that s_LMLoop.f parallelizes over.
+         !   time step performed in LMLoop.f90 .
          call td_counter%start_count()
-         call this%nl_lm%get_td(nR, nBc, lPressNext, dVSrLM(:,nR), dVXirLM(:,nR), &
-              &                 dVxVhLM(:,nR), dVxBhLM(:,nR), dwdt(:,nR),         &
-              &                 dzdt(:,nR), dpdt(:,nR), dsdt(:,nR), dxidt(:,nR),  &
-              &                 dbdt(:,nR), djdt(:,nR), timeStage)
+!<<<<<<< HEAD
+!         call this%nl_lm%get_td(nR, nBc, lPressNext, dVSrLM(:,nR), dVXirLM(:,nR), &
+!              &                 dVxVhLM(:,nR), dVxBhLM(:,nR), dwdt(:,nR),         &
+!              &                 dzdt(:,nR), dpdt(:,nR), dsdt(:,nR), dxidt(:,nR),  &
+!              &                 dbdt(:,nR), djdt(:,nR), timeStage)
+!=======
+         if ( l_conv ) then
+            call this%nl_lm%get_dzdt(nR, nBc, dzdt(:,nR),eiwt)
+            if ( l_double_curl ) then
+               call this%nl_lm%get_dwdt_double_curl(nR, nBc, dwdt(:,nR), dVxVhLM(:,nR),eiwt)
+            else
+               call this%nl_lm%get_dwdt(nR, nBc, dwdt(:,nR),eiwt)
+            end if
+         end if
+         if ( (.not. l_double_curl) .or. lPressNext ) then
+            call this%nl_lm%get_dpdt(nR, nBc, dpdt(:,nR),eiwt)
+         end if
+         if ( l_heat ) call this%nl_lm%get_dsdt(nR, nBc, dsdt(:,nR), dVSrLM(:,nR))
+         if ( l_chemical_conv ) then
+            call this%nl_lm%get_dxidt(nBc, dxidt(:,nR), dVXirLM(:,nR))
+         end if
+         if ( l_mag ) then
+            call this%nl_lm%get_dbdt(nR, nBc, dbdt(:,nR), djdt(:,nR), dVxBhLM(:,nR))
+         end if
          call td_counter%stop_count(l_increment=.false.)
 
          !-- Finish computation of r.m.s. forces
          if ( lRmsCalc ) then
-            call compute_lm_forces(nR, w_Rloc(:,nR), dw_Rloc(:,nR), ddw_Rloc(:,nR), &
-                 &                 z_Rloc(:,nR), s_Rloc(:,nR), xi_Rloc(:,nR),       &
-                 &                 p_Rloc(:,nR), dp_Rloc(:,nR), this%nl_lm%AdvrLM)
+            call compute_lm_forces(nR, this%nl_lm%AdvrLM)
          end if
 
          !-- Finish calculation of TO variables:
-         if ( lTOcalc ) then
-            call getTOfinish(nR, dtLast, this%TO_arrays%dzRstrLM,             &
-                 &           this%TO_arrays%dzAstrLM, this%TO_arrays%dzCorLM, &
-                 &           this%TO_arrays%dzLFLM)
-         end if
+         if ( lTOcalc ) call getTOfinish(nR, dtLast)
 
          !--- Form partial horizontal derivaties of magnetic production and
          !    advection terms:
-         if ( l_dtB ) then
-            call get_dH_dtBLM(nR,this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM, &
-                 &            this%dtB_arrays%BrVtLM,this%dtB_arrays%BrVpLM,    &
-                 &            this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,    &
-                 &            this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,    &
-                 &            this%dtB_arrays%BpVtBtVpCotLM,                    &
-                 &            this%dtB_arrays%BpVtBtVpSn2LM)
-         end if
+         if ( l_dtB ) call get_dH_dtBLM(nR)
 
       end do
 
@@ -509,7 +512,7 @@ contains
    subroutine transform_to_grid_space(this, nR, nBc, lViscBcCalc, lRmsCalc,      &
               &                       lPressCalc, lTOCalc, lPowerCalc,           &
               &                       lFluxProfCalc, lPerpParCalc, lHelCalc,     &
-              &                       lGeosCalc, lHemiCalc, l_frame, lDeriv, time)
+              &                       lGeosCalc, lHemiCalc, l_frame, lDeriv, eiwt)
       !
       ! This subroutine actually handles the spherical harmonic transforms from
       ! (\ell,m) space to (\theta,\phi) space.
@@ -522,40 +525,38 @@ contains
       logical, intent(in) :: lViscBcCalc, lRmsCalc, lPressCalc, lTOCalc, lPowerCalc
       logical, intent(in) :: lFluxProfCalc, lPerpParCalc, lHelCalc, l_frame
       logical, intent(in) :: lDeriv, lGeosCalc, lHemiCalc
-      real(cp), intent(in) :: time
+      complex(cp), intent(in) :: eiwt
+
       !local variables
-      complex(cp) :: eiwt
       complex(cp) :: work1(lm_max)
       complex(cp) :: work2(lm_max)
       complex(cp) :: workw(lm_max)
       complex(cp) :: workdw(lm_max)
       complex(cp) :: workddw(lm_max)
 
-      
+
       work1(:) = z_Rloc(:,nR) + z0v_Rloc(:,nR)
       work2(:) = dz_Rloc(:,nR) + dz0v_Rloc(:,nR)
       if (l_tidal_nl) then
-         eiwt=cmplx(cos(-w_orbit_th*time),sin(-w_orbit_th*time))
          workw(:) = w_Rloc(:,nR) + wtidal_Rloc(:,nR)*eiwt
          workdw(:) = dw_Rloc(:,nR) + dwtidal_Rloc(:,nR)*eiwt
          workddw(:) = ddw_Rloc(:,nR) + ddwtidal_Rloc(:,nR)*eiwt
       else if (l_tidal) then
-         eiwt=cmplx(cos(-w_orbit_th*time),sin(-w_orbit_th*time))
          workw(:) = wtidal_Rloc(:,nR)*eiwt
          workdw(:) = dwtidal_Rloc(:,nR) *eiwt
          workddw(:) = zero
          call torpol_to_spat(workw, workdw,&
               & workddw, vrtidal(:,:,nR), vttidal(:,:,nR), &
               & vptidal(:,:,nR), l_R(nR))
-         workw(:) = w_Rloc(:,nR) 
-         workdw(:) = dw_Rloc(:,nR) 
+         workw(:) = w_Rloc(:,nR)
+         workdw(:) = dw_Rloc(:,nR)
          workddw(:) = ddw_Rloc(:,nR)
       else
          workw(:) = w_Rloc(:,nR)
          workdw(:) = dw_Rloc(:,nR)
          workddw(:) = ddw_Rloc(:,nR)
       end if
-      
+
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
             call scal_to_spat(s_Rloc(:,nR), this%gsa%sc, l_R(nR))
@@ -648,7 +649,7 @@ contains
                     &                 this%gsa%dvtdpc, this%gsa%dvpdpc, l_R(nR))
             end if
          else if ( nBc == 2 ) then
-            if ( nR == n_r_cmb .and. ellip_fac_cmb == 0.0_cp ) then
+            if ( nR == n_r_cmb .and. (.not. l_radial_flow_bc) ) then
                call v_rigid_boundary(nR, omega_ma, lDeriv, this%gsa%vrc,      &
                     &              this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
                     &              this%gsa%dvrdtc, this%gsa%dvrdpc,          &
@@ -780,7 +781,7 @@ contains
          call spat_to_qst(this%gsa%VXir, this%gsa%VXit, this%gsa%VXip, &
               &           dVXirLM, this%nl_lm%VXitLM, this%nl_lm%VXipLM, l_R(nR))
       end if
-      if( l_phase_field ) call scal_to_SH(this%gsa%phiTerms, dphidt,l_R(nR))
+      if ( l_phase_field ) call scal_to_SH(this%gsa%phiTerms, dphidt,l_R(nR))
       if ( l_mag_nl ) then
          if ( nR>n_r_LCR ) then
             call spat_to_qst(this%gsa%VxBr, this%gsa%VxBt, this%gsa%VxBp, &
