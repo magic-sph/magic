@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from .log import MagicSetup
 import glob
-from .libmagic import fast_read, scanDir
+from .libmagic import (fast_read, scanDir, avgField,
+                       timeder,secondtimeder, ReadBinaryTimeseries)
 
 
 class MagicTs(MagicSetup):
