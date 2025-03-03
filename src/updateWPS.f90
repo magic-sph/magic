@@ -23,7 +23,7 @@ module updateWPS_mod
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: tops, bots, omegaOsz_ma1, tShift_ma1,        &
        &                  omegaOsz_ic1, tShift_ic1
-   use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
+   use blocking, only: lo_sub_map, lo_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V, hdif_S
    use logic, only: l_temperature_diff, l_RMS, l_full_sphere
    use RMS, only: DifPol2hInt, DifPolLMr

@@ -40,12 +40,7 @@ module blocking
    type(load), public, allocatable :: lm_balance(:)
    integer, public :: llm, ulm, llmMag, ulmMag
 
-   integer, public, pointer :: nLMBs2(:),sizeLMB2(:,:)
-   integer, public, pointer :: lm22lm(:,:,:)
-   integer, public, pointer :: lm22l(:,:,:)
-   integer, public, pointer :: lm22m(:,:,:)
-
-   type(subblocks_mappings), public, target :: st_sub_map, lo_sub_map
+   type(subblocks_mappings), public, target :: lo_sub_map
 
    public :: initialize_blocking, finalize_blocking
 
@@ -151,23 +146,13 @@ contains
       lm2lmS(1:lm_max) => st_map%lm2lmS
       lm2lmA(1:lm_max) => st_map%lm2lmA
 
-      call allocate_subblocks_mappings(st_sub_map,st_map,n_procs,l_max, &
-           &                           m_min,m_max,lm_balance)
       call allocate_subblocks_mappings(lo_sub_map,lo_map,n_procs,l_max, &
            &                           m_min,m_max,lm_balance)
 
       !--- Getting lm sub-blocks:
-      call get_subblocks(st_map, st_sub_map)
       !PRINT*," ---------------- Making the lorder subblocks ---------------- "
       call get_subblocks(lo_map, lo_sub_map)
       !PRINT*," ---------------- Making the snake order subblocks ----------- "
-
-      ! default mapping
-      nLMBs2(1:n_procs) => st_sub_map%nLMBs2
-      sizeLMB2(1:,1:) => st_sub_map%sizeLMB2
-      lm22lm(1:,1:,1:) => st_sub_map%lm22lm
-      lm22l(1:,1:,1:) => st_sub_map%lm22l
-      lm22m(1:,1:,1:) => st_sub_map%lm22m
 
       local_bytes_used = bytes_allocated-local_bytes_used
       call memWrite('blocking.f90', local_bytes_used)
@@ -183,7 +168,6 @@ contains
       call deallocate_mappings(lo_map)
 
       deallocate( lm_balance )
-      call deallocate_subblocks_mappings(st_sub_map)
       call deallocate_subblocks_mappings(lo_sub_map)
 
    end subroutine finalize_blocking

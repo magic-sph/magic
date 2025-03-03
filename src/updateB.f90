@@ -21,7 +21,7 @@ module updateB_mod
        &                         sigma_ratio, conductance_ma, ktopb, ktopv
    use init_fields, only: bpeaktop, bpeakbot
    use num_param, only: solve_counter, dct_counter
-   use blocking, only: st_map, lo_map, st_sub_map, lo_sub_map, llmMag, ulmMag
+   use blocking, only: st_map, lo_map, lo_sub_map, llmMag, ulmMag
    use horizontal_data, only: hdif_B
    use logic, only: l_cond_ic, l_LCR, l_rot_ic, l_mag_nl, l_b_nl_icb, &
        &            l_b_nl_cmb, l_cond_ma, l_RMS, l_finite_diff,      &

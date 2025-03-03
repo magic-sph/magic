@@ -18,7 +18,7 @@ module updateZ_mod
        &                          gammatau_gravi
    use num_param, only: AMstart, dct_counter, solve_counter
    use torsional_oscillations, only: ddzASL
-   use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
+   use blocking, only: lo_sub_map, lo_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V
    use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, l_precession, &
        &            l_correct_AMe, l_correct_AMz, l_parallel_solve, l_TO,       &

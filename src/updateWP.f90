@@ -20,7 +20,7 @@ module updateWP_mod
        &               omega_tide, amp_tide, l_radial_flow_bc
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: omegaOsz_ma1, tShift_ma1, omegaOsz_ic1, tShift_ic1
-   use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
+   use blocking, only: lo_sub_map, lo_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V
    use logic, only: l_chemical_conv, l_RMS, l_double_curl,             &
        &            l_fluxProfs, l_finite_diff, l_full_sphere, l_heat, &
