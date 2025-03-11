@@ -283,7 +283,7 @@ def avgField(time, field, tstart=None, std=False, fix_missing_series=False,
         mask = np.where(abs(time-tstop) == min(abs(time-tstop)), 1, 0)
         ind2 = np.nonzero(mask)[0][0]
     else: # the whole input array is taken!
-        ind2 = -1
+        ind2 = len(time)-1
 
     # Now suppose data were not stored in the first part of the run
     # then the time series could look like 0,0,0,...,data,data,data
@@ -296,7 +296,7 @@ def avgField(time, field, tstart=None, std=False, fix_missing_series=False,
             if ind_tmp > ind1:
                 ind1 = ind_tmp
 
-    if time[ind1:ind2].shape[0] == 1: # Only one entry in the array
+    if time[ind1:ind2+1].shape[0] == 1: # Only one entry in the array
         if len(field.shape) > 1:
             avgField = field[ind1, ...]
             stdField = np.zeros_like(avgField)
@@ -313,10 +313,10 @@ def avgField(time, field, tstart=None, std=False, fix_missing_series=False,
                 stdField = 0
         else:
             fac = 1./(time[ind2]-time[ind1])
-            avgField = fac*np.trapz(field[ind1:ind2, ...], time[ind1:ind2], axis=0)
+            avgField = fac*np.trapz(field[ind1:ind2+1, ...], time[ind1:ind2+1], axis=0)
             if std:
-                stdField = np.sqrt(fac*np.trapz((field[ind1:ind2, ...]-avgField)**2,
-                                   time[ind1:ind2], axis=0))
+                stdField = np.sqrt(fac*np.trapz((field[ind1:ind2+1, ...]-avgField)**2,
+                                   time[ind1:ind2+1], axis=0))
 
     if std:
         return avgField, stdField
