@@ -172,8 +172,9 @@ def cut(dat, vmax=None, vmin=None):
 
 def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
                  cm=defaultCm, normed=None, vmax=None, vmin=None, cbar=True,
-                 title=True, normRad=False, deminc=True, bounds=True,
-                 lines=False, linewidths=0.5, pcolor=False, rasterized=False):
+                 title=True, normRad=False, deminc=True, bounds=True, fig=None,
+                 ax=None, lines=False, linewidths=0.5, pcolor=False,
+                 rasterized=False):
     """
     Plot the equatorial cut of a given field
 
@@ -207,6 +208,10 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
     :param deminc: a logical to indicate if one wants do get rid of the
                    possible azimuthal symmetry
     :type deminc: bool
+    :param fig: a pre-existing figure (if needed)
+    :type fig: matplotlib.figure.Figure
+    :param ax: a pre-existing axis
+    :type ax: matplotlib.axes._subplots.AxesSubplot
     :param bounds: a boolean to determine if one wants to plot the limits
                    of the domain (True by default)
     :type bounds: bool
@@ -238,19 +243,26 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
 
     if title and label is not None:
         if cbar:
-            fig = plt.figure(figsize=(6.5,5.5))
-            ax = fig.add_axes([0.01, 0.01, 0.76, 0.9])
+            fsize = (6.5,5.5)
+            bb = [0.01, 0.01, 0.76, 0.9]
         else:
-            fig = plt.figure(figsize=(5,5.5))
-            ax = fig.add_axes([0.01, 0.01, 0.98, 0.9])
-        ax.set_title(label, fontsize=24)
+            fsize = (5,5.5)
+            bb = [0.01, 0.01, 0.98, 0.9]
     else:
         if cbar:
-            fig = plt.figure(figsize=(5,4))
-            ax = fig.add_axes([0.01, 0.01, 0.76, 0.98])
+            fsize = (5,4)
+            bb = [0.01, 0.01, 0.76, 0.98]
         else:
-            fig = plt.figure(figsize=(5, 5))
-            ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
+            fsize = (5, 5)
+            bb = [0.01, 0.01, 0.98, 0.98]
+
+    if fig is None:
+        fig = plt.figure(figsize=fsize)
+        if ax is None:
+            ax = fig.add_axes(bb)
+
+    if title and label is not None:
+        ax.set_title(label, fontsize=24)
 
     if normed is None:
         if abs(data.min()) < 1e-8:
