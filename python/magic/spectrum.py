@@ -385,7 +385,7 @@ class MagicSpectrum(MagicSetup):
             else:
                 ax.set_xlabel('m + 1')
                 ax.set_ylabel('Velocity square')
-            ax.set_xlim(1, self.index.max[-1]+1)
+            ax.set_xlim(1, self.index[-1]+1)
             ax.legend(loc='upper right', frameon=False)
             fig.tight_layout()
         elif self.name == 'mag_spec_ave' or self.name == 'mag_spec_':
