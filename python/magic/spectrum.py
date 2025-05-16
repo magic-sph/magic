@@ -272,6 +272,15 @@ class MagicSpectrum(MagicSetup):
                 print('reading {}'.format(filename))
             if not hasattr(self, 'stop_time'):
                 self.stop_time = None
+            if skipLines == 1:
+                with open(filename, 'r') as fi:
+                    st = fi.readline().rstrip('\n')
+                    pattern = re.compile(r'.*spectra at time: (.*)')
+                    if pattern.match(st):
+                        self.time = float(pattern.search(st).groups()[0])
+            else:
+                self.time = -1.
+
             data = fast_read(filename, skiplines=skipLines)
             speclut = SpecLookUpTable(data, self.name, self.start_time,
                                       self.stop_time)
