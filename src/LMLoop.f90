@@ -224,7 +224,7 @@ contains
 
       if ( l_heat .and. .not. l_single_matrix .and. l_update_s ) then
          PERFON('up_S')
-         call updateS( s_LMloc, ds_LMloc, dsdt, phi_LMloc, tscheme )
+         call updateS( s_LMloc, ds_LMloc, dsdt, phi_LMloc, time, tscheme )
          PERFOFF
       end if
 

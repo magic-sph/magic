@@ -12,7 +12,8 @@ module updateS_mod
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: orho1, or1, or2, beta, dentropy0, rscheme_oc,  &
        &                       kappa, dLkappa, dLtemp0, temp0, r, l_R
-   use physical_parameters, only: opr, kbots, ktops, stef
+   use physical_parameters, only: opr, kbots, ktops, stef, radratio
+   use special, only: amp_tide, omega_tide, tide_fac20, tide_fac22p, tide_fac22n
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: tops, bots
    use blocking, only: lo_map, lo_sub_map, llm, ulm, st_map
@@ -152,7 +153,7 @@ contains
 
    end subroutine finalize_updateS
 !------------------------------------------------------------------------------
-   subroutine updateS(s, ds, dsdt, phi, tscheme)
+   subroutine updateS(s, ds, dsdt, phi, time, tscheme)
       !
       !  Updates the entropy field s and its radial derivative.
       !
@@ -160,6 +161,7 @@ contains
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
       complex(cp),         intent(in) :: phi(llm:ulm,n_r_max) ! Phase field
+      real(cp),            intent(in) :: time
 
       !-- Input/output of scalar fields:
       complex(cp),       intent(inout) :: s(llm:ulm,n_r_max) ! Entropy
@@ -254,6 +256,28 @@ contains
                rhs1(1,2*lm,threadid)        =aimag(tops(l1,m1))
                rhs1(n_r_max,2*lm-1,threadid)= real(bots(l1,m1))
                rhs1(n_r_max,2*lm,threadid)  =aimag(bots(l1,m1))
+
+               if (amp_tide /= 0.0_cp) then
+                  if (l1 == 2 .and. m1 == 0) then
+                     rhs1(1,2*lm-1,threadid) = rhs1(1,2*lm-1,threadid)            &
+                     & - radratio/omega_tide * tide_fac20/real(l1*(l1+1),kind=cp) &
+                     & * sin(omega_tide * time)
+                     rhs1(1,2*lm,threadid)   = rhs1(1,2*lm,threadid)              &
+                     & + radratio/omega_tide * tide_fac20/real(l1*(l1+1),kind=cp) &
+                     & * cos(omega_tide * time)
+                  end if
+
+                  if (l1 == 2 .and. m1 == 2) then
+                     rhs1(1,2*lm-1,threadid) = rhs1(1,2*lm-1,threadid)        &
+                     &  - radratio/omega_tide                                 &
+                     &  * (tide_fac22p + tide_fac22n)/real(l1*(l1+1),kind=cp) &
+                     &  * sin(omega_tide * time)
+                     rhs1(1,2*lm,threadid)   = rhs1(1,2*lm,threadid)          &
+                     & + radratio/omega_tide                                  &
+                     & * (-tide_fac22p + tide_fac22n)/real(l1*(l1+1),kind=cp) &
+                     & * cos(omega_tide * time)
+                  end if
+               end if
 
                do nR=2,n_r_max-1
                   rhs1(nR,2*lm-1,threadid)= real(work_LMloc(lm1,nR))
