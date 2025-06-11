@@ -516,7 +516,7 @@ class Movie:
                 elif (new_shape[0] == old_shape[0]) and (new_shape[1] != old_shape[1]):
                     ir = interp1d(self.radius[::-1], self.data[..., ::-1], axis=-1)
                     tmp = ir(new.radius[::-1])
-                    self.data = self.data[..., ::-1]
+                    self.data = tmp[..., ::-1]
             elif self.n_surface == 4:
                 if (new_shape[0] != old_shape[0]) and (new_shape[1] != old_shape[1]):
                     it = interp1d(self.theta, self.data, axis=-2,
