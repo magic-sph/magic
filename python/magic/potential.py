@@ -397,6 +397,9 @@ class MagicPotential(MagicSetup):
         :type normed: bool
         """
 
+        if field in ('temperature', 'entropy', 's', 'S', 'u2', 'b2', 'nrj'):
+            normed = False
+
         phiavg = np.zeros((self.n_theta_max, self.n_r_max), np.float32)
         t1 = time.time()
         if field in ('T', 'temp', 'S', 'entropy'):
@@ -465,9 +468,6 @@ class MagicPotential(MagicSetup):
         t2 = time.time()
         print('Transform time (avg): {:.2f}'.format(t2-t1))
 
-        if field in ('temperature', 'entropy', 's', 'S', 'u2', 'b2', 'nrj'):
-            normed = False
-
         fig, xx, yy, im = merContour(phiavg, self.radius, label, levels, cm,
                                      normed, vmax, vmin, cbar, tit)
 
@@ -506,6 +506,10 @@ class MagicPotential(MagicSetup):
                        Default is True, except for entropy/temperature plots.
         :type normed: bool
         """
+
+        if field in ('temperature', 't', 'T', 'entropy', 's', 'S', 'u2',
+                     'b2', 'nrj'):
+            normed = False
 
         equator = np.zeros((self.n_phi_max, self.n_r_max), np.float32)
         t1 = time.time()
@@ -571,10 +575,6 @@ class MagicPotential(MagicSetup):
 
         equator = symmetrize(equator, self.minc)
 
-        if field in ('temperature', 't', 'T', 'entropy', 's', 'S', 'u2',
-                     'b2', 'nrj'):
-            normed = False
-
         fig, xx, yy = equatContour(equator, self.radius, self.minc, label,
                                    levels, cm, normed, vmax, vmin, cbar, tit,
                                    normRad)
@@ -633,6 +633,10 @@ class MagicPotential(MagicSetup):
         :param normed: when set to True, the colormap is centered around zero.
         :type normed: bool
         """
+
+        if field in ('temperature', 't', 'T', 'entropy', 's', 'S', 'u2',
+                     'b2', 'nrj'):
+            normed = False
 
         r /= (1-self.radratio)  # as we give a normalised radius
         ind = np.nonzero(np.where(abs(self.radius-r) ==
@@ -701,10 +705,6 @@ class MagicPotential(MagicSetup):
         print('Transform time (surf): {:.2f}'.format(t2-t1))
 
         rprof = symmetrize(rprof, self.minc)
-
-        if field in ('temperature', 't', 'T', 'entropy', 's', 'S', 'u2',
-                     'b2', 'nrj'):
-            normed = False
 
         radialContour(rprof, rad, label, proj, lon_0, vmax, vmin,
                       lat_0, levels, cm, normed, cbar, tit, lines)
