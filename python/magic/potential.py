@@ -576,8 +576,8 @@ class MagicPotential(MagicSetup):
         equator = symmetrize(equator, self.minc)
 
         fig, xx, yy, im = equatContour(equator, self.radius, self.minc, label,
-                                     levels, cm, normed, vmax, vmin, cbar, tit,
-                                     normRad)
+                                       levels, cm, normed, vmax, vmin, cbar, tit,
+                                       normRad)
         ax = fig.get_axes()[0]
 
         # Variable conductivity: add a dashed line
@@ -707,7 +707,7 @@ class MagicPotential(MagicSetup):
         rprof = symmetrize(rprof, self.minc)
 
         fig, xx, yy, im = radialContour(rprof, rad, label, proj, lon_0, vmax, vmin,
-                                    lat_0, levels, cm, normed, cbar, tit, lines)
+                                        lat_0, levels, cm, normed, cbar, tit, lines)
 
 
 if __name__ == '__main__':
