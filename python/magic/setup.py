@@ -94,7 +94,6 @@ if buildSo:
 
     # Decide whether to use distutils or meson backend
     npMaj,npMin,npPatch = np.__version__.split('.')
-    npVersion = float(npMaj+'.'+npMin)
 
     def buildLib(fileName,libName):
         t2 = os.stat('fortranLib/' + fileName).st_mtime
@@ -104,16 +103,15 @@ if buildSo:
         else: # in case the file does not exist t2 is set to t1
             t1 = t2
         if len(sos) < 1  or t2 > t1:
-            print("Please wait: building %s..." %libName)
-            if npVersion < 1.26:
+
+            if int(npMin) <= 26:
+                print("Please wait: building %s using distutils..." %libName)
                 return_code = sp.call(['{}'.format(f2pycmd),
                         '--fcompiler={}'.format(fcompiler),
-                        '--compiler={}'.format(ccompiler),
                         '--opt={}'.format(f90options),
                         '-c', '-m',
                         '%s' %libName,
-                        'fortranLib/%s' %fileName,
-                        "--backend", "distutils"],  stderr=sp.PIPE, stdout=sp.PIPE)
+                        'fortranLib/%s' %fileName],  stderr=sp.PIPE, stdout=sp.PIPE)
             else:
                 try:
                     import ninja
@@ -121,6 +119,7 @@ if buildSo:
                     print("Building libraries with meson backend requires ninja to be installed")
                     print('Please install it using "pip install ninja"')
 
+                print("Please wait: building %s using meson..." %libName)
                 my_env = os.environ.copy()
                 my_env["FFLAGS"]=f90options
                 return_code = sp.call(['{}'.format(f2pycmd),

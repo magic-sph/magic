@@ -171,7 +171,7 @@ buildLibs () {
   local f2py2Exec=$(hasf2py2)
   local f2py3Exec=$(hasf2py3)
   local numpyVersion=$(whichNumpy)
-  local npVersionMeson="1.26"
+  local npVersionMeson=1.26
 
   if [ $f2pyStdExec != "NotFound" ]; then
     local f2pyExec=$f2pyStdExec
@@ -206,7 +206,7 @@ buildLibs () {
 
     if [ $pythonVersion == 3 ] && [ $minor_version -ge 12 ]; then
       $SED "s/buildLib.*/buildLib = True/g" $MAGIC_HOME/python/magic/magic.cfg
-    elif [[ $(echo "$numpyVersion >= $npVersionMeson" |bc -l) ]]; then #Compare using bash calculator
+    elif (( $(echo "$numpyVersion >= $npVersionMeson" |bc -l) )); then #Compare using bash calculator
       echo "Found NumPy version >= 1.26, will use compilers from env variables CC and FC"
       $SED "s/buildLib.*/buildLib = True/g" $MAGIC_HOME/python/magic/magic.cfg
     else
