@@ -18,7 +18,7 @@ endspin() {
 # Determines where matplotlib is installed
 hasPythonMplDarwin() {
   if hash python3 2>/dev/null; then
-    local cmd=`python3 $MAGIC_HOME/bin/testBackend.py 2> /dev/null`
+    local cmd=$(python3 $MAGIC_HOME/bin/testBackend.py 2> /dev/null)
     if [ -n "$cmd" ]; then
       local backendValue=$cmd;
     else
@@ -33,7 +33,7 @@ hasPythonMplDarwin() {
 
 hasPython2Mpl() {
   if hash python2 2>/dev/null; then
-    local cmd=`python2 $MAGIC_HOME/bin/testBackend.py 2> /dev/null`
+    local cmd=$(python2 $MAGIC_HOME/bin/testBackend.py 2> /dev/null)
     if [ -n "$cmd" ]; then
       local backendValue=$cmd;
     else
@@ -47,7 +47,7 @@ hasPython2Mpl() {
 
 hasPython3Mpl() {
   if hash python3 2>/dev/null; then
-    local cmd=`python3 $MAGIC_HOME/bin/testBackend.py 2> /dev/null`
+    local cmd=$(python3 $MAGIC_HOME/bin/testBackend.py 2> /dev/null)
     if [ -n "$cmd" ]; then
       local backendValue=$cmd;
     else
@@ -90,9 +90,9 @@ hasf2py3 () {
 
 whichPython () {
   if hash python 2>/dev/null; then
-      local cmd=`python -c 'import sys; print(sys.version_info[0])'`
+      local cmd=$(python -c 'import sys; print(sys.version_info[0])')
   elif hash python3 2>/dev/null; then
-      local cmd=`python3 -c 'import sys; print(sys.version_info[0])'`
+      local cmd=$(python3 -c 'import sys; print(sys.version_info[0])')
   fi
   local pythonVersion=$cmd;
   echo $pythonVersion
@@ -109,9 +109,22 @@ whichSed () {
   fi
 }
 
-# Awk magics to find out what are the available fortran compilers
+whichNumpy(){
+    local cmd=$(python3 $MAGIC_HOME/bin/testNumpy.py 2>/dev/null)
+    if [ -n "$cmd" ]; then
+      local npversion=$cmd;
+    else
+      local npversion="NotFound";
+    fi
+    echo "$npversion"
+}
+
+# Awk magics to find out what are the available fortran compilers.
+# Needed for distutils backend with numpy versions < 1.26.x
+# For versions >= 1.26.x, use meson with regular FC and CC environment variables
+
 whichf2pycompiler () {
-  local pattern=`$1 -c --help-fcompiler | awk '/Compilers available/{flag=0}flag;/compilers found/{flag=1}' | awk -F'[=| ]' '{print $4}'`
+  local pattern=$($1 -c --help-fcompiler | awk '/Compilers available/{flag=0}flag;/compilers found/{flag=1}' | awk -F'[=| ]' '{print $4}')
 
   if  [ -z "$pattern" ]; then
     local selectedCompiler="NotFound";
@@ -157,6 +170,8 @@ buildLibs () {
   local f2pyStdExec=$(hasf2py)
   local f2py2Exec=$(hasf2py2)
   local f2py3Exec=$(hasf2py3)
+  local numpyVersion=$(whichNumpy)
+  local npVersionMeson="1.26"
 
   if [ $f2pyStdExec != "NotFound" ]; then
     local f2pyExec=$f2pyStdExec
@@ -186,10 +201,13 @@ buildLibs () {
     $SED "s/f2pyexec.*/f2pyexec = $f2pyExec/g" $MAGIC_HOME/python/magic/magic.cfg
 
     if [ $pythonVersion == 3 ]; then
-      local minor_version=`python3 -c 'import sys; print(sys.version_info.minor)'`
+      local minor_version=$(python3 -c 'import sys; print(sys.version_info.minor)')
     fi
 
     if [ $pythonVersion == 3 ] && [ $minor_version -ge 12 ]; then
+      $SED "s/buildLib.*/buildLib = True/g" $MAGIC_HOME/python/magic/magic.cfg
+    elif [[ $(echo "$numpyVersion >= $npVersionMeson" |bc -l) ]]; then #Compare using bash calculator
+      echo "Found NumPy version >= 1.26, will use compilers from env variables CC and FC"
       $SED "s/buildLib.*/buildLib = True/g" $MAGIC_HOME/python/magic/magic.cfg
     else
       local selectedCompiler=$(whichf2pycompiler $f2pyExec)
