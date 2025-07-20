@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import subprocess as sp
 import os
-import numpy as np
+import sys
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from .libmagic import scanDir
@@ -92,9 +92,6 @@ if buildSo:
         omp_options = ''
         omp_link = ''
 
-    # Decide whether to use distutils or meson backend
-    npMaj,npMin,npPatch = np.__version__.split('.')
-
     def buildLib(fileName,libName):
         t2 = os.stat('fortranLib/' + fileName).st_mtime
         sos = scanDir(libName + '.*')
@@ -104,7 +101,7 @@ if buildSo:
             t1 = t2
         if len(sos) < 1  or t2 > t1:
 
-            if int(npMin) <= 26:
+            if (sys.version_info.major == 3 and sys.version_info.minor < 12):
                 print("Please wait: building %s using distutils..." %libName)
                 return_code = sp.call(['{}'.format(f2pycmd),
                         '--fcompiler={}'.format(fcompiler),
@@ -113,12 +110,6 @@ if buildSo:
                         '%s' %libName,
                         'fortranLib/%s' %fileName],  stderr=sp.PIPE, stdout=sp.PIPE)
             else:
-                try:
-                    import ninja
-                except ImportError:
-                    print("Building libraries with meson backend requires ninja to be installed")
-                    print('Please install it using "pip install ninja"')
-
                 print("Please wait: building %s using meson..." %libName)
                 my_env = os.environ.copy()
                 my_env["FFLAGS"]=f90options

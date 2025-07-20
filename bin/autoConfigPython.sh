@@ -109,16 +109,6 @@ whichSed () {
   fi
 }
 
-whichNumpy(){
-    local cmd=$(python3 $MAGIC_HOME/bin/testNumpy.py 2>/dev/null)
-    if [ -n "$cmd" ]; then
-      local npversion=$cmd;
-    else
-      local npversion="NotFound";
-    fi
-    echo "$npversion"
-}
-
 # Awk magics to find out what are the available fortran compilers.
 # Needed for distutils backend with numpy versions < 1.26.x
 # For versions >= 1.26.x, use meson with regular FC and CC environment variables
@@ -170,8 +160,6 @@ buildLibs () {
   local f2pyStdExec=$(hasf2py)
   local f2py2Exec=$(hasf2py2)
   local f2py3Exec=$(hasf2py3)
-  local numpyVersion=$(whichNumpy)
-  local npVersionMeson=1.26
 
   if [ $f2pyStdExec != "NotFound" ]; then
     local f2pyExec=$f2pyStdExec
@@ -206,9 +194,7 @@ buildLibs () {
 
     if [ $pythonVersion == 3 ] && [ $minor_version -ge 12 ]; then
       $SED "s/buildLib.*/buildLib = True/g" $MAGIC_HOME/python/magic/magic.cfg
-    elif (( $(echo "$numpyVersion >= $npVersionMeson" |bc -l) )); then #Compare using bash calculator
-      echo "Found NumPy version >= 1.26, will use compilers from env variables CC and FC"
-      $SED "s/buildLib.*/buildLib = True/g" $MAGIC_HOME/python/magic/magic.cfg
+      echo "Found Python version >= 3.12, will use compilers from env variables CC and FC"
     else
       local selectedCompiler=$(whichf2pycompiler $f2pyExec)
       if [ $selectedCompiler == "NotFound" ]; then
