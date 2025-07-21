@@ -2,7 +2,9 @@
 from magic.setup import defaultLevels, defaultCm
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 
+mplMaj,mplMin,_ = np.int32(matplotlib.__version__.split('.'))
 
 def default_cmap(field):
     """
@@ -353,10 +355,15 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
 
     #To avoid white lines on pdfs
     if not pcolor:
-        for c in ax.collections:
-            c.set_edgecolor('face')
+        if mplMaj >= 3 and mplMin >= 8:
+            im.set_edgecolor('face')
             if rasterized:
-                c.set_rasterized(True)
+                im.set_rasterized(True)
+        else:
+            for c in im.collections:
+                c.set_edgecolor('face')
+                if rasterized:
+                    c.set_rasterized(True)
 
     return fig, xx, yy, im
 
@@ -486,10 +493,15 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
 
     # To avoid white lines on pdfs
     if not pcolor:
-        for c in ax.collections:
-            c.set_edgecolor('face')
+        if mplMaj >= 3 and mplMin >= 8:
+            im.set_edgecolor('face')
             if rasterized:
-                c.set_rasterized(True)
+                im.set_rasterized(True)
+        else:
+            for c in im.collections:
+                c.set_edgecolor('face')
+                if rasterized:
+                    c.set_rasterized(True)
 
     if bounds:
         ax.plot((radius[0])*np.sin(th), (radius[0])*np.cos(th), 'k-')
@@ -743,9 +755,14 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
 
     # To avoid white lines on pdfs
     if not pcolor:
-        for c in ax.collections:
-            c.set_edgecolor('face')
+        if mplMaj >= 3 and mplMin >= 8:
+            im.set_edgecolor('face')
             if rasterized:
-                c.set_rasterized(True)
+                im.set_rasterized(True)
+        else:
+            for c in im.collections:
+                c.set_edgecolor('face')
+                if rasterized:
+                    c.set_rasterized(True)
 
     return fig, x, y, im

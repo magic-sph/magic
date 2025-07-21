@@ -5,6 +5,7 @@ from .libmagic import *
 from .plotlib import equatContour, merContour, radialContour, default_cmap, \
                      diverging_cmap
 import matplotlib.pyplot as plt
+import matplotlib
 import os
 import numpy as np
 try:
@@ -12,6 +13,7 @@ try:
 except:
     from scipy.integrate import trapezoid as trapz
 
+mplMaj,mplMin,_ = np.int32(matplotlib.__version__.split('.'))
 
 class Surf:
     """
@@ -1516,8 +1518,11 @@ class Surf:
                         verticalalignment='center', transform = ax.transAxes)
 
                 # To avoid white lines on pdfs
-                for c in im.collections:
-                    c.set_edgecolor("face")
+                if mplMaj >= 3 and mplMin >= 8:
+                    im.set_edgecolor("face")
+                else:
+                    for c in im.collections:
+                        c.set_edgecolor("face")
 
         else:
             ind = np.nonzero(np.where(abs(phi-lon_0[0])
@@ -1600,9 +1605,11 @@ class Surf:
                 mir = fig.colorbar(im, cax=cax)
 
             # To avoid white lines on pdfs
-            for c in im.collections:
-                c.set_edgecolor("face")
-
+            if mplMaj >= 3 and mplMin >= 8:
+                    im.set_edgecolor("face")
+            else:
+                for c in im.collections:
+                    c.set_edgecolor("face")
 
 
 def report(nvar=1, levels=defaultLevels, lclean=True):
