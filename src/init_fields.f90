@@ -1579,38 +1579,22 @@ contains
       a_force = eta_fac / (r_cmb * (1.0_cp - eta_fac))
       b_force = 1.0_cp / (r_cmb**2 * ( 1.0_cp - eta_fac ))
 
+      ! This is the curl of the body force, \vec{e}_r\cdot \nabla\times\vec{F}
+
       do nR = nRstart,nRstop
          do nPhi=1,n_phi_max
             do nTheta=1,n_theta_max
-               ! This is F_{\phi}/sin(\theta) for toroidal equation
-               ! where F = ( -a s + b s^2 ) \vec{e}_\phi
-               ! Use F_r for poloidal equation
-               bf_spat(nTheta,nPhi) = ampForce   *               &
-               &                      (- a_force * r(nR)         &
-               &                       + b_force * r(nR) * r(nR) &
-               &                       * sinTheta(nTheta) )
+               bf_spat(nTheta,nPhi) = ampForce   *       &
+               &                      (- 2.0_cp * a_force         &
+               &                       + 3.0_cp * b_force * r(nR) &
+               &                       * sinTheta(nTheta) ) * cosTheta(nTheta)
             end do
          end do
 
          call scal_to_SH(bf_spat, bfLM, l_max)
 
-         !------- body force is now in spherical harmonic space,
-         !        For toroidal equation, get radial component of
-         !        curl by applying operator
-         !        dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
-         !        comment out for poloidal equation
-         do lm=2,lm_max
-            l=st_map%lm2l(lm)
-            m=st_map%lm2m(lm)
-            if ( l < l_max .and. l > m ) then
-               bf_Rloc(lm,nR)=dTheta1S(lm)*bfLM(st_map%lm2lmS(lm))   &
-               &             -dTheta1A(lm)*bfLM(st_map%lm2lmA(lm))
-            else if ( l < l_max .and. l == m ) then
-               bf_Rloc(lm,nR)=dTheta1A(lm)*bfLM(st_map%lm2lmA(lm))
-            else if ( l == l_max .and. m < l ) then
-               bf_Rloc(lm,nR)=dTheta1S(lm)*bfLM(st_map%lm2lmS(lm))
-            end if
-         end do
+         !------- body force is now in spherical harmonic space
+         bf_Rloc(:,nR)=bfLM(:)
 
       end do ! close loop over radial points
 
