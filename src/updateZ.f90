@@ -956,6 +956,10 @@ contains
                   dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
                   &                        sin(oek*time),-cos(oek*time),kind=cp)
                end if
+               if ( ampForce /= 0.0_cp ) then
+                  dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage) + &
+                  &                         bodyForce_LMloc(lm,n_r)
+               end if
                if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
                   DifTor2hInt(l1,n_r)=DifTor2hInt(l1,n_r)+r(n_r)**4/dL*cc2real(Dif,m1)
                end if
