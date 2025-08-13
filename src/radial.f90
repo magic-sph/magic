@@ -894,7 +894,7 @@ contains
                a =(-one+con_LambdaOut)/(s1-s2)
                c =(s1-s2*con_LambdaOut)/(s1-s2)
                sigma(:)   = a*tanh(b*(r0-r(:)))+c
-               dsigma(:)  =-a*b/cosh(b*(r0-r(:)))
+               dsigma(:)  =-a*b/(cosh(b*(r0-r(:))))**2
                lambda(:)  =one/sigma(:)
                dLlambda(:)=-dsigma(:)/sigma(:)
 
