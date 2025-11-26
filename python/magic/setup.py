@@ -99,25 +99,27 @@ if buildSo:
             t1 = os.stat(sos[-1]).st_mtime
         else: # in case the file does not exist t2 is set to t1
             t1 = t2
+
         if len(sos) < 1  or t2 > t1:
 
             if (sys.version_info.major == 3 and sys.version_info.minor < 12):
-                print("Please wait: building %s using distutils..." %libName)
+                print("Please wait: building {} using distutils...".format(libName))
                 return_code = sp.call(['{}'.format(f2pycmd),
                         '--fcompiler={}'.format(fcompiler),
                         '--opt={}'.format(f90options),
                         '-c', '-m',
-                        '%s' %libName,
-                        'fortranLib/%s' %fileName],  stderr=sp.PIPE, stdout=sp.PIPE)
+                        '{}'.format(libName),
+                        'fortranLib/{}'.format(fileName)],
+                        stderr=sp.PIPE, stdout=sp.PIPE)
             else:
-                print("Please wait: building %s using meson..." %libName)
+                print("Please wait: building {} using meson...".format(libName))
                 my_env = os.environ.copy()
                 my_env["FFLAGS"]=f90options
                 return_code = sp.call(['{}'.format(f2pycmd),
                                        '-c', '-m',
-                                       '%s' %libName,
-                                       'fortranLib/%s' %fileName,
-                                       "--backend","meson"],
+                                       '{}'.format(libName),
+                                       'fortranLib/{}'.format(fileName),
+                                       '--backend', 'meson'],
                                        env=my_env,
                                        stderr=sp.PIPE, stdout=sp.PIPE)
 
@@ -135,9 +137,7 @@ if buildSo:
 
     for fileName,libName in zip(fortranFiles,sharedLibFiles):
         return_code = buildLib(fileName,libName)
-        if return_code == 0:
-            print("%s built successfully" %libName)
-        else:
-            print("Error in building %s" %libName)
+        if return_code != 0:
+            print("Error in building {}".format(libName))
 
     os.chdir(startdir)
