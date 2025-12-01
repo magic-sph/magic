@@ -29,7 +29,7 @@ if 'MAGIC_HOME' in os.environ:
     fcompiler = parser.get('libraries', 'fcompiler')
     ccompiler = parser.get('libraries', 'ccompiler')
     f2pycmd = parser.get('libraries', 'f2pyexec')
-else: # Default if the PATH is messed up
+else:  # Default if the PATH is messed up
     backend = 'GTKAgg'
     labTex = False
     defaultCm = 'seismic'
@@ -92,15 +92,15 @@ if buildSo:
         omp_options = ''
         omp_link = ''
 
-    def buildLib(fileName,libName):
+    def buildLib(fileName, libName):
         t2 = os.stat('fortranLib/' + fileName).st_mtime
         sos = scanDir(libName + '.*')
         if len(sos) >= 1:
             t1 = os.stat(sos[-1]).st_mtime
-        else: # in case the file does not exist t2 is set to t1
+        else:  # In case the file does not exist t2 is set to t1
             t1 = t2
 
-        if len(sos) < 1  or t2 > t1:
+        if len(sos) < 1 or t2 > t1:
 
             if (sys.version_info.major == 3 and sys.version_info.minor < 12):
                 print("Please wait: building {} using distutils...".format(libName))
@@ -127,17 +127,17 @@ if buildSo:
         else:
             return 0
 
-    fortranFiles=['readG_single.f90','readG_double.f90',
-                  'readPot_single.f90','legendre.f90',
-                  'vtkLib.f90','cyl.f90']
+    fortranFiles = ['readG_single.f90', 'readG_double.f90',
+                    'readPot_single.f90', 'legendre.f90',
+                    'vtkLib.f90', 'cyl.f90']
 
-    sharedLibFiles=['greader_single','greader_double',
-                    'lmrreader_single','legendre',
-                    'vtklib','cylavg']
+    sharedLibFiles = ['greader_single', 'greader_double',
+                      'lmrreader_single', 'legendre',
+                      'vtklib', 'cylavg']
 
-    for fileName,libName in zip(fortranFiles,sharedLibFiles):
-        return_code = buildLib(fileName,libName)
+    for fileName, libName in zip(fortranFiles, sharedLibFiles):
+        return_code = buildLib(fileName, libName)
         if return_code != 0:
-            print("Error in building {}".format(libName))
+            print('Error in building {}'.format(libName))
 
     os.chdir(startdir)
