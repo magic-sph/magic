@@ -139,7 +139,7 @@ class MagicTs(MagicSetup):
             if iplot:
                 self.plot()
         except NameError: # In case tslut in not Defined
-            print('No file correponding to field "{}" has been found'.format(self.field))
+            print('No file corresponding to field "{}" has been found'.format(self.field))
 
     def plot(self):
         """
