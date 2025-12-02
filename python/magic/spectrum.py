@@ -216,6 +216,11 @@ class MagicSpectrum(MagicSetup):
                                                        nml.stop_time)
                         k += 1
 
+                if k == 0:
+                    if not quiet:
+                        print('No corresponding file found')
+                    return
+
 
         else: # Snapshot spectra
 
