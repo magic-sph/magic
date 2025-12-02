@@ -102,7 +102,7 @@ class AvgField:
     """
 
     def __init__(self, tag=None, tstart=None, model=default_model,
-                 datadir='.', std=False, write=True):
+                 datadir='.', std=False, write=True, tinit_file='tInitAvg'):
         """
         :param tag: if you specify an input tag (generic regExp pattern),
                     the averaging process will only happen on the time series
@@ -121,13 +121,15 @@ class AvgField:
                       python attributes wich is defined in MagicTs, MagicSpectrum
                       or MagicRadial.
         :type model: str
+        :param tinit_file: name of the file which contains the start time
+        :type tinit_file: str
         """
 
         if not os.path.exists(datadir):
             print('Directory "{}" has not been found'.format(datadir))
             return
 
-        tInitFile = os.path.join(datadir, 'tInitAvg')
+        tInitFile = os.path.join(datadir, tinit_file)
         if os.path.exists(tInitFile) and tstart is None:
             with open(tInitFile, 'r') as f:
                 st = f.readline().strip('\n')
@@ -210,9 +212,8 @@ class AvgField:
                         self.lut['time_series'][field+'_sd'] = -1
                         setattr(self, field+'_sd', -1)
 
-
         # Get tags involved in averaging for spectra and radial profiles
-        tags = self.get_tags(tstart)
+        tags = self.get_tags(datadir, tstart)
 
         # Handle spectra
         self.lut['spectra'] = {}
@@ -371,21 +372,24 @@ class AvgField:
 
         return st
 
-    def get_tags(self, tstart):
+    def get_tags(self, datadir, tstart):
         """
         This routine returns a list of tags which have been generated after tstart
 
+        :param datadir: working directory
+        :type datadir: str
         :param tstart: starting averaging time
         :type tstart: float
         :returns: a list of tags
         :rtype: list
         """
-        logFiles = scanDir('log.*')
+        logFiles = scanDir(os.path.join(datadir, 'log.*'))
         tags = []
         for lg in logFiles:
             nml = MagicSetup(nml=lg, quiet=True)
-            if nml.start_time > tstart:
-                tags.append(nml.tag)
+            if hasattr(nml, 'start_time'):
+                if nml.start_time > tstart:
+                    tags.append(nml.tag)
 
         return tags
 
