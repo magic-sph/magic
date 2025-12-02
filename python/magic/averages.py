@@ -389,7 +389,10 @@ class AvgField:
             nml = MagicSetup(nml=lg, quiet=True)
             if hasattr(nml, 'start_time'):
                 if nml.start_time > tstart:
-                    tags.append(nml.tag)
+                    tag = lg.split('log.')[-1] # This is safer than nml.tag
+                                               # in case the file has been renamed
+                                               # because of BIS files
+                    tags.append(tag)
 
         return tags
 
