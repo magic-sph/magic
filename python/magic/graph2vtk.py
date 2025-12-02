@@ -6,7 +6,7 @@ from .setup import labTex
 from .libmagic import symmetrize, thetaderavg, rderavg, phideravg
 import matplotlib.pyplot as plt
 import numpy as np
-from .vtklib import *
+from .vtklib import vtklib as vtk
 
 def sph2cart_scal(scals, radius, nx=96, ny=96, nz=96, minc=1):
     """
@@ -608,25 +608,25 @@ class Graph2Vtk:
         """
         if self.nvecs == 0:
             if nFiles == 1 and np.size(self.scals)+3*np.size(self.vecr) < 512**3:
-                vts_scal(filename, self.radius, self.scals, self.scalNames,
-                         self.minc)
+                vtk.vts_scal(filename, self.radius, self.scals, self.scalNames,
+                             self.minc)
             elif nFiles > 1:
-                pvts_scal(filename, self.radius, self.scals, self.scalNames,
-                          nFiles, self.minc)
+                vtk.pvts_scal(filename, self.radius, self.scals, self.scalNames,
+                              nFiles, self.minc)
 
             else:
-                pvts_scal(filename, self.radius, self.scals, self.scalNames,
-                          8, self.minc)
+                vtk.pvts_scal(filename, self.radius, self.scals, self.scalNames,
+                              8, self.minc)
         else:
             if nFiles == 1 and np.size(self.scals)+3*np.size(self.vecr) < 512**3:
-                vts(filename, self.radius, self.vecr, self.vect, self.vecp,
-                    self.scals, self.scalNames, self.vecNames, self.minc)
+                vtk.vts(filename, self.radius, self.vecr, self.vect, self.vecp,
+                        self.scals, self.scalNames, self.vecNames, self.minc)
             elif nFiles > 1:
-                pvts(filename, self.radius, self.vecr, self.vect, self.vecp,
-                     self.scals, self.scalNames, self.vecNames, nFiles, self.minc)
+                vtk.pvts(filename, self.radius, self.vecr, self.vect, self.vecp,
+                         self.scals, self.scalNames, self.vecNames, nFiles, self.minc)
             else:
-                pvts(filename, self.radius, self.vecr, self.vect, self.vecp,
-                     self.scals, self.scalNames, self.vecNames, 8, self.minc)
+                vtk.pvts(filename, self.radius, self.vecr, self.vect, self.vecp,
+                         self.scals, self.scalNames, self.vecNames, 8, self.minc)
 
     def writeVTI(self, filename, nx=96, ny=96, nz=96):
         """
@@ -646,13 +646,13 @@ class Graph2Vtk:
                                                      self.radius, nx, ny, nz,
                                                      self.minc)
         if self.nvecs == 0:
-            vti_scal(filename, scals_cart, self.scalNames, self.minc, \
+            vti_scal(filename, scals_cart, self.scalNames, \
                      gridMax, spacing)
         else:
             vecx, vecy, vecz = sph2cart_vec(self.vecr, self.vect, self.vecp, \
                                         self.radius, nx, ny, nz, self.minc)
             vti(filename, vecx, vecy, vecz, scals_cart, self.scalNames,
-                self.vecNames, self.minc, gridMax, spacing)
+                self.vecNames, gridMax, spacing)
 
 
 if __name__ == '__main__':

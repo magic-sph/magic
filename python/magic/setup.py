@@ -109,7 +109,8 @@ if buildSo:
                         '--opt={}'.format(f90options),
                         '-c', '-m',
                         '{}'.format(libName),
-                        'fortranLib/{}'.format(fileName)],
+                        'fortranLib/{}'.format(fileName),
+                        '--f2cmap', 'fortranLib/f2py_f2cmap.in'],
                         stderr=sp.PIPE, stdout=sp.PIPE)
             else:
                 print("Please wait: building {} using meson...".format(libName))
@@ -119,7 +120,8 @@ if buildSo:
                                        '-c', '-m',
                                        '{}'.format(libName),
                                        'fortranLib/{}'.format(fileName),
-                                       '--backend', 'meson'],
+                                       '--backend', 'meson',
+                                       '--f2cmap', 'fortranLib/f2py_f2cmap.in'],
                                        env=my_env,
                                        stderr=sp.PIPE, stdout=sp.PIPE)
 
