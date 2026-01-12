@@ -792,12 +792,12 @@ class RadLookUpTable:
         out = copy.deepcopy(new)
         if self.start_time is not None:
             fac_old = self.stop_time-self.start_time
-            out.start_time = self.start_time
+            out.start_time = min(self.start_time, new.start_time)
         else:
             fac_old = 0.
         if new.stop_time is not None:
             fac_new = new.stop_time-new.start_time
-            out.stop_time = new.stop_time
+            out.stop_time = max(self.stop_time, new.stop_time)
         else:
             fac_new = 0.
         if fac_old != 0 or fac_new != 0:
