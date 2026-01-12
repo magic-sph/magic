@@ -578,7 +578,7 @@ class MagicTs(MagicSetup):
             fig = plt.figure()
             ax = fig.add_subplot(111)
             if self.buoPower.max() != 0.:
-               ax.semilogy(self.time, self.buoPower, label='Thermal buoyancy')
+                ax.semilogy(self.time, self.buoPower, label='Thermal buoyancy')
             if self.buoPower_chem.max() != 0.:
                 ax.semilogy(self.time, self.buoPower_chem,
                             label='Chemical buoyancy')
@@ -824,9 +824,9 @@ class TsLookUpTable:
             self.corr_vortz_otc = data[:, 6]
             self.corr_hel_otc = data[:, 7]
             if data.shape[-1] == 8:
-                self.geosA= np.zeros_like(self.time)
-                self.geosZ= np.zeros_like(self.time)
-                self.geosM= np.zeros_like(self.time)
+                self.geosA = np.zeros_like(self.time)
+                self.geosZ = np.zeros_like(self.time)
+                self.geosM = np.zeros_like(self.time)
                 self.geosNAP = np.zeros_like(self.time)
             elif data.shape[-1] == 12:
                 self.geosA = data[:, 8]
