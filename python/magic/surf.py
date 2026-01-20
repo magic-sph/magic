@@ -1449,7 +1449,7 @@ class Surf:
             xx_ic = rr_ic * np.cos(tth_ic)
             yy_ic = rr_ic * np.sin(tth_ic)
 
-        lon_0 = np.asarray(lon_0)
+        lon_0 = np.atleast_1d(lon_0)
 
         if normed is None:
             normed = diverging_cmap(field)
