@@ -68,37 +68,9 @@ if(USE_MPI MATCHES yes)
    endif()
 endif()
 
-# Link MKL
-if(USE_LAPACKLIB MATCHES MKL AND USE_FFTLIB MATCHES MKL)
-   add_library(lapack95 ${MKLROOT}/include/lapack.f90)
-   target_link_libraries(lapack95 ${MKLCORE} ${MKLLAPACK} ${MKLSEQ} ${MKL64})
-   target_link_libraries(${EXEC} lapack95)
-elseif(USE_LAPACKLIB MATCHES MKL AND USE_FFTLIB MATCHES JW)
-   add_library(lapack95 ${MKLROOT}/include/lapack.f90)
-   target_link_libraries(lapack95 ${MKLCORE} ${MKLLAPACK} ${MKLSEQ} ${MKL64})
-   target_link_libraries(${EXEC} lapack95)
-elseif(USE_LAPACKLIB MATCHES MKL AND USE_FFTLIB MATCHES FFTW)
-   add_library(lapack95 ${MKLROOT}/include/lapack.f90)
-   target_link_libraries(lapack95 ${MKLCORE} ${MKLLAPACK} ${MKLSEQ} ${MKL64})
-   target_link_libraries(${EXEC} lapack95)
-elseif(USE_LAPACKLIB MATCHES JW AND USE_FFTLIB MATCHES MKL)
-   target_link_libraries(mkl_fft ${MKLCORE} ${MKLSEQ} ${MKL64})
-   target_link_libraries(${EXEC} mkl_fft)
-elseif(USE_LAPACKLIB MATCHES LIBFLAME AND USE_FFTLIB MATCHES MKL)
-   target_link_libraries(mkl_fft ${MKLCORE} ${MKLSEQ} ${MKL64})
-   target_link_libraries(${EXEC} mkl_fft)
-endif()
-
-# Link LAPACK
-if(USE_LAPACKLIB MATCHES LAPACK)
-   target_link_libraries(${EXEC} ${LAPACK_LIBRARIES})
-endif()
-
-# Link LIBFLAME and BLIS
-if(USE_LAPACKLIB MATCHES LIBFLAME)
-   target_link_libraries (${EXEC} ${FLAME} ${BLIS})
-#elseif(USE_LAPACKLIB MATCHES LIBSCI)
-   #target_link_libraries (${EXEC} ${SCI})
+#Link LAPACK
+if(NOT USE_LAPACKLIB MATCHES JW)
+    target_link_libraries(${EXEC} ${LAPACK95_LIBRARIES})
 endif()
 
 if(USE_SHTNS MATCHES yes AND NOT SHTNS MATCHES SHTNS-NOTFOUND)

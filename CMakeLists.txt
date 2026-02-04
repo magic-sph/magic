@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.5)
+cmake_minimum_required (VERSION 3.11)
 project (magic)
 enable_language (Fortran C)
 
@@ -216,24 +216,6 @@ if(USE_LAPACKLIB MATCHES MKL OR USE_FFTLIB MATCHES MKL)
    endif()
 endif()
 
-# Detect BLIS and LIBFLAME
-if(USE_LAPACKLIB MATCHES LIBFLAME)
-   find_library(FLAME NAME flame
-       PATHS $ENV{HOME}/local/lib
-             $ENV{HOME}/local/lib64)
-   find_library(BLIS NAME blis
-       PATHS $ENV{HOME}/local/lib
-             $ENV{HOME}/local/lib64)
-   if ( FLAME MATCHES FLAME-NOTFOUND )
-      message(STATUS "LIBFLAME was not found")
-      set(USE_LAPACKLIB "LAPACK")
-   else()
-      message(STATUS "BLIS: '${BLIS}'")
-      message(STATUS "LIBFLAME: '${FLAME}'")
-      add_definitions(-DWITH_LIBFLAME)
-   endif()
-endif()
-
 # Detect LIBSCI (Cray)
 #if(USE_LAPACKLIB MATCHES LIBSCI)
    #find_library(SCI NAME sci_cray_mp
@@ -249,17 +231,22 @@ endif()
 #endif()
 
 # Detect LAPACK
-if(USE_LAPACKLIB MATCHES LAPACK)
+if(NOT USE_LAPACKLIB MATCHES JW)
+   if(USE_LAPACKLIB MATCHES MKL)
+       set(BLA_VENDOR Intel10_64lp)
+   elseif(USE_LAPACKLIB MATCHES LIBFLAME)
+       set(BLA_VENDOR FLAME)
+   else()
+       set(USE_LAPACKLIB "LAPACK")
+   endif()
    find_package(LAPACK)
    if (LAPACK_FOUND)
       message(STATUS "LAPACK was found")
-      set(USE_LAPACKLIB "LAPACK")
    else()
       message(STATUS "LAPACK was not found")
       set(USE_LAPACKLIB "JW")
    endif()
 endif()
-
 
 find_library(FFTW3 NAME fftw3
     PATHS $ENV{HOME}/local/lib
