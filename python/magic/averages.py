@@ -240,6 +240,12 @@ class AvgField:
                             if std and hasattr(sp, field + '_SD'):
                                 self.lut['spectra'][field+'_spec_sd'] = \
                                     sp.__dict__[field + '_SD']
+                        else:  # Set values to -1
+                            self.lut['spectra'][field+'_spec_av'] = \
+                               -np.ones_like(sp.index)
+                            if std and hasattr(sp, field + '_SD'):
+                                self.lut['spectra'][field+'_spec_sd'] = \
+                                   -np.ones_like(sp.index)
         else:  # Set parameters to -1
             for key in params['spectra'].keys():
                 self.lut['spectra']['index'] = -1 * np.ones(32)
