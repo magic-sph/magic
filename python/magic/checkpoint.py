@@ -177,6 +177,10 @@ class MagicCheckpoint:
 
         fmt = '{}i4'.format(prefix)
         self.version = np.fromfile(file, fmt, count=1)[0]
+        if abs(self.version) > 100:
+            print('File version is too large, reading error!')
+            print('Either wrong endian or record markers')
+            raise ValueError
         fmt = '{}f8'.format(prefix)
         self.time = np.fromfile(file, fmt, count=1)[0]
 
