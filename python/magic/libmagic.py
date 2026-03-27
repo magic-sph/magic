@@ -874,7 +874,7 @@ def rderavg(data, rad, exclude=False):
 
     return der
 
-def thetaderavg(data, order=4):
+def thetaderavg(data, colat=None, order=4):
     """
     Theta-derivative of an input array (finite differences)
 
@@ -883,42 +883,53 @@ def thetaderavg(data, order=4):
 
     :param data: input array
     :type data: numpy.ndarray
+    :param colat: colatitudes (when not specified a regular grid is assumed)
+    :type colat: numpy.ndarray
     :param order: order of the finite-difference scheme (possible values are 2 or 4)
     :type order: int
     :returns: the theta-derivative of the input array
     :rtype: numpy.ndarray
     """
+    if colat is None:
+        if len(data.shape) == 3:
+            ntheta = data.shape[1]
+        elif len(data.shape) == 2:
+            ntheta = data.shape[0]
+        th = np.linspace(0., np.pi, ntheta)
+    else:
+        th = colat
+
     if len(data.shape) == 3: # 3-D
-        ntheta = data.shape[1]
-        dtheta = np.pi/(ntheta-1.)
         if order == 2:
-            der = (np.roll(data, -1,  axis=1)-np.roll(data, 1, axis=1))/(2.*dtheta)
-            der[:, 0, :] = (data[:, 1, :]-data[:, 0, :])/dtheta
-            der[:, -1, :] = (data[:, -1, :]-data[:, -2, :])/dtheta
+            der = (np.roll(data,-1,axis=1)-np.roll(data,1,axis=1)) / \
+                  (np.roll(th[None, :, None],-1)-np.roll(th[None, :, None],1))
+            der[:, 0, :] = (data[:, 1, :]-data[:, 0, :])/(th[1]-th[0])
+            der[:, -1, :] = (data[:, -1, :]-data[:, -2, :])/(th[-1]-th[-2])
         elif order == 4:
-            der = (   -np.roll(data,-2,axis=1) \
-                   +8.*np.roll(data,-1,axis=1) \
-                   -8.*np.roll(data, 1,axis=1)  \
-                      +np.roll(data, 2,axis=1)   )/(12.*dtheta)
-            der[:, 1, :] = (data[:, 2, :]-data[:, 0, :])/(2.*dtheta)
-            der[:, -2, :] = (data[:, -1, :]-data[:, -3, :])/(2.*dtheta)
-            der[:, 0, :] = (data[:, 1, :]-data[:, 0, :])/dtheta
-            der[:, -1, :] = (data[:, -1, :]-data[:, -2, :])/dtheta
+            der = (-np.roll(data,-2,axis=1)+8.*np.roll(data,-1,axis=1) \
+                   -8.*np.roll(data, 1,axis=1)+np.roll(data, 2,axis=1)) / \
+                  (-np.roll(th[None, :, None],-2)+8*np.roll(th[None, :, None],-1) \
+                   -8*np.roll(th[None, :, None],1)+np.roll(th[None, :, None],2))
+            der[:, 1, :] = (data[:, 2, :]-data[:, 0, :])/(th[2]-th[0])
+            der[:, -2, :] = (data[:, -1, :]-data[:, -3, :])/(th[-1]-th[-3])
+            der[:, 0, :] = (data[:, 1, :]-data[:, 0, :])/(th[1]-th[0])
+            der[:, -1, :] = (data[:, -1, :]-data[:, -2, :])/(th[-1]-th[-2])
 
     elif len(data.shape) == 2: #2-D
-        ntheta = data.shape[0]
-        dtheta = np.pi/(ntheta-1.)
         if order == 2:
-            der = (np.roll(data, -1,  axis=0)-np.roll(data, 1, axis=0))/(2.*dtheta)
-            der[0, :] = (data[1, :]-data[0, :])/dtheta
-            der[-1, :] = (data[-1, :]-data[-2, :])/dtheta
+            der = (np.roll(data,-1,axis=0)-np.roll(data,1,axis=0)) / \
+                  (np.roll(th[:, None],-1)-np.roll(th[:, None],1))
+            der[0, :] = (data[1, :]-data[0, :])/(th[1]-th[0])
+            der[-1, :] = (data[-1, :]-data[-2, :])/(th[-1]-th[-2])
         elif order == 4:
             der = (-np.roll(data,-2,axis=0)+8.*np.roll(data,-1,axis=0)-\
-                  8.*np.roll(data,1,axis=0)+np.roll(data,2,axis=0))/(12.*dtheta)
-            der[1, :] = (data[2, :]-data[0, :])/(2.*dtheta)
-            der[-2, :] = (data[-1, :]-data[-3, :])/(2.*dtheta)
-            der[0, :] = (data[1, :]-data[0, :])/dtheta
-            der[-1, :] = (data[-1, :]-data[-2, :])/dtheta
+                  8.*np.roll(data,1,axis=0)+np.roll(data,2,axis=0)) / \
+                  (-np.roll(th[:, None],-2)+8*np.roll(th[:, None],-1)-\
+                   8.*np.roll(th[:, None],1)+np.roll(th[:, None],2))
+            der[1, :] = (data[2, :]-data[0, :])/(th[2]-th[0])
+            der[-2, :] = (data[-1, :]-data[-3, :])/(th[-1]-th[-3])
+            der[0, :] = (data[1, :]-data[0, :])/(th[1]-th[0])
+            der[-1, :] = (data[-1, :]-data[-2, :])/(th[-1]-th[-2])
 
     return der
 
@@ -953,15 +964,11 @@ def zderavg(data, rad, colat=None, exclude=False):
         th = np.linspace(0., np.pi, ntheta)
 
     if len(data.shape) == 3:  # 3-D
-        thmD = np.zeros_like(data)
-        for i in range(ntheta):
-            thmD[:,i,:] = th[i]
+        thmD = th[None, :, None]
     elif len(data.shape) == 2:  # 2-D
-        thmD = np.zeros((ntheta, nr), np.float64)
-        for i in range(ntheta):
-            thmD[i, :] = th[i]
+        thmD = th[None, :]
 
-    dtheta = thetaderavg(data)
+    dtheta = thetaderavg(data, colat=colat)
     dr = rderavg(data, rad, exclude)
     dz = np.cos(thmD)*dr - np.sin(thmD)/rad*dtheta
 
@@ -997,15 +1004,11 @@ def sderavg(data, rad, colat=None, exclude=False):
         th = np.linspace(0., np.pi, ntheta)
 
     if len(data.shape) == 3:  # 3-D
-        thmD = np.zeros_like(data)
-        for i in range(ntheta):
-            thmD[:,i,:] = th[i]
+        thmD = th[None, :, None]
     elif len(data.shape) == 2:  # 2-D
-        thmD = np.zeros((ntheta, nr), np.float64)
-        for i in range(ntheta):
-            thmD[i, :] = th[i]
+        thmD = th[None, :]
 
-    dtheta = thetaderavg(data)
+    dtheta = thetaderavg(data, colat=colat)
     dr = rderavg(data, rad, exclude)
     ds = np.sin(thmD)*dr + np.cos(thmD)/rad*dtheta
 

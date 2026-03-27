@@ -745,14 +745,9 @@ class MagicCheckpoint:
         # Calculate the toroidal potential using wr
         self.ztor = np.zeros_like(self.wpol)
 
-        th3D = np.zeros_like(gr.vr)
-        rr3D = np.zeros_like(th3D)
-        for i in range(self.n_theta_max):
-            th3D[:, i, :] = gr.colatitude[i]
-        for i in range(self.n_r_max):
-            rr3D[:, :, i] = self.radius[i]
-        s3D = rr3D*np.sin(th3D)
-        omr = 1./s3D*(thetaderavg(np.sin(th3D)*gr.vphi, order=4) -
+        th3D = gr.colatitude[None, :, None]
+        s3D = self.radius[None, None, :]*np.sin(gr.colatitude[None, :, None])
+        omr = 1./s3D*(thetaderavg(np.sin(th3D)*gr.vphi, colat=gr.colatitude, order=4) -
                       phideravg(gr.vtheta, minc=self.minc))
 
         for i in range(self.n_r_max):
@@ -790,7 +785,7 @@ class MagicCheckpoint:
                                    self.radius[i]**2
 
             self.btor = np.zeros_like(self.ztor)
-            jr = 1./s3D*(thetaderavg(np.sin(th3D)*gr.Bphi, order=4) -
+            jr = 1./s3D*(thetaderavg(np.sin(th3D)*gr.Bphi, colat=gr.colatitude, order=4) -
                          phideravg(gr.Btheta, minc=self.minc))
 
             for i in range(self.n_r_max):
@@ -819,16 +814,12 @@ class MagicCheckpoint:
             # Calculate the toroidal potential using jr
             self.btor_ic = np.zeros_like(self.bpol_ic)
 
-            th3D = np.zeros_like(gr.Br_ic)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.n_theta_max):
-                th3D[:, i, :] = gr.colatitude[i]
-            for i in range(self.n_r_ic_max-1):
-                rr3D[:, :, i] = self.radius_ic[i]
-            rr3D[:, :, -1] = 1e-4
-            s3D = rr3D*np.sin(th3D)
+            th3D = gr.colatitude[None, :, None]
+            s3D = self.radius_ic[None, None, :]*np.sin(gr.colatitude[None, :, None])
+            s3D[:, :, -1] = 1e-4
             jr_ic = np.zeros_like(th3D)
-            jr_ic = 1./s3D*(thetaderavg(np.sin(th3D)*gr.Bphi_ic, order=4) -
+            jr_ic = 1./s3D*(thetaderavg(np.sin(th3D)*gr.Bphi_ic,
+                                        colat=gr.colatitude, order=4) -
                             phideravg(gr.Btheta_ic, minc=self.minc))
 
             for i in range(self.n_r_ic_max):
