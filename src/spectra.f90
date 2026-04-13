@@ -139,12 +139,12 @@ contains
       am_mpol_file='am_mag_pol.'//tag
       am_mtor_file='am_mag_tor.'//tag
 
-      if ( rank == 0 .and. (.not. l_save_out) ) then
-         if ( l_mag .and. l_energy_modes ) then
-            open(newunit=n_am_kpol_file,file=am_kpol_file,status='new', &
-            &    form='unformatted')
-            open(newunit=n_am_ktor_file,file=am_ktor_file,status='new', &
-            &    form='unformatted')
+      if ( rank == 0 .and. (.not. l_save_out) .and. l_energy_modes ) then
+         open(newunit=n_am_kpol_file,file=am_kpol_file,status='new', &
+         &    form='unformatted')
+         open(newunit=n_am_ktor_file,file=am_ktor_file,status='new', &
+         &    form='unformatted')
+         if ( l_mag ) then
             open(newunit=n_am_mpol_file,file=am_mpol_file,status='new', &
             &    form='unformatted')
             open(newunit=n_am_mtor_file,file=am_mtor_file,status='new', &
@@ -225,10 +225,10 @@ contains
          call dT_ICB_m_ave%finalize()
       end if
 
-      if ( rank == 0 .and. (.not. l_save_out) ) then
-         if ( l_mag .and. l_energy_modes ) then
-            close(n_am_kpol_file)
-            close(n_am_ktor_file)
+      if ( rank == 0 .and. (.not. l_save_out) .and. l_energy_modes ) then
+         close(n_am_kpol_file)
+         close(n_am_ktor_file)
+         if ( l_mag ) then
             close(n_am_mpol_file)
             close(n_am_mtor_file)
          end if

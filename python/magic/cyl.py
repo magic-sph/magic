@@ -31,7 +31,7 @@ def sph2cyl_plane(data, rad, ns):
     >>> vpm = gr.vphi.mean(axis=0)
     >>> sm = gr.entropy.mean(axis=0)
     >>> # Interpolate on a cylindrical grid
-    >>> Z, S, outputs = sph2cyl_plane([vpm, sm], gr.radius, 512, 1024)
+    >>> Z, S, outputs = sph2cyl_plane([vpm, sm], gr.radius, ns=512)
     >>> vpm_cyl, sm_cyl = outputs
 
     :param data: a list of 2-D arrays [(ntheta, nr), (ntheta, nr), ...]

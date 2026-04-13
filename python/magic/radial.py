@@ -234,7 +234,7 @@ class MagicRadial(MagicSetup):
             if hasattr(self, 'con_radratio'):
                 if self.nVarCond == 2:
                     ax.axvline(self.con_radratio*self.radius[0], color='k',
-                              linestyle='--')
+                               linestyle='--')
             fig.tight_layout()
 
             fig = plt.figure()
@@ -298,7 +298,7 @@ class MagicRadial(MagicSetup):
             ax.semilogy(x_axis, self.dynVisc, label='dyn. visc')
             ax.semilogy(x_axis, self.kinVisc, label='kin. visc')
             ax.semilogy(x_axis, self.prandtl, label='Prandtl')
-            if self.mode not in (1,5):
+            if self.mode not in (1, 5):
                 ax.semilogy(x_axis, self.prandtlmag, label='Pm')
             ax.semilogy(x_axis, self.ekman, label='Ekman')
             ax.set_ylabel('Thermal properties')
@@ -562,7 +562,7 @@ class MagicRadial(MagicSetup):
         if hasattr(self, 'con_radratio'):
             if self.nVarCond == 2:
                 ax.axvline(self.con_radratio*self.radius[0], color='k',
-                          linestyle='--')
+                           linestyle='--')
 
 
 class RadLookUpTable:
@@ -792,12 +792,12 @@ class RadLookUpTable:
         out = copy.deepcopy(new)
         if self.start_time is not None:
             fac_old = self.stop_time-self.start_time
-            out.start_time = self.start_time
+            out.start_time = min(self.start_time, new.start_time)
         else:
             fac_old = 0.
         if new.stop_time is not None:
             fac_new = new.stop_time-new.start_time
-            out.stop_time = new.stop_time
+            out.stop_time = max(self.stop_time, new.stop_time)
         else:
             fac_new = 0.
         if fac_old != 0 or fac_new != 0:

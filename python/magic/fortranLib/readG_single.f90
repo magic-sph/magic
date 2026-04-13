@@ -1,17 +1,17 @@
 module greader_single
 
-   use iso_fortran_env, only: cp => real32
+   use iso_c_binding, only: sp => c_float
 
    implicit none
 
-   real(cp) :: ra,ek,pr,prmag,radratio,sigma,raxi,sc,stef
-   real(cp) :: time
+   real(sp) :: ra,ek,pr,prmag,radratio,sigma,raxi,sc,stef
+   real(sp) :: time
    integer :: nr,nt,np,minc,nric
-   real(cp), allocatable :: radius(:),colat(:),radius_ic(:)
-   real(cp), allocatable :: entropy(:,:,:),vr(:,:,:),vt(:,:,:),vp(:,:,:)
-   real(cp), allocatable :: Br(:,:,:),Bt(:,:,:),Bp(:,:,:),pre(:,:,:)
-   real(cp), allocatable :: Br_ic(:,:,:),Bt_ic(:,:,:),Bp_ic(:,:,:)
-   real(cp), allocatable :: xi(:,:,:),phase(:,:,:)
+   real(sp), allocatable :: radius(:),colat(:),radius_ic(:)
+   real(sp), allocatable :: entropy(:,:,:),vr(:,:,:),vt(:,:,:),vp(:,:,:)
+   real(sp), allocatable :: Br(:,:,:),Bt(:,:,:),Bp(:,:,:),pre(:,:,:)
+   real(sp), allocatable :: Br_ic(:,:,:),Bt_ic(:,:,:),Bp_ic(:,:,:)
+   real(sp), allocatable :: xi(:,:,:),phase(:,:,:)
 
 contains
 
@@ -25,9 +25,9 @@ contains
       integer :: i,j,nth_loc,n_th,read_ok,nThetasBs
       character(len=20) :: version
       character(len=64) :: runid
-      real(cp) :: ir,rad,ilat1,ilat2
-      real(cp) :: nrF,ntF,npF,mincF,nricF,nThetasBsF
-      real(cp), allocatable :: dummy(:,:)
+      real(sp) :: ir,rad,ilat1,ilat2
+      real(sp) :: nrF,ntF,npF,mincF,nricF,nThetasBsF
+      real(sp), allocatable :: dummy(:,:)
    
       if ( endian == 'B' ) then
          open(unit=10, file=filename, form='unformatted', convert='big_endian')
@@ -62,12 +62,12 @@ contains
       &  .or. version=='Graphout_Version_11'.or. version=='Graphout_Version_12') then
          if ( allocated( xi ) ) deallocate( xi )
       end if
-      if ( prmag /= 0.0_cp ) then
+      if ( prmag /= 0.0_sp ) then
         if ( allocated(Br) ) deallocate( Br )
         if ( allocated(Bt) ) deallocate( Bt )
         if ( allocated(Bp) ) deallocate( Bp )
       end if
-      if ( (prmag /= 0.0_cp) .and. (nric > 1) ) then
+      if ( (prmag /= 0.0_sp) .and. (nric > 1) ) then
          if ( allocated(radius_ic) ) deallocate( radius_ic )
          if ( allocated(Br_ic) ) deallocate( Br_ic )
          if ( allocated(Bt_ic) ) deallocate( Bt_ic )
@@ -91,13 +91,13 @@ contains
       allocate( vr(1:np,1:nt,1:nr) )
       allocate( vt(1:np,1:nt,1:nr) )
       allocate( vp(1:np,1:nt,1:nr) )
-      if ( prmag /= 0.0_cp ) then
+      if ( prmag /= 0.0_sp ) then
          allocate( Br(1:np,1:nt,1:nr) )
          allocate( Bt(1:np,1:nt,1:nr) )
          allocate( Bp(1:np,1:nt,1:nr) )
       end if
 
-      if ( (prmag /= 0.0_cp) .and. (nric > 1) ) then
+      if ( (prmag /= 0.0_sp) .and. (nric > 1) ) then
          allocate( radius_ic(1:nric) )
          allocate( Br_ic(1:np,1:nt,1:nric) )
          allocate( Bt_ic(1:np,1:nt,1:nric) )
@@ -123,14 +123,14 @@ contains
             if ( version=='Graphout_Version_10' .or. version=='Graphout_Version_12') then
                read(10) pre(:,int(ilat1):int(ilat2),int(ir+1))
             end if
-            if ( prmag /= 0.0_cp ) then
+            if ( prmag /= 0.0_sp ) then
                read(10) Br(:,int(ilat1):int(ilat2),int(ir+1))
                read(10) Bt(:,int(ilat1):int(ilat2),int(ir+1))
                read(10) Bp(:,int(ilat1):int(ilat2),int(ir+1))
             end if
          end do
 
-         if ( (prmag /= 0.0_cp) .and. (nric > 1) ) then
+         if ( (prmag /= 0.0_sp) .and. (nric > 1) ) then
             ic_loop1: do i=1,nric
                read(10, iostat=read_ok) ir, rad, ilat1, ilat2
                if ( read_ok /= 0 ) then
@@ -186,7 +186,7 @@ contains
             end if
          end do
 
-         if ( (prmag /= 0.0_cp) .and. (nric > 1) ) then
+         if ( (prmag /= 0.0_sp) .and. (nric > 1) ) then
             ic_loop: do i=2,nric
                read(10, iostat=read_ok) ir, rad, ilat1, ilat2
                if ( read_ok /= 0 ) then
@@ -295,12 +295,12 @@ contains
       deallocate(dummy)
    
       radius(:) = radius(:)/(1.-radratio)
-      if ( (prmag /= 0.0_cp) .and. (nric > 1) .and. (read_ok==0) ) then
+      if ( (prmag /= 0.0_sp) .and. (nric > 1) .and. (read_ok==0) ) then
          radius_ic(:) = radius_ic(:)/(1.-radratio)
       end if
 
-      raxi=0.0_cp
-      sc  =0.0_cp
+      raxi=0.0_sp
+      sc  =0.0_sp
    
    end subroutine readG
 !----------------------------------------------------------------------------
@@ -313,8 +313,8 @@ contains
       !-- Local variables
       integer :: ir,read_ok,version
       character(len=64) :: runid
-      real(cp) :: rad
-      real(cp), allocatable :: dummy(:,:)
+      real(sp) :: rad
+      real(sp), allocatable :: dummy(:,:)
       logical :: l_heat, l_mag, l_cond_ic, l_chemical_conv, l_press
       logical :: l_phase_field
    
@@ -332,7 +332,7 @@ contains
          read(10) time, ra, pr, raxi, sc, ek, stef, prmag, radratio, sigma
       else
          read(10) time, ra, pr, raxi, sc, ek, prmag, radratio, sigma
-         stef = 0.0_cp
+         stef = 0.0_sp
       end if
       read(10) nr, nt, np, minc, nric
       if ( version > 13 ) then

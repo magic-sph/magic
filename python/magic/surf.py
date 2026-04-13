@@ -5,6 +5,7 @@ from .libmagic import *
 from .plotlib import equatContour, merContour, radialContour, default_cmap, \
                      diverging_cmap
 import matplotlib.pyplot as plt
+import matplotlib
 import os
 import numpy as np
 try:
@@ -12,6 +13,7 @@ try:
 except:
     from scipy.integrate import trapezoid as trapz
 
+mplMaj,mplMin,_ = np.int32(matplotlib.__version__.split('.'))
 
 class Surf:
     """
@@ -55,16 +57,10 @@ class Surf:
                              precision=self.precision)
 
         if vort:
-            thlin = self.gr.colatitude
-            th3D = np.zeros_like(self.gr.vphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = thlin[i]
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
-
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             s3D = rr3D * np.sin(th3D)
-            dtheta = thetaderavg(self.gr.vphi*s3D)
+            dtheta = thetaderavg(self.gr.vphi*s3D, colat=gr.colatitude)
             dr = rderavg(self.gr.vphi*s3D, self.gr.radius, exclude=False)
             ds = np.sin(th3D)*dr + np.cos(th3D)/rr3D*dtheta
             vs = self.gr.vr * np.sin(th3D) + self.gr.vtheta * np.cos(th3D)
@@ -139,10 +135,7 @@ class Surf:
         if field in ('Vs', 'vs'):
             vr = self.gr.vr
             vt = self.gr.vtheta
-            thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros_like(self.gr.vr)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = thlin[i]
+            th3D = self.gr.colatitude[None, :, None]
             data = vr * np.sin(th3D) + vt * np.cos(th3D)
             data_ic = None
             if labTex:
@@ -152,10 +145,7 @@ class Surf:
         elif field in ('Vz', 'vz'):
             vr = self.gr.vr
             vt = self.gr.vtheta
-            thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros_like(self.gr.vr)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = thlin[i]
+            th3D = self.gr.colatitude[None, :, None]
             data = vr * np.cos(th3D) - vt * np.sin(th3D)
             data_ic = None
             if labTex:
@@ -176,107 +166,89 @@ class Surf:
             data_ic = None
             label = 'Rad. mag. pres. force'
         elif field == 'mag_pres_force_t':
-            rr3D = np.zeros_like(self.gr.Bphi)
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
             data = -thetaderavg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2,
-                                order=2)/rr3D/2.0
+                                colat=self.gr.colatitude, order=2) /\
+                    self.gr.radius/2.0
             data_ic = None
             label = 'Lati. mag. pres. force'
         elif field == 'mag_pres_force_p':
-            th3D = np.zeros_like(self.gr.Bphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             data = -phideravg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2,
                               self.gr.minc)/(rr3D*np.sin(th3D))/2.0
             data_ic = None
             label = 'Longi. mag. pres. force'
         elif field == 'mag_tens_force_r':
-            th3D = np.zeros_like(self.gr.Bphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             data = self.gr.Br * rderavg(self.gr.Br, self.gr.radius) + \
-                   self.gr.Btheta * thetaderavg(self.gr.Br, order=2) / rr3D + \
+                   self.gr.Btheta * thetaderavg(self.gr.Br,
+                                                self.gr.colatitude,
+                                                order=2) / rr3D + \
                    self.gr.Bphi * phideravg(self.gr.Br, self.gr.minc) / \
                    np.sin(th3D) / rr3D - (self.gr.Btheta**2 + self.gr.Bphi**2) / rr3D
             data_ic = None
             label = 'Rad. tens. force'
         elif field == 'mag_tens_force_t':
-            th3D = np.zeros_like(self.gr.Bphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             data = self.gr.Br * rderavg(self.gr.Btheta, self.gr.radius) + \
-                   self.gr.Btheta * thetaderavg(self.gr.Btheta, order=2) / rr3D + \
+                   self.gr.Btheta * thetaderavg(self.gr.Btheta,
+                                                self.gr.colatitude,
+                                                order=2) / rr3D + \
                    self.gr.Bphi * phideravg(self.gr.Btheta, self.gr.minc) / \
                    np.sin(th3D) / rr3D + self.gr.Btheta * self.gr.Br / rr3D - \
                    self.gr.Bphi**2 * np.arctan(th3D) / rr3D
             data_ic = None
             label = 'Lati. tens. force'
         elif field == 'mag_tens_force_p':
-            th3D = np.zeros_like(self.gr.Bphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             data = self.gr.Br * rderavg(self.gr.Bphi, self.gr.radius) + \
-                   self.gr.Btheta * thetaderavg(self.gr.Bphi, order=2) / rr3D + \
+                   self.gr.Btheta * thetaderavg(self.gr.Bphi,
+                                                self.gr.colatitude,
+                                                order=2) / rr3D + \
                    self.gr.Bphi * phideravg(self.gr.Bphi, self.gr.minc) / \
                    np.sin(th3D) / rr3D + self.gr.Bphi * self.gr.Br / rr3D + \
                    self.gr.Bphi * self.gr.Btheta * np.arctan(th3D) / rr3D
             data_ic = None
             label = 'Longi. tens. force'
         elif field == 'Lorentz_r':
-            th3D = np.zeros_like(self.gr.Bphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             data = -rderavg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2,
                             self.gr.radius)/2.0 + \
                    self.gr.Br * rderavg(self.gr.Br, self.gr.radius) + \
-                   self.gr.Btheta * thetaderavg(self.gr.Br, order=2) / rr3D + \
+                   self.gr.Btheta * thetaderavg(self.gr.Br,
+                                                self.gr.colatitude,
+                                                order=2) / rr3D + \
                    self.gr.Bphi * phideravg(self.gr.Br, self.gr.minc) / \
                    np.sin(th3D) / rr3D - (self.gr.Btheta**2 + self.gr.Bphi**2) / rr3D
             data_ic = None
             label = 'Radial Lorentz force'
         elif field == 'Lorentz_t':
-            th3D = np.zeros_like(self.gr.Bphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             data = -thetaderavg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2,
-                                order=2)/rr3D/2.0 + \
+                                colat=self.gr.colatitude, order=2)/rr3D/2.0 + \
                    self.gr.Br * rderavg(self.gr.Btheta, self.gr.radius) + \
-                   self.gr.Btheta * thetaderavg(self.gr.Btheta, order=2) / rr3D + \
+                   self.gr.Btheta * thetaderavg(self.gr.Btheta,
+                                                self.gr.colatitude,
+                                                order=2) / rr3D + \
                    self.gr.Bphi * phideravg(self.gr.Btheta, self.gr.minc) / \
                    np.sin(th3D) / rr3D + self.gr.Btheta * self.gr.Br / rr3D - \
                    self.gr.Bphi**2 * np.arctan(th3D) / rr3D
             data_ic = None
             label = 'Lati. Lorentz force'
         elif field == 'Lorentz_p':
-            th3D = np.zeros_like(self.gr.Bphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             data = -phideravg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2,
                               self.gr.minc)/(rr3D*np.sin(th3D))/2.0 + \
                    self.gr.Br * rderavg(self.gr.Bphi, self.gr.radius) + \
-                   self.gr.Btheta * thetaderavg(self.gr.Bphi, order=2) / rr3D + \
+                   self.gr.Btheta * thetaderavg(self.gr.Bphi,
+                                                self.gr.colatitude,
+                                                order=2) / rr3D + \
                    self.gr.Bphi * phideravg(self.gr.Bphi, self.gr.minc) / \
                    np.sin(th3D) / rr3D + self.gr.Bphi * self.gr.Br / rr3D + \
                    self.gr.Bphi * self.gr.Btheta * np.arctan(th3D) / rr3D
@@ -284,43 +256,37 @@ class Surf:
             label = 'Longi. Lorentz force'
         elif field == 'ohm':
             label = 'Ohmic dissipation'
-            th3D = np.zeros_like(self.gr.Bphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             s3D = rr3D * np.sin(th3D)
 
             Op = 1./self.gr.radius * (rderavg(self.gr.radius*self.gr.Btheta,
                                               self.gr.radius) - \
-                                      thetaderavg(self.gr.Br))
+                                      thetaderavg(self.gr.Br,
+                                                  colat=self.gr.colatitude))
             Ot = 1./s3D * phideravg(self.gr.Br, self.gr.minc) - \
                  1./self.gr.radius * rderavg(self.gr.radius*self.gr.Bphi,
                                              self.gr.radius)
-            Or = 1./s3D * (thetaderavg(np.sin(th3D)*self.gr.Bphi) - \
+            Or = 1./s3D * (thetaderavg(np.sin(th3D)*self.gr.Bphi,
+                                       colat=self.gr.colatitude) - \
                            phideravg(self.gr.Btheta, self.gr.minc))
 
             data = Op**2+Ot**2+Or**2
             data_ic = None
         elif field == 'vortzfluct':
-            th3D = np.zeros_like(self.gr.vphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             s3D = rr3D*np.sin(th3D)
-            dth = thetaderavg((self.gr.vphi-self.gr.vphi.mean(axis=0))*rr3D*\
-                              np.sin(th3D))
-            dr = rderavg((self.gr.vphi-self.gr.vphi.mean(axis=0))*rr3D*np.sin(th3D), \
+            dth = thetaderavg((self.gr.vphi-self.gr.vphi.mean(axis=0))*s3D,
+                              colat=self.gr.colatitude)
+            dr = rderavg((self.gr.vphi-self.gr.vphi.mean(axis=0))*s3D,
                          self.gr.radius)
             ds = np.sin(th3D)*dr + np.cos(th3D)/rr3D*dth
-            data = -1./(rr3D*np.sin(th3D)) * \
+            data = -1./s3D * \
                    phideravg(self.gr.vr*np.sin(th3D)+self.gr.vtheta*np.cos(th3D),
-                             self.gr.minc)+ds/(rr3D*np.sin(th3D))
+                             self.gr.minc)+ds/s3D
 
-            del dr, dth, ds, rr3D, th3D
+            del dr, dth, ds, rr3D, th3D, s3D
 
             data_ic = None
 
@@ -329,21 +295,17 @@ class Surf:
             else:
                 label = 'vortzfluct'
         elif field == 'vortz':
-            th3D = np.zeros_like(self.gr.vphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             s3D = rr3D*np.sin(th3D)
-            dth = thetaderavg(self.gr.vphi*rr3D*np.sin(th3D))
-            dr = rderavg(self.gr.vphi*rr3D*np.sin(th3D), self.gr.radius)
+            dth = thetaderavg(self.gr.vphi*s3D, colat=self.gr.colatitude)
+            dr = rderavg(self.gr.vphi*s3D, self.gr.radius)
             ds = np.sin(th3D)*dr + np.cos(th3D)/rr3D*dth
-            data = -1./(rr3D*np.sin(th3D)) * \
+            data = -1./s3D * \
                    phideravg(self.gr.vr*np.sin(th3D)+self.gr.vtheta*np.cos(th3D),
-                             self.gr.minc)+ds/(rr3D*np.sin(th3D))
+                             self.gr.minc)+ds/s3D
 
-            del dr, dth, ds, rr3D, th3D
+            del dr, dth, ds, rr3D, th3D, s3D
 
             data_ic = None
 
@@ -529,9 +491,9 @@ class Surf:
         if cm is None:
             cm = default_cmap(field)
 
-        fig, xx, yy = equatContour(equator, self.gr.radius, self.gr.minc,
-                                   label, levels, cm, normed, vmax, vmin,
-                                   cbar, title, normRad, pcolor=pcolor)
+        fig, xx, yy, im = equatContour(equator, self.gr.radius, self.gr.minc,
+                                       label, levels, cm, normed, vmax, vmin,
+                                       cbar, title, normRad, pcolor=pcolor)
         ax = fig.get_axes()[0]
 
         if ic and data_ic is not None:
@@ -663,14 +625,12 @@ class Surf:
                                  dataerr*self.gr.colatitude[i]/np.pi
                 poloLines = 0.5*data/np.cos(th2D)
             else:
-                rr2D = np.zeros((self.gr.ntheta, self.gr.nr),
+                data = np.zeros((self.gr.ntheta, self.gr.nr),
                                 dtype=self.precision)
-                th2D = np.zeros_like(rr2D)
                 data = np.zeros_like(rr2D)
                 brm = self.gr.Br.mean(axis=0)
-                for i in range(self.gr.ntheta):
-                    rr2D[i, :] = self.gr.radius
-                    th2D[i, :] = self.gr.colatitude[i]+np.pi/2.
+                th2D = self.gr.colatitude[:, None]+np.pi/2.
+                rr2D = self.gr.radius[None, :]
                 s2D = rr2D * np.abs(np.cos(th2D))
                 data[0, :] = -0.5*s2D[0, :]*brm[0, :]*self.gr.colatitude[0]
 
@@ -686,9 +646,7 @@ class Surf:
                 poloLines = 0.5*data/np.cos(th2D)
 
         if mer:
-            rr2D = np.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
-            th2D = np.zeros_like(rr2D)
-            data = np.zeros_like(rr2D)
+            data = np.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
             if hasattr(self.gr, 'strat'):
                 if (self.gr.strat != 0.):
                     temp, rho, beta = anelprof(self.gr.radius, self.gr.strat,
@@ -699,9 +657,8 @@ class Surf:
             else:
                 rho = 1.
             vrm = self.gr.vr.mean(axis=0)*rho
-            for i in range(self.gr.ntheta):
-                rr2D[i, :] = self.gr.radius
-                th2D[i, :] = self.gr.colatitude[i]+np.pi/2.
+            th2D = self.gr.colatitude[:, None]+np.pi/2.
+            rr2D = self.gr.radius[None, :]
             s2D = rr2D * np.abs(np.cos(th2D))
             data[0, :] = -0.5*s2D[0, :]*vrm[0, :]*self.gr.colatitude[0]
 
@@ -718,10 +675,7 @@ class Surf:
         if field in ('Vs', 'vs', 'us', 'Us'):
             vr = self.gr.vr
             vt = self.gr.vtheta
-            thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros_like(self.gr.vr)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = thlin[i]
+            th3D = self.gr.colatitude[None, :, None]
             data = vr * np.sin(th3D) + vt * np.cos(th3D)
             label = 'Vs'
         elif field == 'entropyreduced':
@@ -731,10 +685,7 @@ class Surf:
         elif field in ('Vz', 'vz', 'uz', 'Uz'):
             vr = self.gr.vr
             vt = self.gr.vtheta
-            thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros_like(self.gr.vr)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = thlin[i]
+            th3D = self.gr.colatitude[None, :, None]
             data = vr * np.cos(th3D) - vt * np.sin(th3D)
             label = 'Vz'
         elif field == 'Omega':
@@ -742,11 +693,8 @@ class Surf:
                 label = r'$\Omega$'
             else:
                 label = 'omega'
-            th2D = np.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
-            rr2D = np.zeros_like(th2D)
-            for i in range(self.gr.ntheta):
-                th2D[i, :] = self.gr.colatitude[i]
-                rr2D[i, :] = self.gr.radius
+            th2D = self.gr.colatitude[:, None]
+            rr2D = self.gr.radius[None, :]
             s2D = rr2D * np.sin(th2D)
             data = self.gr.vphi/s2D + 1./self.gr.ek
         elif field == 'jphi':
@@ -754,34 +702,30 @@ class Surf:
                 label = r'$j_\phi$'
             else:
                 label = 'jphi'
-            th2D = np.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
-            rr2D = np.zeros_like(th2D)
-            for i in range(self.gr.ntheta):
-                th2D[i, :] = self.gr.colatitude[i]
-                rr2D[i, :] = self.gr.radius
+            th2D = self.gr.colatitude[:, None]
+            rr2D = self.gr.radius[None, :]
             Brm = self.gr.Br.mean(axis=0)
             Btm = self.gr.Btheta.mean(axis=0)
-            data = 1./rr2D*(rderavg(rr2D*Btm, self.gr.radius) - thetaderavg(Brm))
+            data = 1./rr2D*(rderavg(rr2D*Btm, self.gr.radius) - \
+                            thetaderavg(Brm, colat=self.gr.colatitude))
         elif field == 'ohm':
             if labTex:
                 label = r'$\lambda\,j^2$'
             else:
                 label = 'Ohmic dissipation'
-            th3D = np.zeros_like(self.gr.Bphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             s3D = rr3D * np.sin(th3D)
 
             Op = 1./self.gr.radius * (rderavg(self.gr.radius*self.gr.Btheta,
                                               self.gr.radius) - \
-                                      thetaderavg(self.gr.Br))
+                                      thetaderavg(self.gr.Br,
+                                                  colat=self.gr.colatitude))
             Ot = 1./s3D * phideravg(self.gr.Br, self.gr.minc) - \
                  1./self.gr.radius * rderavg(self.gr.radius*self.gr.Bphi,
                                              self.gr.radius)
-            Or = 1./s3D * (thetaderavg(np.sin(th3D)*self.gr.Bphi) - \
+            Or = 1./s3D * (thetaderavg(np.sin(th3D)*self.gr.Bphi,
+                                       colat=self.gr.colatitude) - \
                            phideravg(self.gr.Btheta, self.gr.minc))
 
             data = Op**2+Ot**2+Or**2
@@ -793,11 +737,8 @@ class Surf:
                 label = r'$\Omega$-effect'
             else:
                 label = r'omega-effect'
-            rr2D = np.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
-            th2D = np.zeros_like(rr2D)
-            for i in range(self.gr.ntheta):
-                th2D[i, :] = self.gr.colatitude[i]
-                rr2D[i, :] = self.gr.radius
+            th2D = self.gr.colatitude[:, None]
+            rr2D = self.gr.radius[None, :]
             brm = self.gr.Br.mean(axis=0)
             btm = self.gr.Btheta.mean(axis=0)
             bpm = self.gr.Bphi.mean(axis=0)
@@ -805,7 +746,7 @@ class Surf:
             vtm = self.gr.vtheta.mean(axis=0)
             vpm = self.gr.vphi.mean(axis=0)
             dvpdr = rderavg(vpm, self.gr.radius)
-            dvpdt = thetaderavg(vpm)
+            dvpdt = thetaderavg(vpm, colat=self.gr.colatitude)
             # B. Brown
             # Phi component of <B> dot grad <u>
             #data = brm*dvpdr+btm/rr2D*dvpdt+vrm*bpm/rr2D+\
@@ -826,12 +767,8 @@ class Surf:
                 label = r'$-\alpha \langle B_\phi\rangle$'
             else:
                 label = 'alpha*Bphi'
-            th3D = np.zeros_like(self.gr.vphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
+            th3D = self.gr.colatitude[None, :,  None]
+            rr3D = self.gr.radius[None, None, :]
             s3D = rr3D * np.sin(th3D)
 
             vp = self.gr.vphi-self.gr.vphi.mean(axis=0)
@@ -840,11 +777,13 @@ class Surf:
 
             wp = 1./self.gr.radius * (rderavg(self.gr.radius*self.gr.vtheta,
                                               self.gr.radius) - \
-                                      thetaderavg(self.gr.vr))
+                                      thetaderavg(self.gr.vr,
+                                                  colat=self.gr.colatitude))
             wt = 1./s3D * phideravg(self.gr.vr, self.gr.minc) - \
                  1./self.gr.radius * rderavg(self.gr.radius*self.gr.vphi,
                                              self.gr.radius)
-            wr = 1./s3D * (thetaderavg(np.sin(th3D)*self.gr.vphi) - \
+            wr = 1./s3D * (thetaderavg(np.sin(th3D)*self.gr.vphi,
+                                       colat=self.gr.colatitude) - \
                            phideravg(self.gr.vtheta, self.gr.minc))
             data = -self.gr.Bphi.mean(axis=0)*(vr*wr+vt*wt+vp*wp)
         elif field == 'emf':
@@ -862,18 +801,15 @@ class Surf:
                 label = r'$H_z$'
             else:
                 label = 'Hz'
-            th3D = np.zeros_like(self.gr.vr)
-            rr3D = np.zeros_like(self.gr.vr)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
+            th3D = self.gr.colatitude[None, :,  None]
+            rr3D = self.gr.radius[None, None, :]
             s3D = rr3D * np.sin(th3D)
 
             vs = self.gr.vr * np.sin(th3D) + self.gr.vtheta * np.cos(th3D)
             vz = self.gr.vr * np.cos(th3D) - self.gr.vtheta * np.sin(th3D)
             vortz = 1./s3D*(-phideravg(vs, self.gr.minc) +
-                            sderavg(s3D*self.gr.vphi, self.gr.radius))
+                            sderavg(s3D*self.gr.vphi, self.gr.radius,
+                                    colat=self.gr.colatitude))
 
             data = vortz * vz
             denom = np.sqrt(np.mean(vz**2, axis=0)*np.mean(vortz**2, axis=0))
@@ -883,38 +819,31 @@ class Surf:
             data = self.vortz**2
         elif field in ('helicity', 'hel', 'Hel', 'Helicity'):
             label = 'Helicity'
-            th3D = np.zeros_like(self.gr.vphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
-            if self.gr.radratio != 0:
-                for i in range(self.gr.nr):
-                    rr3D[:, :, i] = self.gr.radius[i]
-            else:
-                for i in range(self.gr.nr-1):
-                    rr3D[:, :, i] = self.gr.radius[i]
+            th3D = self.gr.colatitude[None, :,  None]
+            rr3D = self.gr.radius[None, None, :]
+            if self.gr.radratio == 0:
                 rr3D[:, :, -1] = 1e-9 # dummy small value in case of full sphere
             s3D = rr3D * np.sin(th3D)
 
             wp = 1./self.gr.radius * (rderavg(self.gr.radius*self.gr.vtheta,
                                               self.gr.radius) - \
-                                      thetaderavg(self.gr.vr))
+                                      thetaderavg(self.gr.vr,
+                                                  colat=self.gr.colatitude))
             wt = 1./s3D * phideravg(self.gr.vr, self.gr.minc) - \
-                 1./self.gr.radius * rderavg(self.gr.radius*self.gr.vphi, self.gr.radius)
-            wr = 1./s3D * (thetaderavg(np.sin(th3D)*self.gr.vphi) - \
+                 1./self.gr.radius * rderavg(self.gr.radius*self.gr.vphi,
+                                             self.gr.radius)
+            wr = 1./s3D * (thetaderavg(np.sin(th3D)*self.gr.vphi,
+                                       colat=self.gr.colatitude) - \
                            phideravg(self.gr.vtheta, self.gr.minc))
 
             data = self.gr.vr*wr+self.gr.vtheta*wt+self.gr.vphi*wp
             self.hel = data.mean(axis=0)
         elif field == 'poloidal':
             label = 'poloidal field lines'
-            rr2D = np.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
-            th2D = np.zeros_like(rr2D)
-            data = np.zeros_like(rr2D)
+            rr2D = self.gr.radius[None, :]
+            th2D = self.gr.colatitude[:, None] + np.pi/2.
+            data = np.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
             brm = self.gr.Br.mean(axis=0)
-            for i in range(self.gr.ntheta):
-                rr2D[i, :] = self.gr.radius
-                th2D[i, :] = self.gr.colatitude[i]+np.pi/2.
             s2D = rr2D * np.abs(np.cos(th2D))
             data[0, :] = -0.5*s2D[0, :]*brm[0, :]*self.gr.colatitude[0]
 
@@ -929,17 +858,14 @@ class Surf:
             data = 0.5*data/np.cos(th2D)
         elif field == 'meridional':
             label = "meridional circulation"
-            rr2D = np.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
-            th2D = np.zeros_like(rr2D)
+            data = np.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
+            rr2D = self.gr.radius[None, :]
+            th2D = self.gr.colatitude[:, None] + np.pi/2.
             data = np.zeros_like(rr2D)
             temp, rho, beta = anelprof(self.gr.radius, self.gr.strat,
                            self.gr.polind,
                            g0=self.gr.g0, g1=self.gr.g1, g2=self.gr.g2)
             vrm = self.gr.vr.mean(axis=0)*rho
-            for i in range(self.gr.ntheta):
-                rr2D[i, :] = self.gr.radius
-                th2D[i, :] = self.gr.colatitude[i]+np.pi/2.
-            s2D = rr2D * np.abs(np.cos(th2D))
             data[0, :] = -0.5*s2D[0, :]*vrm[0, :]*self.gr.colatitude[0]
 
             for i in range(1, self.gr.ntheta):
@@ -969,19 +895,15 @@ class Surf:
             data = beta * np.ones_like(self.gr.vr)#* self.gr.vr
         elif field in ('angular', 'AM'):
             label = 'Angular momentum'
-            th2D = np.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
-            rr2D = np.zeros_like(th2D)
-            rho2D = np.zeros_like(th2D)
+            th2D = self.gr.colatitude[:, None]
+            rr2D = self.gr.radius[None, :]
             if hasattr(self.gr, 'strat'):
                 temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
                                          self.gr.polind, self.gr.g0, self.gr.g1,
                                          self.gr.g2)
             else:
                 rho0 = 1.
-            for i in range(self.gr.ntheta):
-                rho2D[i, :] = rho0
-                rr2D[i, :] = self.gr.radius
-                th2D[i, :] = self.gr.colatitude[i]
+            rho2D = rho0[None, :]
             s2D = rr2D * np.sin(th2D)
             if self.gr.ek > 0:  # Outer boundary rotating
                 norm = self.gr.radius[0]**2/self.gr.ek
@@ -1001,10 +923,7 @@ class Surf:
             vt = self.gr.vtheta
             vp = self.gr.vphi.copy()
             vp = self.gr.vphi - self.gr.vphi.mean(axis=0)  # convective vp
-            thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros_like(self.gr.vr)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = thlin[i]
+            th3D = self.gr.colatitude[None, :, None]
             vs = vr * np.sin(th3D) + vt * np.cos(th3D)
             data = vs * vp
             denom = np.sqrt(np.mean(vs**2, axis=0) * np.mean(vp**2, axis=0))
@@ -1030,10 +949,7 @@ class Surf:
             vt = self.gr.vtheta
             vp = self.gr.vphi.copy()
             vp = self.gr.vphi - self.gr.vphi.mean(axis=0)  # convective vp
-            thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros_like(self.gr.vr)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = thlin[i]
+            th3D = self.gr.colatitude[None, :, None]
             vs = vr * np.sin(th3D) + vt * np.cos(th3D)
             data = rho0 * vs * vp
             denom = np.sqrt(np.mean(rho0*vs**2, axis=0) *
@@ -1047,10 +963,7 @@ class Surf:
             vt = self.gr.vtheta
             vp = self.gr.vphi.copy()
             vp = self.gr.vphi - self.gr.vphi.mean(axis=0)  # convective vp
-            thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros_like(self.gr.vr)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = thlin[i]
+            th3D = self.gr.colatitude[None, :, None]
             vz = vr * np.cos(th3D) - vt * np.sin(th3D)
             data = vz * vp
             denom = np.sqrt(np.mean(vz**2, axis=0) * np.mean(vp**2, axis=0))
@@ -1065,10 +978,7 @@ class Surf:
                 label = 'dvz/dz'
             vr = self.gr.vr
             vt = self.gr.vtheta
-            thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros_like(self.gr.vr)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = thlin[i]
+            th3D = self.gr.colatitude[None, :, None]
             data = (vr * np.cos(th3D) - vt * np.sin(th3D))
         else:
             data, data_ic, label = selectField(self.gr, field, labTex,
@@ -1081,10 +991,12 @@ class Surf:
             if ic and data_ic is not None:
                 phiavg_ic = data_ic.mean(axis=0)
         elif field == 'balance':
-            phiavg = zderavg(data.mean(axis=0), self.gr.radius, exclude=True)
+            phiavg = zderavg(data.mean(axis=0), self.gr.radius,
+                             colat=self.gr.radius, exclude=True)
             phiavg = phiavg + data1.mean(axis=0)
         elif field == 'dvzdz':
-            phiavg = zderavg(data.mean(axis=0), self.gr.radius, exclude=True)
+            phiavg = zderavg(data.mean(axis=0), self.gr.radius,
+                             colat=self.gr.radius, exclude=True)
         elif field in ('omeffect', 'poloidal', 'flux', 'meridional', 'jphi'):
             phiavg = data
         else:
@@ -1269,10 +1181,7 @@ class Surf:
                 label = 'vs'
             vr = self.gr.vr
             vt = self.gr.vtheta
-            thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros_like(self.gr.vr)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = thlin[i]
+            th3D = self.gr.colatitude[None, :, None]
             data = vr * np.sin(th3D) + vt * np.cos(th3D)
         elif field in ('Vz', 'vz', 'Uz', 'uz'):
             if labTex:
@@ -1281,10 +1190,7 @@ class Surf:
                 label = 'vz'
             vr = self.gr.vr
             vt = self.gr.vtheta
-            thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros_like(self.gr.vr)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = thlin[i]
+            th3D = self.gr.colatitude[None, :, None]
             data = vr * np.cos(th3D) - vt * np.sin(th3D)
         elif field == 'anel':
             if labTex:
@@ -1302,28 +1208,23 @@ class Surf:
                 label = 'dvz/dz'
             vr = self.gr.vr
             vt = self.gr.vtheta
-            thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros_like(self.gr.vr)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = thlin[i]
+            th3D = self.gr.colatitude[None, :, None]
             data = vr * np.cos(th3D) - vt * np.sin(th3D)
         elif field == 'ohm':
             label = 'Ohmic dissipation'
-            th3D = np.zeros_like(self.gr.Bphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             s3D = rr3D * np.sin(th3D)
 
             Op = 1./self.gr.radius * (rderavg(self.gr.radius*self.gr.Btheta,
                                               self.gr.radius) - \
-                                      thetaderavg(self.gr.Br))
+                                      thetaderavg(self.gr.Br,
+                                                  colat=self.gr.colatitude))
             Ot = 1./s3D * phideravg(self.gr.Br, self.gr.minc) - \
                  1./self.gr.radius * rderavg(self.gr.radius*self.gr.Bphi,
                                              self.gr.radius)
-            Or = 1./s3D * (thetaderavg(np.sin(th3D)*self.gr.Bphi) - \
+            Or = 1./s3D * (thetaderavg(np.sin(th3D)*self.gr.Bphi,
+                                       colat=self.gr.colatitude) - \
                            phideravg(self.gr.Btheta, self.gr.minc))
 
             data = Op**2+Ot**2+Or**2
@@ -1335,100 +1236,82 @@ class Surf:
                             self.gr.radius)/2.0
             label = 'Rad. mag. pres. force'
         elif field == 'mag_pres_force_t':
-            rr3D = np.zeros_like(self.gr.Bphi)
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
+            rr3D = self.gr.radius[None, None, :]
             data = -thetaderavg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2,
-                                order=2)/rr3D/2.0
+                                colat=self.gr.colatitude, order=2)/rr3D/2.0
             label = 'Lati. mag. pres. force'
         elif field == 'mag_pres_force_p':
-            th3D = np.zeros_like(self.gr.Bphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             data = -phideravg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2,
                               self.gr.minc)/(rr3D*np.sin(th3D))/2.0
             label = 'Longi. mag. pres. force'
         elif field == 'mag_tens_force_r':
-            th3D = np.zeros_like(self.gr.Bphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             data = self.gr.Br * rderavg(self.gr.Br, self.gr.radius) + \
-                   self.gr.Btheta * thetaderavg(self.gr.Br, order=2) / rr3D + \
+                   self.gr.Btheta * thetaderavg(self.gr.Br,
+                                                self.gr.colatitude,
+                                                order=2) / rr3D + \
                    self.gr.Bphi * phideravg(self.gr.Br, self.gr.minc) / \
                    np.sin(th3D) / rr3D - (self.gr.Btheta**2 + self.gr.Bphi**2) / rr3D
             label = 'Rad. tens. force'
         elif field == 'mag_tens_force_t':
-            th3D = np.zeros_like(self.gr.Bphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             data = self.gr.Br * rderavg(self.gr.Btheta, self.gr.radius) + \
-                   self.gr.Btheta * thetaderavg(self.gr.Btheta, order=2) / rr3D + \
+                   self.gr.Btheta * thetaderavg(self.gr.Btheta,
+                                                self.gr.colatitude,
+                                                order=2) / rr3D + \
                    self.gr.Bphi * phideravg(self.gr.Btheta, self.gr.minc) / \
                    np.sin(th3D) / rr3D + self.gr.Btheta * self.gr.Br / rr3D - \
                    self.gr.Bphi**2 * np.arctan(th3D) / rr3D
             label = 'Lati. tens. force'
         elif field == 'mag_tens_force_p':
-            th3D = np.zeros_like(self.gr.Bphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             data = self.gr.Br * rderavg(self.gr.Bphi, self.gr.radius) + \
-                   self.gr.Btheta * thetaderavg(self.gr.Bphi, order=2) / rr3D + \
+                   self.gr.Btheta * thetaderavg(self.gr.Bphi,
+                                                self.gr.colatitude,
+                                                order=2) / rr3D + \
                    self.gr.Bphi * phideravg(self.gr.Bphi, self.gr.minc) / \
                    np.sin(th3D) / rr3D + self.gr.Bphi * self.gr.Br / rr3D + \
                    self.gr.Bphi * self.gr.Btheta * np.arctan(th3D) / rr3D
             label = 'Longi. tens. force'
         elif field == 'Lorentz_r':
-            th3D = np.zeros_like(self.gr.Bphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             data = -rderavg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2,
                             self.gr.radius)/2.0 + \
                    self.gr.Br * rderavg(self.gr.Br, self.gr.radius) + \
-                   self.gr.Btheta * thetaderavg(self.gr.Br, order=2) / rr3D + \
+                   self.gr.Btheta * thetaderavg(self.gr.Br,
+                                                self.gr.colatitude,
+                                                order=2) / rr3D + \
                    self.gr.Bphi * phideravg(self.gr.Br, self.gr.minc) / \
                    np.sin(th3D) / rr3D - (self.gr.Btheta**2 + self.gr.Bphi**2) / rr3D
             label = 'Radial Lorentz force'
         elif field == 'Lorentz_t':
-            th3D = np.zeros_like(self.gr.Bphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             data = -thetaderavg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2,
-                                order=2)/rr3D/2.0 + \
+                                colat=self.gr.colatitude, order=2)/rr3D/2.0 + \
                    self.gr.Br * rderavg(self.gr.Btheta, self.gr.radius) + \
-                   self.gr.Btheta * thetaderavg(self.gr.Btheta, order=2) / rr3D + \
+                   self.gr.Btheta * thetaderavg(self.gr.Btheta,
+                                                self.gr.colatitude,
+                                                order=2) / rr3D + \
                    self.gr.Bphi * phideravg(self.gr.Btheta, self.gr.minc) / \
                    np.sin(th3D) / rr3D + self.gr.Btheta * self.gr.Br / rr3D - \
                    self.gr.Bphi**2 * np.arctan(th3D) / rr3D
             label = 'Lati. Lorentz force'
         elif field == 'Lorentz_p':
-            th3D = np.zeros_like(self.gr.Bphi)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.gr.nr):
-                rr3D[:, :, i] = self.gr.radius[i]
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = self.gr.colatitude[i]
+            th3D = self.gr.colatitude[None, :, None]
+            rr3D = self.gr.radius[None, None, :]
             data = -phideravg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2,
                               self.gr.minc)/(rr3D*np.sin(th3D))/2.0 + \
                    self.gr.Br * rderavg(self.gr.Bphi, self.gr.radius) + \
-                   self.gr.Btheta * thetaderavg(self.gr.Bphi, order=2) / rr3D + \
+                   self.gr.Btheta * thetaderavg(self.gr.Bphi,
+                                                self.gr.colatitude,
+                                                order=2) / rr3D + \
                    self.gr.Bphi * phideravg(self.gr.Bphi, self.gr.minc) / \
                    np.sin(th3D) / rr3D + self.gr.Bphi * self.gr.Br / rr3D + \
                    self.gr.Bphi * self.gr.Btheta * np.arctan(th3D) / rr3D
@@ -1447,7 +1330,7 @@ class Surf:
             xx_ic = rr_ic * np.cos(tth_ic)
             yy_ic = rr_ic * np.sin(tth_ic)
 
-        lon_0 = np.asarray(lon_0)
+        lon_0 = np.atleast_1d(lon_0)
 
         if normed is None:
             normed = diverging_cmap(field)
@@ -1472,9 +1355,11 @@ class Surf:
                 if ic and data_ic is not None:
                     phislice_ic = data_ic[indPlot, ...]
                 if field == 'dvzdz':
-                    phislice = zderavg(phislice, self.gr.radius, exclude=True)
+                    phislice = zderavg(phislice, self.gr.radius,
+                                       colat=self.gr.radius, exclude=True)
                 elif field == 'balance':
-                    phislice = zderavg(phislice, self.gr.radius, exclude=True)
+                    phislice = zderavg(phislice, self.gr.radius,
+                                       colat=self.gr.radius, exclude=True)
                     phislice1 = data1[indPlot, ...]
                     phislice = phislice + phislice1
 
@@ -1516,8 +1401,11 @@ class Surf:
                         verticalalignment='center', transform = ax.transAxes)
 
                 # To avoid white lines on pdfs
-                for c in im.collections:
-                    c.set_edgecolor("face")
+                if mplMaj >= 3 and mplMin >= 8:
+                    im.set_edgecolor("face")
+                else:
+                    for c in im.collections:
+                        c.set_edgecolor("face")
 
         else:
             ind = np.nonzero(np.where(abs(phi-lon_0[0])
@@ -1527,9 +1415,11 @@ class Surf:
             if ic and data_ic is not None:
                 phislice_ic = data_ic[indPlot, ...]
             if field == 'dvzdz':
-                phislice = zderavg(phislice, self.gr.radius, exclude=True)
+                phislice = zderavg(phislice, self.gr.radius,
+                                   colat=self.gr.radius, exclude=True)
             elif field == 'balance':
-                phislice = zderavg(phislice, self.gr.radius, exclude=True)
+                phislice = zderavg(phislice, self.gr.radius,
+                                   colat=self.gr.radius, exclude=True)
                 phislice1 = data1[indPlot, ...]
                 phislice = phislice + phislice1
 
@@ -1600,9 +1490,11 @@ class Surf:
                 mir = fig.colorbar(im, cax=cax)
 
             # To avoid white lines on pdfs
-            for c in im.collections:
-                c.set_edgecolor("face")
-
+            if mplMaj >= 3 and mplMin >= 8:
+                    im.set_edgecolor("face")
+            else:
+                for c in im.collections:
+                    c.set_edgecolor("face")
 
 
 def report(nvar=1, levels=defaultLevels, lclean=True):

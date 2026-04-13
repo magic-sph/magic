@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import subprocess as sp
 import os
+import sys
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from .libmagic import scanDir
@@ -28,7 +29,7 @@ if 'MAGIC_HOME' in os.environ:
     fcompiler = parser.get('libraries', 'fcompiler')
     ccompiler = parser.get('libraries', 'ccompiler')
     f2pycmd = parser.get('libraries', 'f2pyexec')
-else: # Default if the PATH is messed up
+else:  # Default if the PATH is messed up
     backend = 'GTKAgg'
     labTex = False
     defaultCm = 'seismic'
@@ -91,105 +92,54 @@ if buildSo:
         omp_options = ''
         omp_link = ''
 
-    # For reading G files
-    t2 = os.stat('fortranLib/readG_single.f90').st_mtime
-    sos = scanDir('greader_single.*')
-    if len(sos) >= 1:
-        t1 = os.stat(sos[-1]).st_mtime
-    else: # in case the file does not exist t2 is set to t1
-        t1 = t2
-    if len(sos) < 1  or t2 > t1:
-        print("Please wait: building greader_single...")
-        sp.call(['{}'.format(f2pycmd),
-                 '--fcompiler={}'.format(fcompiler),
-                 '--compiler={}'.format(ccompiler),
-                 '--opt={}'.format(f90options),
-                 '-c', '-m',
-                 'greader_single',
-                 'fortranLib/readG_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
+    def buildLib(fileName, libName):
+        t2 = os.stat('fortranLib/' + fileName).st_mtime
+        sos = scanDir(libName + '.*')
+        if len(sos) >= 1:
+            t1 = os.stat(sos[-1]).st_mtime
+        else:  # In case the file does not exist t2 is set to t1
+            t1 = t2
 
-    t2 = os.stat('fortranLib/readG_double.f90').st_mtime
-    sos = scanDir('greader_double.*')
-    if len(sos) >= 1:
-        t1 = os.stat(sos[-1]).st_mtime
-    else: # in case the file does not exist t2 is set to t1
-        t1 = t2
-    if len(sos) < 1 or t2 > t1:
-        print("Please wait: building greader_double...")
-        sp.call(['{}'.format(f2pycmd),
-                 '--fcompiler={}'.format(fcompiler),
-                 '--compiler={}'.format(ccompiler),
-                 '--opt={}'.format(f90options),
-                 '-c', '-m',
-                 'greader_double',
-                 'fortranLib/readG_double.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
+        if len(sos) < 1 or t2 > t1:
 
-    # For the reader of the potential files
-    t2 = os.stat('fortranLib/readPot_single.f90').st_mtime
-    sos = scanDir('lmrreader_single.*')
-    if len(sos) >= 1:
-        t1 = os.stat(sos[-1]).st_mtime
-    else: # in case the file does not exist t2 is set to t1
-        t1 = t2
-    if len(sos) < 1 or t2 > t1:
-        print("Please wait: building lmrreader_single...")
-        sp.call(['{}'.format(f2pycmd),
-                 '--fcompiler={}'.format(fcompiler),
-                 '--compiler={}'.format(ccompiler),
-                 '--opt={}'.format(f90options),
-                 '-c', '-m',
-                 'lmrreader_single',
-                 'fortranLib/readPot_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
+            if (sys.version_info.major == 3 and sys.version_info.minor < 12):
+                print("Please wait: building {} using distutils...".format(libName))
+                return_code = sp.call(['{}'.format(f2pycmd),
+                        '--fcompiler={}'.format(fcompiler),
+                        '--opt={}'.format(f90options),
+                        '-c', '-m',
+                        '{}'.format(libName),
+                        'fortranLib/{}'.format(fileName),
+                        '--f2cmap', 'fortranLib/f2py_f2cmap.in'],
+                        stderr=sp.PIPE, stdout=sp.PIPE)
+            else:
+                print("Please wait: building {} using meson...".format(libName))
+                my_env = os.environ.copy()
+                my_env["FFLAGS"]=f90options
+                return_code = sp.call(['{}'.format(f2pycmd),
+                                       '-c', '-m',
+                                       '{}'.format(libName),
+                                       'fortranLib/{}'.format(fileName),
+                                       '--backend', 'meson',
+                                       '--f2cmap', 'fortranLib/f2py_f2cmap.in'],
+                                       env=my_env,
+                                       stderr=sp.PIPE, stdout=sp.PIPE)
 
-    # For the Legendre transforms
-    t2 = os.stat('fortranLib/legendre.f90').st_mtime
-    sos = scanDir('legendre.*')
-    if len(sos) >= 1:
-        t1 = os.stat(sos[-1]).st_mtime
-    else: # in case the file does not exist t2 is set to t1
-        t1 = t2
-    if len(sos) < 1 or t2 > t1:
-        print("Please wait: building Legendre transforms...")
-        sp.call(['{}'.format(f2pycmd),
-                 '--fcompiler={}'.format(fcompiler),
-                 '--compiler={}'.format(ccompiler),
-                 '--opt={}'.format(f90options),
-                 '-c', '-m',
-                 'legendre',
-                 'fortranLib/legendre.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
+            return return_code
+        else:
+            return 0
 
-    # For the vtk file format convertion
-    t2 = os.stat('fortranLib/vtkLib.f90').st_mtime
-    sos = scanDir('vtklib.*')
-    if len(sos) >= 1:
-        t1 = os.stat(sos[-1]).st_mtime
-    else: # in case the file does not exist t2 is set to t1
-        t1 = t2
-    if len(sos) < 1 or t2 > t1:
-        print("Please wait: building vtklib...")
-        sp.call(['{}'.format(f2pycmd),
-                 '--fcompiler={}'.format(fcompiler),
-                 '--compiler={}'.format(ccompiler),
-                 '--opt={}'.format(f90options),
-                 '-c', '-m',
-                 'vtklib',
-                 'fortranLib/vtkLib.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
+    fortranFiles = ['readG_single.f90', 'readG_double.f90',
+                    'readPot_single.f90', 'legendre.f90',
+                    'vtkLib.f90', 'cyl.f90']
 
-    # For the cyl averaging
-    t2 = os.stat('fortranLib/cyl.f90').st_mtime
-    sos = scanDir('cylavg.*')
-    if len(sos) >= 1:
-        t1 = os.stat(sos[-1]).st_mtime
-    else: # in case the file does not exist t2 is set to t1
-        t1 = t2
-    if len(sos) < 1 or t2 > t1:
-        print("Please wait: building cylavg...")
-        sp.call(['{}'.format(f2pycmd),
-                 '--fcompiler={}'.format(fcompiler),
-                 '--compiler={}'.format(ccompiler),
-                 '--opt={}'.format(f90options),
-                 omp_options, '-c', '-m',
-                 'cylavg', omp_link,
-                 'fortranLib/cyl.f90'], stderr=sp.PIPE, stdout=sp.PIPE)
+    sharedLibFiles = ['greader_single', 'greader_double',
+                      'lmrreader_single', 'legendre',
+                      'vtklib', 'cylavg']
+
+    for fileName, libName in zip(fortranFiles, sharedLibFiles):
+        return_code = buildLib(fileName, libName)
+        if return_code != 0:
+            print('Error in building {}'.format(libName))
 
     os.chdir(startdir)

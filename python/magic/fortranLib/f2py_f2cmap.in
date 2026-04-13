@@ -1,0 +1,3 @@
+dict(real=dict(sp='float', dp='double', real64='double', real32='float'),
+     complex=dict(sp='complex_float',dp='complex_double'),
+     integer=dict(lip='long'))
