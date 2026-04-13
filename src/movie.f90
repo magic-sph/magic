@@ -27,7 +27,7 @@ module movie_data
    character(len=80), public :: movie(n_movies_max)  ! Only for input
    character(len=72), public :: movie_file(n_movies_max)
 
-   logical, public :: lGeosField(n_movies_max)
+   logical, public :: lICField(n_movies_max), lGeosField(n_movies_max)
    logical :: lPhaseField(n_movies_max)
    integer, public :: n_movies
    integer, public :: n_movie_surface(n_movies_max)
@@ -1119,6 +1119,7 @@ contains
          !--- Now store the necessary information:
          !------ Increase number of movies:
          n_movies=n_movies+1
+         lICField(n_movies)=lIC
          lGeosField(n_movies)=lGeos
          lPhaseField(n_movies)=lPhase
 
