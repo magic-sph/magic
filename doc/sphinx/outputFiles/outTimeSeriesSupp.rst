@@ -113,17 +113,17 @@ This file contains the power budget diagnostic. This file is computed by the sub
    +===============+==================================================================+
    | 1             | time                                                             |
    +---------------+------------------------------------------------------------------+
-   | 2             | Buoyancy power: :math:`Ra\,g(r)\,\langle u_r T'\rangle_s`        |
+   | 2             | Buoyancy power: :math:`Ra\,g(r)\,\langle u_r T'\rangle_V`        |
    +---------------+------------------------------------------------------------------+
-   | 3             | Chemical power: :math:`Ra_\xi\,g(r)\,\langle u_r \xi'\rangle_s`  |
+   | 3             | Chemical power: :math:`Ra_\xi\,g(r)\,\langle u_r \xi'\rangle_V`  |
    +---------------+------------------------------------------------------------------+
    | 4             | Viscous power at the inner boundary (ICB)                        |
    +---------------+------------------------------------------------------------------+
    | 5             | Viscous power at the outer boundary (CMB)                        |
    +---------------+------------------------------------------------------------------+
-   | 6             | Viscous dissipation: :math:`\langle(\nabla \times u)^2\rangle_s` |
+   | 6             | Viscous dissipation: :math:`\langle(\nabla \times u)^2\rangle_V` |
    +---------------+------------------------------------------------------------------+
-   | 7             | Ohmic dissipation: :math:`\langle(\nabla \times B)^2\rangle_s`   |
+   | 7             | Ohmic dissipation: :math:`\langle(\nabla \times B)^2\rangle_V`   |
    +---------------+------------------------------------------------------------------+
    | 8             | Total power at the CMB (viscous + Lorentz)                       |
    +---------------+------------------------------------------------------------------+

@@ -36,13 +36,13 @@ class CompSims:
     >>> CompSims(file='inputList', field='vp', type='avg')
     """
 
-    def __init__(self, file='liste', field='ts', ncol=4, cm='RdYlBu_r', dpi=96,
-                 normed=True, levels=16, type=None, fullPath=False,
+    def __init__(self, file='listRuns', field='ts', ncol=4, cm=None, dpi=96,
+                 normed=True, levels=65, type=None, fullPath=False,
                  r=0.9, bw=False, ave=False, cut=1):
         """
         :param file: the input file that contains the list of directories that one
                      wants to analyse
-        :type file: str
+         or self.field == 'heat':type file: str
         :param field: name of the input field. Possible options are:
                       'ts': displaye the time-series of kinetic energy;
                       'e_mag': display the time-series of magnetic energy;
@@ -79,7 +79,7 @@ class CompSims:
         :param cut: adjust the contour extrema to max(abs(data))*cut
         :type cut: float
         """
-        self.dataliste = []
+        self.list_of_runs = []
         self.workdir = os.getcwd()
         self.fullPath = fullPath
         self.field = field
@@ -90,42 +90,40 @@ class CompSims:
         self.r = r
         self.bw = bw # for black and white outputs
         self.ave = ave # for G_ave.TAG files
-        f = open(file, 'r')
-        for line in f.readlines():
-            self.dataliste.append(line.strip())
-        f.close()
+        with open(file, 'r') as f:
+            for line in f.readlines():
+                self.list_of_runs.append(line.strip())
         self.ncol = ncol
-        self.nplot = len(self.dataliste)
+        self.nplot = len(self.list_of_runs)
         if (self.nplot % self.ncol != 0):
-                self.nrow = self.nplot//self.ncol + 1
+            self.nrow = self.nplot // self.ncol + 1
         else:
-            self.nrow = self.nplot//self.ncol
+            self.nrow = self.nplot // self.ncol
 
-        plt.ioff()
         if type == 'avg' or type == 'slice':
-            fig = plt.figure(figsize=(self.ncol*1.5, self.nrow*3), dpi=dpi)
+            self.fig = plt.figure(figsize=(self.ncol*1.5, self.nrow*3), dpi=dpi)
         elif type == 'equat':
-            fig = plt.figure(figsize=(self.ncol*2.5, self.nrow*2.5), dpi=dpi)
+            self.fig = plt.figure(figsize=(self.ncol*2.5, self.nrow*2.5), dpi=dpi)
         elif type == 'surf':
-            fig = plt.figure(figsize=(self.ncol*3, self.nrow*1.7), dpi=dpi)
+            self.fig = plt.figure(figsize=(self.ncol*3, self.nrow*1.7), dpi=dpi)
         else:
-            fig = plt.figure(figsize=(self.ncol*3, self.nrow*3), dpi=dpi)
+            self.fig = plt.figure(figsize=(self.ncol*3, self.nrow*3), dpi=dpi)
         if self.nrow == 1:
             if type == 'surf':
-                fig.subplots_adjust(left=0.05, right=0.98, top=0.85, bottom=0.05)
+                self.fig.subplots_adjust(left=0.05, right=0.98, top=0.85, bottom=0.05)
             else:
-                fig.subplots_adjust(left=0.05, right=0.98, top=0.92, bottom=0.05)
+                self.fig.subplots_adjust(left=0.05, right=0.98, top=0.92, bottom=0.05)
         else:
             if type == 'surf':
-                fig.subplots_adjust(left=0.05, right=0.98, top=0.92, bottom=0.05)
+                self.fig.subplots_adjust(left=0.05, right=0.98, top=0.92, bottom=0.05)
             else:
-                fig.subplots_adjust(left=0.05, right=0.98, top=0.95, bottom=0.05)
+                self.fig.subplots_adjust(left=0.05, right=0.98, top=0.95, bottom=0.05)
 
         if self.field == 'ts':
             self.plotTs()
         elif self.field == 'e_mag':
             self.plotEmag()
-        elif self.field == 'flux':
+        elif self.field == 'flux' or self.field == 'heat':
             self.plotFlux()
         elif self.field == 'zonal':
             self.plotZonal()
@@ -139,39 +137,31 @@ class CompSims:
             elif type == 'surf':
                 self.plotSurf()
 
-        fig.tight_layout()
-        plt.show()
-        plt.ion()
+        self.fig.tight_layout()
 
     def plotTs(self):
         """
         Plot time-series of the kinetic energy
         """
         iplot = 1
-        #myyfmt = ScalarFormatter(useOffset=True)
-        #myyfmt.set_powerlimits((1,1))
-        for datadir in self.dataliste:
+        for datadir in self.list_of_runs:
             if not self.fullPath:
-                os.chdir(self.workdir + '/' + datadir)
+                os.chdir(os.path.join(self.workdir, datadir))
             else:
                 os.chdir(datadir)
             print(datadir)
             ts = MagicTs(field='e_kin', iplot=False, all=True)
 
-            ax = plt.subplot(self.nrow, self.ncol, iplot)
-            ax.semilogy(ts.time, ts.ekin_pol, 'b-')
-            ax.semilogy(ts.time, ts.ekin_tor, 'r-')
-            ax.semilogy(ts.time, ts.ekin_pol_axi, 'b--')
-            ax.semilogy(ts.time, ts.ekin_tor_axi, 'r--')
-            ax.semilogy(ts.time, ts.ekin_tot, 'k-')
+            ax = self.fig.add_subplot(self.nrow, self.ncol, iplot)
+            if hasattr(ts, 'time'):
+                ax.semilogy(ts.time, ts.ekin_pol, c='C0')
+                ax.semilogy(ts.time, ts.ekin_tor, c='C1')
+                ax.semilogy(ts.time, ts.ekin_pol_axi, c='C0', ls='--')
+                ax.semilogy(ts.time, ts.ekin_tor_axi, c='C1', ls='--')
+                ax.semilogy(ts.time, ts.ekin_tot, 'k-')
 
-            #ax.yaxis.set_major_formatter(myyfmt)
-            for tick in ax.xaxis.get_major_ticks():
-                tick.label1.set_fontsize(10)
-            for tick in ax.yaxis.get_major_ticks():
-                tick.label1.set_fontsize(10)
-            ax.set_title('Ra = {:.1e}'.format(ts.ra), fontsize=10)
-            ax.set_xlim((ts.time.min(), ts.time.max()))
+                ax.set_title('Ra = {:.1e}'.format(ts.ra), fontsize=10)
+                ax.set_xlim((ts.time.min(), ts.time.max()))
             iplot += 1
         os.chdir(self.workdir)
 
@@ -180,30 +170,25 @@ class CompSims:
         Plot time-series of the magnetic energy
         """
         iplot = 1
-        #myyfmt = ScalarFormatter(useOffset=True)
-        #myyfmt.set_powerlimits((1,1))
-        for datadir in self.dataliste:
+        for datadir in self.list_of_runs:
             if not self.fullPath:
-                os.chdir(self.workdir + '/' + datadir)
+                os.chdir(os.path.join(self.workdir, datadir))
             else:
                 os.chdir(datadir)
             print(datadir)
             ts = MagicTs(field='e_mag_oc', iplot=False, all=True)
 
-            ax = plt.subplot(self.nrow, self.ncol, iplot)
-            ax.semilogy(ts.time, ts.emagoc_pol, 'b-')
-            ax.semilogy(ts.time, ts.emagoc_tor, 'r-')
-            ax.semilogy(ts.time, ts.emagoc_pol_axi, 'b--')
-            ax.semilogy(ts.time, ts.emagoc_tor_axi, 'r--')
-            ax.semilogy(ts.time, ts.emag_tot, 'k-')
+            ax = self.fig.add_subplot(self.nrow, self.ncol, iplot)
+            if hasattr(ts, 'time'):
+                ax.semilogy(ts.time, ts.emagoc_pol, c='C0')
+                ax.semilogy(ts.time, ts.emagoc_tor, c='C1')
+                ax.semilogy(ts.time, ts.emagoc_pol_axi, c='C0', ls='--')
+                ax.semilogy(ts.time, ts.emagoc_tor_axi, c='C1', ls='--')
+                ax.semilogy(ts.time, ts.emag_tot, 'k-')
 
-            #ax.yaxis.set_major_formatter(myyfmt)
-            for tick in ax.xaxis.get_major_ticks():
-                tick.label1.set_fontsize(10)
-            for tick in ax.yaxis.get_major_ticks():
-                tick.label1.set_fontsize(10)
-            ax.set_title('Ra = {:.1e}, Pm= {:.1f}'.format(ts.ra, ts.prmag), fontsize=10)
-            ax.set_xlim((ts.time.min(), ts.time.max()))
+                ax.set_title('Ra = {:.1e}, Pm= {:.1f}'.format(ts.ra, ts.prmag),
+                             fontsize=10)
+                ax.set_xlim((ts.time.min(), ts.time.max()))
             iplot += 1
         os.chdir(self.workdir)
 
@@ -212,24 +197,24 @@ class CompSims:
         Plot time-series of the top and bottom Nusselt numbers
         """
         iplot = 1
-        for datadir in self.dataliste:
+        for datadir in self.list_of_runs:
             if not self.fullPath:
-                os.chdir(self.workdir + '/' + datadir)
+                os.chdir(os.path.join(self.workdir, datadir))
             else:
                 os.chdir(datadir)
             print(datadir)
-            ts = MagicTs(field='misc', iplot=False, all=True)
+            ts = MagicTs(field='heat', iplot=False, all=True)
 
-            ax = plt.subplot(self.nrow, self.ncol, iplot)
-            ax.plot(ts.time, ts.botnuss, 'b-')
-            ax.plot(ts.time, ts.topnuss, 'g-')
+            ax = self.fig.add_subplot(self.nrow, self.ncol, iplot)
+            if hasattr(ts, 'time'):
+                if ts.botnuss.max() == 1:
+                    ax.plot(ts.time, ts.deltaTnuss)
+                else:
+                    ax.plot(ts.time, ts.botnuss)
+                    ax.plot(ts.time, ts.topnuss)
 
-            for tick in ax.xaxis.get_major_ticks():
-                tick.label1.set_fontsize(10)
-            for tick in ax.yaxis.get_major_ticks():
-                tick.label1.set_fontsize(10)
-            ax.set_title('Ra = {:.1e}'.format(ts.ra), fontsize=10)
-            ax.set_xlim((ts.time.min(), ts.time.max()))
+                ax.set_title('Ra = {:.1e}'.format(ts.ra), fontsize=10)
+                ax.set_xlim((ts.time.min(), ts.time.max()))
             iplot += 1
         os.chdir(self.workdir)
 
@@ -238,16 +223,16 @@ class CompSims:
         Plot surface zonal flow profiles.
         """
         iplot = 1
-        for datadir in self.dataliste:
+        for datadir in self.list_of_runs:
             if not self.fullPath:
-                os.chdir(self.workdir + '/' + datadir)
+                os.chdir(os.path.join(self.workdir, datadir))
             else:
                 os.chdir(datadir)
             if self.ave:
                 gr = MagicGraph(ivar=1, ave=True)
             else:
                 gr = MagicGraph(ivar=1)
-            ax = plt.subplot(self.nrow, self.ncol, iplot)
+            ax = self.fig.add_subplot(self.nrow, self.ncol, iplot)
             vpm = gr.vphi.mean(axis=0)
             theta = np.linspace(-90., 90, gr.ntheta)
 
@@ -272,12 +257,14 @@ class CompSims:
         """
         Plot radial cuts in (phi, theta)  planes using the Hammer projection.
         """
+        if self.cm is None:
+            self.cm = default_cmap(self.field)
         cmap = plt.get_cmap(self.cm)
 
         iplot = 1
-        for datadir in self.dataliste:
+        for datadir in self.list_of_runs:
             if not self.fullPath:
-                os.chdir(self.workdir + '/' + datadir)
+                os.chdir(os.path.join(self.workdir, datadir))
             else:
                 os.chdir(datadir)
             print(datadir)
@@ -315,37 +302,12 @@ class CompSims:
             except AttributeError:
                 continue
 
-            data = symmetrize(data, gr.minc)
+            data = symmetrize(data[..., indPlot], gr.minc)
 
-            phi2, th2 = np.mgrid[-np.pi:np.pi:gr.nphi*1j,
-                                np.pi/2.:-np.pi/2.:gr.ntheta*1j]
-            xx, yy = hammer2cart(th2, phi2)
+            ax = self.fig.add_subplot(self.nrow, self.ncol, iplot, frameon=False)
+            radialContour(data, fig=self.fig, ax=ax, levels=self.levels,
+                          cm=cmap, cbar=False)
 
-
-            ax = plt.subplot(self.nrow, self.ncol, iplot, frameon=False)
-            if self.cut != 1:
-                self.normed = False
-                vmin = - max(abs(data[..., indPlot].max()), abs(data[..., indPlot].min()))
-                vmin = self.cut*vmin
-                vmax = -vmin
-                cs = np.linspace(vmin, vmax, self.levels)
-                im = ax.contourf(xx, yy, data[..., indPlot], cs, extend='both',
-                                  cmap=cmap, aa=True)
-            else:
-                cs = self.levels
-                im = ax.contourf(xx, yy, data[..., indPlot], cs,
-                                  cmap=cmap, aa=True)
-            rad = gr.radius[indPlot] * (1. - gr.radratio)
-            ax.set_title('{}, r/ro={:.3f}, Ra={:.1e}'.format(label, rad, gr.ra),
-                    fontsize=10)
-            ax.axis('off')
-
-
-            if self.field not in ['entropy', 's', 'S'] and self.normed is True:
-                im.set_clim(-max(abs(data[..., indPlot].max()),
-                                 abs(data[..., indPlot].min())),
-                             max(abs(data[..., indPlot].max()),
-                                 abs(data[..., indPlot].min())))
             iplot += 1
         os.chdir(self.workdir)
 
@@ -353,11 +315,14 @@ class CompSims:
         """
         Plot equatorial cuts in (phi, r)  planes.
         """
+        if self.cm is None:
+            self.cm = default_cmap(self.field)
         cmap = plt.get_cmap(self.cm)
+
         iplot = 1
-        for datadir in self.dataliste:
+        for datadir in self.list_of_runs:
             if not self.fullPath:
-                os.chdir(self.workdir + '/' + datadir)
+                os.chdir(os.path.join(self.workdir, datadir))
             else:
                 os.chdir(datadir)
             print(datadir)
@@ -400,64 +365,15 @@ class CompSims:
             except AttributeError:
                 continue
 
-
-            label += ' Ra = {:.1e}'.format(gr.ra)
-
             if self.field not in ('vortz'):
                 equator = data[:, gr.ntheta//2,:]
 
             equator = symmetrize(equator, gr.minc)
 
-            phi = np.linspace(0., 2.*np.pi, gr.nphi)
-            rr, pphi = np.meshgrid(gr.radius, phi)
-            xx = rr * np.cos(pphi)
-            yy = rr * np.sin(pphi)
+            ax = self.fig.add_subplot(self.nrow, self.ncol, iplot, frameon=False)
+            equatContour(equator, gr.radius, levels=self.levels, cm=cmap,
+                         cbar=False, fig=self.fig, ax=ax)
 
-            ax = plt.subplot(self.nrow, self.ncol, iplot, frameon=False)
-            if self.bw:
-                im = ax.contour(xx, yy, equator, self.levels, colors='k',
-                                linewidths=0.5)
-            else:
-                if self.cut != 1:
-                    self.normed = False
-                    vmin = - max(abs(equator.max()), abs(equator.min()))
-                    vmin = self.cut*vmin
-                    vmax = -vmin
-                    cs = np.linspace(vmin, vmax, self.levels)
-                    im = ax.contourf(xx, yy, equator, cs, extend='both',
-                                      cmap=cmap)
-                else:
-                    cs = self.levels
-                    im = ax.contourf(xx, yy, equator, cs, cmap=cmap)
-            ax.plot(gr.radius[0] * np.cos(phi), gr.radius[0]*np.sin(phi), 'k-')
-            ax.plot(gr.radius[-1] * np.cos(phi), gr.radius[-1]*np.sin(phi), 'k-')
-
-            # Variable conductivity
-            if hasattr(gr, 'nVarCond'):
-                if gr.nVarCond == 2:
-                    radi = gr.con_radratio * gr.radius[0]
-                    ax.plot(radi*np.cos(phi), radi*np.sin(phi), 'k--')
-
-            #if hasattr(gr, 'cmbHflux'):
-                #tit1 = r"${\cal Q}_{cmb} = {:.1f}$".format(gr.cmbHflux)
-                #if gr.strat >= 1:
-                    #tit1 = r"$N_\rho = {:.0f}$".format(gr.strat)
-                #else:
-                    #tit1 = r"$N_\rho = 10^{-2}$"
-            tit1 = datadir
-
-            ax.text(0.5, 0.5, tit1, fontsize=14,
-                              horizontalalignment='center',
-                              verticalalignment='center',
-                              transform = ax.transAxes)
-
-            #ax.set_title(label, fontsize=10)
-            ax.axis('off')
-            #fig.colorbar(im)
-
-            if self.field not in ['entropy', 's', 'S'] and self.normed is True:
-                im.set_clim(-max(abs(equator.max()), abs(equator.min())),
-                             max(abs(equator.max()), abs(equator.min())))
             iplot += 1
         os.chdir(self.workdir)
 
@@ -465,12 +381,14 @@ class CompSims:
         """
         Plot azimutal averages in (theta, r) planes.
         """
+        if self.cm is None:
+            self.cm = default_cmap(self.field)
         cmap = plt.get_cmap(self.cm)
 
         iplot = 1
-        for datadir in self.dataliste:
+        for datadir in self.list_of_runs:
             if not self.fullPath:
-                os.chdir(self.workdir + '/' + datadir)
+                os.chdir(os.path.join(self.workdir, datadir))
             else:
                 os.chdir(datadir)
             print(datadir)
@@ -514,9 +432,6 @@ class CompSims:
                     data, data_ic, label = selectField(gr, self.field)
             except AttributeError:
                 continue
-
-            #label += ' Ra = {:.1e}'.format(gr.ra)
-            label = 'Ra = {:.1e}'.format(gr.ra)
 
             if self.field not in ('Cr', 'cr', 'ra', 'ratio', 'Cz', 'cz'):
                 phiavg = data.mean(axis=0)
@@ -569,77 +484,23 @@ class CompSims:
             titmax = phiavg.max()
             titmin = phiavg.min()
 
-            ax = plt.subplot(self.nrow, self.ncol, iplot, frameon=False)
-            if self.bw:
-                im = ax.contour(xx, yy, phiavg, self.levels, colors='k',
-                                linewidths=0.5)
-            else:
-                if self.cut != 1:
-                    self.normed = False
-                    vmin = - max(abs(phiavg.max()), abs(phiavg.min()))
-                    vmin = self.cut*vmin
-                    vmax = -vmin
-                    cs = np.linspace(vmin, vmax, self.levels)
-                    im = ax.contourf(xx, yy, phiavg, cs, extend='both',
-                                      cmap=cmap)
-                else:
-                    cs = self.levels
-                    im = ax.contourf(xx, yy, phiavg, cs, cmap=cmap)
-            ax.plot(gr.radius[0]*np.sin(th), gr.radius[0]*np.cos(th),
-                   'k-')
-            ax.plot(gr.radius[-1]*np.sin(th), gr.radius[-1]*np.cos(th),
-                   'k-')
+            ax = self.fig.add_subplot(self.nrow, self.ncol, iplot, frameon=False)
 
-            ax.plot([0., 0], [gr.radius[-1], gr.radius[0]], 'k-')
-            ax.plot([0., 0], [-gr.radius[-1], -gr.radius[0]], 'k-')
-
-            # Variable conductivity
-            if hasattr(gr, 'nVarCond'):
-                if gr.nVarCond == 2:
-                    radi = gr.con_radratio * gr.radius[0]
-                    ax.plot(radi*np.sin(th), radi*np.cos(th), 'k--')
-
-            ax.set_title(label, fontsize=12)
-            ax.axis('off')
-            #fig.colorbar(im)
-
-            """
-            if gr.strat >= 1:
-                tit1 = r"$N_\rho = {:.0f}$".format(gr.strat)
-            else:
-                tit1 = r"$N_\rho = 10^{-2}$"
-            """
-            #plt.title(tit1, fontsize=12)
-
-            """
-            if int(titmin) == 0:
-                tit1 = r'$+{}$'.format(titmax) +'\n'+r'${:.1f}$'.format(titmin)
-            else:
-                tit1 = r'$+{}$'.format(titmax) +'\n'+r'${}$'.format(titmin)
-            ax.text(0., 0.5, tit1, fontsize=12,
-                              horizontalalignment='left',
-                              verticalalignment='center',
-                              transform = ax.transAxes)
-            tit2 = r'$+{:.1e}/-{:.1e}$'.format(titmax, titmin)
-            """
-            #ax.text(0.9, 0.05, tit2, fontsize=12,
-                              #horizontalalignment='left',
-                              #verticalalignment='center',
-                              #transform = ax.transAxes)
-            if self.field not in ['entropy', 's', 'S'] and self.normed is True:
-                im.set_clim(-max(abs(phiavg.max()), abs(phiavg.min())),
-                             max(abs(phiavg.max()), abs(phiavg.min())))
+            merContour(phiavg, gr.radius, fig=self.fig, ax=ax, cbar=False,
+                       cm=cmap, levels=self.levels)
 
             iplot += 1
         os.chdir(self.workdir)
 
     def plotSlice(self):
+        if self.cm is None:
+            self.cm = default_cmap(self.field)
         cmap = plt.get_cmap(self.cm)
 
         iplot = 1
-        for datadir in self.dataliste:
+        for datadir in self.list_of_runs:
             if not self.fullPath:
-                os.chdir(self.workdir + '/' + datadir)
+                os.chdir(os.path.join(self.workdir, datadir))
             else:
                 os.chdir(datadir)
             print(datadir)
@@ -671,85 +532,15 @@ class CompSims:
             except AttributeError:
                 continue
 
-            #label += ' Ra = {:.1e}'.format(gr.ra)
-            label = 'Ra = {:.1e}'.format(gr.ra)
-
             phiavg = data[0, ...]
 
-            th = np.linspace(0., np.pi, gr.ntheta)
-            rr, tth = np.meshgrid(gr.radius, th)
-            xx = rr * np.sin(tth)
-            yy = rr * np.cos(tth)
+            ax = self.fig.add_subplot(self.nrow, self.ncol, iplot, frameon=False)
 
-            titmax = phiavg.max()
-            titmin = phiavg.min()
-
-            # liste2
-            """
-            if gr.strat == 4:
-                vmax = 0.6*phiavg.max()
-                vmin = -vmax
-            elif gr.strat == 5:
-                vmax = -0.5*phiavg.min()
-                vmin = -vmax
-            else:
-                vmax = -0.8*phiavg.min()
-                vmin = -vmax
-            """
-
-            ax = plt.subplot(self.nrow, self.ncol, iplot, frameon=False)
-            if self.cut != 1:
-                self.normed = False
-                vmin = - max(abs(phiavg.max()), abs(phiavg.min()))
-                vmin = self.cut*vmin
-                vmax = -vmin
-                cs = np.linspace(vmin, vmax, self.levels)
-                im = ax.contourf(xx, yy, phiavg, cs, extend='both', cmap=cmap)
-            else:
-                cs = self.levels
-                im = ax.contourf(xx, yy, phiavg, cs, cmap=cmap)
-            ax.plot(gr.radius[0]*np.sin(th), gr.radius[0]*np.cos(th),
-                   'k-')
-            ax.plot(gr.radius[-1]*np.sin(th), gr.radius[-1]*np.cos(th),
-                   'k-')
-
-            ax.plot([0., 0], [gr.radius[-1], gr.radius[0]], 'k-')
-            ax.plot([0., 0], [-gr.radius[-1], -gr.radius[0]], 'k-')
-
-            # Variable conductivity
-            if hasattr(gr, 'nVarCond'):
-                if gr.nVarCond == 2:
-                    radi = gr.con_radratio * gr.radius[0]
-                    ax.plot(radi*np.sin(th), radi*np.cos(th), 'k--')
-
-            ax.set_title(label, fontsize=12)
-            ax.axis('off')
-            #fig.colorbar(im)
-
-            if gr.strat >= 1:
-                tit1 = r"$N_\rho = {:.0f}$".format(gr.strat)
-            else:
-                tit1 = r"$N_\rho = 10^{-2}$"
-            #plt.title(tit1, fontsize=12)
-
-            if int(titmin) == 0:
-                tit1 = r'$+{}$'.format(titmax) +'\n'+r'${:.1f}$'.format(titmin)
-            else:
-                tit1 = r'$+{}$'.format(titmax) +'\n'+r'${}$'.format(titmin)
-            ax.text(0., 0.5, tit1, fontsize=12,
-                              horizontalalignment='left',
-                              verticalalignment='center',
-                              transform = ax.transAxes)
-            #ax.text(0.9, 0.05, tit2, fontsize=12,
-                              #horizontalalignment='left',
-                              #verticalalignment='center',
-                              #transform = ax.transAxes)
-            if self.field not in ['entropy', 's', 'S'] and self.normed is True:
-                im.set_clim(-max(abs(phiavg.max()), abs(phiavg.min())),
-                             max(abs(phiavg.max()), abs(phiavg.min())))
+            merContour(phiavg, gr.radius, levels=self.levels, cm=cmap,
+                       fig=self.fig, ax=ax, cbar=False)
 
             iplot += 1
         os.chdir(self.workdir)
 
 if __name__ == '__main__':
-    CompSims(file='liste', field='ts', ncol=5, type=None)
+    CompSims(file='listRuns', field='ts', ncol=5, type=None)

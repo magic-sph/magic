@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.5)
+cmake_minimum_required (VERSION 3.11)
 project (magic)
 enable_language (Fortran C)
 
@@ -264,7 +264,6 @@ if(USE_LAPACKLIB MATCHES LAPACK)
       set(USE_LAPACKLIB "JW")
    endif()
 endif()
-
 
 find_library(FFTW3 NAME fftw3
     PATHS $ENV{HOME}/local/lib

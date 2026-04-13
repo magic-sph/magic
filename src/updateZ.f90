@@ -22,7 +22,7 @@ module updateZ_mod
        &                          gammatau_gravi
    use num_param, only: AMstart, dct_counter, solve_counter
    use torsional_oscillations, only: ddzASL
-   use blocking, only: lo_sub_map, lo_map, st_sub_map, llm, ulm, st_map
+   use blocking, only: lo_sub_map, lo_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V
    use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, l_precession, &
        &            l_correct_AMe, l_correct_AMz, l_parallel_solve, l_TO,       &
@@ -485,8 +485,10 @@ contains
                         &                 wimp_lin*prec_fac*cos(oek*time)
                      end if
                      if ( ampForce /= 0.0_cp ) then
-                        rhs1(nR,2*lm-1,0)=rhs1(nR,2*lm-1,0)+real(bodyForce(lm1,nR))
-                        rhs1(nR,2*lm,0)  =rhs1(nR,2*lm,0)  +aimag(bodyForce(lm1,nR))
+                        rhs1(nR,2*lm-1,0)=rhs1(nR,2*lm-1,0)+ &
+                        &                 real(bodyForce_LMloc(lm1,nR))
+                        rhs1(nR,2*lm,0)  =rhs1(nR,2*lm,0)  + &
+                        &                 aimag(bodyForce_LMloc(lm1,nR))
                      end if
                   end do
 
@@ -1441,6 +1443,10 @@ contains
                if ( l_precession .and. l1==1 .and. m1==1 ) then
                   dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
                   &                        sin(oek*time),-cos(oek*time),kind=cp)
+               end if
+               if ( ampForce /= 0.0_cp ) then
+                  dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage) + &
+                  &                         bodyForce_LMloc(lm,n_r)
                end if
                if ( lRmsNext .and. loc_istage==loc_nstage ) then
                   DifTor2hInt(l1,n_r)=DifTor2hInt(l1,n_r)+r(n_r)**4/dL*cc2real(Dif,m1)
