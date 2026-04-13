@@ -13,7 +13,7 @@ module out_movie
    use movie_data, only: frames, n_movie_fields, n_movies, n_movie_surface, &
        &                 n_movie_const, n_movie_field_type, lGeosField,     &
        &                 n_movie_field_start,n_movie_field_stop,            &
-       &                 movie_const, movie_file, n_movie_file, lICField,   &
+       &                 movie_const, movie_file, n_movie_file,             &
        &                 n_movie_fields_ic
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: orho1, orho2, or1, or2, or3, or4, beta,  &
@@ -213,7 +213,7 @@ contains
             !------ Combine OC and IC radial grid points:
             n_r_mov_tot=n_r_max
             r_mov_tot(:n_r_max)=r(:)
-            if ( n_r_ic_max > 0 .and. lICField(n_movie) ) then
+            if ( n_r_ic_max > 0 ) then
                n_r_mov_tot=n_r_mov_tot+n_r_ic_max
                r_mov_tot(n_r_max+1:)=r_ic(:)
             end if
