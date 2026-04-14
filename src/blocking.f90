@@ -57,12 +57,11 @@ contains
       integer :: l1m0
 
       logical, parameter :: DEBUG_OUTPUT=.false.
-      integer :: lm,l,m,sizeLMB
+      integer :: lm,l,m
 
       local_bytes_used = bytes_allocated
       call allocate_mappings(st_map,l_max,m_min,m_max,lm_max)
       call allocate_mappings(lo_map,l_max,m_min,m_max,lm_max)
-      !call allocate_mappings(sn_map,l_max,lm_max)
 
       if ( rank == 0 ) then
          if ( l_save_out ) then
@@ -74,20 +73,6 @@ contains
          write(n_log_file,'(A,I5)') ' ! Number of OMP threads:', nThreads
          write(output_unit,'(A,I5)') ' ! Number of OMP threads:', nThreads
          if ( l_save_out ) close(n_log_file)
-      end if
-
-      sizeLMB=(lm_max-1)/n_procs+1
-
-      !--- Get radial blocking
-      if ( .not. l_finite_diff ) then
-         if ( mod(n_r_max-1,n_procs) /= 0 ) then
-            if ( rank == 0 ) then
-               write(output_unit,*) 'Number of MPI ranks has to be multiple of n_r_max-1!'
-               write(output_unit,*) 'n_procs :',n_procs
-               write(output_unit,*) 'n_r_max-1:',n_r_max-1
-            end if
-            call abortRun('Stop run in blocking')
-         end if
       end if
 
       !-- Get firt-touch LM blocking
@@ -104,7 +89,6 @@ contains
          call get_lorder_lm_blocking(lo_map,minc)
       end if
       !call logWrite(message)
-
 
       !-- Define llm and ulm
       llm = lm_balance(rank)%nStart
