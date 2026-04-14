@@ -29,14 +29,14 @@ post-processing :ref:`python classes <secPythonPostProc>` and allow to run the
 the MagIC code (``magic``) and source ``sourceme`` file that corresponds to your
 ``$SHELL`` environment variable.
 
-In case you use `bash <http://tiswww.case.edu/php/chet/bash/bashtop.html>`_,
-`ksh <http://www.kornshell.com/>`_ or `zsh <http://www.zsh.org/>`_, just use:
+In case you use `bash <https://tiswww.case.edu/php/chet/bash/bashtop.html>`_,
+`ksh <https://www.kornshell.com/>`_ or `zsh <https://www.zsh.org/>`_, just use:
 
 .. code-block:: bash
  
    $ source sourceme.sh
 
-In case you use `csh <http://www.tcsh.org/Home>`_ or `tcsh <http://www.tcsh.org/Home>`_,
+In case you use `csh <https://www.tcsh.org/Home>`_ or `tcsh <https://www.tcsh.org/Home>`_,
 rather use
 
 .. code-block:: csh
@@ -62,7 +62,7 @@ To get started, you then need to compile the code.
 Install SHTns (**recommended**)
 ===============================
 
-`SHTns <https://bitbucket.org/nschaeff/shtns>`_ is a an open-source library for the Spherical Harmonics transforms. It is significantly faster than the native transforms implemented in MagIC, and it is hence **recommended** (though not mandatory) to install it. To install the library, first define a C compiler
+`SHTns <https://gricad-gitlab.univ-grenoble-alpes.fr/schaeffn/shtns/>`_ is a an open-source library for the Spherical Harmonics transforms. It is significantly faster than the native transforms implemented in MagIC, and it is hence **recommended** (though not mandatory) to install it. To install the library, first define a C compiler
 
 .. code-block:: bash
 
@@ -81,7 +81,7 @@ Then make sure a FFT library such FFTW or the MKL is installed on the target mac
    cd $MAGIC_HOME/bin
    ./install-shtns.sh
 
-or install it manually after downloading and extracting the latest version `here <https://bitbucket.org/nschaeff/shtns/downloads/>`_
+or install it manually after downloading and extracting the latest version `here <https://gricad-gitlab.univ-grenoble-alpes.fr/schaeffn/shtns/-/tags>`_
 
 .. code-block:: bash
 
@@ -120,10 +120,10 @@ the following available options:
 * ``USE_MPI`` Set to ``yes`` to use MPI, set it to ``no`` if you want a serial version of the code .
 * ``USE_OMP``  Set it to ``yes`` to use the hybrid version of the code, or to ``no`` for a pure MPI (or serial) version.
 * ``USE_PRECOND`` Set to ``yes`` to perform some pre-conditioning of the matrices.
-* ``USE_FFTLIB`` This option lets you select the library you want to use for Fast Fourier Transforms. This can be set to 'JW', 'FFTW' or 'MKL'. 'JW' refers to the built-in library by **J** ohannes **W** icht, FFTW refers to the `Fastest Fourier Transform in the West <http://www.fftw.org/>`_,  while 'MKL' refers to the `Intel Math Kernel Library <https://software.intel.com/en-us/intel-mkl>`_. Use 'JW' if you don't have Intel MKL installed.
+* ``USE_FFTLIB`` This option lets you select the library you want to use for Fast Fourier Transforms. This can be set to 'JW', 'FFTW' or 'MKL'. 'JW' refers to the built-in library by **J** ohannes **W** icht, FFTW refers to the `Fastest Fourier Transform in the West <https://www.fftw.org/>`_,  while 'MKL' refers to the `Intel Math Kernel Library <https://software.intel.com/en-us/intel-mkl>`_. Use 'JW' if you don't have Intel MKL installed.
 * ``USE_DCTLIB`` This option lets you select the library you want to use for Discrete Cosine Transforms. This can be set to 'JW', 'FFTW' or 'MKL'.
 * ``USE_LAPACKLIB`` This option allows you to select the library you want to use for LU factorisation. This can be set to 'JW', 'MKL', 'LIBFLAME' or 'LAPACK'. 'LIBFLAME' refers to the AMD dense matrix solvers `libflame <https://github.com/amd/libflame>`_.
-* ``USE_SHTNS`` Set to ``yes`` to use `SHTns <https://bitbucket.org/nschaeff/shtns>`_ library for spherical harmonics transforms. The helper script ``install-shtns.sh`` is available in the ``bin`` directory to help installing SHTns.
+* ``USE_SHTNS`` Set to ``yes`` to use `SHTns <https://gricad-gitlab.univ-grenoble-alpes.fr/schaeffn/shtns/>`_ library for spherical harmonics transforms. The helper script ``install-shtns.sh`` is available in the ``bin`` directory to help installing SHTns.
 * ``CMAKE_BUILD_TYPE``   Set to ``Debug`` to enable the full debug flags.
 
 .. warning:: MagIC cannot run with openMP alone, therefore a configuration of the form
@@ -308,7 +308,3 @@ description of the possible options) and run **MagIC** as follows:
      $ export OMP_NUM_THREAD = <n_omp>
      $ export KMP_AFFINITY=verbose,granularity=core,compact,1
      $ mpiexec -n <n_mpi> ./magic.exe input.nml
-
-Note that the :ref:`n_r_max-1 <varn_r_max>` must be a multiple of ``<n_mpi>``,
-where :ref:`n_r_max <varn_r_max>` is the number of radial grid points (see
-:ref:`here <secGridNml>`). 

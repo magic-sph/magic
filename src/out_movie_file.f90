@@ -214,8 +214,8 @@ contains
             !------ Combine OC and IC radial grid points:
             n_r_mov_tot=n_r_max
             r_mov_tot(:n_r_max)=r(:)
-            if ( n_r_ic_max > 0 .and. lICField(n_movie) ) then
-               n_r_mov_tot=n_r_mov_tot+n_r_ic_max
+            if ( n_r_ic_max > 0 ) then
+               if ( lICField(n_movie) ) n_r_mov_tot=n_r_mov_tot+n_r_ic_max
                r_mov_tot(n_r_max+1:)=r_ic(:)
             end if
 
