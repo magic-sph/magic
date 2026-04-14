@@ -8,14 +8,14 @@
 
 # Foreword
 
-* **MagIC** is a numerical code that can simulate fluid dynamics in spherical geometry. MagIC solves for the Navier-Stokes equation including Coriolis force, optionally coupled with an induction equation for Magneto-Hydro Dynamics (MHD), a temperature (or entropy) equation and an equation for chemical composition under both the anelastic and the Boussinesq approximations.  
+* **MagIC** is a numerical code that can simulate fluid dynamics in spherical geometry. MagIC solves for the Navier-Stokes equation including Coriolis force, optionally coupled with an induction equation for Magneto-Hydro Dynamics (MHD), a temperature (or entropy) equation and an equation for chemical composition under both the anelastic and the Boussinesq approximations.
 
 * **MagIC** uses either Chebyshev polynomials or finite differences in the radial direction and spherical harmonic decomposition in the azimuthal and latitudinal directions.  MagIC supports several Implicit-Explicit time schemes where the nonlinear terms and the Coriolis force are treated explicitly, while the remaining linear terms are treated implicitly.
 
 
-* **MagIC** is written in Fortran and designed to be used on supercomputing clusters.  It thus relies on a hybrid parallelisation scheme using both [OpenMP](http://openmp.org/wp/) and [MPI](http://www.open-mpi.org/). Postprocessing functions written in python (requiring [matplotlib](http://matplotlib.org/) and [scipy](http://www.scipy.org/) are also provided to allow a useful data analysis.  
+* **MagIC** is written in Fortran and designed to be used on supercomputing clusters.  It thus relies on a hybrid parallelisation scheme using both [OpenMP](https://openmp.org/wp/) and [MPI](https://www.open-mpi.org/). Postprocessing functions written in python (requiring [matplotlib](https://matplotlib.org/) and [scipy](https://www.scipy.org/) are also provided to allow a useful data analysis.
 
-* **MagIC** is a free software. It can be used, modified and redistributed under the terms of the [GNU GPL v3 licence](http://www.gnu.org/licenses/gpl-3.0.en.html).
+* **MagIC** is a free software. It can be used, modified and redistributed under the terms of the [GNU GPL v3 licence](https://www.gnu.org/licenses/gpl-3.0.en.html).
 
 
 # Quickly start using MagIC
@@ -51,7 +51,7 @@ $ source sourceme.csh
 
 ### 3) Install SHTns (recommended)
 
-[SHTns](https://bitbucket.org/bputigny/shtns-magic) is a an open-source library for the Spherical Harmonics transforms. It is significantly faster than the native transforms implemented in MagIC, and it is hence **recommended** (though not mandatory) to install it. To install the library, first define a C compiler:
+[SHTns](https://gricad-gitlab.univ-grenoble-alpes.fr/schaeffn/shtns/) is a an open-source library for the Spherical Harmonics transforms. It is significantly faster than the native transforms implemented in MagIC, and it is hence **recommended** (though not mandatory) to install it. To install the library, first define a C compiler:
 
 ```sh
 $ export CC=gcc
@@ -69,7 +69,7 @@ $ cd $MAGIC_HOME/bin
 $ ./install-shtns.sh
 ```
 
-or install it manually after downloading and extracting the latest version [here](https://bitbucket.org/nschaeff/shtns/downloads/)
+or install it manually after downloading and extracting the latest version [here](https://gricad-gitlab.univ-grenoble-alpes.fr/schaeffn/shtns/-/tags)
 
 ```sh
 $ ./configure --enable-openmp --prefix=$HOME/local
@@ -162,7 +162,7 @@ $ mpiexec -n 4 ./magic.exe input.nml
 
 ### 7) Data visualisation and postprocessing
 
-a) Set-up your PYTHON environment ([ipython](http://ipython.org/), [scipy](http://www.scipy.org/) and [matplotlib](http://matplotlib.org/) are needed)
+a) Set-up your PYTHON environment ([ipython](https://ipython.org/), [scipy](https://www.scipy.org/) and [matplotlib](https://matplotlib.org/) are needed)
 
 b) Modify `magic.cfg` according to your machine in case the auto-configuration didn't work
 
@@ -198,15 +198,16 @@ b) Try to follow the same coding style rules as in the rest of the code:
 4. Never use `dimension(len)` for declaring array but rather `real(cp) :: data(len)`
 5. Always use the default precisions when introducing new variables `(cp)`
 
-More on that topic [here](http://www.fortran90.org/src/best-practices.html)
+More on that topic [here](https://www.fortran90.org/src/best-practices.html)
 
 ### 9) Make sure you cite the following papers if you intend to publish scientific results using MagIC:
 
-* Boussinesq equations: [Wicht (2002, PEPI, 132, 281-302)](http://dx.doi.org/10.1016/S0031-9201(02)00078-X)
-* Anelastic equations: [Gastine & Wicht (2012, Icarus, 219, 428-442)](http://dx.doi.org/10.1016/j.icarus.2012.03.018)
-* In case you use the [SHTns](https://bitbucket.org/bputigny/shtns-magic) library for the spherical harmonics transforms (MagIC 5.3 or later), please also cite: [Schaeffer (2013, GGG, 14, 751-758)](http://dx.doi.org/10.1002/ggge.20071)
+* Boussinesq equations: [Wicht (2002, PEPI, 132, 281-302)](https://dx.doi.org/10.1016/S0031-9201(02)00078-X)
+* Anelastic equations: [Gastine & Wicht (2012, Icarus, 219, 428-442)](https://dx.doi.org/10.1016/j.icarus.2012.03.018)
+* Phase field: [Gastine & Favier (2025, Icarus, 429, 116441)](https://dx.doi.org/10.1016/j.icarus.2024.116441)
+* In case you use the [SHTns](https://gricad-gitlab.univ-grenoble-alpes.fr/schaeffn/shtns/) library for the spherical harmonics transforms (MagIC 5.3 or later), please also cite: [Schaeffer (2013, GGG, 14, 751-758)](https://dx.doi.org/10.1002/ggge.20071)
 
 MagIC has been tested and validated against several international dynamo benchmarks:
-* [Christensen et al. (2001, PEPI, 128, 25-34)](http://dx.doi.org/10.1016/S0031-9201(01)00275-8)
-* [Breuer et al. (2010, GJI, 183, 150-162)](http://dx.doi.org/10.1111/j.1365-246X.2010.04722.x)
-* [Jones et al. (2011, Icarus, 216, 120-135)](http://dx.doi.org/10.1016/j.icarus.2011.08.014)
+* [Christensen et al. (2001, PEPI, 128, 25-34)](https://dx.doi.org/10.1016/S0031-9201(01)00275-8)
+* [Breuer et al. (2010, GJI, 183, 150-162)](https://dx.doi.org/10.1111/j.1365-246X.2010.04722.x)
+* [Jones et al. (2011, Icarus, 216, 120-135)](https://dx.doi.org/10.1016/j.icarus.2011.08.014)
