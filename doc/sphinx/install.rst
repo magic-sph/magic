@@ -85,13 +85,13 @@ or install it manually after downloading and extracting the latest version `here
 
 .. code-block:: bash
 
-   ./configure --enable-openmp --enable-ishioka --enable-magic-layout --prefix=$HOME/local
+   ./configure --enable-openmp --prefix=$HOME/local
 
 if FFTW is used or
 
 .. code-block:: bash
 
-   ./configure --enable-openmp --enable-ishioka --enable-magic-layout --prefix=$HOME/local --enable-mkl
+   ./configure --enable-openmp --prefix=$HOME/local --enable-mkl
 
 if the MKL is used. Possible additional options may be required depending on the machine (check the website). Then compile and install the library
 

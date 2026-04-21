@@ -78,7 +78,7 @@ $ ./configure --enable-openmp --prefix=$HOME/local
 if FFTW is used or
 
 ```sh
-$ ./configure --enable-openmp --enable-ishioka --enable-magic-layout --prefix=$HOME/local --enable-mkl
+$ ./configure --enable-openmp --prefix=$HOME/local --enable-mkl
 ```
 
 if the MKL is used. Possible additional options may be required depending on the machine (check the website). Then compile and install the library
