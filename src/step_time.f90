@@ -31,7 +31,8 @@ module step_time_mod
        &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix,  &
        &            l_packed_transp, l_rot_ic, l_rot_ma, l_cond_ma,    &
        &            l_parallel_solve, l_mag_par_solve, l_phase_field,  &
-       &            l_onset, l_geosMovie, l_phaseMovie, l_dtphaseMovie
+       &            l_onset, l_geosMovie, l_phaseMovie, l_dtphaseMovie,&
+       &            l_mag_hel
    use init_fields, only: omega_ic1, omega_ma1
    use radialLoop, only: radialLoopG
    use LMLoop_mod, only: LMLoop, finish_explicit_assembly, assemble_stage, &
@@ -116,6 +117,7 @@ contains
       logical :: l_cmb            ! Store set of b at CMB
       logical :: l_r              ! Store coeff at various depths
       logical :: lHelCalc         ! Calculate helicity for output
+      logical :: lMagHelCalc      ! Calculate magnetic helicity for output
       logical :: lHemiCalc        ! Calculate hemisphericity for output
       logical :: lPowerCalc       ! Calculate viscous heating in the physical space
       logical :: lviscBcCalc      ! Calculate horizontal velocity and (grad T)**2
@@ -414,6 +416,7 @@ contains
          end if
 
          lHelCalc     =l_hel        .and. l_log
+         lMagHelCalc = l_mag_hel    .and. l_log
          lHemiCalc    =l_hemi       .and. l_log
          lPowerCalc   =l_power      .and. l_log
          lPerpParCalc =l_perpPar    .and. l_log
@@ -470,6 +473,7 @@ contains
             lTONext       = lTONext       .and. (tscheme%istage==1) .and. (.not. l_onset)
             lTONext2      = lTONext2      .and. (tscheme%istage==1) .and. (.not. l_onset)
             lHelCalc      = lHelCalc      .and. (tscheme%istage==1) .and. (.not. l_onset)
+            lMagHelCalc   = lMagHelCalc   .and. (tscheme%istage==1) .and. (.not. l_onset)
             lHemiCalc     = lHemiCalc     .and. (tscheme%istage==1) .and. (.not. l_onset)
             lPowerCalc    = lPowerCalc    .and. (tscheme%istage==1) .and. (.not. l_onset)
             lRmsCalc      = lRmsCalc      .and. (tscheme%istage==1) .and. (.not. l_onset)
@@ -499,6 +503,7 @@ contains
                   if ( l_mag_par_solve ) then
                   call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,           &
                        &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
+                       &           lMagHelCalc,                                       &
                        &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,         &
                        &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,  &
                        &           lHemiCalc,lPhaseCalc,l_probe_out,                  &
@@ -517,6 +522,7 @@ contains
                   else
                   call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,           &
                        &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
+                       &           lMagHelCalc,                                       &
                        &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,         &
                        &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,  &
                        &           lHemiCalc,lPhaseCalc,l_probe_out,                  &
@@ -535,6 +541,7 @@ contains
                else
                   call radialLoopG(l_graph, l_frame,time,timeStage,tscheme,           &
                        &           dtLast,lTOCalc,lTONext,lTONext2,lHelCalc,          &
+                       &           lMagHelCalc,                                       &
                        &           lPowerCalc,lRmsCalc,lPressCalc,lPressNext,         &
                        &           lViscBcCalc,lFluxProfCalc,lPerpParCalc,lGeosCalc,  &
                        &           lHemiCalc,lPhaseCalc,l_probe_out,dsdt_Rloc,        &

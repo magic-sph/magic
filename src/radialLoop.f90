@@ -39,7 +39,8 @@ contains
    end subroutine finalize_radialLoop
 !----------------------------------------------------------------------------
    subroutine radialLoopG(l_graph,l_frame,time,timeStage,tscheme,dtLast,   &
-              &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,     &
+              &          lTOCalc,lTONext,lTONext2,lHelCalc, lMagHelCalc,   &
+              &          lPowerCalc,                                       &
               &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,       &
               &          lFluxProfCalc,lPerpParCalc,lGeosCalc,lHemiCalc,   &
               &          lPhaseCalc,l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt, &
@@ -53,6 +54,7 @@ contains
       !--- Input of variables:
       logical,             intent(in) :: l_graph,l_frame
       logical,             intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc
+      logical,             intent(in) :: lMagHelCalc
       logical,             intent(in) :: lPowerCalc,lGeosCalc
       logical,             intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
       logical,             intent(in) :: lRmsCalc,lHemiCalc,lPhaseCalc
@@ -90,7 +92,8 @@ contains
       real(cp),    intent(out) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
 
       call rIter%radialLoop(l_graph,l_frame,time,timeStage,tscheme,dtLast,    &
-           &             lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,        &
+           &             lTOCalc,lTONext,lTONext2,lHelCalc,lMagHelCalc,       &
+           &             lPowerCalc,                                          &
            &             lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,          &
            &             lFluxProfCalc,lPerpParCalc,lGeosCalc,lHemiCalc,      &
            &             lPhaseCalc,l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,    &

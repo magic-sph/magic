@@ -30,7 +30,8 @@ module grid_space_arrays_mod
    use parallel_mod, only: get_openmp_blocks
    use constants, only: two, third, one
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, l_adv_curl, &
-       &            l_chemical_conv, l_precession, l_centrifuge, l_phase_field
+       &            l_chemical_conv, l_precession, l_centrifuge, l_phase_field,   &
+       &            l_mag_hel
 
    implicit none
 
@@ -57,7 +58,8 @@ module grid_space_arrays_mod
       real(cp), allocatable :: cbrc(:,:), cbtc(:,:), cbpc(:,:)
       real(cp), allocatable :: pc(:,:), xic(:,:), cvtc(:,:), cvpc(:,:)
       real(cp), allocatable :: dsdtc(:,:), dsdpc(:,:), phic(:,:)
-
+      ! magnetic vector potential A
+      real(cp), allocatable :: arc(:,:), atc(:,:), apc(:,:)
    contains
 
       procedure :: initialize
@@ -182,7 +184,17 @@ contains
          bytes_allocated=bytes_allocated+2*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
       end if
 
-   end subroutine initialize
+      if (l_mag_hel) then
+         allocate( this%arc(nlat_padded,n_phi_max) )
+         allocate( this%atc(nlat_padded,n_phi_max) )
+         allocate( this%apc(nlat_padded,n_phi_max) )
+         this%arc(:,:) = 0.0_cp
+         this%atc(:,:) = 0.0_cp
+         this%apc(:,:) = 0.0_cp
+         bytes_allocated=bytes_allocated + 3*n_phi_max*nlat_padded*SIZEOF_DEF_REAL
+      end if
+
+    end subroutine initialize
 !----------------------------------------------------------------------------
    subroutine finalize(this)
       !
@@ -198,6 +210,7 @@ contains
       if ( l_centrifuge ) deallocate( this%CAr, this%CAt )
       if ( l_adv_curl ) deallocate( this%cvtc, this%cvpc )
       if ( l_phase_field ) deallocate( this%phic, this%phiTerms )
+      if ( l_mag_hel) deallocate( this%arc, this%atc, this%apc )
       deallocate( this%heatTerms )
 
       !----- Fields calculated from these help arrays by legtf:

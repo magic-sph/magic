@@ -24,7 +24,7 @@ module output_mod
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,          &
        &            l_chemical_conv, l_movie, l_full_sphere, l_spec_avg,      &
        &            l_phase_field, l_hemi, l_dtBmovie, l_phaseMovie,          &
-       &            l_dtPhaseMovie, l_geosMovie, l_gw
+       &            l_dtPhaseMovie, l_geosMovie, l_gw, l_mag_hel
    use fields, only: omega_ic, omega_ma, b_ic,db_ic, aj_ic,                  &
        &             w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,        &
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
@@ -43,7 +43,8 @@ module output_mod
    use output_data, only: tag, l_max_cmb, n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three, zero
    use outMisc_mod, only: outHeat, outHelicity, outHemi, outPhase, get_onset, &
-       &                  calc_melt_frame, outGWentropy, outGWpressure
+       &                  calc_melt_frame, outGWentropy, outGWpressure,       &
+       &                  outMagneticHelicity
    use geos, only: outGeos, outOmega, calc_geos_frame
    use outRot, only: write_rot
    use integration, only: rInt_R
@@ -430,6 +431,8 @@ contains
          end if
 
          if ( l_hel ) call outHelicity(timeScaled)
+
+         if ( l_mag_hel ) call outMagneticHelicity(timeScaled)
 
          if ( l_hemi ) call outHemi(timeScaled)
 

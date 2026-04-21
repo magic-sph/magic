@@ -40,14 +40,15 @@ module rIter_mod
    use courant_mod, only: courant
    use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary, v_center_sphere
    use power, only: get_visc_heat
-   use outMisc_mod, only: get_ekin_solid_liquid, get_hemi, get_helicity
+   use outMisc_mod, only: get_ekin_solid_liquid, get_hemi, get_helicity, &
+        &                 get_magnetic_helicity
    use outPar_mod, only: get_fluxes, get_nlBlayers, get_perpPar
    use geos, only: calcGeos
    use sht
    use fields, only: s_Rloc, ds_Rloc, z_Rloc, dz_Rloc, p_Rloc,    &
        &             b_Rloc, db_Rloc, ddb_Rloc, aj_Rloc,dj_Rloc,  &
        &             w_Rloc, dw_Rloc, ddw_Rloc, xi_Rloc, omega_ic,&
-       &             omega_ma, phi_Rloc
+       &             omega_ma, phi_Rloc, zeros_alike_b_Rloc
    use time_schemes, only: type_tscheme
    use physical_parameters, only: ktops, kbots, n_r_LCR, ktopv, kbotv
    use rIteration, only: rIter_t
@@ -92,7 +93,8 @@ contains
    end subroutine finalize
 !------------------------------------------------------------------------------
    subroutine radialLoop(this,l_graph,l_frame,time,timeStage,tscheme,dtLast,  &
-              &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,        &
+              &          lTOCalc,lTONext,lTONext2,lHelCalc,lMagHelCalc,       &
+              &          lPowerCalc,                                          &
               &          lRmsCalc,lPressCalc,lPressNext,lViscBcCalc,          &
               &          lFluxProfCalc,lPerpParCalc,lGeosCalc,lHemiCalc,      &
               &          lPhaseCalc,l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,    &
@@ -111,6 +113,7 @@ contains
       !--- Input of variables:
       logical,             intent(in) :: l_graph,l_frame
       logical,             intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc
+      logical,             intent(in) :: lMagHelCalc
       logical,             intent(in) :: lPowerCalc,lHemiCalc
       logical,             intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
       logical,             intent(in) :: lRmsCalc,lGeosCalc,lPhaseCalc
@@ -228,7 +231,8 @@ contains
             call this%transform_to_grid_space(nR, nBc, lViscBcCalc, lRmsCalc,       &
                  &                            lPressCalc, lTOCalc, lPowerCalc,      &
                  &                            lFluxProfCalc, lPerpParCalc, lHelCalc,&
-                 &                            lGeosCalc, lHemiCalc, l_frame, lDeriv)
+                 &                            lMagHelCalc, lGeosCalc, lHemiCalc,    &
+                 &                            l_frame, lDeriv)
             call lm2phy_counter%stop_count(l_increment=.false.)
          end if
 
@@ -323,6 +327,11 @@ contains
             call get_helicity(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,         &
                  &            this%gsa%cvrc,this%gsa%dvrdtc,this%gsa%dvrdpc,  &
                  &            this%gsa%dvtdrc,this%gsa%dvpdrc,nR)
+         end if
+
+         if ( lMagHelCalc ) then
+            call get_magnetic_helicity(this%gsa%brc, this%gsa%btc, this%gsa%bpc, &
+                 &                     this%gsa%arc, this%gsa%atc, this%gsa%apc, nR)
          end if
 
          !-- North/South hemisphere differences
@@ -466,7 +475,8 @@ contains
    subroutine transform_to_grid_space(this, nR, nBc, lViscBcCalc, lRmsCalc,      &
               &                       lPressCalc, lTOCalc, lPowerCalc,           &
               &                       lFluxProfCalc, lPerpParCalc, lHelCalc,     &
-              &                       lGeosCalc, lHemiCalc, l_frame, lDeriv)
+              &                       lMagHelCalc, lGeosCalc, lHemiCalc, l_frame,&
+              &                       lDeriv)
       !
       ! This subroutine actually handles the spherical harmonic transforms from
       ! (\ell,m) space to (\theta,\phi) space.
@@ -478,7 +488,7 @@ contains
       integer, intent(in) :: nR, nBc
       logical, intent(in) :: lViscBcCalc, lRmsCalc, lPressCalc, lTOCalc, lPowerCalc
       logical, intent(in) :: lFluxProfCalc, lPerpParCalc, lHelCalc, l_frame
-      logical, intent(in) :: lDeriv, lGeosCalc, lHemiCalc
+      logical, intent(in) :: lDeriv, lGeosCalc, lHemiCalc, lMagHelCalc
 
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
@@ -602,6 +612,14 @@ contains
                  &                   aj_Rloc(:,nR), dj_Rloc(:,nR),          &
                  &                   this%gsa%cbrc, this%gsa%cbtc,          &
                  &                   this%gsa%cbpc, l_R(nR))
+         end if
+
+         if ( lMagHelCalc ) then
+            !! replace (poloidal => 0, toroidal => poloidal)
+            call torpol_to_spat(zeros_alike_b_Rloc, zeros_alike_b_Rloc,  b_Rloc(:,nR),    &
+                 &              this%gsa%arc, this%gsa%atc, this%gsa%apc, l_R(nR))
+            !! radial component of potential vector A_r == B_toroidal (aj)
+            call scal_to_spat(aj_Rloc(:,nR), this%gsa%arc, l_R(nR))
          end if
 
          if ( nR == n_r_icb .and. l_full_sphere ) then

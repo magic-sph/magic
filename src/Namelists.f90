@@ -129,7 +129,7 @@ contains
       &    r_probe,theta_probe,n_phi_probes,n_probe_step,      &
       &    n_probe_out,t_probe_start,t_probe_stop,dt_probe,    &
       &    l_earth_likeness,l_max_comp,l_geo,l_2D_spectra,     &
-      &    l_2D_RMS, l_spec_avg
+      &    l_2D_RMS, l_spec_avg, l_mag_hel
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
       &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
@@ -651,6 +651,7 @@ contains
          l_mag_nl =.false.
          l_cond_ic=.false.
          lMagMem  =0
+         l_mag_hel=.false.
       end if
 
       if ( l_corrMov ) l_par= .true.
@@ -1243,6 +1244,7 @@ contains
       write(n_out,'(''  l_max_comp      ='',i3,'','')') l_max_comp
       write(n_out,'(''  l_geo           ='',i3,'','')') l_geo
       write(n_out,'(''  l_hel           ='',l3,'','')') l_hel
+      write(n_out,'(''  l_mag_hel       ='',l3,'','')') l_mag_hel
       write(n_out,'(''  l_hemi          ='',l3,'','')') l_hemi
       write(n_out,'(''  l_gw            ='',l3,'','')') l_gw
       write(n_out,'(''  l_AM            ='',l3,'','')') l_AM
@@ -1673,6 +1675,7 @@ contains
 
       !----- Different output, output times same as for log outout:
       l_hel         =.false. ! Helicity in misc.TAG
+      l_mag_hel     =.false. ! Magnetic helicity
       l_hemi        =.false. ! Hemisphericity in hemi.TAG
       l_AM          =.false. ! Angular moment in AM.TAG
       l_power       =.false. ! power budget in power.TAG and dtE.TAG

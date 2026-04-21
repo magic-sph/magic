@@ -511,7 +511,8 @@ class MagicTs(MagicSetup):
         elif self.field == 'helicity_mag':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(self.time, self.mhel, label='magnetic helicity')
+            ax.plot(self.time, self.mhelRMSN, label='RMS-North')
+            ax.plot(self.time, self.mhelRMSS, label='RMS-South')
             ax.legend(loc='lower right')
             ax.set_xlabel('Time')
         elif self.field == 'u_square':
@@ -892,7 +893,23 @@ class TsLookUpTable:
             self.helnaRMSS = data[:, 8]
         elif self.field == 'helicity_mag':
             self.time = data[:, 0]
-            self.mhel = data[:, 1]
+            self.mhelN = data[:, 1]
+            if data.shape[1]>2:
+                self.mhelS = data[:, 2]
+                self.mhelRMSN = data[:,3]
+                self.mhelRMSS = data[:,4]
+                self.mhelnaN = data[:,5]
+                self.mhelnaS = data[:,6]
+                self.mhelnaRMSN = data[:,7]
+                self.mhelnaRMSS = data[:,8]
+                ## global average
+                self.mhel   = 0.5*(self.mhelN + self.mhelS)
+                self.mhelna = 0.5*(self.mhelnaN + self.mhelnaS)
+                self.mhelRMS   = ( 0.5*(self.mhelRMSN**2   + self.mhelRMSS**2) )**0.5
+                self.mhelnaRMS = ( 0.5*(self.mhelnaRMSN**2 + self.mhelnaRMSS**2) )**0.5
+                self.mhelEA = (self.mhelN - self.mhelS) / (abs(self.mhelN) + abs(self.mhelS))
+                self.mhelEAna = ( (self.mhelnaN - self.mhelnaS) /
+                                  (abs(self.mhelnaN) + abs(self.mhelnaS)) )
         elif self.field == 'earth_like':
             self.time = data[:, 0]
             self.axial_dipole = data[:, 1]

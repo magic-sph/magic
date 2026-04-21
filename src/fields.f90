@@ -11,7 +11,7 @@ module fields
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
        &                 n_r_ic_maxMag, fd_order, fd_order_bound
    use logic, only: l_chemical_conv, l_finite_diff, l_mag, l_parallel_solve, &
-       &            l_mag_par_solve, l_phase_field
+       &            l_mag_par_solve, l_phase_field, l_mag_hel
    use blocking, only: llm, ulm, llmMag, ulmMag
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag
    use parallel_mod, only: rank
@@ -59,6 +59,7 @@ module fields
    complex(cp), public, pointer :: aj_LMloc(:,:), dj_LMloc(:,:), ddj_LMloc(:,:)
    complex(cp), public, pointer :: aj_Rloc(:,:), dj_Rloc(:,:)
    complex(cp), public, allocatable :: ddj_Rloc(:,:)
+   complex(cp), public, allocatable :: zeros_alike_b_Rloc(:)
 
    !-- Magnetic field potentials in inner core:
    !   NOTE: n_r-dimension may be smaller once CHEBFT is addopted
@@ -352,6 +353,12 @@ contains
          end if
       end if
 
+      if ( l_mag_hel) then
+         allocate(zeros_alike_b_Rloc(1:lm_maxMag))
+         bytes_allocated = bytes_allocated + lm_maxMag*SIZEOF_DEF_COMPLEX
+         zeros_alike_b_Rloc(:) = zero
+      end if
+
    end subroutine initialize_fields
 !----------------------------------------------------------------------------
    subroutine finalize_fields
@@ -392,6 +399,7 @@ contains
          deallocate(bodyForce_LMloc)
          if ( l_parallel_solve ) deallocate(bodyForce_Rloc)
       end if
+      if ( l_mag_hel) deallocate(zeros_alike_b_Rloc)
 
    end subroutine finalize_fields
 !----------------------------------------------------------------------------

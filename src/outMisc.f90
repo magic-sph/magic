@@ -26,7 +26,7 @@ module outMisc_mod
    use horizontal_data, only: gauss, theta_ord, n_theta_cal2ord, O_sin_theta_E2
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, l_hemi, &
        &            l_temperature_diff, l_chemical_conv, l_phase_field,    &
-       &            l_mag, l_onset, l_dtphaseMovie, l_gw
+       &            l_mag, l_onset, l_dtphaseMovie, l_gw, l_mag_hel
    use output_data, only: tag
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four, half, zero, ci
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
@@ -39,7 +39,7 @@ module outMisc_mod
    private
 
    type(mean_sd_type) :: TMeanR, SMeanR, PMeanR, XiMeanR, RhoMeanR, PhiMeanR
-   integer :: n_heat_file, n_helicity_file, n_calls, n_phase_file
+   integer :: n_heat_file, n_helicity_file, n_calls, n_phase_file, n_magHel_file
    integer :: n_gw_S_file, n_gw_P_file
    integer :: n_rmelt_file, n_hemi_file, n_growth_sym_file, n_growth_asym_file
    integer :: n_drift_sym_file, n_drift_asym_file
@@ -47,6 +47,7 @@ module outMisc_mod
    character(len=72) :: hemi_file, sym_file, asym_file, drift_sym_file
    character(len=72) :: drift_asym_file
    character(len=72) :: gw_S_file, gw_P_file
+   character(len=72) :: magHel_file
    real(cp) :: TPhiOld, Tphi
    real(cp), allocatable :: ekinSr(:), ekinLr(:), volSr(:)
    real(cp), allocatable :: hemi_ekin_r(:,:), hemi_vrabs_r(:,:)
@@ -54,6 +55,8 @@ module outMisc_mod
    real(cp), allocatable :: HelASr(:,:), Hel2ASr(:,:)
    real(cp), allocatable :: HelnaASr(:,:), Helna2ASr(:,:)
    real(cp), allocatable :: HelEAASr(:)
+   real(cp), allocatable :: magHelASr(:,:), magHel2ASr(:,:)
+   real(cp), allocatable :: magHelnaASr(:,:), magHelna2ASr(:,:)
    real(cp), allocatable :: temp_Rloc(:,:,:), phase_Rloc(:,:,:), dtemp_Rloc(:,:,:)
    real(cp), allocatable :: temp_Ploc(:,:,:), phase_Ploc(:,:,:), dtemp_Ploc(:,:,:)
    complex(cp), allocatable :: coeff_old(:)
@@ -67,7 +70,7 @@ module outMisc_mod
    &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
    &         get_onset, calc_melt_frame
    public :: outGWentropy, outGWpressure
-
+   public :: outMagneticHelicity, get_magnetic_helicity
 contains
 
    subroutine initialize_outMisc_mod()
@@ -102,6 +105,18 @@ contains
          bytes_allocated=bytes_allocated+9*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
       end if
 
+      if ( l_mag_hel) then
+         magHel_file  ='helicity_mag.'//tag
+         allocate( magHelASr(nRstart:nRstop,2), magHel2ASr(nRstart:nRstop,2) )
+         allocate( magHelnaASr(nRstart:nRstop,2), magHelna2ASr(nRstart:nRstop,2) )
+         magHelASr(:,:)   =0.0_cp
+         magHel2ASr(:,:)  =0.0_cp
+         magHelnaASr(:,:) =0.0_cp
+         magHelna2ASr(:,:)=0.0_cp
+         bytes_allocated=bytes_allocated + 8*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
+
+      end if
+
       if ( l_hemi ) then
          hemi_file    ='hemi.'//tag
          allocate( hemi_ekin_r(nRstart:nRstop,2), hemi_vrabs_r(nRstart:nRstop,2) )
@@ -127,6 +142,7 @@ contains
       heat_file    ='heat.'//tag
       if ( rank == 0 .and. (.not. l_save_out) ) then
          if ( l_hel ) open(newunit=n_helicity_file, file=helicity_file, status='new')
+         if ( l_mag_hel ) open(newunit=n_magHel_file, file=magHel_file, status='new')
          if ( l_hemi ) open(newunit=n_hemi_file, file=hemi_file, status='new')
          if ( l_heat .or. l_chemical_conv ) then
             open(newunit=n_heat_file, file=heat_file, status='new')
@@ -234,7 +250,10 @@ contains
          if ( l_mag ) deallocate( hemi_emag_r, hemi_brabs_r )
       end if
       if ( l_hel ) deallocate( HelASr, Hel2ASr, HelnaASr, Helna2ASr, HelEAASr )
-
+      if ( l_mag_hel ) then
+         deallocate( magHelASr,  magHelnaASr )
+         deallocate( magHel2ASr, magHelna2ASr )
+      end if
       if ( l_phase_field ) then
          if ( l_dtphaseMovie ) deallocate( dtemp_Rloc, dtemp_Ploc, dt_rmelt_loc)
          deallocate( temp_Rloc, phase_Rloc, temp_Ploc, phase_Ploc, phi_balance )
@@ -427,7 +446,77 @@ contains
 
       end if
 
-   end subroutine outHelicity
+    end subroutine outHelicity
+
+    subroutine outMagneticHelicity(timeScaled)
+      !
+      ! This subroutine is used to store informations about magnetic
+      ! helicity. Outputs are stored in the time series helicity_mag.TAG
+      !
+
+      !-- Input of variables:
+      real(cp), intent(in) :: timeScaled
+
+      !-- Local variable:
+      real(cp) :: magHelNr_global(n_r_max),   magHelSr_global(n_r_max)
+      real(cp) :: magHel2Nr_global(n_r_max),  magHel2Sr_global(n_r_max)
+      real(cp) :: magHelnaNr_global(n_r_max), magHelnaSr_global(n_r_max)
+      real(cp) :: magHelna2Nr_global(n_r_max),magHelna2Sr_global(n_r_max)
+      real(cp) :: magHelN,magHelS
+      real(cp) :: magHelRMSN,magHelRMSS
+      real(cp) :: magHelnaN,magHelnaS
+      real(cp) :: magHelnaRMSN,magHelnaRMSS
+
+      ! Now we have to gather the results on rank 0
+      call gather_from_Rloc(magHelASr(:,1),    magHelNr_global, 0)
+      call gather_from_Rloc(magHelASr(:,2),    magHelSr_global, 0)
+      call gather_from_Rloc(magHel2ASr(:,1),   magHel2Nr_global, 0)
+      call gather_from_Rloc(magHel2ASr(:,2),   magHel2Sr_global, 0)
+      call gather_from_Rloc(magHelnaASr(:,1),  magHelnaNr_global, 0)
+      call gather_from_Rloc(magHelnaASr(:,2),  magHelnaSr_global, 0)
+      call gather_from_Rloc(magHelna2ASr(:,1), magHelna2Nr_global, 0)
+      call gather_from_Rloc(magHelna2ASr(:,2), magHelna2Sr_global, 0)
+
+      if ( rank == 0 ) then
+         ! r^2 factor taken into account in get_magnetic_helicity
+         magHelN     =rInt_R(magHelNr_global,r,rscheme_oc)
+         magHelS     =rInt_R(magHelSr_global,r,rscheme_oc)
+         magHelnaN   =rInt_R(magHelnaNr_global,r,rscheme_oc)
+         magHelnaS   =rInt_R(magHelnaSr_global,r,rscheme_oc)
+         magHelRMSN  =rInt_R(magHel2Nr_global,r,rscheme_oc)
+         magHelRMSS  =rInt_R(magHel2Sr_global,r,rscheme_oc)
+         magHelnaRMSN=rInt_R(magHelna2Nr_global,r,rscheme_oc)
+         magHelnaRMSS=rInt_R(magHelna2Sr_global,r,rscheme_oc)
+
+         ! 2*pi factor already in get_magnetic_helicity (phiNorm)
+         magHelN  = magHelN/(vol_oc/2) ! Note integrated over half spheres only !
+         magHelS  = magHelS/(vol_oc/2)
+         magHelnaN= magHelnaN/(vol_oc/2)
+         magHelnaS= magHelnaS/(vol_oc/2)
+
+         magHelRMSN   = sqrt(magHelRMSN/(vol_oc/2))
+         magHelRMSS   = sqrt(magHelRMSS/(vol_oc/2))
+         magHelnaRMSN = sqrt(magHelnaRMSN/(vol_oc/2))
+         magHelnaRMSS = sqrt(magHelnaRMSS/(vol_oc/2))
+
+         ! normalisation => postprocessing
+         ! magHel = 0.5 * (magHelN + magHelS)
+         ! magHelRMS = sqrt( 0.5 * (magHelRMSN**2 + magHelRMSS**2) )
+
+         if ( l_save_out ) then
+            open(newunit=n_magHel_file, file=magHel_file,   &
+            &    status='unknown', position='append')
+         end if
+
+         write(n_magHel_file,'(1P,ES20.12,8ES16.8)')   &
+         &     timeScaled, magHelN, magHelS, magHelRMSN, magHelRMSS,  &
+         &     magHelnaN, magHelnaS, magHelnaRMSN, magHelnaRMSS
+
+         if ( l_save_out ) close(n_magHel_file)
+
+      end if
+
+    end subroutine outMagneticHelicity
 !---------------------------------------------------------------------------
     subroutine outGWentropy(timeScaled,s)
       !-- Input of variables:
@@ -1439,7 +1528,104 @@ contains
       Helna2ASr(nR,:)=Helna2AS(:)
       HelEAASr(nR)   =HelEAAS
 
-   end subroutine get_helicity
+    end subroutine get_helicity
+
+    subroutine get_magnetic_helicity(br,bt,bp,ar,at,ap,nR)
+
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
+      real(cp), intent(in) :: ar(:,:),at(:,:),ap(:,:)
+
+      !-- Local variables:
+      integer  :: nTheta,nPhi,nTh
+      real(cp) :: magHelna, magHel, phiNorm
+      real(cp) :: magHelAS(2), magHel2AS(2)
+      real(cp) :: magHelnaAS(2), magHelna2AS(2)
+
+      real(cp) :: brna,btna,bpna
+      real(cp) :: arna,atna,apna
+      real(cp) :: bras(n_theta_max),btas(n_theta_max),bpas(n_theta_max)
+      real(cp) :: aras(n_theta_max),atas(n_theta_max),apas(n_theta_max)
+
+      phiNorm=two*pi/real(n_phi_max,cp)
+
+      magHelAS(:)   =0.0_cp
+      magHel2AS(:)  =0.0_cp
+      magHelnaAS(:) =0.0_cp
+      magHelna2AS(:)=0.0_cp
+
+      bras(:) = 0.0_cp
+      btas(:) = 0.0_cp
+      bpas(:) = 0.0_cp
+      aras(:) = 0.0_cp
+      atas(:) = 0.0_cp
+      apas(:) = 0.0_cp
+
+      do nPhi=1,n_phi_max
+         bras(:) = bras(:) + br(1:n_theta_max,nPhi)
+         btas(:) = btas(:) + bt(1:n_theta_max,nPhi)
+         bpas(:) = bpas(:) + bp(1:n_theta_max,nPhi)
+         aras(:) = aras(:) + ar(1:n_theta_max,nPhi)
+         atas(:) = atas(:) + at(1:n_theta_max,nPhi)
+         apas(:) = apas(:) + ap(1:n_theta_max,nPhi)
+      end do
+      bras(:) = bras(:) * phiNorm
+      btas(:) = btas(:) * phiNorm
+      bpas(:) = bpas(:) * phiNorm
+      aras(:) = aras(:) * phiNorm
+      atas(:) = atas(:) * phiNorm
+      apas(:) = apas(:) * phiNorm
+
+      !---Magnetic Helicity
+      !$omp parallel do default(shared)                     &
+      !$omp& private(nTheta, nPhi, nTh)                     &
+      !$omp& private(magHel, magHelna)                      &
+      !$omp& private(brna, btna, bpna)                      &
+      !$omp& private(arna, atna, apna)                      &
+      !$omp& reduction(+:magHelAS,magHel2AS,magHelnaAS,magHelna2AS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nTh=n_theta_cal2ord(nTheta)
+            brna = br(nTheta,nPhi) - bras(nTheta)
+            btna = bt(nTheta,nPhi) - btas(nTheta)
+            bpna = bp(nTheta,nPhi) - bpas(nTheta)
+            arna = ar(nTheta,nPhi) - aras(nTheta)
+            atna = at(nTheta,nPhi) - atas(nTheta)
+            apna = ap(nTheta,nPhi) - apas(nTheta)
+
+            !-- expression of r2 * <B,A> = r2 (Br*Ar + Bt*At + Bp*Ap)
+            !-- br = r2 B_r ; (bt,bp) = r sin_theta (B_theta,B_phi)
+            !-- ar = A_r    ; (at,ap) = r sin_theta (A_theta,A_phi)
+            magHel = br(nTheta,nPhi) * ar(nTheta,nPhi) +     &
+                 & O_sin_theta_E2(nTheta) * (                &
+                 &    bt(nTheta,nPhi) * at(nTheta,nPhi) +    &
+                 &    bp(nTheta,nPhi) * ap(nTheta,nPhi) )
+
+            magHelna  = brna * arna +  &
+                 & O_sin_theta_E2(nTheta)*(btna*atna + bpna*apna)
+
+            if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
+               magHelAS(1)   = magHelAS(1)   + phiNorm*gauss(nTheta)*magHel
+               magHel2AS(1)  = magHel2AS(1)  + phiNorm*gauss(nTheta)*magHel*magHel
+               magHelnaAS(1) = magHelnaAS(1) + phiNorm*gauss(nTheta)*magHelna
+               magHelna2AS(1)= magHelna2AS(1)+ phiNorm*gauss(nTheta)*magHelna*magHelna
+            else
+               magHelAS(2)   = magHelAS(2)   + phiNorm*gauss(nTheta)*magHel
+               magHel2AS(2)  = magHel2AS(2)  + phiNorm*gauss(nTheta)*magHel*magHel
+               magHelnaAS(2) = magHelnaAS(2) + phiNorm*gauss(nTheta)*magHelna
+               magHelna2AS(2)= magHelna2AS(2)+ phiNorm*gauss(nTheta)*magHelna*magHelna
+            end if
+          end do
+      end do
+      !$omp end parallel do
+      magHelASr(nR,:)    = magHelAS(:)
+      magHel2ASr(nR,:)   = magHel2AS(:)
+      magHelnaASr(nR,:)  = magHelnaAS(:)
+      magHelna2ASr(nR,:) = magHelna2AS(:)
+
+    end subroutine get_magnetic_helicity
+
 !----------------------------------------------------------------------------------
    subroutine get_ekin_solid_liquid(s,ds,vr,vt,vp,phi,nR)
       !
