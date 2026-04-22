@@ -11,6 +11,11 @@ from scipy.interpolate import interp1d
 import os
 import pickle
 
+try:
+    from numpy import trapz as trapz
+except:
+    from numpy import trapezoid as trapz
+
 if buildSo:
     try:
         from magic.cylavg import *
@@ -234,7 +239,7 @@ else:
                 Z, S, out2D = sph2cyl_plane([input[0][iphi, ...]], radius, ns)
                 S = S[:, 1:-1]
                 Z = Z[:, 1:-1]
-                output[iphi, :] = np.trapz(out2D[0][:, 1:-1], z, axis=0)
+                output[iphi, :] = trapz(out2D[0][:, 1:-1], z, axis=0)
                 if normed:
                     output[iphi, :] /= height
 
@@ -252,7 +257,7 @@ else:
             output = []
             outIntZ = np.zeros((ns-2), dtype=input[0].dtype)
             for k,out in enumerate(out2D):
-                outIntZ = np.trapz(out[:, 1:-1], z, axis=0)
+                outIntZ = trapz(out[:, 1:-1], z, axis=0)
                 if normed:
                     outIntZ /= height
                 output.append(outIntZ)
