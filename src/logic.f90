@@ -56,7 +56,7 @@ module logic
    logical :: l_TOmovie      ! Switch for TO movie output
    logical :: l_gw           ! Switch for gravitational wave outputs in gwPressure.TAG, gwEntropy.TAG
    logical :: l_hel          ! Switch for helicity calculation, output in misc.TAG
-   logical :: l_mag_hel      ! Switch for magnetic helicity <A,B>, A = magnetic vector potential
+   logical :: l_mag_hel      ! Switch for magnetic and current helicity
    logical :: l_anel         ! Switch for anelastic calculation
    logical :: l_isothermal   ! Switch for isothermal calculation
    logical :: l_anelastic_liquid ! Switch for anelastic liquid calculation

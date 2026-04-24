@@ -41,7 +41,7 @@ module rIter_mod
    use nonlinear_bcs, only: get_br_v_bcs, v_rigid_boundary, v_center_sphere
    use power, only: get_visc_heat
    use outMisc_mod, only: get_ekin_solid_liquid, get_hemi, get_helicity, &
-        &                 get_magnetic_helicity
+        &                 get_magnetic_helicity, get_current_helicity
    use outPar_mod, only: get_fluxes, get_nlBlayers, get_perpPar
    use geos, only: calcGeos
    use sht
@@ -332,6 +332,8 @@ contains
          if ( lMagHelCalc ) then
             call get_magnetic_helicity(this%gsa%brc, this%gsa%btc, this%gsa%bpc, &
                  &                     this%gsa%arc, this%gsa%atc, this%gsa%apc, nR)
+            call get_current_helicity(this%gsa%brc, this%gsa%btc, this%gsa%bpc, &
+                 &                    this%gsa%cbrc, this%gsa%cbtc, this%gsa%cbpc, nR)
          end if
 
          !-- North/South hemisphere differences

@@ -40,6 +40,7 @@ module outMisc_mod
 
    type(mean_sd_type) :: TMeanR, SMeanR, PMeanR, XiMeanR, RhoMeanR, PhiMeanR
    integer :: n_heat_file, n_helicity_file, n_calls, n_phase_file, n_magHel_file
+   integer :: n_curHel_file
    integer :: n_gw_S_file, n_gw_P_file
    integer :: n_rmelt_file, n_hemi_file, n_growth_sym_file, n_growth_asym_file
    integer :: n_drift_sym_file, n_drift_asym_file
@@ -48,6 +49,7 @@ module outMisc_mod
    character(len=72) :: drift_asym_file
    character(len=72) :: gw_S_file, gw_P_file
    character(len=72) :: magHel_file
+   character(len=72) :: curHel_file
    real(cp) :: TPhiOld, Tphi
    real(cp), allocatable :: ekinSr(:), ekinLr(:), volSr(:)
    real(cp), allocatable :: hemi_ekin_r(:,:), hemi_vrabs_r(:,:)
@@ -57,6 +59,8 @@ module outMisc_mod
    real(cp), allocatable :: HelEAASr(:)
    real(cp), allocatable :: magHelASr(:,:), magHel2ASr(:,:)
    real(cp), allocatable :: magHelnaASr(:,:), magHelna2ASr(:,:)
+   real(cp), allocatable :: curHelASr(:,:), curHel2ASr(:,:)
+   real(cp), allocatable :: curHelnaASr(:,:), curHelna2ASr(:,:)
    real(cp), allocatable :: temp_Rloc(:,:,:), phase_Rloc(:,:,:), dtemp_Rloc(:,:,:)
    real(cp), allocatable :: temp_Ploc(:,:,:), phase_Ploc(:,:,:), dtemp_Ploc(:,:,:)
    complex(cp), allocatable :: coeff_old(:)
@@ -71,6 +75,7 @@ module outMisc_mod
    &         get_onset, calc_melt_frame
    public :: outGWentropy, outGWpressure
    public :: outMagneticHelicity, get_magnetic_helicity
+   public :: outCurrentHelicity, get_current_helicity
 contains
 
    subroutine initialize_outMisc_mod()
@@ -115,6 +120,14 @@ contains
          magHelna2ASr(:,:)=0.0_cp
          bytes_allocated=bytes_allocated + 8*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
 
+         curHel_file  ='helicity_cur.'//tag
+         allocate( curHelASr(nRstart:nRstop,2), curHel2ASr(nRstart:nRstop,2) )
+         allocate( curHelnaASr(nRstart:nRstop,2), curHelna2ASr(nRstart:nRstop,2) )
+         curHelASr(:,:)   =0.0_cp
+         curHel2ASr(:,:)  =0.0_cp
+         curHelnaASr(:,:) =0.0_cp
+         curHelna2ASr(:,:)=0.0_cp
+         bytes_allocated=bytes_allocated + 8*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
       end if
 
       if ( l_hemi ) then
@@ -142,7 +155,10 @@ contains
       heat_file    ='heat.'//tag
       if ( rank == 0 .and. (.not. l_save_out) ) then
          if ( l_hel ) open(newunit=n_helicity_file, file=helicity_file, status='new')
-         if ( l_mag_hel ) open(newunit=n_magHel_file, file=magHel_file, status='new')
+         if ( l_mag_hel ) then
+            open(newunit=n_magHel_file, file=magHel_file, status='new')
+            open(newunit=n_curHel_file, file=curHel_file, status='new')
+         end if
          if ( l_hemi ) open(newunit=n_hemi_file, file=hemi_file, status='new')
          if ( l_heat .or. l_chemical_conv ) then
             open(newunit=n_heat_file, file=heat_file, status='new')
@@ -253,6 +269,8 @@ contains
       if ( l_mag_hel ) then
          deallocate( magHelASr,  magHelnaASr )
          deallocate( magHel2ASr, magHelna2ASr )
+         deallocate( curHelASr,  curHelnaASr )
+         deallocate( curHel2ASr, curHelna2ASr )
       end if
       if ( l_phase_field ) then
          if ( l_dtphaseMovie ) deallocate( dtemp_Rloc, dtemp_Ploc, dt_rmelt_loc)
@@ -451,7 +469,10 @@ contains
     subroutine outMagneticHelicity(timeScaled)
       !
       ! This subroutine is used to store informations about magnetic
-      ! helicity. Outputs are stored in the time series helicity_mag.TAG
+      ! helicity.
+      ! H_mag = <A.B>, with A magnetic vector potential defined as
+      ! A = curl(Bpol e_r) + Btor e_r
+      ! Outputs are stored in the time series helicity_mag.TAG
       !
 
       !-- Input of variables:
@@ -478,26 +499,24 @@ contains
       call gather_from_Rloc(magHelna2ASr(:,2), magHelna2Sr_global, 0)
 
       if ( rank == 0 ) then
-         ! r^2 factor taken into account in get_magnetic_helicity
-         magHelN     =rInt_R(magHelNr_global,r,rscheme_oc)
-         magHelS     =rInt_R(magHelSr_global,r,rscheme_oc)
-         magHelnaN   =rInt_R(magHelnaNr_global,r,rscheme_oc)
-         magHelnaS   =rInt_R(magHelnaSr_global,r,rscheme_oc)
-         magHelRMSN  =rInt_R(magHel2Nr_global,r,rscheme_oc)
-         magHelRMSS  =rInt_R(magHel2Sr_global,r,rscheme_oc)
-         magHelnaRMSN=rInt_R(magHelna2Nr_global,r,rscheme_oc)
-         magHelnaRMSS=rInt_R(magHelna2Sr_global,r,rscheme_oc)
+         magHelN     =rInt_R(magHelNr_global*r*r,   r,rscheme_oc)
+         magHelS     =rInt_R(magHelSr_global*r*r,   r,rscheme_oc)
+         magHelnaN   =rInt_R(magHelnaNr_global*r*r, r,rscheme_oc)
+         magHelnaS   =rInt_R(magHelnaSr_global*r*r, r,rscheme_oc)
+         magHelRMSN  =rInt_R(magHel2Nr_global*r*r,  r,rscheme_oc)
+         magHelRMSS  =rInt_R(magHel2Sr_global*r*r,  r,rscheme_oc)
+         magHelnaRMSN=rInt_R(magHelna2Nr_global*r*r,r,rscheme_oc)
+         magHelnaRMSS=rInt_R(magHelna2Sr_global*r*r,r,rscheme_oc)
 
-         ! 2*pi factor already in get_magnetic_helicity (phiNorm)
-         magHelN  = magHelN/(vol_oc/2) ! Note integrated over half spheres only !
-         magHelS  = magHelS/(vol_oc/2)
-         magHelnaN= magHelnaN/(vol_oc/2)
-         magHelnaS= magHelnaS/(vol_oc/2)
+         magHelN  = two*pi*magHelN/(vol_oc/2)
+         magHelS  = two*pi*magHelS/(vol_oc/2)
+         magHelnaN= two*pi*magHelnaN/(vol_oc/2)
+         magHelnaS= two*pi*magHelnaS/(vol_oc/2)
 
-         magHelRMSN   = sqrt(magHelRMSN/(vol_oc/2))
-         magHelRMSS   = sqrt(magHelRMSS/(vol_oc/2))
-         magHelnaRMSN = sqrt(magHelnaRMSN/(vol_oc/2))
-         magHelnaRMSS = sqrt(magHelnaRMSS/(vol_oc/2))
+         magHelRMSN   = sqrt(two*pi*magHelRMSN/(vol_oc/2))
+         magHelRMSS   = sqrt(two*pi*magHelRMSS/(vol_oc/2))
+         magHelnaRMSN = sqrt(two*pi*magHelnaRMSN/(vol_oc/2))
+         magHelnaRMSS = sqrt(two*pi*magHelnaRMSS/(vol_oc/2))
 
          ! normalisation => postprocessing
          ! magHel = 0.5 * (magHelN + magHelS)
@@ -517,6 +536,72 @@ contains
       end if
 
     end subroutine outMagneticHelicity
+
+    subroutine outCurrentHelicity(timeScaled)
+      !
+      ! This subroutine is used to store informations about current
+      ! helicity.
+      ! H_cur = <B.curl(B)>
+      ! Outputs are stored in the time series helicity_cur.TAG
+      !
+
+      !-- Input of variables:
+      real(cp), intent(in) :: timeScaled
+
+      !-- Local variable:
+      real(cp) :: curHelNr_global(n_r_max),   curHelSr_global(n_r_max)
+      real(cp) :: curHel2Nr_global(n_r_max),  curHel2Sr_global(n_r_max)
+      real(cp) :: curHelnaNr_global(n_r_max), curHelnaSr_global(n_r_max)
+      real(cp) :: curHelna2Nr_global(n_r_max),curHelna2Sr_global(n_r_max)
+      real(cp) :: curHelN,     curHelS
+      real(cp) :: curHelRMSN,  curHelRMSS
+      real(cp) :: curHelnaN,   curHelnaS
+      real(cp) :: curHelnaRMSN,curHelnaRMSS
+
+      ! Now we have to gather the results on rank 0
+      call gather_from_Rloc(curHelASr(:,1),    curHelNr_global, 0)
+      call gather_from_Rloc(curHelASr(:,2),    curHelSr_global, 0)
+      call gather_from_Rloc(curHel2ASr(:,1),   curHel2Nr_global, 0)
+      call gather_from_Rloc(curHel2ASr(:,2),   curHel2Sr_global, 0)
+      call gather_from_Rloc(curHelnaASr(:,1),  curHelnaNr_global, 0)
+      call gather_from_Rloc(curHelnaASr(:,2),  curHelnaSr_global, 0)
+      call gather_from_Rloc(curHelna2ASr(:,1), curHelna2Nr_global, 0)
+      call gather_from_Rloc(curHelna2ASr(:,2), curHelna2Sr_global, 0)
+
+      if ( rank == 0 ) then
+         curHelN     =rInt_R(curHelNr_global*r*r,   r,rscheme_oc)
+         curHelS     =rInt_R(curHelSr_global*r*r,   r,rscheme_oc)
+         curHelnaN   =rInt_R(curHelnaNr_global*r*r, r,rscheme_oc)
+         curHelnaS   =rInt_R(curHelnaSr_global*r*r, r,rscheme_oc)
+         curHelRMSN  =rInt_R(curHel2Nr_global*r*r,  r,rscheme_oc)
+         curHelRMSS  =rInt_R(curHel2Sr_global*r*r,  r,rscheme_oc)
+         curHelnaRMSN=rInt_R(curHelna2Nr_global*r*r,r,rscheme_oc)
+         curHelnaRMSS=rInt_R(curHelna2Sr_global*r*r,r,rscheme_oc)
+
+         curHelN  = two*pi*curHelN/(vol_oc/2)
+         curHelS  = two*pi*curHelS/(vol_oc/2)
+         curHelnaN= two*pi*curHelnaN/(vol_oc/2)
+         curHelnaS= two*pi*curHelnaS/(vol_oc/2)
+
+         curHelRMSN   = sqrt(two*pi*curHelRMSN/(vol_oc/2))
+         curHelRMSS   = sqrt(two*pi*curHelRMSS/(vol_oc/2))
+         curHelnaRMSN = sqrt(two*pi*curHelnaRMSN/(vol_oc/2))
+         curHelnaRMSS = sqrt(two*pi*curHelnaRMSS/(vol_oc/2))
+
+         if ( l_save_out ) then
+            open(newunit=n_curHel_file, file=curHel_file,   &
+            &    status='unknown', position='append')
+         end if
+
+         write(n_curHel_file,'(1P,ES20.12,8ES16.8)')   &
+         &     timeScaled, curHelN, curHelS, curHelRMSN, curHelRMSS,  &
+         &     curHelnaN, curHelnaS, curHelnaRMSN, curHelnaRMSS
+
+         if ( l_save_out ) close(n_curHel_file)
+
+      end if
+
+    end subroutine outCurrentHelicity
 !---------------------------------------------------------------------------
     subroutine outGWentropy(timeScaled,s)
       !-- Input of variables:
@@ -1548,7 +1633,7 @@ contains
       real(cp) :: bras(n_theta_max),btas(n_theta_max),bpas(n_theta_max)
       real(cp) :: aras(n_theta_max),atas(n_theta_max),apas(n_theta_max)
 
-      phiNorm=two*pi/real(n_phi_max,cp)
+      phiNorm = one/real(n_phi_max,cp)
 
       magHelAS(:)   =0.0_cp
       magHel2AS(:)  =0.0_cp
@@ -1594,16 +1679,16 @@ contains
             atna = at(nTheta,nPhi) - atas(nTheta)
             apna = ap(nTheta,nPhi) - apas(nTheta)
 
-            !-- expression of r2 * <B,A> = r2 (Br*Ar + Bt*At + Bp*Ap)
+            !-- expression of <B,A> = (Br*Ar + Bt*At + Bp*Ap)
             !-- br = r2 B_r ; (bt,bp) = r sin_theta (B_theta,B_phi)
             !-- ar = A_r    ; (at,ap) = r sin_theta (A_theta,A_phi)
-            magHel = br(nTheta,nPhi) * ar(nTheta,nPhi) +     &
-                 & O_sin_theta_E2(nTheta) * (                &
-                 &    bt(nTheta,nPhi) * at(nTheta,nPhi) +    &
-                 &    bp(nTheta,nPhi) * ap(nTheta,nPhi) )
+            magHel = or2(nR) * br(nTheta,nPhi) * ar(nTheta,nPhi) +  &
+                 &   or2(nR) * O_sin_theta_E2(nTheta) * (           &
+                 &      bt(nTheta,nPhi) * at(nTheta,nPhi) +         &
+                 &      bp(nTheta,nPhi) * ap(nTheta,nPhi) )
 
-            magHelna  = brna * arna +  &
-                 & O_sin_theta_E2(nTheta)*(btna*atna + bpna*apna)
+            magHelna  = or2(nR) * brna * arna + &
+                 & or2(nR) * O_sin_theta_E2(nTheta) * (btna*atna + bpna*apna)
 
             if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
                magHelAS(1)   = magHelAS(1)   + phiNorm*gauss(nTheta)*magHel
@@ -1625,6 +1710,104 @@ contains
       magHelna2ASr(nR,:) = magHelna2AS(:)
 
     end subroutine get_magnetic_helicity
+
+    subroutine get_current_helicity(br,bt,bp,curlbr,curlbt,curlbp,nR)
+
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: br(:,:),bt(:,:),bp(:,:)
+      real(cp), intent(in) :: curlbr(:,:),curlbt(:,:),curlbp(:,:)
+
+      !-- Local variables:
+      integer  :: nTheta,nPhi,nTh
+      real(cp) :: curHelna, curHel, phiNorm
+      real(cp) :: curHelAS(2), curHel2AS(2)
+      real(cp) :: curHelnaAS(2), curHelna2AS(2)
+
+      real(cp) :: brna,btna,bpna
+      real(cp) :: curlbrna,curlbtna,curlbpna
+      real(cp) :: bras(n_theta_max),btas(n_theta_max),bpas(n_theta_max)
+      real(cp) :: curlbras(n_theta_max),curlbtas(n_theta_max),curlbpas(n_theta_max)
+
+      phiNorm = one/real(n_phi_max,cp)
+
+      curHelAS(:)   =0.0_cp
+      curHel2AS(:)  =0.0_cp
+      curHelnaAS(:) =0.0_cp
+      curHelna2AS(:)=0.0_cp
+
+      bras(:) = 0.0_cp
+      btas(:) = 0.0_cp
+      bpas(:) = 0.0_cp
+      curlbras(:) = 0.0_cp
+      curlbtas(:) = 0.0_cp
+      curlbpas(:) = 0.0_cp
+
+      do nPhi=1,n_phi_max
+         bras(:) = bras(:) + br(1:n_theta_max,nPhi)
+         btas(:) = btas(:) + bt(1:n_theta_max,nPhi)
+         bpas(:) = bpas(:) + bp(1:n_theta_max,nPhi)
+         curlbras(:) = curlbras(:) + curlbr(1:n_theta_max,nPhi)
+         curlbtas(:) = curlbtas(:) + curlbt(1:n_theta_max,nPhi)
+         curlbpas(:) = curlbpas(:) + curlbp(1:n_theta_max,nPhi)
+      end do
+      bras(:) = bras(:) * phiNorm
+      btas(:) = btas(:) * phiNorm
+      bpas(:) = bpas(:) * phiNorm
+      curlbras(:) = curlbras(:) * phiNorm
+      curlbtas(:) = curlbtas(:) * phiNorm
+      curlbpas(:) = curlbpas(:) * phiNorm
+
+      !---Magnetic Helicity
+      !$omp parallel do default(shared)                     &
+      !$omp& private(nTheta, nPhi, nTh)                     &
+      !$omp& private(curHel, curHelna)                      &
+      !$omp& private(brna, btna, bpna)                      &
+      !$omp& private(curlbrna, curlbtna, curlbpna)          &
+      !$omp& reduction(+:curHelAS,curHel2AS,curHelnaAS,curHelna2AS)
+      do nPhi=1,n_phi_max
+         do nTheta=1,n_theta_max
+            nTh=n_theta_cal2ord(nTheta)
+            brna = br(nTheta,nPhi) - bras(nTheta)
+            btna = bt(nTheta,nPhi) - btas(nTheta)
+            bpna = bp(nTheta,nPhi) - bpas(nTheta)
+            curlbrna = curlbr(nTheta,nPhi) - curlbras(nTheta)
+            curlbtna = curlbt(nTheta,nPhi) - curlbtas(nTheta)
+            curlbpna = curlbp(nTheta,nPhi) - curlbpas(nTheta)
+
+            !-- expression of <B,curl(B)>
+            !-- br  = r2 B_r        ; (bt,bp) = r sin_theta (B_theta,B_phi)
+            !-- curlbr = r2 curlB_r ; (curlbt,curlbp) = r sin_theta (curlB_theta,curlB_phi)
+            curHel = or4(nR) * br(nTheta,nPhi) * curlbr(nTheta,nPhi) + &
+                 &   or2(nR) * O_sin_theta_E2(nTheta) * (              &
+                 &       bt(nTheta,nPhi) * curlbt(nTheta,nPhi) +       &
+                 &       bp(nTheta,nPhi) * curlbp(nTheta,nPhi) )
+
+            curHelna  = or4(nR) * brna * curlbrna +           &
+                 &      or2(nR) * O_sin_theta_E2(nTheta) * (  &
+                 &          btna * curlbtna +                 &
+                 &          bpna * curlbpna )
+
+            if ( nTh <= n_theta_max/2 ) then ! Northern Hemisphere
+               curHelAS(1)   = curHelAS(1)   + phiNorm*gauss(nTheta)*curHel
+               curHel2AS(1)  = curHel2AS(1)  + phiNorm*gauss(nTheta)*curHel*curHel
+               curHelnaAS(1) = curHelnaAS(1) + phiNorm*gauss(nTheta)*curHelna
+               curHelna2AS(1)= curHelna2AS(1)+ phiNorm*gauss(nTheta)*curHelna*curHelna
+            else
+               curHelAS(2)   = curHelAS(2)   + phiNorm*gauss(nTheta)*curHel
+               curHel2AS(2)  = curHel2AS(2)  + phiNorm*gauss(nTheta)*curHel*curHel
+               curHelnaAS(2) = curHelnaAS(2) + phiNorm*gauss(nTheta)*curHelna
+               curHelna2AS(2)= curHelna2AS(2)+ phiNorm*gauss(nTheta)*curHelna*curHelna
+            end if
+          end do
+      end do
+      !$omp end parallel do
+      curHelASr(nR,:)    = curHelAS(:)
+      curHel2ASr(nR,:)   = curHel2AS(:)
+      curHelnaASr(nR,:)  = curHelnaAS(:)
+      curHelna2ASr(nR,:) = curHelna2AS(:)
+
+    end subroutine get_current_helicity
 
 !----------------------------------------------------------------------------------
    subroutine get_ekin_solid_liquid(s,ds,vr,vt,vp,phi,nR)

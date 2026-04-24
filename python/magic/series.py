@@ -26,6 +26,7 @@ class MagicTs(MagicSetup):
        * Heat transfer: :ref:`heat.TAG <secHeatFile>`
        * Helicity: :ref:`helicity.TAG <secHelicityFile>`
        * Magnetic Helicity: :ref:`helicity_mag.TAG <secMagHelicityFile>`
+       * Current Helicity: :ref:`helicity_cur.TAG <secCurHelicityFile>`
        * Velocity square: :ref:`u_square.TAG <secu_squareFile>`
        * Angular momentum: :ref:`AM.TAG <secAMFile>`
        * Power budget: :ref:`power.TAG <secpowerFile>`
@@ -515,6 +516,17 @@ class MagicTs(MagicSetup):
             ax.plot(self.time, self.mhelRMSS, label='RMS-South')
             ax.legend(loc='lower right')
             ax.set_xlabel('Time')
+            ax.set_ylabel('Magnetic helicity')
+            fig.tight_layout()
+        elif self.field == 'helicity_cur':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.chelRMSN, label='RMS-North')
+            ax.plot(self.time, self.chelRMSS, label='RMS-South')
+            ax.legend(loc='lower right')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Current helicity')
+            fig.tight_layout()
         elif self.field == 'u_square':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -910,6 +922,24 @@ class TsLookUpTable:
                 self.mhelEA = (self.mhelN - self.mhelS) / (abs(self.mhelN) + abs(self.mhelS))
                 self.mhelEAna = ( (self.mhelnaN - self.mhelnaS) /
                                   (abs(self.mhelnaN) + abs(self.mhelnaS)) )
+        elif self.field == 'helicity_cur':
+            self.time = data[:, 0]
+            self.chelN = data[:, 1]
+            self.chelS = data[:, 2]
+            self.chelRMSN = data[:,3]
+            self.chelRMSS = data[:,4]
+            self.chelnaN = data[:,5]
+            self.chelnaS = data[:,6]
+            self.chelnaRMSN = data[:,7]
+            self.chelnaRMSS = data[:,8]
+            ## global average
+            self.chel   = 0.5*(self.chelN + self.chelS)
+            self.chelna = 0.5*(self.chelnaN + self.chelnaS)
+            self.chelRMS   = ( 0.5*(self.chelRMSN**2   + self.chelRMSS**2) )**0.5
+            self.chelnaRMS = ( 0.5*(self.chelnaRMSN**2 + self.chelnaRMSS**2) )**0.5
+            self.chelEA = (self.chelN - self.chelS) / (abs(self.chelN) + abs(self.chelS))
+            self.chelEAna = ( (self.chelnaN - self.chelnaS) /
+                              (abs(self.chelnaN) + abs(self.chelnaS)) )
         elif self.field == 'earth_like':
             self.time = data[:, 0]
             self.axial_dipole = data[:, 1]

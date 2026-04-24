@@ -44,7 +44,7 @@ module output_mod
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three, zero
    use outMisc_mod, only: outHeat, outHelicity, outHemi, outPhase, get_onset, &
        &                  calc_melt_frame, outGWentropy, outGWpressure,       &
-       &                  outMagneticHelicity
+       &                  outMagneticHelicity, outCurrentHelicity
    use geos, only: outGeos, outOmega, calc_geos_frame
    use outRot, only: write_rot
    use integration, only: rInt_R
@@ -432,7 +432,10 @@ contains
 
          if ( l_hel ) call outHelicity(timeScaled)
 
-         if ( l_mag_hel ) call outMagneticHelicity(timeScaled)
+         if ( l_mag_hel ) then
+            call outMagneticHelicity(timeScaled)
+            call outCurrentHelicity(timeScaled)
+         end if
 
          if ( l_hemi ) call outHemi(timeScaled)
 
