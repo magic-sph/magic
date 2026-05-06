@@ -176,13 +176,13 @@ Phase field
   .. math::
      St = \frac{\mathcal{L}}{c_p\Delta T}
 
-* **tmelt** (default :f:var:`tmelt=0.0 <tmelt>`) is a real. This is the dimensionless melting temperature.
+* **tmelt** (default :f:var:`tmelt=0.0 <tmelt>`) is a real. This is the dimensionless melting temperature :math:`T_M` which enters :eq:`eqPhaseField`.
 
-* **epsPhase** (default :f:var:`epsPhase=0.01 <epsphase>`) is a real. This is the dimensionless interface thickness between the solid and the liquid phase (sometimes known as the Cahn number).
+* **epsPhase** (default :f:var:`epsPhase=0.01 <epsphase>`) is a real. This is the dimensionless interface thickness between the solid and the liquid phase (sometimes known as the Cahn number). This corresponds to :math:`\epsilon` in :eq:`eqPhaseField`.
 
-* **phaseDiffFac** (default :f:var:`phaseDiffFac=1.0 <phasedifffac>`) is a real. This is a coefficient that goes in front of the diffusion term in the phase field equation.
+* **phaseDiffFac** (default :f:var:`phaseDiffFac=1.0 <phasedifffac>`) is a real. This is a coefficient that goes in front of the diffusion term in the phase field equation. This corresponds to :math:`a` in :eq:`eqPhaseField`.
 
-* **penaltyFac** (default :f:var:`penaltyFac=1.0 <penaltyfac>`) is a real. This is coefficient used for the penalisation of the velocity field in the solid phase. The smaller the coefficient, the stronger the penalisation. Since this is a nonlinear term, it is handled explicitly and the time step size should be decreased with the square of :f:var:`penaltyfac`.
+* **penaltyFac** (default :f:var:`penaltyFac=1.0 <penaltyfac>`) is a real. This is coefficient :math:`\tau_p` used for the penalisation of the velocity field in the solid phase. The smaller the coefficient, the stronger the penalisation. Since this is a nonlinear term, it is handled explicitly and the time step size should be decreased with the square of :f:var:`penaltyfac`.
 
 
 Transport properties
@@ -259,6 +259,12 @@ Thermal diffusivity
   +----------------+----------------------------------------------------------------------------+
   | ``nVarDiff=4`` | polynomial-fit to an interior model of the Earth liquid core               |
   +----------------+----------------------------------------------------------------------------+
+  | ``nVarDiff=5`` | ...                                                                        |
+  +----------------+----------------------------------------------------------------------------+
+  | ``nVarDiff=6`` | tanh-like jump increase of thermal diffusivity in a stably-stratified-layer|
+  +----------------+----------------------------------------------------------------------------+
+  | ``nVarDiff=7`` | tanh-like jump increase of thermal diffusivity in a bottom stable layer    |
+  +----------------+----------------------------------------------------------------------------+
 
 .. _varnVarVisc:
 
@@ -277,6 +283,10 @@ Viscosity
   |                |    .. math:: \nu=\left(\frac{\tilde{\rho}(r)}                           |
   |                |              {\tilde{\rho}_i}\right)^{\alpha}                           |
   +----------------+-------------------------------------------------------------------------+
+  | ``nVarVisc=3`` | tanh-like increase of kinematic viscosity in a stably-stratified layer  |
+  +----------------+-------------------------------------------------------------------------+
+  | ``nVarVisc=4`` | tanh-like increase of kinematic viscosity in a bottom stable layer      |
+  +----------------+-------------------------------------------------------------------------+
 
   where :math:`\alpha` is an exponent set by the namelist input variable ``difExp``.
 
@@ -290,8 +300,6 @@ Anelastic liquid equations
 * **epsS** (default :f:var:`epsS=0.0 <epss>`) is a real. It controls the deviation to the adiabat. It can be related to the small parameter :math:`\epsilon`:
 
   .. math:: \epsilon \simeq \frac{\Delta T}{T} \simeq \frac{\Delta s}{c_p}
-
-* **cmbHflux** (default :f:var:`cmbHflux=0.0 <cmbhflux>`) is a real. This is the CMB heat flux that enters the calculation of the reference state of the liquid core of the Earth, when the anelastic liquid approximation is employed.
 
 * **slopeStrat** (default :f:var:`slopeStrat=20.0 <slopestrat>`) is a real. This parameter controls the transition between the convective layer and the stably-stratified layer below the CMB.
 
@@ -379,7 +387,7 @@ Boundary conditions for chemical composition
 
   4. Imaginary amplitude (:math:`\sin` contribution)
 
-  For example, if the boundary condition should be a combination of an :math:`(\ell=1,m=0)` sherical harmonic with the amplitude 1 and an :math:`(\ell=2,m=1)` spherical harmonic with the amplitude (0.5,0.5) the respective namelist entry could read:
+  For example, if the boundary condition should be a combination of an :math:`(\ell=1,m=0)` spherical harmonic with the amplitude 1 and an :math:`(\ell=2,m=1)` spherical harmonic with the amplitude (0.5,0.5) the respective namelist entry could read:
 
 
   .. code-block:: fortran

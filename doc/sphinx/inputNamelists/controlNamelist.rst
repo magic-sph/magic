@@ -107,6 +107,15 @@ where :math:`u_h=(u_\theta^2+u_\phi^2)^{1/2}`, :math:`\delta h = \dfrac{r}{\sqrt
 
 where :math:`u_{F,r}` is the radial component of the fluid velocity and :math:`u_{A,r}=Br/\sqrt{E\,Pm}` is the radial Alven velocity. The denominator of the rightmost term accounts for the damping of the Alven waves.
 
+In case the phase field model is employed, the explicit treatment of the additional volume
+penalization term entering the Navier-Stokes equations yields an extra constraint
+on the time step size :math:`\delta t` compared to classical convection problems, such that
+
+.. math::
+   \delta t < 	C \tau_p \epsilon^2,
+
+where :math:`\epsilon` is the Cahn number.
+
 * **dtMax** (default :f:var:`dtMax=1e-4 <dtmax>`) is a  real. This is the maximum allowed time step :math:`\delta t`. If :math:`\delta t > \hbox{dtmax}`, the time step is decreased to at least dtMax (See routine `dt_courant`). Run is stopped if :math:`\delta t < \hbox{dtmin}` and :math:`\hbox{dtmin}=10^{-6}\,\hbox{dtmax}`.
 
 * **courfac** (default :f:var:`courfac=2.5 <courfac>`) is a real used to scale velocity in Courant criteria. This parameter corresponds to :math:`c_F` in the above equation.
@@ -252,9 +261,9 @@ domain.
   +-----------------------+-----------------------------------------------------------------------------------------------------------+
   | map_function='ARCSIN' | Use an arcsin mapping  (see `Kosloff and Tal-Ezer 1993 <https://doi.org/10.1006/jcph.1993.1044>`_)        |
   +-----------------------+-----------------------------------------------------------------------------------------------------------+
-  | map_function='TT'     | Use the mapping by `Tee and Trefethen 2006 <https://doi.org/10.1137/050641296>`_                          |
+  | map_function='TT'     | Use the mapping by `Tee and Trefethen (2006) <https://doi.org/10.1137/050641296>`_                        |
   +-----------------------+-----------------------------------------------------------------------------------------------------------+
-  | map_function='JAFARI' | Use the mapping by `Jafari-Varzaneh and Hosseini 2014 <https://doi.org/10.1007/s11075-014-9883-3>`_       |
+  | map_function='JAFARI' | Use the mapping by `Jafari-Varzaneh and Hosseini (2014) <https://doi.org/10.1007/s11075-014-9883-3>`_     |
   +-----------------------+-----------------------------------------------------------------------------------------------------------+
 
 If the tangent mapping is used, the function that re-distributes the collocation 
