@@ -13,7 +13,7 @@
 * **MagIC** uses either Chebyshev polynomials or finite differences in the radial direction and spherical harmonic decomposition in the azimuthal and latitudinal directions.  MagIC supports several Implicit-Explicit time schemes where the nonlinear terms and the Coriolis force are treated explicitly, while the remaining linear terms are treated implicitly.
 
 
-* **MagIC** is written in Fortran and designed to be used on supercomputing clusters.  It thus relies on a hybrid parallelisation scheme using both [OpenMP](https://openmp.org/wp/) and [MPI](https://www.open-mpi.org/). Postprocessing functions written in python (requiring [matplotlib](https://matplotlib.org/) and [scipy](https://www.scipy.org/) are also provided to allow a useful data analysis.
+* **MagIC** is written in Fortran and designed to be used on supercomputing clusters.  It thus relies on a hybrid parallelisation scheme using both [OpenMP](https://openmp.org/wp/) and [MPI](https://www.open-mpi.org/). Postprocessing functions written in python (requiring [matplotlib](https://matplotlib.org/), [meson](https://mesonbuild.com/meson-python/) and [scipy](https://www.scipy.org/) are also provided to allow a useful data analysis.
 
 * **MagIC** is a free software. It can be used, modified and redistributed under the terms of the [GNU GPL v3 licence](https://www.gnu.org/licenses/gpl-3.0.en.html).
 
@@ -162,7 +162,7 @@ $ mpiexec -n 4 ./magic.exe input.nml
 
 ### 7) Data visualisation and postprocessing
 
-a) Set-up your PYTHON environment ([ipython](https://ipython.org/), [scipy](https://www.scipy.org/) and [matplotlib](https://matplotlib.org/) are needed)
+a) Set-up your PYTHON environment ([ipython](https://ipython.org/), [scipy](https://www.scipy.org/), [meson](https://mesonbuild.com/meson-python/) and [matplotlib](https://matplotlib.org/) are needed)
 
 b) Modify `magic.cfg` according to your machine in case the auto-configuration didn't work
 
