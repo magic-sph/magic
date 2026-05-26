@@ -11,7 +11,7 @@ module updateS_mod
    use truncation, only: n_r_max, lm_max, l_max
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: orho1, or1, or2, beta, dentropy0, rscheme_oc,  &
-       &                       kappa, dLkappa, dLtemp0, temp0, r, l_R
+       &                       kappa, dLkappa, dLtemp0, temp0, r, l_R, r_cmb
    use physical_parameters, only: opr, kbots, ktops, stef, radratio
    use special, only: amp_tide, omega_tide, tide_fac20, tide_fac22p, tide_fac22n
    use num_param, only: dct_counter, solve_counter
@@ -260,21 +260,21 @@ contains
                if (amp_tide /= 0.0_cp) then
                   if (l1 == 2 .and. m1 == 0) then
                      rhs1(1,2*lm-1,threadid) = rhs1(1,2*lm-1,threadid)        &
-                     & + radratio/omega_tide * tide_fac20                     &
+                     & + radratio/omega_tide * tide_fac20 * 6.0_cp/r_cmb**2   &
                      & * sin(omega_tide * time)
                      rhs1(1,2*lm,threadid)   = rhs1(1,2*lm,threadid)          &
-                     & - radratio/omega_tide * tide_fac20                     &
+                     & - radratio/omega_tide * tide_fac20 * 6.0_cp/r_cmb**2   &
                      & * cos(omega_tide * time)
                   end if
 
                   if (l1 == 2 .and. m1 == 2) then
                      rhs1(1,2*lm-1,threadid) = rhs1(1,2*lm-1,threadid)        &
-                     &  + radratio/omega_tide                                 &
-                     &  * (tide_fac22p + tide_fac22n) &
+                     &  + radratio/omega_tide * 6.0_cp/r_cmb**2               &
+                     &  * (-tide_fac22p + tide_fac22n)                        &  ! ← B = (-p + n)
                      &  * sin(omega_tide * time)
                      rhs1(1,2*lm,threadid)   = rhs1(1,2*lm,threadid)          &
-                     & - radratio/omega_tide                                  &
-                     & * (-tide_fac22p + tide_fac22n) &
+                     & - radratio/omega_tide * 6.0_cp/r_cmb**2                &
+                     & * (tide_fac22p + tide_fac22n)                          &  ! ← A = (p + n)
                      & * cos(omega_tide * time)
                   end if
                end if
@@ -1346,17 +1346,23 @@ contains
       !-- Output variable
       complex(cp), intent(out) :: sBC
 
+      !-- Local variable
+      real(cp) :: fac
+
+      fac = 6.0_cp / r_cmb**2  ! l(l+1)/r_o^2 for l=2
+
       if (m==0) then
-         sBC = sBc + radratio/omega_tide * tide_fac20  *             &
-         &            cmplx(sin(omega_tide*time),                    &
-         &                 -cos(omega_tide*time),cp)
+         sBC = sBC + radratio/omega_tide * fac * tide_fac20 *        &
+         &           cmplx(sin(omega_tide*time),                     &
+         &                -cos(omega_tide*time), cp)
       end if
 
       if (m==2) then
-         sBC = sBc + radratio/omega_tide          *                        &
-         cmplx( (tide_fac22p + tide_fac22n) * sin(omega_tide * time),      &
-         &      (tide_fac22p - tide_fac22n) * cos(omega_tide * time), cp)
+         sBC = sBC + radratio/omega_tide * fac *                           &
+         &     cmplx((-tide_fac22p + tide_fac22n) * sin(omega_tide*time),  &  ! B * sin(ωt)
+         &          -(tide_fac22p + tide_fac22n) * cos(omega_tide*time), cp)  ! -A * cos(ωt)
       end if
+
    end subroutine get_radial_flow_bc
 
 end module updateS_mod
