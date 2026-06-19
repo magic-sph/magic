@@ -9,6 +9,10 @@ try:
 except:
     from scipy.integrate import simpson as simps
 
+try:
+    from numpy import trapz as trapz
+except:
+    from numpy import trapezoid as trapz
 
 def selectField(obj, field, labTex=True, ic=False):
     """
@@ -313,9 +317,9 @@ def avgField(time, field, tstart=None, std=False, fix_missing_series=False,
                 stdField = 0
         else:
             fac = 1./(time[ind2]-time[ind1])
-            avgField = fac*np.trapz(field[ind1:ind2+1, ...], time[ind1:ind2+1], axis=0)
+            avgField = fac*trapz(field[ind1:ind2+1, ...], time[ind1:ind2+1], axis=0)
             if std:
-                stdField = np.sqrt(fac*np.trapz((field[ind1:ind2+1, ...]-avgField)**2,
+                stdField = np.sqrt(fac*trapz((field[ind1:ind2+1, ...]-avgField)**2,
                                    time[ind1:ind2+1], axis=0))
 
     if std:
@@ -344,9 +348,9 @@ def writeVpEq(par, tstart):
     mask = np.where(abs(par.time-tstart) == min(abs(par.time-tstart)), 1, 0)
     ind = np.nonzero(mask)[0][0]
     fac = 1./(par.time.max()-par.time[ind])
-    avgReEq = fac*np.trapz(par.reEquat[ind:], par.time[ind:])
+    avgReEq = fac*trapz(par.reEquat[ind:], par.time[ind:])
     roEq = avgReEq*par.ek*(1.-par.radratio)
-    avgRolC = fac*np.trapz(par.rolc[ind:], par.time[ind:])
+    avgRolC = fac*trapz(par.rolc[ind:], par.time[ind:])
     st = '{:10.3e}{:5.2f}{:6.2f}{:11.3e}{:11.3e}{:11.3e}'.format(par.ek,
         par.strat, par.pr, par.ra, roEq, avgRolC)
 

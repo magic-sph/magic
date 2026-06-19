@@ -418,46 +418,36 @@ contains
                   if (l_radial_flow_bc) then
 
                      if ( l1 == 2 .and. m1 == 0 ) then
-                        if ( amp_tide /= 0.0_cp ) then
-                           rhs1(1,2*lm-1,threadid)=rhs1(1,2*lm-1,threadid)         &
-                           &                  + tide_fac20/real(l1*(l1+1),kind=cp) &
-                           &                    * cos(omega_tide*(time))
+                          rhs1(1,2*lm-1,threadid)=rhs1(1,2*lm-1,threadid)         &
+                           &                  + tide_fac20 * cos(omega_tide*(time))
                            rhs1(1,2*lm,threadid)  =rhs1(1,2*lm,threadid)           &
-                           &                  + tide_fac20/real(l1*(l1+1),kind=cp) &
-                           &                      * sin(omega_tide*(time))
-                        end if
+                           &                  + tide_fac20 * sin(omega_tide*(time))
                      end if
 
                      if ( l1 == 2 .and. m1 == 2 ) then
-                        if ( ellipticity_cmb /= 0.0_cp ) then
-                           rhs1(1,2*lm-1,threadid)=ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
-                           &                       *cos(omegaOsz_ma1*(time+tShift_ma1))
-                           rhs1(1,2*lm,threadid)  =ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
-                           &                       *sin(omegaOsz_ma1*(time+tShift_ma1))
-                        end if
+                        rhs1(1,2*lm-1,threadid)=ellip_fac_cmb &
+                        &                       *cos(omegaOsz_ma1*(time+tShift_ma1))
+                        rhs1(1,2*lm,threadid)  =ellip_fac_cmb &
+                        &                       *sin(omegaOsz_ma1*(time+tShift_ma1))
 
-                        if ( ellipticity_icb /= 0.0_cp ) then
-                           rhs1(n_r_max,2*lm-1,threadid)=ellip_fac_icb/real(l1*(l1+1),kind=cp) &
-                           &                             *cos(omegaOsz_ic1*(time+tShift_ic1))
-                           rhs1(n_r_max,2*lm,threadid)  =ellip_fac_icb/real(l1*(l1+1),kind=cp) &
-                           &                             *sin(omegaOsz_ic1*(time+tShift_ic1))
-                        end if
+                        rhs1(n_r_max,2*lm-1,threadid)=ellip_fac_icb &
+                        &                             *cos(omegaOsz_ic1*(time+tShift_ic1))
+                        rhs1(n_r_max,2*lm,threadid)  =ellip_fac_icb &
+                        &                             *sin(omegaOsz_ic1*(time+tShift_ic1))
 
-                        if ( amp_tide /= 0.0_cp ) then
-                           ! tide_fac22p -> (2,2,1)
-                           ! tide_fac22n -> (2,2,3)
-                           ! (2,2,3) must have the same signed frequency
-                           ! as (2,0,1) above while (2,2,1) has the opposite
-                           ! sign in the rotating frame (Ogilvie, 2014)
-                           rhs1(1,2*lm-1,threadid)=rhs1(1,2*lm-1,threadid)        &
-                           &                 + (tide_fac22p + tide_fac22n)        &
-                           &                      /real(l1*(l1+1),kind=cp)        &
-                           &                      * cos(omega_tide*(time))
-                           rhs1(1,2*lm,threadid)  =rhs1(1,2*lm,threadid)          &
-                           &                 +  (-tide_fac22p + tide_fac22n)      &
-                           &                       /real(l1*(l1+1),kind=cp)       &
-                           &                       * sin(omega_tide*(time))
-                        end if
+
+                        ! tide_fac22p -> (2,2,1)
+                        ! tide_fac22n -> (2,2,3)
+                        ! (2,2,3) must have the same signed frequency
+                        ! as (2,0,1) above while (2,2,1) has the opposite
+                        ! sign in the rotating frame (Ogilvie, 2014)
+                        rhs1(1,2*lm-1,threadid)=rhs1(1,2*lm-1,threadid)        &
+                        &                 + (tide_fac22p + tide_fac22n)        &
+                        &                    * cos(omega_tide*(time))
+                        rhs1(1,2*lm,threadid)  =rhs1(1,2*lm,threadid)          &
+                        &                 +  (-tide_fac22p + tide_fac22n)      &
+                        &                    * sin(omega_tide*(time))
+
                      end if
                   end if
 
@@ -702,11 +692,12 @@ contains
             m=st_map%lm2m(lm)
             if ( l == 0 ) cycle
             w_ghost(lm,nR)  =zero ! Non-penetration condition
-            if ( ellipticity_cmb /= 0.0_cp .and. l==2 .and. m==2 ) then
-               w_ghost(lm,nR)=ellip_fac_cmb/6.0_cp*cmplx(           &
-               &                cos(omegaOsz_ma1*(time+tShift_ma1)),&
-               &                sin(omegaOsz_ma1*(time+tShift_ma1)),cp)
+            if (l_radial_flow_bc) then
+               if ( l == 2 ) then
+                  call get_radial_flow_bc(time,m,nR,w_ghost(lm,nR))
+               end if
             end if
+
             w_ghost(lm,nR-1)=zero ! Ghost zones set to zero
             w_ghost(lm,nR-2)=zero
          end do
@@ -719,10 +710,10 @@ contains
             m=st_map%lm2m(lm)
             if ( l == 0 ) cycle
             w_ghost(lm,nR)=zero ! Non-penetration condition
-            if ( ellipticity_icb /= 0.0_cp .and. l==2 .and. m==2 ) then
-               w_ghost(lm,nR)=ellip_fac_icb/6.0_cp*cmplx(           &
-               &                cos(omegaOsz_ic1*(time+tShift_ic1)),&
-               &                sin(omegaOsz_ic1*(time+tShift_ic1)),cp)
+            if ( l_radial_flow_bc ) then
+               if ( l == 2 ) then
+                  call get_radial_flow_bc(time,m,nR,w_ghost(lm,nR))
+               end if
             end if
             w_ghost(lm,nR+1)=zero ! Ghost zones set to zero
             w_ghost(lm,nR+2)=zero
@@ -1491,7 +1482,7 @@ contains
 
    end subroutine get_pol_rhs_imp_ghost
 !------------------------------------------------------------------------------
-   subroutine assemble_pol(s, xi, w, dw, ddw, p, dp, dwdt, dpdt, dp_expl, &
+   subroutine assemble_pol(time, s, xi, w, dw, ddw, p, dp, dwdt, dpdt, dp_expl, &
               &            tscheme, lPressNext, lRmsNext)
       !
       ! This subroutine is used to assemble w and dw/dr when IMEX RK time schemes
@@ -1504,6 +1495,7 @@ contains
       complex(cp),         intent(in) :: xi(llm:ulm,n_r_max)
       complex(cp),         intent(in) :: dp_expl(llm:ulm,n_r_max)
       class(type_tscheme), intent(in) :: tscheme
+      real(cp),            intent(in) :: time
       logical,             intent(in) :: lPressNext
       logical,             intent(in) :: lRmsNext
 
@@ -1686,6 +1678,15 @@ contains
          do lm=start_lm,stop_lm
             w(lm,1)      =zero
             w(lm,n_r_max)=zero
+
+            if ( l_radial_flow_bc ) then
+               l1 = lm2l(lm)
+               m1 = lm2m(lm)
+               if ( l1 == 2 ) then
+                  call get_radial_flow_bc(time, m1, 1, w(lm,1))
+                  call get_radial_flow_bc(time, m1, n_r_max, w(lm,n_r_max))
+               end if
+            end if
          end do
 
          !-- Other boundary condition: stress-free or rigid
@@ -1820,7 +1821,7 @@ contains
 
    end subroutine assemble_pol
 !------------------------------------------------------------------------------
-   subroutine assemble_pol_Rloc(block_sze, nblocks, w, dw, ddw, p, dp, dwdt, dp_expl, &
+   subroutine assemble_pol_Rloc(time, block_sze, nblocks, w, dw, ddw, p, dp, dwdt, dp_expl, &
               &                 tscheme, lPressNext, lRmsNext)
       !
       ! This subroutine is used to assemble w and dw/dr when IMEX RK time schemes
@@ -1834,6 +1835,7 @@ contains
       class(type_tscheme), intent(in) :: tscheme
       logical,             intent(in) :: lPressNext
       logical,             intent(in) :: lRmsNext
+      real(cp),            intent(in) :: time
 
       !-- Output variables
       type(type_tarray), intent(inout) :: dwdt
@@ -1845,7 +1847,7 @@ contains
 
       !-- Local variables
       integer :: nlm_block, start_lm, stop_lm, req, tag, lms_block
-      integer :: n_r, lm, l
+      integer :: n_r, lm, l, m
       complex(cp) :: work_Rloc(lm_max, nRstart:nRstop)
       complex(cp) :: work_ghost(lm_max, nRstart-1:nRstop+1)
       integer :: array_of_requests(4*nblocks)
@@ -1873,11 +1875,21 @@ contains
       if ( nRstart==n_r_cmb ) then
          do lm=start_lm,stop_lm
             work_Rloc(lm,n_r_cmb)=zero
+            if ( l_radial_flow_bc ) then
+               l = st_map%lm2l(lm)
+               m = st_map%lm2m(lm)
+               if ( l == 2 ) call get_radial_flow_bc(time, m, n_r_cmb, work_Rloc(lm,n_r_cmb))
+            end if
          end do
       end if
       if ( nRstop==n_r_icb ) then
          do lm=start_lm,stop_lm
             work_Rloc(lm,n_r_icb)=zero
+            if ( l_radial_flow_bc ) then
+               l = st_map%lm2l(lm)
+               m = st_map%lm2m(lm)
+               if ( l == 2 ) call get_radial_flow_bc(time, m, n_r_icb, work_Rloc(lm,n_r_icb))
+            end if
          end do
       end if
 
@@ -2662,5 +2674,41 @@ contains
       call pMat%prepare_mat()
 
    end subroutine get_p0Mat_Rdist
+!-----------------------------------------------------------------------------
+   subroutine get_radial_flow_bc(time, m, nBC, wbc)
+
+      ! Purpose of this subroutine is to compute the boundary condition for the
+      ! radial flow at the inner and outer boundaries. This is used for the time advance of the
+      ! poloidal equation for the assembly stage or for R-dist when the double curl form is used.
+
+       !-- Input variables:
+      real(cp), intent(in) :: time
+      integer, intent(in)  :: m
+      integer, intent(in)  :: nBC
+      !-- Output variables:
+      complex(cp), intent(out) :: wbc
+
+      if ( nBC == n_r_cmb ) then
+         if ( m == 0 ) then
+            wbc = tide_fac20 * cmplx(cos(omega_tide*(time)),        &
+            &                        sin(omega_tide*(time)), cp)
+         end if
+         if ( m == 2 ) then
+            wbc = ellip_fac_cmb *                                    &
+         &     cmplx(cos(omegaOsz_ma1*(time+tShift_ma1)),         &
+         &           sin(omegaOsz_ma1*(time+tShift_ma1)), cp) +   &
+         &     tide_fac22p * cmplx(cos(omega_tide*(time)),       &
+         &                         -sin(omega_tide*(time)), cp) + &
+         &     tide_fac22n * cmplx(cos(omega_tide*(time)),       &
+         &                          sin(omega_tide*(time)), cp)
+         end if
+      end if
+
+      if ( nBC == n_r_icb ) then
+         wbc = ellip_fac_icb * cmplx(cos(omegaOsz_ic1*(time+tShift_ic1)),      &
+         &                           sin(omegaOsz_ic1*(time+tShift_ic1)), cp)
+      end if
+
+   end subroutine get_radial_flow_bc
 !-----------------------------------------------------------------------------
 end module updateWP_mod

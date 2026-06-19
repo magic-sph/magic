@@ -771,20 +771,21 @@ contains
 
       if (l_radial_flow_bc) then
          if ( ellipticity_cmb /= 0.0_cp ) then
-            ellip_fac_cmb=-two*r_cmb**3*ellipticity_cmb*omega_ma1*omegaOsz_ma1
+            ellip_fac_cmb=-two*r_cmb**3*ellipticity_cmb*omega_ma1*omegaOsz_ma1/6.0_cp
          else
             ellip_fac_cmb=0.0_cp
          end if
 
          if ( ellipticity_icb /= 0.0_cp ) then
-            ellip_fac_icb=-two*r_icb**3*ellipticity_icb*omega_ic1*omegaOsz_ic1
+            ellip_fac_icb=-two*r_icb**3*ellipticity_icb*omega_ic1*omegaOsz_ic1/6.0_cp
          else
             ellip_fac_icb=0.0_cp
          end if
 
          if ( amp_tide /= 0.0_cp ) then
-            y20_norm = 0.5_cp  * sqrt(5.0_cp/pi)
-            y22_norm = 0.25_cp * sqrt(7.5_cp/pi)
+            ! 6 factor = l*(l+1) for l=2
+            y20_norm = 0.5_cp  * sqrt(5.0_cp/pi) * 6.0_cp
+            y22_norm = 0.25_cp * sqrt(7.5_cp/pi) * 6.0_cp
             tide_fac20  = amp_tide / y20_norm * r_cmb**2 ! (2,0,1) mode of Ogilvie 2014
             tide_fac22p = half * amp_tide / y22_norm / sqrt(6.0_cp) * r_cmb**2 ! Needs a half factor, (2,2,1) mode
             tide_fac22n = -7.0_cp * tide_fac22p                                ! Half factor carried over, (2,2,3) mode,

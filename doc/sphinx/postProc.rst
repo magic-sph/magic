@@ -14,11 +14,13 @@ Requirements
 Hard dependencies
 -----------------
 
-* `python <https://www.python.org>`_ 2.7/3.3 or higher.
+* `python <https://www.python.org>`_ 3.3 or higher.
 
-* `matplotlib <http://matplotlib.org>`_ 1.0 or higher.
+* `matplotlib <https://matplotlib.org>`_ 1.0 or higher.
 
-* `scipy <http://www.scipy.org/>`_ 0.10 or higher.
+* `meson <https://mesonbuild.com/meson-python/>`_ 0.10 or higher.
+
+* `scipy <https://www.scipy.org/>`_ 0.10 or higher.
 
 Optional dependencies
 ---------------------

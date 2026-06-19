@@ -2,8 +2,12 @@
 from magic import MagicTs, avgField, MagicSpectrum, MagicRadial, scanDir, MagicSetup
 import numpy as np
 from scipy.signal import argrelextrema
-import matplotlib.pyplot as plt
 import os
+
+try:
+    from numpy import trapz as trapz
+except:
+    from numpy import trapezoid as trapz
 
 class bcolors:
     HEADER = '\033[95m'
@@ -76,7 +80,7 @@ def MagicCheck(tstart=None):
         print(bcolors.MODERATE + 'Sudden variations detected in power balance!' + bcolors.ENDC)
         ones = np.ones_like(ts.time[mask])
         ones[~mask_spike] = 0.
-        ttot_spikes = np.trapz(ones, ts.time[mask])
+        ttot_spikes = trapz(ones, ts.time[mask])
         ttot = ts.time[-1]-ts.time[0]
         ratio = ttot_spikes/ttot
         print('    -Time fraction with spikes: {:.3f} %'.format(100.*ratio))

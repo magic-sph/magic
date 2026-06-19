@@ -2,7 +2,6 @@
 from magic import npfile, scanDir, MagicSetup, hammer2cart, symmetrize, progressbar
 from scipy.interpolate import interp1d
 from scipy import signal
-from scipy.version import version
 import os, re
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,6 +9,10 @@ from .spectralTransforms import SpectralTransforms
 from magic.setup import labTex
 import copy
 
+try:
+    from numpy import trapz as trapz
+except:
+    from numpy import trapezoid as trapz
 
 def deriv(x, y, axis=0):
     """
@@ -224,8 +227,8 @@ class MagicCoeffCmb(MagicSetup):
         # Time-averaged Gauss coefficient
         if not ave:
             facT = 1./(self.time[-1]-self.time[0])
-            self.glmM = facT * np.trapz(self.glm, self.time, axis=0)
-            self.hlmM = facT * np.trapz(self.hlm, self.time, axis=0)
+            self.glmM = facT * trapz(self.glm, self.time, axis=0)
+            self.hlmM = facT * trapz(self.hlm, self.time, axis=0)
 
             if len(self.time) > 3:
                 self.dglmdt = deriv(self.time, self.glm.T, axis=1)
@@ -257,11 +260,11 @@ class MagicCoeffCmb(MagicSetup):
 
         if not ave:
             # Time-averaged energy
-            self.ElM = facT * np.trapz(self.El, self.time, axis=0)
-            self.EmM = facT * np.trapz(self.Em, self.time, axis=0)
+            self.ElM = facT * trapz(self.El, self.time, axis=0)
+            self.EmM = facT * trapz(self.Em, self.time, axis=0)
 
             # Secular variation
-            self.ESVlM = facT * np.trapz(self.ESVl, self.time, axis=0)
+            self.ESVlM = facT * trapz(self.ESVl, self.time, axis=0)
             if abs(self.ESVlM[1:]).min() > 0.:
                 self.taul = np.sqrt(self.ElM[1:]/self.ESVlM[1:])
             else:
@@ -838,10 +841,10 @@ class MagicCoeffR(MagicSetup):
             # Time-averaged energy
             facT = 1./(self.time[-1]-self.time[0])
 
-            self.e_pol_lM = facT * np.trapz(self.e_pol_l, self.time, axis=0)
-            self.e_tor_lM = facT * np.trapz(self.e_tor_l, self.time, axis=0)
-            self.e_pol_axi_lM = facT * np.trapz(self.e_pol_axi_l, self.time, axis=0)
-            self.e_tor_axi_lM = facT * np.trapz(self.e_tor_axi_l, self.time, axis=0)
+            self.e_pol_lM = facT * trapz(self.e_pol_l, self.time, axis=0)
+            self.e_tor_lM = facT * trapz(self.e_tor_l, self.time, axis=0)
+            self.e_pol_axi_lM = facT * trapz(self.e_pol_axi_l, self.time, axis=0)
+            self.e_tor_axi_lM = facT * trapz(self.e_tor_axi_l, self.time, axis=0)
 
     def truncate(self, lCut):
         """

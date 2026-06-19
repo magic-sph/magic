@@ -17,8 +17,9 @@ several Implicit-Explicit time schemes where the nonlinear terms and the Corioli
 **MagIC** is written in Fortran and designed to be used on supercomputing
 clusters.  It thus relies on a hybrid parallelisation scheme using both `OpenMP
 <https://openmp.org/wp/>`_ and `MPI <https://www.open-mpi.org/>`_. Postprocessing
-functions written in python (requiring `matplotlib <https://matplotlib.org/>`_
-and `scipy <https://www.scipy.org/>`_) are also provided to allow a useful data
+functions written in python (requiring `matplotlib <https://matplotlib.org/>`_,
+`meson <https://mesonbuild.com/meson-python/>`_ and 
+`scipy <https://www.scipy.org/>`_) are also provided to allow a useful data
 analysis.
 
 .. figure:: figs/magic_occigen.png
