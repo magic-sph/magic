@@ -11,7 +11,8 @@ module start_fields
    use communications, only: lo2r_one
    use radial_functions, only: rscheme_oc, r, or1, alpha0, dLtemp0,      &
        &                       dLalpha0, beta, orho1, temp0, rho0, r_cmb,&
-       &                       otemp1, ogrun, dentropy0, dxicond, r_icb
+       &                       otemp1, ogrun, dentropy0, dxicond, r_icb, &
+       &                       xicond, scond
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
        &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
        &                          ViscHeatFac, impXi
@@ -176,7 +177,8 @@ contains
 
          end if
 
-         if ( l_onset .and. ( .not. l_non_adia ) ) dentropy0(:) = ds0(:) * osq4pi
+         scond(:)=s0(:)*osq4pi
+         if ( l_onset .and. ( .not. l_non_adia ) ) dentropy0(:) = ds0(:)*osq4pi
 
          if ( rank == 0 ) close(filehandle)
 
@@ -192,7 +194,8 @@ contains
          topxicond=-osq4pi*ds0(1)
          botxicond=-osq4pi*ds0(n_r_max)
          deltaxicond=osq4pi*(s0(n_r_max)-s0(1))
-         if ( l_onset ) dxicond(:)=ds0(:) * osq4pi
+         xicond(:)=s0(:)*osq4pi
+         if ( l_onset ) dxicond(:)=ds0(:)*osq4pi
       else
          topxicond  =0.0_cp
          botxicond  =0.0_cp

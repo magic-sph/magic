@@ -48,7 +48,9 @@ module radial_functions
    real(cp), public, allocatable :: dLtemp0(:)   ! Inverse of temperature scale height
    real(cp), public, allocatable :: ddLtemp0(:)  ! :math:`d/dr(1/T dT/dr)`
    real(cp), private, allocatable :: d2temp0(:)  ! Second rad. derivative of background temperature
+   real(cp), public, allocatable :: scond(:)     ! Background entropy profile (conducting state)
    real(cp), public, allocatable :: dentropy0(:) ! Radial gradient of background entropy
+   real(cp), public, allocatable :: xicond(:)    ! Conducting state for chemical composition
    real(cp), public, allocatable :: dxicond(:)   ! Radial gradient of chemical composition
    real(cp), public, allocatable :: orho1(:)     ! :math:`1/\tilde{\rho}`
    real(cp), public, allocatable :: orho2(:)     ! :math:`1/\tilde{\rho}^2`
@@ -125,17 +127,18 @@ contains
       allocate( or1(n_r_max),or2(n_r_max),or3(n_r_max),or4(n_r_max) )
       allocate( otemp1(n_r_max),rho0(n_r_max),temp0(n_r_max) )
       allocate( dLtemp0(n_r_max),d2temp0(n_r_max),dentropy0(n_r_max) )
-      allocate( ddLtemp0(n_r_max) )
+      allocate( scond(n_r_max),ddLtemp0(n_r_max) )
       allocate( orho1(n_r_max),orho2(n_r_max) )
       allocate( beta(n_r_max), dbeta(n_r_max), ddbeta(n_r_max) )
       allocate( alpha0(n_r_max), dLalpha0(n_r_max), ddLalpha0(n_r_max) )
       allocate( rgrav(n_r_max), ogrun(n_r_max) )
-      bytes_allocated = bytes_allocated+(22*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
+      bytes_allocated = bytes_allocated+(23*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
 
       if ( l_chemical_conv ) then
-         allocate( dxicond(n_r_max) )
+         allocate( xicond(n_r_max), dxicond(n_r_max) )
+         xicond(:) =0.0_cp
          dxicond(:)=0.0_cp
-         bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+         bytes_allocated = bytes_allocated+2*n_r_max*SIZEOF_DEF_REAL
       end if
 
       allocate( lambda(n_r_max),dLlambda(n_r_max),jVarCon(n_r_max) )
@@ -202,11 +205,11 @@ contains
       deallocate( r, r_ic, O_r_ic, O_r_ic2, or1, or2, or3, or4 )
       deallocate( otemp1, rho0, temp0, dLtemp0, d2temp0, dentropy0 )
       deallocate( ddLtemp0, orho1, orho2, beta, dbeta, ddbeta, alpha0 )
-      deallocate( ddLalpha0, dLalpha0, rgrav, ogrun )
+      deallocate( ddLalpha0, dLalpha0, rgrav, ogrun, scond )
       deallocate( lambda, dLlambda, jVarCon, sigma, kappa, dLkappa )
       deallocate( visc, dLvisc, ddLvisc, epscProf, divKtemp0 )
 
-      if ( l_chemical_conv ) deallocate(dxicond)
+      if ( l_chemical_conv ) deallocate(xicond, dxicond)
 
       if ( .not. l_full_sphere ) then
          deallocate( dr_top_ic )

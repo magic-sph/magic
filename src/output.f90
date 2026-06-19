@@ -43,7 +43,7 @@ module output_mod
    use output_data, only: tag, l_max_cmb, n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three, zero
    use outMisc_mod, only: outHeat, outHelicity, outHemi, outPhase, get_onset, &
-       &                  calc_melt_frame
+       &                  calc_melt_frame, outDD
    use geos, only: outGeos, outOmega, calc_geos_frame
    use outRot, only: write_rot
    use integration, only: rInt_R
@@ -425,6 +425,9 @@ contains
             call outHeat(timeScaled,timePassedLog,timeNormLog,l_stop_time, &
                  &       s_LMloc,ds_LMloc,p_LMloc,xi_LMloc,                &
                  &       dxi_LMloc)
+         end if
+         if ( l_heat .and. l_chemical_conv ) then
+            call outDD(timeScaled,w_LMloc,s_LMloc,ds_LMloc,xi_LMloc,dxi_LMloc)
          end if
 
          if ( l_hel ) call outHelicity(timeScaled)
