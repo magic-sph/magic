@@ -1596,7 +1596,7 @@ at :math:`r_i` and/or :math:`r_o`, while the latter means
 
 In spectral representation for example the respective entropy condition read
 
-.. math:: {\cal C}_n s_{\ell mn}=\mbox{const.}\;\;\mbox{or}\;\;{\cal C'}_n s_{\ell mn}=\mbox{const.}
+.. math:: {\cal C}_n s_{\ell mn}=\mbox{const.}\;\;\mbox{or}\;\;{\cal C}'_n s_{\ell mn}=\mbox{const.}
 
 Appropriate constant values need to be chosen and are instrumental in driving the dynamo when 
 flux conditions are imposed. 
@@ -1616,7 +1616,7 @@ at :math:`r_i` and/or :math:`r_o`, while the latter means
 
 In spectral representation, this then reads
 
-.. math:: {\cal C}_n \xi_{\ell mn}=\mbox{const.}\;\;\mbox{or}\;\;{\cal C'}_n \xi_{\ell mn}=\mbox{const.}
+.. math:: {\cal C}_n \xi_{\ell mn}=\mbox{const.}\;\;\mbox{or}\;\;{\cal C}'_n \xi_{\ell mn}=\mbox{const.}
 
 
 Magnetic boundary conditions and inner core

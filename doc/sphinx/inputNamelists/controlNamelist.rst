@@ -252,9 +252,9 @@ domain.
   +-----------------------+-----------------------------------------------------------------------------------------------------------+
   | map_function='ARCSIN' | Use an arcsin mapping  (see `Kosloff and Tal-Ezer 1993 <https://doi.org/10.1006/jcph.1993.1044>`_)        |
   +-----------------------+-----------------------------------------------------------------------------------------------------------+
-  | map_function='TT'     | Use the mapping by `Tee and Trefethen 2006 <https://doi.org/10.1137/050641296>`_                          |
+  | map_function='TT'     | Use the mapping by `Tee and Trefethen (2006) <https://doi.org/10.1137/050641296>`_                        |
   +-----------------------+-----------------------------------------------------------------------------------------------------------+
-  | map_function='JAFARI' | Use the mapping by `Jafari-Varzaneh and Hosseini 2014 <https://doi.org/10.1007/s11075-014-9883-3>`_       |
+  | map_function='JAFARI' | Use the mapping by `Jafari-Varzaneh and Hosseini (2014) <https://doi.org/10.1007/s11075-014-9883-3>`_     |
   +-----------------------+-----------------------------------------------------------------------------------------------------------+
 
 If the tangent mapping is used, the function that re-distributes the collocation 
@@ -348,6 +348,8 @@ Miscellaneous
    | mpi_transp='auto'  | Automatic determination of the fastest transpose |
    +--------------------+--------------------------------------------------+
    | mpi_transp='p2p'   | Use Isend/Irecv/Waitall communicators            |
+   +--------------------+--------------------------------------------------+
+   | mpi_transp='a2ap'  | Use padded alltoall communicators                |
    +--------------------+--------------------------------------------------+
    | mpi_transp='a2av'  | Use alltoallv communicators                      |
    +--------------------+--------------------------------------------------+
