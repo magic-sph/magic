@@ -420,19 +420,19 @@ class MagicTs(MagicSetup):
         elif self.field == 'double_diff':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            if self.density_ratio.max() < 1.:
-                ax.plot(self.time, 1./self.flux_ratio, label=r'$\gamma^{-1}$')
-                if hasattr(self, 'sc'):
-                    Lewis = self.sc/self.pr
+            if hasattr(self, 'sc'):
+                Lewis = self.sc/self.pr
+                Rrho = abs(self.ra/self.raxi)*Lewis
+                if Rrho < 1.:
+                    ax.plot(self.time, 1./self.flux_ratio, label=r'$\gamma^{-1}$')
                     ax.plot(self.time, 1./self.density_ratio/Lewis,
                             label=r'$1/R_\rho^*/Le$')
-            else:
-                ax.plot(self.time, self.flux_ratio, label=r'$\gamma$')
-                if hasattr(self, 'sc'):
-                    Lewis = self.sc/self.pr
+                else:
+                    ax.plot(self.time, self.flux_ratio, label=r'$\gamma$')
                     ax.plot(self.time, self.density_ratio/Lewis,
                             label=r'$R_\rho^*/Le$')
             ax.legend(loc='best', frameon=False)
+            ax.set_ylim(0., 1.)
             ax.set_xlabel('Time')
             ax.set_ylabel('Flux ratio')
             fig.tight_layout()
