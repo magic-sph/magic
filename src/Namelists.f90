@@ -749,7 +749,7 @@ contains
       if (ellipticity_icb /= 0.0_cp ) l_vr_icb=.true.
       l_vr_bc = l_vr_cmb .or. l_vr_icb
 
-      if ( l_vr_bc .and. ktops /= 1 .or. kbots /= 1 ) then
+      if ( l_vr_bc .and. (ktops /= 1 .or. kbots /= 1) ) then
          call abortRun('! Radial flow boundary conditions not yet implemented for ktops /=1 and kbots /= 1')
       end if
 
