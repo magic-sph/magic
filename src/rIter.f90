@@ -54,7 +54,7 @@ module rIter_mod
    use RMS, only: get_nl_RMS, transform_to_lm_RMS, compute_lm_forces, &
        &          transform_to_grid_RMS
    use probe_mod
-   use special, only: ellip_fac_icb, l_radial_flow_bc
+   use special, only: l_vr_cmb, l_vr_icb
 
    implicit none
 
@@ -568,17 +568,26 @@ contains
                     &                 this%gsa%dvtdpc, this%gsa%dvpdpc, l_R(nR))
             end if
          else if ( nBc == 2 ) then
-            if ( nR == n_r_cmb .and. (.not. l_radial_flow_bc) ) then
+            if ( nR == n_r_cmb ) then
+               if ( l_vr_cmb ) then
+                  call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
+                    &                 this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
+               end if
                call v_rigid_boundary(nR, omega_ma, lDeriv, this%gsa%vrc,      &
-                    &              this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
-                    &              this%gsa%dvrdtc, this%gsa%dvrdpc,          &
-                    &              this%gsa%dvtdpc,this%gsa%dvpdpc)
-            else if ( nR == n_r_icb .and. ellip_fac_icb == 0.0_cp ) then
-               call v_rigid_boundary(nR, omega_ic, lDeriv, this%gsa%vrc,    &
-                    &              this%gsa%vtc, this%gsa%vpc,              &
-                    &              this%gsa%cvrc, this%gsa%dvrdtc,          &
-                    &              this%gsa%dvrdpc, this%gsa%dvtdpc,        &
-                    &              this%gsa%dvpdpc)
+                  &                this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
+                  &                this%gsa%dvrdtc, this%gsa%dvrdpc,          &
+                  &                this%gsa%dvtdpc, this%gsa%dvpdpc)
+            end if
+
+            if ( nR == n_r_icb ) then
+               if ( l_vr_icb ) then
+                  call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
+                    &                 this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
+               end if
+               call v_rigid_boundary(nR, omega_ic, lDeriv, this%gsa%vrc,      &
+                  &                this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
+                  &                this%gsa%dvrdtc, this%gsa%dvrdpc,          &
+                  &                this%gsa%dvtdpc, this%gsa%dvpdpc)
             end if
             if ( lDeriv ) then
                call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &

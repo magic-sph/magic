@@ -742,9 +742,16 @@ contains
       l_AM=l_AM .or. l_correct_AMe .or. l_correct_AMz
       l_AM=l_AM .or. l_power
 
-      ! Radial flow BC?
-      if (ellipticity_cmb /= 0.0_cp .or. ellipticity_icb /= 0.0_cp .or. &
-      &   amp_tide /=0.0_cp ) l_radial_flow_bc=.true.
+      ! Radial flow BCs?
+      l_vr_cmb=.false.
+      l_vr_icb=.false.
+      if (ellipticity_cmb /= 0.0_cp .or. amp_tide /=0.0_cp ) l_vr_cmb=.true.
+      if (ellipticity_icb /= 0.0_cp ) l_vr_icb=.true.
+      l_vr_bc = l_vr_cmb .or. l_vr_icb
+
+      if ( l_vr_bc .and. ktops /= 1 .or. kbots /= 1 ) then
+         call abortRun('! Radial flow boundary conditions not yet implemented for ktops /=1 and kbots /= 1')
+      end if
 
       !-- Heat boundary condition
       if ( impS /= 0 ) then

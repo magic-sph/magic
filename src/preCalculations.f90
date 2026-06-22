@@ -44,11 +44,10 @@ module preCalculations
    use integration, only: rInt_R
    use useful, only: logWrite, abortRun
    use special, only: l_curr, fac_loop, loopRadRatio, amp_curr, Le, n_imp, &
-       &              l_imp, l_radial_flow_bc,                             &
-       &              ellipticity_cmb, ellip_fac_cmb,                      &
+       &              l_imp, ellipticity_cmb, ellip_fac_cmb,               &
        &              ellipticity_icb, ellip_fac_icb,                      &
        &              tide_fac20, tide_fac22p, tide_fac22n,                &
-       &              amp_tide
+       &              amp_tide, l_vr_bc
    use time_schemes, only: type_tscheme
 
    implicit none
@@ -769,7 +768,7 @@ contains
       n_s_max = n_r_max+int(r_icb*n_r_max)
       n_s_max = int(sDens*n_s_max)
 
-      if (l_radial_flow_bc) then
+      if (l_vr_bc) then
          if ( ellipticity_cmb /= 0.0_cp ) then
             ellip_fac_cmb=-two*r_cmb**3*ellipticity_cmb*omega_ma1*omegaOsz_ma1/6.0_cp
          else
@@ -784,12 +783,11 @@ contains
 
          if ( amp_tide /= 0.0_cp ) then
             ! 6 factor = l*(l+1) for l=2
-            y20_norm = 0.5_cp  * sqrt(5.0_cp/pi) * 6.0_cp
-            y22_norm = 0.25_cp * sqrt(7.5_cp/pi) * 6.0_cp
-            tide_fac20  = amp_tide / y20_norm * r_cmb**2 ! (2,0,1) mode of Ogilvie 2014
-            tide_fac22p = half * amp_tide / y22_norm / sqrt(6.0_cp) * r_cmb**2 ! Needs a half factor, (2,2,1) mode
-            tide_fac22n = -7.0_cp * tide_fac22p                                ! Half factor carried over, (2,2,3) mode,
-                                                                               ! has opposite sign to that of the other two (Polfliet & Smeyers, 1990)
+            y20_norm = 0.5_cp  * sqrt(5.0_cp/pi) * 6.0_cp / r_cmb**2
+            y22_norm = 0.25_cp * sqrt(7.5_cp/pi) * 6.0_cp / r_cmb**2
+            tide_fac22n = 0.5_cp * amp_tide / y22_norm ! Needs a half factor, (2,2,3) mode
+            tide_fac22p = tide_fac22n / 7.0_cp  ! (2,2,1) mode of Ogilvie 2014
+            tide_fac20  = 4.0_cp/7.0_cp * amp_tide / y20_norm ! (2,0,1) mode of Ogilvie 2014
          else
             tide_fac20  = 0.0_cp
             tide_fac22p = 0.0_cp

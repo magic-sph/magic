@@ -17,7 +17,7 @@ module updateWP_mod
    use special, only:  ellipticity_cmb, ellipticity_icb,               &
        &               ellip_fac_cmb, ellip_fac_icb,                   &
        &               tide_fac20, tide_fac22p, tide_fac22n,           &
-       &               omega_tide, amp_tide, l_radial_flow_bc
+       &               omega_tide, amp_tide, l_vr_cmb, l_vr_icb, l_vr_bc
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: omegaOsz_ma1, tShift_ma1, omegaOsz_ic1, tShift_ic1
    use blocking, only: lo_sub_map, lo_map, llm, ulm, st_map
@@ -415,13 +415,11 @@ contains
                   rhs1(n_r_max,2*lm-1,threadid)=0.0_cp
                   rhs1(n_r_max,2*lm,threadid)  =0.0_cp
 
-                  if (l_radial_flow_bc) then
+                  if (l_vr_bc) then
 
                      if ( l1 == 2 .and. m1 == 0 ) then
                           rhs1(1,2*lm-1,threadid)=rhs1(1,2*lm-1,threadid)         &
-                           &                  + tide_fac20 * cos(omega_tide*(time))
-                           rhs1(1,2*lm,threadid)  =rhs1(1,2*lm,threadid)           &
-                           &                  + tide_fac20 * sin(omega_tide*(time))
+                           &                  + tide_fac20 * cos(omega_tide*time)
                      end if
 
                      if ( l1 == 2 .and. m1 == 2 ) then
@@ -443,10 +441,10 @@ contains
                         ! sign in the rotating frame (Ogilvie, 2014)
                         rhs1(1,2*lm-1,threadid)=rhs1(1,2*lm-1,threadid)        &
                         &                 + (tide_fac22p + tide_fac22n)        &
-                        &                    * cos(omega_tide*(time))
+                        &                    * cos(omega_tide*time)
                         rhs1(1,2*lm,threadid)  =rhs1(1,2*lm,threadid)          &
-                        &                 +  (-tide_fac22p + tide_fac22n)      &
-                        &                    * sin(omega_tide*(time))
+                        &                 +  (tide_fac22p - tide_fac22n)      &
+                        &                    * sin(omega_tide*time)
 
                      end if
                   end if
@@ -458,20 +456,20 @@ contains
                      rhs1(n_r_max-1,2*lm,threadid)  =0.0_cp
 
                      ! Special BC for free-slip and radial flow
-                     if (l_radial_flow_bc .and. (ktopv == 1 .or. kbotv == 1)) then
+                     if ( l_vr_bc ) then
                         if (l1 == 2 .and. m1 == 2) then
-                           if ( (ellipticity_cmb /= 0.0_cp .or. amp_tide /= 0.0_cp) &
-                           &  .and. ktopv == 1 ) then
+                           if (l_vr_cmb .and. ktopv == 1) then
                               rhs1(2,2*lm-1,threadid)=-real(l1*(l1+1),kind=cp)*or2(1)
                               rhs1(2,2*lm,threadid)  =-real(l1*(l1+1),kind=cp)*or2(1)
-                           else if (ellipticity_icb /= 0.0_cp .and. kbotv == 1) then
-                              rhs1(n_r_max-1,2*lm-1,threadid)=-real(l1*(l1+1),kind=cp)*or2(n_r_max)
-                              rhs1(n_r_max-1,2*lm,threadid)  =-real(l1*(l1+1),kind=cp)*or2(n_r_max)
+                           end if
+                           if (l_vr_icb .and. kbotv == 1) then
+                                 rhs1(n_r_max-1,2*lm-1,threadid)=-real(l1*(l1+1),kind=cp)*or2(n_r_max)
+                                 rhs1(n_r_max-1,2*lm,threadid)  =-real(l1*(l1+1),kind=cp)*or2(n_r_max)
                            end if
                         end if
 
                         if (l1 == 2 .and. m1 == 0) then
-                           if (amp_tide /= 0.0_cp .and. ktopv == 1) then
+                           if (l_vr_cmb .and. ktopv == 1) then
                               rhs1(2,2*lm-1,threadid)=-real(l1*(l1+1),kind=cp)*or2(1)
                            end if
                         end if
@@ -692,7 +690,7 @@ contains
             m=st_map%lm2m(lm)
             if ( l == 0 ) cycle
             w_ghost(lm,nR)  =zero ! Non-penetration condition
-            if (l_radial_flow_bc) then
+            if (l_vr_cmb) then
                if ( l == 2 ) then
                   call get_radial_flow_bc(time,m,nR,w_ghost(lm,nR))
                end if
@@ -710,7 +708,7 @@ contains
             m=st_map%lm2m(lm)
             if ( l == 0 ) cycle
             w_ghost(lm,nR)=zero ! Non-penetration condition
-            if ( l_radial_flow_bc ) then
+            if ( l_vr_icb ) then
                if ( l == 2 ) then
                   call get_radial_flow_bc(time,m,nR,w_ghost(lm,nR))
                end if
@@ -1679,7 +1677,7 @@ contains
             w(lm,1)      =zero
             w(lm,n_r_max)=zero
 
-            if ( l_radial_flow_bc ) then
+            if ( l_vr_bc ) then
                l1 = lm2l(lm)
                m1 = lm2m(lm)
                if ( l1 == 2 ) then
@@ -1875,7 +1873,7 @@ contains
       if ( nRstart==n_r_cmb ) then
          do lm=start_lm,stop_lm
             work_Rloc(lm,n_r_cmb)=zero
-            if ( l_radial_flow_bc ) then
+            if ( l_vr_cmb ) then
                l = st_map%lm2l(lm)
                m = st_map%lm2m(lm)
                if ( l == 2 ) call get_radial_flow_bc(time, m, n_r_cmb, work_Rloc(lm,n_r_cmb))
@@ -1885,7 +1883,7 @@ contains
       if ( nRstop==n_r_icb ) then
          do lm=start_lm,stop_lm
             work_Rloc(lm,n_r_icb)=zero
-            if ( l_radial_flow_bc ) then
+            if ( l_vr_icb ) then
                l = st_map%lm2l(lm)
                m = st_map%lm2m(lm)
                if ( l == 2 ) call get_radial_flow_bc(time, m, n_r_icb, work_Rloc(lm,n_r_icb))
@@ -2690,17 +2688,17 @@ contains
 
       if ( nBC == n_r_cmb ) then
          if ( m == 0 ) then
-            wbc = tide_fac20 * cmplx(cos(omega_tide*(time)),        &
-            &                        sin(omega_tide*(time)), cp)
+            wbc = tide_fac20 * cmplx(cos(omega_tide*time),        &
+            &                        sin(omega_tide*time), cp)
          end if
          if ( m == 2 ) then
             wbc = ellip_fac_cmb *                                    &
          &     cmplx(cos(omegaOsz_ma1*(time+tShift_ma1)),         &
          &           sin(omegaOsz_ma1*(time+tShift_ma1)), cp) +   &
-         &     tide_fac22p * cmplx(cos(omega_tide*(time)),       &
-         &                         -sin(omega_tide*(time)), cp) + &
-         &     tide_fac22n * cmplx(cos(omega_tide*(time)),       &
-         &                          sin(omega_tide*(time)), cp)
+         &     tide_fac22p * cmplx(cos(omega_tide*time),       &
+         &                         sin(omega_tide*time), cp) + &
+         &     tide_fac22n * cmplx(cos(omega_tide*time),       &
+         &                        -sin(omega_tide*time), cp)
          end if
       end if
 

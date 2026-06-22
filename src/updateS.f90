@@ -262,19 +262,16 @@ contains
                      rhs1(1,2*lm-1,threadid) = rhs1(1,2*lm-1,threadid)        &
                      & + radratio/omega_tide * tide_fac20 * 6.0_cp/r_cmb**2   &
                      & * sin(omega_tide * time)
-                     rhs1(1,2*lm,threadid)   = rhs1(1,2*lm,threadid)          &
-                     & - radratio/omega_tide * tide_fac20 * 6.0_cp/r_cmb**2   &
-                     & * cos(omega_tide * time)
                   end if
 
                   if (l1 == 2 .and. m1 == 2) then
                      rhs1(1,2*lm-1,threadid) = rhs1(1,2*lm-1,threadid)        &
                      &  + radratio/omega_tide * 6.0_cp/r_cmb**2               &
-                     &  * (-tide_fac22p + tide_fac22n)                        &  ! ← B = (-p + n)
+                     &  * (tide_fac22p + tide_fac22n)                        &
                      &  * sin(omega_tide * time)
                      rhs1(1,2*lm,threadid)   = rhs1(1,2*lm,threadid)          &
-                     & - radratio/omega_tide * 6.0_cp/r_cmb**2                &
-                     & * (tide_fac22p + tide_fac22n)                          &  ! ← A = (p + n)
+                     & + radratio/omega_tide * 6.0_cp/r_cmb**2                &
+                     & * (-tide_fac22p + tide_fac22n)                          &
                      & * cos(omega_tide * time)
                   end if
                end if
@@ -360,6 +357,7 @@ contains
 
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm, l, m
+      complex(cp):: sBC
 
       !-- LU factorisation of the matrix if needed
       if ( .not. lSmat(0) ) then
@@ -391,10 +389,12 @@ contains
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
             if ( ktops == 1 ) then ! Fixed temperature
-               if (amp_tide /= 0.0_cp .and. l == 2) then
-                  call get_radial_flow_bc(time, m, tops(l,m))
+               if (amp_tide /= 0.0_cp .and. l == 2 .and. present(time)) then ! Check if this is testLM
+                  call get_vr_temp_bc(time, m, sBC)
+               else
+                  sBC = zero
                end if
-               s_ghost(lm,nR)=tops(l,m)
+               s_ghost(lm,nR)=tops(l,m) + sBC
             else ! Fixed flux
                !TBD
                s_ghost(lm,nR)=s_ghost(lm,nR)+fd_fac_top(l)*tops(l,m)
@@ -898,7 +898,7 @@ contains
             m = st_map%lm2m(lm)
 
             if ( amp_tide /= 0.0_cp .and. l==2 ) then
-               call get_radial_flow_bc(time, m, tops(l,m))
+               call get_vr_temp_bc(time, m, tops(l,m))
             end if
 
             s(lm,nRstart)=tops(l,m)
@@ -990,7 +990,7 @@ contains
                        &                   bots(l1,m1), s(lm,:))
                else
                   if (amp_tide /= 0.0_cp .and. l1==2) then
-                     call get_radial_flow_bc(time, m1, tops(l1,m1))
+                     call get_vr_temp_bc(time, m1, tops(l1,m1))
                   end if
 
                   call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
@@ -1337,7 +1337,7 @@ contains
 
    end subroutine get_sMat_Rdist
 !-----------------------------------------------------------------------------
-   subroutine get_radial_flow_bc(time, m, sBC)
+   subroutine get_vr_temp_bc(time, m, sBC)
 
       !-- Input variables
       real(cp), intent(in) :: time
@@ -1352,17 +1352,20 @@ contains
       fac = 6.0_cp / r_cmb**2  ! l(l+1)/r_o^2 for l=2
 
       if (m==0) then
-         sBC = sBC + radratio/omega_tide * fac * tide_fac20 *        &
-         &           cmplx(sin(omega_tide*time),                     &
-         &                -cos(omega_tide*time), cp)
+         sBC = radratio/omega_tide * fac * tide_fac20 *        &
+         &     cmplx(sin(omega_tide*time),0.0_cp, cp) ! Complex part in m=0 does not matter
+      end if
+
+      if (m==1) then ! Obliquity tide, yet to implement
+         sBC = zero
       end if
 
       if (m==2) then
-         sBC = sBC + radratio/omega_tide * fac *                           &
-         &     cmplx((-tide_fac22p + tide_fac22n) * sin(omega_tide*time),  &  ! B * sin(ωt)
-         &          -(tide_fac22p + tide_fac22n) * cos(omega_tide*time), cp)  ! -A * cos(ωt)
+         sBC = radratio/omega_tide * fac *                                 &
+         &     cmplx((tide_fac22p + tide_fac22n) * sin(omega_tide*time),  &
+         &          (-tide_fac22p + tide_fac22n) * cos(omega_tide*time), cp)
       end if
 
-   end subroutine get_radial_flow_bc
+   end subroutine get_vr_temp_bc
 
 end module updateS_mod
