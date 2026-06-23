@@ -227,7 +227,7 @@ class Movie2Vtk(Movie):
                         name = name[:8]
                     fname = '{}{}{}_pcut{}_{:05d}'.format(dir, os.sep,
                                                           fieldName,
-                                                          name, k+1,
+                                                          name,
                                                           k+1+store_idx)
                     fname = os.path.join(datadir, fname)
                     self.mer2vtk(fname, datoc1, self.phiCut+np.pi,
