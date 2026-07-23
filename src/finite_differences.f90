@@ -7,7 +7,7 @@ module finite_differences
    use precision_mod
    use constants, only: zero, one, two, half
    use useful, only: logWrite, abortRun
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc, only: bytes_allocated
@@ -45,7 +45,7 @@ contains
 
       logical loc_gpu_dct
       loc_gpu_dct = .false.
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if ( present(gpu_dct) ) loc_gpu_dct = gpu_dct
 #endif
 
@@ -83,15 +83,19 @@ contains
 
       bytes_allocated=bytes_allocated+5*this%n_max*this%n_max*SIZEOF_DEF_REAL
 
+#ifdef USE_GPU
       if(loc_gpu_dct) then
-#ifdef WITH_OMP_GPU
-      gpu_bytes_allocated=gpu_bytes_allocated+(this%n_max*(4*order+8)+         &
-      &               order/2*(4*order_boundary+6)+                    &
-      &               (order/2+1)*(2*order_boundary+6))*SIZEOF_DEF_REAL
-      gpu_bytes_allocated=gpu_bytes_allocated+5*this%n_max*this%n_max*SIZEOF_DEF_REAL
-#endif
+         gpu_bytes_allocated=gpu_bytes_allocated+(this%n_max*(4*order+8)+         &
+         &               order/2*(4*order_boundary+6)+                    &
+         &               (order/2+1)*(2*order_boundary+6))*SIZEOF_DEF_REAL
+         gpu_bytes_allocated=gpu_bytes_allocated+5*this%n_max*this%n_max*SIZEOF_DEF_REAL
       end if
-
+#endif
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc:this) map(to: this%dr(:,:),this%ddr(:,:),this%dddr(:,:))
+#elif WITH_ACC_GPU
+      !$acc enter data copyin(this)
+#endif
    end subroutine initialize
 !---------------------------------------------------------------------------
    subroutine finalize(this, gpu_dct)
@@ -104,8 +108,13 @@ contains
 
       logical loc_gpu_dct
       loc_gpu_dct = .false.
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if ( present(gpu_dct) ) loc_gpu_dct = gpu_dct
+#endif
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(delete:this%dr(:,:),this%ddr(:,:),this%dddr(:,:),this)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(this)
 #endif
 
       deallocate( this%dr, this%ddr, this%dddr, this%ddddr )

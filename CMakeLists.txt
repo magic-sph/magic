@@ -29,6 +29,8 @@ set(USE_LAPACKLIB "MKL"  CACHE STRING "Use the Math Kernel Library for lapack ca
 set(USE_PRECOND "yes"  CACHE STRING "Use matrix preconditioning")
 set(USE_SHTNS   "no"   CACHE STRING "Use libshtns for SH projection")
 set(USE_GPU     "no"   CACHE STRING "Use GPU")
+set(WITH_ACC_GPU "no"   CACHE STRING "Activate OpenACC")
+set(WITH_OMP_GPU "no"   CACHE STRING "Activate OpenMP Target")
 find_package(SSE)
 
 # Specific compiler options
@@ -84,6 +86,19 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES PGI)
    set(FFLAG_FPE       "-Ktrap=divz,inv,ovf")
    set(FFLAG_OPT      "-fastsse")
 endif()
+if(CMAKE_Fortran_COMPILER_ID MATCHES NVHPC)
+   set(FFLAG_ARCH      "-m${ARCH}")
+   set(FFLAG_STD       " ")
+   set(FFLAG_NO_STD    " ")
+   set(FFLAG_TRACEBACK "-traceback")
+   #set(FFLAG_CONVERT   "-Mbyteswapio")
+   set(FFLAG_PREPROCESSOR "-Mpreprocess")
+   set(FFLAG_WARN_ALL  "-Wall")
+   #set(FFLAG_WARN_ALL  "-Wall -Wno-maybe-uninitialized")
+   #set(FFLAG_CHECK_ALL "-fcheck=all")
+   #set(FFLAG_FPE       "-Ktrap=divz,inv,ovf")
+   set(FFLAG_OPT      "-fastsse")
+endif()
 
 # Matrix preconditioning
 if (USE_PRECOND MATCHES yes)
@@ -118,6 +133,9 @@ set(_MPI_Intel_Fortran_COMPILER_NAMES      "mpiifort")
 # PGI compiler names
 set(_MPI_PGI_C_COMPILER_NAMES              "mpipgcc|mppgcc")
 set(_MPI_PGI_Fortran_COMPILER_NAMES        "mpipgf|mppgf")
+# NVidia compiler names
+set(_MPI_NVHPC_C_COMPILER_NAMES              "mpicc")
+set(_MPI_NVHPC_Fortran_COMPILER_NAMES        "mpifort")
 # Cray compiler names
 set(_MPI_Cray_C_COMPILER_NAMES             "cc")
 set(_MPI_Cray_Fortran_COMPILER_NAMES       "ftn")
@@ -126,8 +144,8 @@ set(_MPI_XL_C_COMPILER_NAMES               "mpxlc|mpxlc_r|mpixlc|mpixlc_r")
 set(_MPI_XL_Fortran_COMPILER_NAMES         "mpxlf|mpixlf")
 
 # Find CC, CXX and Fortran MPI wrappers
-string(REGEX MATCH "${_MPI_C_COMPILER_NAMES}|${_MPI_GNU_C_COMPILER_NAMES}|${_MPI_Intel_C_COMPILER_NAMES}|${_MPI_PGI_C_COMPILER_NAMES}|${_MPI_XL_C_COMPILER_NAMES}|${_MPI_Cray_C_COMPILER_NAMES}" MPICC_COMPILER "${CMAKE_C_COMPILER}")
-string(REGEX MATCH "${_MPI_Fortran_COMPILER_NAMES}|${_MPI_GNU_Fortran_COMPILER_NAMES}|${_MPI_Intel_Fortran_COMPILER_NAMES}|${_MPI_PGI_Fortran_COMPILER_NAMES}|${_MPI_XL_Fortran_COMPILER_NAMES}|${_MPI_Cray_Fortran_COMPILER_NAMES}" MPIFORTRAN_COMPILER "${CMAKE_Fortran_COMPILER}")
+string(REGEX MATCH "${_MPI_C_COMPILER_NAMES}|${_MPI_GNU_C_COMPILER_NAMES}|${_MPI_Intel_C_COMPILER_NAMES}|${_MPI_PGI_C_COMPILER_NAMES}|${_MPI_NVHPC_C_COMPILER_NAMES}|${_MPI_XL_C_COMPILER_NAMES}|${_MPI_Cray_C_COMPILER_NAMES}" MPICC_COMPILER "${CMAKE_C_COMPILER}")
+string(REGEX MATCH "${_MPI_Fortran_COMPILER_NAMES}|${_MPI_GNU_Fortran_COMPILER_NAMES}|${_MPI_Intel_Fortran_COMPILER_NAMES}|${_MPI_PGI_Fortran_COMPILER_NAMES}|${_MPI_NVHPC_Fortran_COMPILER_NAMES}|${_MPI_XL_Fortran_COMPILER_NAMES}|${_MPI_Cray_Fortran_COMPILER_NAMES}" MPIFORTRAN_COMPILER "${CMAKE_Fortran_COMPILER}")
 
 # Check whether compiler_options() is available
 file(WRITE "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testCompOpt.f90"
@@ -294,6 +312,7 @@ endif()
 
 if( USE_FFTLIB MATCHES FFTW )
    include_directories(/usr/include)
+   include_directories($ENV{FFTW_ROOT}/include)
    if ( FFTW3-NOTFOUND )
       message(STATUS "FFTW3 was not found")
       set(USE_FFTLIB "JW")
@@ -302,6 +321,8 @@ if( USE_FFTLIB MATCHES FFTW )
       set(USE_FFTLIB "FFTW")
    endif()
 endif()
+
+include_directories($ENV{FFTW_ROOT}/include)
 
 if ( USE_FFTLIB MATCHES MKL )
    set(USE_DCTLIB "MKL")
@@ -321,6 +342,16 @@ endif()
 
 if (EXISTS /usr/include)
     include_directories(/usr/include)  #For Ubuntu-like systems
+endif()
+
+if(WITH_OMP_GPU MATCHES yes)
+   set(USE_GPU "yes")
+   add_definitions(-DUSE_GPU)
+   add_definitions(-DWITH_OMP_GPU)
+elseif (WITH_ACC_GPU MATCHES yes)
+   set(USE_GPU "yes")
+   add_definitions(-DUSE_GPU)
+   add_definitions(-DWITH_ACC_GPU)
 endif()
 
 # Detect SHTNS
@@ -371,10 +402,11 @@ if(USE_SHTNS MATCHES yes AND NOT SHTNS MATCHES SHTNS-NOTFOUND)
 endif()
 
 if(USE_GPU MATCHES yes)
-   add_definitions(-DWITH_OMP_GPU)
+   #add_definitions(-DWITH_OMP_GPU)
    message(STATUS $ENV{ROCM_PATH})
-   #Detect Hipfort (lib name is hipfort-amdgcn)
-   find_library(HIPFORT hipfort-amdgcn $ENV{HIPFORT_PATH}/lib)
+   #Detect Hipfort (lib name is hipfort-nvptx)
+
+   find_library(HIPFORT hipfort-nvptx $ENV{HIPFORT_PATH}/lib)
    if(NOT HIPFORT MATCHES HIPFORT-NOTFOUND)
       #Test if HIPFORT installation
       file(WRITE "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testHipfort.f90"
@@ -389,16 +421,18 @@ if(USE_GPU MATCHES yes)
       ")
       try_compile(HIPFORT_WORK ${CMAKE_BINARY_DIR}
          ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testHipfort.f90
-         CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=$ENV{HIPFORT_PATH}/include/hipfort/amdgcn"
+         CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=$ENV{HIPFORT_PATH}/include/hipfort/nvptx"
          COMPILE_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
-         LINK_LIBRARIES "-L${ROCM_PATH}/hipfft/lib/ -lhipfft -L${ROCM_PATH}/rocfft/lib/ -lrocfft -L$ENV{HIPFORT_PATH}/lib -lhipfort-amdgcn"
+         LINK_LIBRARIES "-L${ROCM_PATH}/hipfft/lib/ -lhipfft -L$ENV{HIPFORT_PATH}/lib -lhipfort-nvptx"
          OUTPUT_VARIABLE OUTPUT)
       if(HIPFORT_WORK)
          add_definitions(-DWITH_HIPFORT)
-         include_directories("$ENV{HIPFORT_PATH}/include/hipfort/amdgcn")
+         include_directories("$ENV{HIPFORT_PATH}/include/hipfort/nvptx")
          message(STATUS "HIPFORT: ${HIPFORT}")
       else()
          message(STATUS ${OUTPUT})
+         add_definitions(-DWITH_HIPFORT)
+         include_directories("$ENV{HIPFORT_PATH}/include/hipfort/nvptx")
          message(STATUS "Failed to test HIPFORT installation")
       endif()
    else()
@@ -410,8 +444,21 @@ endif()
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${FFLAG_ARCH} ${FFLAG_STD} -g ${FFLAG_TRACEBACK} ${FFLAG_CONVERT} ${FFLAG_PREPROCESSOR}")
 
 if(USE_GPU MATCHES yes)
-   set(CMAKE_Fortran_FLAGS_DEBUG  "-hsystem_alloc -h keepfiles -hmsgs -hlist=a -O0 -h acc_model=auto_async_none:no_fast_addr:deep_copy ${FFLAG_CHECK_ALL} ${FFLAG_WARN_ALL} ${FFLAG_FPE}")
-   set(CMAKE_Fortran_FLAGS_RELEASE  "-hsystem_alloc -h keepfiles -hmsgs -hlist=a -O2 -h acc_model=auto_async_none:no_fast_addr:deep_copy ${FFLAG_OPT}")
+   if (CMAKE_Fortran_COMPILER_ID MATCHES Cray)
+      set(CMAKE_Fortran_FLAGS_DEBUG  "-hsystem_alloc -h keepfiles -hmsgs -hlist=a -O0 -h acc_model=auto_async_none:no_fast_addr:deep_copy ${FFLAG_CHECK_ALL} ${FFLAG_WARN_ALL} ${FFLAG_FPE}")
+      set(CMAKE_Fortran_FLAGS_RELEASE  "-hsystem_alloc -h keepfiles -hmsgs -hlist=a -O2 -h acc_model=auto_async_none:no_fast_addr:deep_copy ${FFLAG_OPT}")
+   elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
+      set(CMAKE_Fortran_FLAGS_DEBUG  "-O0 -fopenmp  ${FFLAG_CHECK_ALL} ${FFLAG_WARN_ALL} ${FFLAG_FPE}")
+      set(CMAKE_Fortran_FLAGS_RELEASE  "-O2 -fopenmp ${FFLAG_OPT}")
+   elseif(CMAKE_Fortran_COMPILER_ID MATCHES NVHPC)
+       if (WITH_ACC_GPU MATCHES yes)
+          set(CMAKE_Fortran_FLAGS_DEBUG  "-g -O1 -acc=gpu,verystrict -gpu=cc70,lineinfo,deepcopy -Minfo=accel ${FFLAG_CHECK_ALL} ${FFLAG_WARN_ALL} ${FFLAG_FPE}")
+          set(CMAKE_Fortran_FLAGS_RELEASE  "-g -O2 -acc=gpu,verystrict -gpu=cc70,lineinfo,deepcopy -Minfo=accel ${FFLAG_OPT}")
+       elseif (WITH_OMP_GPU MATCHES yes)
+          set(CMAKE_Fortran_FLAGS_DEBUG  "-g -O0 -mp=gpu -gpu=cc70,lineinfo -Minfo=mp ${FFLAG_CHECK_ALL} ${FFLAG_WARN_ALL} ${FFLAG_FPE}")
+          set(CMAKE_Fortran_FLAGS_RELEASE  "-g -O2 -mp=gpu -gpu=cc70,lineinfo -Minfo=mp ${FFLAG_OPT}")
+       endif()
+   endif()
 else()
    set(CMAKE_Fortran_FLAGS_DEBUG  "-O0 ${FFLAG_CHECK_ALL} ${FFLAG_WARN_ALL} ${FFLAG_FPE}")
    set(CMAKE_Fortran_FLAGS_RELEASE  "-O2 ${FFLAG_OPT}")

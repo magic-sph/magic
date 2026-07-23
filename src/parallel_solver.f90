@@ -8,7 +8,7 @@ module parallel_solvers
    use precision_mod
    use parallel_mod
    use radial_data, only: n_r_cmb, n_r_icb
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc, only: bytes_allocated
@@ -79,7 +79,7 @@ contains
       allocate( this%diag(lMin:lMax,nRstart:nRstop) )
       allocate( this%up(lMin:lMax,nRstart:nRstop) )
       bytes_allocated = bytes_allocated+3*(lMax-lMin+1)*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       gpu_bytes_allocated = gpu_bytes_allocated+3*(lMax-lMin+1)*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
 #endif
 
@@ -88,9 +88,11 @@ contains
       this%diag(:,:)=one
       this%up(:,:)  =0.0_cp
 
-#ifdef WITH_OMP_GPU
+#ifdef WITH_OMP_GPU 
       !$omp target enter data map(alloc : this%diag, this%low, this%up)
       !$omp target update to(this%diag, this%low, this%up)
+#elif WITH_ACC_GPU
+      !$acc enter data copyin(this)
 #endif
 
    end subroutine initialize_3
@@ -114,7 +116,7 @@ contains
       allocate( this%diag(lMin:lMax,nRstart:nRstop) )
       allocate( this%up1(lMin:lMax,nRstart:nRstop), this%up2(lMin:lMax,nRstart:nRstop) )
       bytes_allocated = bytes_allocated+5*(lMax-lMin+1)*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       gpu_bytes_allocated = gpu_bytes_allocated+5*(lMax-lMin+1)*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
 #endif
 
@@ -128,6 +130,8 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc : this%low1, this%low2, this%diag, this%up1, this%up2)
       !$omp target update to(this%low1, this%low2, this%diag, this%up1, this%up2)
+#elif WITH_ACC_GPU
+      !$acc enter data copyin(this)
 #endif
 
    end subroutine initialize_5
@@ -139,6 +143,8 @@ contains
       class(type_tri_par) :: this
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete : this%diag, this%low, this%up)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(this)
 #endif
 
       deallocate(this%low, this%diag, this%up)
@@ -152,6 +158,8 @@ contains
       class(type_penta_par) :: this
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete : this%low1, this%low2, this%diag, this%up1, this%up2)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(this)
 #endif
 
       deallocate(this%low1, this%low2, this%diag, this%up1, this%up2)
@@ -178,29 +186,41 @@ contains
       if ( this%nRMin == n_r_cmb ) then
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do l=lMin, lMax
             this%low(l,nRMin)=0.0_cp
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if
 
       if ( this%nRMax == n_r_icb ) then
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do l=lMin, lMax
             this%up(l,nRMax) =0.0_cp
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if
 
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
+#endif
       do l=lMin, lMax
          do nR=nRMin,nRMax
             if ( nR == 1 ) p=this%diag(l,nR)
@@ -208,7 +228,11 @@ contains
             this%diag(l,nR)=one/p
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
 #else
       do nR=this%nRMin,this%nRMax
          do l=this%lMin, this%lMax
@@ -237,7 +261,7 @@ contains
       nRMax = this%nRMax
       nRMin = this%nRMin
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       start_l=this%lMin; stop_l=this%lMax
 #else
       !$omp parallel default(shared) private(start_l,stop_l,l,nR)
@@ -250,6 +274,8 @@ contains
       if ( this%nRMin == n_r_cmb ) then
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do l=start_l,stop_l
             this%low1(l,nRMin)  =0.0_cp
@@ -258,12 +284,16 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if
 
       if ( this%nRMax == n_r_icb ) then
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do l=start_l,stop_l
             this%up1(l,nRMax)  =0.0_cp
@@ -272,6 +302,8 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if
 
@@ -279,6 +311,8 @@ contains
       nR=2
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
 #endif
       do l=start_l,stop_l
          this%up1(l,nR)=this%up1(l,nR)-this%low1(l,nR)*this%up2(l,nR-1)/this%diag(l,nR-1)
@@ -286,10 +320,16 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
+#endif
       do l=start_l,stop_l
          do nR=3,nRMax
             this%low1(l,nR)=this%low1(l,nR)-this%low2(l,nR)*this%up1(l,nR-2)/this%diag(l,nR-2)
@@ -299,7 +339,11 @@ contains
             &               this%diag(l,nR-2)
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
 #else
       do nR=3,this%nRMax
          do l=start_l,stop_l
@@ -316,6 +360,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)
 #endif
       do nR=1,nRMax
          do l=start_l,stop_l
@@ -328,6 +374,8 @@ contains
       enddo
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel
 #endif
@@ -355,6 +403,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target update from(this%diag, this%low, this%up)
+#elif WITH_ACC_GPU
+      !$acc update self(this%diag, this%low, this%up)
 #endif
 
       nR0 = nRstart
@@ -475,22 +525,34 @@ contains
       else ! Lower boundary: x -> x - low * x(i-1)
 #ifdef WITH_OMP_GPU
       !$omp target update from(this%low)
+#elif WITH_ACC_GPU
+      !$acc update self(this%low)
 #endif
          LM_L_LOOP(lmStart, lmStop, x(lm,nR0)=x(lm,nR0)-this%low(l,nR0)*x(lm,nR0-1))
          !$omp barrier
       end if
 
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target update to(x)
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc update device(x)
+      !$acc parallel loop
+#endif
       do lm=lmStart,lmStop
          l=lm2l(lm)
          do nR=nR0+1,nRstop
             x(lm,nR)=x(lm,nR)-this%diag(l,nR-1)*this%low(l,nR)*x(lm,nR-1)
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
       !$omp target update from(x)
+#elif WITH_ACC_GPU
+      !$acc end parallel
+      !$acc update self(x)
+#endif
 #else
       do nR=nR0+1,nRstop
          LM_L_LOOP(lmStart, lmStop, x(lm,nR)=x(lm,nR)-this%diag(l,nR-1)*this%low(l,nR)*x(lm,nR-1))
@@ -558,17 +620,27 @@ contains
       end if
 #endif
 
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target update to(x)
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc update device(x)
+      !$acc parallel loop
+#endif
       do lm=lb,lu
          l=lm2l(lm)
          do nR=nRstart,nRstop
             x(lm,nR)=this%diag(l,nR)*x(lm,nR)-this%low1(l,nR)*x(lm,nR-1)-this%low2(l,nR)*x(lm,nR-2)
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
       !$omp target update from(x)
+#elif WITH_ACC_GPU
+      !$acc end parallel loop
+      !$acc update self(x)
+#endif
 #else
       do nR=nRstart,nRstop
          LM_L_LOOP(lb,lu,x(lm,nR)=this%diag(l,nR)*x(lm,nR)-this%low1(l,nR)*x(lm,nR-1)-this%low2(l,nR)*x(lm,nR-2))
@@ -630,17 +702,27 @@ contains
       end if
 #endif
 
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target update to(x)
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc update device(x)
+      !$acc parallel loop
+#endif
       do lm=lmStart,lmStop
          l=lm2l(lm)
          do nR=nRstop,nRstart,-1
             x(lm,nR)=(x(lm,nR)-this%up(l,nR)*x(lm,nR+1))*this%diag(l,nR)
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
       !$omp target update from(x)
+#elif WITH_ACC_GPU
+      !$acc end parallel loop
+      !$acc update self(x)
+#endif
 #else
       do nR=nRstop,nRstart,-1
          LM_L_LOOP(lmStart,lmStop,x(lm,nR)=(x(lm,nR)-this%up(l,nR)*x(lm,nR+1))*this%diag(l,nR))
@@ -703,17 +785,27 @@ contains
       end if
 #endif
 
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target update to(x)
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc update device(x)
+      !$acc parallel loop
+#endif
       do lm=lmStart,lmStop
          l=lm2l(lm)
          do nR=nRstop,nRstart,-1
             x(lm,nR)=x(lm,nR)-this%up1(l,nR)*x(lm,nR+1)-this%up2(l,nR)*x(lm,nR+2)
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
       !$omp target update from(x)
+#elif WITH_ACC_GPU
+      !$acc end parallel loop
+      !$acc update self(x)
+#endif
 #else
       do nR=nRstop,nRstart,-1
          LM_L_LOOP(lmStart,lmStop,x(lm,nR)=x(lm,nR)-this%up1(l,nR)*x(lm,nR+1)-this%up2(l,nR)*x(lm,nR+2))

@@ -63,7 +63,7 @@ module rIter_mod
        &          CFt2LM, CFp2LM
    use probe_mod
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use hipfort_check, only: hipCheck
    use hipfort, only: hipDeviceSynchronize
 #endif
@@ -93,7 +93,7 @@ contains
 
       class(rIter_single_t) :: this
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: lm
       lm=0
 #endif
@@ -114,6 +114,8 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: dLw, dLz, dLdw, dLddw, dmdw, dmz)
       !$omp target update to(dLw, dLz, dLdw, dLddw, dmdw, dmz)
+#elif WTIH_ACC_GPU
+      !$acc enter data copyin(dLw, dLz, dLdw, dLddw, dmdw, dmz)
 #endif
 
    end subroutine initialize
@@ -129,6 +131,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: dLw, dLz, dLdw, dLddw, dmdw, dmz)
+#elif WTIH_ACC_GPU
+      !$acc exit data delete(dLw, dLz, dLdw, dLddw, dmdw, dmz)
 #endif
       deallocate( dLw, dLz, dLdw, dLddw, dmdw, dmz )
 
@@ -304,6 +308,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target update from(this%gsa)
+#elif WITH_ACC_GPU
+      !$acc update self(this%gsa)
 #endif
 
          !---- Calculation of nonlinear products needed for conducting mantle or
@@ -438,6 +444,8 @@ contains
          if ( l_dtB ) then
 #ifdef WITH_OMP_GPU
             !$omp target update to(this%dtB_arrays)
+#elif WITH_ACC_GPU
+            !$acc update device(this%dtB_arrays)
 #endif
             call get_dtBLM(nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,       &
                  &         this%gsa%brc,this%gsa%btc,this%gsa%bpc,          &
@@ -450,6 +458,8 @@ contains
                  &         this%dtB_arrays%BtVZsn2LM)
 #ifdef WITH_OMP_GPU
             !$omp target update from(this%dtB_arrays)
+#elif WITH_ACC_GPU
+            !$acc update self(this%dtB_arrays)
 #endif
          end if
 
@@ -485,6 +495,8 @@ contains
          if ( lRmsCalc ) then
 #ifdef WITH_OMP_GPU
             !$omp target update from(this%nl_lm)
+#elif WITH_ACC_GPU
+            !$acc update self(this%nl_lm)
 #endif
             call compute_lm_forces(nR, dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, &
                  &                 Advp2LM, PFt2LM, PFp2LM, LFrLM, LFt2LM, LFp2LM, &
@@ -554,7 +566,7 @@ contains
 
       !-- Local variables
       integer :: nPhi
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: nLat
       nLat = 0
 #endif
@@ -566,13 +578,13 @@ contains
 
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
             call scal_to_spat(sht_l_gpu, s_Rloc(:,nR), this%gsa%sc, l_R(nR), .true.)
 #else
             call scal_to_spat(sht_l, s_Rloc(:,nR), this%gsa%sc, l_R(nR))
 #endif
             if ( lViscBcCalc ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
                call scal_to_grad_spat(s_Rloc(:,nR), this%gsa%dsdtc, this%gsa%dsdpc, &
                     &                 l_R(nR), .true.)
 #else
@@ -580,32 +592,48 @@ contains
                     &                 l_R(nR))
 #endif
                if ( nR == n_r_cmb .and. ktops==1) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
                   call hipCheck(hipDeviceSynchronize())
+#ifdef WITH_OMP_GPU
                   !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+                  !$acc parallel loop collapse(2)
+#endif
                   do nPhi=1,n_phi_max
                      do nLat=1,nlat_padded
                         this%gsa%dsdtc(nLat,nPhi)=0.0_cp
                         this%gsa%dsdpc(nLat,nPhi)=0.0_cp
                      end do
                   end do
+#ifdef WITH_OMP_GPU
                   !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+                  !$acc end parallel
+#endif
 #else
                   this%gsa%dsdtc(:,:)=0.0_cp
                   this%gsa%dsdpc(:,:)=0.0_cp
 #endif
                end if
                if ( nR == n_r_icb .and. kbots==1) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
                   call hipCheck(hipDeviceSynchronize())
+#ifdef WITH_OMP_GPU
                   !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+                  !$acc parallel loop collapse(2)
+#endif
                   do nPhi=1,n_phi_max
                      do nLat=1,nlat_padded
                         this%gsa%dsdtc(nLat,nPhi)=0.0_cp
                         this%gsa%dsdpc(nLat,nPhi)=0.0_cp
                      end do
                   end do
+#ifdef WITH_OMP_GPU
                   !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+                  !$acc end parallel
+#endif
 #else
                   this%gsa%dsdtc(:,:)=0.0_cp
                   this%gsa%dsdpc(:,:)=0.0_cp
@@ -620,8 +648,9 @@ contains
 
          !-- Pressure
          if ( lPressCalc ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
             call scal_to_spat(sht_l_gpu, p_Rloc(:,nR), this%gsa%pc, l_R(nR), .true.)
+
 #else
             call scal_to_spat(sht_l, p_Rloc(:,nR), this%gsa%pc, l_R(nR))
 #endif
@@ -629,7 +658,7 @@ contains
 
          !-- Composition
          if ( l_chemical_conv ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
             call scal_to_spat(sht_l_gpu, xi_Rloc(:,nR), this%gsa%xic, &
                                      &            l_R(nR), .true.)
 #else
@@ -640,7 +669,7 @@ contains
 
          !-- Phase field
          if ( l_phase_field ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
             call scal_to_spat(sht_l_gpu, phi_Rloc(:,nR), this%gsa%phic, &
                                    &            l_R(nR), .true.)
 #else
@@ -650,7 +679,7 @@ contains
          end if
 
          if ( l_HT .or. lViscBcCalc ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
             call scal_to_spat(sht_l_gpu, ds_Rloc(:,nR), this%gsa%drsc, l_R(nR), .true.)
 #else
             call scal_to_spat(sht_l, ds_Rloc(:,nR), this%gsa%drsc, l_R(nR))
@@ -659,7 +688,7 @@ contains
 
          if ( nBc == 0 ) then ! Bulk points
             !-- pol, sph, tor > ur,ut,up
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
             call torpol_to_spat(dLw, dw_Rloc(:,nR),  z_Rloc(:,nR), &
                  &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR), .true.)
 #else
@@ -670,7 +699,7 @@ contains
             !-- Advection is treated as u \times \curl u
             if ( l_adv_curl ) then
                !-- z,dz,w,dd< -> wr,wt,wp
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
                call torpol_to_spat(dLz, dz_Rloc(:,nR), dLddw,     &
                     &              this%gsa%cvrc, this%gsa%cvtc,  &
                     &              this%gsa%cvpc, l_R(nR), .true.)
@@ -685,7 +714,7 @@ contains
                &    .or. lTOCalc .or. lHelCalc .or. lPerpParCalc .or. lGeosCalc  &
                &    .or. lHemiCalc                                               &
                &    .or. ( l_frame .and. l_movie_oc .and. l_store_frame) ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
                   call torpol_to_spat(dLdw, ddw_Rloc(:,nR),             &
                        &              dz_Rloc(:,nR), this%gsa%dvrdrc,   &
                        &              this%gsa%dvtdrc, this%gsa%dvpdrc, l_R(nR), .true.)
@@ -694,14 +723,22 @@ contains
                   call sphtor_to_spat(sht_l_gpu, dmdw,  dmz, this%gsa%dvtdpc, &
                        &              this%gsa%dvpdpc, l_R(nR), .true.)
                   call hipCheck(hipDeviceSynchronize())
+#ifdef WITH_OMP_GPU
                   !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+                  !$acc parallel loop collapse(2)
+#endif
                   do nPhi=1,n_phi_max
                      do nLat=1,nlat_padded
                         this%gsa%dvtdpc(nLat,nPhi)=this%gsa%dvtdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
                         this%gsa%dvpdpc(nLat,nPhi)=this%gsa%dvpdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
                      end do
                   end do
+#ifdef WITH_OMP_GPU
                   !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+                  !$acc end parallel
+#endif
 #else
                   call torpol_to_spat(dLdw, ddw_Rloc(:,nR),             &
                        &              dz_Rloc(:,nR), this%gsa%dvrdrc,   &
@@ -721,7 +758,7 @@ contains
 
             else ! Advection is treated as u\grad u
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
                call torpol_to_spat(dLdw, ddw_Rloc(:,nR), dz_Rloc(:,nR), &
                     &              this%gsa%dvrdrc, this%gsa%dvtdrc,    &
                     &              this%gsa%dvpdrc, l_R(nR), .true.)
@@ -733,14 +770,22 @@ contains
                call sphtor_to_spat(sht_l_gpu, dmdw, dmz, this%gsa%dvtdpc, &
                     &              this%gsa%dvpdpc, l_R(nR), .true.)
                call hipCheck(hipDeviceSynchronize())
+#ifdef WITH_OMP_GPU
                !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+               !$acc parallel loop collapse(2)
+#endif
                   do nPhi=1,n_phi_max
                      do nLat=1,nlat_padded
                      this%gsa%dvtdpc(nLat,nPhi)=this%gsa%dvtdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
                      this%gsa%dvpdpc(nLat,nPhi)=this%gsa%dvpdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
                   end do
                end do
+#ifdef WITH_OMP_GPU
                !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+               !$acc end parallel
+#endif
 #else
                call torpol_to_spat(dLdw, ddw_Rloc(:,nR), dz_Rloc(:,nR), &
                     &              this%gsa%dvrdrc, this%gsa%dvtdrc,    &
@@ -763,33 +808,49 @@ contains
 
          else if ( nBc == 1 ) then ! Stress free
              ! TODO don't compute vrc as it is set to 0 afterward
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
             call torpol_to_spat(dLw, dw_Rloc(:,nR),  z_Rloc(:,nR), &
                  &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR), .true.)
             call hipCheck(hipDeviceSynchronize())
+#ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+            !$acc parallel loop collapse(2)
+#endif
             do nPhi=1,n_phi_max
                do nLat=1,nlat_padded
                   this%gsa%vrc(nLat,nPhi)=0.0_cp
                end do
             end do
+#ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
+#endif
 #else
             call torpol_to_spat(dLw, dw_Rloc(:,nR),  z_Rloc(:,nR), &
                  &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
             this%gsa%vrc(:,:)=0.0_cp
 #endif
             if ( lDeriv ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
                call hipCheck(hipDeviceSynchronize())
+#ifdef WITH_OMP_GPU
                !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+               !$acc parallel loop collapse(2)
+#endif
                do nPhi=1,n_phi_max
                   do nLat=1,nlat_padded
                      this%gsa%dvrdtc(nLat,nPhi)=0.0_cp
                      this%gsa%dvrdpc(nLat,nPhi)=0.0_cp
                   end do
                end do
+#ifdef WITH_OMP_GPU
                !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+               !$acc end parallel
+#endif
                call torpol_to_spat(dLdw, ddw_Rloc(:,nR), dz_Rloc(:,nR), &
                     &              this%gsa%dvrdrc, this%gsa%dvtdrc,    &
                     &              this%gsa%dvpdrc, l_R(nR), .true.)
@@ -797,14 +858,22 @@ contains
                call sphtor_to_spat(sht_l_gpu, dmdw, dmz, this%gsa%dvtdpc, &
                     &              this%gsa%dvpdpc, l_R(nR), .true.)
                call hipCheck(hipDeviceSynchronize())
+#ifdef WITH_OMP_GPU
                !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+               !$acc parallel loop collapse(2)
+#endif
                do nPhi=1,n_phi_max
                   do nLat=1,nlat_padded
                      this%gsa%dvtdpc(nLat,nPhi)=this%gsa%dvtdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
                      this%gsa%dvpdpc(nLat,nPhi)=this%gsa%dvpdpc(nLat,nPhi)*O_sin_theta_E2(nLat)
                   end do
                end do
+#ifdef WITH_OMP_GPU
                !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+               !$acc end parallel
+#endif
 #else
                this%gsa%dvrdtc(:,:)=0.0_cp
                this%gsa%dvrdpc(:,:)=0.0_cp
@@ -823,7 +892,7 @@ contains
 #endif
             end if
          else if ( nBc == 2 ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
             call hipCheck(hipDeviceSynchronize())
 #endif
             if ( nR == n_r_cmb .and. ellip_fac_cmb == 0.0_cp ) then
@@ -839,7 +908,7 @@ contains
                     &                this%gsa%dvpdpc)
             end if
             if ( lDeriv ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
                call torpol_to_spat(dLdw, ddw_Rloc(:,nR), dz_Rloc(:,nR), &
                     &              this%gsa%dvrdrc, this%gsa%dvtdrc,    &
                     &              this%gsa%dvpdrc, l_R(nR), .true.)
@@ -858,12 +927,12 @@ contains
       end if
 
       if ( l_mag .or. l_mag_LF ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          call hipCheck(hipDeviceSynchronize())
 #endif
          call legPrep_qst(nR, b_Rloc(:,nR), ddb_Rloc(:,nR), aj_Rloc(:,nR), &
              &           dLw, dLddw, dLz)
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          call torpol_to_spat(dLw, db_Rloc(:,nR), aj_Rloc(:,nR), &
               &              this%gsa%brc, this%gsa%btc, this%gsa%bpc, l_R(nR), .true.)
 #else
@@ -872,7 +941,7 @@ contains
 #endif
 
          if ( lDeriv ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
             call torpol_to_spat(dLz, dj_Rloc(:,nR), dLddw,      &
                  &              this%gsa%cbrc, this%gsa%cbtc,   &
                  &              this%gsa%cbpc, l_R(nR), .true.)
@@ -889,7 +958,7 @@ contains
          end if
       end if
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       call hipCheck(hipDeviceSynchronize())
 #endif
 
@@ -914,7 +983,7 @@ contains
 
       !-- Local variables
       integer :: nPhi
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: nLat
       nLat = 0
 #endif
@@ -923,11 +992,15 @@ contains
 
       if ( l_conv_nl .or. l_mag_LF ) then
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
 #ifdef KERNELS_SPLIT
          if ( l_conv_nl .and. l_mag_LF ) then
             if ( nR>n_r_LCR ) then
+#ifdef WITH_OMP_GPU
                !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+               !$acc parallel loop collapse(2)
+#endif
                do nPhi=1,n_phi_max
                   do nLat=1,nlat_padded
                      this%gsa%Advr(nLat,nPhi)=this%gsa%Advr(nLat,nPhi) + this%gsa%LFr(nLat,nPhi)
@@ -935,11 +1008,19 @@ contains
                      this%gsa%Advp(nLat,nPhi)=this%gsa%Advp(nLat,nPhi) + this%gsa%LFp(nLat,nPhi)
                   end do
                end do
+#ifdef WITH_OMP_GPU
                !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+               !$acc end parallel
+#endif
             end if
          else if ( l_mag_LF ) then
             if ( nR > n_r_LCR ) then
+#ifdef WITH_OMP_GPU
                !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+               !$acc parallel loop collapse(2)
+#endif
                do nPhi=1,n_phi_max
                   do nLat=1,nlat_padded
                      this%gsa%Advr(nLat,nPhi) = this%gsa%LFr(nLat,nPhi)
@@ -947,9 +1028,17 @@ contains
                      this%gsa%Advp(nLat,nPhi) = this%gsa%LFp(nLat,nPhi)
                   end do
                end do
+#ifdef WITH_OMP_GPU
                !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+               !$acc end parallel
+#endif
             else
+#ifdef WITH_OMP_GPU
                !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+               !$acc parallel loop collapse(2)
+#endif
                do nPhi=1,n_phi_max
                   do nLat=1,nlat_padded
                      this%gsa%Advr(nLat,nPhi)=0.0_cp
@@ -957,12 +1046,20 @@ contains
                      this%gsa%Advp(nLat,nPhi)=0.0_cp
                   end do
                end do
+#ifdef WITH_OMP_GPU
                !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+               !$acc end parallel
+#endif
             end if
          end if
 
          if ( l_precession ) then
+#ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+            !$acc parallel loop collapse(2)
+#endif
             do nPhi=1,n_phi_max
                do nLat=1,nlat_padded
                   this%gsa%Advr(nLat,nPhi)=this%gsa%Advr(nLat,nPhi) + this%gsa%PCr(nLat,nPhi)
@@ -970,22 +1067,38 @@ contains
                   this%gsa%Advp(nLat,nPhi)=this%gsa%Advp(nLat,nPhi) + this%gsa%PCp(nLat,nPhi)
                end do
             end do
+#ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
+#endif
          end if
 
          if ( l_centrifuge ) then
+#ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+            !$acc parallel loop collapse(2)
+#endif
             do nPhi=1,n_phi_max
                do nLat=1,nlat_padded
                   this%gsa%Advr(nLat, nPhi)=this%gsa%Advr(nLat,nPhi) + this%gsa%CAr(nLat,nPhi)
                   this%gsa%Advt(nLat, nPhi)=this%gsa%Advt(nLat,nPhi) + this%gsa%CAt(nLat,nPhi)
                end do
             end do
+#ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
+#endif
          end if
 
 #else
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do nPhi=1,n_phi_max
             do nLat=1,nlat_padded
                if ( l_conv_nl .and. l_mag_LF ) then
@@ -1018,7 +1131,11 @@ contains
                end if
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
 #endif
 #else
          !$omp parallel do default(shared)
@@ -1055,7 +1172,7 @@ contains
          !$omp end parallel do
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          call spat_to_qst(this%gsa%Advr, this%gsa%Advt, this%gsa%Advp, &
               &           this%nl_lm%AdvrLM, this%nl_lm%AdvtLM,        &
               &           this%nl_lm%AdvpLM, l_R(nR), .true.)
@@ -1067,7 +1184,7 @@ contains
       end if
 
       if ( l_heat ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          call spat_to_qst(this%gsa%VSr, this%gsa%VSt, this%gsa%VSp, dVSrLM, &
               &           this%nl_lm%VStLM, this%nl_lm%VSpLM, l_R(nR), .true.)
 #else
@@ -1075,7 +1192,7 @@ contains
               &           dVSrLM, this%nl_lm%VStLM, this%nl_lm%VSpLM, l_R(nR))
 #endif
          if ( l_anel ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
             call scal_to_SH(sht_l_gpu, this%gsa%heatTerms, this%nl_lm%heatTermsLM, &
                  &          l_R(nR), .true.)
 #else
@@ -1085,7 +1202,7 @@ contains
       end if
 
       if ( l_chemical_conv ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          call spat_to_qst(this%gsa%VXir, this%gsa%VXit, this%gsa%VXip, dVXirLM, &
               &           this%nl_lm%VXitLM, this%nl_lm%VXipLM, l_R(nR), .true.)
 #else
@@ -1095,7 +1212,7 @@ contains
       end if
 
       if( l_phase_field ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          call scal_to_SH(sht_l_gpu, this%gsa%phiTerms, dphidt, l_R(nR), .true.)
 #else
          call scal_to_SH(sht_l, this%gsa%phiTerms, dphidt, l_R(nR))
@@ -1104,7 +1221,7 @@ contains
 
       if ( l_mag_nl ) then
          if ( nR>n_r_LCR ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
             call spat_to_qst(this%gsa%VxBr, this%gsa%VxBt, this%gsa%VxBp, &
                  &           this%nl_lm%VxBrLM, this%nl_lm%VxBtLM,        &
                  &           this%nl_lm%VxBpLM, l_R(nR), .true.)
@@ -1114,7 +1231,7 @@ contains
                  &           this%nl_lm%VxBpLM, l_R(nR))
 #endif
          else
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
             call spat_to_sphertor(sht_l_single_gpu, this%gsa%VxBt, this%gsa%VxBp, &
                  &                this%nl_lm%VxBtLM, this%nl_lm%VxBpLM, l_R(nR), .true.)
 #else
@@ -1126,7 +1243,7 @@ contains
 
       if ( lRmsCalc ) call transform_to_lm_RMS(nR, this%gsa%LFr)
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       call hipCheck(hipDeviceSynchronize())
 #endif
 
@@ -1154,6 +1271,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
 #else
       !$omp parallel do default(shared) private(l, m)
 #endif
@@ -1172,6 +1291,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -1200,6 +1321,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
 #else
       !$omp parallel do default(shared) private(l)
 #endif
@@ -1217,6 +1340,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif

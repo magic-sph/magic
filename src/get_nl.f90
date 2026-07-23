@@ -184,6 +184,7 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc:this)
       !$omp target update to(this)
+#elif WITH_ACC_GPU
 #endif
 
    end subroutine initialize
@@ -197,6 +198,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(release:this)
+#elif WITH_ACC_GPU
+!      !$acc exit data delete(this)
 #endif
 
       deallocate( this%Advr, this%Advt, this%Advp, this%LFr, this%LFt, this%LFp )
@@ -238,14 +241,17 @@ contains
       !-- Local variables:
       integer :: nPhi
       real(cp) :: posnalp
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: nLat
 #endif
 
       if ( l_precession ) posnalp=-two*oek*po*sin(prec_angle)
-
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)
+#endif
       do nPhi=1,n_phi_max
          do nLat=1,nlat_padded
             if ( l_mag_LF .and. (nBc == 0 .or. lRmsCalc) .and. nR>n_r_LCR ) then
@@ -438,7 +444,11 @@ contains
 
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
 #else
       !$omp parallel do default(shared)
       do nPhi=1,n_phi_max
@@ -872,6 +882,8 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc:this)
       !$omp target update to(this)
+#elif WITH_ACC_GPU
+       
 #endif
 
    end subroutine initialize
@@ -885,6 +897,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(release:this)
+#elif WITH_ACC_GPU
+!      !$acc exit data delete(this)
 #endif
 
       deallocate( this%Advr, this%Advt, this%Advp, this%LFr, this%LFt, this%LFp )
@@ -925,17 +939,18 @@ contains
       !-- Local variables:
       integer :: nPhi, nR, nBc
       real(cp) :: posnalp
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: nLat
       nLat = 0
 #endif
-
       nBc = 0; nPhi = 0; nR = 0
-
       if ( l_precession ) posnalp=-two*oek*po*sin(prec_angle)
-
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(3)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(3)
+#endif
       do nPhi=1,n_phi_max
          do nR=nRl, nRu
             do nLat=1, nlat_padded
@@ -1012,9 +1027,16 @@ contains
             end do
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
-
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(3) private(nBc)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(3) private(nBc)
+#endif
       do nPhi=1,n_phi_max
          do nR=nRl, nRu
             do nLat=1, nlat_padded
@@ -1127,10 +1149,18 @@ contains
             end do
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
 
       if ( l_mag_nl ) then
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(3) private(nBc)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(3) private(nBc)
+#endif
          do nPhi=1,n_phi_max
             do nR=nRl, nRu
                do nLat=1, nlat_padded
@@ -1175,7 +1205,11 @@ contains
                end do
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
       end if ! l_mag_nl ?
 #else
       !$omp parallel do default(shared) private(nR,nBc)

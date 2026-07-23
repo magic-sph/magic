@@ -5,7 +5,7 @@ module fields
    ! LM-distributed arrays and the R-distributed arrays.
    !
    use precision_mod
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc, only: bytes_allocated
@@ -109,7 +109,7 @@ contains
          allocate( dj_ic(lm_maxMag,n_r_ic_maxMag) )
          bytes_allocated = bytes_allocated + &
          &                 5*lm_maxMag*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          gpu_bytes_allocated = gpu_bytes_allocated + &
          &                 5*lm_maxMag*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 #endif
@@ -122,7 +122,7 @@ contains
          allocate( aj_ic(1,n_r_ic_maxMag) )
          allocate( dj_ic(1,n_r_ic_maxMag) )
          bytes_allocated = bytes_allocated + 5*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          gpu_bytes_allocated = gpu_bytes_allocated + 5*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 #endif
       end if
@@ -135,6 +135,15 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: b_ic, db_ic, ddb_ic, aj_ic, dj_ic)
       !$omp target update to(b_ic, db_ic, ddb_ic, aj_ic, dj_ic) nowait
+#elif WITH_ACC_GPU
+      !$acc enter data create(b_ic, db_ic, ddb_ic, aj_ic, dj_ic)
+      !$acc kernels
+      b_ic(:,:)  =zero
+      db_ic(:,:) =zero
+      ddb_ic(:,:)=zero
+      aj_ic(:,:) =zero
+      dj_ic(:,:) =zero
+      !$acc end kernels
 #endif
 
       if ( l_finite_diff .and. fd_order==2 .and. fd_order_bound==2 ) then
@@ -147,6 +156,13 @@ contains
 #ifdef WITH_OMP_GPU
             !$omp target enter data map(alloc: w_LMloc, z_LMloc, s_LMloc)
             !$omp target update to(w_LMloc, z_LMloc, s_LMloc) nowait
+#elif WITH_ACC_GPU
+            !$acc enter data create(w_LMloc, z_LMloc, s_LMloc)
+            !$acc kernels
+            w_LMloc(:,:)=zero
+            z_LMloc(:,:)=zero
+            s_LMloc(:,:)=zero
+            !$acc end kernels
 #endif
             if ( l_mag ) then
                if ( l_mag_par_solve ) then
@@ -156,6 +172,12 @@ contains
 #ifdef WITH_OMP_GPU
                   !$omp target enter data map(alloc: aj_LMloc, b_LMloc)
                   !$omp target update to(aj_LMloc, b_LMloc) nowait
+#elif WITH_ACC_GPU
+                  !$acc enter data create(aj_LMloc, b_LMloc)
+                  !$acc kernels
+                  aj_LMloc(:,:)=zero
+                  b_LMloc(:,:) =zero
+                  !$acc end kernels
 #endif
                else
                   allocate( flow_LMloc_container(llm:ulm,n_r_max,1:2) )
@@ -163,8 +185,14 @@ contains
                   b_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,1)
                   aj_LMloc(llm:,1:) => flow_LMloc_container(llm:ulm,1:n_r_max,2)
 #ifdef WITH_OMP_GPU
-                  !$omp target enter data map(flow_LMloc_container)
+                  !$omp target enter data map(alloc:flow_LMloc_container)
                   !$omp target update to(flow_LMloc_container) nowait
+#elif WITH_ACC_GPU
+                  !$acc enter data create(flow_LMloc_container)
+                  !$acc kernels
+                  aj_LMloc(:,:)=zero
+                  b_LMloc(:,:) =zero
+                  !$acc end kernels
 #endif
                end if
             else
@@ -173,6 +201,8 @@ contains
 #ifdef WITH_OMP_GPU
                !$omp target enter data map(alloc: b_LMloc, aj_LMloc)
                !$omp target update to(b_LMloc, aj_LMloc) nowait
+#elif WITH_ACC_GPU
+                !$acc enter data copyin(aj_LMloc,b_LMloc)
 #endif
             end if
          else
@@ -190,6 +220,11 @@ contains
 #ifdef WITH_OMP_GPU
             !$omp target enter data map(alloc: flow_LMloc_container)
             !$omp target update to(flow_LMloc_container) nowait
+#elif WITH_ACC_GPU
+            !$acc enter data create(flow_LMloc_container)
+            !$acc kernels
+            flow_LMloc_container(:,:,:) =zero
+            !$acc end kernels
 #endif
          end if
 
@@ -212,6 +247,19 @@ contains
          !$omp&                             db_LMloc, ddb_LMloc, dj_LMloc, ddj_LMloc)
          !$omp target update to(dw_LMloc, ddw_LMloc, dz_LMloc, ds_LMloc, &
          !$omp&                 db_LMloc, ddb_LMloc, dj_LMloc, ddj_LMloc) nowait
+#elif WITH_ACC_GPU
+         !$acc enter data create(dw_LMloc, ddw_LMloc, dz_LMloc, ds_LMloc, &
+         !$acc&                  db_LMloc, ddb_LMloc, dj_LMloc, ddj_LMloc)
+         !$acc kernels
+         dw_LMloc(:,:) =zero
+         ddw_LMloc(:,:)=zero
+         dz_LMloc(:,:) =zero
+         ds_LMloc(:,:) =zero
+         db_LMloc(:,:) =zero
+         ddb_LMloc(:,:)=zero
+         dj_LMloc(:,:) =zero
+         ddj_LMloc(:,:)=zero
+         !$acc end kernels
 #endif
 
          if ( l_parallel_solve ) then
@@ -223,6 +271,13 @@ contains
 #ifdef WITH_OMP_GPU
             !$omp target enter data map(alloc: s_Rloc, w_Rloc, z_Rloc)
             !$omp target update to(s_Rloc, w_Rloc, z_Rloc) nowait
+#elif WITH_ACC_GPU
+            !$acc enter data create(s_Rloc, w_Rloc, z_Rloc)
+            !$acc kernels
+            w_Rloc(:,:)=zero
+            z_Rloc(:,:)=zero
+            s_Rloc(:,:)=zero
+            !$acc end kernels
 #endif
             if ( l_mag ) then
                if( l_mag_par_solve ) then
@@ -232,6 +287,12 @@ contains
 #ifdef WITH_OMP_GPU
                   !$omp target enter data map(alloc: b_RLoc, aj_Rloc)
                   !$omp target update to(b_RLoc, aj_Rloc) nowait
+#elif WITH_ACC_GPU
+                  !$acc enter data create(b_RLoc, aj_Rloc)
+                  !$acc kernels
+                  b_Rloc(:,:) =zero
+                  aj_Rloc(:,:)=zero
+                  !$acc end kernels
 #endif
                else
                   allocate( flow_Rloc_container(1:lm_max,nRstart:nRstop,1:2) )
@@ -241,6 +302,11 @@ contains
 #ifdef WITH_OMP_GPU
                   !$omp target enter data map(alloc: flow_Rloc_container)
                   !$omp target update to(flow_Rloc_container) nowait
+#elif WITH_ACC_GPU
+                  !$acc enter data create(flow_Rloc_container)
+                  !$acc kernels
+                  flow_Rloc_container(:,:,:)=zero
+                  !$acc end kernels
 #endif
                end if
             else
@@ -249,6 +315,8 @@ contains
 #ifdef WITH_OMP_GPU
                !$omp target enter data map(alloc:b_RLoc, aj_Rloc)
                !$omp target update to(b_RLoc, aj_Rloc) nowait
+#elif WITH_ACC_GPU
+               !$acc enter data copyin(b_RLoc, aj_Rloc)
 #endif
             end if
          else
@@ -264,6 +332,11 @@ contains
 #ifdef WITH_OMP_GPU
             !$omp target enter data map(alloc: flow_Rloc_container)
             !$omp target update to(flow_Rloc_container) nowait
+#elif WITH_ACC_GPU
+            !$acc enter data create(flow_Rloc_container)
+            !$acc kernels
+            flow_Rloc_container(:,:,:) =zero
+            !$acc end kernels
 #endif
          end if
          allocate(dw_Rloc(lm_max,nRstart:nRstop), ddw_Rloc(lm_max,nRstart:nRstop))
@@ -281,6 +354,17 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: ds_Rloc, dw_Rloc, ddw_Rloc, dz_Rloc, db_Rloc, ddb_Rloc, dj_Rloc)
          !$omp target update to(ds_Rloc, dw_Rloc, ddw_Rloc, dz_Rloc, db_Rloc, ddb_Rloc, dj_Rloc) nowait
+#elif WITH_ACC_GPU
+         !$acc enter data create(ds_Rloc, dw_Rloc, ddw_Rloc, dz_Rloc, db_Rloc, ddb_Rloc, dj_Rloc)
+         !$acc kernels
+         dw_Rloc(:,:) =zero
+         ddw_Rloc(:,:)=zero
+         dz_Rloc(:,:) =zero
+         ds_Rloc(:,:) =zero
+         db_Rloc(:,:) =zero
+         ddb_Rloc(:,:)=zero
+         dj_Rloc(:,:) =zero
+         !$acc end kernels
 #endif
       else
          allocate( flow_LMloc_container(llm:ulm,n_r_max,1:5) )
@@ -293,6 +377,11 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: flow_LMloc_container)
          !$omp target update to(flow_LMloc_container) nowait
+#elif WITH_ACC_GPU
+         !$acc enter data create(flow_LMloc_container)
+         !$acc kernels
+         flow_LMloc_container(:,:,:)=zero
+         !$acc end kernels
 #endif
 
          allocate( flow_Rloc_container(lm_max,nRstart:nRstop,1:5) )
@@ -305,6 +394,11 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: flow_Rloc_container)
          !$omp target update to(flow_Rloc_container) nowait
+#elif WITH_ACC_GPU
+         !$acc enter data create(flow_Rloc_container)
+         !$acc kernels
+         flow_Rloc_container(:,:,:)=zero
+         !$acc end kernels
 #endif
 
          !-- Entropy:
@@ -315,6 +409,11 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: s_LMloc, ds_LMloc)
          !$omp target update to(s_LMloc, ds_LMloc) nowait
+#elif WITH_ACC_GPU
+         !$acc enter data create(s_LMloc_container)
+         !$acc kernels
+         s_LMloc_container(:,:,:)=zero
+         !$acc end kernels 
 #endif
          allocate( s_Rloc_container(lm_max,nRstart:nRstop,1:2) )
          s_Rloc_container(:,:,:)=zero
@@ -323,6 +422,11 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: s_Rloc, ds_Rloc)
          !$omp target update to(s_Rloc, ds_Rloc) nowait
+#elif WITH_ACC_GPU
+         !$acc enter data create(s_Rloc_container)
+         !$acc kernels
+         s_Rloc_container=zero
+         !$acc end kernels
 #endif
 
          !-- Magnetic field potentials:
@@ -337,6 +441,11 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: field_LMloc_container)
          !$omp target update to(field_LMloc_container) nowait
+#elif WITH_ACC_GPU
+         !$acc enter data create(field_LMloc_container)
+         !$acc kernels
+         field_LMloc_container(:,:,:)=zero
+         !$acc end kernels
 #endif
 
          allocate( field_Rloc_container(lm_maxMag,nRstart:nRstop,1:5) )
@@ -349,6 +458,11 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: field_Rloc_container)
          !$omp target update to(field_Rloc_container) nowait
+#elif WITH_ACC_GPU
+         !$acc enter data create(field_Rloc_container)
+         !$acc kernels
+         field_Rloc_container(:,:,:)=zero
+         !$acc end kernels
 #endif
       end if
 
@@ -360,9 +474,17 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: ddj_Rloc)
          !$omp target update to(ddj_Rloc) nowait
+#elif WITH_ACC_GPU
+         !$acc enter data create(ddj_Rloc)
+         !$acc kernels
+         ddj_Rloc(:,:) =zero
+         !$acc end kernels
+#endif
+#ifdef USE_GPU
          gpu_bytes_allocated = gpu_bytes_allocated+(nRstopMag-nRstartMag+1)*lm_maxMag* &
          &                 SIZEOF_DEF_COMPLEX
 #endif
+
       end if
 
       allocate( press_LMloc_container(llm:ulm,n_r_max,1:2) )
@@ -372,6 +494,11 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: press_LMloc_container)
       !$omp target update to(press_LMloc_container) nowait
+#elif WITH_ACC_GPU
+      !$acc enter data create(press_LMloc_container)
+      !$acc kernels
+      press_LMloc_container(:,:,:)=zero
+      !$acc end kernels
 #endif
 
       allocate( press_Rloc_container(lm_max,nRstart:nRstop,1:2) )
@@ -381,6 +508,11 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: press_Rloc_container)
       !$omp target update to(press_Rloc_container) nowait
+#elif WITH_ACC_GPU
+      !$acc enter data create(press_Rloc_container)
+      !$acc kernels
+      press_Rloc_container(:,:,:)=zero
+      !$acc end kernels
 #endif
 
       bytes_allocated = bytes_allocated + &
@@ -391,7 +523,7 @@ contains
       &                 6*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
       bytes_allocated = bytes_allocated + &
       &                 5*lm_maxMag*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       gpu_bytes_allocated = gpu_bytes_allocated + &
       &                     9*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
       gpu_bytes_allocated = gpu_bytes_allocated + &
@@ -416,7 +548,7 @@ contains
          &                 2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
          bytes_allocated = bytes_allocated + &
          &                 2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          gpu_bytes_allocated = gpu_bytes_allocated + &
          &                 2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
          gpu_bytes_allocated = gpu_bytes_allocated + &
@@ -435,6 +567,9 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: xi_Rloc, dxi_Rloc, xi_LMloc, dxi_LMloc)
       !$omp target update to(xi_Rloc, dxi_Rloc, xi_LMloc, dxi_LMloc) nowait
+#elif WITH_ACC_GPU
+      !$acc enter data copyin(xi_Rloc_container, xi_LMloc_container)
+!      !$acc enter data copyin(xi_Rloc, dxi_Rloc, xi_LMloc, dxi_LMloc)
 #endif
 
       !-- Phase field
@@ -447,7 +582,7 @@ contains
          phi_Rloc(:,:)=zero
          bytes_allocated = bytes_allocated + &
          &                 (nRstop-nRstart+1)*lm_max*SIZEOF_DEF_COMPLEX
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          gpu_bytes_allocated = gpu_bytes_allocated + &
          &                 (nRstop-nRstart+1)*lm_max*SIZEOF_DEF_COMPLEX
 #endif
@@ -459,6 +594,12 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: phi_Rloc, phi_LMloc)
       !$omp target update to(phi_Rloc, phi_LMloc) nowait
+#elif WITH_ACC_GPU
+      !$acc enter data create(phi_Rloc, phi_LMloc)
+      !$acc kernels
+      phi_LMloc(:,:)=zero
+      phi_Rloc(:,:)=zero
+      !$acc end kernels
 #endif
 
 
@@ -479,7 +620,7 @@ contains
       ddj_ic_LMloc(:,:)=zero
       bytes_allocated = bytes_allocated + &
       &                 6*(ulmMag-llmMag+1)*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       gpu_bytes_allocated = gpu_bytes_allocated + &
       &                 6*(ulmMag-llmMag+1)*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 #endif
@@ -487,14 +628,14 @@ contains
       allocate( work_LMloc(llm:ulm,1:n_r_max) )
       work_LMloc(:,:)=zero
       bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       gpu_bytes_allocated = gpu_bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 #endif
 
       allocate( tmp_LMloc(1:n_r_max,llm:ulm) )
       tmp_LMloc(:,:)=zero
       bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       gpu_bytes_allocated = gpu_bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 #endif
 
@@ -503,27 +644,54 @@ contains
       !$omp&                             aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, work_LMloc)
       !$omp target update to(b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, tmp_LMloc, &
       !$omp&                 aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, work_LMloc) nowait
+#elif WITH_ACC_GPU
+      !$acc enter data create(b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, tmp_LMloc, &
+      !$acc&                  aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc, work_LMloc)
+      !$acc kernels
+      b_ic_LMloc(:,:)=zero
+      db_ic_LMloc(:,:)=zero
+      ddb_ic_LMloc(:,:)=zero
+      tmp_LMloc(:,:)=zero
+      aj_ic_LMloc(:,:)=zero
+      dj_ic_LMloc(:,:)=zero
+      ddj_ic_LMloc(:,:)=zero      
+      work_LMloc(:,:)=zero
+      !$acc end kernels
 #endif
 
       if (ampForce /= 0.0_cp) then
          allocate(bodyForce_LMloc(llm:ulm,n_r_max))
          bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
          bodyForce_LMloc(:,:) = zero
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          gpu_bytes_allocated=gpu_bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+#endif
+#ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: bodyForce_LMloc)
          !$omp target update to(bodyForce_LMloc)
+#elif WITH_ACC_GPU
+         !$acc enter data copyin(bodyForce_LMloc)
+         !$acc kernels
+         bodyForce_LMloc(:,:) = zero
+         !$acc end kernels       
 #endif
          if ( l_parallel_solve ) then
             allocate(bodyForce_Rloc(lm_max,nRstart:nRstop))
             bodyForce_Rloc(:,:) = zero
             bytes_allocated = bytes_allocated + lm_max*(nRstop-nRstart+1)*&
             &                 SIZEOF_DEF_COMPLEX
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
             gpu_bytes_allocated=gpu_bytes_allocated+lm_max*(nRstop-nRstart+1)*&
             &                   SIZEOF_DEF_COMPLEX
+#endif
+#ifdef WITH_OMP_GPU
             !$omp target enter data map(alloc: bodyForce_Rloc)
             !$omp target update to(bodyForce_Rloc)
+#elif WITH_ACC_GPU
+            !$acc enter data create(bodyForce_Rloc)
+            !$acc kernels
+            bodyForce_Rloc(:,:) = zero
+            !$acc end kernels 
 #endif
          end if
       end if
@@ -543,6 +711,10 @@ contains
       !$omp target exit data map(delete: z_Rloc, z_LMloc)
       !$omp target exit data map(delete: b_Rloc, b_LMloc)
       !$omp target exit data map(delete: aj_Rloc, aj_LMloc)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(s_Rloc_container, s_LMloc_container, p_Rloc, p_LMloc, dp_LMloc, dp_Rloc, &
+      !$acc&                 xi_Rloc_container, xi_LMloc_container,  w_Rloc, w_LMloc, &
+      !$acc&                 z_Rloc, z_LMloc, b_Rloc, b_LMloc, aj_Rloc, aj_LMloc)
 #endif
 
 #ifdef WITH_OMP_GPU
@@ -568,6 +740,11 @@ contains
          !$omp&                             db_Rloc, ddb_Rloc, dj_Rloc,          &
          !$omp&                             dw_LMloc, ddw_LMloc, dz_LMloc, ds_LMloc, &
          !$omp&                             db_LMloc, ddb_LMloc, dj_LMloc, ddj_LMloc)
+#elif WITH_ACC_GPU
+         !$acc exit data delete(dw_Rloc, ddw_Rloc, dz_Rloc,    &
+         !$acc&                 db_Rloc, ddb_Rloc, dj_Rloc,    &
+         !$acc&                 dw_LMloc, ddw_LMloc, dz_LMloc, &
+         !$acc&                 db_LMloc, ddb_LMloc, dj_LMloc, ddj_LMloc)         
 #endif
          deallocate( dw_LMloc, ddw_LMloc, dz_LMloc, ds_LMloc)
          deallocate( db_LMloc, ddb_LMloc, dj_LMloc, ddj_LMloc)
@@ -576,6 +753,8 @@ contains
       else
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: ds_Rloc, ds_LMloc)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(ds_Rloc, ds_LMloc)
 #endif
          deallocate( s_LMloc_container, s_Rloc_container )
          deallocate( field_LMloc_container, field_Rloc_container )
@@ -585,6 +764,11 @@ contains
       !$omp&                             dj_ic_LMloc, ddj_ic_LMloc, &
       !$omp&                             work_LMloc, tmp_LMloc, &
       !$omp&                             phi_LMloc, phi_Rloc)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc, &
+      !$acc&       dj_ic_LMloc, ddj_ic_LMloc, &
+      !$acc&       work_LMloc, tmp_LMloc, &
+      !$acc&       phi_LMloc, phi_Rloc)
 #endif
       deallocate( b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc )
       deallocate( dj_ic_LMloc, ddj_ic_LMloc )
@@ -594,17 +778,23 @@ contains
       if ( l_mag_par_solve ) then
 #ifdef WITH_OMP_GPU_
       !$omp target exit data map(delete: ddj_Rloc)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(ddj_Rloc)
 #endif
          deallocate(ddj_Rloc)
       end if
       if ( ampForce /= 0.0_cp ) then
 #ifdef WITH_OMP_GPU
          !$omp target exit data map(delete: bodyForce_LMloc)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(bodyForce_LMloc)
 #endif
          deallocate(bodyForce_LMloc)
          if ( l_parallel_solve ) then
 #ifdef WITH_OMP_GPU
             !$omp target exit data map(delete: bodyForce_Rloc)
+#elif WITH_ACC_GPU
+            !$acc exit data delete(bodyForce_Rloc)
 #endif
             deallocate(bodyForce_Rloc)
          end if

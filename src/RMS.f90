@@ -6,7 +6,7 @@ module RMS
 
    use parallel_mod
    use precision_mod
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc, only: bytes_allocated
@@ -46,7 +46,7 @@ module RMS
    use useful, only: abortRun
    use mean_sd, only: mean_sd_type, mean_sd_2D_type
    use time_schemes, only: type_tscheme
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use sht, only: spat_to_sphertor, spat_to_qst, scal_to_SH, scal_to_grad_spat, &
        &          sht_l, sht_l_gpu
 #else
@@ -171,6 +171,15 @@ contains
       !$omp&                             LFp2, CFt2, CFp2, dpdtc, dpdpc)
       !$omp target update to(Advt2, Advp2, dtVr, dtVt, dtVp, LFt2, &
       !$omp&                 LFp2, CFt2, CFp2, dpdtc, dpdpc) nowait
+#elif WITH_ACC_GPU
+      !$acc enter data create(Advt2, Advp2, dtVr, dtVt, dtVp, LFt2, &
+      !$acc&                  LFp2, CFt2, CFp2, dpdtc, dpdpc)
+      !$acc kernels
+      Advt2(:,:,:)=0.0_cp ; Advp2(:,:,:)=0.0_cp ; LFt2(:,:,:)=0.0_cp ; LFp2(:,:,:)=0.0_cp
+      CFt2(:,:,:)=0.0_cp ; CFp2(:,:,:)=0.0_cp ; dpdtc(:,:,:)=0.0_cp ; dpdpc(:,:,:)=0.0_cp
+      !$acc end kernels
+#endif
+#ifdef USE_GPU
       gpu_bytes_allocated=gpu_bytes_allocated + 11*n_phys_space*SIZEOF_DEF_REAL
 #endif
 
@@ -194,6 +203,13 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: dpkindrc)
          !$omp target update to(dpkindrc) nowait
+#elif WITH_ACC_GPU
+         !$acc enter data create(dpkindrc)
+         !$acc kernels
+         dpkindrc(:,:,:)=0.0_cp
+         !$acc end kernels
+#endif
+#ifdef USE_GPU
          gpu_bytes_allocated=gpu_bytes_allocated + n_phys_space*SIZEOF_DEF_REAL
 #endif
       end if
@@ -208,7 +224,7 @@ contains
       if ( l_adv_curl ) then
          allocate( dpkindrLM(n_spec_space) )
          bytes_allocated = bytes_allocated + n_spec_space*SIZEOF_DEF_COMPLEX
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          gpu_bytes_allocated = gpu_bytes_allocated + n_spec_space*SIZEOF_DEF_COMPLEX
 #endif
       else
@@ -218,6 +234,11 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, Advp2LM, &
       !$omp&                             PFt2LM, PFp2LM, LFt2LM, LFp2LM, CFt2LM, CFp2LM, LFrLM)
+#elif WITH_ACC_GPU
+      !$acc enter data create (dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, Advp2LM, &
+      !$acc&                   PFt2LM, PFp2LM, LFt2LM, LFp2LM, CFt2LM, CFp2LM, LFrLM)
+#endif
+#ifdef USE_GPU
       gpu_bytes_allocated = gpu_bytes_allocated + 12*n_spec_space*SIZEOF_DEF_COMPLEX
 #endif
 
@@ -294,18 +315,26 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: Advt2, Advp2, dtVr, dtVt, dtVp, LFt2, &
       !$omp&                             LFp2, CFt2, CFp2, dpdtc, dpdpc)
+#elif WITH_ACC_GPU
+      !$acc exit data delete (Advt2, Advp2, dtVr, dtVt, dtVp, LFt2, &
+      !$acc&                  LFp2, CFt2, CFp2, dpdtc, dpdpc)
 #endif
       deallocate ( Advt2, Advp2, LFt2, LFp2, CFt2, CFp2, dpdtc, dpdpc )
       deallocate ( dtVr, dtVt, dtVp, vr_old, vt_old, vp_old )
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, Advp2LM, &
       !$omp&                             PFt2LM, PFp2LM, LFt2LM, LFp2LM, CFt2LM, CFp2LM, LFrLM)
+#elif WITH_ACC_GPU
+      !$acc exit data delete (dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, Advp2LM, &
+      !$acc&                  PFt2LM, PFp2LM, LFt2LM, LFp2LM, CFt2LM, CFp2LM, LFrLM)
 #endif
       deallocate( Advt2LM, Advp2LM, LFt2LM, LFp2LM, CFt2LM, CFp2LM, PFt2LM, PFp2LM )
       deallocate( dtVrLM, dtVtLM, dtVpLM, LFrLM )
       if ( l_adv_curl ) then
 #ifdef WITH_OMP_GPU
          !$omp target exit data map(delete: dpkindrc)
+#elif WITH_ACC_GPU
+         !$acc exit data delete(dpkindrc)
 #endif
          deallocate ( dpkindrLM, dpkindrc )
       end if
@@ -359,6 +388,9 @@ contains
       !  update_wp, update_b, dtVrms and dtBrms
       !
 
+#ifdef WITH_ACC_GPU
+      !$acc kernels
+#endif
       DifPol2hInt(:,:)=0.0_cp
       DifTor2hInt(:,:)=0.0_cp
       dtBPol2hInt(:,:)=0.0_cp
@@ -394,6 +426,9 @@ contains
 
       DifPolLMr(:,:)=zero
       dtBPolLMr(:,:)=zero
+#ifdef WITH_ACC_GPU
+      !$acc end kernels
+#endif
 
 #ifdef WITH_OMP_GPU
       !$omp target update to(dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, Advp2LM, &
@@ -558,24 +593,48 @@ contains
 
       nPhStart=1; nPhStop=n_phi_max
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       nR=nR0
       if ( lRmsCalc ) then
+#ifdef WITH_OMP_GPU
          !$omp target update to(dpdtc, dpdpc, CFt2, CFp2)
+#elif WITH_ACC_GPU
+         !$acc update device(dpdtc, dpdpc, CFt2, CFp2)
+#endif
          if ( l_conv_nl ) then
+#ifdef WITH_OMP_GPU
             !$omp target update to(Advt2, Advp2)
+#elif WITH_ACC_GPU
+            !$acc update device(Advt2, Advp2)
+#endif
          end if
          if ( l_mag_LF .and. nR > n_r_LCR ) then
+#ifdef WITH_OMP_GPU
             !$omp target update to(LFt2, LFp2)
+#elif WITH_ACC_GPU
+            !$acc update device(LFt2, LFp2)
+#endif
          end if
          if(l_adv_curl) then
+#ifdef WITH_OMP_GPU
             !$omp target update to(dpkindrc)
+#elif WITH_ACC_GPU
+            !$acc update device(dpkindrc)
+#endif
          end if
       end if
       if ( istage == 1 ) then
+#ifdef WITH_OMP_GPU
          !$omp target update to(vr_old, vt_old, vp_old, dtVr, dtVt, dtVp)
+#elif WITH_ACC_GPU
+         !$acc update device(vr_old, vt_old, vp_old, dtVr, dtVt, dtVp)
+#endif
       end if
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
+#endif
 #else
       !$omp parallel default(shared) private(n_theta, nPhi, nR)
       nR=nR0
@@ -648,22 +707,46 @@ contains
 
          end do
       end do
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
       if ( lRmsCalc ) then
+#ifdef WITH_OMP_GPU
          !$omp target update from(dpdtc, dpdpc, CFt2, CFp2)
+#elif WITH_ACC_GPU
+         !$acc update self(dpdtc, dpdpc, CFt2, CFp2)
+#endif
          if ( l_conv_nl ) then
+#ifdef WITH_OMP_GPU
             !$omp target update from(Advt2, Advp2)
+#elif WITH_ACC_GPU
+            !$acc update self(Advt2, Advp2)
+#endif
          end if
          if ( l_mag_LF .and. nR > n_r_LCR ) then
+#ifdef WITH_OMP_GPU
             !$omp target update from(LFt2, LFp2)
+#elif WITH_ACC_GPU
+            !$acc update self(LFt2, LFp2)
+#endif
          end if
          if ( l_adv_curl ) then
+#ifdef WITH_OMP_GPU
             !$omp target update from(dpkindrc)
+#elif WITH_ACC_GPU
+            !$acc update self(dpkindrc)
+#endif
          end if
       end if
       if ( istage == 1 ) then
+#ifdef WITH_OMP_GPU
          !$omp target update from(vr_old, vt_old, vp_old, dtVr, dtVt, dtVp)
+#elif WITH_ACC_GPU
+         !$acc update self(vr_old, vt_old, vp_old, dtVr, dtVt, dtVp)
+#endif
       end if
 #else
       !$omp end do
@@ -702,23 +785,47 @@ contains
       nR=nR0
       nPhStart=1; nPhStop=n_phi_max
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if ( lRmsCalc ) then
+#ifdef WITH_OMP_GPU
          !$omp target update to(dpdtc, dpdpc, CFt2, CFp2)
+#elif WITH_ACC_GPU
+         !$acc update device(dpdtc, dpdpc, CFt2, CFp2)
+#endif
          if ( l_conv_nl ) then
+#ifdef WITH_OMP_GPU
             !$omp target update to(Advt2, Advp2)
+#elif WITH_ACC_GPU
+            !$acc update device(Advt2, Advp2)
+#endif
          end if
          if ( l_mag_LF .and. nR > n_r_LCR ) then
+#ifdef WITH_OMP_GPU
             !$omp target update to(LFt2, LFp2)
+#elif WITH_ACC_GPU
+            !$acc update device(LFt2, LFp2)
+#endif
          end if
          if(l_adv_curl) then
+#ifdef WITH_OMP_GPU
             !$omp target update to(dpkindrc)
+#elif WITH_ACC_GPU
+            !$acc update device(dpkindrc)
+#endif
          end if
       end if
       if ( istage == 1 ) then
+#ifdef WITH_OMP_GPU
          !$omp target update to(vr_old, vt_old, vp_old, dtVr, dtVt, dtVp)
+#elif WITH_ACC_GPU
+         !$acc update device(vr_old, vt_old, vp_old, dtVr, dtVt, dtVp)
+#endif
       end if
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do !collapse(3)
+#elif WITH_ACC_GPU
+      !$acc parallel loop
+#endif
 #else
       !$omp parallel default(shared) private(n_theta, nPhi, nR)
       !$omp do
@@ -791,22 +898,46 @@ contains
             end do
          end do
       end do
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
       if ( lRmsCalc ) then
+#ifdef WITH_OMP_GPU
          !$omp target update from(dpdtc, dpdpc, CFt2, CFp2)
+#elif WITH_ACC_GPU
+         !$acc update self(dpdtc, dpdpc, CFt2, CFp2)
+#endif
          if ( l_conv_nl ) then
+#ifdef WITH_OMP_GPU
             !$omp target update from(Advt2, Advp2)
+#elif WITH_ACC_GPU
+            !$acc update self(Advt2, Advp2)
+#endif
          end if
          if ( l_mag_LF .and. nR > n_r_LCR ) then
+#ifdef WITH_OMP_GPU
             !$omp target update from(LFt2, LFp2)
+#elif WITH_ACC_GPU
+            !$acc update self(Advt2, Advp2)
+#endif
          end if
          if ( l_adv_curl ) then
+#ifdef WITH_OMP_GPU
             !$omp target update from(dpkindrc)
+#elif WITH_ACC_GPU
+            !$acc update self(dpkindrc)
+#endif
          end if
       end if
       if ( istage == 1 ) then
+#ifdef WITH_OMP_GPU
          !$omp target update from(vr_old, vt_old, vp_old, dtVr, dtVt, dtVp)
+#elif WITH_ACC_GPU
+         !$acc update self(vr_old, vt_old, vp_old, dtVr, dtVt, dtVp)
+#endif
       end if
 #else
       !$omp end do
@@ -825,10 +956,18 @@ contains
       integer,     intent(in) :: nR ! radial level
       complex(cp), intent(inout) :: p_Rloc(:) ! pressure in LM space
 
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target update to(dpdtc, dpdpc)
+#elif WITH_ACC_GPU
+      !$acc update device(dpdtc, dpdpc)
+#endif
       call scal_to_grad_spat(p_Rloc, dpdtc, dpdpc, l_R(nR), .true.)
+#ifdef WITH_OMP_GPU
       !$omp target update from(dpdtc, dpdpc)
+#elif WITH_ACC_GPU
+      !$acc update self(dpdtc, dpdpc)
+#endif
 #else
       call scal_to_grad_spat(p_Rloc, dpdtc, dpdpc, l_R(nR))
 #endif
@@ -845,10 +984,18 @@ contains
       integer,     intent(in) :: nR ! radial level
       complex(cp), intent(inout) :: p_Rloc(:,:) ! pressure in LM space
 
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target update to(dpdtc, dpdpc)
+#elif WITH_ACC_GPU
+      !$acc update device(dpdtc, dpdpc)
+#endif
       call scal_to_grad_spat(p_Rloc, dpdtc, dpdpc, l_R(nR), .true.)
+#ifdef WITH_OMP_GPU
       !$omp target update from(dpdtc, dpdpc)
+#elif WITH_ACC_GPU
+      !$acc update self(dpdtc, dpdpc)
+#endif
 #else
       call scal_to_grad_spat(p_Rloc, dpdtc, dpdpc, l_R(nR))
 #endif
@@ -865,6 +1012,7 @@ contains
       integer,  intent(in) :: nR ! radial level
       real(cp), intent(inout) :: LFr(*) ! radial component of the Lorentz force
 
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target update to(Advt2, Advp2, dtVr, dtVt, dtVp, LFt2, &
       !$omp&                 LFp2, CFt2, CFp2, dpdtc, dpdpc, &
@@ -873,6 +1021,15 @@ contains
       if ( l_adv_curl ) then
          !$omp target update to(dpkindrc)
       end if
+#elif WITH_ACC_GPU
+      !$acc update device(Advt2, Advp2, dtVr, dtVt, dtVp, LFt2, &
+      !$acc&              LFp2, CFt2, CFp2, dpdtc, dpdpc, &
+      !$acc&              dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, Advp2LM, &
+      !$acc&              PFt2LM, PFp2LM, LFt2LM, LFp2LM, CFt2LM, CFp2LM, LFrLM)
+      if ( l_adv_curl ) then
+         !$acc update device(dpkindrc)
+      end if
+#endif
 
       if ( l_mag_LF .and. nR>n_r_LCR ) call scal_to_SH(sht_l_gpu, LFr, LFrLM, l_R(nR), .true.)
       call spat_to_sphertor(sht_l_gpu, dpdtc, dpdpc, PFt2LM, PFp2LM, l_R(nR), .true.)
@@ -884,7 +1041,7 @@ contains
       if ( l_adv_curl ) call scal_to_SH(sht_l_gpu, dpkindrc, dpkindrLM, l_R(nR), .true.)
       if ( l_mag_nl .and. nR>n_r_LCR ) call spat_to_sphertor(sht_l_gpu, LFt2, LFp2,  &
                                             &                LFt2LM, LFp2LM, l_R(nR), .true.)
-
+#ifdef WITH_OMP_GPU
       !$omp target update from(Advt2, Advp2, dtVr, dtVt, dtVp, LFt2, &
       !$omp&                 LFp2, CFt2, CFp2, dpdtc, dpdpc, &
       !$omp&                 dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, Advp2LM, &
@@ -892,6 +1049,16 @@ contains
       if ( l_adv_curl ) then
          !$omp target update from(dpkindrc)
       end if
+#elif WITH_ACC_GPU
+      !$acc update self(Advt2, Advp2, dtVr, dtVt, dtVp, LFt2, &
+      !$acc&            LFp2, CFt2, CFp2, dpdtc, dpdpc, &
+      !$acc&            dtVrLM, dtVtLM, dtVpLM, dpkindrLM, Advt2LM, Advp2LM, &
+      !$acc&            PFt2LM, PFp2LM, LFt2LM, LFp2LM, CFt2LM, CFp2LM, LFrLM)
+      if ( l_adv_curl ) then
+         !$acc update self(dpkindrc)
+      end if
+
+#endif
 
 #else
       if ( l_mag_LF .and. nR>n_r_LCR ) call scal_to_SH(sht_l, LFr, LFrLM, l_R(nR))
@@ -996,11 +1163,18 @@ contains
       !$omp target update to(LFPol, AdvPol, CorPol)
       !$omp target update to(Geo,CLF,PLF)
       !$omp target update to(ArcMag,Mag,CIA,Arc)
+#elif WITH_ACC_GPU
+      !$acc update device(dpdr, Buo_temp, Buo_xi, &
+      !$acc               LFPol, AdvPol, CorPol, &
+      !$acc               Geo,CLF,PLF, &
+      !$acc               ArcMag,Mag,CIA,Arc)
 #endif
       !-- Loop over the other (l,m) modes
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(lm,l,m,lmS,lmA) &
       !$omp private(AdvPol_loc,CorPol_loc)
+#elif WITH_ACC_GPU
+      !$acc parallel loop private(lm,l,m,lmS,lmA,AdvPol_loc,CorPol_loc)
 #else
       !$omp parallel do default(shared) private(lm,l,m,lmS,lmA) &
       !$omp private(AdvPol_loc,CorPol_loc)
@@ -1101,6 +1275,12 @@ contains
       !$omp target exit data map(delete:LFPol, AdvPol, CorPol)
       !$omp target exit data map(delete:Geo,CLF,PLF)
       !$omp target exit data map(delete:ArcMag,Mag,CIA,Arc)
+#elif WITH_ACC_GPU
+      !$acc end parallel
+      !$acc exit data delete (dpdr, Buo_temp, Buo_xi,  &
+      !$acc                   LFPol, AdvPol, CorPol, &
+      !$acc                   Geo,CLF,PLF, &
+      !$acc                   ArcMag,Mag,CIA,Arc)
 #endif
 
       !-- Now compute R.M.S spectra

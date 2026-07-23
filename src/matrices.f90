@@ -29,7 +29,7 @@ module real_matrices
 
    interface
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       subroutine initialize_if(this, nx, ny, l_pivot, use_gpu, nfull)
 #else
       subroutine initialize_if(this, nx, ny, l_pivot, nfull)
@@ -40,7 +40,7 @@ module real_matrices
          integer, intent(in) :: ny
          logical, intent(in) :: l_pivot
          integer, optional, intent(in) :: nfull
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          logical, optional, intent(in) :: use_gpu
 #endif
       end subroutine initialize_if
@@ -145,7 +145,7 @@ module real_many_matrices
 
    interface
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       subroutine initialize_if(this, nx, ny, nmat, l_pivot, use_gpu, nfull)
 #else
       subroutine initialize_if(this, nx, ny, nmat, l_pivot, nfull)
@@ -157,7 +157,7 @@ module real_many_matrices
          integer, intent(in) :: nmat
          logical, intent(in) :: l_pivot
          integer, optional, intent(in) :: nfull
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          logical, optional, intent(in) :: use_gpu
 #endif
       end subroutine initialize_if
@@ -234,7 +234,7 @@ end module real_many_matrices
 module dense_matrices
 
    use precision_mod
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc
@@ -244,7 +244,7 @@ module dense_matrices
    use constants, only: one
    use algebra, only: solve_mat, prepare_mat
    use algebra_loops, only: prepare_dense_all, solve_dense_all
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use algebra_hipfort, only: gpu_solve_mat, gpu_prepare_mat
 #endif
    use iso_c_binding
@@ -277,7 +277,7 @@ module dense_matrices
 
 contains
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    subroutine initialize(this, nx, ny, l_pivot, use_gpu, nfull)
 #else
    subroutine initialize(this, nx, ny, l_pivot, nfull)
@@ -290,7 +290,7 @@ contains
       integer, intent(in) :: ny
       logical, intent(in) :: l_pivot
       integer, optional, intent(in) :: nfull
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       logical, optional, intent(in) :: use_gpu
 #endif
 
@@ -298,7 +298,7 @@ contains
       logical :: loc_use_gpu
       loc_use_gpu = .false.
       this%gpu_is_used=.false.
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if ( present(use_gpu) ) then
          loc_use_gpu = use_gpu
       end if
@@ -313,9 +313,13 @@ contains
       allocate( this%dat(nx, ny) )
       this%dat(:,:) = 0.0_cp
       bytes_allocated = bytes_allocated+nx*ny*SIZEOF_DEF_REAL
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if ( loc_use_gpu) then
+#ifdef WITH_OMP_GPU
          !$omp target enter data map(to : this%dat)
+#elif WITH_ACC_GPU
+!         !$acc enter data create(this)
+#endif
          gpu_bytes_allocated = gpu_bytes_allocated+nx*ny*SIZEOF_DEF_REAL
       end if
 #endif
@@ -324,17 +328,23 @@ contains
          allocate( this%pivot(this%nrow) )
          this%pivot(:) = 0
          bytes_allocated = bytes_allocated+this%nrow*SIZEOF_INTEGER
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          if ( loc_use_gpu) then
+#ifdef WITH_OMP_GPU
             !$omp target enter data map(to : this%pivot)
+#elif WITH_ACC_GPU
+!            !$acc enter data create(this)
+#endif
             gpu_bytes_allocated = gpu_bytes_allocated+this%nrow*SIZEOF_INTEGER
          end if
 #endif
       end if
-
+#ifdef WITH_ACC_GPU
+      !$acc enter data copyin(this)
+#endif
    end subroutine initialize
 !------------------------------------------------------------------------------
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    subroutine initialize_(this, nx, ny, nmat, l_pivot, use_gpu, nfull)
 #else
    subroutine initialize_(this, nx, ny, nmat, l_pivot, nfull)
@@ -348,7 +358,7 @@ contains
       integer, intent(in) :: nmat
       logical, intent(in) :: l_pivot
       integer, optional, intent(in) :: nfull
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       logical, optional, intent(in) :: use_gpu
 #endif
 
@@ -357,7 +367,7 @@ contains
       logical :: loc_use_gpu
       loc_use_gpu = .false.
       this%gpu_is_used=.false.
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if ( present(use_gpu) ) then
          loc_use_gpu = use_gpu
       end if
@@ -383,7 +393,7 @@ contains
          end do
       end do
       bytes_allocated = bytes_allocated+nx*ny*nmat*SIZEOF_DEF_REAL
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if ( loc_use_gpu) then
          gpu_bytes_allocated = gpu_bytes_allocated+nx*ny*nmat*SIZEOF_DEF_REAL
       end if
@@ -393,16 +403,20 @@ contains
          allocate( this%pivot(this%nrow, this%nmat) )
          this%pivot(:,:) = 0
          bytes_allocated = bytes_allocated+this%nrow*this%nmat*SIZEOF_INTEGER
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          if ( loc_use_gpu) then
             gpu_bytes_allocated = gpu_bytes_allocated+this%nrow*this%nmat*SIZEOF_INTEGER
          end if
 #endif
       end if
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if ( loc_use_gpu) then
+#ifdef WITH_OMP_GPU
          !$omp target enter data map(to : this)
+#elif WITH_ACC_GPU
+         !$acc enter data copyin(this)
+#endif
       end if
 #endif
 
@@ -414,17 +428,23 @@ contains
       !
       class(type_densemat) :: this
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if ( this%gpu_is_used ) then
+#ifdef WITH_OMP_GPU
          !$omp target exit data map(delete : this%dat)
+#elif WITH_ACC_GPU
+         !$acc exit data delete(this)
+#endif
       end if
 #endif
       deallocate( this%dat )
 
       if ( this%l_pivot ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          if ( this%gpu_is_used ) then
+#ifdef WITH_OMP_GPU
             !$omp target exit data map(delete : this%pivot)
+#endif
          end if
 #endif
          deallocate (this%pivot)
@@ -438,9 +458,13 @@ contains
       !
       class(type_mdensemat) :: this
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if ( this%gpu_is_used ) then
+#ifdef WITH_OMP_GPU
          !$omp target exit data map(release : this)
+#elif WITH_ACC_GPU
+         !$acc exit data delete(this)
+#endif
       end if
 #endif
 
@@ -460,7 +484,7 @@ contains
       type(c_ptr),    optional, intent(inout) :: handle
 
       if ( this%gpu_is_used ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          call gpu_prepare_mat(this%dat, this%nrow, this%nrow, this%pivot, info, &
               &               handle, devInfo)
 #endif
@@ -479,7 +503,7 @@ contains
       type(c_ptr), optional, intent(inout) :: handle
 
       if ( this%gpu_is_used ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          call gpu_prepare_mat(this%dat(:,:,idx), this%nrow, this%nrow, &
               &               this%pivot(:,idx), info, handle, devInfo)
 #endif
@@ -510,7 +534,7 @@ contains
       integer, optional,        intent(inout) :: devInfo(:)
 
       if ( this%gpu_is_used ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, &
               &             handle, devInfo)
 #endif
@@ -528,7 +552,7 @@ contains
       integer, optional,        intent(inout) :: devInfo(:)
 
       if ( this%gpu_is_used ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          call gpu_solve_mat(this%dat(:,:,1), this%nrow, this%nrow, this%pivot(:,1), rhs, &
               &             handle, devInfo)
 #endif
@@ -550,27 +574,43 @@ contains
       integer, optional,     intent(inout) :: devInfo(:)
 
       !--
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: n, i
       n =this%nrow
 #endif
 
       if ( this%gpu_is_used ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU 
          !-- Extract real and imag parts of input rhs matrix
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
+#endif
          do i=1,n
             tmpr(i) = real(rhs(i))
             tmpi(i) = aimag(rhs(i))
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
          call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, tmpr, &
               &             tmpi, handle, devInfo)
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
+#endif
          do i=1,n
             rhs(i)=cmplx(tmpr(i),tmpi(i),kind=cp)
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
 #endif
       else
          call solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs)
@@ -590,27 +630,43 @@ contains
       integer, optional,     intent(inout) :: devInfo(:)
 
       !--
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: n, i
       n =this%nrow
 #endif
 
       if ( this%gpu_is_used ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          !-- Extract real and imag parts of input rhs matrix
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
+#endif
          do i=1,n
             tmpr(i) = real(rhs(i))
             tmpi(i) = aimag(rhs(i))
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
          call gpu_solve_mat(this%dat(:,:,1), this%nrow, this%nrow, this%pivot(:,1), &
               &             tmpr, tmpi, handle, devInfo)
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
+#endif
          do i=1,n
             rhs(i)=cmplx(tmpr(i),tmpi(i),kind=cp)
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
 #endif
       else
          call solve_mat(this%dat(:,:,1), this%nrow, this%nrow, this%pivot(:,1), rhs)
@@ -627,7 +683,7 @@ contains
       type(c_ptr),    optional, intent(inout) :: handle
 
       if ( this%gpu_is_used ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          call gpu_solve_mat(this%dat, this%nrow, this%nrow, this%pivot, rhs, &
               &             nRHS, handle, devInfo)
 #endif
@@ -647,7 +703,7 @@ contains
       type(c_ptr),    optional, intent(inout) :: handle
 
       if ( this%gpu_is_used ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          call gpu_solve_mat(this%dat(:,:,idx), this%nrow, this%nrow, &
               &             this%pivot(:,idx), rhs, nRHS, handle, devInfo)
 #endif
@@ -690,7 +746,7 @@ contains
       class(type_densemat) :: this
       real(cp), intent(in) :: dat(:,:)
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: i,j, row, col
       real(cp), pointer :: ptr_dat(:,:)
       ptr_dat => this%dat
@@ -699,14 +755,22 @@ contains
 #endif
 
       if ( this%gpu_is_used ) then
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do j=1,col
             do i=1,row
                ptr_dat(i,j) = dat(i,j)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
 #endif
       else
          this%dat(:,:) = dat(:,:)
@@ -720,7 +784,7 @@ contains
       integer,  intent(in) :: idx
       real(cp), intent(in) :: dat(:,:)
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: i,j, row, col
       real(cp), pointer :: ptr_dat(:,:)
       ptr_dat => this%dat(:,:,idx)
@@ -729,14 +793,22 @@ contains
 #endif
 
       if ( this%gpu_is_used ) then
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do j=1,col
             do i=1,row
                ptr_dat(i,j) = dat(i,j)
             end do
          end do
+#ifdef WITH_OMP_GPU 
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
 #endif
       else
          this%dat(:,:,idx) = dat(:,:)
@@ -749,7 +821,7 @@ end module dense_matrices
 module band_matrices
 
    use precision_mod
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc
@@ -799,7 +871,7 @@ module band_matrices
 
 contains
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    subroutine initialize(this, nx, ny, l_pivot, use_gpu, nfull)
 #else
    subroutine initialize(this, nx, ny, l_pivot, nfull)
@@ -812,7 +884,7 @@ contains
       integer, intent(in) :: ny
       logical, intent(in) :: l_pivot
       integer, optional, intent(in) :: nfull
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       logical, optional, intent(in) :: use_gpu
 #endif
 
@@ -850,7 +922,7 @@ contains
 
    end subroutine initialize
 !------------------------------------------------------------------------------
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    subroutine initialize_(this, nx, ny, nmat, l_pivot, use_gpu, nfull)
 #else
    subroutine initialize_(this, nx, ny, nmat, l_pivot, nfull)
@@ -864,7 +936,7 @@ contains
       integer, intent(in) :: nmat
       logical, intent(in) :: l_pivot
       integer, optional, intent(in) :: nfull
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       logical, optional, intent(in) :: use_gpu
 #endif
 
@@ -872,7 +944,7 @@ contains
       logical :: loc_use_gpu
       loc_use_gpu = .false.
       this%gpu_is_used=.false.
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if ( present(use_gpu) ) then
          loc_use_gpu = use_gpu
       end if
@@ -894,7 +966,7 @@ contains
          this%dat(:,:,:)=0.0_cp
          this%dat(this%kl+this%ku+1,:,:)=1.0_cp ! Identity matrix
          bytes_allocated = bytes_allocated+(nx+(nx-1)/2)*ny*nmat*SIZEOF_DEF_REAL
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          if ( loc_use_gpu) then
             gpu_bytes_allocated = gpu_bytes_allocated+(nx+(nx-1)/2)*ny*nmat*SIZEOF_DEF_REAL
          end if
@@ -904,7 +976,7 @@ contains
          this%dat(:,:,:) = 0.0_cp
          this%dat(2,:,:) = 1.0_cp
          bytes_allocated = bytes_allocated+nx*ny*nmat*SIZEOF_DEF_REAL
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          if ( loc_use_gpu) then
             gpu_bytes_allocated = gpu_bytes_allocated+nx*ny*nmat*SIZEOF_DEF_REAL
          end if
@@ -914,7 +986,7 @@ contains
          allocate( this%pivot(this%ncol,this%nmat) )
          this%pivot(:,:) = 0
          bytes_allocated = bytes_allocated+this%ncol*this%nmat*SIZEOF_INTEGER
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          if ( loc_use_gpu) then
             gpu_bytes_allocated = gpu_bytes_allocated+this%ncol*this%nmat*SIZEOF_INTEGER
          end if
@@ -923,7 +995,7 @@ contains
             allocate( this%du2(this%ncol-2,this%nmat) ) ! Help array for tridiag
             this%du2(:,:) = 0
             bytes_allocated = bytes_allocated+(this%ncol-2)*this%nmat*SIZEOF_DEF_REAL
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
             if ( loc_use_gpu) then
                gpu_bytes_allocated = gpu_bytes_allocated+(this%ncol-2)*this%nmat*SIZEOF_DEF_REAL
             end if
@@ -931,9 +1003,13 @@ contains
          end if
       end if
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if ( loc_use_gpu) then
+#ifdef WITH_OMP_GPU
          !$omp target enter data map(to : this)
+#elif WITH_ACC_GPU
+         !$acc enter data copyin(this)
+#endif
       end if
 #endif
 
@@ -962,11 +1038,13 @@ contains
       !
       class(type_mbandmat) :: this
 
-#ifdef WITH_OMP_GPU
       if ( this%gpu_is_used ) then
+#ifdef WITH_OMP_GPU
          !$omp target exit data map(release: this)
-      end if
+#elif WITH_ACC_GPU
+         !$acc exit data delete(this)
 #endif
+      end if
 
       deallocate( this%dat )
 
@@ -1211,23 +1289,39 @@ contains
       integer :: i,j
 
       if( this%gpu_is_used ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          if ( this%nrow == 3 ) then
+#ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc parallel loop
+#endif
             do j=1,this%ncol
                do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
                   this%dat(this%ku+1+i-j,j,idx)=dat(i,j)
                end do
             end do
+#ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
+#endif
          else
+#ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc parallel loop
+#endif
             do j=1,this%ncol
                do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
                   this%dat(this%kl+this%ku+1+i-j,j,idx)=dat(i,j)
                end do
             end do
+#ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
+#endif
          end if
 #endif
       else
@@ -1323,7 +1417,7 @@ module bordered_matrices
 
 contains
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    subroutine initialize(this, nx, ny, l_pivot, use_gpu, nfull)
 #else
    subroutine initialize(this, nx, ny, l_pivot, nfull)
@@ -1336,7 +1430,7 @@ contains
       integer, intent(in) :: ny
       logical, intent(in) :: l_pivot
       integer, optional, intent(in) :: nfull
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       logical, optional, intent(in) :: use_gpu
 #endif
 
@@ -1374,7 +1468,7 @@ contains
 
    end subroutine initialize
 !------------------------------------------------------------------------------
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    subroutine initialize_(this, nx, ny, nmat, l_pivot, use_gpu, nfull)
 #else
    subroutine initialize_(this, nx, ny, nmat, l_pivot, nfull)
@@ -1388,7 +1482,7 @@ contains
       integer, intent(in) :: nmat
       logical, intent(in) :: l_pivot
       integer, optional, intent(in) :: nfull
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       logical, optional, intent(in) :: use_gpu
 #endif
 
@@ -1398,7 +1492,7 @@ contains
 
       loc_use_gpu = .false.
       this%gpu_is_used=.false.
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if ( present(use_gpu) ) then
          loc_use_gpu = use_gpu
       end if
@@ -1436,7 +1530,7 @@ contains
       end do
       bytes_allocated = bytes_allocated+nmat*(nfull*nfull+nfull*ny+ny+ &
       &                 (nx+(nx-1)/2)*ny)*SIZEOF_DEF_REAL
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       gpu_bytes_allocated = gpu_bytes_allocated+nmat*(nfull*nfull+nfull*ny+ny+ &
       &                 (nx+(nx-1)/2)*ny)*SIZEOF_DEF_REAL
 #endif
@@ -1444,15 +1538,17 @@ contains
          allocate( this%pivA1(ny,nmat) )
          allocate( this%pivA4(nfull,nmat) )
          bytes_allocated = bytes_allocated+nmat*(ny+nfull)*SIZEOF_INTEGER
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          gpu_bytes_allocated = gpu_bytes_allocated+nmat*(ny+nfull)*SIZEOF_INTEGER
 #endif
          this%pivA1(:,:) = 0
          this%pivA4(:,:) = 0
       end if
 
-#ifdef WITH_OMP_GPU
+#ifdef WITH_OMP_GPU 
       !$omp target enter data map(to: this)
+#elif WITH_ACC_GPU
+      !$acc enter data copyin(this)
 #endif
 
    end subroutine initialize_
@@ -1476,6 +1572,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(release: this)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(this)
 #endif
 
       deallocate( this%A1, this%A2, this%A3, this%A4 )
@@ -1530,6 +1628,8 @@ contains
       !-- Assemble the Schur complement of A1: A4 <- A4-A3*v
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
 #endif
       do k=1,this%nmat
          do i=1,this%nfull
@@ -1540,6 +1640,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
       !-- LU factorisation of the Schur complement
@@ -1673,6 +1775,8 @@ contains
       !-- rhs2 <- rhs2-A3*rhs1
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+     !acc parallel loop
 #endif
       do nRHS=llm,ulm
          l=lm2l(nRHS)
@@ -1684,6 +1788,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end loop
 #endif
 
       !-- Solve A4*y = rhs2
@@ -1693,6 +1799,8 @@ contains
       !-- Assemble rhs1 <- rhs1-A2*rhs2
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
 #endif
       do nRHS=llm,ulm
          l=lm2l(nRHS)
@@ -1708,6 +1816,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
    end subroutine solve_all_mats
@@ -1760,34 +1870,64 @@ contains
       if ( this%gpu_is_used ) then
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !acc parallel loop
+#endif
          do j=1,this%ncol
             do i=max(1,j-this%ku),min(this%ncol,j+this%kl)
                this%A1(this%kl+this%ku+1+i-j,j,idx)=dat(i,j)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !acc end parallel
+#endif
 
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !acc parallel loop
+#endif
          do j=1,this%nfull
             do i=1,this%ncol
                this%A2(i,j,idx)=dat(i,this%ncol+j)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !acc end parallel
+#endif
 
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !acc parallel loop
+#endif
          do j=1,this%ncol
             this%A3(j,idx)=dat(this%ncol+1,j)
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !acc end parallel
+#endif
 
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !acc parallel loop
+#endif
          do j=1,this%nfull
             do i=1,this%nfull
                this%A4(i,j,idx)=dat(this%ncol+i,this%ncol+j)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !acc end parallel
 #endif
       else
          do j=1,this%ncol

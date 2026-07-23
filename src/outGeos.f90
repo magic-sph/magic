@@ -161,6 +161,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)
 #else
       !$omp parallel do default(shared) private(nTheta,nPhi,nTheta1)
 #endif
@@ -188,6 +190,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -210,6 +214,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)
 #else
       !$omp parallel do default(shared) private(nTheta,nPhi,nTheta1)
 #endif
@@ -237,6 +243,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif

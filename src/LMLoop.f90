@@ -9,7 +9,7 @@ module LMLoop_mod
    use useful, only: abortRun, logWrite
    use num_param, only: solve_counter, upB_counter, upZ_counter, upS_counter, &
        &                upWP_counter
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: memWrite, bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc, only: memWrite, bytes_allocated
@@ -39,7 +39,7 @@ module LMLoop_mod
    integer :: n_tri, n_penta ! Number of tridiagonal and pentadiagonal solvers
    integer :: block_sze, n_requests, nblocks
    integer, allocatable :: array_of_requests(:)
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       !-- Local arrays for expl member of dsdt, dxidt, dwdt, ... in finish_explicit_assembly
       complex(cp), allocatable :: expl_tmp(:,:)
 #endif
@@ -61,12 +61,12 @@ contains
 
       !-- Local variable
       integer(lip) :: local_bytes_used
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer(lip) :: local_bytes_used_gpu
 #endif
 
       local_bytes_used = bytes_allocated
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       local_bytes_used_gpu = gpu_bytes_allocated
 #endif
       if ( l_single_matrix ) then
@@ -87,12 +87,12 @@ contains
       call initialize_updateZ()
       if ( l_mag ) call initialize_updateB()
       local_bytes_used = bytes_allocated-local_bytes_used
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       local_bytes_used_gpu = gpu_bytes_allocated-local_bytes_used_gpu
 #endif
 
       call memWrite('LMLoop.f90',local_bytes_used)
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       call memWrite('LMLoop.f90-GPU',local_bytes_used_gpu)
 #endif
 
@@ -113,11 +113,18 @@ contains
 
       end if
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       allocate(expl_tmp(llm:ulm,1:n_r_max))
       expl_tmp(:,:) = 0.0_cp
+#ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: expl_tmp)
       !$omp target update to(expl_tmp)
+#elif WITH_ACC_GPU
+      !$acc enter data create(expl_tmp)
+      !$acc kernels
+      expl_tmp(:,:) = 0.0_cp
+      !$acc end kernels
+#endif
 #endif
 
    end subroutine initialize_LMLoop
@@ -150,53 +157,82 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: dummy)
       !$omp target update to(dummy)
+#elif WITH_ACC_GPU
+      !$acc enter data copyin(dummy)
 #endif
 
       if ( l_heat ) then
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
          !$omp target update to(dummy)
+#elif WITH_ACC_GPU
+         !$acc update device(dummy)
+#endif
          if(l_phase_field) then
+#ifdef WITH_OMP_GPU
             !$omp target update to(phi_Rloc)
+#elif WITH_ACC_GPU
+            !$acc update device(phi_Rloc)
+#endif
          end if
 #endif
          call prepareS_FD(tscheme, dummy, phi_Rloc)
 #ifdef WITH_OMP_GPU
          !$omp target update from(dummy)
          !$omp target update from(s_ghost)
+#elif WITH_ACC_GPU
+         !$acc update self(dummy)
+         !$acc update self(s_ghost)
 #endif
       end if
       if ( l_chemical_conv ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(dummy)
+#elif WITH_ACC_GPU
+         !$acc update device(dummy)
 #endif
          call prepareXi_FD(tscheme, dummy)
 #ifdef WITH_OMP_GPU
          !$omp target update from(dummy)
          !$omp target update from(xi_ghost)
+#elif WITH_ACC_GPU
+         !$acc update self(dummy)
+         !$acc update self(xi_ghost)
 #endif
       end if
       if ( l_conv ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(dummy)
          !$omp target update to(z10_ghost, z_ghost)
+#elif WITH_ACC_GPU
+         !$acc update device(dummy)
+         !$acc update device(z10_ghost, z_ghost)
 #endif
          call prepareZ_FD(0.0_cp, tscheme, dummy, omega_ma, omega_ic, dum_scal, &
               &           dum_scal)
 #ifdef WITH_OMP_GPU
          !$omp target update from(z10_ghost, z_ghost)
+#elif WITH_ACC_GPU
+         !$acc update self(z10_ghost, z_ghost)
 #endif
          call prepareW_FD(0.0_cp, tscheme, dummy, .false.)
 #ifdef WITH_OMP_GPU
          !$omp target update from(dummy)
+#elif WITH_ACC_GPU
+         !$acc update self(dummy)
 #endif
       end if
       if ( l_mag_par_solve ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(dummy)
+#elif WITH_ACC_GPU
+         !$acc update device(dummy)
 #endif
          call prepareB_FD(0.0_cp, tscheme, dummy, dummy)
 #ifdef WITH_OMP_GPU
          !$omp target update from(b_ghost, aj_ghost)
+#elif WITH_ACC_GPU
+         !$acc update self(b_ghost, aj_ghost)
 #endif
       end if
 
@@ -209,6 +245,8 @@ contains
       call dum_scal%finalize()
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(release: dummy)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(dummy)
 #endif
       call dummy%finalize()
 
@@ -242,6 +280,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: expl_tmp)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(expl_tmp)
       deallocate(expl_tmp)
 #endif
 
@@ -277,7 +317,7 @@ contains
 
       !--- Inner core rotation from last time step
       real(cp) :: z10(n_r_max)
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: lm2_loc, nR
 #endif
 
@@ -329,13 +369,21 @@ contains
 
          if ( l_single_matrix ) then
             if ( rank == rank_with_l1m0 ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
                lm2_loc = lo_map%lm2(1,0)
+#ifdef WITH_OMP_GPU
                !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+               !$acc parallel loop
+#endif
                do nR=1,n_r_max
                   z10(nR)=real(z_LMloc(lm2_loc,nR))
                end do
+#ifdef WITH_OMP_GPU
                !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+               !$acc end parallel
+#endif
 #else
                z10(:)=real(z_LMloc(lo_map%lm2(1,0),:))
 #endif
@@ -425,10 +473,14 @@ contains
          call preparePhase_FD(tscheme, dphidt)
 #ifdef WITH_OMP_GPU
          !$omp target update from(phi_ghost)
+#elif WITH_ACC_GPU
+         !$acc update self(phi_ghost)
 #endif
          call parallel_solve_phase(block_sze)
 #ifdef WITH_OMP_GPU
          !$omp target update to(phi_ghost)
+#elif WITH_ACC_GPU
+         !$acc update device(phi_ghost)
 #endif
          call fill_ghosts_Phi(phi_ghost)
          call updatePhase_FD(phi_Rloc, dphidt, tscheme)
@@ -439,12 +491,16 @@ contains
          call prepareS_FD(tscheme, dsdt, phi_Rloc)
 #ifdef WITH_OMP_GPU
          !$omp target update from(s_ghost)
+#elif WITH_ACC_GPU
+         !$acc update self(s_ghost)
 #endif
       end if
       if ( l_chemical_conv ) then
          call prepareXi_FD(tscheme, dxidt)
 #ifdef WITH_OMP_GPU
          !$omp target update from(xi_ghost)
+#elif WITH_ACC_GPU
+         !$acc update self(xi_ghost)
 #endif
       end if
       if ( l_conv ) then
@@ -452,11 +508,15 @@ contains
               &           domega_ic_dt)
 #ifdef WITH_OMP_GPU
          !$omp target update from(z10_ghost, z_ghost)
+#elif WITH_ACC_GPU
+         !$acc update self(z10_ghost, z_ghost)
 #endif
          if ( l_z10mat ) call z10Mat_FD%solver_single(z10_ghost, nRstart, nRstop)
          call prepareW_FD(time, tscheme, dwdt, lPress)
 #ifdef WITH_OMP_GPU
          !$omp target update from(p0_ghost, w_ghost)
+#elif WITH_ACC_GPU
+         !$acc update self(p0_ghost, w_ghost)
 #endif
          if ( lPress ) call p0Mat_FD%solver_single(p0_ghost, nRstart, nRstop)
       end if
@@ -464,6 +524,8 @@ contains
          call prepareB_FD(time, tscheme, dbdt, djdt)
 #ifdef WITH_OMP_GPU
          !$omp target update from(b_ghost, aj_ghost)
+#elif WITH_ACC_GPU
+         !$acc update self(b_ghost, aj_ghost)
 #endif
       end if
 
@@ -482,18 +544,24 @@ contains
       if ( l_heat ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(s_ghost)
+#elif WITH_ACC_GPU
+         !$acc update device(s_ghost)
 #endif
          call fill_ghosts_S(s_ghost)
       end if
       if ( l_chemical_conv ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(xi_ghost)
+#elif WITH_ACC_GPU
+         !$acc update device(xi_ghost)
 #endif
          call fill_ghosts_Xi(xi_ghost)
       end if
       if ( l_conv ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(z_ghost, w_ghost)
+#elif WITH_ACC_GPU
+         !$acc update device(z_ghost, w_ghost)
 #endif
          call fill_ghosts_Z(z_ghost)
          call fill_ghosts_W(w_ghost, p0_ghost, lPress)
@@ -501,6 +569,8 @@ contains
       if ( l_mag_par_solve ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(b_ghost, aj_ghost)
+#elif WITH_ACC_GPU
+         !$acc update device(b_ghost, aj_ghost)
 #endif
          call fill_ghosts_B(b_ghost, aj_ghost)
       end if
@@ -569,97 +639,162 @@ contains
       type(type_tscalar),  intent(inout) :: lorentz_torque_ic_dt, lorentz_torque_ma_dt
 
       !--
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       complex(cp), pointer :: expl_ptr(:,:)
       integer :: nR, lm
       nR = 0; lm = 0
 #endif
 
       if ( l_chemical_conv ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          expl_ptr(llm:,1:) => dxidt%expl(:,:,tscheme%istage)
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do nR=1,n_r_max
             do lm=llm,ulm
                expl_tmp(lm,nR) = expl_ptr(lm,nR)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
          call finish_exp_comp(w, dVXir_LMloc, expl_tmp)
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do nR=1,n_r_max
             do lm=llm,ulm
                expl_ptr(lm,nR) = expl_tmp(lm,nR)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
+
 #else
          call finish_exp_comp(w, dVXir_LMloc, dxidt%expl(:,:,tscheme%istage))
 #endif
       end if
 
       if ( l_single_matrix ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          expl_ptr(llm:,1:) => dsdt%expl(:,:,tscheme%istage)
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do nR=1,n_r_max
             do lm=llm,ulm
                expl_tmp(lm,nR) = expl_ptr(lm,nR)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
          call finish_exp_smat(dVSr_LMloc, expl_tmp)
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do nR=1,n_r_max
             do lm=llm,ulm
                expl_ptr(lm,nR) = expl_tmp(lm,nR)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
 #else
          call finish_exp_smat(dVSr_LMloc, dsdt%expl(:,:,tscheme%istage))
 #endif
       else
          if ( l_heat ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
             expl_ptr(llm:,1:) => dsdt%expl(:,:,tscheme%istage)
+#ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+            !$acc parallel loop collapse(2)
+#endif
             do nR=1,n_r_max
                do lm=llm,ulm
                   expl_tmp(lm,nR) = expl_ptr(lm,nR)
                end do
             end do
+#ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
+#endif
             call finish_exp_entropy(w, dVSr_LMloc, expl_tmp)
+#ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+            !$acc parallel loop collapse(2)
+#endif
             do nR=1,n_r_max
                do lm=llm,ulm
                   expl_ptr(lm,nR) = expl_tmp(lm,nR)
                end do
             end do
+#ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
+#endif
 #else
             call finish_exp_entropy(w, dVSr_LMloc, dsdt%expl(:,:,tscheme%istage))
 #endif
          end if
          if ( l_double_curl ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
             expl_ptr(llm:,1:) => dwdt%expl(:,:,tscheme%istage)
+#ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+            !$acc parallel loop collapse(2)
+#endif
             do nR=1,n_r_max
                do lm=llm,ulm
                   expl_tmp(lm,nR) = expl_ptr(lm,nR)
                end do
             end do
+#ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
+#endif
             call finish_exp_pol(dVxVh_LMloc, expl_tmp)
+#ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+            !$acc parallel loop collapse(2)
+#endif
             do nR=1,n_r_max
                do lm=llm,ulm
                   expl_ptr(lm,nR) = expl_tmp(lm,nR)
                end do
             end do
+#ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
+#endif
 #else
             call finish_exp_pol(dVxVh_LMloc, dwdt%expl(:,:,tscheme%istage))
 #endif
@@ -675,23 +810,39 @@ contains
       end if
 
       if ( l_mag ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          expl_ptr(llm:,1:) => djdt%expl(:,:,tscheme%istage)
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do nR=1,n_r_max
             do lm=llm,ulm
                expl_tmp(lm,nR) = expl_ptr(lm,nR)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
          call finish_exp_mag(dVxBh_LMloc, expl_tmp)
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do nR=1,n_r_max
             do lm=llm,ulm
                expl_ptr(lm,nR) = expl_tmp(lm,nR)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
 #else
          call finish_exp_mag(dVxBh_LMloc, djdt%expl(:,:,tscheme%istage))
 #endif
@@ -907,7 +1058,7 @@ contains
 #ifdef WITH_MPI
       array_of_requests(:)=MPI_REQUEST_NULL
 #endif
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp parallel default(shared) private(tag, req, start_lm, stop_lm, nlm_block, lms_block)
 #endif
       tag = 0
@@ -916,7 +1067,7 @@ contains
          nlm_block = lm_max-lms_block+1
          if ( nlm_block > block_sze ) nlm_block=block_sze
          start_lm=lms_block; stop_lm=lms_block+nlm_block-1
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
          call get_openmp_blocks(start_lm,stop_lm)
          !$omp barrier
 #endif
@@ -930,7 +1081,7 @@ contains
          nlm_block = lm_max-lms_block+1
          if ( nlm_block > block_sze ) nlm_block=block_sze
          start_lm=lms_block; stop_lm=lms_block+nlm_block-1
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
          call get_openmp_blocks(start_lm,stop_lm)
          !$omp barrier
 #endif
@@ -940,7 +1091,7 @@ contains
          tag = tag+1
       end do
 
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp master
 #endif
       do lms_block=1,lm_max,block_sze
@@ -957,7 +1108,7 @@ contains
       if ( ierr /= MPI_SUCCESS ) call abortRun('MPI_Waitall failed in LMLoop')
       call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp end master
       !$omp barrier
 
@@ -981,7 +1132,7 @@ contains
       array_of_requests(:)=MPI_REQUEST_NULL
 #endif
 
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp parallel default(shared) private(tag, req, start_lm, stop_lm, nlm_block, lms_block)
 #endif
       tag = 0
@@ -991,7 +1142,7 @@ contains
          nlm_block = lm_max-lms_block+1
          if ( nlm_block > block_sze ) nlm_block=block_sze
          start_lm=lms_block; stop_lm=lms_block+nlm_block-1
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
          call get_openmp_blocks(start_lm,stop_lm)
          !$omp barrier
 #endif
@@ -1031,7 +1182,7 @@ contains
          nlm_block = lm_max-lms_block+1
          if ( nlm_block > block_sze ) nlm_block=block_sze
          start_lm=lms_block; stop_lm=lms_block+nlm_block-1
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
          call get_openmp_blocks(start_lm,stop_lm)
          !$omp barrier
 #endif
@@ -1067,7 +1218,7 @@ contains
          end if
       end do
 
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp master
 #endif
       do lms_block=1,lm_max,block_sze
@@ -1111,7 +1262,7 @@ contains
       if ( ierr /= MPI_SUCCESS ) call abortRun('MPI_Waitall failed in LMLoop')
       call MPI_Barrier(MPI_COMM_WORLD,ierr)
 #endif
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp end master
       !$omp barrier
 

@@ -15,7 +15,7 @@ module horizontal_data
    use fft
    use constants, only: pi, zero, one, two, half
    use precision_mod
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc, only: bytes_allocated
@@ -82,7 +82,7 @@ contains
       allocate( cosTheta(nlat_padded) )
       bytes_allocated = bytes_allocated+2*n_theta_max*SIZEOF_INTEGER+&
       &                 (n_theta_max+6*nlat_padded)*SIZEOF_DEF_REAL
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       gpu_bytes_allocated = gpu_bytes_allocated+2*n_theta_max*SIZEOF_INTEGER+&
       &                 (n_theta_max+6*nlat_padded)*SIZEOF_DEF_REAL
 #endif
@@ -96,7 +96,7 @@ contains
       !-- Phi (longitude)
       allocate( phi(n_phi_max) )
       bytes_allocated = bytes_allocated+n_phi_max*SIZEOF_DEF_REAL
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       gpu_bytes_allocated = gpu_bytes_allocated+n_phi_max*SIZEOF_DEF_REAL
 #endif
 
@@ -104,7 +104,7 @@ contains
       allocate( gauss(n_theta_max) )
       allocate( dPl0Eq(l_max+1) )
       bytes_allocated = bytes_allocated+(n_theta_max+l_max+1)*SIZEOF_DEF_REAL
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       gpu_bytes_allocated = gpu_bytes_allocated+(n_theta_max+l_max+1)*SIZEOF_DEF_REAL
 #endif
 
@@ -117,7 +117,7 @@ contains
       allocate( hdif_B(0:l_max),hdif_V(0:l_max),hdif_S(0:l_max) )
       allocate( hdif_Xi(0:l_max) )
       bytes_allocated = bytes_allocated+(10*lm_max+4*(l_max+1))*SIZEOF_DEF_REAL
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       gpu_bytes_allocated = gpu_bytes_allocated+(10*lm_max+4*(l_max+1))*SIZEOF_DEF_REAL
 #endif
 
@@ -128,6 +128,13 @@ contains
       !$omp&                      phi,gauss,dPl0Eq,dPhi,dLh,                                               &
       !$omp&                      dTheta1S,dTheta1A,dTheta2S,dTheta2A,dTheta3S,dTheta3A,dTheta4S,dTheta4A, &
       !$omp&                      hdif_B,hdif_V,hdif_S,hdif_Xi)
+#elif WITH_ACC_GPU
+      !$acc enter data create(n_theta_cal2ord,n_theta_ord2cal,theta_ord,                        &
+      !$acc&                      sinTheta_E2,                                                             &
+      !$acc&                      O_sin_theta,O_sin_theta_E2,cosn_theta_E2,sinTheta,cosTheta,              &
+      !$acc&                      phi,gauss,dPl0Eq,dPhi,dLh,                                               &
+      !$acc&                      dTheta1S,dTheta1A,dTheta2S,dTheta2A,dTheta3S,dTheta3A,dTheta4S,dTheta4A, &
+      !$acc&                      hdif_B,hdif_V,hdif_S,hdif_Xi)
 #endif
 
    end subroutine initialize_horizontal_data
@@ -144,6 +151,13 @@ contains
       !$omp&                     phi,gauss,dPl0Eq,dPhi,dLh,                                               &
       !$omp&                     dTheta1S,dTheta1A,dTheta2S,dTheta2A,dTheta3S,dTheta3A,dTheta4S,dTheta4A, &
       !$omp&                     hdif_B,hdif_V,hdif_S,hdif_Xi)
+#elif WITH_ACC_GPU
+      !$acc exit data delete (n_theta_cal2ord,n_theta_ord2cal,theta_ord,                       &
+      !$acc&                  sinTheta_E2,                                                             &
+      !$acc&                  O_sin_theta,O_sin_theta_E2,cosn_theta_E2,sinTheta,cosTheta,              &
+      !$acc&                  phi,gauss,dPl0Eq,dPhi,dLh,                                               &
+      !$acc&                  dTheta1S,dTheta1A,dTheta2S,dTheta2A,dTheta3S,dTheta3A,dTheta4S,dTheta4A, &
+      !$acc&                  hdif_B,hdif_V,hdif_S,hdif_Xi)
 #endif
 
       deallocate( cosn_theta_E2, sinTheta, cosTheta, theta_ord, n_theta_cal2ord )
@@ -327,6 +341,13 @@ contains
       !$omp target update to(dTheta1S,dTheta1A,dTheta2S,dTheta2A,dTheta3S,dTheta3A,dTheta4S,dTheta4A) nowait
       !$omp target update to(hdif_B,hdif_V,hdif_S,hdif_Xi                                           ) nowait
       !$omp target update to(sinTheta_E2                                                            )
+#elif WITH_ACC_GPU
+      !$acc update device(n_theta_cal2ord,theta_ord                                              ) 
+      !$acc update device(O_sin_theta,O_sin_theta_E2,cosn_theta_E2,sinTheta,cosTheta             ) 
+      !$acc update device(phi,gauss,dPl0Eq,dPhi,dLh                                              ) 
+      !$acc update device(dTheta1S,dTheta1A,dTheta2S,dTheta2A,dTheta3S,dTheta3A,dTheta4S,dTheta4A) 
+      !$acc update device(hdif_B,hdif_V,hdif_S,hdif_Xi                                           ) 
+      !$acc update device(sinTheta_E2                                                            )
 #endif
 
    end subroutine horizontal

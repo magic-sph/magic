@@ -12,7 +12,7 @@ module mem_alloc
    private
 
    integer(lip), public :: bytes_allocated
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    integer(lip), public :: gpu_bytes_allocated
 #endif
    integer :: n_memory_file
@@ -33,7 +33,7 @@ contains
       integer :: iproc
 
       bytes_allocated = 0 !
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       gpu_bytes_allocated = 0 !
 #endif
       n_ranks_print = min(n_procs-1, 6)

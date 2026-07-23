@@ -4,7 +4,7 @@ module cosine_transform_gpu
    ! (DCT-I).
    !
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
 
    use iso_c_binding
    use precision_mod
@@ -77,9 +77,12 @@ contains
       !-- Allocate tmp_* arrays
       allocate(tmp_in(1:ulm-llm+1,2*this%n_r_max-2), tmp_out(1:ulm-llm+1,2*this%n_r_max-2))
       tmp_in(:,:) = zero; tmp_out(:,:) = zero
+#ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc : tmp_in, tmp_out)
       !$omp target update to(tmp_in, tmp_out)
-
+#elif WITH_ACC_GPU
+      !$acc enter data copyin(tmp_in, tmp_out)
+#endif
    end subroutine initialize
 !------------------------------------------------------------------------------
    subroutine finalize(this)
@@ -93,7 +96,11 @@ contains
       call hipfftcheck( hipfftDestroy(this%plan_many))
 
       !-- Free tmp_* arrays
+#ifdef WITH_OMP_GPU
       !$omp target exit data map(delete : tmp_in, tmp_out)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(tmp_in, tmp_out)
+#endif
       deallocate(tmp_in, tmp_out)
 
    end subroutine finalize
@@ -120,19 +127,42 @@ contains
       !--
       !-- https://en.wikipedia.org/wiki/Discrete_cosine_transform#DCT-I
       !-- http://www.fftw.org/fftw3_doc/Real-even_002fodd-DFTs-_0028cosine_002fsine-transforms_0029.html
+
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc : temp_in, temp_out)
+#elif WITH_ACC_GPU
+      !$acc enter data create (temp_in, temp_out)
+#endif
+
+#ifdef WITH_ACC_GPU
+      !$acc kernels
+#endif
       temp_in(:) = zero
       temp_in(1:this%n_r_max) = array_in(1:this%n_r_max)
       temp_in(this%n_r_max+1:this%plan_1d_size) = array_in(this%n_r_max-1:2:-1)
       temp_out(:) = zero
+#ifdef WITH_ACC_GPU
+      !$acc end kernels
+#endif
 
-      !--
-      !$omp target enter data map(alloc : temp_in, temp_out)
+#ifdef WITH_OMP_GPU
       !$omp target update to(temp_in, temp_out)
+#endif
+      !--
+#ifdef WITH_OMP_GPU
       !$omp target data use_device_addr(temp_in, temp_out)
+#elif WITH_ACC_GPU
+      !$acc host_data use_device(temp_in, temp_out)
+#endif
       call hipfftCheck(hipfftExecZ2Z(this%plan_1d, c_loc(temp_in), c_loc(temp_out), HIPFFT_FORWARD))
+#ifdef WITH_OMP_GPU
       !$omp end target data
       !$omp target update from(temp_out)
       !$omp target exit data map(delete : temp_in, temp_out)
+#elif WITH_ACC_GPU
+      !$acc end host_data
+      !$acc exit data copyout(temp_out) delete(temp_in)
+#endif
 
       !--
       temp_resu(:) = real(temp_out(:))
@@ -175,16 +205,34 @@ contains
       aimag_(this%n_r_max+1:this%plan_1d_size) = cmplx(aimag(array_in(this%n_r_max-1:2:-1)), 0.0_cp, kind=cp)
 
       !--
+#ifdef WITH_OMP_GPU
+      !$omp target enter data map(alloc : real_, aimag_, out_real, out_aim)
+#elif WITH_ACC_GPU
+      !$acc enter data create(real_, aimag_, out_real, out_aim)
+      !$acc kernels
+#endif
       out_real(:) = zero
       out_aim(:)  = zero
-      !$omp target enter data map(alloc : real_, aimag_, out_real, out_aim)
+#ifdef WITH_ACC_GPU
+      !$acc end kernels
+#endif
+
+#ifdef WITH_OMP_GPU
       !$omp target update to(real_, aimag_, out_real, out_aim)
       !$omp target data use_device_addr(real_, aimag_, out_real, out_aim)
+#elif WITH_ACC_GPU
+      !$acc host_data use_device(real_, aimag_, out_real, out_aim)
+#endif
       call hipfftCheck(hipfftExecZ2Z(this%plan_1d, c_loc(real_), c_loc(out_real), HIPFFT_FORWARD))
       call hipfftCheck(hipfftExecZ2Z(this%plan_1d, c_loc(aimag_), c_loc(out_aim), HIPFFT_FORWARD))
+#ifdef WITH_OMP_GPU
       !$omp end target data
       !$omp target update from(out_real, out_aim)
       !$omp target exit data map(delete : real_, aimag_, out_real, out_aim)
+#elif WITH_ACC_GPU
+      !$acc end host_data
+      !$acc exit data delete(real_, aimag_, out_real, out_aim)
+#endif
 
       resu_rr(:) = real(out_real(1:this%n_r_max))
       resu_ir(:) = real(out_aim(1:this%n_r_max))
@@ -219,7 +267,11 @@ contains
       n_r = 0; n_f = 0; tmp_n_r_max = this%n_r_max
 
       !-- Prepare array for dft many
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)
+#endif
       do n_r=1,2*tmp_n_r_max-2
          do n_f=n_f_start,n_f_stop
             if(n_r <= tmp_n_r_max) then
@@ -229,22 +281,42 @@ contains
             end if
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
 
       !-- Perform DFT many
+#ifdef WITH_OMP_GPU
       !$omp target data use_device_addr(tmp_in, tmp_out)
+#elif WITH_ACC_GPU
+      !$acc host_data use_device(tmp_in, tmp_out)
+#endif
       call hipfftCheck(hipfftExecZ2Z(this%plan_many, c_loc(tmp_in), c_loc(tmp_out), HIPFFT_FORWARD))
+#ifdef WITH_OMP_GPU
       !$omp end target data
+#elif WITH_ACC_GPU
+      !$acc end host_data
+#endif
 
       !-- Copy output onto array_in
       tmp_fac_cheb = this%cheb_fac
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)
+#endif
       do n_r=1,tmp_n_r_max
          do n_f=n_f_start,n_f_stop
             array_in(n_f,n_r)=tmp_fac_cheb*tmp_out(n_f,n_r)
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
 
    end subroutine costf1_complex
 !------------------------------------------------------------------------------

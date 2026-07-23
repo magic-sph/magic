@@ -10,7 +10,7 @@ module updateZ_mod
    use omp_lib
    use precision_mod
    use communications, only: allgather_from_Rloc
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc, only: bytes_allocated
@@ -44,7 +44,7 @@ module updateZ_mod
    use real_matrices
    use band_matrices
    use parallel_solvers
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use iso_c_binding
    use hipfort_check
    use hipfort_hipblas
@@ -55,7 +55,7 @@ module updateZ_mod
    private
 
    !-- Input of recycled work arrays:
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    real(cp), allocatable, target :: rhs1(:,:,:) ! RHS for other modes
    real(cp), allocatable, target :: rhs(:) ! rhs for l=1, m=0
 #else
@@ -77,7 +77,7 @@ module updateZ_mod
 
    integer :: maxThreads
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    real(cp), allocatable :: dat(:,:)
    type(c_ptr) :: handle = c_null_ptr
    integer, allocatable, target :: devInfo(:)
@@ -112,7 +112,7 @@ contains
                n_bands = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
             end if
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
 #ifdef NEW_SOLVE_UPDATEZ
             call zMat%initialize(n_bands,n_r_max,nLMBs2(1+rank),l_pivot=.true.,use_gpu=.true.)
 #else
@@ -131,7 +131,7 @@ contains
                n_bands = max(2*rscheme_oc%order_boundary+1,rscheme_oc%order+1)
             end if
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
 #ifdef NEW_SOLVE_UPDATEZ
             call z10Mat%initialize(n_bands,n_r_max,1,l_pivot=.true.,use_gpu=.true.)
 #else
@@ -145,7 +145,7 @@ contains
             allocate( type_mdensemat :: zMat )
             allocate( type_mdensemat :: z10Mat )
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
             call z10Mat%initialize(n_r_max,n_r_max,1,l_pivot=.true.,use_gpu=.true.)
             call zMat%initialize(n_r_max,n_r_max,nLMBs2(1+rank),l_pivot=.true.,use_gpu=.true.)
 #else
@@ -161,6 +161,13 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc:z10Mat_fac)
          !$omp target update to(z10Mat_fac)
+#elif WITH_ACC_GPU
+         !$acc enter data create(z10Mat_fac)
+         !$acc kernels
+         z10Mat_fac(:) = 0.0_cp
+         !$acc end kernels
+#endif
+#ifdef USE_GPU
          gpu_bytes_allocated = gpu_bytes_allocated+n_r_max*SIZEOF_DEF_REAL
 #endif
 #endif
@@ -171,6 +178,13 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc:zMat_fac)
          !$omp target update to(zMat_fac)
+#elif WITH_ACC_GPU
+         !$acc enter data create(zMat_fac)
+         !$acc kernels
+         zMat_fac(:,:) = 0.0_cp
+         !$acc end kernels
+#endif
+#ifdef USE_GPU
          gpu_bytes_allocated = gpu_bytes_allocated+n_r_max*nLMBs2(1+rank)*SIZEOF_DEF_REAL
 #endif
 #endif
@@ -191,6 +205,14 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: rhs1, rhs)
          !$omp target update to(rhs1, rhs)
+#elif WITH_ACC_GPU
+         !$acc enter data create(rhs1, rhs)
+         !$acc kernels
+         rhs1 = zero
+         rhs(:)=0.0_cp
+         !$acc end kernels
+#endif
+#ifdef USE_GPU
          gpu_bytes_allocated=gpu_bytes_allocated+n_r_max*maxThreads* &
          &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
          gpu_bytes_allocated=gpu_bytes_allocated+n_r_max*SIZEOF_DEF_COMPLEX
@@ -203,6 +225,14 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: z_ghost, z10_ghost)
          !$omp target update to(z_ghost, z10_ghost)
+#elif WITH_ACC_GPU
+         !$acc enter data create(z_ghost, z10_ghost)
+         !$acc kernels
+         z_ghost(:,:)=zero
+         z10_ghost(:)=zero
+         !$acc end kernels
+#endif
+#ifdef USE_GPU
          gpu_bytes_allocated=gpu_bytes_allocated+(lm_max+1)*(nRstop-nRstart+3)*SIZEOF_DEF_COMPLEX
 #endif
 
@@ -218,17 +248,28 @@ contains
 
       AMstart=0.0_cp
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       allocate(dat(n_r_max,n_r_max))
       dat(:,:) = 0.0_cp
+#ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: dat)
       !$omp target update to(dat)
+#elif WITH_ACC_GPU
+      !$acc enter data create(dat)
+      !$acc kernels
+      dat(:,:) = 0.0_cp
+      !$acc end kernels
+#endif
       if ( (.not. l_parallel_solve) .and. ( .not. l_finite_diff) ) then
          call hipblasCheck(hipblasCreate(handle))
          allocate(devInfo(1))
          devInfo(1) = 0
+#ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: devInfo)
          !$omp target update to(devInfo)
+#elif WITH_ACC_GPU
+         !$acc enter data copyin(devInfo)
+#endif
       end if
 #endif
 
@@ -246,23 +287,31 @@ contains
 #ifdef WITH_PRECOND_Z10
 #ifdef WITH_OMP_GPU
          !$omp target exit data map(delete:z10Mat_fac)
+#elif WITH_ACC_GPU
+         !$acc exit data delete(z10Mat_fac)
 #endif
          deallocate( z10Mat_fac )
 #endif
 #ifdef WITH_PRECOND_Z
 #ifdef WITH_OMP_GPU
          !$omp target exit data map(delete:zMat_fac)
+#elif WITH_ACC_GPU
+         !$acc exit data delete(zMat_fac)
 #endif
          deallocate( zMat_fac )
 #endif
 
 #ifdef WITH_OMP_GPU
          !$omp target exit data map(delete: rhs1, rhs)
+#elif WITH_ACC_GPU
+         !$acc exit data delete(rhs1, rhs)
 #endif
          deallocate( rhs1, rhs )
       else
 #ifdef WITH_OMP_GPU
          !$omp target exit data map(delete: z_ghost, z10_ghost)
+#elif WITH_ACC_GPU
+         !$acc exit data delete(z_ghost, z10_ghost)
 #endif
          deallocate( z_ghost, z10_ghost )
          call zMat_FD%finalize()
@@ -270,12 +319,20 @@ contains
       end if
       deallocate(lZmat)
 
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: dat)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(dat)
+#endif
       deallocate(dat)
       if ( (.not. l_parallel_solve) .and. ( .not. l_finite_diff) ) then
          call hipblasCheck(hipblasDestroy(handle))
+#ifdef WITH_OMP_GPU
          !$omp target exit data map(delete: devInfo)
+#elif WITH_ACC_GPU
+         !$acc exit data delete(devInfo)
+#endif
          deallocate(devInfo)
       end if
 #endif
@@ -328,7 +385,7 @@ contains
 
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       real(cp) :: wimp_lin
       integer :: n_max_rSchemeOc
       integer :: l1m0_rotRates
@@ -378,11 +435,11 @@ contains
       !-- Now assemble the right hand side and store it in work_LMloc
       call tscheme%set_imex_rhs(work_LMloc, dzdt)
 
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp parallel default(shared)
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
 #ifdef NEW_SOLVE_UPDATEZ
       call solve_counter%start_count()
       !-- Only fill the matrices: GPU looping could be only on nLMB2?
@@ -415,7 +472,11 @@ contains
       end if
 
       !-- Copy and transpose bulk points
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)
+#endif
       do lm=llm,ulm
          do nR=2,n_r_max-1
             tmp_LMloc(nR,lm)=work_LMLoc(lm,nR)
@@ -428,32 +489,67 @@ contains
             end if
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
 
       !----- This is the normal RHS for the other radial grid points:
       if ( l_z10mat .and. (l1m0 >= llm .and. l1m0 <= ulm) ) then
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
+#endif
          do nR=2,n_r_max-1
             rhs(nR)=real(work_LMloc(l1m0,nR))
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
-
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
          if ( l_SRMA ) then
             tOmega_ma1=time+tShift_ma1
             tOmega_ma2=time+tShift_ma2
             omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
             &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+#ifdef WITH_OMP_GPU
             !$omp target
+#elif WITH_ACC_GPU
+            !$acc kernels
+#endif
             rhs(1)=omega_ma
+#ifdef WITH_OMP_GPU
             !$omp end target
+#elif WITH_ACC_GPU
+            !$acc end kernels
+#endif
          else if ( ktopv == 2 .and. l_rot_ma ) then  ! time integration
+#ifdef WITH_OMP_GPU
             !$omp target
+#elif WITH_ACC_GPU
+            !$acc kernels
+#endif
             rhs(1)=dom_ma
+#ifdef WITH_OMP_GPU
             !$omp end target
+#elif WITH_ACC_GPU
+            !$acc end kernels
+#endif
          else
+#ifdef WITH_OMP_GPU
             !$omp target
+#elif WITH_ACC_GPU
+            !$acc kernels
+#endif
             rhs(1)=0.0_cp
+#ifdef WITH_OMP_GPU
             !$omp end target
+#elif WITH_ACC_GPU
+            !$acc end kernels
+#endif
          end if
 
          if ( l_SRIC ) then
@@ -461,30 +557,66 @@ contains
             tOmega_ic2=time+tShift_ic2
             omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
             &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+#ifdef WITH_OMP_GPU
             !$omp target
+#elif WITH_ACC_GPU
+            !$acc kernels
+#endif
             rhs(n_r_max)=omega_ic
+#ifdef WITH_OMP_GPU
             !$omp end target
+#elif WITH_ACC_GPU
+            !$acc end kernels
+#endif
          else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
+#ifdef WITH_OMP_GPU
             !$omp target
+#elif WITH_ACC_GPU
+            !$acc kernels
+#endif
             rhs(n_r_max)=dom_ic
+#ifdef WITH_OMP_GPU
             !$omp end target
+#elif WITH_ACC_GPU
+            !$acc end kernels
+#endif
          else
+#ifdef WITH_OMP_GPU
             !$omp target
+#elif WITH_ACC_GPU
+            !$acc kernels
+#endif
             rhs(n_r_max)=0.0_cp
+#ifdef WITH_OMP_GPU
             !$omp end target
+#elif WITH_ACC_GPU
+            !$acc end kernels
+#endif
          end if
 
 #ifdef WITH_PRECOND_Z10
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
+#endif
          do nR=1,n_r_max
             rhs(nR)=z10Mat_fac(nR)*rhs(nR)
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
 #endif
       end if
 
       !-- Apply boundary conditions
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(l1, m1)
+#elif WITH_ACC_GPU
+      !$acc parallel loop private(l1, m1)
+#endif
       do lm=llm,ulm
          l1=lm2l(lm)
          m1=lm2m(lm)
@@ -503,11 +635,18 @@ contains
             end if
          end if
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
-
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
 #ifdef WITH_PRECOND_Z
       !-- Apply scaling prefactor
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2) private(l1,nLMB2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2) private(l1,nLMB2) 
+#endif
       do lm=llm,ulm
          do nR=1,n_r_max
             l1=lm2l(lm)
@@ -515,7 +654,11 @@ contains
             tmp_LMloc(nR,lm)=zMat_fac(nR,nLMB2)*tmp_LMloc(nR,lm)
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
 #endif
 
       !-- Solve matrices
@@ -523,16 +666,28 @@ contains
       if ( l_z10mat .and. ( l1m0 >= llm .and. l1m0 <= ulm) ) then
          !-- Small solve for l=1, m=0 in case this is needed
          if (.not. z10Mat%gpu_is_used) then
+#ifdef WITH_OMP_GPU
             !$omp target update from(rhs)
+#elif WITH_ACC_GPU
+            !$acc update self(rhs)
+#endif
             call z10Mat%solve(rhs)
+#ifdef WITH_OMP_GPU
             !$omp target update to(rhs)
+#elif WITH_ACC_GPU
+            !$acc update device(rhs)
+#endif
          else
             call z10Mat%solve(rhs,handle,devInfo)
          end if
       end if
 
       !-- Loop to reassemble fields
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2) private(l1, m1)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2) private(l1, m1)
+#endif
       do lm=llm,ulm
          do n_r_out=1,n_max_rSchemeOc
             l1=lm2l(lm)
@@ -552,7 +707,11 @@ contains
             end if
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
       call solve_counter%stop_count()
 #else
       !$omp single
@@ -583,8 +742,12 @@ contains
             end if
 
             !-- Assemble RHS
+#ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do &
             !$omp& private(tOmega_ma1, tOmega_ma2, tOmega_ic1, tOmega_ic2, lm1, m1, nR)
+#elif WITH_ACC_GPU
+            !$acc parallel loop
+#endif
             do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
@@ -609,7 +772,7 @@ contains
                      &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
                      rhs(n_r_max)=omega_ic
                   else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
-                     rhs(n_r_max)=dom_ic
+                    rhs(n_r_max)=dom_ic
                   else
                      rhs(n_r_max)=0.0_cp
                   end if
@@ -670,16 +833,28 @@ contains
 #endif
                end if
             end do
+#ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
+#endif
 
             !-- Solve matrices with batched RHS (hipsolver)
             !-- This one is only for the single l=1,m=0 mode
             if ( l1 == 1 .and. l_z10mat ) then
                !-- Small solve for l=1, m=0 in case this is needed
                if (.not. z10Mat%gpu_is_used) then
+#ifdef WITH_OMP_GPU
                   !$omp target update from(rhs)
+#elif WITH_ACC_GPU
+                  !$acc update self(rhs)
+#endif
                   call z10Mat%solve(rhs)
+#ifdef WITH_OMP_GPU
                   !$omp target update to(rhs)
+#elif WITH_ACC_GPU
+                  !$acc update device(rhs)
+#endif
                else
                   call z10Mat%solve(rhs,handle,devInfo)
                end if
@@ -687,19 +862,30 @@ contains
             !-- Big solve for other modes
             lm=sizeLMB2(nLMB2,nLMB)
             if (.not. zMat%gpu_is_used) then
+#ifdef WITH_OMP_GPU
                !$omp target update from(rhs1)
+#elif WITH_ACC_GPU
+               !$acc update self(rhs1)
+#endif
                call zMat%solve(rhs1(:,:,0),2*lm,nLMB2)
+#ifdef WITH_OMP_GPU
                !$omp target update to(rhs1)
+#elif WITH_ACC_GPU
+               !$acc update device(rhs1)
+#endif
             else
                call zMat%solve(rhs1(:,:,0),2*lm,nLMB2,handle,devInfo)
             end if
 
             !-- Loop to reassemble fields
+#ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do private(lm1, m1, n_r_out)
+#elif WITH_ACC_GPU
+            !$acc parallel loop
+#endif
             do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
-
                if ( l_z10mat .and. lm1 == l1m0 ) then
                   do n_r_out=1,n_max_rSchemeOc
                      z(lm1,n_r_out)=cmplx(rhs(n_r_out),0.0_cp,cp)
@@ -718,18 +904,29 @@ contains
                   end if
                end if
             end do
+#ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
+#endif
 
          else if ( l1 == 0 ) then ! make sure l=m=0 toroidal potential is zero
 
             lm1 = lm2(0,0)
+#ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc parallel loop
+#endif
             do n_r_out=1,n_max_rSchemeOc
                z(lm1,n_r_out)=zero
             end do
+#ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
+#endif
          end if
-
       end do
       !$omp single
       call solve_counter%stop_count(l_increment=.false.)
@@ -934,10 +1131,18 @@ contains
 #endif
 
       !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target teams
+#elif WITH_ACC_GPU
+      !$acc parallel loop
+#endif
       do n_r_out=n_max_rSchemeOc+1,n_r_max
+#ifdef WITH_OMP_GPU
          !$omp distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc loop
+#endif
 #else
       !$omp do private(n_r_out,lm1) collapse(2)
       do n_r_out=rscheme_oc%n_max+1,n_r_max
@@ -951,6 +1156,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end do
       !$omp end parallel
@@ -963,10 +1170,14 @@ contains
       call tscheme%rotate_imex_scalar(lorentz_torque_ma_dt)
       call tscheme%rotate_imex_scalar(lorentz_torque_ic_dt)
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if ( llm <= l1m0_rotRates .and. ulm >= l1m0_rotRates )then
          !-- update_rot_rates will be executed
+#ifdef WITH_OMP_GPU
          !$omp target update from(z)
+#elif WITH_ACC_GPU
+         !$acc update self(z)
+#endif
       end if
 #endif
 
@@ -1044,7 +1255,7 @@ contains
          end if
       end if
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       lm_start=1; lm_stop=lm_max
 #else
       !$omp parallel default(shared) private(lm_start,lm_stop,nR, l, m, lm)
@@ -1062,12 +1273,16 @@ contains
          if ( l1m0 >= lm_start .and. l1m0 <= lm_stop ) then
 #ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc parallel loop
 #endif
             do nR=nRstart,nRstop
                z10_ghost(nR)=real(z_ghost(l1m0,nR))
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
 #endif
          end if
       end if
@@ -1078,6 +1293,8 @@ contains
          if ( l1m1 >= lm_start .and. l1m1 <= lm_stop ) then
 #ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc parallel loop
 #endif
             do nR=nRstart,nRstop
                z_ghost(l1m1,nR)=z_ghost(l1m1,nR)+wimp_lin*prec_fac* &
@@ -1085,6 +1302,8 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
 #endif
          end if
       end if
@@ -1093,6 +1312,8 @@ contains
       if ( ampForce /= 0.0_cp ) then
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
 #endif
          do lm=lm_start,lm_stop
             do nR=nRstart,nRstop
@@ -1101,6 +1322,8 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if
 
@@ -1109,6 +1332,8 @@ contains
          nR = n_r_cmb
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
@@ -1140,6 +1365,8 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if
 
@@ -1147,6 +1374,8 @@ contains
          nR=n_r_icb
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
@@ -1186,10 +1415,12 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if
 
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp end parallel
 #endif
 
@@ -1211,7 +1442,7 @@ contains
 
       if ( .not. l_update_v ) return
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       lm_start=1; lm_stop=lm_max
 #else
       !$omp parallel default(shared) private(lm_start, lm_stop, lm)
@@ -1225,16 +1456,22 @@ contains
          if ( ktopv == 2 ) then
 #ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc parallel loop
 #endif
             do lm=lm_start,lm_stop
                zg(lm,nRstart-1)=two*zg(lm,nRstart)-zg(lm,nRstart+1)
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
 #endif
          else
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do lm=lm_start,lm_stop
                zg(lm,nRstart-1)=zg(lm,nRstart+1)-two*dr*(two*or1(1)+beta(1))* &
@@ -1242,6 +1479,8 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
          end if
       end if
@@ -1251,6 +1490,8 @@ contains
          dr = r(n_r_max)-r(n_r_max-1)
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do lm=lm_start,lm_stop
             if ( l_full_sphere ) then
@@ -1266,10 +1507,12 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if
 
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp end parallel
 #endif
 
@@ -1338,9 +1581,13 @@ contains
               &                     tscheme%l_imp_calc_rhs(tscheme%istage+1), lRmsNext)
       end if
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       lm_start=1; lm_stop=lm_max
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)
+#endif
 #else
       !$omp parallel default(shared) private(lm_start,lm_stop,nR,l,lm)
       lm_start=1; lm_stop=lm_max
@@ -1358,6 +1605,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel
 #endif
@@ -1412,6 +1661,11 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: z10, z11, ddzASL_loc)
+#elif WITH_ACC_GPU
+      !$acc enter data create(z10, z11, ddzASL_loc)
+      !$acc kernels
+      z10(:) = zero; z11(:) = zero; ddzASL_loc(:,:) = 0.0_cp
+      !$acc end kernels
 #endif
 
       if ( l_precession ) then
@@ -1435,7 +1689,7 @@ contains
          lmStart_00=llm
       end if
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       start_lm=llm; stop_lm=ulm
       call dct_counter%start_count()
       call get_ddr( z, dz, work_LMloc, ulm-llm+1, start_lm-llm+1, &
@@ -1469,7 +1723,7 @@ contains
       !--- We correct so that the angular moment about axis in the equatorial plane
       !    vanish and the angular moment about the (planetary) rotation axis
       !    is kept constant.
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp single
 #endif
       if ( l_correct_AMz .and.  l1m0 > 0 .and. lmStart_00 <= l1m0 .and. &
@@ -1477,15 +1731,19 @@ contains
 
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc kernels
+#endif
          do n_r= 1,n_r_max
             z10(n_r) = z(l1m0,n_r)
             z11(n_r) = zero
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
          !$omp target update from(z10,z11)
-#else
-         z10(:)=z(l1m0,:)
-         z11(:)=zero
+#elif WITH_ACC_GPU
+         !$acc end kernels
+         !$acc update self(z10,z11)
 #endif
          call get_angular_moment(z10,z11,omega_ic,omega_ma,          &
               &                  angular_moment_oc,angular_moment_ic,&
@@ -1511,6 +1769,8 @@ contains
          !         derivatives:
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do n_r=1,n_r_max
             r_E_2=r(n_r)*r(n_r)
@@ -1524,17 +1784,22 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
-
          if ( ktopv == 2 .and. l_rot_ma ) then
 #ifdef WITH_OMP_GPU
             !$omp target update from(z(l1m0,n_r_cmb))
+#elif WITH_ACC_GPU
+            !$acc update self(z(l1m0,n_r_cmb))
 #endif
             omega_ma=c_z10_omega_ma*real(z(l1m0,n_r_cmb))
          end if
          if ( kbotv == 2 .and. l_rot_ic ) then
 #ifdef WITH_OMP_GPU
             !$omp target update from(z(l1m0,n_r_icb))
+#elif WITH_ACC_GPU
+            !$acc update device(z(l1m0,n_r_cmb))
 #endif
             omega_ic=c_z10_omega_ic*real(z(l1m0,n_r_icb))
          end if
@@ -1546,14 +1811,24 @@ contains
       if ( l_correct_AMe .and.  l1m1 > 0 .and. &
       &    lmStart_00 <= l1m1 .and. ulm >= l1m1 ) then
 
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc kernels
+#endif
          do n_r= 1,n_r_max
             z10(n_r) = zero
             z11(n_r) = z(l1m1,n_r)
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
          !$omp target update from(z10,z11)
+#elif WITH_ACC_GPU
+         !$acc end kernels
+         z10(:)=zero
+         z11(:)=z(l1m1,:)
+#endif
 #else
          z10(:)=zero
          z11(:)=z(l1m1,:)
@@ -1572,6 +1847,8 @@ contains
          !         derivatives:
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do n_r=1,n_r_max
             r_E_2=r(n_r)*r(n_r)
@@ -1585,16 +1862,20 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if ! l=1,m=1 contained in lm-block ?
 
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp end single
 #endif
 
       if ( istage == 1 ) then
-#ifdef WITH_OMP_GPU
+#ifdef WITH_OMP_GPU 
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
 #else
          !$omp do private(n_r,lm,l1,dL)
 #endif
@@ -1607,6 +1888,8 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #else
          !$omp end do
 #endif
@@ -1624,6 +1907,8 @@ contains
 
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2) private(Dif,l1,m1,dL)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2) private(Dif,l1,m1,dL)
 #else
          !$omp do private(n_r,lm,l1,m1,dL,Dif)
 #endif
@@ -1650,12 +1935,13 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #else
          !$omp end do
 #endif
-
       end if
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp end parallel
 #endif
 
@@ -1664,6 +1950,8 @@ contains
          if ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ) then
 #ifdef WITH_OMP_GPU
             !$omp target update from(z(l1m0,1), dz(l1m0,1))
+#elif WITH_ACC_GPU
+            !$acc update self(z(l1m0,1), dz(l1m0,1))
 #endif
             domega_ma_dt%impl(istage)=visc(1)*( (two*or1(1)+beta(1))* &
             &                         real(z(l1m0,1))-real(dz(l1m0,1)) )
@@ -1672,6 +1960,8 @@ contains
          if ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ) then
 #ifdef WITH_OMP_GPU
             !$omp target update from(z(l1m0,n_r_max), dz(l1m0,n_r_max))
+#elif WITH_ACC_GPU
+            !$acc update self(z(l1m0,n_r_max), dz(l1m0,n_r_max))
 #endif
             domega_ic_dt%impl(istage)=-visc(n_r_max)* ( (two*or1(n_r_max)+   &
             &                          beta(n_r_max))*real(z(l1m0,n_r_max))- &
@@ -1686,6 +1976,8 @@ contains
       if ( l_TO ) then
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #else
          !$omp parallel do default(shared) private(n_r,lm,l1,m1)
 #endif
@@ -1700,6 +1992,8 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
          !$omp target update from(ddzASL_loc)
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #else
          !$omp end parallel do
 #endif
@@ -1716,6 +2010,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: z10, z11, ddzASL_loc)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(z10, z11, ddzASL_loc) 
 #endif
       deallocate(z10, z11, ddzASL_loc)
 
@@ -1760,6 +2056,11 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: work_Rloc)
       !$omp target update to(work_Rloc)
+#elif WITH_ACC_GPU
+      !$acc enter data create(work_Rloc)
+      !$acc kernels
+      work_Rloc = zero
+      !$acc end kernels
 #endif
 
       if ( l_precession ) then
@@ -1768,7 +2069,7 @@ contains
          prec_fac = 0.0_cp
       end if
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       start_lm=1; stop_lm=lm_max
       call dct_counter%start_count()
       call get_ddr_ghost(zg, dz, work_Rloc, lm_max,start_lm, stop_lm,  nRstart, nRstop, &
@@ -1832,6 +2133,8 @@ contains
          !         derivatives:
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do n_r=nRstart,nRstop
             r_E_2=r(n_r)*r(n_r)
@@ -1846,6 +2149,8 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
          !$omp target update from(zg)
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
 
          if ( ktopv == 2 .and. l_rot_ma .and. nRstart==n_r_cmb ) &
@@ -1874,6 +2179,8 @@ contains
          !         derivatives:
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do n_r=nRstart,nRstop
             r_E_2=r(n_r)*r(n_r)
@@ -1887,11 +2194,13 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
 
       end if ! l=1,m=1 contained in lm-block ?
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       start_lm=1; stop_lm=lm_max
 #else
       !$omp parallel default(shared) private(start_lm,stop_lm,n_r,lm,l,m,dL,Dif)
@@ -1902,6 +2211,8 @@ contains
       if ( istage == 1 ) then
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
@@ -1912,12 +2223,16 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if
 
       if ( l_calc_lin ) then
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
 #endif
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
@@ -1941,17 +2256,23 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp end parallel
 #endif
 
       if ( lRmsNext .and. tscheme%istage==tscheme%nstages ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          start_lm=1; stop_lm=lm_max
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2) private(l,m,dL,Dif) &
          !$omp reduction(+:DifTor2hInt)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2) private(l,m,dL,Dif) reduction(+:DifTor2hInt)
+#endif
 #else
          !$omp parallel default(shared) private(start_lm,stop_lm,n_r,lm,l,m,dL,Dif) &
          !$omp reduction(+:DifTor2hInt)
@@ -1975,6 +2296,8 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #else
          !$omp end parallel
 #endif
@@ -1983,6 +2306,8 @@ contains
       if ( l_z10mat ) then
 #ifdef WITH_OMP_GPU
          !$omp target update from(zg)
+#elif WITH_ACC_GPU
+         !$acc update self(zg)
 #endif
          !----- NOTE opposite sign of viscous torque on ICB and CMB:
          if ( .not. l_SRMA .and. ktopv==2 .and. l_rot_ma .and. nRstart==n_r_cmb ) then
@@ -2004,6 +2329,8 @@ contains
       if ( l_TO ) then
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
 #endif
          do n_r=nRstart,nRstop
             do l=0,l_max
@@ -2012,11 +2339,15 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: work_Rloc)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(work_Rloc)
 #endif
       deallocate(work_Rloc)
 
@@ -2091,6 +2422,8 @@ contains
       !-- Now get the toroidal potential from the assembly
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)
 #else
       !$omp parallel default(shared)
       !$omp do private(n_r,lm,l1,m1,dL)
@@ -2109,12 +2442,16 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end do
 #endif
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
 #else
       !$omp do private(lm)
 #endif
@@ -2150,12 +2487,16 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end do
 #endif
 
 #ifdef WITH_OMP_GPU
       !$omp target update from(z)
+#elif WITH_ACC_GPU
+      !$acc update self(z)
 #endif
 
       !-- Boundary conditions
@@ -2163,6 +2504,8 @@ contains
          if ( ktopv /= 1 ) then ! Rigid outer
 #ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc parallel loop
 #else
             !$omp do private(lm)
 #endif
@@ -2172,6 +2515,8 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
 #else
             !$omp end do
 #endif
@@ -2187,6 +2532,8 @@ contains
          if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid BCs
 #ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc parallel loop
 #else
             !$omp do private(lm)
 #endif
@@ -2196,6 +2543,8 @@ contains
             end do
 #ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
 #else
             !$omp end do
 #endif
@@ -2224,12 +2573,14 @@ contains
          end if
       end if
 
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp end parallel
 #endif
 
 #ifdef WITH_OMP_GPU
       !$omp target update to(z)
+#elif WITH_ACC_GPU
+      !$acc update device(z)
 #endif
 
       call update_rot_rates(z, lo_ma, lo_ic, lorentz_torque_ma_dt,    &
@@ -2278,6 +2629,11 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: work_Rloc)
       !$omp target update to(work_Rloc)
+#elif WITH_ACC_GPU
+      !$acc enter data create(work_Rloc)
+      !$acc kernels
+      work_Rloc(:,:) = zero
+      !$acc end kernels
 #endif
 
       call tscheme%assemble_imex(work_Rloc, dzdt)
@@ -2302,7 +2658,7 @@ contains
          end if
       end if
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       start_lm=1; stop_lm=lm_max
 #else
       !$omp parallel default(shared) private(start_lm, stop_lm, l, m, dLh)
@@ -2313,6 +2669,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)
 #endif
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
@@ -2330,6 +2688,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
       !-- Boundary points
@@ -2337,6 +2697,8 @@ contains
          n_r=n_r_cmb
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do lm=start_lm,stop_lm
             l=st_map%lm2l(lm)
@@ -2361,6 +2723,8 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if
 
@@ -2368,6 +2732,8 @@ contains
          n_r=n_r_icb
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do lm=start_lm,stop_lm
             l=st_map%lm2l(lm)
@@ -2396,25 +2762,31 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       call bulk_to_ghost(z, z_ghost, 1, nRstart, nRstop, lm_max, start_lm, stop_lm, .true.)
 #else
       call bulk_to_ghost(z, z_ghost, 1, nRstart, nRstop, lm_max, start_lm, stop_lm)
 #endif
 
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp end parallel
 #endif
 
 #ifdef WITH_OMP_GPU
       !$omp target update from(z_ghost)
+#elif WITH_ACC_GPU
+      !$acc update self(z_ghost)
 #endif
       call exch_ghosts(z_ghost, lm_max, nRstart, nRstop, 1)
 #ifdef WITH_OMP_GPU
       !$omp target update to(z_ghost)
+#elif WITH_ACC_GPU
+      !$acc update device(z_ghost)
 #endif
       call fill_ghosts_Z(z_ghost)
 
@@ -2430,6 +2802,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: work_Rloc)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(work_Rloc)
 #endif
       deallocate(work_Rloc)
 
@@ -2467,7 +2841,7 @@ contains
       end if
 
       !--- Update of inner core and mantle rotation:
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp single
 #endif
       if ( llm <= l1m0 .and. ulm >= l1m0 )then
@@ -2494,7 +2868,7 @@ contains
             omega_ic1=omega_ic
          end if
       end if  ! l=1,m=0 contained in block ?
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp end single
 #endif
 
@@ -2521,7 +2895,7 @@ contains
       l1m0=st_map%lm2(1,0)
 
       !--- Update of inner core and mantle rotation:
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp single
 #endif
       if ( l_rot_ma .and. .not. l_SRMA .and. (nRstart==n_r_cmb) ) then
@@ -2542,7 +2916,7 @@ contains
          end if
          omega_ic1=omega_ic
       end if
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp end single
 #endif
 
@@ -2611,7 +2985,7 @@ contains
       !-- local variables:
       integer :: nR,nR_out,info
       real(cp) :: dLh
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       real(cp) :: dat(n_r_max,n_r_max)
 #endif
       real(cp) :: wimp_lin
@@ -2621,8 +2995,12 @@ contains
 
       dLh=real(l*(l+1),kind=cp)
 
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
+#endif
       do nR=1,n_r_max
          !-- Boundary conditions:
          !----- CMB condition:
@@ -2674,7 +3052,11 @@ contains
             end if
          end if
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
 #else
       !-- Boundary conditions:
       !----- CMB condition:
@@ -2730,6 +3112,8 @@ contains
       !-- Fill up with zeros:
 #ifdef WITH_OMP_GPU
       !$omp target
+#elif WITH_ACC_GPU
+      !$acc parallel loop
 #endif
       do nR_out=rscheme_oc%n_max+1,n_r_max
          dat(1,nR_out)      =0.0_cp
@@ -2737,11 +3121,15 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
       !----- Other points: (same as zMat)
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)
 #endif
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
@@ -2757,11 +3145,15 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
       !-- Normalisation
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
 #endif
       do nR=1,n_r_max
          dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
@@ -2769,12 +3161,16 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
 #ifdef WITH_PRECOND_Z10
       ! compute the linesum of each line
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
 #endif
       do nR=1,n_r_max
          zMat_fac(nR)=one/maxval(abs(dat(nR,:)))
@@ -2782,12 +3178,18 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if(.not. zMat%gpu_is_used) then
+#ifdef WITH_OMP_GPU
          !$omp target update from(dat)
+#elif WITH_ACC_GPU
+         !$acc update self(dat)
+#endif
       end if
 #endif
 
@@ -2795,7 +3197,7 @@ contains
       call zMat%set_data(dat, 1)
 
       !-- LU-decomposition of z10mat:
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if (.not. zMat%gpu_is_used) then
          call zMat%prepare(1, info)
       else
@@ -2837,7 +3239,7 @@ contains
       integer :: nR,nR_out
       integer :: info
       real(cp) :: dLh
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       real(cp) :: dat(n_r_max,n_r_max)
 #endif
       character(len=80) :: message
@@ -2854,8 +3256,12 @@ contains
       dLh=real(l*(l+1),kind=cp)
 
       !----- Boundary conditions, see above:
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
+#endif
       do nR=1,n_r_max
          if ( ktopv == 1 ) then  ! free slip !
             dat(1,nR)=rscheme_oc%rnorm *             (      &
@@ -2878,7 +3284,11 @@ contains
             end if
          end if
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
 #else
       if ( ktopv == 1 ) then  ! free slip !
          dat(1,:)=rscheme_oc%rnorm *             (      &
@@ -2905,6 +3315,8 @@ contains
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
 #ifdef WITH_OMP_GPU
          !$omp target
+#elif WITH_ACC_GPU
+         !$acc kernels
 #endif
          do nR_out=rscheme_oc%n_max+1,n_r_max
             dat(1,nR_out)      =0.0_cp
@@ -2912,12 +3324,16 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target
+#elif WITH_ACC_GPU
+         !$acc end kernels
 #endif
       end if
 
       !----- Bulk points:
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)
 #endif
       do nR_out=1,n_r_max
          do nR=2,n_r_max-1
@@ -2933,11 +3349,15 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
       !----- Factor for highest and lowest cheb:
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
 #endif
       do nR=1,n_r_max
          dat(nR,1)      =rscheme_oc%boundary_fac*dat(nR,1)
@@ -2945,12 +3365,16 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
 #ifdef WITH_PRECOND_Z
       ! compute the linesum of each line
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
 #endif
       do nR=1,n_r_max
          zMat_fac(nR)=one/maxval(abs(dat(nR,:)))
@@ -2958,6 +3382,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 #endif
 
@@ -2975,6 +3401,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target update from(dat)
+#elif WITH_ACC_GPU
+      !$acc update self(dat)
 #endif
 
       ! copy the zMat to a temporary variable for modification
@@ -3008,9 +3436,13 @@ contains
       end block
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if(.not. zMat%gpu_is_used) then
+#ifdef WITH_OMP_GPU
          !$omp target update from(dat)
+#elif WITH_ACC_GPU
+         !$acc update self(dat)
+#endif
       end if
 #endif
 
@@ -3019,7 +3451,7 @@ contains
 
       !-- LU decomposition:
       if ( l_LU_loc ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          if ( .not. zMat%gpu_is_used ) then
             call zMat%prepare(nLMB2, info)
          else
@@ -3066,6 +3498,8 @@ contains
       !-- Neumann boundary conditions
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
 #endif
       do nR=1,n_r_max
          zMat%diag(l,nR)=dLh*or2(nR)-wimp_lin*hdif(l)*dLh* &
@@ -3082,6 +3516,8 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
       !$omp target update from(zMat%diag, zMat%low, zMat%up)
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
       !-- Boundary conditions:
@@ -3149,6 +3585,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target update to(zMat%diag, zMat%low, zMat%up)
+#elif WITH_ACC_GPU
+      !$acc update device(zMat%diag, zMat%low, zMat%up)
 #endif
 
       !-- LU-decomposition of z10mat:
@@ -3181,6 +3619,8 @@ contains
       !-- Neumann boundary conditions
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2) 
 #else
       !$omp parallel default(shared) private(nR,l,dLh)
       !$omp do
@@ -3202,6 +3642,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end do
 #endif
@@ -3209,6 +3651,8 @@ contains
       !----- Boundary conditions, see above:
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
 #else
       !$omp do
 #endif
@@ -3241,6 +3685,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end do
       !$omp end parallel

@@ -868,7 +868,7 @@ contains
 
       !-- Local variables
       integer :: n_stage, n_r, start_lm, stop_lm
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: nr_start, nr_stop
       integer :: istage
       real(cp), pointer :: bimp_ptr(:,:), bexp_ptr(:,:)
@@ -887,7 +887,11 @@ contains
       istage = this%istage
 
       if(istage == 1) then
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do n_r=nr_start,nr_stop
             do lm=start_lm,stop_lm
                rhs(lm,n_r)=old_ptr(lm,n_r,1)
@@ -895,17 +899,33 @@ contains
                rhs(lm,n_r)=rhs(lm,n_r)+bimp_ptr(2,1)*impl_ptr(lm,n_r,1)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
       else
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do n_r=nr_start,nr_stop
             do lm=start_lm,stop_lm
                rhs(lm,n_r)=old_ptr(lm,n_r,1)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
 
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do n_r=nr_start,nr_stop
             do lm=start_lm,stop_lm
                do n_stage=1,istage
@@ -913,9 +933,17 @@ contains
                end do
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
 
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do n_r=nr_start,nr_stop
             do lm=start_lm,stop_lm
                do n_stage=1,istage
@@ -923,7 +951,11 @@ contains
                end do
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
       end if
 #else
 
@@ -976,7 +1008,7 @@ contains
       !-- Local variables
       integer :: n_stage, n_r
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: nr_start, nr_stop
       integer :: istage
       real(cp), pointer :: bimp_ptr(:,:), bexp_ptr(:,:)
@@ -994,7 +1026,11 @@ contains
       istage = this%istage
 
       if(istage == 1) then
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do n_r=nr_start,nr_stop
             do lm=start_lm,stop_lm
                rhs(lm,n_r)=old_ptr(lm,n_r,1)
@@ -1002,17 +1038,33 @@ contains
                rhs(lm,n_r)=rhs(lm,n_r)+bimp_ptr(2,1)*impl_ptr(lm,n_r,1)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
       else
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do n_r=nr_start,nr_stop
             do lm=start_lm,stop_lm
                rhs(lm,n_r)=old_ptr(lm,n_r,1)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
 
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do n_r=nr_start,nr_stop
             do lm=start_lm,stop_lm
                do n_stage=1,istage
@@ -1020,9 +1072,17 @@ contains
                end do
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
 
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do n_r=nr_start,nr_stop
             do lm=start_lm,stop_lm
                do n_stage=1,istage
@@ -1030,7 +1090,11 @@ contains
                end do
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
       endif
 #else
 
@@ -1074,7 +1138,7 @@ contains
       !-- Local variables
       integer :: n_stage, n_r, start_lm, stop_lm
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: nr_start, nr_stop
       integer :: nstages
       real(cp), pointer :: bass_exp_ptr(:), bass_imp_ptr(:)
@@ -1091,19 +1155,27 @@ contains
       start_lm=dfdt%llm; stop_lm=dfdt%ulm
       nr_start = dfdt%nRstart; nr_stop = dfdt%nRstop
       nstages = this%nstages
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)
+#endif
       do n_r=nr_start,nr_stop
          do lm=start_lm,stop_lm
             rhs(lm,n_r)=old_ptr(lm,n_r,1)
-            do n_stage=1,this%nstages
+            do n_stage=1,nstages
                rhs(lm,n_r)=rhs(lm,n_r)+bass_exp_ptr(n_stage)*expl_ptr(lm,n_r,n_stage)
             end do
-            do n_stage=1,this%nstages
+            do n_stage=1,nstages
                rhs(lm,n_r)=rhs(lm,n_r)+bass_imp_ptr(n_stage)*impl_ptr(lm,n_r,n_stage)
             end do
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
 #else
 
       !$omp parallel default(shared) private(start_lm,stop_lm,n_r)

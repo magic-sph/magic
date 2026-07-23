@@ -11,7 +11,7 @@ module init_fields
    use truncation, only: n_r_max, n_r_maxMag, n_r_ic_max, m_min, l_max, &
        &                 n_phi_max, n_theta_max, n_r_tot, m_max,       &
        &                 minc, n_cheb_ic_max, lm_max, nlat_padded
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc, only: bytes_allocated
@@ -128,9 +128,13 @@ contains
       bots(0,0)=one
       tops(0,0)=0.0_cp
       bytes_allocated = bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
+#ifdef USE_GPU
+      gpu_bytes_allocated = gpu_bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
+#endif
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: tops, bots)
-      gpu_bytes_allocated = gpu_bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
+#elif WITH_ACC_GPU
+      !$acc enter data copyin(tops, bots)
 #endif
 
       if ( l_chemical_conv ) then
@@ -140,9 +144,13 @@ contains
          botxi(0,0)=one
          topxi(0,0)=0.0_cp
          bytes_allocated = bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
+#ifdef USE_GPU
+         gpu_bytes_allocated = gpu_bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
+#endif
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: topxi, botxi)
-         gpu_bytes_allocated = gpu_bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
+#elif WITH_ACC_GPU
+         !$acc enter data copyin(topxi, botxi)
 #endif
       end if
 
@@ -153,13 +161,17 @@ contains
       ! Memory deallocation
       !
 
-#ifdef WITH_OMP_GPU
+#ifdef WITH_OMP_GPU 
       !$omp target exit data map(delete: tops, bots)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(tops, bots)
 #endif
       deallocate (tops, bots )
       if ( l_chemical_conv ) then
 #ifdef WITH_OMP_GPU
          !$omp target exit data map( delete : topxi, botxi )
+#elif WITH_ACC_GPU
+         !$acc exit data delete(topxi, botxi)
 #endif
          deallocate( topxi, botxi )
       end if
@@ -202,10 +214,14 @@ contains
          !-- From lo distributed to r distributed
 #ifdef WITH_OMP_GPU
          !$omp target update to(z)
+#elif WITH_ACC_GPU
+         !$acc update device(z)
 #endif
          call lo2r_initv%transp_lm2r(z, z_Rloc)
 #ifdef WITH_OMP_GPU
          !$omp target update from(z_Rloc)
+#elif WITH_ACC_GPU
+         !$acc update self(z)
 #endif
 
          !-- Approximating the Stewardson solution:
@@ -248,10 +264,14 @@ contains
          !-- Transpose back to lo distributed
 #ifdef WITH_OMP_GPU
          !$omp target update to(z_Rloc)
+#elif WITH_ACC_GPU
+         !$acc update device(z_Rloc)
 #endif
          call r2lo_initv%transp_r2lm(z_Rloc, z)
 #ifdef WITH_OMP_GPU
          !$omp target update from(z)
+#elif WITH_ACC_GPU
+         !$acc update self(z)
 #endif
 
          !-- Destroy MPI communicators
@@ -266,10 +286,14 @@ contains
          !-- From lo distributed to r distributed
 #ifdef WITH_OMP_GPU
          !$omp target update to(z)
+#elif WITH_ACC_GPU
+         !$acc update device(z)
 #endif
          call lo2r_initv%transp_lm2r(z, z_Rloc)
 #ifdef WITH_OMP_GPU
          !$omp target update from(z_Rloc)
+#elif WITH_ACC_GPU
+         !$acc update self(z_Rloc)
 #endif
 
          !-- Approximating the Stewardson solution:
@@ -308,10 +332,14 @@ contains
          !-- Transpose back to lo distributed
 #ifdef WITH_OMP_GPU
          !$omp target update to(z_Rloc)
+#elif WITH_ACC_GPU
+         !$acc update device(z_Rloc)
 #endif
          call r2lo_initv%transp_r2lm(z_Rloc, z)
 #ifdef WITH_OMP_GPU
          !$omp target update from(z)
+#elif WITH_ACC_GPU
+         !$acc update self(z)
 #endif
 
          !-- Destroy MPI communicators

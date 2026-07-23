@@ -53,7 +53,7 @@ module start_fields
        &                  fill_ghosts_Z
    use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp, b_ghost, aj_ghost, &
        &                  get_mag_rhs_imp_ghost, fill_ghosts_B
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use logic, only: l_double_curl
 #endif
 
@@ -199,6 +199,8 @@ contains
             dxicond(:)=ds0(:) * osq4pi
 #ifdef WITH_OMP_GPU
             !$omp target update to(dxicond) nowait
+#elif WITH_ACC_GPU
+            !$acc update device(dxicond)
 #endif
       end if
       else
@@ -344,54 +346,78 @@ contains
       if ( l_parallel_solve ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(w_LMloc, z_LMloc)
+#elif WITH_ACC_GPU
+         !$acc update device(w_LMloc, z_LMloc)
 #endif
          call lo2r_one%transp_lm2r(w_LMloc, w_Rloc)
          call lo2r_one%transp_lm2r(z_LMloc, z_Rloc)
 #ifdef WITH_OMP_GPU
          !$omp target update from(w_Rloc, z_Rloc)
+#elif WITH_ACC_GPU
+         !$acc update self(w_Rloc, z_Rloc)
 #endif
          if ( l_chemical_conv ) then
 #ifdef WITH_OMP_GPU
             !$omp target update to(xi_LMloc)
+#elif WITH_ACC_GPU
+            !$acc update device(xi_LMloc)
 #endif
             call lo2r_one%transp_lm2r(xi_LMloc, xi_Rloc)
 #ifdef WITH_OMP_GPU
             !$omp target update from(xi_Rloc)
+#elif WITH_ACC_GPU
+            !$acc update self(xi_LMloc)
 #endif
          end if
          if ( l_phase_field ) then
 #ifdef WITH_OMP_GPU
             !$omp target update to(phi_LMloc)
+#elif WITH_ACC_GPU
+            !$acc update device(phi_LMloc)
 #endif
             call lo2r_one%transp_lm2r(phi_LMloc, phi_Rloc)
 #ifdef WITH_OMP_GPU
             !$omp target update from(phi_Rloc)
+#elif WITH_ACC_GPU
+            !$acc update self(phi_Rloc)
 #endif
          end if
          if ( l_heat ) then
 #ifdef WITH_OMP_GPU
             !$omp target update to(s_LMloc)
+#elif WITH_ACC_GPU
+            !$acc update device(s_LMloc)
 #endif
             call lo2r_one%transp_lm2r(s_LMloc, s_Rloc)
 #ifdef WITH_OMP_GPU
             !$omp target update from(s_Rloc)
+#elif WITH_ACC_GPU
+            !$acc update self(s_Rloc)
 #endif
          end if
 #ifdef WITH_OMP_GPU
          !$omp target update to(p_LMloc)
+#elif WITH_ACC_GPU
+         !$acc update device(p_LMloc)
 #endif
          call lo2r_one%transp_lm2r(p_LMloc, p_Rloc)
 #ifdef WITH_OMP_GPU
          !$omp target update from(p_Rloc)
+#elif WITH_ACC_GPU
+         !$acc update self(p_Rloc)
 #endif
          if ( l_mag .and. l_mag_par_solve ) then
 #ifdef WITH_OMP_GPU
             !$omp target update to(b_LMloc, aj_LMloc)
+#elif WITH_ACC_GPU
+            !$acc update device(b_LMloc, aj_LMloc)
 #endif
             call lo2r_one%transp_lm2r(b_LMloc, b_Rloc)
             call lo2r_one%transp_lm2r(aj_LMloc, aj_Rloc)
 #ifdef WITH_OMP_GPU
             !$omp target update from(b_Rloc, aj_Rloc)
+#elif WITH_ACC_GPU
+            !$acc update self(b_Rloc, aj_Rloc)
 #endif
          end if
       end if
@@ -403,25 +429,37 @@ contains
             call exch_ghosts(xi_ghost, lm_max, nRstart, nRstop, 1)
 #ifdef WITH_OMP_GPU
             !$omp target update to(xi_ghost)
+#elif WITH_ACC_GPU
+            !$acc update device(xi_ghost)
 #endif
             call fill_ghosts_Xi(xi_ghost)
 #ifdef WITH_OMP_GPU
             !$omp target update from(xi_ghost)
+#elif WITH_ACC_GPU
+            !$acc update self(xi_ghost)
 #endif
 #ifdef WITH_OMP_GPU
             !$omp target update to(dxidt)
+#elif WITH_ACC_GPU
+            !$acc update device(dxidt)
 #endif
             call get_comp_rhs_imp_ghost(xi_ghost, dxidt, 1, .true.)
 #ifdef WITH_OMP_GPU
             !$omp target update from(dxidt)
+#elif WITH_ACC_GPU
+            !$acc update self(dxidt)
 #endif
          else
 #ifdef WITH_OMP_GPU
             !$omp target update to(xi_LMloc, dxi_LMloc, dxidt)
+#elif WITH_ACC_GPU
+            !$acc update device(xi_LMloc, dxi_LMloc, dxidt)
 #endif
             call get_comp_rhs_imp(xi_LMloc, dxi_LMloc, dxidt, 1, .true.)
 #ifdef WITH_OMP_GPU
             !$omp target update from(xi_LMloc, dxi_LMloc, dxidt)
+#elif WITH_ACC_GPU
+            !$acc update self(xi_LMloc, dxi_LMloc, dxidt)
 #endif
          end if
       end if
@@ -432,23 +470,34 @@ contains
             call exch_ghosts(phi_ghost, lm_max, nRstart, nRstop, 1)
 #ifdef WITH_OMP_GPU
             !$omp target update to(phi_ghost)
+#elif WITH_ACC_GPU
+            !$acc update device(phi_ghost)
 #endif
             call fill_ghosts_Phi(phi_ghost)
 #ifdef WITH_OMP_GPU
             !$omp target update from(phi_ghost)
             !$omp target update to(dphidt)
+#elif WITH_ACC_GPU
+            !$acc update self(phi_ghost)
+            !$acc update device(dphidt)
 #endif
             call get_phase_rhs_imp_ghost(phi_ghost, dphidt, 1, .true.)
 #ifdef WITH_OMP_GPU
             !$omp target update from(dphidt)
+#elif WITH_ACC_GPU
+            !$acc update self(dphidt)
 #endif
          else
 #ifdef WITH_OMP_GPU
             !$omp target update to(phi_LMloc, dphidt)
+#elif WITH_ACC_GPU
+            !$acc update device(phi_LMloc, dphidt)
 #endif
             call get_phase_rhs_imp(phi_LMloc, dphidt, 1, .true.)
 #ifdef WITH_OMP_GPU
             !$omp target update from(phi_LMloc, dphidt)
+#elif WITH_ACC_GPU
+            !$acc update self(phi_LMloc, dphidt)
 #endif
          end if
       end if
@@ -457,6 +506,9 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target update to(dsdt, dwdt, dpdt)
          !$omp target update to(s_LMloc, w_LMloc, p_LMloc)
+#elif WITH_ACC_GPU
+         !$acc update device(dsdt, dwdt, dpdt)
+         !$acc update device(s_LMloc, w_LMloc, p_LMloc)
 #endif
          call get_single_rhs_imp(s_LMloc, ds_LMloc, w_LMloc, dw_LMloc,     &
               &                  ddw_LMloc, p_LMloc, dp_LMloc, dsdt, dwdt, &
@@ -465,6 +517,10 @@ contains
          !$omp target update from(dsdt, dwdt, dpdt)
          !$omp target update from(s_LMloc, w_LMloc, p_LMloc)
          !$omp target update from(ds_LMloc, dp_LMloc, dw_LMloc, ddw_LMloc)
+#elif WITH_ACC_GPU
+         !$acc update self(dsdt, dwdt, dpdt)
+         !$acc update self(s_LMloc, w_LMloc, p_LMloc)
+         !$acc update self(ds_LMloc, dp_LMloc, dw_LMloc, ddw_LMloc)
 #endif
       else
          if ( l_heat ) then
@@ -473,32 +529,52 @@ contains
                call exch_ghosts(s_ghost, lm_max, nRstart, nRstop, 1)
 #ifdef WITH_OMP_GPU
                !$omp target update to(s_ghost)
+#elif WITH_ACC_GPU
+               !$acc update device(s_ghost)
 #endif
                call fill_ghosts_S(s_ghost)
 #ifdef WITH_OMP_GPU
                !$omp target update from(s_ghost)
+#elif WITH_ACC_GPU
+               !$acc update self(s_ghost)
 #endif
 #ifdef WITH_OMP_GPU
                !$omp target update to(ds_Rloc, dsdt)
-               if(l_phase_field) then
-                  !$omp target update to(phi_Rloc)
-               end if
+#elif WITH_ACC_GPU
+               !$acc update device(ds_Rloc, dsdt)
 #endif
+               if(l_phase_field) then
+#ifdef WITH_OMP_GPU
+                  !$omp target update to(phi_Rloc)
+#elif WITH_ACC_GPU
+                  !$acc update device(phi_Rloc)
+#endif
+               end if
                call get_entropy_rhs_imp_ghost(s_ghost, ds_Rloc, dsdt, phi_Rloc, &
                     &                         1, .true.)
 #ifdef WITH_OMP_GPU
                !$omp target update from(ds_Rloc, dsdt)
+#elif WITH_ACC_GPU
+               !$acc update self(ds_Rloc, dsdt)
 #endif
             else
 #ifdef WITH_OMP_GPU
                !$omp target update to(s_LMloc, dsdt)
-               if ( l_phase_field ) then
-                  !$omp target update to(phi_LMloc)
-               end if
+#elif WITH_ACC_GPU
+               !$acc update device(s_LMloc, dsdt)
 #endif
+               if ( l_phase_field ) then
+#ifdef WITH_OMP_GPU
+                  !$omp target update to(phi_LMloc)
+#elif WITH_ACC_GPU
+                  !$acc update device(phi_LMloc)
+#endif
+               end if
                call get_entropy_rhs_imp(s_LMloc, ds_LMloc, dsdt, phi_LMloc, 1, .true.)
 #ifdef WITH_OMP_GPU
                !$omp target update from(s_LMloc, ds_LMloc, dsdt)
+#elif WITH_ACC_GPU
+               !$acc update self(s_LMloc, ds_LMloc, dsdt)
 #endif
             end if
          end if
@@ -508,11 +584,16 @@ contains
             call exch_ghosts(w_ghost, lm_max, nRstart, nRstop, 2)
 #ifdef WITH_OMP_GPU
             !$omp target update to(w_ghost)
+#elif WITH_ACC_GPU
+            !$acc update device(w_ghost)
 #endif
             call fill_ghosts_W(w_ghost, p0_ghost, .true.)
 #ifdef WITH_OMP_GPU
             !$omp target update to(dwdt, p_Rloc)
             !$omp target update to(dp_Rloc, dw_Rloc, ddw_Rloc)
+#elif WITH_ACC_GPU
+            !$acc update device(dwdt, p_Rloc)
+            !$acc update device(dp_Rloc, dw_Rloc, ddw_Rloc)
 #endif
 
             call get_pol_rhs_imp_ghost(w_ghost, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc,  &
@@ -521,6 +602,9 @@ contains
 #ifdef WITH_OMP_GPU
             !$omp target update from(dwdt, w_ghost, p_Rloc)
             !$omp target update from(dp_Rloc, dw_Rloc, ddw_Rloc)
+#elif WITH_ACC_GPU
+            !$acc update self(dwdt, w_ghost, p_Rloc)
+            !$acc update self(dp_Rloc, dw_Rloc, ddw_Rloc)
 #endif
          else
 #ifdef WITH_OMP_GPU
@@ -531,6 +615,14 @@ contains
             !$omp target update to(s_LMloc)
             !$omp target update if(l_chemical_conv) to(xi_LMloc)
             !$omp target update to(work_LMloc)
+#elif WITH_ACC_GPU
+            !$acc update device(w_LMloc)
+            !$acc update device(p_LMloc)
+            !$acc update device(dwdt)
+            !$acc update if(.not. l_double_curl) device(dpdt)
+            !$acc update device(s_LMloc)
+            !$acc update if(l_chemical_conv) device(xi_LMloc)
+            !$acc update device(work_LMloc)
 #endif
             call get_pol_rhs_imp(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,  &
                  &               p_LMloc, dp_LMloc, dwdt, dpdt, tscheme, 1, .true.,&
@@ -543,6 +635,14 @@ contains
             !$omp target update from(dp_LMloc)
             !$omp target update from(dw_LMloc)
             !$omp target update from(ddw_LMloc)
+#elif WITH_ACC_GPU
+            !$acc update self(w_LMloc)
+            !$acc update self(p_LMloc)
+            !$acc update self(dwdt)
+            !$acc update if(.not. l_double_curl) self(dpdt)
+            !$acc update self(dp_LMloc)
+            !$acc update self(dw_LMloc)
+            !$acc update self(ddw_LMloc)
 #endif
          end if
       end if
@@ -553,24 +653,35 @@ contains
          call exch_ghosts(z_ghost, lm_max, nRstart, nRstop, 1)
 #ifdef WITH_OMP_GPU
          !$omp target update to(z_ghost)
+#elif WITH_ACC_GPU
+         !$acc update device(z_ghost)
 #endif
          call fill_ghosts_Z(z_ghost)
 #ifdef WITH_OMP_GPU
          !$omp target update from(z_ghost)
+#elif WITH_ACC_GPU
+         !$acc update self(z_ghost)
 #endif
 #ifdef WITH_OMP_GPU
          !$omp target update to(z_ghost, dz_Rloc, dzdt)
+#elif WITH_ACC_GPU
+         !$acc update device(z_ghost, dz_Rloc, dzdt)
 #endif
          call get_tor_rhs_imp_ghost(time, z_ghost, dz_Rloc, dzdt, domega_ma_dt,  &
               &                     domega_ic_dt, omega_ic, omega_ma, omega_ic1, &
               &                     omega_ma1, tscheme, 1, .true., .false.)
 #ifdef WITH_OMP_GPU
          !$omp target update from(z_ghost, dz_Rloc, dzdt)
+#elif WITH_ACC_GPU
+         !$acc update self(z_ghost, dz_Rloc, dzdt)
 #endif
       else
 #ifdef WITH_OMP_GPU
          !$omp target update to(z_LMloc)
          !$omp target update to(dzdt)
+#elif WITH_ACC_GPU
+         !$acc update device(z_LMloc)
+         !$acc update device(dzdt)
 #endif
          call get_tor_rhs_imp(time, z_LMloc, dz_LMloc, dzdt, domega_ma_dt, &
               &               domega_ic_dt, omega_ic, omega_ma, omega_ic1, &
@@ -578,6 +689,9 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target update from(z_LMloc, dz_LMloc)
          !$omp target update from(dzdt)
+#elif WITH_ACC_GPU
+         !$acc update self(z_LMloc, dz_LMloc)
+         !$acc update self(dzdt)
 #endif
       end if
 
@@ -589,13 +703,19 @@ contains
             call exch_ghosts(b_ghost, lm_max, nRstart, nRstop, 1)
 #ifdef WITH_OMP_GPU
             !$omp target update to(b_ghost, aj_ghost)
+#elif WITH_ACC_GPU
+            !$acc update device(b_ghost, aj_ghost)
 #endif
             call fill_ghosts_B(b_ghost, aj_ghost)
 #ifdef WITH_OMP_GPU
             !$omp target update from(b_ghost, aj_ghost)
+#elif WITH_ACC_GPU
+            !$acc update self(b_ghost, aj_ghost)
 #endif
 #ifdef WITH_OMP_GPU
             !$omp target update to(dbdt, djdt)
+#elif WITH_ACC_GPU
+            !$acc update device(dbdt, djdt)
 #endif
             call get_mag_rhs_imp_ghost(b_ghost, db_Rloc, ddb_Rloc, aj_ghost,     &
                  &                     dj_Rloc, ddj_Rloc, dbdt, djdt, tscheme, 1,&
@@ -603,11 +723,17 @@ contains
 #ifdef WITH_OMP_GPU
             !$omp target update from(dbdt, djdt, b_ghost, aj_ghost)
             !$omp target update from(db_Rloc, ddb_Rloc, dj_Rloc, ddj_Rloc)
+#elif WITH_ACC_GPU
+            !$acc update self(dbdt, djdt, b_ghost, aj_ghost)
+            !$acc update self(db_Rloc, ddb_Rloc, dj_Rloc, ddj_Rloc)
 #endif
          else
 #ifdef WITH_OMP_GPU
             !$omp target update to(dbdt, djdt)
             !$omp target update to(b_LMloc, aj_LMloc)
+#elif WITH_ACC_GPU
+            !$acc update device(dbdt, djdt)
+            !$acc update device(b_LMloc, aj_LMloc)
 #endif
             call get_mag_rhs_imp(b_LMloc, db_LMloc, ddb_LMloc, aj_LMloc,     &
                  &               dj_LMloc, ddj_LMloc, dbdt, djdt, tscheme, 1,&
@@ -616,18 +742,26 @@ contains
             !$omp target update from(dbdt, djdt)
             !$omp target update from(b_LMloc, aj_LMloc)
             !$omp target update from(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
+#elif WITH_ACC_GPU
+            !$acc update self(dbdt, djdt)
+            !$acc update self(b_LMloc, aj_LMloc)
+            !$acc update self(db_LMloc, dj_LMloc, ddb_LMloc, ddj_LMloc)
 #endif
          end if
       end if
       if ( l_cond_ic ) then
 #ifdef WITH_OMP_GPU
          !$omp target update to(dbdt_ic, djdt_ic)
+#elif WITH_ACC_GPU
+         !$acc update device(dbdt_ic, djdt_ic)
 #endif
          call get_mag_ic_rhs_imp(b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc,    &
               &                  aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc,   &
               &                  dbdt_ic, djdt_ic, 1, .true.)
 #ifdef WITH_OMP_GPU
          !$omp target update from(dbdt_ic, djdt_ic)
+#elif WITH_ACC_GPU
+         !$acc update self(dbdt_ic, djdt_ic)
 #endif
       end if
 
@@ -693,11 +827,15 @@ contains
          call initF(bodyForce_LMloc)
 #ifdef WITH_OMP_GPU
          !$omp target update to(bodyForce_LMloc)
+#elif WITH_ACC_GPU
+         !$acc update device(bodyForce_LMloc)
 #endif
          if ( l_parallel_solve ) then
             call lo2r_one%transp_lm2r(bodyForce_LMloc, bodyForce_Rloc)
 #ifdef WITH_OMP_GPU
             !$omp target update from(bodyForce_Rloc)
+#elif WITH_ACC_GPU
+            !$acc update self(bodyForce_Rloc)
 #endif
          end if
       end if

@@ -64,7 +64,7 @@ module  mpi_alltoall_mod
 
    use precision_mod
    use parallel_mod
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc
@@ -158,6 +158,10 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: this)
       !$omp target update to(this)
+#elif WITH_ACC_GPU
+      !$acc enter data copyin(this) 
+#endif
+#ifdef USE_GPU
       gpu_bytes_allocated=gpu_bytes_allocated +4*n_procs*SIZEOF_INTEGER
       gpu_bytes_allocated=gpu_bytes_allocated+(sum(this%rcounts)+sum(this%scounts))* &
       &                   SIZEOF_DEF_COMPLEX
@@ -185,6 +189,10 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: this)
       !$omp target update to(this)
+#elif WITH_ACC_GPU
+      !$acc enter data copyin(this) 
+#endif
+#ifdef USE_GPU
       gpu_bytes_allocated=gpu_bytes_allocated+n_procs*this%lm_loc*this%n_r_loc*this%n_fields*&
       &               SIZEOF_DEF_COMPLEX
 #endif
@@ -290,6 +298,10 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: this)
       !$omp target update to(this)
+#elif WITH_ACC_GPU
+      !$acc enter data copyin(this) 
+#endif
+#ifdef USE_GPU
       gpu_bytes_allocated=gpu_bytes_allocated+4*n_procs*SIZEOF_INTEGER
 #endif
 
@@ -301,6 +313,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(release: this)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(this)
 #endif
       deallocate( this%rbuff, this%sbuff )
       deallocate( this%sdisp, this%rdisp, this%scounts, this%rcounts )
@@ -313,6 +327,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(release: this)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(this)
 #endif
       deallocate( this%buff )
 
@@ -321,15 +337,19 @@ contains
    subroutine destroy_comm_alltoallw(this)
 
       class(type_mpiatoaw) :: this
-
-#ifdef WITH_OMP_GPU
-      !$omp target exit data map(release: this)
-#endif
-
 #ifdef WITH_MPI
       !-- Local variables
       integer :: p
+#endif
 
+
+#ifdef WITH_OMP_GPU
+      !$omp target exit data map(release: this)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(this)
+#endif
+
+#ifdef WITH_MPI
       do p = 0, n_procs-1
          call MPI_Type_Free(this%rtype(p), ierr)
          call MPI_Type_Free(this%stype(p), ierr)
@@ -344,7 +364,6 @@ contains
       ! This subroutine transposes a LM-distributed container of arrays into
       ! a r-distributed container of arrays
       !
-
       class(type_mpiatoav) :: this
       complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max,1:this%n_fields)
       complex(cp), intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,1:this%n_fields)
@@ -352,7 +371,7 @@ contains
       !-- Local variables
       integer :: p, ii, n_r, lm, l, m, lm_st, n_f
       integer, pointer :: lm2l(:),lm2m(:)
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: jj
 #endif
       integer, pointer :: rcounts_ptr(:), scounts_ptr(:), rdisp_ptr(:), sdisp_ptr(:)
@@ -369,6 +388,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target teams private(ii,n_f,n_r,lm, jj)
+#elif WITH_ACC_GPU
+!      !$acc parallel
 #else
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm)
@@ -378,6 +399,8 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp distribute parallel do collapse(3)
          !DIR$ CONCURRENT
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(3) 
 #endif
          do n_f=1,this%n_fields
 #ifdef WITH_OMP_GPU
@@ -385,7 +408,7 @@ contains
 #endif
             do n_r=radial_balance(p)%nStart,radial_balance(p)%nStop
                do lm=llm,ulm
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
                   jj = ii + ((n_f - 1) * (radial_balance(p)%nStop - radial_balance(p)%nStart + 1) + &
                   &    (n_r - radial_balance(p)%nStart))*(ulm - llm + 1) + (lm - llm)
                   rbuff_ptr(jj)=arr_LMloc(lm,n_r,n_f)
@@ -398,10 +421,14 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel     
 #endif
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams
+#elif WITH_ACC_GPU
+!      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -409,19 +436,27 @@ contains
 #ifdef WITH_MPI
 #ifdef WITH_OMP_GPU
       !$omp target data use_device_addr(rbuff_ptr, sbuff_ptr)
+#elif WITH_ACC_GPU
+      !$acc host_data use_device(rbuff_ptr, sbuff_ptr)
+#endif
       call MPI_Alltoallv(rbuff_ptr, rcounts_ptr, rdisp_ptr, MPI_DEF_COMPLEX, &
            &             sbuff_ptr, scounts_ptr, sdisp_ptr, MPI_DEF_COMPLEX, &
            &             MPI_COMM_WORLD, ierr)
+#ifdef WITH_OMP_GPU
       !$omp end target data
+#elif WITH_ACC_GPU
+      !$acc end host_data
+#endif
 #else
       call MPI_Alltoallv(this%rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
            &             this%sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
            &             MPI_COMM_WORLD, ierr)
 #endif
-#endif
 
 #ifdef WITH_OMP_GPU
       !$omp target teams private(ii,n_f,n_r,lm,l,m,lm_st,jj)
+#elif WITH_ACC_GPU
+      !$acc parallel private(ii,n_f,n_r,lm,l,m,lm_st,jj)
 #else
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm,l,m,lm_st)
@@ -431,16 +466,21 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp distribute parallel do collapse(2)
          !DIR$ CONCURRENT
+#elif WITH_ACC_GPU
+         !$acc loop collapse(2)
 #endif
+
          do n_f=1,this%n_fields
 #ifdef WITH_OMP_GPU
            !DIR$ CONCURRENT
+#elif WITH_ACC_GPU
+           
 #endif
             do n_r=nRstart,nRstop
                do lm=lm_balance(p)%nStart,lm_balance(p)%nStop
                   l = lm2l(lm)
                   m = lm2m(lm)
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
                   if (l >= 0 .and. m >= 0) then
                      lm_st = st_map%lm2(l,m)
                      if (lm_st >= 1 .and. lm_st <= lm_max) then
@@ -463,6 +503,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -489,6 +531,9 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(ii,n_f,n_r,lm)
+#elif WITH_ACC_GPU
+      !$acc parallel 
+      !$acc loop private(ii,n_f,n_r,lm)
 #else
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm)
@@ -515,6 +560,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -522,17 +569,26 @@ contains
 #ifdef WITH_MPI
 #ifdef WITH_OMP_GPU
       !$omp target data use_device_addr(buff_ptr)
+#elif WITH_ACC_GPU
+      !$acc host_data use_device(buff_ptr)
+#endif 
       call MPI_Alltoall(MPI_IN_PLACE, rcounts_loc, MPI_DEF_COMPLEX, buff_ptr, &
            &            scounts_loc, MPI_DEF_COMPLEX, MPI_COMM_WORLD, ierr)
+#ifdef WITH_OMP_GPU
       !$omp end target data
+#elif WITH_ACC_GPU
+      !$acc end host_data
+#endif
 #else
       call MPI_Alltoall(MPI_IN_PLACE, this%rcounts, MPI_DEF_COMPLEX, this%buff, &
            &            this%scounts, MPI_DEF_COMPLEX, MPI_COMM_WORLD, ierr)
 #endif
-#endif
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(ii,n_f,n_r,lm,l,m,lm_st)
+#elif WITH_ACC_GPU
+      !$acc parallel
+      !$acc loop private(ii,n_f,n_r,lm,l,m,lm_st)
 #else
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm,l,m,lm_st)
@@ -560,6 +616,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -581,15 +639,21 @@ contains
 #ifdef WITH_MPI
 #ifdef WITH_OMP_GPU
       !$omp target data use_device_addr(arr_LMLoc, arr_Rloc)
+#elif WITH_ACC_GPU
+      !$acc host_data use_device(arr_LMLoc, arr_Rloc)
+#endif
       call MPI_Alltoallw(arr_LMloc, counts_ptr, disp_ptr, rtype_ptr, &
            &             arr_Rloc, counts_ptr, disp_ptr, stype_ptr,  &
            &             MPI_COMM_WORLD, ierr)
+#ifdef WITH_OMP_GPU
       !$omp end target data
+#elif WITH_ACC_GPU
+      !$acc end host_data
+#endif
 #else
       call MPI_Alltoallw(arr_LMloc, this%counts, this%disp, this%rtype, &
            &             arr_Rloc, this%counts, this%disp, this%stype,  &
            &             MPI_COMM_WORLD, ierr)
-#endif
 #endif
 
    end subroutine transp_lm2r_alltoallw
@@ -606,7 +670,7 @@ contains
 
       !-- Local variables
       integer, pointer :: lm2l(:),lm2m(:)
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: jj
 #endif
       integer, pointer :: rcounts_ptr(:), scounts_ptr(:), rdisp_ptr(:), sdisp_ptr(:)
@@ -625,6 +689,9 @@ contains
       !$omp target data map(alloc: temp_Rloc)
       !$omp target teams private(p,ii,n_f,n_r,lm,l,m)
       !$omp distribute parallel do collapse(3)
+#elif WITH_ACC_GPU
+      !$acc parallel
+      !$acc loop collapse(3)
 #else
       !$omp parallel default(shared) private(p,ii,n_f,n_r,lm,l,m)
       !$omp do collapse(3)
@@ -646,6 +713,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc loop
 #else
       !$omp do
 #endif
@@ -664,6 +733,8 @@ contains
       !$omp end distribute parallel do
       !$omp end target teams
       !$omp end target data
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end do
       !$omp end parallel
@@ -680,6 +751,8 @@ contains
       lm2m(1:lm_max) => lo_map%lm2m
 #ifdef WITH_OMP_GPU
       !$omp target teams private(ii,n_f,n_r,lm,l,m,lm_st,jj)
+#elif WITH_ACC_GPU
+      !$acc parallel private(ii,n_f,n_r,lm,l,m,lm_st,jj)
 #else
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm,l,m,lm_st)
@@ -689,16 +762,18 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp distribute parallel do collapse(2)
          !DIR$ CONCURRENT
+#elif WITH_ACC_GPU
+         !$acc loop collapse(2)
 #endif
          do n_f=1,this%n_fields
 #ifdef WITH_OMP_GPU
-           !DIR$ CONCURRENT
+            !DIR$ CONCURRENT
 #endif
             do n_r=nRstart,nRstop
                do lm=lm_balance(p)%nStart,lm_balance(p)%nStop
                   l = lm2l(lm)
                   m = lm2m(lm)
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
                   if (l >= 0 .and. m >= 0) then
                      lm_st = st_map%lm2(l,m)
                      if (lm_st >= 1 .and. lm_st <= lm_max) then
@@ -721,6 +796,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams
+#elif WITH_ACC_GPU
+      !$acc end parallel   
 #else
       !$omp end parallel do
 #endif
@@ -729,19 +806,26 @@ contains
 #ifdef WITH_MPI
 #ifdef WITH_OMP_GPU
       !$omp target data use_device_addr(rbuff_ptr, sbuff_ptr)
-      call MPI_Alltoallv(sbuff_ptr, scounts_ptr, sdisp_ptr, MPI_DEF_COMPLEX, &
+#elif WITH_ACC_GPU
+      !$acc host_data use_device(rbuff_ptr, sbuff_ptr)
+#endif
+       call MPI_Alltoallv(sbuff_ptr, scounts_ptr, sdisp_ptr, MPI_DEF_COMPLEX, &
            &             rbuff_ptr, rcounts_ptr, rdisp_ptr, MPI_DEF_COMPLEX, &
            &             MPI_COMM_WORLD, ierr)
+#ifdef WITH_OMP_GPU
       !$omp end target data
+#elif WITH_ACC_GPU
+      !$acc end host_data
+#endif
 #else
       call MPI_Alltoallv(this%sbuff, this%scounts, this%sdisp, MPI_DEF_COMPLEX, &
            &             this%rbuff, this%rcounts, this%rdisp, MPI_DEF_COMPLEX, &
            &             MPI_COMM_WORLD, ierr)
 #endif
-#endif
-
 #ifdef WITH_OMP_GPU
       !$omp target teams private(ii,n_f,n_r,lm,jj)
+#elif WITH_ACC_GPU
+      !$acc parallel
 #else
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm)
@@ -751,6 +835,8 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp distribute parallel do collapse(3)
          !DIR$ CONCURRENT
+#elif WITH_ACC_GPU
+         !$acc loop independent collapse(3)
 #endif
          do n_f=1,this%n_fields
 #ifdef WITH_OMP_GPU
@@ -758,7 +844,7 @@ contains
 #endif
             do n_r=radial_balance(p)%nStart,radial_balance(p)%nStop
                do lm=llm,ulm
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU 
                   jj = ii + ((n_f - 1) * (radial_balance(p)%nStop - radial_balance(p)%nStart + 1) + &
                   &    (n_r - radial_balance(p)%nStart))*(ulm - llm + 1) + (lm - llm)
                   arr_LMloc(lm,n_r,n_f)=rbuff_ptr(jj)
@@ -775,6 +861,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -802,28 +890,35 @@ contains
       !ii = 1
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(ii,n_f,n_r,lm,l,m,lm_st)
+#elif WITH_ACC_GPU
+      !$acc parallel
 #else
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm,l,m,lm_st)
 #endif
       do p = 0, n_procs-1
          ii = p*this%scounts+1
+         !$acc loop seq
          do n_f=1,this%n_fields
+            !$acc loop seq
             do n_r=nRstart,nRstop
+               !$acc loop seq
                do lm=lm_balance(p)%nStart,lm_balance(p)%nStop
                   l = lo_map%lm2l(lm)
                   m = lo_map%lm2m(lm)
                   lm_st = st_map%lm2(l,m)
+                  this%buff(ii)=arr_Rloc(lm_st,n_r,n_f) 
 
-                  this%buff(ii)=arr_Rloc(lm_st,n_r,n_f)
                   ii = ii +1
                end do
                !-- padding happens here
+               !$acc loop seq
                do lm = lm_balance(p)%n_per_rank, this%lm_loc-1
                   ii = ii+1
                end do
             end do
             !-- padding happens here
+            !$acc loop seq
             do n_r=nR_per_rank,this%n_r_loc-1
                ii=ii+1
             end do
@@ -831,6 +926,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -838,17 +935,26 @@ contains
 #ifdef WITH_MPI
 #ifdef WITH_OMP_GPU
       !$omp target data use_device_addr(buff_ptr)
+#elif WITH_ACC_GPU
+      !$acc host_data use_device(buff_ptr)
+#endif
       call MPI_Alltoall(MPI_IN_PLACE, scounts_loc, MPI_DEF_COMPLEX, buff_ptr, &
            &            rcounts_loc, MPI_DEF_COMPLEX, MPI_COMM_WORLD, ierr)
+#ifdef WITH_OMP_GPU
       !$omp end target data
+#elif WITH_ACC_GPU
+      !$acc end host_data
+#endif
 #else
       call MPI_Alltoall(MPI_IN_PLACE, this%scounts, MPI_DEF_COMPLEX, this%buff, &
            &            this%rcounts, MPI_DEF_COMPLEX, MPI_COMM_WORLD, ierr)
 #endif
-#endif
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(ii,n_f,n_r,lm)
+#elif WITH_ACC_GPU
+      !$acc parallel
+      !$acc loop private(ii,n_f,n_r,lm)
 #else
       !$omp parallel do default(shared) &
       !$omp private(p,ii,n_f,n_r,lm)
@@ -872,6 +978,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -893,17 +1001,22 @@ contains
 #ifdef WITH_MPI
 #ifdef WITH_OMP_GPU
       !$omp target data use_device_addr(arr_LMloc, arr_Rloc)
+#elif WITH_ACC_GPU
+      !$acc host_data use_device(arr_LMloc, arr_Rloc)
+#endif
       call MPI_Alltoallw(arr_Rloc, counts_ptr, disp_ptr, stype_ptr,  &
            &             arr_LMloc, counts_ptr, disp_ptr, rtype_ptr, &
            &             MPI_COMM_WORLD, ierr)
+#ifdef WITH_OMP_GPU
       !$omp end target data
+#elif WITH_ACC_GPU
+      !$acc end host_data
+#endif
 #else
       call MPI_Alltoallw(arr_Rloc, this%counts, this%disp, this%stype,  &
            &             arr_LMloc, this%counts, this%disp, this%rtype, &
            &             MPI_COMM_WORLD, ierr)
 #endif
-#endif
-
    end subroutine transp_r2lm_alltoallw
 !----------------------------------------------------------------------------------
 end module mpi_alltoall_mod

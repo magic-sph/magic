@@ -46,13 +46,17 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(k,kp1,l,i,j,help) &
       !$omp reduction(max:info)
+#elif WITH_ACC_GPU
+      !$acc parallel loop gang reduction(max:info)
 #endif
       do idx=1,nmat
+         !$acc loop seq
          do k=1,nm1
 
             kp1=k+1
             l  =k
 
+            !$acc loop seq
             do i=kp1,n
                if ( abs(dat(i,k,idx)) > abs(dat(l,k,idx)) ) l=i
             end do
@@ -60,6 +64,7 @@ contains
 
             if ( abs(dat(l,k,idx)) > zero_tolerance ) then
                if ( l /= k ) then
+                  !$acc loop vector
                   do i=1,n
                      help        =dat(k,i,idx)
                      dat(k,i,idx)=dat(l,i,idx)
@@ -68,6 +73,7 @@ contains
                end if
 
                help=one/dat(k,k,idx)
+               !$acc loop vector
                do i=kp1,n
                   dat(i,k,idx)=help*dat(i,k,idx)
                end do
@@ -86,6 +92,7 @@ contains
          pivot(n,idx)=n
          if ( abs(dat(n,n,idx)) <= zero_tolerance ) info=n
 
+         !$acc loop vector
          do i=1,n
             dat(i,i,idx)=one/dat(i,i,idx)
          end do
@@ -93,6 +100,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
    end subroutine prepare_dense_all
@@ -122,14 +131,18 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(i,fact,temp) &
       !$omp reduction(max:info)
+#elif WITH_ACC_GPU
+      !$acc parallel loop gang reduction(max:info)
 #endif
       do idx=1,nmat
          !-- Initialize pivot(i) = i and du2(I) = 0
+         !$acc loop vector
          do i = 1,n
             pivot(i,idx) = i
          end do
 
          du2(:,idx)=0.0_cp
+         !$acc loop seq
          do i = 1,n-2
             if ( abs(dat(2,i,idx)) >= abs(dat(3,i,idx))) then
                !-- No row interchange required, eliminate DL(I)
@@ -180,6 +193,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
    end subroutine prepare_tridiag_all
@@ -214,6 +229,8 @@ contains
       !$omp target teams distribute parallel do &
       !$omp private(i,temp,j1,jz,i0,lm,l,k,j,nm1,j0,ju,kp1,mm,m) &
       !$omp reduction(max:info)
+#elif WITH_ACC_GPU
+      !$acc parallel loop gang reduction(max:info)
 #endif
       do idx=1,nmat
          if ( j1 >= j0 ) then
@@ -286,6 +303,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
    end subroutine prepare_band_all
@@ -320,6 +339,8 @@ contains
       !-- Single loop over lm's
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(i,m,k,k1,nLMB2,l,help)
+#elif WITH_ACC_GPU
+      !$acc parallel loop gang
 #endif
       do nRHS=llm,ulm
 
@@ -327,6 +348,7 @@ contains
          nLMB2=l2nLMB2(l)
 
          !-- Permute vectors rhs
+         !$acc loop seq
          do k=1,nm1
             m=pivot(k,nLMB2)
             help       =rhs(m,nRHS)
@@ -335,10 +357,12 @@ contains
          end do
 
          !-- Solve  l * y = b
+         !$acc loop seq
          do k=1,n-2,2
             k1=k+1
             rhs(k1,nRHS)=rhs(k1,nRHS)-rhs(k,nRHS)*dat(k1,k,nLMB2)
             !DIR$ CONCURRENT
+            !$acc loop vector independent
             do i=k+2,n
                rhs(i,nRHS)=rhs(i,nRHS)-(rhs(k,nRHS)*dat(i,k,nLMB2) + &
                &                      rhs(k1,nRHS)*dat(i,k1,nLMB2))
@@ -349,12 +373,14 @@ contains
          end if
 
          !-- Solve  u * x = y
+         !acc loop seq
          do k=n,3,-2
             k1=k-1
             rhs(k,nRHS) =rhs(k,nRHS)*dat(k,k,nLMB2)
             rhs(k1,nRHS)=(rhs(k1,nRHS)-rhs(k,nRHS)*dat(k1,k,nLMB2)) * &
             &            dat(k1,k1,nLMB2)
             !DIR$ CONCURRENT
+            !$acc loop vector independent
             do i=1,k-2
                rhs(i,nRHS)=rhs(i,nRHS)-rhs(k,nRHS)*dat(i,k,nLMB2) - &
                &           rhs(k1,nRHS)*dat(i,k1,nLMB2)
@@ -370,11 +396,15 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 #else
       !-- Single loop over lm's
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(i,m,k,nLMB2,l,help)
+#elif WITH_ACC_GPU
+      !$acc parallel loop gang
 #endif
       do nRHS=llm,ulm
 
@@ -382,6 +412,7 @@ contains
          nLMB2=l2nLMB2(l)
 
          !-- Permute vectors rhs
+         !$acc loop seq
          do k=1,n
             m=pivot(k,nLMB2)
             help       =rhs(m,nRHS)
@@ -390,17 +421,25 @@ contains
          end do
 
          !-- Solve  l * y = b
+         !$acc loop seq
          do k=1,n
+#ifdef WITH_OMP_GPU
             !DIR$ CONCURRENT
+#endif
+            !$acc loop vector independent
             do i=k+1,n
                rhs(i,nRHS)=rhs(i,nRHS)-rhs(k,nRHS)*dat(i,k,nLMB2)
             end do
          end do
 
          !-- Solve  u * x = y
+         !$acc loop seq
          do k=n,1,-1
             rhs(k,nRHS) =rhs(k,nRHS)*dat(k,k,nLMB2)
+#ifdef WITH_OMP_GPU
             !DIR$ CONCURRENT
+#endif
+            !$acc loop vector independent
             do i=1,k-1
                rhs(i,nRHS)=rhs(i,nRHS)-rhs(k,nRHS)*dat(i,k,nLMB2)
             end do
@@ -408,6 +447,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 #endif
 
@@ -441,6 +482,8 @@ contains
       !-- Single loop over lm's
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(i,nLMB2,l,temp)
+#elif WITH_ACC_GPU
+      !$acc parallel loop private(i,nLMB2,l,temp)
 #endif
       do nRHS=llm,ulm
 
@@ -468,6 +511,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
 
@@ -504,6 +549,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do private(k,l,nLMB2,ll,temp,lm,kb,la,lb)
+#elif WITH_ACC_GPU
+      !$acc parallel loop private(k,l,nLMB2,ll,temp,lm,kb,la,lb)
 #endif
       do nRHS=llm,ulm
 
@@ -535,6 +582,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
    end subroutine solve_band_all
@@ -567,6 +616,8 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2) &
       !$omp private(k,l,temp,lm,kb,la,lb)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2) private(k,l,temp,lm,kb,la,lb)
 #endif
       do idx=1,nmat
          do iRHS=1,nrhs
@@ -598,6 +649,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
    end subroutine solve_band_real_all

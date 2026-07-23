@@ -5,7 +5,7 @@ module blocking
 
    use iso_fortran_env, only: output_unit
    use precision_mod
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: memWrite, bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc, only: memWrite, bytes_allocated
@@ -91,7 +91,7 @@ contains
 
       integer :: n
       integer(lip) :: local_bytes_used
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer(lip) :: local_bytes_used_gpu
 #endif
       integer :: l1m0
@@ -100,7 +100,7 @@ contains
       integer :: lm,l,m,sizeLMB
 
       local_bytes_used = bytes_allocated
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       local_bytes_used_gpu = gpu_bytes_allocated
 #endif
       call allocate_mappings(st_map,l_max,m_min,m_max,lm_max)
@@ -209,7 +209,7 @@ contains
 
       local_bytes_used = bytes_allocated-local_bytes_used
       call memWrite('blocking.f90', local_bytes_used)
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       local_bytes_used_gpu = gpu_bytes_allocated-local_bytes_used_gpu
       call memWrite('blocking.f90:GPU', local_bytes_used_gpu)
 #endif
@@ -217,6 +217,8 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc : lo_map, st_map, lo_sub_map, st_sub_map, lm_balance)
       !$omp target update to(lo_map, st_map, lo_sub_map, st_sub_map, lm_balance)
+#elif WITH_ACC_GPU
+      !$acc enter data copyin (lo_map, st_map, lo_sub_map, st_sub_map,lm_balance)
 #endif
 
 
@@ -226,6 +228,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(release : lo_map, st_map, lo_sub_map, st_sub_map, lm_balance)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(lo_map, st_map, lo_sub_map, st_sub_map,lm_balance)
 #endif
 
       call deallocate_mappings(st_map)

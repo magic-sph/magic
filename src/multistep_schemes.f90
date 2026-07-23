@@ -436,7 +436,7 @@ contains
 
       !-- Local variables
       integer :: n_o, n_r, start_lm, stop_lm
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: nr_start, nr_stop
       integer :: nold, nexp, nimp
       real(cp), pointer :: wimp_ptr(:), wexp_ptr(:), wimp_lin_ptr(:)
@@ -456,45 +456,82 @@ contains
       nold = this%nold; nexp = this%nexp; nimp = this%nimp
 #endif
 
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target data map(to: wimp_ptr, wexp_ptr, wimp_lin_ptr)
       !$omp target teams
       !$omp distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc data copyin(wimp_ptr, wexp_ptr, wimp_lin_ptr)
+      !$acc parallel loop collapse(2)
+#endif
       do n_r=nr_start,nr_stop
          do lm=start_lm,stop_lm
             rhs(lm,n_r)=wimp_ptr(1)*old_ptr(lm,n_r,1)
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
       do n_o=2,nold
+#ifdef WITH_OMP_GPU
          !$omp distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do n_r=nr_start,nr_stop
             do lm=start_lm,stop_lm
                rhs(lm,n_r)=rhs(lm,n_r)+wimp_ptr(n_o)*old_ptr(lm,n_r,n_o)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
       end do
       do n_o=1,nimp
+#ifdef WITH_OMP_GPU
          !$omp distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do n_r=nr_start,nr_stop
             do lm=start_lm,stop_lm
                rhs(lm,n_r)=rhs(lm,n_r)+wimp_lin_ptr(n_o+1)*impl_ptr(lm,n_r,n_o)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
       end do
       do n_o=1,nexp
+#ifdef WITH_OMP_GPU
          !$omp distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do n_r=nr_start,nr_stop
             do lm=start_lm,stop_lm
                rhs(lm,n_r)=rhs(lm,n_r)+wexp_ptr(n_o)*expl_ptr(lm,n_r,n_o)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams
       !$omp end target data
+#elif WITH_ACC_GPU
+      !$acc end data
+#endif
 #else
       !$omp parallel default(shared) private(start_lm, stop_lm)
       start_lm=dfdt%llm; stop_lm=dfdt%ulm
@@ -549,7 +586,7 @@ contains
 
       !-- Local variables
       integer :: n_o, n_r
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: nr_start, nr_stop
       integer :: nold, nexp, nimp
       real(cp), pointer :: wimp_ptr(:), wexp_ptr(:), wimp_lin_ptr(:)
@@ -568,48 +605,85 @@ contains
       nold = this%nold; nexp = this%nexp; nimp = this%nimp
 #endif
 
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target data map(to: wimp_ptr, wexp_ptr, wimp_lin_ptr)
       !$omp target teams
       !$omp distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc data copyin(wimp_ptr, wexp_ptr, wimp_lin_ptr)
+      !$acc parallel loop collapse(2)
+#endif
       do n_r=nr_start,nr_stop
          do lm=start_lm,stop_lm
             rhs(lm,n_r)=wimp_ptr(1)*old_ptr(lm,n_r,1)
          end do
       end do
+#ifdef WITH_OMP_GPU
       !$omp end distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
 
       do n_o=2,nold
+#ifdef WITH_OMP_GPU
          !$omp distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do n_r=nr_start,nr_stop
             do lm=start_lm,stop_lm
                rhs(lm,n_r)=rhs(lm,n_r)+wimp_ptr(n_o)*old_ptr(lm,n_r,n_o)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
       end do
 
       do n_o=1,nimp
+#ifdef WITH_OMP_GPU
          !$omp distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do n_r=nr_start,nr_stop
             do lm=start_lm,stop_lm
                rhs(lm,n_r)=rhs(lm,n_r)+wimp_lin_ptr(n_o+1)*impl_ptr(lm,n_r,n_o)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
       end do
 
       do n_o=1,nexp
+#ifdef WITH_OMP_GPU
          !$omp distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do n_r=nr_start,nr_stop
             do lm=start_lm,stop_lm
                rhs(lm,n_r)=rhs(lm,n_r)+wexp_ptr(n_o)*expl_ptr(lm,n_r,n_o)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams
       !$omp end target data
+#elif WITH_ACC_GPU
+      !$acc end data
+#endif
 #else
       do n_r=dfdt%nRstart,dfdt%nRstop
          rhs(start_lm:stop_lm,n_r)=this%wimp(1)*dfdt%old(start_lm:stop_lm,n_r,1)
@@ -685,7 +759,7 @@ contains
 
       !-- Local variables:
       integer :: n_o, n_r, lm_start, lm_stop
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: nr_start, nr_stop
       integer :: nold, nexp, nimp
       integer :: lm
@@ -701,38 +775,64 @@ contains
       nold = this%nold; nexp = this%nexp; nimp = this%nimp
 #endif
 
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target teams
+#elif WITH_ACC_GPU
+      !$acc parallel
+#endif
       do n_o=nexp,2,-1
+#ifdef WITH_OMP_GPU
          !$omp distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc loop collapse(2)
+#endif
          do n_r=nr_start,nr_stop
             do lm=lm_start,lm_stop
                expl_ptr(lm,n_r,n_o)=expl_ptr(lm,n_r,n_o-1)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end distribute parallel do
+#endif
       end do
 
       do n_o=nold,2,-1
+#ifdef WITH_OMP_GPU
          !$omp distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc loop collapse(2)
+#endif
          do n_r=nr_start,nr_stop
             do lm=lm_start,lm_stop
                old_ptr(lm,n_r,n_o)=old_ptr(lm,n_r,n_o-1)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end distribute parallel do
+#endif
       end do
 
       do n_o=nimp,2,-1
+#ifdef WITH_OMP_GPU
          !$omp distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc loop collapse(2)
+#endif
          do n_r=nr_start,nr_stop
             do lm=lm_start,lm_stop
                impl_ptr(lm,n_r,n_o)=impl_ptr(lm,n_r,n_o-1)
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end distribute parallel do
+#endif
       end do
+#ifdef WITH_OMP_GPU
       !$omp end target teams
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
 #else
       !$omp parallel default(shared) private(lm_start,lm_stop)
       lm_start=dfdt%llm; lm_stop=dfdt%ulm

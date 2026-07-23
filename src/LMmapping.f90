@@ -2,7 +2,7 @@ module LMmapping
 
    use precision_mod
    use truncation, only: l_axi
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc, only: bytes_allocated
@@ -55,7 +55,7 @@ contains
       self%lm2lmS(:) = 0; self%lm2lmA(:) = 0;
       bytes_allocated = bytes_allocated + &
       &                 ((l_max+1)*(l_max+1)+4*lm_max)*SIZEOF_INTEGER
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       gpu_bytes_allocated = gpu_bytes_allocated + &
       &                 ((l_max+1)*(l_max+1)+4*lm_max)*SIZEOF_INTEGER
 #endif
@@ -124,7 +124,7 @@ contains
       bytes_allocated = bytes_allocated +               &
       &                 (nLMBs+l_max+1+(l_max+1)*nLMBs+ &
       &                 3*(l_max+1)*nLMBS*self%sizeLMB2max)*SIZEOF_INTEGER
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       gpu_bytes_allocated = gpu_bytes_allocated +       &
       &                 (nLMBs+l_max+1+(l_max+1)*nLMBs+ &
       &                 3*(l_max+1)*nLMBS*self%sizeLMB2max)*SIZEOF_INTEGER

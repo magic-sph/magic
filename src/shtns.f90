@@ -14,7 +14,7 @@ module sht
    use horizontal_data, only: dLh
    use radial_data, only: nRstart, nRstop
    use parallel_mod
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
 #ifdef EXPLICITE_SYNCHRO
    use hipfort_check, only: hipCheck
    use hipfort, only: hipDeviceSynchronize
@@ -24,7 +24,7 @@ module sht
    implicit none
 
    include "shtns.f03"
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    include "shtns_cuda.f03"
 #endif
 
@@ -35,7 +35,7 @@ module sht
    &         torpol_to_curl_spat_IC, spat_to_SH_axi, spat_to_qst,             &
    &         sphtor_to_spat, toraxi_to_spat, finalize_sht, torpol_to_spat_single
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    type(c_ptr), public :: sht_l, sht_l_single, sht_l_gpu, sht_l_single_gpu
 #else
    type(c_ptr), public :: sht_l, sht_l_single
@@ -55,7 +55,7 @@ contains
 
       !-- Local variables
       integer :: norm, layout
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer :: layout_gpu
 #endif
       real(cp) :: eps_polar
@@ -83,7 +83,7 @@ contains
 
       norm = SHT_ORTHONORMAL + SHT_NO_CS_PHASE
 #ifdef SHT_PADDING
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if ( .not. l_batched_sh ) then
          layout     = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING
          layout_gpu = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_PADDING + SHT_ALLOW_GPU
@@ -101,7 +101,7 @@ contains
       end if
 #endif
 #else
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       layout     = SHT_GAUSS + SHT_THETA_CONTIGUOUS
       layout_gpu = SHT_GAUSS + SHT_THETA_CONTIGUOUS + SHT_ALLOW_GPU
 #else
@@ -116,7 +116,7 @@ contains
       if ( l_batched_sh ) call shtns_set_batch(sht_l, howmany, dist)
       call shtns_robert_form(sht_l, 1) ! Use Robert's form
       call shtns_set_grid(sht_l, layout, eps_polar, n_theta_max, n_phi_max)
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       sht_l_gpu = shtns_create(l_max, m_max/minc, minc, norm)
       if ( l_batched_sh ) call shtns_set_batch(sht_l_gpu, howmany, dist)
       call shtns_robert_form(sht_l_gpu, 1) ! Use Robert's form
@@ -147,14 +147,14 @@ contains
          sht_l_single = shtns_create(l_max, m_max/minc, minc, norm)
          call shtns_set_grid(sht_l_single, layout, eps_polar, n_theta_max, n_phi_max)
          call shtns_robert_form(sht_l_single, 1) ! Use Robert's form
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          sht_l_single_gpu = shtns_create(l_max, m_max/minc, minc, norm)
          call shtns_set_grid(sht_l_single_gpu, layout_gpu, eps_polar, n_theta_max, n_phi_max)
          call shtns_robert_form(sht_l_single_gpu, 1) ! Use Robert's form
 #endif
       else
          sht_l_single = sht_l
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          sht_l_single_gpu = sht_l_gpu
 #endif
       end if
@@ -170,7 +170,9 @@ contains
          l_scrambled_theta=.false.
       end if
       deallocate( tmpr )
-
+#ifdef USE_GPU
+      l_scrambled_theta=.false. ! (OA) !!
+#endif
    end subroutine initialize_sht
 !------------------------------------------------------------------------------
    subroutine finalize_sht
@@ -181,7 +183,7 @@ contains
          call shtns_unset_grid(sht_l_single)
          call shtns_destroy(sht_l_single)
       end if
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       call shtns_unset_grid(sht_l_gpu)
       call shtns_destroy(sht_l_gpu)
       if ( l_batched_sh ) then
@@ -204,7 +206,7 @@ contains
       !-- Output variable
       real(cp), intent(out) :: fieldc(*)
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       logical :: loc_use_gpu
 
       if( present(use_gpu) ) then
@@ -214,11 +216,19 @@ contains
       end if
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if(loc_use_gpu) then
+#ifdef WITH_OMP_GPU
          !$omp target data use_device_addr(Slm, fieldc)
+#elif WITH_ACC_GPU
+         !$acc host_data use_device(Slm,fieldc)
+#endif
          call cu_SH_to_spat(sh, Slm, fieldc, lcut)
+#ifdef WITH_OMP_GPU
          !$omp end target data
+#elif WITH_ACC_GPU
+         !$acc end host_data
+#endif
       else
          call SH_to_spat_l(sh, Slm, fieldc, lcut)
       end if
@@ -226,7 +236,7 @@ contains
       call SH_to_spat_l(sh, Slm, fieldc, lcut)
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
 #ifdef EXPLICITE_SYNCHRO
       call hipCheck(hipDeviceSynchronize())
 #endif
@@ -248,7 +258,7 @@ contains
       real(cp), intent(out) :: gradtc(*)
       real(cp), intent(out) :: gradpc(*)
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       logical :: loc_use_gpu
 
       if( present(use_gpu) ) then
@@ -258,11 +268,19 @@ contains
       end if
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if(loc_use_gpu) then
+#ifdef WITH_OMP_GPU
          !$omp target data use_device_addr(Slm, gradtc, gradpc)
+#elif WITH_ACC_GPU
+         !$acc host_data use_device(Slm, gradtc, gradpc)
+#endif
          call cu_SHsph_to_spat(sht_l_gpu, Slm, gradtc, gradpc, lcut)
+#ifdef WITH_OMP_GPU
          !$omp end target data
+#elif WITH_ACC_GPU
+         !$acc end host_data
+#endif
       else
          call SHsph_to_spat_l(sht_l, Slm, gradtc, gradpc, lcut)
       endif
@@ -270,7 +288,7 @@ contains
       call SHsph_to_spat_l(sht_l, Slm, gradtc, gradpc, lcut)
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
 #ifdef EXPLICITE_SYNCHRO
       call hipCheck(hipDeviceSynchronize())
 #endif
@@ -290,7 +308,7 @@ contains
       real(cp), intent(out) :: vtc(*)
       real(cp), intent(out) :: vpc(*)
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       logical :: loc_use_gpu
 
       if( present(use_gpu) ) then
@@ -300,11 +318,19 @@ contains
       end if
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if(loc_use_gpu) then
+#ifdef WITH_OMP_GPU
          !$omp target data use_device_addr(Wlm, dWlm, Zlm, vrc, vtc, vpc)
+#elif WITH_ACC_GPU
+         !$acc host_data use_device(Wlm, dWlm, Zlm, vrc, vtc, vpc)
+#endif
          call cu_SHqst_to_spat(sht_l_gpu, Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
+#ifdef WITH_OMP_GPU
          !$omp end target data
+#elif WITH_ACC_GPU
+         !$acc end host_data
+#endif
       else
          call SHqst_to_spat_l(sht_l, Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
       end if
@@ -312,7 +338,7 @@ contains
       call SHqst_to_spat_l(sht_l, Wlm, dWlm, Zlm, vrc, vtc, vpc, lcut)
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
 #ifdef EXPLICITE_SYNCHRO
       call hipCheck(hipDeviceSynchronize())
 #endif
@@ -363,7 +389,7 @@ contains
       real(cp), intent(out) :: vtc(*)
       real(cp), intent(out) :: vpc(*)
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       logical :: loc_use_gpu
 
       if( present(use_gpu) ) then
@@ -373,11 +399,19 @@ contains
       end if
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if(loc_use_gpu) then
+#ifdef WITH_OMP_GPU
          !$omp target data use_device_addr(dWlm, Zlm, vtc, vpc)
+#elif WITH_ACC_GPU
+         !$acc host_data use_device(dWlm, Zlm, vtc, vpc)
+#endif
          call cu_SHsphtor_to_spat(sh, dWlm, Zlm, vtc, vpc, lcut)
+#ifdef WITH_OMP_GPU
          !$omp end target data
+#elif WITH_ACC_GPU
+         !$acc end host_data
+#endif
       else
          call SHsphtor_to_spat_l(sh, dWlm, Zlm, vtc, vpc, lcut)
       end if
@@ -385,7 +419,7 @@ contains
       call SHsphtor_to_spat_l(sh, dWlm, Zlm, vtc, vpc, lcut)
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
 #ifdef EXPLICITE_SYNCHRO
       call hipCheck(hipDeviceSynchronize())
 #endif
@@ -492,7 +526,7 @@ contains
       !-- Output variable
       complex(cp), intent(out) :: fLM(*)
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       logical :: loc_use_gpu
 
       if( present(use_gpu) ) then
@@ -502,11 +536,19 @@ contains
       end if
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if(loc_use_gpu) then
+#ifdef WITH_OMP_GPU
          !$omp target data use_device_addr(f, fLM)
+#elif WITH_ACC_GPU
+         !$acc host_data use_device(f, fLM)
+#endif
          call cu_spat_to_SH(sh, f, fLM, lcut)
+#ifdef WITH_OMP_GPU
          !$omp end target data
+#elif WITH_ACC_GPU
+         !$acc end host_data
+#endif
       else
          call spat_to_SH_l(sh, f, fLM, lcut)
       end if
@@ -514,7 +556,7 @@ contains
       call spat_to_SH_l(sh, f, fLM, lcut)
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
 #ifdef EXPLICITE_SYNCHRO
       call hipCheck(hipDeviceSynchronize())
 #endif
@@ -536,7 +578,7 @@ contains
       complex(cp), intent(out) :: sLM(*)
       complex(cp), intent(out) :: tLM(*)
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       logical :: loc_use_gpu
 
       if( present(use_gpu) ) then
@@ -546,11 +588,19 @@ contains
       end if
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if(loc_use_gpu) then
+#ifdef WITH_OMP_GPU
          !$omp target data use_device_addr(f, g, h, qLM, sLM, tLM)
+#elif WITH_ACC_GPU
+         !$acc host_data use_device(f, g, h, qLM, sLM, tLM)
+#endif
          call cu_spat_to_SHqst(sht_l_gpu, f, g, h, qLM, sLM, tLM, lcut)
+#ifdef WITH_OMP_GPU
          !$omp end target data
+#elif WITH_ACC_GPU
+         !$acc end host_data
+#endif
       else
          call spat_to_SHqst_l(sht_l, f, g, h, qLM, sLM, tLM, lcut)
       end if
@@ -558,7 +608,7 @@ contains
       call spat_to_SHqst_l(sht_l, f, g, h, qLM, sLM, tLM, lcut)
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
 #ifdef EXPLICITE_SYNCHRO
       call hipCheck(hipDeviceSynchronize())
 #endif
@@ -579,7 +629,7 @@ contains
       complex(cp), intent(out) :: fLM(*)
       complex(cp), intent(out) :: gLM(*)
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       logical :: loc_use_gpu
 
       if( present(use_gpu) ) then
@@ -589,11 +639,19 @@ contains
       end if
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if(loc_use_gpu) then
+#ifdef WITH_OMP_GPU
          !$omp target data use_device_addr(f, g, fLM, gLM)
+#elif WITH_ACC_GPU
+         !$acc host_data use_device(f, g, fLM, gLM)
+#endif
          call cu_spat_to_SHsphtor(sh, f, g, fLM, gLM, lcut)
+#ifdef WITH_OMP_GPU
          !$omp end target data
+#elif WITH_ACC_GPU
+         !$acc end host_data
+#endif
       else
          call spat_to_SHsphtor_l(sh, f, g, fLM, gLM, lcut)
       end if
@@ -601,7 +659,7 @@ contains
       call spat_to_SHsphtor_l(sh, f, g, fLM, gLM, lcut)
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
 #ifdef EXPLICITE_SYNCHRO
       call hipCheck(hipDeviceSynchronize())
 #endif

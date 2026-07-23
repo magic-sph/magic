@@ -7,7 +7,7 @@ module radial_der
 
    use constants, only: zero, one, three
    use precision_mod
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc
@@ -56,10 +56,14 @@ contains
          allocate( work(1:ulm-llm+1,n_r_max) )
          bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL+&
          &                 n_r_max*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
-#ifdef WITH_OMP_GPU
-         !$omp target enter data map(alloc: work)
+#ifdef USE_GPU
          gpu_bytes_allocated = gpu_bytes_allocated+n_r_max*SIZEOF_DEF_REAL+&
          &                     n_r_max*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+#endif
+#ifdef WITH_OMP_GPU
+         !$omp target enter data map(alloc: work)
+#elif WITH_ACC_GPU
+         !$acc enter data create(work)
 #endif
       end if
 
@@ -73,6 +77,8 @@ contains
       if ( .not. l_finite_diff ) then
 #ifdef WITH_OMP_GPU
          !$omp target exit data map(delete: work)
+#elif WITH_ACC_GPU
+         !$acc exit data delete(work)
 #endif
          deallocate( work_1d_real, work )
       end if
@@ -106,14 +112,14 @@ contains
       logical :: loc_use_gpu
       integer :: tmp_n_cheb
       loc_use_gpu = .false.
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if( present(use_gpu) ) then
          loc_use_gpu = use_gpu
       end if
 #endif
 
       if ( loc_use_gpu ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          !-- First Coefficient
          tmp_n_cheb = n_cheb_max-1
          if ( n_r_max == n_cheb_max ) then
@@ -123,7 +129,11 @@ contains
          end if
 
          !-- initialize derivatives:
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do n_cheb=1,n_r_max
             do n_f=n_f_start,n_f_stop
                if(n_cheb == tmp_n_cheb) then
@@ -133,19 +143,39 @@ contains
                end if
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
 
          !----- Recursion
+#ifdef WITH_OMP_GPU
          !$omp target teams private(n_f,n_cheb,fac_cheb)
+#elif WITH_ACC_GPU
+         !$acc parallel loop seq private(fac_cheb)
+#endif
          do n_cheb=n_cheb_max-2,1,-1
             fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+#ifdef WITH_OMP_GPU
             !$omp distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc loop independent
+#endif
             do n_f=n_f_start,n_f_stop
                df(n_f,n_cheb)=df(n_f,n_cheb+2) + fac_cheb*f(n_f,n_cheb+1)
             end do
+#ifdef WITH_OMP_GPU
             !$omp end distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end loop
+#endif
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
 #endif
       else
          !-- initialize derivatives:
@@ -242,14 +272,14 @@ contains
       logical :: loc_use_gpu
       integer :: tmp_n_cheb
       loc_use_gpu = .false.
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if( present(use_gpu) ) then
          loc_use_gpu = use_gpu
       end if
 #endif      
       
       if ( loc_use_gpu ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          !-- First coefficients:
          tmp_n_cheb = n_cheb_max - 1
          if ( n_cheb_max == n_r_max ) then
@@ -259,8 +289,13 @@ contains
          end if
 
          !----- initialize derivatives:
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop
+#endif
          do n_cheb=1,n_r_max
+            !$acc loop
             do n_f=n_f_start,n_f_stop
                if(n_cheb == tmp_n_cheb) then
                   df(n_f,n_cheb) =fac_cheb*f(n_f,n_cheb+1)
@@ -271,20 +306,38 @@ contains
                end if
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
-
-         !----- recursion
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
+         
+!----- recursion
+#ifdef WITH_OMP_GPU
          !$omp target teams private(n_f,n_cheb,fac_cheb)
+#elif WITH_ACC_GPU
+         !$acc parallel loop seq private(fac_cheb)
+#endif
          do n_cheb=n_cheb_max-2,1,-1
             fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+#ifdef WITH_OMP_GPU
             !$omp distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc loop independent
+#endif
             do n_f=n_f_start,n_f_stop
                df(n_f,n_cheb) = df(n_f,n_cheb+2) + fac_cheb* f(n_f,n_cheb+1)
                ddf(n_f,n_cheb)=ddf(n_f,n_cheb+2) + fac_cheb*df(n_f,n_cheb+1)
             end do
+#ifdef WITH_OMP_GPU
             !$omp end distribute parallel do
+#endif
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
 #endif
       else
          !----- initialize derivatives:
@@ -349,14 +402,14 @@ contains
       logical :: loc_use_gpu
       integer :: tmp_n_cheb
       loc_use_gpu = .false.
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if( present(use_gpu) ) then
          loc_use_gpu = use_gpu
       end if
 #endif
 
       if ( loc_use_gpu ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          !-- First coefficients
          tmp_n_cheb=n_cheb_max-1
          if ( n_cheb_max == n_r_max ) then
@@ -366,7 +419,11 @@ contains
          end if
 
          !----- initialize derivatives:
+#ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do n_cheb=1,n_r_max
             do n_f=n_f_start,n_f_stop
                if(n_cheb == tmp_n_cheb) then
@@ -380,21 +437,39 @@ contains
                end if
             end do
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
 
          !----- Recursion
+#ifdef WITH_OMP_GPU
          !$omp target teams private(n_f,n_cheb,fac_cheb)
+#elif WITH_ACC_GPU
+         !$acc parallel loop seq private(fac_cheb)
+#endif
          do n_cheb=n_cheb_max-2,1,-1
             fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+#ifdef WITH_OMP_GPU
             !$omp distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc loop independent
+#endif
             do n_f=n_f_start,n_f_stop
                df(n_f,n_cheb)  =  df(n_f,n_cheb+2) + fac_cheb*  f(n_f,n_cheb+1)
                ddf(n_f,n_cheb) = ddf(n_f,n_cheb+2) + fac_cheb* df(n_f,n_cheb+1)
                dddf(n_f,n_cheb)=dddf(n_f,n_cheb+2) + fac_cheb*ddf(n_f,n_cheb+1)
             end do
+#ifdef WITH_OMP_GPU
             !$omp end distribute parallel do
+#endif
          end do
+#ifdef WITH_OMP_GPU
          !$omp end target teams
+#elif WITH_ACC_GPU
+         !$acc end parallel
+#endif
 #endif
       else
          !----- initialize derivatives:
@@ -520,7 +595,7 @@ contains
       integer :: n_r,n_f,od
       logical :: copy_array, l_dct_in_loc, loc_use_gpu
       loc_use_gpu = .false.
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if( present(use_gpu) ) then
          loc_use_gpu = use_gpu
       end if
@@ -544,12 +619,18 @@ contains
             if(loc_use_gpu) then
 #ifdef WITH_OMP_GPU
                !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+               !$acc parallel loop collapse(2)
+#endif
                do n_r=1,n_r_max
                   do n_f=n_f_start,n_f_stop
                      work(n_f,n_r)=f(n_f,n_r)
                   end do
                end do
+#ifdef WITH_OMP_GPU
                !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+               !$acc end parallel
 #endif
             else
                do n_r=1,n_r_max
@@ -594,12 +675,18 @@ contains
          if(loc_use_gpu) then
 #ifdef WITH_OMP_GPU
             !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+            !$acc parallel loop collapse(2)
+#endif
             do n_r=1,n_r_max
                do n_f=n_f_start,n_f_stop
                   df(n_f,n_r)=r_scheme%drx(n_r)*df(n_f,n_r)
                end do
             end do
+#ifdef WITH_OMP_GPU
             !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+            !$acc end parallel
 #endif
          else
             do n_r=1,n_r_max
@@ -615,15 +702,26 @@ contains
 #ifdef WITH_OMP_GPU
             !-- Initialise to zero:
             !$omp target
+#elif WITH_ACC_GPU
+            !$acc parallel loop collapse(2)
+#endif
             do n_r=1,n_r_max
                do n_f=n_f_start,n_f_stop
                   df(n_f,n_r) =zero
                end do
             end do
+#ifdef WITH_OMP_GPU
             !$omp end target
+#elif WITH_ACC_GPU
+            !$acc end parallel
+#endif
 
             !-- Bulk points for 1st derivative
+#ifdef WITH_OMP_GPU
             !$omp target
+#elif WITH_ACC_GPU
+            !$acc parallel loop collapse(2)
+#endif
             do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
                do n_f=n_f_start,n_f_stop
                   do od=0,r_scheme%order
@@ -631,7 +729,11 @@ contains
                   end do
                end do
             end do
+#ifdef WITH_OMP_GPU
             !$omp end target
+#elif WITH_ACC_GPU
+            !$acc end parallel
+#endif
             !-- TODO: New version below make the kernel is not skipped but give wrong results
 !             !$omp target teams private(n_r, n_f, od)
 !             do od=0,r_scheme%order
@@ -649,8 +751,13 @@ contains
 
 
             !-- Boundary points for 1st derivative
+#ifdef WITH_OMP_GPU
             !$omp target
+#elif WITH_ACC_GPU
+            !$acc parallel loop independent 
+#endif
             do n_r=1,r_scheme%order/2
+               !$acc loop independent
                do n_f=n_f_start,n_f_stop
                   do od=0,r_scheme%order_boundary
                      df(n_f,n_r) = df(n_f,n_r)+r_scheme%dr_top(n_r,od) * f(n_f,od+1)
@@ -659,7 +766,10 @@ contains
                   end do
                end do
             end do
+#ifdef WITH_OMP_GPU
             !$omp end target
+#elif WITH_ACC_GPU
+            !$acc end parallel
 #endif
         else
             !-- Initialise to zero:
@@ -723,7 +833,7 @@ contains
       logical :: l_dct_in_loc
       logical :: loc_use_gpu
       loc_use_gpu = .false.
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       loc_use_gpu = .true.
 #endif
 
@@ -738,6 +848,8 @@ contains
          !-- Copy input functions:
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
 #endif
          do n_r=1,n_r_max
             do n_f=n_f_start,n_f_stop
@@ -746,6 +858,8 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
 
          !-- Transform f to cheb space:
@@ -764,6 +878,8 @@ contains
          !-- New map:
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
 #endif
          do n_r=1,n_r_max
             do n_f=n_f_start,n_f_stop
@@ -774,13 +890,17 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
 
       else
 
          !-- Initialise to zero:
 #ifdef WITH_OMP_GPU
-         !$omp target
+         !$omp target  teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
 #endif
          do n_r=1,n_r_max
             do n_f=n_f_start,n_f_stop
@@ -789,12 +909,16 @@ contains
             end do
          end do
 #ifdef WITH_OMP_GPU
-         !$omp end target
+         !$omp end target  teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
 
          !-- Bulk points for 1st and 2nd derivatives
 #ifdef WITH_OMP_GPU
          !$omp target
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
 #endif
          do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
             do n_f=n_f_start,n_f_stop
@@ -806,11 +930,15 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
 
          !-- Boundary points for 1st derivative
 #ifdef WITH_OMP_GPU
          !$omp target
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
 #endif
          do n_r=1,r_scheme%order/2
             do n_f=n_f_start,n_f_stop
@@ -823,11 +951,15 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
 
          !-- Boundary points for 2nd derivative
 #ifdef WITH_OMP_GPU
          !$omp target
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
 #endif
          do n_r=1,r_scheme%order/2
             do n_f=n_f_start,n_f_stop
@@ -840,6 +972,8 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
 
       end if
@@ -876,7 +1010,7 @@ contains
       logical :: l_dct_in_loc
       logical :: loc_use_gpu
       loc_use_gpu = .false.
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       loc_use_gpu = .true.
 #endif
 
@@ -891,6 +1025,8 @@ contains
          !-- Copy input functions:
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
 #endif
          do n_r=1,n_r_max
             do n_f=n_f_start,n_f_stop
@@ -899,6 +1035,8 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
 
          !-- Transform f to cheb space:
@@ -918,6 +1056,8 @@ contains
          !-- New map:
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
 #endif
          do n_r=1,n_r_max
             do n_f=n_f_start,n_f_stop
@@ -933,6 +1073,8 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
 
       else
@@ -940,6 +1082,8 @@ contains
          !-- Initialise to zero:
 #ifdef WITH_OMP_GPU
          !$omp target
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
 #endif
          do n_r=1,n_r_max
             do n_f=n_f_start,n_f_stop
@@ -950,11 +1094,15 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
 
          !-- Bulk points for 1st and 2nd derivatives
 #ifdef WITH_OMP_GPU
          !$omp target
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
 #endif
          do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
             do n_f=n_f_start,n_f_stop
@@ -966,11 +1114,15 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
 
          !-- Bulk points for 3rd derivative
 #ifdef WITH_OMP_GPU
          !$omp target
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
 #endif
          do n_r=2+r_scheme%order/2,n_r_max-r_scheme%order/2-1
             do n_f=n_f_start,n_f_stop
@@ -981,11 +1133,15 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
 
          !-- Boundary points for 1st derivative
 #ifdef WITH_OMP_GPU
          !$omp target
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
 #endif
          do n_r=1,r_scheme%order/2
             do n_f=n_f_start,n_f_stop
@@ -998,11 +1154,15 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
 
          !-- Boundary points for 2nd derivative
 #ifdef WITH_OMP_GPU
          !$omp target
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
 #endif
          do n_r=1,r_scheme%order/2
             do n_f=n_f_start,n_f_stop
@@ -1015,11 +1175,15 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
 
          !-- Boundary points for 3rd derivative
 #ifdef WITH_OMP_GPU
          !$omp target
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2) 
 #endif
          do n_r=1,r_scheme%order/2+1
             do n_f=n_f_start,n_f_stop
@@ -1032,6 +1196,8 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
 
       end if
@@ -1064,7 +1230,7 @@ contains
          call abortRun('Distributed r-der not implemented in this case yet!')
       end if
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       start_lm=1; stop_lm=lm_max
 #else
       !$omp parallel default(shared) private(start_lm,stop_lm,lm)
@@ -1089,12 +1255,12 @@ contains
       end do
 
       !-- Exchange the ghost zones
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp barrier
       !$omp master
 #endif
       call exch_ghosts(work_ghost, lm_max, nRstart, nRstop, r_scheme%order/2)
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp end master
       !$omp barrier
 #endif
@@ -1102,6 +1268,8 @@ contains
       !-- Bulk points for 1st derivative
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)
 #endif
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
@@ -1112,16 +1280,18 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
       !-- Exchange boundary values
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp barrier
       !$omp master
 #endif
       call get_bound_vals(fbot, ftop, lm_max, nRstart, nRstop, n_r_max, &
            &              r_scheme%order_boundary+1)
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp end master
       !$omp barrier
 #endif
@@ -1130,6 +1300,8 @@ contains
       if ( rank == 0 ) then
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do lm=start_lm,stop_lm
             df_Rloc(lm,1)=zero
@@ -1139,12 +1311,16 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if
 
       if ( rank == n_procs -1 ) then
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do lm=start_lm,stop_lm
             df_Rloc(lm,n_r_max)=zero
@@ -1155,10 +1331,12 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if
 
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp end parallel
 #endif
 
@@ -1192,7 +1370,7 @@ contains
          call abortRun('Distributed r-der not implemented in this case yet!')
       end if
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       start_lm=1; stop_lm=lm_max
 #else
       !$omp parallel default(shared) private(start_lm,stop_lm,n_r,od)
@@ -1215,12 +1393,12 @@ contains
       end do
 
       !-- Exchange the ghost zones
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp barrier
       !$omp master
 #endif
       call exch_ghosts(work_ghost, lm_max, nRstart, nRstop, r_scheme%order/2)
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp end master
       !$omp barrier
 #endif
@@ -1228,6 +1406,8 @@ contains
       !-- Bulk points for 1st and 2nd derivatives
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)
 #endif
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
@@ -1241,16 +1421,18 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
       !-- Exchange boundary values
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp barrier
       !$omp master
 #endif
       call get_bound_vals(fbot, ftop, lm_max, nRstart, nRstop, n_r_max, &
            &              r_scheme%order_boundary+2)
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp end master
       !$omp barrier
 #endif
@@ -1259,6 +1441,8 @@ contains
       if ( rank == 0 ) then
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do lm=start_lm,stop_lm
             df_Rloc(lm,1) =zero
@@ -1272,12 +1456,16 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if
 
       if ( rank == n_procs-1 ) then
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc parallel loop
 #endif
          do lm=start_lm,stop_lm
             df_Rloc(lm,n_r_max) =zero
@@ -1293,10 +1481,12 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       end if
 
-#ifndef WITH_OMP_GPU
+#ifndef USE_GPU
       !$omp end parallel
 #endif
 
@@ -1330,6 +1520,8 @@ contains
       !-- Bulk points for 1st and 2nd derivatives
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)
 #endif
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
@@ -1343,6 +1535,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
    end subroutine get_ddr_ghost
@@ -1377,6 +1571,8 @@ contains
       !-- 1st and 2nd derivatives
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)
 #endif
       do n_r=nRstart,nRstop
          do lm=start_lm,stop_lm
@@ -1400,6 +1596,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
    end subroutine get_ddddr_ghost
@@ -1521,7 +1719,7 @@ contains
       integer :: n_r, lm
       logical loc_use_gpu
       loc_use_gpu = .false.
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       if( present(use_gpu) ) then
          loc_use_gpu = use_gpu
       end if
@@ -1530,12 +1728,18 @@ contains
       if(loc_use_gpu) then
 #ifdef WITH_OMP_GPU
          !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2)
+#endif
          do n_r=nRstart,nRstop
             do lm=start_lm,stop_lm
                x_g(lm,n_r)=x(lm,n_r)
             end do
          end do
+#ifdef WITH_OMP_GPU 
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #endif
       else
          do n_r=nRstart,nRstop

@@ -772,17 +772,24 @@ contains
 
       !-- Output variables
       integer(lip),        intent(inout) :: disp
-      complex(cp),         intent(inout) :: work(llm:ulm, n_r_max) 
+      complex(cp),         intent(inout) :: work(lm_max, nRstart:nRstop)
 
       !-- Local variables
       integer :: n_o
       integer :: istat(MPI_STATUS_SIZE)
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       complex(cp), allocatable :: ptr_dwdt(:,:)
-      allocate(ptr_dwdt(llm:ulm,nRstart:nRstop))
+      allocate(ptr_dwdt(llm:ulm,1:n_r_max))
       ptr_dwdt(:,:) = 0.0_cp
+#ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: work, ptr_dwdt)
       !$omp target update to(work, ptr_dwdt)
+#elif WITH_ACC_GPU
+      !$acc enter data create(work, ptr_dwdt)
+      !$acc kernels
+      ptr_dwdt(:,:) = 0.0_cp
+      !$acc end kernels
+#endif
 #endif
 
       call MPI_File_Write_all(fh, w, lm_max*nR_per_rank, &
@@ -795,11 +802,20 @@ contains
 
          do n_o=2,tscheme%nexp
             if ( l_transp ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
                ptr_dwdt(:,:) = dwdt%expl(:,:,n_o)
+#ifdef WITH_OMP_GPU
                !$omp target update to(ptr_dwdt)
+#elif WITH_ACC_GPU
+               !$acc update device(ptr_dwdt)
+#endif
                call lo2r_one%transp_lm2r(ptr_dwdt, work)
+#ifdef WITH_OMP_GPU
                !$omp target update from(work)
+#elif WITH_ACC_GPU
+               !$acc update self(work)
+#endif
+
 #else
                call lo2r_one%transp_lm2r(dwdt%expl(:,:,n_o), work)
 #endif
@@ -816,11 +832,19 @@ contains
 
          do n_o=2,tscheme%nimp
             if ( l_transp ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
                ptr_dwdt(:,:) = dwdt%impl(:,:,n_o)
+#ifdef WITH_OMP_GPU
                !$omp target update to(ptr_dwdt)
+#elif WITH_ACC_GPU
+               !$acc update device(ptr_dwdt)
+#endif
                call lo2r_one%transp_lm2r(ptr_dwdt, work)
+#ifdef WITH_OMP_GPU
                !$omp target update from(work)
+#elif WITH_ACC_GPU
+               !$acc update self(work)
+#endif
 #else
                call lo2r_one%transp_lm2r(dwdt%impl(:,:,n_o), work)
 #endif
@@ -837,11 +861,19 @@ contains
 
          do n_o=2,tscheme%nold
             if ( l_transp ) then
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
                ptr_dwdt(:,:) = dwdt%old(:,:,n_o)
+#ifdef WITH_OMP_GPU
                !$omp target update to(ptr_dwdt)
+#elif WITH_ACC_GPU
+               !$acc update device(ptr_dwdt)
+#endif
                call lo2r_one%transp_lm2r(ptr_dwdt, work)
+#ifdef WITH_OMP_GPU
                !$omp target update from(work)
+#elif WITH_ACC_GPU
+               !$acc update self(work)
+#endif
 #else
                call lo2r_one%transp_lm2r(dwdt%old(:,:,n_o), work)
 #endif
@@ -858,8 +890,12 @@ contains
 
       end if
 
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: work, ptr_dwdt)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(work, ptr_dwdt)
+#endif
       deallocate(ptr_dwdt)
 #endif
 

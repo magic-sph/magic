@@ -1,7 +1,7 @@
 module grid_blocking
 
    use precision_mod
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc, only: bytes_allocated
@@ -111,6 +111,10 @@ contains
       !$omp target update to(spec2rad) nowait
       !$omp target update to(radlatlon2spat) nowait
       !$omp target update to(spec2lm) nowait
+#elif WITH_ACC_GPU
+      !$acc enter data copyin (spat2lat, spat2lon, spat2rad, spec2rad, radlatlon2spat, spec2lm)
+#endif
+#ifdef USE_GPU
       gpu_bytes_allocated = gpu_bytes_allocated+(3*n_phys_space)*SIZEOF_INTEGER
       gpu_bytes_allocated = gpu_bytes_allocated+nlat_padded*n_phi_max*(nRstop-nRstart+1)* &
       &                 SIZEOF_INTEGER
@@ -123,6 +127,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: spat2lat, spat2lon, spat2rad, spec2rad, radlatlon2spat, spec2lm)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(spat2lat, spat2lon, spat2rad, spec2rad, radlatlon2spat, spec2lm)
 #endif
       deallocate( spat2lat, spat2lon, spat2rad, radlatlon2spat )
       deallocate( spec2lm, spec2rad )

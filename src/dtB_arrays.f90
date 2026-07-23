@@ -1,7 +1,7 @@
 module dtB_arrays_mod
 
    use truncation, only: lm_max_dtB
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc, only: bytes_allocated
@@ -15,6 +15,8 @@ module dtB_arrays_mod
 
 #ifdef WITH_OMP_GPU
    !$omp declare target (dtB_arrays_t)
+!#elif WITH_ACC_GPU
+!   !$acc declare target (dtB_arrays_t)
 #endif
 
    type, public :: dtB_arrays_t
@@ -43,9 +45,13 @@ contains
       allocate( this%BtVZsn2LM(lm_max_dtB) )
       bytes_allocated = bytes_allocated+ 11*lm_max_dtB*SIZEOF_DEF_COMPLEX
 
+#ifdef USE_GPU
+      gpu_bytes_allocated = gpu_bytes_allocated+ 11*lm_max_dtB*SIZEOF_DEF_COMPLEX
+#endif
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(alloc: this)
-      gpu_bytes_allocated = gpu_bytes_allocated+ 11*lm_max_dtB*SIZEOF_DEF_COMPLEX
+#elif WITH_ACC_GPU
+!      !$acc enter data create(this)
 #endif
 
       !--
@@ -59,6 +65,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(release: this)
+#elif WITH_ACC_GPU
+!      !$acc exit data delete(this)
 #endif
 
       deallocate( this%BtVrLM, this%BpVrLM, this%BrVtLM )
@@ -72,6 +80,9 @@ contains
 
       class(dtB_arrays_t) :: this
 
+#ifdef WITH_ACC_GPU
+      !$acc kernels
+#endif
       this%BtVrLM(:) = zero
       this%BpVrLM(:) = zero
       this%BrVtLM(:) = zero
@@ -83,6 +94,9 @@ contains
       this%BpVtBtVpCotLM(:) = zero
       this%BpVtBtVpSn2LM(:) = zero
       this%BtVZsn2LM(:) = zero
+#ifdef WITH_ACC_GPU
+      !$acc end kernels
+#endif
 
 #ifdef WITH_OMP_GPU
       !$omp target update to(this)

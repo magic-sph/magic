@@ -143,6 +143,10 @@ program magic
 
    use sht, only: initialize_sht, finalize_sht
 
+#ifdef WITH_ACC_GPU
+   use openacc
+#endif
+
    implicit none
 
    !-- Local variables:
@@ -173,6 +177,21 @@ program magic
    character(len=14) :: str_1
 #endif
 #endif
+#ifdef WITH_ACC_GPU
+   character(len=6) :: local_rank_env
+   integer          :: local_rank_env_status, local_rank
+   
+   call get_environment_variable(name="SLURM_LOCALID", value=local_rank_env, status=local_rank_env_status)
+ 
+   if (local_rank_env_status == 0) then
+      read(local_rank_env, *) local_rank
+      call acc_set_device_num(local_rank, acc_get_device_type())
+   else
+      print *, "Environment variable SLURM_LOCALID not found. GPU binding may not work properly."
+      stop 1
+   end if
+#endif
+
 
 #ifdef WITH_MPI
 #ifdef WITHOMP

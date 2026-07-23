@@ -130,6 +130,11 @@ contains
    end subroutine factorise
 !----------------------------------------------------------------------------
    real(cp)  function cc2real(c,m)
+#ifdef WITH_OMP_GPU
+   !$omp declare target device_type(any)
+#elif WITH_ACC_GPU
+   !$acc routine seq
+#endif
       !
       ! This function computes the norm of complex number, depending on the
       ! azimuthal wavenumber.

@@ -8,7 +8,7 @@ module communications
 #endif
    use constants, only: zero
    use precision_mod
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: memWrite, bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc, only: memWrite, bytes_allocated
@@ -44,7 +44,7 @@ module communications
       integer :: dim2
    end type gather_type
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    integer, public :: mpi_com_type
 #endif
 
@@ -85,14 +85,14 @@ contains
    subroutine initialize_communications
 
       integer(lip) :: local_bytes_used
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       integer(lip) :: local_bytes_used_gpu
 #endif
       real(cp) :: minTime, minTime5, minTime1
       integer :: idx, idx5, idx1, n, n_out
 
       local_bytes_used=bytes_allocated
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       mpi_com_type = 0
       local_bytes_used_gpu=gpu_bytes_allocated
 #endif
@@ -190,7 +190,7 @@ contains
          allocate( type_mpiptop :: lo2r_xi )
          allocate( type_mpiptop :: r2lo_xi )
          allocate( type_mpiptop :: lo2r_press )
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          mpi_com_type = 1
 #endif
       else if ( idx == 2 ) then
@@ -205,7 +205,7 @@ contains
          allocate( type_mpiatoav :: lo2r_xi )
          allocate( type_mpiatoav :: r2lo_xi )
          allocate( type_mpiatoav :: lo2r_press )
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          mpi_com_type = 2
 #endif
       else if ( idx == 3 ) then
@@ -220,7 +220,7 @@ contains
          allocate( type_mpiatoaw :: lo2r_xi )
          allocate( type_mpiatoaw :: r2lo_xi )
          allocate( type_mpiatoaw :: lo2r_press )
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          mpi_com_type = 3
 #endif
       else if ( idx == 4 ) then
@@ -235,7 +235,7 @@ contains
          allocate( type_mpiatoap :: lo2r_xi )
          allocate( type_mpiatoap :: r2lo_xi )
          allocate( type_mpiatoap :: lo2r_press )
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          mpi_com_type = 4
 #endif
       end if
@@ -291,7 +291,7 @@ contains
       if ( rank == 0 ) then
          allocate(temp_gather_lo(1:lm_max))
          bytes_allocated = bytes_allocated + lm_max*SIZEOF_DEF_COMPLEX
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
          gpu_bytes_allocated = gpu_bytes_allocated + lm_max*SIZEOF_DEF_COMPLEX
 #endif
       else
@@ -300,7 +300,7 @@ contains
 
       local_bytes_used = bytes_allocated - local_bytes_used
       call memWrite('communications.f90', local_bytes_used)
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       local_bytes_used_gpu = gpu_bytes_allocated - local_bytes_used_gpu
       call memWrite('communications.f90 - GPU', local_bytes_used_gpu)
 #endif
@@ -997,6 +997,8 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: arr_LMLoc, arr_RLoc)
          !$omp target update to(arr_LMLoc, arr_RLoc)
+#elif WITH_ACC_GPU
+         !$acc enter data copyin(arr_LMLoc, arr_RLoc)
 #endif
 
          !-- Try the all-to-allv strategy (10 back and forth transposes)
@@ -1017,11 +1019,15 @@ contains
             call MPI_Barrier(MPI_COMM_WORLD, ierr)
 #ifdef WITH_OMP_GPU
             !$omp target update to(arr_LMLoc, arr_RLoc)
+#elif WITH_ACC_GPU
+            !$acc update device(arr_LMLoc, arr_RLoc)
 #endif
             call lo2r_test%transp_r2lm(arr_RLoc, arr_LMLoc)
             call lo2r_test%transp_lm2r(arr_LMLoc, arr_RLoc)
 #ifdef WITH_OMP_GPU
             !$omp target update from(arr_LMLoc, arr_RLoc)
+#elif WITH_ACC_GPU
+            !$acc update self(arr_LMLoc, arr_RLoc)
 #endif
          end do
          tStop = MPI_Wtime()
@@ -1033,6 +1039,8 @@ contains
 
 #ifdef WITH_OMP_GPU
          !$omp target exit data map(delete: arr_LMLoc, arr_RLoc)
+#elif WITH_ACC_GPU
+         !$acc exit data delete(arr_LMLoc, arr_RLoc)
 #endif
          deallocate( arr_RLoc, arr_LMLoc )
       end do
@@ -1120,6 +1128,12 @@ contains
       arr_Rloc(:,:,:) = 0.0_cp;  arr_LMloc(:,:,:) = 0.0_cp
       !$omp target enter data map(alloc: arr_Rloc, arr_LMloc)
       !$omp target update to(arr_Rloc, arr_LMloc)
+#elif WITH_ACC_GPU
+      !$acc enter data create(arr_Rloc,arr_LMloc)
+      !$acc kernels
+      arr_Rloc(:,:,:) = 0.0_cp
+      arr_LMloc(:,:,:) = 0.0_cp
+      !$acc end kernels
 #endif
 
       !-- First fill an array with random numbers
@@ -1135,6 +1149,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target update to(arr_Rloc)
+#elif WITH_ACC_GPU
+      !$acc update device(arr_Rloc)
 #endif
 
       !-- Try the all-to-allv strategy (10 back and forth transposes)
@@ -1260,6 +1276,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: arr_Rloc, arr_LMloc)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(arr_Rloc,arr_LMloc)
 #endif
 
 #else

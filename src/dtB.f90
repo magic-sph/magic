@@ -25,7 +25,7 @@ module dtB_mod
    use blocking, only: lo_map, st_map, lm2l, lm2m, llmMag, ulmMag, llm, ulm, &
        &               lm2lmS, lm2lmA
    use radial_spectra ! rBrSpec, rBpSpec
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use sht, only: scal_to_SH, sht_l_single, sht_l_single_gpu, spat_to_sphertor
 #else
    use sht, only: scal_to_SH, sht_l_single, spat_to_sphertor
@@ -256,6 +256,19 @@ contains
       !$omp target teams distribute parallel do &
       !$omp& private(fac, facCot)               &
       !$omp& reduction(+:vpAS)
+#elif WITH_ACC_GPU
+      !$acc enter data create(BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
+      !$acc&                  BpVtBtVpCot, BpVtBtVpSn2, BtVZsn2, vpAS)
+      !$acc kernels
+      BtVr(:,:)=0.0_cp; BpVr(:,:)=0.0_cp
+      BrVt(:,:)=0.0_cp; BrVp(:,:)=0.0_cp
+      BtVp(:,:)=0.0_cp; BpVt(:,:)=0.0_cp
+      BrVZ(:,:)=0.0_cp; BtVZ(:,:)=0.0_cp
+      BpVtBtVpCot(:,:)=0.0_cp; BpVtBtVpSn2(:,:)=0.0_cp
+      BtVZsn2(:,:)=0.0_cp
+      vpAS(:)=0.0_cp
+      !$acc end kernels
+      !$acc parallel loop private(fac, facCot) reduction(+:vpAS)
 #else
       !$omp parallel do default(shared) &
       !$omp& private(n_theta, n_phi, fac, facCot) &
@@ -289,6 +302,11 @@ contains
          vpAS(n_theta)=vpAS(n_theta)/real(n_phi_max,kind=cp)
       end do
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+      !$acc kernels
+      vpAS(:)=vpAS(:)/real(n_phi_max,kind=cp)
+      !$acc end kernels
 #else
       !$omp end parallel do
       vpAS(:)=vpAS(:)/real(n_phi_max,kind=cp)
@@ -298,6 +316,8 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2) &
       !$omp private(fac,facCot)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2) private(fac,facCot)
 #else
       !$omp parallel do default(shared) &
       !$omp private(n_phi,n_theta,fac,facCot)
@@ -314,11 +334,13 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       call spat_to_sphertor(sht_l_single_gpu, BtVr, BpVr, BtVrLM, BpVrLM, l_max, .true.)
       call spat_to_sphertor(sht_l_single_gpu, BrVt, BrVp, BrVtLM, BrVpLM, l_max, .true.)
 
@@ -331,9 +353,13 @@ contains
       call scal_to_SH(sht_l_single_gpu, BrVZ, BrVZLM, l_max, .true.)
       call scal_to_SH(sht_l_single_gpu, BtVZ, BtVZLM, l_max, .true.)
       call scal_to_SH(sht_l_single_gpu, BtVZsn2, BtVZsn2LM, l_max, .true.)
-
+#ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
       !$omp&                             BpVtBtVpCot, BpVtBtVpSn2, BtVZsn2, vpAS)
+#elif WITH_ACC_GPU
+      !$acc exit data delete (BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
+      !$acc&                  BpVtBtVpCot, BpVtBtVpSn2, BtVZsn2, vpAS)
+#endif
 #else
       call spat_to_sphertor(sht_l_single, BtVr, BpVr, BtVrLM, BpVrLM, l_max)
       call spat_to_sphertor(sht_l_single, BrVt, BrVp, BrVtLM, BrVpLM, l_max)
@@ -410,6 +436,19 @@ contains
       !$omp target teams distribute parallel do &
       !$omp& private(fac, facCot)               &
       !$omp& reduction(+:vpAS)
+#elif WITH_ACC_GPU
+      !$acc enter data create(BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
+      !$acc&                             BpVtBtVpCot, BpVtBtVpSn2, BtVZsn2, vpAS)
+      !$acc kernels
+      BtVr(:,:)=0.0_cp; BpVr(:,:)=0.0_cp
+      BrVt(:,:)=0.0_cp; BrVp(:,:)=0.0_cp
+      BtVp(:,:)=0.0_cp; BpVt(:,:)=0.0_cp
+      BrVZ(:,:)=0.0_cp; BtVZ(:,:)=0.0_cp
+      BpVtBtVpCot(:,:)=0.0_cp; BpVtBtVpSn2(:,:)=0.0_cp
+      BtVZsn2(:,:)=0.0_cp
+      vpAS(:)=0.0_cp
+      !$acc end kernels
+      !$acc parallel loop private(fac, facCot) reduction(+:vpAS)
 #else
       !$omp parallel do default(shared) &
       !$omp& private(n_theta, n_phi, fac, facCot) &
@@ -443,6 +482,11 @@ contains
          vpAS(n_theta)=vpAS(n_theta)/real(n_phi_max,kind=cp)
       end do
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+      !$acc kernels
+      vpAS(:)=vpAS(:)/real(n_phi_max,kind=cp)
+      !$acc end kernels
 #else
       !$omp end parallel do
       vpAS(:)=vpAS(:)/real(n_phi_max,kind=cp)
@@ -452,6 +496,8 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2) &
       !$omp private(fac,facCot)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2) private(fac,facCot)
 #else
       !$omp parallel do default(shared) &
       !$omp private(n_phi,n_theta,fac,facCot)
@@ -468,11 +514,13 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
       call spat_to_sphertor(sht_l_single_gpu, BtVr, BpVr, BtVrLM, BpVrLM, l_max, .true.)
       call spat_to_sphertor(sht_l_single_gpu, BrVt, BrVp, BrVtLM, BrVpLM, l_max, .true.)
 
@@ -485,9 +533,13 @@ contains
       call scal_to_SH(sht_l_single_gpu, BrVZ, BrVZLM, l_max, .true.)
       call scal_to_SH(sht_l_single_gpu, BtVZ, BtVZLM, l_max, .true.)
       call scal_to_SH(sht_l_single_gpu, BtVZsn2, BtVZsn2LM, l_max, .true.)
-
+#ifdef WITH_OMP_GPU
       !$omp target exit data map(delete: BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
       !$omp&                             BpVtBtVpCot, BpVtBtVpSn2, BtVZsn2, vpAS)
+#elif WITH_ACC_GPU
+      !$acc exit data delete (BtVr, BpVr, BrVt, BrVp, BtVp, BpVt, BrVZ, BtVZ, &
+      !$acc&                  BpVtBtVpCot, BpVtBtVpSn2, BtVZsn2, vpAS)
+#endif
 #else
       call spat_to_sphertor(sht_l_single, BtVr, BpVr, BtVrLM, BpVrLM, l_max)
       call spat_to_sphertor(sht_l_single, BrVt, BrVp, BrVtLM, BrVpLM, l_max)
@@ -526,7 +578,7 @@ contains
       integer :: l,m,lm,lmS,lmA
       real(cp) :: fac
 
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
 #else
       !$omp parallel default(shared) private(lm,lmS,lmA,l,m,fac)
 #endif
@@ -536,6 +588,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
 #else
       !$omp do
 #endif
@@ -545,6 +599,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp target update from(dtB_Rloc_container)
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end do
 #endif
@@ -555,6 +611,8 @@ contains
       TstrRLM_Rloc(1,nR)=0.0_cp
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
 #else
       !$omp do
 #endif
@@ -583,6 +641,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end do
 #endif
@@ -591,6 +651,8 @@ contains
       TadvRLM_Rloc(1,nR)=0.0_cp
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
 #else
       !$omp do
 #endif
@@ -619,6 +681,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end do
 #endif
@@ -629,6 +693,8 @@ contains
       TomeRLM_Rloc(1,nR)=0.0_cp
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop
 #else
       !$omp do
 #endif
@@ -655,6 +721,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end do
       !$omp end parallel
@@ -690,11 +758,15 @@ contains
       !-- Bring some array from rLoc to LMloc
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(to: dtB_Rloc_container, dtB_LMloc_container)
+#elif WITH_ACC_GPU
+         !$acc enter data copyin(dtB_Rloc_container, dtB_LMloc_container) 
 #endif
       call r2lo_dtB%transp_r2lm(dtB_Rloc_container, dtB_LMloc_container)
 #ifdef WITH_OMP_GPU
          !$omp target update from(dtB_Rloc_container, dtB_LMloc_container)
          !$omp target exit data map(delete: dtB_Rloc_container, dtB_LMloc_container)
+#elif WITH_ACC_GPU
+         !$acc exit data copyout(dtB_Rloc_container, dtB_LMloc_container)
 #endif
 
       !$omp parallel default(shared) private(nR, lm, start_lm, stop_lm, l, m, dL)

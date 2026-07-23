@@ -51,6 +51,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(to: radial_balance)
+#elif WITH_ACC_GPU
+      !$acc enter data copyin(radial_balance)
 #endif
 
    end subroutine initialize_radial_data
@@ -59,6 +61,8 @@ contains
 
 #ifdef WITH_OMP_GPU
       !$omp target exit data map(release: radial_balance)
+#elif WITH_ACC_GPU
+      !$acc exit data delete(radial_balance)
 #endif
 
       deallocate( radial_balance )

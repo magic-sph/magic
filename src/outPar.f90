@@ -511,6 +511,9 @@ contains
       !$omp target teams distribute parallel do collapse(2) &
       !$omp& private(fconv, fkin, fvisc)                    &
       !$omp& map(tofrom: fkinAS,fconvAS,fviscAS) reduction(+:fkinAS,fconvAS,fviscAS)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2) private(fconv, fkin, fvisc)                &
+      !$acc& copy (fkinAS,fconvAS,fviscAS) reduction(+:fkinAS,fconvAS,fviscAS)
 #else
       !$omp parallel do default(shared)                &
       !$omp& private(nTheta, nPhi, fconv, fkin, fvisc) &
@@ -557,6 +560,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -572,6 +577,9 @@ contains
          !$omp target teams distribute parallel do collapse(2) &
          !$omp& private(fres, fpoyn)                           &
          !$omp& map(tofrom: fresAS,fpoynAS) reduction(+:fresAS,fpoynAS)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2) private(fres, fpoyn)          &
+         !$acc& copy(fresAS,fpoynAS) reduction(+:fresAS,fpoynAS)
 #else
          !$omp parallel do default(shared)           &
          !$omp& private(nTheta, nPhi, fres, fpoyn)   &
@@ -594,6 +602,8 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #else
          !$omp end parallel do
 #endif
@@ -651,6 +661,9 @@ contains
       !$omp target teams distribute parallel do collapse(2) &
       !$omp& private(fconv, fkin, fvisc)                    &
       !$omp& map(tofrom: fkinASr,fconvASr,fviscASr) reduction(+:fkinASr,fconvASr,fviscASr)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2) private(fconv, fkin, fvisc)           &
+      !$acc& copy(fkinASr,fconvASr,fviscASr) reduction(+:fkinASr,fconvASr,fviscASr)
 #else
       !$omp parallel do default(shared)                       &
       !$omp& private(nTheta, nPhi, nR, fconv, fkin, fvisc) &
@@ -699,6 +712,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -710,6 +725,9 @@ contains
          !$omp target teams distribute parallel do collapse(2) &
          !$omp& private(fres, fpoyn)                           &
          !$omp& map(tofrom: fresASr,fpoynASr) reduction(+:fresASr,fpoynASr)
+#elif WITH_ACC_GPU
+         !$acc parallel loop collapse(2) private(fres, fpoyn)       &
+         !$acc& copy(fresASr,fpoynASr) reduction(+:fresASr,fpoynASr)
 #else
          !$omp parallel do default(shared)               &
          !$omp& private(nTheta, nPhi, nR, fres, fpoyn)   &
@@ -735,6 +753,8 @@ contains
          end do
 #ifdef WITH_OMP_GPU
          !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+         !$acc end parallel
 #else
          !$omp end parallel do
 #endif
@@ -775,6 +795,9 @@ contains
       !$omp& map(tofrom: uhAS,duhAS,gradsAS)                &
       !$omp& private(uh, duh, grads)                        &
       !$omp& reduction(+:uhAS,duhAS,gradsAS)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2) copy(uhAS,duhAS,gradsAS)                &
+      !$acc& private(uh, duh, grads) reduction(+:uhAS,duhAS,gradsAS)
 #else
       !$omp parallel do default(shared)            &
       !$omp& private(nTheta, nPhi, uh, duh, grads) &
@@ -805,6 +828,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -851,6 +876,9 @@ contains
       !$omp& map(tofrom: uhASr,duhASr,gradT2ASr)            &
       !$omp& private(uh, duh, grads)                        &
       !$omp& reduction(+:uhASr,duhASr,gradT2ASr)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2) copy(uhASr,duhASr,gradT2ASr) &
+      !$acc& private(uh, duh, grads) reduction(+:uhASr,duhASr,gradT2ASr)
 #else
       !$omp parallel do default(shared)            &
       !$omp& private(nTheta, nPhi, uh, duh, grads) &
@@ -883,6 +911,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -922,6 +952,9 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(to: vras, vtas, vpas)
       !$omp target teams distribute parallel do collapse(2) reduction(+:vras, vtas, vpas)
+#elif WITH_ACC_GPU
+      !$acc enter data copyin(vras, vtas, vpas)
+      !$acc parallel loop collapse(2) reduction(+:vras, vtas, vpas)
 #else
       !$omp parallel do default(shared) &
       !$omp private(nTheta)             &
@@ -936,6 +969,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -945,6 +980,11 @@ contains
       !$omp& map(tofrom: EparAS,EperpAS,EparaxiAS,EperpaxiAS) &
       !$omp& private(Eperp, Epar, Eperpaxi, Eparaxi)          &
       !$omp& reduction(+:EparAS,EperpAS,EparaxiAS,EperpaxiAS)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)   &
+      !$acc& copy(EparAS,EperpAS,EparaxiAS,EperpaxiAS) &
+      !$acc& private(Eperp, Epar, Eperpaxi, Eparaxi)          &
+      !$acc& reduction(+:EparAS,EperpAS,EparaxiAS,EperpaxiAS)
 #else
       !$omp parallel do default(shared)                 &
       !$omp& private(nTheta,nPhi)                       &
@@ -984,6 +1024,9 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
       !$omp target exit data map(delete: vras, vtas, vpas)
+#elif WITH_ACC_GPU
+      !$acc end parallel
+      !$acc exit data delete (vras, vtas, vpas)
 #else
       !$omp end parallel do
 #endif
@@ -1030,6 +1073,9 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp target enter data map(to: vras, vtas, vpas)
       !$omp target teams distribute parallel do collapse(2) reduction(+:vras, vtas, vpas)
+#elif WITH_ACC_GPU
+      !$acc enter data copyin(vras, vtas, vpas)
+      !$acc parallel loop collapse(2) reduction(+:vras, vtas, vpas)
 #else
       !$omp parallel do default(shared) private(nR) &
       !$omp reduction(+:vras,vtas,vpas)
@@ -1045,6 +1091,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -1054,6 +1102,11 @@ contains
       !$omp& map(tofrom: EparASr,EperpASr,EparaxiASr,EperpaxiASr) &
       !$omp& private(Eperp, Epar, Eperpaxi, Eparaxi)              &
       !$omp& reduction(+:EparASr,EperpASr,EparaxiASr,EperpaxiASr)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)       &
+      !$acc& copy(EparASr,EperpASr,EparaxiASr,EperpaxiASr) &
+      !$acc& private(Eperp, Epar, Eperpaxi, Eparaxi)              &
+      !$acc& reduction(+:EparASr,EperpASr,EparaxiASr,EperpaxiASr)
 #else
       !$omp parallel do default(shared)                 &
       !$omp& private(nTheta,nPhi,nR)                    &
@@ -1099,6 +1152,9 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
       !$omp target exit data map(delete: vras, vtas, vpas)
+#elif WITH_ACC_GPU
+      !$acc end parallel
+      !$acc exit data delete(vras, vtas, vpas)
 #else
       !$omp end parallel do
 #endif

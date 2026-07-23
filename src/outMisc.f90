@@ -7,7 +7,7 @@ module outMisc_mod
 
    use parallel_mod
    use precision_mod
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use mem_alloc, only: bytes_allocated, gpu_bytes_allocated
 #else
    use mem_alloc, only: bytes_allocated
@@ -97,6 +97,17 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
          !$omp target update to(HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
+#elif WITH_ACC_GPU
+         !$acc enter data create(HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
+         !$acc kernels
+         HelASr(:,:)   =0.0_cp
+         Hel2ASr(:,:)  =0.0_cp
+         HelnaASr(:,:) =0.0_cp
+         Helna2ASr(:,:)=0.0_cp
+         HelEAASr(:)   =0.0_cp
+         !$acc end kernels
+#endif
+#ifdef USE_GPU
          gpu_bytes_allocated=gpu_bytes_allocated+9*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
 #endif
       end if
@@ -110,6 +121,14 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: hemi_ekin_r, hemi_vrabs_r)
          !$omp target update to(hemi_ekin_r, hemi_vrabs_r)
+#elif WITH_ACC_GPU
+         !$acc enter data create(hemi_ekin_r, hemi_vrabs_r)
+         !$acc kernels
+         hemi_ekin_r(:,:) =0.0_cp
+         hemi_vrabs_r(:,:)=0.0_cp
+         !$acc end kernels
+#endif
+#ifdef USE_GPU
          gpu_bytes_allocated=gpu_bytes_allocated+(nRstop-nRstart+1)*4*SIZEOF_DEF_REAL
 #endif
 
@@ -121,6 +140,14 @@ contains
 #ifdef WITH_OMP_GPU
             !$omp target enter data map(alloc: hemi_emag_r, hemi_brabs_r)
             !$omp target update to(hemi_emag_r, hemi_brabs_r)
+#elif WITH_ACC_GPU
+         !$acc enter data create(hemi_emag_r, hemi_brabs_r)
+         !$acc kernels
+         hemi_emag_r(:,:) =0.0_cp
+         hemi_brabs_r(:,:)=0.0_cp
+         !$acc end kernels
+#endif
+#ifdef USE_GPU
             gpu_bytes_allocated=gpu_bytes_allocated+(nRstop-nRstart+1)*4*SIZEOF_DEF_REAL
 #endif
          end if
@@ -146,6 +173,15 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc: ekinSr, ekinLr, volSr)
          !$omp target update to(ekinSr, ekinLr, volSr)
+#elif WITH_ACC_GPU
+         !$acc enter data create(ekinSr, ekinLr, volSr)
+         !$acc kernels
+         ekinSr(:)=0.0_cp
+         ekinLr(:)=0.0_cp
+         volSr(:) =0.0_cp
+         !$acc end kernels
+#endif
+#ifdef USE_GPU
          gpu_bytes_allocated=gpu_bytes_allocated+3*(nRstop-nRstart+1)*SIZEOF_DEF_REAL
 #endif
 
@@ -198,11 +234,15 @@ contains
       if ( l_hemi ) then 
 #ifdef WITH_OMP_GPU
          !$omp target exit data map(delete: hemi_ekin_r, hemi_vrabs_r)
+#elif WITH_ACC_GPU
+         !$acc exit data delete(hemi_ekin_r, hemi_vrabs_r)
 #endif
          deallocate( hemi_ekin_r, hemi_vrabs_r )
          if ( l_mag ) then
 #ifdef WITH_OMP_GPU
             !$omp target exit data map(delete: hemi_emag_r, hemi_brabs_r)
+#elif WITH_ACC_GPU
+           !$acc exit data delete(hemi_emag_r, hemi_brabs_r)
 #endif
             deallocate( hemi_emag_r, hemi_brabs_r )
          end if
@@ -210,6 +250,8 @@ contains
       if ( l_hel ) then
 #ifdef WITH_OMP_GPU
          !$omp target exit data map(delete: HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
+#elif WITH_ACC_GPU
+         !$acc exit data delete(HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
 #endif
          deallocate( HelASr, Hel2ASr, HelnaASr, Helna2ASr, HelEAASr )
       end if
@@ -217,6 +259,8 @@ contains
       if ( l_phase_field ) then
 #ifdef WITH_OMP_GPU
          !$omp target exit data map(delete: ekinSr, ekinLr, volSr)
+#elif WITH_ACC_GPU
+         !$acc exit data delete(ekinSr, ekinLr, volSr)
 #endif
          deallocate( ekinSr, ekinLr, volSr )
          call PhiMeanR%finalize()
@@ -876,6 +920,9 @@ contains
       !$omp target teams distribute parallel do collapse(2) &
       !$omp& private(ekin)  &
       !$omp& map(tofrom: ekinS,ekinL,volS) reduction(+:ekinS,ekinL,volS)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2) private(ekin)  &
+      !$acc copy(ekinS,ekinL,volS) reduction(+:ekinS,ekinL,volS)
 #else
       !$omp parallel do default(shared)   &
       !$omp& private(nTheta,nPhi,ekin)    &
@@ -898,6 +945,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -936,6 +985,13 @@ contains
       !$omp target teams distribute parallel do collapse(2) &
       !$omp& private(ekin)  &
       !$omp& reduction(+:ekinSr,ekinLr,volSr)
+#elif WITH_ACC_GPU
+      !$acc kernels
+      ekinLr(:)=0.0_cp
+      ekinSr(:)=0.0_cp
+      volSr(:) =0.0_cp
+      !$acc end kernels
+      !$acc parallel loop collapse(2) private(ekin) reduction(+:ekinSr,ekinLr,volSr)
 #else
       !$omp parallel do default(shared) &
       !$omp private(nR,nTheta,ekin) &
@@ -961,6 +1017,9 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
       !$omp target update from(ekinSr,ekinLr,volSr)
+#elif WITH_ACC_GPU
+      !$acc end parallel
+      !$acc update self(ekinSr,ekinLr,volSr)
 #else
       !$omp end parallel do
 #endif
@@ -998,6 +1057,8 @@ contains
       !$omp& map(tofrom:enAS,vrabsAS)                       &
       !$omp& private(nTh,vrabs,en)                          &
       !$omp& reduction(+:enAS,vrabsAS)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2) copy(enAS,vrabsAS) private(nTh,vrabs,en) reduction(+:enAS,vrabsAS)
 #else
       !$omp parallel do default(shared)    &
       !$omp& private(nTheta,nTh,vrabs,en)  &
@@ -1023,6 +1084,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -1062,15 +1125,26 @@ contains
          hemi_brabs_r(:,:)=0.0_cp
       end if
 
-#ifdef WITH_OMP_GPU
       if ( field == 'V' ) then
+#ifdef WITH_OMP_GPU
          !$omp target update to(hemi_ekin_r, hemi_vrabs_r)
+#elif WITH_ACC_GPU
+         !$acc update device(hemi_ekin_r, hemi_vrabs_r)
+#endif
       else if ( field == 'B' ) then
+#ifdef WITH_OMP_GPU
          !$omp target update to(hemi_emag_r, hemi_brabs_r)
+#elif WITH_ACC_GPU
+         !$acc update device(hemi_emag_r, hemi_brabs_r)
+#endif
       end if
+#ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)                 &
       !$omp& private(nTh,vrabs,en,fac)                                      &
       !$omp& reduction(+:hemi_ekin_r,hemi_vrabs_r,hemi_emag_r,hemi_brabs_r)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2) private(nTh,vrabs,en,fac)             &
+      !$acc& reduction(+:hemi_ekin_r,hemi_vrabs_r,hemi_emag_r,hemi_brabs_r)
 #else
       !$omp parallel do default(shared)         &
       !$omp private(nR,nTheta,nTh,vrabs,en,fac) &
@@ -1112,12 +1186,24 @@ contains
             end do
          end do
       end do
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
+#endif
       if ( field == 'V' ) then
+#ifdef WITH_OMP_GPU
          !$omp target update from(hemi_ekin_r, hemi_vrabs_r)
+#elif WITH_ACC_GPU
+         !$acc update self(hemi_ekin_r, hemi_vrabs_r)
+#endif
       else if ( field == 'B' ) then
+#ifdef WITH_OMP_GPU
          !$omp target update from(hemi_emag_r, hemi_brabs_r)
+#elif WITH_ACC_GPU
+         !$acc update self(hemi_emag_r, hemi_brabs_r)
+#endif
       end if
 #else
       !$omp end parallel do
@@ -1169,6 +1255,9 @@ contains
       !$omp target enter data map(alloc: vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
       !$omp target update to(vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
       !$omp target teams distribute parallel do collapse(2)
+#elif WITH_ACC_GPU
+      !$acc enter data copyin(vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
+      !$acc parallel loop collapse(2) reduction(+:vras,cvras,vtas,vpas,dvrdpas,dvpdras,dvtdras,dvrdtas)
 #else
       !$omp parallel do default(shared) private(nTheta) &
       !$omp reduction(+:vras,cvras,vtas,vpas,dvrdpas,dvpdras,dvtdras,dvrdtas)
@@ -1187,12 +1276,16 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
 
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc parallel loop 
 #endif
       do nTheta=1,n_theta_max
          vras(nTheta)   =vras(nTheta)   *phiNorm
@@ -1206,6 +1299,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #endif
 
       !--- Helicity:
@@ -1216,6 +1311,11 @@ contains
       !$omp& private(vrna, cvrna, vtna, vpna)                   &
       !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)        &
       !$omp& reduction(+:HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS)
+#elif WITH_ACC_GPU
+      !$acc parallel loop collapse(2)     &
+      !$acc& copy(HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS) &
+      !$acc& private(Hel, Helna, nTh, vrna, cvrna, vtna, vpna, dvrdpna, dvpdrna, dvtdrna, dvrdtna)        &
+      !$acc& reduction(+:HelAS,Hel2AS,HelnaAS,Helna2AS,HelEAAS)
 #else
       !$omp parallel do default(shared)                     &
       !$omp& private(nTheta, nTh, nPhi, Hel, Helna)         &
@@ -1266,6 +1366,9 @@ contains
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
       !$omp target exit data map(delete: vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
+#elif WITH_ACC_GPU
+      !$acc end parallel
+      !$acc exit data delete (vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
 #else
       !$omp end parallel do
 #endif
@@ -1327,6 +1430,10 @@ contains
       !$omp target update to(vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
       !$omp target teams distribute parallel do collapse(2) &
       !$omp reduction(+:vras,cvras,vtas,vpas,dvrdpas,dvpdras,dvtdras,dvrdtas)
+#elif WITH_ACC_GPU
+      !$acc enter data copyin (vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
+      !$acc parallel loop collapse(2) &
+      !$acc reduction(+:vras,cvras,vtas,vpas,dvrdpas,dvpdras,dvtdras,dvrdtas)
 #else
       !$omp parallel do default(shared) &
       !$omp private(nR,nTheta)          &
@@ -1348,6 +1455,8 @@ contains
       end do
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
+#elif WITH_ACC_GPU
+      !$acc end parallel
 #else
       !$omp end parallel do
 #endif
@@ -1360,6 +1469,13 @@ contains
       !$omp& private(vrna, cvrna, vtna, vpna)                   &
       !$omp& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)        &
       !$omp& reduction(+:HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
+#elif WITH_ACC_GPU
+      !$acc update device(HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
+      !$acc parallel loop collapse(2)     &
+      !$acc& private(Hel, Helna, nTh)                           &
+      !$acc& private(vrna, cvrna, vtna, vpna)                   &
+      !$acc& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna)        &
+      !$acc& reduction(+:HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
 #else
       !$omp parallel do default(shared)                                 &
       !$omp private(nR,nTheta,nTh,vrna,cvrna,vtna,vpna,dvrdpna,dvpdrna) &
@@ -1412,6 +1528,10 @@ contains
       !$omp end target teams distribute parallel do
       !$omp target exit data map(delete: vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
       !$omp target update from(HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
+#elif WITH_ACC_GPU
+      !$acc end parallel
+      !$acc exit data delete (vras,vtas,vpas,cvras,dvrdtas,dvrdpas,dvtdras,dvpdras)
+      !$acc update self(HelASr,Hel2ASr,HelnaASr,Helna2ASr,HelEAASr)
 #else
       !$omp end parallel do
 #endif

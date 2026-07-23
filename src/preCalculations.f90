@@ -25,7 +25,7 @@ module preCalculations
        &            l_temperature_diff, l_chemical_conv, l_probe,        &
        &            l_precession, l_finite_diff, l_full_sphere
    use radial_data, only: radial_balance
-#ifdef WITH_OMP_GPU
+#ifdef USE_GPU
    use radial_functions
 #else
    use radial_functions, only: rscheme_oc, temp0, r_CMB, ogrun,            &
@@ -787,34 +787,71 @@ contains
       !$omp&                rgrav, ogrun, &
       !$omp&                lambda, dLlambda, jVarCon, sigma, kappa, dLkappa, &
       !$omp&                visc, dLvisc, ddLvisc, epscProf, divKtemp0, l_R) nowait
+#elif WITH_ACC_GPU
+      !$acc update device(r, r_ic, O_r_ic, O_r_ic2, or1, or2, or3, or4, &
+      !$acc&                otemp1, rho0, temp0, dLtemp0, dentropy0, ddLtemp0, &
+      !$acc&                orho1, orho2, beta, dbeta, ddbeta, alpha0, dLalpha0, ddLalpha0, &
+      !$acc&                rgrav, ogrun, &
+      !$acc&                lambda, dLlambda, jVarCon, sigma, kappa, dLkappa, &
+      !$acc&                visc, dLvisc, ddLvisc, epscProf, divKtemp0, l_R)
+#endif
       if(.not. l_full_sphere) then
+#ifdef WITH_OMP_GPU
          !$omp target update to(cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic, dr_top_ic) nowait
+#elif WITH_ACC_GPU
+         !$acc update device(cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic, dr_top_ic)
+#endif
       endif
       if(.not. l_finite_diff) then
+#ifdef WITH_OMP_GPU
          !$omp target update to(cheb_int) nowait
+#elif WITH_ACC_GPU
+         !$acc update device(cheb_int)
+#endif
       endif
       if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
          !$omp target update to(dxicond) nowait
+#elif WITH_ACC_GPU
+         !$acc update device(dxicond)
+#endif
       end if
+#ifdef WITH_OMP_GPU
       !$omp target update to(rscheme_oc)
+#elif WITH_ACC_GPU
+      !$acc update device(rscheme_oc)
 #endif
 
-#ifdef WITH_OMP_GPU
+!#ifdef USE_GPU
       if ( l_curr ) then
+#ifdef WITH_OMP_GPU
          !$omp target enter data map(alloc : fac_loop)
          !$omp target update to(fac_loop) nowait
+#elif WITH_ACC_GPU
+         !$acc enter data copyin(fac_loop)
+#endif
       end if
 
       !-- From init_fields
+#ifdef WITH_OMP_GPU
       !$omp target update to(tops, bots) nowait
-      if ( l_chemical_conv ) then
-         !$omp target update to(topxi, botxi) nowait
-      end if
+#elif WITH_ACC_GPU
+      !$acc update device(tops, bots)
 #endif
+      if ( l_chemical_conv ) then
+#ifdef WITH_OMP_GPU
+         !$omp target update to(topxi, botxi) nowait
+#elif WITH_ACC_GPU
+         !$acc update device(topxi, botxi)
+#endif
+      end if
+!#endif
 
       !-- From num_param module
 #ifdef WITH_OMP_GPU
       !$omp target update to(delxh2, delxr2)
+#elif WITH_ACC_GPU
+      !$acc update device(delxh2, delxr2)
 #endif
 
    end subroutine preCalc
