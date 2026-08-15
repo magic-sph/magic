@@ -17,7 +17,7 @@ module updateWP_mod
    use special, only:  ellipticity_cmb, ellipticity_icb,               &
        &               ellip_fac_cmb, ellip_fac_icb,                   &
        &               tide_fac20, tide_fac22p, tide_fac22n,           &
-       &               omega_tide, amp_tide, l_vr_cmb, l_vr_icb, l_vr_bc
+       &               omega_tide, l_vr_cmb, l_vr_icb, l_vr_bc
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: omegaOsz_ma1, tShift_ma1, omegaOsz_ic1, tShift_ic1
    use blocking, only: lo_sub_map, lo_map, llm, ulm, st_map
