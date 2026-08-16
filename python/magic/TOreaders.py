@@ -108,7 +108,7 @@ class TOMovie(Movie):
                     movieDipLon, movieDipStrength, movieDipStrengthGeo = \
                     infile.fort_read(precision)
             else:
-                t_movieS = infile.fort_read(precision)
+                t_movieS = infile.fort_read(precision)[0]
             for ll in range(self.n_fields):
                 dat = infile.fort_read(precision, shape=self.shape, order='F')
         for k in range(self.nvar):
@@ -117,7 +117,7 @@ class TOMovie(Movie):
                     movieDipLon, movieDipStrength, movieDipStrengthGeo \
                     = infile.fort_read(precision)
             else:
-                t_movieS = infile.fort_read(precision)
+                t_movieS = infile.fort_read(precision)[0]
             self.time[k] = t_movieS
             self.asVphi[k, ...] = infile.fort_read(precision, shape=self.shape,
                                                    order='F')
