@@ -366,9 +366,11 @@ contains
             !   !-- neglect pressure contribution
             !   !& + polind*DissNb*oek*opressure0(nR)*this%pc(:,nPhi) )
             !else
-            this%CAr(:,nPhi) = -dilution_fac*r(nR)*sinTheta(:)**4*ra*opr* &
+            ! Pr*Di/Ra*r^3*sin(theta)^2*T
+            this%CAr(:,nPhi) = -dilution_fac*r(nR)**3*sinTheta(:)**2*ra*opr* &
             &                       this%sc(:,nPhi)
-            this%CAt(:,nPhi) = -dilution_fac*r(nR)*sinTheta(:)**3*cosTheta(:)*ra*opr* &
+            ! Pr*Di/Ra*sin(theta)^2*cos(theta)*T
+            this%CAt(:,nPhi) = -dilution_fac*sinTheta(:)**2*cosTheta(:)*ra*opr* &
             &                       this%sc(:,nPhi)
             !end if
          end if ! centrifuge
