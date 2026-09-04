@@ -8,9 +8,11 @@ module algebra_hipfort
    use hipfort_check
    use hipfort_hipblas
    use omp_lib
-#ifdef USE_GPU
    use hipfort_check, only: hipCheck
    use hipfort, only: hipDeviceSynchronize
+#ifdef WITH_ACC_GPU
+   use openacc
+   use cublas
 #endif
 
    implicit none
@@ -19,50 +21,13 @@ module algebra_hipfort
 
    real(cp), parameter :: zero_tolerance=1.0e-15_cp
 
-   public :: gpu_prepare_mat, gpu_solve_mat, nvDgetrfBatched, nvDgetrsBatched
+   public :: gpu_prepare_mat, gpu_solve_mat
 
    interface gpu_solve_mat
       module procedure gpu_solve_mat_real_rhs
       module procedure gpu_solve_mat_complex_rhs
       module procedure gpu_solve_mat_real_rhs_multi
    end interface gpu_solve_mat
-
-   interface
-      integer function nvDgetrfBatched(handle, n, A, lda, P, info, batchSize) &
-          bind(C, name="cublasDgetrfBatched")
-          use iso_c_binding
-          type(c_ptr), value :: handle
-          integer(c_int), value :: n
-          type(c_ptr), dimension(*) :: A
-          integer(c_int), value :: lda
-          type(c_ptr), dimension(*) :: P
-          type(c_ptr), dimension(*) :: info
-          integer(c_int), value :: batchSize
-
-  end function nvDgetrfBatched
-end interface
-
-
-  interface
-     integer function nvDgetrsBatched(handle, operation, n, nrhs, A, lda, devIpiv, B, ldb, info, batchSize) &
-       bind(C, name="cublasDgetrsBatched")
-       use iso_c_binding
-       type(c_ptr), value :: handle
-       integer(c_int), value :: operation
-       integer(c_int), value :: n
-       integer(c_int), value :: nrhs
-       type(c_ptr), dimension(*) :: A
-       integer(c_int), value :: lda
-       type(c_ptr),  dimension(*) :: devIpiv
-       type(c_ptr), dimension(*) :: B
-       integer(c_int), value :: ldb
-       type(c_ptr), dimension(*) :: info
-       integer(c_int), value :: batchSize
-
-  end function nvDgetrsBatched
-
-end interface
-
 
 contains
 
@@ -189,18 +154,23 @@ contains
       type(c_ptr), intent(inout) :: handle
       integer, intent(inout)     :: devInfo(:)
 #ifdef WITH_ACC_GPU
-      integer, parameter :: nbatch=1
-      type(c_ptr) :: aPtr(nbatch), pivotPtr(nbatch), rhsPtr(nbatch), devInfoPtr(nbatch)
+      integer, parameter :: batchSize=1
+      type(c_devptr) :: devptrA(batchSize), devptrRhs(batchSize)
       integer :: k
-      !$acc host_data use_device(a, pivot, rhs, devInfo)
-      do k = 1, nbatch
-         aPtr(k)=c_loc(a(1,1))
-         pivotPtr(k)=c_loc(pivot(1))
-         rhsPtr(k)=c_loc(rhs(1))
-         devInfoPtr(k)=c_loc(devInfo(k))
+      integer(c_int) :: cuInfo
+      type(cublasHandle) :: cuHandle
+
+      !$acc host_data use_device(a, rhs)
+      do k = 1, batchSize
+         devptrA(k)=c_devloc(a(1,1))
+         devptrRhs(k)=c_devloc(rhs(1))
       end do
       !$acc end host_data
-      !$acc enter data copyin(aPtr, pivotPtr, rhsPtr, devInfoPtr)
+      !$acc enter data copyin(devptrA, devptrRhs)
+
+      cuInfo = cublasCreate(cuHandle)
+      cuInfo = cublasSetStream(cuHandle, acc_get_cuda_stream(acc_async_sync))
+
 #endif
 #if (DEFAULT_PRECISION==sngl)
 #ifdef WITH_OMP_GPU
@@ -222,20 +192,19 @@ contains
       &                               c_loc(rhs), n, c_loc(devInfo)))
       !$omp end target data
 #elif WITH_ACC_GPU
-      !$acc host_data use_device(aPtr, pivotPtr, rhsPtr, devInfoPtr) ! (OA)
-      !call hipblasCheck(nvDgetrsBatched(handle, HIPBLAS_OP_N, n, 1, aPtr, len_a, pivotPtr, &
-      !&                               rhsPtr, n, devInfoPtr,1))
+      !$acc host_data use_device(devptrA, pivot, devptrRhs)
+      cuInfo  = cublasDgetrsBatched(cuHandle, CUBLAS_OP_N, n, 1, devptrA, len_a, pivot, devptrRhs, n, devInfo(1), batchSize)
       !$acc end host_data
+      !$acc exit data delete(devptrA, devptrRhs)
       !$acc update host(devInfo)
-!      !$acc host_data use_device(a, pivot, rhs, devInfo)
-!      call hipblasCheck(hipblasDgetrsBatched(handle, HIPBLAS_OP_N, n, 1, c_loc(a(1,1)), n, c_loc(pivot(1)), &
-!      &                               c_loc(rhs(1)), n, c_loc(devInfo),1))
-!      !$acc end host_data
-!      !$acc update host(devInfo)
 #endif
 #endif
 
+#ifdef WITH_OMP_GPU
       call hipCheck(hipDeviceSynchronize())
+#elif WITH_ACC_GPU
+      cuInfo = cublasDestroy(cuHandle)
+#endif
 
    end subroutine gpu_solve_mat_real_rhs
 !-----------------------------------------------------------------------------
@@ -255,17 +224,21 @@ contains
       integer, intent(out) :: info
 
 #ifdef WITH_ACC_GPU
-      integer, parameter :: nbatch=1
-      type(c_ptr) :: aPtr(nbatch), pivotPtr(nbatch), devInfoPtr(nbatch)
+      integer, parameter :: batchSize=1
+      type(c_devptr) :: devptrA(batchSize)
       integer :: k
-      !$acc host_data use_device(a, pivot, devInfo)
-      do k = 1, nbatch
-         aPtr(k)=c_loc(a(1,1))
-         pivotPtr(k)=c_loc(pivot(1))
-         devInfoPtr(k)=c_loc(devInfo(k))
+      integer(c_int) :: cuInfo
+      type(cublasHandle) :: cuhandle
+
+      !$acc host_data use_device(a)
+      do k = 1, batchSize
+         devptrA(k)=c_devloc(a(1,1))
       end do
       !$acc end host_data
-      !$acc enter data copyin(aPtr, pivotPtr, devInfoPtr)
+      !$acc enter data copyin(devptrA) 
+
+      cuInfo = cublasCreate(cuHandle)
+      cuInfo = cublasSetStream(cuHandle, acc_get_cuda_stream(acc_async_sync))
 #endif
 
 #ifdef WITH_LIBFLAME
@@ -275,18 +248,15 @@ contains
 #if (DEFAULT_PRECISION==sngl)
 #ifdef WITH_OMP_GPU
       !$omp target data use_device_addr(a, pivot, devInfo)
-#elif WITH_ACC_GPU
-      !$acc host_data use_device(a, pivot, devInfo)
-#endif
-      call hipblasCheck(hipblasSgetrf(handle, n, c_loc(a(1:n,1:n)), n, c_loc(pivot(1:n)), c_loc(devInfo)))
-#ifdef WITH_OMP_GPU
+      call hipblasCheck(hipblasSgetrf(handle, n, c_loc(a), n, c_loc(pivot(1:n)), c_loc(devInfo)))
       !$omp end target data
       !$omp target update from(devInfo)
 #elif WITH_ACC_GPU
+      !$acc host_data use_device(devptrA, pivot, devInfo)
+      cuInfo = cublasSgetrfBatched(cuHandle, n, devptrA, n, pivot, devInfo, batchSize)
       !$acc end host_data
       !$acc update host(devInfo)
 #endif
-      info = devInfo(1)
 #elif (DEFAULT_PRECISION==dble)
 #ifdef WITH_OMP_GPU
       !$omp target data use_device_addr(a, pivot, devInfo)
@@ -294,19 +264,24 @@ contains
       !$omp end target data
       !$omp target update from(devInfo)
 #elif WITH_ACC_GPU
-       !$acc host_data use_device(aPtr, pivotPtr, devInfoPtr)
-       call hipblasCheck(nvDgetrfBatched(handle, n, aPtr, n, pivotPtr, devInfoPtr,1))
+      !$acc host_data use_device(devptrA, pivot, devInfo)
+      cuInfo = cublasDgetrfBatched(cuHandle, n, devptrA, n, pivot, devInfo, batchSize)
       !$acc end host_data
       !$acc update host(devInfo)
+      !$acc exit data delete(devptrA)
+#endif
 #endif
       info = devInfo(1)
-#endif
 
 #ifdef WITH_LIBFLAME
       !$omp end critical
 #endif
 
+#ifdef WITH_OMP_GPU
       call hipCheck(hipDeviceSynchronize())
+#elif WITH_ACC_GPU
+      cuInfo = cublasDestroy(cuHandle)
+#endif
 
    end subroutine gpu_prepare_mat
 !-----------------------------------------------------------------------------
