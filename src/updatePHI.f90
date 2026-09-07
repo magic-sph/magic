@@ -1060,10 +1060,12 @@ contains
 
       call tscheme%assemble_imex(work_LMloc, dphidt)
 
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp target teams distribute parallel do collapse(2)
 #elif WITH_ACC_GPU
       !$acc parallel loop collapse(2)
+#endif
 #else
       !$omp parallel default(shared)
       !$omp do private(n_r,lm,m)
@@ -1079,15 +1081,16 @@ contains
             end if
          end do
       end do
+#ifdef USE_GPU
 #ifdef WITH_OMP_GPU
       !$omp end target teams distribute parallel do
       !$omp target update from(phi) !-- TODO: Mandatory as robin_bc is on CPU currently
 #elif WITH_ACC_GPU
       !$acc end parallel
       !$acc update self(phi)
+#endif
 #else
       !$omp end do
-      !$omp end parallel
 #endif
 
       !-- Boundary conditions
