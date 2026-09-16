@@ -462,8 +462,8 @@ class MagicTs(MagicSetup):
             ax.plot(self.time, self.T2_ell0, label=r'$T_{\ell=0}^2$ ',
                     color='C0', ls='-.')
             ax.plot(self.time, self.xi2, label=r'$\xi^2$', color='C1')
-            ax.plot(self.time, self.xi2_axi, label=r'$T_{m=0}^2$', color='C1', ls='--')
-            ax.plot(self.time, self.xi2_ell0, label=r'$T_{\ell=0}^2$',
+            ax.plot(self.time, self.xi2_axi, label=r'$\xi_{m=0}^2$', color='C1', ls='--')
+            ax.plot(self.time, self.xi2_ell0, label=r'$\xi_{\ell=0}^2$',
                     color='C1', ls='-.')
             ax.legend(loc='best', frameon=False, ncols=2)
             ax.set_xlabel('Time')
