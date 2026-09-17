@@ -265,13 +265,13 @@ contains
                   end if
 
                   if (l1 == 2 .and. m1 == 2) then
-                     rhs1(1,2*lm-1,threadid) = rhs1(1,2*lm-1,threadid)        &
-                     &  + radratio/omega_tide * 6.0_cp/r_cmb**2               &
+                     rhs1(1,2*lm-1,threadid) = rhs1(1,2*lm-1,threadid)       &
+                     &  + radratio/omega_tide * 6.0_cp/r_cmb**2              &
                      &  * (tide_fac22p + tide_fac22n)                        &
                      &  * sin(omega_tide * time)
-                     rhs1(1,2*lm,threadid)   = rhs1(1,2*lm,threadid)          &
-                     & + radratio/omega_tide * 6.0_cp/r_cmb**2                &
-                     & * (-tide_fac22p + tide_fac22n)                          &
+                     rhs1(1,2*lm,threadid)   = rhs1(1,2*lm,threadid)         &
+                     & + radratio/omega_tide * 6.0_cp/r_cmb**2               &
+                     & * (-tide_fac22p + tide_fac22n)                        &
                      & * cos(omega_tide * time)
                   end if
                end if
@@ -1361,7 +1361,7 @@ contains
       end if
 
       if (m==2) then
-         sBC = radratio/omega_tide * fac *                                 &
+         sBC = radratio/omega_tide * fac *                                &
          &     cmplx((tide_fac22p + tide_fac22n) * sin(omega_tide*time),  &
          &          (-tide_fac22p + tide_fac22n) * cos(omega_tide*time), cp)
       end if

@@ -415,11 +415,11 @@ contains
                   rhs1(n_r_max,2*lm-1,threadid)=0.0_cp
                   rhs1(n_r_max,2*lm,threadid)  =0.0_cp
 
-                  if (l_vr_bc) then
+                  if ( l_vr_bc ) then
 
                      if ( l1 == 2 .and. m1 == 0 ) then
-                          rhs1(1,2*lm-1,threadid)=rhs1(1,2*lm-1,threadid)         &
-                           &                  + tide_fac20 * cos(omega_tide*time)
+                        rhs1(1,2*lm-1,threadid)=rhs1(1,2*lm-1,threadid)         &
+                        &                  + tide_fac20 * cos(omega_tide*time)
                      end if
 
                      if ( l1 == 2 .and. m1 == 2 ) then
@@ -439,10 +439,10 @@ contains
                         ! (2,2,3) must have the same signed frequency
                         ! as (2,0,1) above while (2,2,1) has the opposite
                         ! sign in the rotating frame (Ogilvie, 2014)
-                        rhs1(1,2*lm-1,threadid)=rhs1(1,2*lm-1,threadid)        &
-                        &                 + (tide_fac22p + tide_fac22n)        &
+                        rhs1(1,2*lm-1,threadid)=rhs1(1,2*lm-1,threadid)       &
+                        &                 + (tide_fac22p + tide_fac22n)       &
                         &                    * cos(omega_tide*time)
-                        rhs1(1,2*lm,threadid)  =rhs1(1,2*lm,threadid)          &
+                        rhs1(1,2*lm,threadid)  =rhs1(1,2*lm,threadid)         &
                         &                 +  (tide_fac22p - tide_fac22n)      &
                         &                    * sin(omega_tide*time)
 
@@ -463,8 +463,10 @@ contains
                               rhs1(2,2*lm,threadid)  =-real(l1*(l1+1),kind=cp)*or2(1)
                            end if
                            if (l_vr_icb .and. kbotv == 1) then
-                                 rhs1(n_r_max-1,2*lm-1,threadid)=-real(l1*(l1+1),kind=cp)*or2(n_r_max)
-                                 rhs1(n_r_max-1,2*lm,threadid)  =-real(l1*(l1+1),kind=cp)*or2(n_r_max)
+                              rhs1(n_r_max-1,2*lm-1,threadid)=-real(l1*(l1+1),kind=cp)*&
+                              &                                or2(n_r_max)
+                              rhs1(n_r_max-1,2*lm,threadid)  =-real(l1*(l1+1),kind=cp)*&
+                              &                                or2(n_r_max)
                            end if
                         end if
 
@@ -2675,9 +2677,10 @@ contains
 !-----------------------------------------------------------------------------
    subroutine get_radial_flow_bc(time, m, nBC, wbc)
 
-      ! Purpose of this subroutine is to compute the boundary condition for the
-      ! radial flow at the inner and outer boundaries. This is used for the time advance of the
-      ! poloidal equation for the assembly stage or for R-dist when the double curl form is used.
+      !  Purpose of this subroutine is to compute the boundary condition for the
+      !  radial flow at the inner and outer boundaries. This is used for the
+      !  time advance of the poloidal equation for the assembly stage or for
+      !  R-dist when the double curl form is used.
 
        !-- Input variables:
       real(cp), intent(in) :: time
@@ -2692,13 +2695,13 @@ contains
             &                        sin(omega_tide*time), cp)
          end if
          if ( m == 2 ) then
-            wbc = ellip_fac_cmb *                                    &
-         &     cmplx(cos(omegaOsz_ma1*(time+tShift_ma1)),         &
-         &           sin(omegaOsz_ma1*(time+tShift_ma1)), cp) +   &
-         &     tide_fac22p * cmplx(cos(omega_tide*time),       &
-         &                         sin(omega_tide*time), cp) + &
-         &     tide_fac22n * cmplx(cos(omega_tide*time),       &
-         &                        -sin(omega_tide*time), cp)
+            wbc = ellip_fac_cmb *                                   &
+            &     cmplx(cos(omegaOsz_ma1*(time+tShift_ma1)),        &
+            &           sin(omegaOsz_ma1*(time+tShift_ma1)), cp) +  &
+            &     tide_fac22p * cmplx(cos(omega_tide*time),         &
+            &                         sin(omega_tide*time), cp) +   &
+            &     tide_fac22n * cmplx(cos(omega_tide*time),         &
+            &                        -sin(omega_tide*time), cp)
          end if
       end if
 
