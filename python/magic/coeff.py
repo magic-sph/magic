@@ -173,7 +173,7 @@ class MagicCoeffCmb(MagicSetup):
         for k, file in enumerate(files):
             if not quiet: print('Reading {}'.format(file))
             f = npfile(file, endian='B')
-            self.l_max_cmb, self.minc, n_data = f.fort_read('i')
+            self.l_max_cmb, self.minc, n_data = f.fort_read(np.int32)
             self.m_max_cmb = int((self.l_max_cmb/self.minc)*self.minc)
 
             while 1:
@@ -186,9 +186,9 @@ class MagicCoeffCmb(MagicSetup):
                           self.l_max_cmb-self.m_max_cmb+1
 
         # Get indices location
-        self.idx = np.zeros((self.l_max_cmb+1, self.m_max_cmb+1), 'i')
-        self.ell = np.zeros(self.lm_max_cmb, 'i')
-        self.ms = np.zeros(self.lm_max_cmb, 'i')
+        self.idx = np.zeros((self.l_max_cmb+1, self.m_max_cmb+1), np.int32)
+        self.ell = np.zeros(self.lm_max_cmb, np.int32)
+        self.ms = np.zeros(self.lm_max_cmb, np.int32)
         self.idx[0:self.l_max_cmb+2, 0] = np.arange(self.l_max_cmb+1)
         self.ell[0:self.l_max_cmb+2] = np.arange(self.l_max_cmb+2)
         k = self.l_max_cmb+1
@@ -306,9 +306,9 @@ class MagicCoeffCmb(MagicSetup):
                         self.l_max_cmb-self.m_max_cmb+1
 
         # Get indices location
-        idx_new = np.zeros((self.l_max_cmb+1, self.m_max_cmb+1), 'i')
-        ell_new = np.zeros(self.lm_max_cmb, 'i')
-        ms_new = np.zeros(self.lm_max_cmb, 'i')
+        idx_new = np.zeros((self.l_max_cmb+1, self.m_max_cmb+1), np.int32)
+        ell_new = np.zeros(self.lm_max_cmb, np.int32)
+        ms_new = np.zeros(self.lm_max_cmb, np.int32)
         idx_new[0:self.l_max_cmb+2, 0] = np.arange(self.l_max_cmb+1)
         ell_new[0:self.l_max_cmb+2] = np.arange(self.l_max_cmb+2)
         k = self.l_max_cmb+1
@@ -722,9 +722,9 @@ class MagicCoeffR(MagicSetup):
                         self.l_max_r-self.m_max_r+1
 
         # Get indices location
-        self.idx = np.zeros((self.l_max_r+1, self.m_max_r+1), 'i')
-        self.ell = np.zeros(self.lm_max_r, 'i')
-        self.ms = np.zeros(self.lm_max_r, 'i')
+        self.idx = np.zeros((self.l_max_r+1, self.m_max_r+1), np.int32)
+        self.ell = np.zeros(self.lm_max_r, np.int32)
+        self.ms = np.zeros(self.lm_max_r, np.int32)
         self.idx[0:self.l_max_r+2, 0] = np.arange(self.l_max_r+1)
         self.ell[0:self.l_max_r+2] = np.arange(self.l_max_r+2)
         k = self.l_max_r+1
@@ -859,9 +859,9 @@ class MagicCoeffR(MagicSetup):
                         self.l_max_r-self.m_max_r+1)
 
         # Get indices location
-        idx_new = np.zeros((self.l_max_r+1, self.m_max_r+1), 'i')
-        ell_new = np.zeros(self.lm_max_r, 'i')
-        ms_new = np.zeros(self.lm_max_r, 'i')
+        idx_new = np.zeros((self.l_max_r+1, self.m_max_r+1), np.int32)
+        ell_new = np.zeros(self.lm_max_r, np.int32)
+        ms_new = np.zeros(self.lm_max_r, np.int32)
         idx_new[0:self.l_max_r+2, 0] = np.arange(self.l_max_r+1)
         ell_new[0:self.l_max_r+2] = np.arange(self.l_max_r+2)
         k = self.l_max_r+1
@@ -1151,9 +1151,9 @@ class MagicCoeffR(MagicSetup):
             if self.field == 'V' or self.field == 'B':
                 dwlm = np.vstack((dwlm, pad))
 
-        wlm_hat = np.fft.fft(wlm, axis=0)
+        wlm_hat = np.fft.fft(wlm, axis=0)/wlm.shape[0]
         if self.field == 'V' or self.field == 'B':
-            dwlm_hat = np.fft.fft(dwlm, axis=0)
+            dwlm_hat = np.fft.fft(dwlm, axis=0)/wlm.shape[0]
 
         if one_sided:
             if len(time) % 2 == 1: # odd
