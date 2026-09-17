@@ -70,7 +70,7 @@ endif()
 
 #Link LAPACK
 if(NOT USE_LAPACKLIB MATCHES JW)
-    target_link_libraries(${EXEC} ${LAPACK95_LIBRARIES})
+    target_link_libraries(${EXEC} ${LAPACK_LIBRARIES})
 endif()
 
 if(USE_SHTNS MATCHES yes AND NOT SHTNS MATCHES SHTNS-NOTFOUND)
