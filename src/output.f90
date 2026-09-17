@@ -572,27 +572,27 @@ contains
          call write_Pot_mpi(time,w_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
               &             nPotSets,'V_lmr.',omega_ma,omega_ic)
          if ( l_heat ) then
-           call write_Pot_mpi(time,s_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
-                &             nPotSets,'T_lmr.',omega_ma,omega_ic)
+            call write_Pot_mpi(time,s_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+                 &             nPotSets,'T_lmr.',omega_ma,omega_ic)
          end if
          if ( l_chemical_conv ) then
-           call write_Pot_mpi(time,xi_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
-                &             nPotSets,'Xi_lmr.',omega_ma,omega_ic)
+            call write_Pot_mpi(time,xi_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+                 &             nPotSets,'Xi_lmr.',omega_ma,omega_ic)
          end if
          if ( l_mag ) then
-            call write_Pot_mpi(time,b_Rloc,aj_Rloc,b_ic_LMloc,aj_ic_LMloc, &
-                 &             nPotSets,'B_lmr.',omega_ma,omega_ic)
+             call write_Pot_mpi(time,b_Rloc,aj_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+                  &             nPotSets,'B_lmr.',omega_ma,omega_ic)
          end if
 #else
          call write_Pot(time,w_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
               &         nPotSets,'V_lmr.',omega_ma,omega_ic)
          if ( l_heat ) then
-           call write_Pot(time,s_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
-                &         nPotSets,'T_lmr.',omega_ma,omega_ic)
+            call write_Pot(time,s_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
+                 &         nPotSets,'T_lmr.',omega_ma,omega_ic)
          end if
          if ( l_chemical_conv ) then
-           call write_Pot(time,xi_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
-                &         nPotSets,'Xi_lmr.',omega_ma,omega_ic)
+            call write_Pot(time,xi_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
+                 &         nPotSets,'Xi_lmr.',omega_ma,omega_ic)
          end if
          if ( l_mag ) then
             call write_Pot(time,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc, &

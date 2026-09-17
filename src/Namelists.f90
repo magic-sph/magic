@@ -128,7 +128,7 @@ contains
       &    r_probe,theta_probe,n_phi_probes,n_probe_step,      &
       &    n_probe_out,t_probe_start,t_probe_stop,dt_probe,    &
       &    l_earth_likeness,l_max_comp,l_geo,l_2D_spectra,     &
-      &    l_2D_RMS, l_spec_avg
+      &    l_2D_RMS,l_spec_avg,l_max_pot
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
       &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
@@ -811,6 +811,8 @@ contains
          end if
       end if
 
+      if ( l_max_pot == 0 .or. l_max_pot > l_max ) l_max_pot=l_max
+
       if ( l_energy_modes ) then
          if ( m_max_modes==0 .or. m_max_modes>l_max ) m_max_modes=l_max
       end if
@@ -1144,6 +1146,7 @@ contains
       write(n_out,'(''  t_pot_start     ='',ES14.6,'','')') t_pot_start
       write(n_out,'(''  t_pot_stop      ='',ES14.6,'','')') t_pot_stop
       write(n_out,'(''  dt_pot          ='',ES14.6,'','')') dt_pot
+      write(n_out,'(''  l_max_pot       ='',i3,'','')') l_max_pot
       write(n_out,'(''  n_TO_step       ='',i5,'','')') n_TO_step
       write(n_out,'(''  n_TOs           ='',i5,'','')') n_TOs
       write(n_out,'(''  t_TO_start      ='',ES14.6,'','')') t_TO_start
@@ -1610,6 +1613,7 @@ contains
       t_pot_start   =0.0_cp
       t_pot_stop    =0.0_cp
       dt_pot        =0.0_cp
+      l_max_pot     =l_max
 
       !----- Output TO:
       n_TO_step     =0

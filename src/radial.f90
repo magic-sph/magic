@@ -289,7 +289,7 @@ contains
       !-- Determine the max. degree for each radial level
       if ( l_var_l ) then ! Nat's form from Marti et al. (2014)
          !l_R(:) = int(one+(l_max-one)*sqrt(r(nRstart:nRstop)/r_cmb))
-         l_R(:) = int(one+(l_max-one)*sqrt(r(:)/r_cmb))
+         !l_R(:) = int(one+(l_max-one)*sqrt(r(:)/r_cmb))
          l_R(:) = int(one+l_max*sqrt(r(:)/r_cmb/rcut_l))
          do n_r=1,n_r_max
             if ( l_R(n_r) > l_max ) l_R(n_r)=l_max
