@@ -141,7 +141,7 @@ class MagicPotential(MagicSetup):
                                     nml='log.{}'.format(tag))
         else:
             if ipot is not None:
-                pattern = os.path.join(datadir, '{}{}*'.format(self.name, ipot))
+                pattern = os.path.join(datadir, '{}{}.*'.format(self.name, ipot))
                 files = scanDir(pattern)
                 filename = files[-1]
             else:
