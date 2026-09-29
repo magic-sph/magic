@@ -571,23 +571,23 @@ contains
             if ( nR == n_r_cmb ) then
                if ( l_vr_cmb ) then
                   call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
-                    &                 this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
+                       &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
                end if
                call v_rigid_boundary(nR, omega_ma, lDeriv, this%gsa%vrc,      &
-                  &                this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
-                  &                this%gsa%dvrdtc, this%gsa%dvrdpc,          &
-                  &                this%gsa%dvtdpc, this%gsa%dvpdpc)
+                    &              this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
+                    &              this%gsa%dvrdtc, this%gsa%dvrdpc,          &
+                    &              this%gsa%dvtdpc, this%gsa%dvpdpc)
             end if
 
             if ( nR == n_r_icb ) then
                if ( l_vr_icb ) then
                   call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
-                    &                 this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
+                       &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
                end if
                call v_rigid_boundary(nR, omega_ic, lDeriv, this%gsa%vrc,      &
-                  &                this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
-                  &                this%gsa%dvrdtc, this%gsa%dvrdpc,          &
-                  &                this%gsa%dvtdpc, this%gsa%dvpdpc)
+                    &              this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
+                    &              this%gsa%dvrdtc, this%gsa%dvrdpc,          &
+                    &              this%gsa%dvtdpc, this%gsa%dvpdpc)
             end if
             if ( lDeriv ) then
                call torpol_to_spat(dw_Rloc(:,nR), ddw_Rloc(:,nR), dz_Rloc(:,nR), &
