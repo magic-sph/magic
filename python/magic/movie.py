@@ -186,7 +186,7 @@ class Movie:
                     movieDipLon, movieDipStrength, movieDipStrengthGeo = \
                     infile.fort_read(precision)
             else:
-                t_movieS = infile.fort_read(precision)
+                t_movieS = infile.fort_read(precision)[0]
             for ll in range(self.n_fields):
                 dat = infile.fort_read(precision, shape=self.shape, order='F')
         # then read the remaining requested nvar lines
@@ -196,7 +196,7 @@ class Movie:
                     movieDipLon, movieDipStrength, movieDipStrengthGeo = \
                     infile.fort_read(precision)
             else:
-                t_movieS = infile.fort_read(precision)
+                t_movieS = infile.fort_read(precision)[0]
             self.time[k] = t_movieS
             for ll in range(self.n_fields):
                 dat = infile.fort_read(precision, shape=self.shape, order='F')

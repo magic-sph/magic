@@ -31,6 +31,7 @@ and the structure of the different type of output files:
 
          * Angular momentum balance: :ref:`AM.TAG <secAMFile>`,
 	 * Heat transport: :ref:`heat.TAG <secHeatFile>`,
+	 * Diagnostics for double-diffusive convection: :ref:`double_diff.TAG <secDoubleDiffFile>`,
 	 * Helicity: :ref:`helicity.TAG <secHelicityFile>`,
 	 * Power budget: :ref:`power.TAG <secpowerFile>` and :ref:`dtE.TAG <secdtEFile>`,
 	 * Square velocities: :ref:`u_square.TAG <secu_squareFile>`,

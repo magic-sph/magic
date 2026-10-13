@@ -2,7 +2,6 @@
 from magic import npfile, scanDir, MagicSetup, hammer2cart, symmetrize, progressbar
 from scipy.interpolate import interp1d
 from scipy import signal
-from scipy.version import version
 import os, re
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,6 +9,10 @@ from .spectralTransforms import SpectralTransforms
 from magic.setup import labTex
 import copy
 
+try:
+    from numpy import trapz as trapz
+except:
+    from numpy import trapezoid as trapz
 
 def deriv(x, y, axis=0):
     """
@@ -170,7 +173,7 @@ class MagicCoeffCmb(MagicSetup):
         for k, file in enumerate(files):
             if not quiet: print('Reading {}'.format(file))
             f = npfile(file, endian='B')
-            self.l_max_cmb, self.minc, n_data = f.fort_read('i')
+            self.l_max_cmb, self.minc, n_data = f.fort_read(np.int32)
             self.m_max_cmb = int((self.l_max_cmb/self.minc)*self.minc)
 
             while 1:
@@ -183,9 +186,9 @@ class MagicCoeffCmb(MagicSetup):
                           self.l_max_cmb-self.m_max_cmb+1
 
         # Get indices location
-        self.idx = np.zeros((self.l_max_cmb+1, self.m_max_cmb+1), 'i')
-        self.ell = np.zeros(self.lm_max_cmb, 'i')
-        self.ms = np.zeros(self.lm_max_cmb, 'i')
+        self.idx = np.zeros((self.l_max_cmb+1, self.m_max_cmb+1), np.int32)
+        self.ell = np.zeros(self.lm_max_cmb, np.int32)
+        self.ms = np.zeros(self.lm_max_cmb, np.int32)
         self.idx[0:self.l_max_cmb+2, 0] = np.arange(self.l_max_cmb+1)
         self.ell[0:self.l_max_cmb+2] = np.arange(self.l_max_cmb+2)
         k = self.l_max_cmb+1
@@ -224,8 +227,8 @@ class MagicCoeffCmb(MagicSetup):
         # Time-averaged Gauss coefficient
         if not ave:
             facT = 1./(self.time[-1]-self.time[0])
-            self.glmM = facT * np.trapz(self.glm, self.time, axis=0)
-            self.hlmM = facT * np.trapz(self.hlm, self.time, axis=0)
+            self.glmM = facT * trapz(self.glm, self.time, axis=0)
+            self.hlmM = facT * trapz(self.hlm, self.time, axis=0)
 
             if len(self.time) > 3:
                 self.dglmdt = deriv(self.time, self.glm.T, axis=1)
@@ -257,11 +260,11 @@ class MagicCoeffCmb(MagicSetup):
 
         if not ave:
             # Time-averaged energy
-            self.ElM = facT * np.trapz(self.El, self.time, axis=0)
-            self.EmM = facT * np.trapz(self.Em, self.time, axis=0)
+            self.ElM = facT * trapz(self.El, self.time, axis=0)
+            self.EmM = facT * trapz(self.Em, self.time, axis=0)
 
             # Secular variation
-            self.ESVlM = facT * np.trapz(self.ESVl, self.time, axis=0)
+            self.ESVlM = facT * trapz(self.ESVl, self.time, axis=0)
             if abs(self.ESVlM[1:]).min() > 0.:
                 self.taul = np.sqrt(self.ElM[1:]/self.ESVlM[1:])
             else:
@@ -303,9 +306,9 @@ class MagicCoeffCmb(MagicSetup):
                         self.l_max_cmb-self.m_max_cmb+1
 
         # Get indices location
-        idx_new = np.zeros((self.l_max_cmb+1, self.m_max_cmb+1), 'i')
-        ell_new = np.zeros(self.lm_max_cmb, 'i')
-        ms_new = np.zeros(self.lm_max_cmb, 'i')
+        idx_new = np.zeros((self.l_max_cmb+1, self.m_max_cmb+1), np.int32)
+        ell_new = np.zeros(self.lm_max_cmb, np.int32)
+        ms_new = np.zeros(self.lm_max_cmb, np.int32)
         idx_new[0:self.l_max_cmb+2, 0] = np.arange(self.l_max_cmb+1)
         ell_new[0:self.l_max_cmb+2] = np.arange(self.l_max_cmb+2)
         k = self.l_max_cmb+1
@@ -719,9 +722,9 @@ class MagicCoeffR(MagicSetup):
                         self.l_max_r-self.m_max_r+1
 
         # Get indices location
-        self.idx = np.zeros((self.l_max_r+1, self.m_max_r+1), 'i')
-        self.ell = np.zeros(self.lm_max_r, 'i')
-        self.ms = np.zeros(self.lm_max_r, 'i')
+        self.idx = np.zeros((self.l_max_r+1, self.m_max_r+1), np.int32)
+        self.ell = np.zeros(self.lm_max_r, np.int32)
+        self.ms = np.zeros(self.lm_max_r, np.int32)
         self.idx[0:self.l_max_r+2, 0] = np.arange(self.l_max_r+1)
         self.ell[0:self.l_max_r+2] = np.arange(self.l_max_r+2)
         k = self.l_max_r+1
@@ -838,10 +841,10 @@ class MagicCoeffR(MagicSetup):
             # Time-averaged energy
             facT = 1./(self.time[-1]-self.time[0])
 
-            self.e_pol_lM = facT * np.trapz(self.e_pol_l, self.time, axis=0)
-            self.e_tor_lM = facT * np.trapz(self.e_tor_l, self.time, axis=0)
-            self.e_pol_axi_lM = facT * np.trapz(self.e_pol_axi_l, self.time, axis=0)
-            self.e_tor_axi_lM = facT * np.trapz(self.e_tor_axi_l, self.time, axis=0)
+            self.e_pol_lM = facT * trapz(self.e_pol_l, self.time, axis=0)
+            self.e_tor_lM = facT * trapz(self.e_tor_l, self.time, axis=0)
+            self.e_pol_axi_lM = facT * trapz(self.e_pol_axi_l, self.time, axis=0)
+            self.e_tor_axi_lM = facT * trapz(self.e_tor_axi_l, self.time, axis=0)
 
     def truncate(self, lCut):
         """
@@ -856,9 +859,9 @@ class MagicCoeffR(MagicSetup):
                         self.l_max_r-self.m_max_r+1)
 
         # Get indices location
-        idx_new = np.zeros((self.l_max_r+1, self.m_max_r+1), 'i')
-        ell_new = np.zeros(self.lm_max_r, 'i')
-        ms_new = np.zeros(self.lm_max_r, 'i')
+        idx_new = np.zeros((self.l_max_r+1, self.m_max_r+1), np.int32)
+        ell_new = np.zeros(self.lm_max_r, np.int32)
+        ms_new = np.zeros(self.lm_max_r, np.int32)
         idx_new[0:self.l_max_r+2, 0] = np.arange(self.l_max_r+1)
         ell_new[0:self.l_max_r+2] = np.arange(self.l_max_r+2)
         k = self.l_max_r+1
@@ -1148,9 +1151,9 @@ class MagicCoeffR(MagicSetup):
             if self.field == 'V' or self.field == 'B':
                 dwlm = np.vstack((dwlm, pad))
 
-        wlm_hat = np.fft.fft(wlm, axis=0)
+        wlm_hat = np.fft.fft(wlm, axis=0)/wlm.shape[0]
         if self.field == 'V' or self.field == 'B':
-            dwlm_hat = np.fft.fft(dwlm, axis=0)
+            dwlm_hat = np.fft.fft(dwlm, axis=0)/wlm.shape[0]
 
         if one_sided:
             if len(time) % 2 == 1: # odd

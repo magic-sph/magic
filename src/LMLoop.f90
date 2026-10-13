@@ -308,7 +308,7 @@ contains
 
       if ( l_heat .and. .not. l_single_matrix .and. l_update_s ) then
          PERFON('up_S')
-         call updateS( s_LMloc, ds_LMloc, dsdt, phi_LMloc, tscheme )
+         call updateS( time, s_LMloc, ds_LMloc, dsdt, phi_LMloc, tscheme )
          PERFOFF
       end if
 
@@ -435,7 +435,7 @@ contains
 
       !-- Mainly assemble the r.h.s. and rebuild the matrices if required
       if ( l_heat .and. l_update_s ) then
-         call prepareS_FD(tscheme, dsdt, phi_Rloc)
+         call prepareS_FD(tscheme, dsdt, phi_Rloc, time)
 #ifdef WITH_OMP_GPU
          !$omp target update from(s_ghost)
 #endif
@@ -506,7 +506,7 @@ contains
 
       !-- Finally build the radial derivatives and the arrays for next iteration
       if ( l_heat .and. l_update_s ) then
-         call updateS_FD(s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
+         call updateS_FD(time, s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
       end if
 
       if ( l_chemical_conv .and. l_update_xi ) then
@@ -808,13 +808,13 @@ contains
               &               dsdt, dwdt, dpdt, tscheme,lRmsNext)
       else
          if ( l_heat .and. l_update_s) then
-            call assemble_entropy(s_LMloc, ds_LMloc, dsdt, phi_LMloc, &
-                                &                tscheme)
+            call assemble_entropy(time, s_LMloc, ds_LMloc, dsdt, phi_LMloc, &
+                 &                tscheme)
          end if
          if ( l_update_v ) then
-            call assemble_pol(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, &
-                 &            dp_LMloc, dwdt, dpdt, dpdt%expl(:,:,1), tscheme,          &
-                 &            lPressNext, lRmsNext)
+            call assemble_pol(time, s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, &
+                 &            p_LMloc, dp_LMloc, dwdt, dpdt, dpdt%expl(:,:,1),       &
+                 &            tscheme, lPressNext, lRmsNext)
          end if
       end if
 
@@ -863,12 +863,12 @@ contains
       end if
 
       if ( l_heat .and. l_update_s ) then
-         call assemble_entropy_Rloc(s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
+         call assemble_entropy_Rloc(time, s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
       end if
 
       if ( l_update_v ) then
-         call assemble_pol_Rloc(block_sze, nblocks, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, &
-              &                 dp_Rloc, dwdt, dpdt%expl(:,:,1), tscheme, lPressNext,  &
+         call assemble_pol_Rloc(time, block_sze, nblocks, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, &
+              &                 dp_Rloc, dwdt, dpdt%expl(:,:,1), tscheme, lPressNext,        &
               &                 lRmsNext)
 
          call assemble_tor_Rloc(time, z_Rloc, dz_Rloc, dzdt, domega_ic_dt,    &

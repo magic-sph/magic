@@ -47,8 +47,9 @@ module special
    real(cp), public :: tide_fac20         ! Pre-factor for tidal forcing for (2,0)
    real(cp), public :: tide_fac22p        ! Pre-factor for tidal forcing for (2,2)
    real(cp), public :: tide_fac22n        ! Pre-factor for tidal forcing for (2,-2)
-   logical, public :: l_radial_flow_bc    ! A flag that tells whether radial flow BCs are being used
-
+   logical, public  :: l_vr_cmb    ! Radial flow BCs at CMB
+   logical, public  :: l_vr_icb    ! Radial flow BCs at ICB
+   logical, public  :: l_vr_bc    ! Radial flow BCs
    real(cp), public :: ampForce           ! Amplitude of external body force
 
 end module special

@@ -60,7 +60,7 @@ module rIter_mod
        &          Advt2LM, Advp2LM, PFt2LM, PFp2LM, LFrLM, LFt2LM, LFp2LM,  &
        &          CFt2LM, CFp2LM
    use probe_mod
-   use special, only: ellip_fac_icb, l_radial_flow_bc
+   use special, only: l_vr_cmb, l_vr_icb
 
 #ifdef WITH_OMP_GPU
    use hipfort_check, only: hipCheck
@@ -800,12 +800,32 @@ contains
 #ifdef WITH_OMP_GPU
             call hipCheck(hipDeviceSynchronize())
 #endif
-            if ( nR == n_r_cmb .and. (.not. l_radial_flow_bc) ) then
+            if ( nR == n_r_cmb ) then
+               if ( l_vr_cmb ) then
+#ifdef WITH_OMP_GPU
+                  call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
+                       &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc,   &
+                       &              l_R(nR),.true.)
+#else
+                  call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
+                       &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
+#endif
+               end if
                call v_rigid_boundary(nR, omega_ma, lDeriv, this%gsa%vrc,        &
                     &                this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
                     &                this%gsa%dvrdtc, this%gsa%dvrdpc,          &
                     &                this%gsa%dvtdpc,this%gsa%dvpdpc)
-            else if ( nR == n_r_icb .and. ellip_fac_icb == 0.0_cp ) then
+            else if ( nR == n_r_icb ) then
+               if ( l_vr_icb ) then
+#ifdef WITH_OMP_GPU
+                  call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
+                       &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc,   &
+                       &              l_R(nR),.true.)
+#else
+                  call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
+                       &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
+#endif
+               end if
                call v_rigid_boundary(nR, omega_ic, lDeriv, this%gsa%vrc,      &
                     &                this%gsa%vtc, this%gsa%vpc,              &
                     &                this%gsa%cvrc, this%gsa%dvrdtc,          &

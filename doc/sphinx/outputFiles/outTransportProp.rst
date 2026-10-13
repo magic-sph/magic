@@ -44,7 +44,7 @@ temperature, gravity, etc.).
    | 8              | thermal diffusion operator:                             |
    |                | :math:`\nabla \cdot (K(r)\tilde{T}(r)\nabla s_0)`       |
    +----------------+---------------------------------------------------------+
-   | 9              | inverse of the Gruneisen parameter :math`1/\Gamma`:     |
+   | 9              | inverse of the Grüneisen parameter :math:`1/\Gamma`:    |
    |                | :math:`(\partial\ln\tilde{\rho}/\partial\ln\tilde{T})_S`|
    +----------------+---------------------------------------------------------+
    | 10             | radial derivative of the log of temperature:            |

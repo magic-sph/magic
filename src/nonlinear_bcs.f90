@@ -10,6 +10,7 @@ module nonlinear_bcs
    use horizontal_data, only: cosTheta, sinTheta_E2, phi, sinTheta
    use constants, only: two, y10_norm, y11_norm, zero
    use useful, only: abortRun
+   use special, only: l_vr_cmb, l_vr_icb
    use sht, only: spat_to_sphertor, sht_l_single
 
    implicit none
@@ -213,11 +214,14 @@ contains
       !-- Local variables:
       real(cp) :: r2
       integer :: nTheta, nPhi
+      logical :: l_vr
 
       if ( nR == n_r_cmb ) then
          r2=r_cmb*r_cmb
+         l_vr=l_vr_cmb
       else if ( nR == n_r_icb ) then
          r2=r_icb*r_icb
+         l_vr=l_vr_icb
       else
          write(output_unit,*)
          write(output_unit,*) '! v_rigid boundary called for grid'
@@ -232,7 +236,7 @@ contains
 #endif
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            vrr(nTheta,nPhi)=0.0_cp
+            if ( .not. l_vr ) vrr(nTheta,nPhi)=0.0_cp
             vtr(nTheta,nPhi)=0.0_cp
             vpr(nTheta,nPhi)=r2*rho0(nR)*sinTheta_E2(nTheta)*omega
             if ( lDeriv ) then
@@ -282,11 +286,14 @@ contains
       !-- Local variables:
       real(cp) :: r2
       integer :: nTheta, nPhi
+      logical :: l_vr
 
       if ( nR == n_r_cmb ) then
          r2=r_cmb*r_cmb
+         l_vr=l_vr_cmb
       else if ( nR == n_r_icb ) then
          r2=r_icb*r_icb
+         l_vr=l_vr_icb
       else
          write(output_unit,*)
          write(output_unit,*) '! v_rigid boundary called for grid'
@@ -301,7 +308,7 @@ contains
 #endif
       do nPhi=1,n_phi_max
          do nTheta=1,n_theta_max
-            vrr(nTheta,nR,nPhi)=0.0_cp
+            if ( .not. l_vr ) vrr(nTheta,nR,nPhi)=0.0_cp
             vtr(nTheta,nR,nPhi)=0.0_cp
             vpr(nTheta,nR,nPhi)=r2*rho0(nR)*sinTheta_E2(nTheta)*omega
             if ( lDeriv ) then

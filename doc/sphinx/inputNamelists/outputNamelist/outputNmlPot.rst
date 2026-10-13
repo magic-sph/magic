@@ -7,9 +7,10 @@ The **[V|B|T]_lmr** outputs controls the output of potential files
 (:ref:`V_lmr_#.TAG <secPotFiles>`, :ref:`B_lmr_#.TAG <secPotFiles>` and 
 :ref:`T_lmr_#.TAG <secPotFiles>`). These are files contain
 the poloidal and toroidal flow and magnetic field potentials (and entropy/temperature)
-written in spectral and radial spaces (for instance :code:`w(lm_max, n_r_max)`).
-These files can be quite handy since they can be possibly used to reconstruct any
-quantity in the spectral space or in the physical space you may be interested in.
+written in spectral and radial spaces up to a maximum spherical harmonic degree
+``l_max_pot``. These files can be quite handy since they can be possibly 
+used to reconstruct any quantity in the spectral space or in the physical space
+you may be interested in.
 
 
 Standard inputs
@@ -32,3 +33,8 @@ Standard inputs
 * **t_pot_start** (default :f:var:`t_pot_start=0.0 <t_pot_start>`) is a real, which defines the time to start writing ``[V|B|T|Xi]_lmr`` outputs.
 
 * **t_pot_stop** (default :f:var:`t_pot_stop=0.0 <t_pot_stop>`) is a real, which defines the time to stop writing ``[V|B|T|Xi]_lmr`` outputs.
+
+.. _varl_max_pot:
+
+* **l_max_pot** (default :f:var:`l_max_pot=l_max <l_max_pot>`) is an integer. This is the maximum spherical harmonic degree :math:`\ell` stored in the ``[V|B|T|Xi]_lmr`` files.
+

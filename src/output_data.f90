@@ -60,6 +60,7 @@ module output_data
    integer, public :: l_max_r
    integer, public :: n_r_step
    integer, public :: m_max_modes
+   integer, public :: l_max_pot ! max degree for potential files !V_lmr, B_lmr, ...
 
    !----- Output files:
    integer, public :: n_log_file

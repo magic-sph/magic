@@ -734,6 +734,71 @@ calculated by the subroutine :f:subr:`outHemi <outmisc_mod/outhemi()>`.
    >>> # To stack all the hemi.TAG files of the current directory
    >>> ts = MagicTs(field='hemi', all=True)
 
+.. _secDoubleDiffFile:
+
+``double_diff.TAG``
+-------------------
+
+This files contains extra informations relevant for simulations of double diffusive
+convection, such as density and flux ratios. This is automatically turned on
+when both chemical and thermal Rayleigh numbers differ from zero.  This computation
+and writing of the output files is handled by the subroutine
+:f:subr:`outDD <outmisc_mod/outdd()>`.
+
+   +---------------+---------------------------------------------------------------+
+   | No. of column | Contents                                                      |
+   +===============+===============================================================+
+   | 1             | time                                                          |
+   +---------------+---------------------------------------------------------------+
+   | 2             | Effective density ratio defined using the actual ratio of     |
+   |               | temperature and composition across the spherical shell.       |
+   +---------------+---------------------------------------------------------------+
+   | 3             | Flux ratio :math:`\gamma=\alpha_T F_T/\alpha_\xi F_\xi`       |
+   +---------------+---------------------------------------------------------------+
+   | 4             | Turbulent flux ratio                                          |
+   |               | :math:`|\langle u_r T\rangle/\langle u_r \xi \rangle|`        |
+   +---------------+---------------------------------------------------------------+
+   | 5             | Conductive heat flux integrated over the entire volume        |
+   +---------------+---------------------------------------------------------------+
+   | 6             | Convective heat flux integrated over the entire volume        |
+   +---------------+---------------------------------------------------------------+
+   | 7             | Conductive composition flux integrated over the entire        |
+   |               | volume                                                        |
+   +---------------+---------------------------------------------------------------+
+   | 8             | Convective composition flux integrated over the entire        |
+   |               | volume                                                        |
+   +---------------+---------------------------------------------------------------+
+   | 9             | Total energy of the temperature fluctuations                  |
+   |               | :math:`\frac{1}{2}\langle {T'}^2 \rangle_V                    |
+   +---------------+---------------------------------------------------------------+
+   | 10            | Axisymmetric part of the temperature fluctuations             |
+   |               | :math:`\frac{1}{2}\langle {T'}_{m=0}^2 \rangle_V              |
+   +---------------+---------------------------------------------------------------+
+   | 11            | Spherically-symmetric part of the temperature fluctuations    |
+   |               | :math:`\frac{1}{2}\langle {T'}_{\ell=0}^2 \rangle_V           |
+   +---------------+---------------------------------------------------------------+
+   | 12            | Degree one contribution of the temperature fluctuations       |
+   |               | :math:`\frac{1}{2}\langle {T'}_{\ell=1}^2 \rangle_V           |
+   +---------------+---------------------------------------------------------------+
+   | 13            | Total energy of the fluctuations of chemical composition      |
+   |               | :math:`\frac{1}{2}\langle {\xi'}^2 \rangle_V                  |
+   +---------------+---------------------------------------------------------------+
+   | 14            | Axisymmetric part of the fluctuations of composition          |
+   |               | :math:`\frac{1}{2}\langle {\xi'}_{m=0}^2 \rangle_V            |
+   +---------------+---------------------------------------------------------------+
+   | 15            | Spherically-symmetric part of the fluctuations of composition |
+   |               | :math:`\frac{1}{2}\langle {\xi'}_{\ell=0}^2 \rangle_V         |
+   +---------------+---------------------------------------------------------------+
+   | 16            | Degree one contribution of the fluctuations of composition    |
+   |               | :math:`\frac{1}{2}\langle {\xi'}_{\ell=1}^2 \rangle_V         |
+   +---------------+---------------------------------------------------------------+
+
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following
+options:
+
+   >>> # To stack all the double_diff.TAG files of the current directory
+   >>> ts = MagicTs(field='double_diff', all=True)
+
 
 ``growth_sym.TAG`` and ``growth_asym.TAG``
 ------------------------------------------
