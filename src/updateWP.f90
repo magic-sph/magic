@@ -602,6 +602,29 @@ contains
                   rhs1(2,2*lm,0)          =0.0_cp
                   rhs1(n_r_max-1,2*lm-1,0)=0.0_cp
                   rhs1(n_r_max-1,2*lm,0)  =0.0_cp
+
+                  ! Special BC for free-slip and radial flow
+                  if ( l_vr_bc ) then
+                     if (l1 == 2 .and. m1 == 2) then
+                        if (l_vr_cmb .and. ktopv == 1) then
+                           rhs1(2,2*lm-1,0)=-real(l1*(l1+1),kind=cp)*or2(1)
+                           rhs1(2,2*lm,0)  =-real(l1*(l1+1),kind=cp)*or2(1)
+                        end if
+                        if (l_vr_icb .and. kbotv == 1) then
+                           rhs1(n_r_max-1,2*lm-1,0)=-real(l1*(l1+1),kind=cp)*&
+                           &                                or2(n_r_max)
+                           rhs1(n_r_max-1,2*lm,0)  =-real(l1*(l1+1),kind=cp)*&
+                           &                                or2(n_r_max)
+                        end if
+                     end if
+
+                     if (l1 == 2 .and. m1 == 0) then
+                        if (l_vr_cmb .and. ktopv == 1) then
+                           rhs1(2,2*lm-1,0)=-real(l1*(l1+1),kind=cp)*or2(1)
+                        end if
+                     end if
+                  end if
+
                   do nR=3,n_r_max-2
                      rhs1(nR,2*lm-1,0)= real(work_LMloc(lm1,nR))
                      rhs1(nR,2*lm,0)  =aimag(work_LMloc(lm1,nR))
