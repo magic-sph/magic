@@ -1763,7 +1763,7 @@ contains
                      !$omp target update from(s_LMloc, ds_LMloc, dsdt)
                   end if
                   if ( l_chemical_conv ) then
-                  !$omp target update from(xi_LMloc, dxi_LMloc, dxidt)
+                     !$omp target update from(xi_LMloc, dxi_LMloc, dxidt)
                   end if
                   if ( l_conv ) then
                      !$omp target update from(z_LMloc, dz_LMloc, dzdt)
