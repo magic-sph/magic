@@ -139,7 +139,7 @@ class MagicTs(MagicSetup):
             if iplot:
                 self.plot()
         except NameError: # In case tslut in not Defined
-            print('No file correponding to field "{}" has been found'.format(self.field))
+            print('No file corresponding to field "{}" has been found'.format(self.field))
 
     def plot(self):
         """
@@ -417,6 +417,58 @@ class MagicTs(MagicSetup):
             #ax.set_xlim(self.time[0], self.time[-1])
             ax.legend(loc='best', frameon=False)
             fig.tight_layout()
+        elif self.field == 'double_diff':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            if hasattr(self, 'sc'):
+                Lewis = self.sc/self.pr
+                Rrho = abs(self.ra/self.raxi)*Lewis
+                if Rrho < 1.:
+                    ax.plot(self.time, 1./self.flux_ratio, label=r'$\gamma^{-1}$')
+                    ax.plot(self.time, 1./self.density_ratio/Lewis,
+                            label=r'$1/R_\rho^*/Le$')
+                else:
+                    ax.plot(self.time, self.flux_ratio, label=r'$\gamma$')
+                    ax.plot(self.time, self.density_ratio/Lewis,
+                            label=r'$R_\rho^*/Le$')
+            ax.legend(loc='best', frameon=False)
+            ax.set_ylim(0., 1.)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Flux ratio')
+            fig.tight_layout()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.ftot_temp, label='Total heat flux')
+            ax.plot(self.time, self.fconv_temp, label='Conv. heat flux',
+                    color='C0', ls='--')
+            ax.plot(self.time, self.fcond_temp, label='Cond. heat flux',
+                    color='C0', ls='-.')
+            ax.plot(self.time, self.ftot_xi, label='Flux of chemical composition',
+                    color='C1')
+            ax.plot(self.time, self.fconv_xi, label='Conv. flux of chemical composition',
+                    color='C1', ls='--')
+            ax.plot(self.time, self.fcond_xi, label='Cond. flux of chemical composition',
+                    color='C1', ls='-.')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Fluxes')
+            ax.legend(loc='best', frameon=False)
+            fig.tight_layout()
+
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.T2, label=r'$T^2$', color='C0')
+            ax.plot(self.time, self.T2_axi, label=r'$T_{m=0}^2$', color='C0', ls='--')
+            ax.plot(self.time, self.T2_ell0, label=r'$T_{\ell=0}^2$ ',
+                    color='C0', ls='-.')
+            ax.plot(self.time, self.xi2, label=r'$\xi^2$', color='C1')
+            ax.plot(self.time, self.xi2_axi, label=r'$\xi_{m=0}^2$', color='C1', ls='--')
+            ax.plot(self.time, self.xi2_ell0, label=r'$\xi_{\ell=0}^2$',
+                    color='C1', ls='-.')
+            ax.legend(loc='best', frameon=False, ncols=2)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Squared temperature/composition')
+            fig.tight_layout()
         elif self.field == 'earth_like':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -578,7 +630,7 @@ class MagicTs(MagicSetup):
             fig = plt.figure()
             ax = fig.add_subplot(111)
             if self.buoPower.max() != 0.:
-               ax.semilogy(self.time, self.buoPower, label='Thermal buoyancy')
+                ax.semilogy(self.time, self.buoPower, label='Thermal buoyancy')
             if self.buoPower_chem.max() != 0.:
                 ax.semilogy(self.time, self.buoPower_chem,
                             label='Chemical buoyancy')
@@ -824,9 +876,9 @@ class TsLookUpTable:
             self.corr_vortz_otc = data[:, 6]
             self.corr_hel_otc = data[:, 7]
             if data.shape[-1] == 8:
-                self.geosA= np.zeros_like(self.time)
-                self.geosZ= np.zeros_like(self.time)
-                self.geosM= np.zeros_like(self.time)
+                self.geosA = np.zeros_like(self.time)
+                self.geosZ = np.zeros_like(self.time)
+                self.geosM = np.zeros_like(self.time)
                 self.geosNAP = np.zeros_like(self.time)
             elif data.shape[-1] == 12:
                 self.geosA = data[:, 8]
@@ -940,6 +992,25 @@ class TsLookUpTable:
             self.hemi_cmb = data[:, 5]
             self.ekin = data[:, 6]
             self.emag = data[:, 7]
+        elif self.field == 'double_diff':
+            self.time = data[:, 0]
+            self.density_ratio = data[:, 1]
+            self.flux_ratio = data[:, 2]
+            self.flux_ratio_turb = data[:, 3]
+            self.fcond_temp = data[:, 4]
+            self.fconv_temp = data[:, 5]
+            self.fcond_xi = data[:, 6]
+            self.fconv_xi = data[:, 7]
+            self.ftot_temp = self.fcond_temp+self.fconv_temp
+            self.ftot_xi = self.fcond_xi+self.fconv_xi
+            self.T2 = data[:, 8]
+            self.T2_axi = data[:, 9]
+            self.T2_ell0 = data[:, 10]
+            self.T2_ell1 = data[:, 11]
+            self.xi2 = data[:, 12]
+            self.xi2_axi = data[:, 13]
+            self.xi2_ell0 = data[:, 14]
+            self.xi2_ell1 = data[:, 15]
         elif self.field == 'dtVrms':
             self.time = data[:, 0]
             self.InerRms = data[:, 1]

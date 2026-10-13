@@ -177,6 +177,10 @@ class MagicCheckpoint:
 
         fmt = '{}i4'.format(prefix)
         self.version = np.fromfile(file, fmt, count=1)[0]
+        if abs(self.version) > 100:
+            print('File version is too large, reading error!')
+            print('Either wrong endian or record markers')
+            raise ValueError
         fmt = '{}f8'.format(prefix)
         self.time = np.fromfile(file, fmt, count=1)[0]
 
@@ -199,7 +203,7 @@ class MagicCheckpoint:
                      np.fromfile(file, dtype=np.float64, count=9)
 
         # Truncation
-        self.n_r_max, self.n_theta_max, self.n_phi_tot, self.minc,\
+        self.n_r_max, self.n_theta_max, self.n_phi_tot, self.minc, \
                       self.nalias, self.n_r_ic_max = \
                       np.fromfile(file, dtype=np.int32, count=6)
         if self.version > 3:
@@ -342,7 +346,7 @@ class MagicCheckpoint:
         file = open(filename, 'wb')
 
         # Header
-        version = np.array([4], np.int32)
+        version = np.array([5], np.int32)
         version.tofile(file)
         time = np.array([self.time], np.float64)
         time.tofile(file)
@@ -369,7 +373,7 @@ class MagicCheckpoint:
                           self.ek, self.stef, self.radratio, self.sigma_ratio],
                          np.float64)
         else:
-            x = np.array([1e5, 1.0,  0.0, 1.0, 5.0, 1.0e-3, self.radratio, 1.0],
+            x = np.array([1e5, 1.0,  0.0, 1.0, 5.0, 1.0e-3, 0., self.radratio, 1.0],
                          np.float64)
         x.tofile(file)
 
@@ -377,7 +381,7 @@ class MagicCheckpoint:
         x = np.array([self.n_r_max, self.n_theta_max,  self.n_phi_tot, self.minc,
                       self.nalias, self.n_r_ic_max], np.int32)
         x.tofile(file)
-        if not hasattr(self,"m_min"):
+        if not hasattr(self, 'm_min'):
             self.m_min = 0
         x = np.array([self.l_max, self.m_min, self.m_max], np.int32)
         x.tofile(file)
@@ -405,7 +409,7 @@ class MagicCheckpoint:
         dumm.tofile(file)
 
         # Logicals
-        if not hasattr(self,"l_phase"):
+        if not hasattr(self, 'l_phase'):
             self.l_phase = False
 
         flags = np.array([self.l_heat, self.l_chem, self.l_phase, self.l_mag, False,
@@ -673,25 +677,48 @@ class MagicCheckpoint:
             self.fd_ratio = gr.fd_ratio
 
         # Flags
+        self.ek = gr.ek
+        self.radratio = gr.radratio
         if gr.mode in [2, 3, 7, 8, 9, 10] or gr.ra == 0.:
             self.l_heat = False
+            self.ra = 0.
+            self.pr = 0.
         else:
             self.l_heat = True
+            self.ra = gr.ra
+            self.pr = gr.pr
         if not hasattr(gr, 'raxi'):
             self.l_chem = False
+            self.raxi = 0.
+            self.sc = 0.
         else:
             if gr.raxi > 0. or gr.raxi < 0.:
                 self.l_chem = True
             else:
                 self.l_chem = False
+            self.raxi = gr.raxi
+            self.sc = gr.sc
         if gr.mode in [0, 2, 3, 6, 8, 9]:
             self.l_mag = True
+            self.prmag = 0.
         else:
             self.l_mag = False
+            self.prmag = gr.prmag
         if gr.sigma_ratio == 0.:
             self.l_cond_ic = False
+            self.sigma_ratio = 0.
         else:
             self.l_cond_ic = True
+            self.sigma_ratio = gr.sigma
+        if not hasattr(gr, 'stef'):
+            self.l_phase = False
+            self.stef = 0.
+        else:
+            if gr.stef > 0.:
+                self.l_phase = True
+            else:
+                self.l_phase = False
+            self.stef = gr.stef
         self.l_press = False
 
         if self.l_cond_ic:
@@ -718,14 +745,9 @@ class MagicCheckpoint:
         # Calculate the toroidal potential using wr
         self.ztor = np.zeros_like(self.wpol)
 
-        th3D = np.zeros_like(gr.vr)
-        rr3D = np.zeros_like(th3D)
-        for i in range(self.n_theta_max):
-            th3D[:, i, :] = gr.colatitude[i]
-        for i in range(self.n_r_max):
-            rr3D[:, :, i] = self.radius[i]
-        s3D = rr3D*np.sin(th3D)
-        omr = 1./s3D*(thetaderavg(np.sin(th3D)*gr.vphi, order=4) -
+        th3D = gr.colatitude[None, :, None]
+        s3D = self.radius[None, None, :]*np.sin(gr.colatitude[None, :, None])
+        omr = 1./s3D*(thetaderavg(np.sin(th3D)*gr.vphi, colat=gr.colatitude, order=4) -
                       phideravg(gr.vtheta, minc=self.minc))
 
         for i in range(self.n_r_max):
@@ -747,6 +769,13 @@ class MagicCheckpoint:
                 p = sh.spat_spec(gr.xi[:, :, i])
                 self.xi[i, :] = p[:]
 
+        # Calculate the phase field
+        if self.l_phase:
+            self.phase = np.zeros_like(self.wpol)
+            for i in range(self.n_r_max):
+                p = sh.spat_spec(gr.phase[:, :, i])
+                self.phase[i, :] = p[:]
+
         # Calculate the magnetic field
         if self.l_mag:
             self.bpol = np.zeros_like(self.wpol)
@@ -756,7 +785,7 @@ class MagicCheckpoint:
                                    self.radius[i]**2
 
             self.btor = np.zeros_like(self.ztor)
-            jr = 1./s3D*(thetaderavg(np.sin(th3D)*gr.Bphi, order=4) -
+            jr = 1./s3D*(thetaderavg(np.sin(th3D)*gr.Bphi, colat=gr.colatitude, order=4) -
                          phideravg(gr.Btheta, minc=self.minc))
 
             for i in range(self.n_r_max):
@@ -785,16 +814,12 @@ class MagicCheckpoint:
             # Calculate the toroidal potential using jr
             self.btor_ic = np.zeros_like(self.bpol_ic)
 
-            th3D = np.zeros_like(gr.Br_ic)
-            rr3D = np.zeros_like(th3D)
-            for i in range(self.n_theta_max):
-                th3D[:, i, :] = gr.colatitude[i]
-            for i in range(self.n_r_ic_max-1):
-                rr3D[:, :, i] = self.radius_ic[i]
-            rr3D[:, :, -1] = 1e-4
-            s3D = rr3D*np.sin(th3D)
+            th3D = gr.colatitude[None, :, None]
+            s3D = self.radius_ic[None, None, :]*np.sin(gr.colatitude[None, :, None])
+            s3D[:, :, -1] = 1e-4
             jr_ic = np.zeros_like(th3D)
-            jr_ic = 1./s3D*(thetaderavg(np.sin(th3D)*gr.Bphi_ic, order=4) -
+            jr_ic = 1./s3D*(thetaderavg(np.sin(th3D)*gr.Bphi_ic,
+                                        colat=gr.colatitude, order=4) -
                             phideravg(gr.Btheta_ic, minc=self.minc))
 
             for i in range(self.n_r_ic_max):

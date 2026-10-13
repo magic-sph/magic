@@ -31,6 +31,7 @@ import testRMSOutputs.unitTest
 import testGraphMovieOutputs.unitTest
 import testdtBMovieOutputs.unitTest
 import testTOGeosOutputs.unitTest
+import tides_radial_velocity.unitTest
 
 __version__ = '1.0'
 
@@ -363,6 +364,11 @@ def getSuite(startdir, cmd, precision, args):
                                         'outputFileDiff',
                                         '{}/testdtBMovieOutputs'.format(startdir),
                                         execCmd=cmd))
+        # Tides: radial velocity
+        suite.addTest(tides_radial_velocity.unitTest.TidesTest('outputFileDiff',
+                                         '{}/tides_radial_velocity'.format(startdir),
+                                         execCmd=cmd,
+                                         precision=precision))
 
     return suite
 
@@ -409,7 +415,8 @@ def printLevelInfo():
         print("                    Test r.m.s. force balance calculation                          ")
         print("                    Test Graphic and Movie outputs                                 ")
         print("                    Test TO and Geos outputs                                       ")
-
+        print("                    Test Tides: radial velocity                                    ")
+        print("                                                                                   ")
 
 if __name__ == '__main__':
 

@@ -43,7 +43,7 @@ module output_mod
    use output_data, only: tag, l_max_cmb, n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three, zero
    use outMisc_mod, only: outHeat, outHelicity, outHemi, outPhase, get_onset, &
-       &                  calc_melt_frame
+       &                  calc_melt_frame, outDD
    use geos, only: outGeos, outOmega, calc_geos_frame
    use outRot, only: write_rot
    use integration, only: rInt_R
@@ -426,6 +426,9 @@ contains
                  &       s_LMloc,ds_LMloc,p_LMloc,xi_LMloc,                &
                  &       dxi_LMloc)
          end if
+         if ( l_heat .and. l_chemical_conv ) then
+            call outDD(timeScaled,w_LMloc,s_LMloc,ds_LMloc,xi_LMloc,dxi_LMloc)
+         end if
 
          if ( l_hel ) call outHelicity(timeScaled)
 
@@ -569,27 +572,27 @@ contains
          call write_Pot_mpi(time,w_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
               &             nPotSets,'V_lmr.',omega_ma,omega_ic)
          if ( l_heat ) then
-           call write_Pot_mpi(time,s_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
-                &             nPotSets,'T_lmr.',omega_ma,omega_ic)
+            call write_Pot_mpi(time,s_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+                 &             nPotSets,'T_lmr.',omega_ma,omega_ic)
          end if
          if ( l_chemical_conv ) then
-           call write_Pot_mpi(time,xi_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
-                &             nPotSets,'Xi_lmr.',omega_ma,omega_ic)
+            call write_Pot_mpi(time,xi_Rloc,z_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+                 &             nPotSets,'Xi_lmr.',omega_ma,omega_ic)
          end if
          if ( l_mag ) then
-            call write_Pot_mpi(time,b_Rloc,aj_Rloc,b_ic_LMloc,aj_ic_LMloc, &
-                 &             nPotSets,'B_lmr.',omega_ma,omega_ic)
+             call write_Pot_mpi(time,b_Rloc,aj_Rloc,b_ic_LMloc,aj_ic_LMloc, &
+                  &             nPotSets,'B_lmr.',omega_ma,omega_ic)
          end if
 #else
          call write_Pot(time,w_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
               &         nPotSets,'V_lmr.',omega_ma,omega_ic)
          if ( l_heat ) then
-           call write_Pot(time,s_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
-                &         nPotSets,'T_lmr.',omega_ma,omega_ic)
+            call write_Pot(time,s_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
+                 &         nPotSets,'T_lmr.',omega_ma,omega_ic)
          end if
          if ( l_chemical_conv ) then
-           call write_Pot(time,xi_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
-                &         nPotSets,'Xi_lmr.',omega_ma,omega_ic)
+            call write_Pot(time,xi_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
+                 &         nPotSets,'Xi_lmr.',omega_ma,omega_ic)
          end if
          if ( l_mag ) then
             call write_Pot(time,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc, &

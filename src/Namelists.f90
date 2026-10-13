@@ -128,7 +128,7 @@ contains
       &    r_probe,theta_probe,n_phi_probes,n_probe_step,      &
       &    n_probe_out,t_probe_start,t_probe_stop,dt_probe,    &
       &    l_earth_likeness,l_max_comp,l_geo,l_2D_spectra,     &
-      &    l_2D_RMS, l_spec_avg
+      &    l_2D_RMS,l_spec_avg,l_max_pot
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
       &    omega_ma1,omegaOsz_ma1,tShift_ma1,             &
@@ -742,9 +742,16 @@ contains
       l_AM=l_AM .or. l_correct_AMe .or. l_correct_AMz
       l_AM=l_AM .or. l_power
 
-      ! Radial flow BC?
-      if (ellipticity_cmb /= 0.0_cp .or. ellipticity_icb /= 0.0_cp .or. &
-      &   amp_tide /=0.0_cp ) l_radial_flow_bc=.true.
+      ! Radial flow BCs?
+      l_vr_cmb=.false.
+      l_vr_icb=.false.
+      if (ellipticity_cmb /= 0.0_cp .or. amp_tide /=0.0_cp ) l_vr_cmb=.true.
+      if (ellipticity_icb /= 0.0_cp ) l_vr_icb=.true.
+      l_vr_bc = l_vr_cmb .or. l_vr_icb
+
+      if ( l_vr_bc .and. (ktops /= 1 .or. kbots /= 1) ) then
+         call abortRun('! Radial flow boundary conditions not yet implemented for ktops /=1 and kbots /= 1')
+      end if
 
       !-- Heat boundary condition
       if ( impS /= 0 ) then
@@ -803,6 +810,8 @@ contains
              n_coeff_r_max=5
          end if
       end if
+
+      if ( l_max_pot == 0 .or. l_max_pot > l_max ) l_max_pot=l_max
 
       if ( l_energy_modes ) then
          if ( m_max_modes==0 .or. m_max_modes>l_max ) m_max_modes=l_max
@@ -1137,6 +1146,7 @@ contains
       write(n_out,'(''  t_pot_start     ='',ES14.6,'','')') t_pot_start
       write(n_out,'(''  t_pot_stop      ='',ES14.6,'','')') t_pot_stop
       write(n_out,'(''  dt_pot          ='',ES14.6,'','')') dt_pot
+      write(n_out,'(''  l_max_pot       ='',i3,'','')') l_max_pot
       write(n_out,'(''  n_TO_step       ='',i5,'','')') n_TO_step
       write(n_out,'(''  n_TOs           ='',i5,'','')') n_TOs
       write(n_out,'(''  t_TO_start      ='',ES14.6,'','')') t_TO_start
@@ -1603,6 +1613,7 @@ contains
       t_pot_start   =0.0_cp
       t_pot_stop    =0.0_cp
       dt_pot        =0.0_cp
+      l_max_pot     =l_max
 
       !----- Output TO:
       n_TO_step     =0

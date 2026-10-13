@@ -2,7 +2,9 @@
 from magic.setup import defaultLevels, defaultCm
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 
+mplMaj,mplMin,_ = np.int32(matplotlib.__version__.split('.'))
 
 def default_cmap(field):
     """
@@ -172,8 +174,9 @@ def cut(dat, vmax=None, vmin=None):
 
 def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
                  cm=defaultCm, normed=None, vmax=None, vmin=None, cbar=True,
-                 title=True, normRad=False, deminc=True, bounds=True,
-                 lines=False, linewidths=0.5, pcolor=False, rasterized=False):
+                 title=True, normRad=False, deminc=True, bounds=True, fig=None,
+                 ax=None, lines=False, linewidths=0.5, pcolor=False,
+                 rasterized=False):
     """
     Plot the equatorial cut of a given field
 
@@ -207,6 +210,10 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
     :param deminc: a logical to indicate if one wants do get rid of the
                    possible azimuthal symmetry
     :type deminc: bool
+    :param fig: a pre-existing figure (if needed)
+    :type fig: matplotlib.figure.Figure
+    :param ax: a pre-existing axis
+    :type ax: matplotlib.axes._subplots.AxesSubplot
     :param bounds: a boolean to determine if one wants to plot the limits
                    of the domain (True by default)
     :type bounds: bool
@@ -238,19 +245,26 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
 
     if title and label is not None:
         if cbar:
-            fig = plt.figure(figsize=(6.5,5.5))
-            ax = fig.add_axes([0.01, 0.01, 0.76, 0.9])
+            fsize = (6.5,5.5)
+            bb = [0.01, 0.01, 0.76, 0.9]
         else:
-            fig = plt.figure(figsize=(5,5.5))
-            ax = fig.add_axes([0.01, 0.01, 0.98, 0.9])
-        ax.set_title(label, fontsize=24)
+            fsize = (5,5.5)
+            bb = [0.01, 0.01, 0.98, 0.9]
     else:
         if cbar:
-            fig = plt.figure(figsize=(6.5,5))
-            ax = fig.add_axes([0.01, 0.01, 0.76, 0.98])
+            fsize = (5,4)
+            bb = [0.01, 0.01, 0.76, 0.98]
         else:
-            fig = plt.figure(figsize=(5, 5))
-            ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
+            fsize = (5, 5)
+            bb = [0.01, 0.01, 0.98, 0.98]
+
+    if fig is None:
+        fig = plt.figure(figsize=fsize)
+        if ax is None:
+            ax = fig.add_axes(bb)
+
+    if title and label is not None:
+        ax.set_title(label, fontsize=24)
 
     if normed is None:
         if abs(data.min()) < 1e-8:
@@ -335,17 +349,23 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
         if title and label is not None:
             cax = fig.add_axes([0.85, 0.46-0.7*h/2., 0.03, 0.7*h])
         else:
-            cax = fig.add_axes([0.85, 0.5-0.7*h/2., 0.03, 0.7*h])
+            cax = fig.add_axes([0.85, 0.51-0.7*h/2., 0.05, 0.7*h])
+            #cax = fig.add_axes([0.9, 0.51-0.7*h/2., 0.03, 0.7*h])
         mir = fig.colorbar(im, cax=cax)
 
     #To avoid white lines on pdfs
     if not pcolor:
-        for c in im.collections:
-            c.set_edgecolor('face')
+        if mplMaj >= 3 and mplMin >= 8:
+            im.set_edgecolor('face')
             if rasterized:
-                c.set_rasterized(True)
+                im.set_rasterized(True)
+        else:
+            for c in im.collections:
+                c.set_edgecolor('face')
+                if rasterized:
+                    c.set_rasterized(True)
 
-    return fig, xx, yy
+    return fig, xx, yy, im
 
 
 def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
@@ -473,10 +493,15 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
 
     # To avoid white lines on pdfs
     if not pcolor:
-        for c in im.collections:
-            c.set_edgecolor('face')
+        if mplMaj >= 3 and mplMin >= 8:
+            im.set_edgecolor('face')
             if rasterized:
-                c.set_rasterized(True)
+                im.set_rasterized(True)
+        else:
+            for c in im.collections:
+                c.set_edgecolor('face')
+                if rasterized:
+                    c.set_rasterized(True)
 
     if bounds:
         ax.plot((radius[0])*np.sin(th), (radius[0])*np.cos(th), 'k-')
@@ -730,9 +755,14 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
 
     # To avoid white lines on pdfs
     if not pcolor:
-        for c in im.collections:
-            c.set_edgecolor('face')
+        if mplMaj >= 3 and mplMin >= 8:
+            im.set_edgecolor('face')
             if rasterized:
-                c.set_rasterized(True)
+                im.set_rasterized(True)
+        else:
+            for c in im.collections:
+                c.set_edgecolor('face')
+                if rasterized:
+                    c.set_rasterized(True)
 
-    return fig, x, y
+    return fig, x, y, im

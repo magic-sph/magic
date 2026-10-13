@@ -216,6 +216,11 @@ class MagicSpectrum(MagicSetup):
                                                        nml.stop_time)
                         k += 1
 
+                if k == 0:
+                    if not quiet:
+                        print('No corresponding file found')
+                    return
+
 
         else: # Snapshot spectra
 
@@ -272,6 +277,15 @@ class MagicSpectrum(MagicSetup):
                 print('reading {}'.format(filename))
             if not hasattr(self, 'stop_time'):
                 self.stop_time = None
+            if skipLines == 1:
+                with open(filename, 'r') as fi:
+                    st = fi.readline().rstrip('\n')
+                    pattern = re.compile(r'.*spectra at time: (.*)')
+                    if pattern.match(st):
+                        self.time = float(pattern.search(st).groups()[0])
+            else:
+                self.time = -1.
+
             data = fast_read(filename, skiplines=skipLines)
             speclut = SpecLookUpTable(data, self.name, self.start_time,
                                       self.stop_time)
@@ -942,12 +956,12 @@ class SpecLookUpTable:
         out = copy.deepcopy(new)
         if self.start_time is not None:
             fac_old = self.stop_time-self.start_time
-            out.start_time = self.start_time
+            out.start_time = min(self.start_time, out.start_time)
         else:
             fac_old = 0.
         if new.stop_time is not None:
             fac_new = new.stop_time-new.start_time
-            out.stop_time = new.stop_time
+            out.stop_time = max(self.stop_time, new.stop_time)
         else:
             fac_new = 0.
         if fac_old != 0 or fac_new != 0:

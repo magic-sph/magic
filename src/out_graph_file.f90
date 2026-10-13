@@ -683,21 +683,21 @@ contains
 #ifdef WITH_MPI
             call write_one_field(Br, n_graph_loc, n_phi_max, n_theta_max)
 #else
-            write(n_graph_file) Br(:,:)
+            write(n_graph_loc) Br(:,:)
 #endif
 
             !-- Write latitudinal magnetic field:
 #ifdef WITH_MPI
             call write_one_field(Bt, n_graph_loc, n_phi_max, n_theta_max)
 #else
-            write(n_graph_file) Bt(:,:)
+            write(n_graph_loc) Bt(:,:)
 #endif
 
             !-- Write longitudinal magnetic field:
 #ifdef WITH_MPI
             call write_one_field(Bp, n_graph_loc, n_phi_max, n_theta_max)
 #else
-            write(n_graph_file) Bp(:,:)
+            write(n_graph_loc) Bp(:,:)
 #endif
          end do  ! Do loop over radial levels nR
       end if ! Only rank==0 writes

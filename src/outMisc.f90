@@ -9,14 +9,15 @@ module outMisc_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use communications, only: gather_from_Rloc, gather_from_lo_to_rank0, &
-       &                     transp_R2Phi
+       &                     transp_R2Phi, reduce_radial
    use truncation, only: n_r_max, n_theta_max, n_r_maxMag, n_phi_max, lm_max, &
        &                 m_min, m_max, minc
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop, radial_balance
    use radial_functions, only: r_icb, rscheme_oc, kappa, r_cmb,temp0, r, rho0, &
        &                       dLtemp0, dLalpha0, beta, orho1, alpha0, otemp1, &
-       &                       ogrun, rscheme_oc, or2, orho2, or4
-   use physical_parameters, only: ViscHeatFac, ThExpNb, opr, stef, LFfac
+       &                       ogrun, rscheme_oc, or2, orho2, or4, scond, xicond
+   use physical_parameters, only: ViscHeatFac, ThExpNb, opr, stef, LFfac, osc, raxi, &
+       &                          ra
    use num_param, only: lScale, eScale, vScale
    use blocking, only: llm, ulm, lo_map, lm2
    use radial_der, only: get_dr
@@ -31,7 +32,7 @@ module outMisc_mod
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four, half, zero
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
        &                   deltaxicond
-   use useful, only: round_off, lagrange_interp
+   use useful, only: round_off, lagrange_interp, cc2real, cc22real
    use integration, only: rInt_R
 
    implicit none
@@ -41,10 +42,10 @@ module outMisc_mod
    type(mean_sd_type) :: TMeanR, SMeanR, PMeanR, XiMeanR, RhoMeanR, PhiMeanR
    integer :: n_heat_file, n_helicity_file, n_calls, n_phase_file
    integer :: n_rmelt_file, n_hemi_file, n_growth_sym_file, n_growth_asym_file
-   integer :: n_drift_sym_file, n_drift_asym_file
+   integer :: n_drift_sym_file, n_drift_asym_file, n_extra_dd_file
    character(len=72) :: heat_file, helicity_file, phase_file, rmelt_file
    character(len=72) :: hemi_file, sym_file, asym_file, drift_sym_file
-   character(len=72) :: drift_asym_file
+   character(len=72) :: drift_asym_file, extra_dd_file
    real(cp) :: TPhiOld, Tphi
    real(cp), allocatable :: ekinSr(:), ekinLr(:), volSr(:)
    real(cp), allocatable :: hemi_ekin_r(:,:), hemi_vrabs_r(:,:)
@@ -63,7 +64,7 @@ module outMisc_mod
 
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod, &
    &         outPhase, outHemi, get_ekin_solid_liquid, get_helicity, get_hemi,   &
-   &         get_onset, calc_melt_frame
+   &         get_onset, calc_melt_frame, outDD
 
 contains
 
@@ -114,12 +115,16 @@ contains
          end if
       end if
 
-      heat_file    ='heat.'//tag
+      heat_file='heat.'//tag
       if ( rank == 0 .and. (.not. l_save_out) ) then
          if ( l_hel ) open(newunit=n_helicity_file, file=helicity_file, status='new')
          if ( l_hemi ) open(newunit=n_hemi_file, file=hemi_file, status='new')
          if ( l_heat .or. l_chemical_conv ) then
             open(newunit=n_heat_file, file=heat_file, status='new')
+         end if
+         if ( l_heat .and. l_chemical_conv ) then
+            extra_dd_file='double_diff.'//tag
+            open(newunit=n_extra_dd_file, file=extra_dd_file, status='new')
          end if
       end if
 
@@ -228,6 +233,7 @@ contains
          if ( l_hel ) close(n_helicity_file)
          if ( l_hemi ) close(n_hemi_file)
          if ( l_heat .or. l_chemical_conv ) close(n_heat_file)
+         if ( l_heat .and. l_chemical_conv ) close(n_extra_dd_file)
          if ( l_phase_field ) then
             close(n_phase_file)
             close(n_rmelt_file)
@@ -686,6 +692,136 @@ contains
       end if ! rank == 0
 
    end subroutine outHeat
+!----------------------------------------------------------------------------------
+   subroutine outDD(time,w,s,ds,xi,dxi)
+      !
+      ! This subroutine is used to store extra informations relevant to
+      ! double diffusive instabilities, such as density and flux ratios
+      ! or squared temperature or chemical composition
+      !
+
+      !-- Input of variables:
+      real(cp),    intent(in) :: time ! Time
+
+      !-- Input of scalar fields:
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)   ! Poloidal potential
+      complex(cp), intent(in) :: s(llm:ulm,n_r_max)   ! Entropy/temperature
+      complex(cp), intent(in) :: ds(llm:ulm,n_r_max)  ! Radial derivative of entropy/temp
+      complex(cp), intent(in) :: xi(llm:ulm,n_r_max)  ! Chemical composition
+      complex(cp), intent(in) :: dxi(llm:ulm,n_r_max) ! Radial derivative of xi
+
+      !-- Local stuff:
+      complex(cp) :: tmp
+      real(cp) :: fconvT(n_r_max), fconvT_global(n_r_max), fcondT(n_r_max)
+      real(cp) :: fconvXi(n_r_max), fconvXi_global(n_r_max), fcondXi(n_r_max)
+      real(cp) :: T2(n_r_max), T2_global(n_r_max), xi2(n_r_max), xi2_global(n_r_max)
+      real(cp) :: T2_axi(n_r_max), T2_axi_global(n_r_max)
+      real(cp) :: xi2_axi(n_r_max), xi2_axi_global(n_r_max)
+      real(cp) :: T2_ell1(n_r_max), T2_ell1_global(n_r_max)
+      real(cp) :: xi2_ell1(n_r_max), xi2_ell1_global(n_r_max)
+      real(cp) :: T2_ell0(n_r_max), xi2_ell0(n_r_max)
+      real(cp) :: fconvT_tot, fcondT_tot, T2_tot, xi2_tot, fconvXi_tot, fcondXi_tot
+      real(cp) :: T2_ell0_tot, xi2_ell0_tot, T2_ell1_tot, xi2_ell1_tot, Rrho_star
+      real(cp) :: T2_axi_tot, xi2_axi_tot, Rrho, flux_ratio, flux_ratio_turb
+      integer :: n_r,lm,l,m,lm00
+
+      lm00=lo_map%lm2(0,0)
+
+      fconvT(:)  =0.0_cp
+      fconvXi(:) =0.0_cp
+      T2(:)      =0.0_cp
+      T2_axi(:)  =0.0_cp
+      xi2(:)     =0.0_cp
+      xi2_axi(:) =0.0_cp
+      T2_ell0(:) =0.0_cp
+      xi2_ell0(:)=0.0_cp
+      T2_ell1(:) =0.0_cp
+      xi2_ell1(:)=0.0_cp
+
+      !-- Sum over (l,m) pairs
+      do n_r=1,n_r_max
+         do lm=llm,ulm
+            l=lo_map%lm2l(lm)
+            m=lo_map%lm2m(lm)
+            fconvT(n_r) =fconvT(n_r) +l*(l+1)*cc22real(w(lm,n_r),s(lm,n_r),m)
+            fconvXi(n_r)=fconvXi(n_r)+l*(l+1)*cc22real(w(lm,n_r),xi(lm,n_r),m)
+            if ( l == 0 ) then
+               tmp=(s(lm,n_r)-sq4pi*scond(n_r))*r(n_r)
+               T2_ell0(n_r)=T2_ell0(n_r)+cc2real(tmp,m)
+            else
+               tmp=s(lm,n_r)*r(n_r)
+            end if
+            if ( l == 1 ) T2_ell1(n_r)=T2_ell1(n_r)+cc2real(tmp,m)
+            if ( m == 0 ) T2_axi(n_r) =T2_axi(n_r) +cc2real(tmp,m)
+            T2(n_r)=T2(n_r)+cc2real(tmp, m)
+            if ( l == 0 ) then
+               tmp=(xi(lm,n_r)-sq4pi*xicond(n_r))*r(n_r)
+               xi2_ell0(n_r)=xi2_ell0(n_r)+cc2real(tmp,m)
+            else
+               tmp=xi(lm,n_r)*r(n_r)
+            end if
+            if ( l == 1 ) xi2_ell1(n_r)=xi2_ell1(n_r)+cc2real(tmp,m)
+            if ( m == 0 ) xi2_axi(n_r) =xi2_axi(n_r) +cc2real(tmp,m)
+            xi2(n_r)=xi2(n_r)+cc2real(tmp, m)
+         end do
+      end do
+
+      if ( llm <= lm00 .and. ulm >= lm00 ) then
+         !-- Only defined in Boussinesq for now
+         fcondT(:) =-opr*real(ds(lm00,:))*r(:)*r(:)*sq4pi
+         fcondXi(:)=-osc*real(dxi(lm00,:))*r(:)*r(:)*sq4pi
+      end if
+
+      call reduce_radial(fconvT, fconvT_global, 0)
+      call reduce_radial(fconvXi, fconvXi_global, 0)
+      call reduce_radial(T2, T2_global, 0)
+      call reduce_radial(T2_axi, T2_axi_global, 0)
+      call reduce_radial(T2_ell1, T2_ell1_global, 0)
+      call reduce_radial(xi2, xi2_global, 0)
+      call reduce_radial(xi2_axi, xi2_axi_global, 0)
+      call reduce_radial(xi2_ell1, xi2_ell1_global, 0)
+
+      if ( rank == 0 ) then
+         !-- Radial integrations
+         Rrho=opr/osc*abs(ra/raxi)
+         !-- Effective density ratio
+         Rrho_star=Rrho*abs(real(s(lm00,n_r_icb)-s(lm00,n_r_cmb)) / &
+         &                  real(xi(lm00,n_r_icb)-xi(lm00,n_r_cmb)))
+         fconvT_tot =rInt_R(fconvT_global,r,rscheme_oc)
+         fcondT_tot =rInt_R(fcondT,r,rscheme_oc)
+         fconvXi_tot=rInt_R(fconvXi_global,r,rscheme_oc)
+         fcondXi_tot=rInt_R(fcondXi,r,rscheme_oc)
+         !-- Flux ratio
+         flux_ratio =abs((fconvT_tot+fcondT_tot)/(fcondXi_tot+fconvXi_tot))*Rrho
+         if ( abs(fconvXi_tot) == 0.0_cp ) then
+            flux_ratio_turb=one
+         else
+            flux_ratio_turb=abs(fconvT_tot/fconvXi_tot)*Rrho
+         end if
+         T2_tot     =half*rInt_R(T2_global,r,rscheme_oc)
+         T2_axi_tot =half*rInt_R(T2_axi_global,r,rscheme_oc)
+         T2_ell0_tot=half*rInt_R(T2_ell0,r,rscheme_oc)
+         T2_ell1_tot=half*rInt_R(T2_ell1_global,r,rscheme_oc)
+         xi2_tot    =half*rInt_R(xi2_global,r,rscheme_oc)
+         xi2_axi_tot=half*rInt_R(xi2_axi_global,r,rscheme_oc)
+         xi2_ell0_tot=half*rInt_R(xi2_ell0,r,rscheme_oc)
+         xi2_ell1_tot=half*rInt_R(xi2_ell1_global,r,rscheme_oc)
+
+         if ( l_save_out ) then
+            open(newunit=n_extra_dd_file, file=extra_dd_file, status='unknown', &
+            &    position='append')
+         end if
+
+         write(n_extra_dd_file,'(1P,ES20.12,15ES16.8)')                &
+         &     time, Rrho_star, flux_ratio, flux_ratio_turb,           &
+         &     fcondT_tot, fconvT_tot, fcondXi_tot, fconvXi_tot,       &
+         &     T2_tot, T2_axi_tot, T2_ell0_tot, T2_ell1_tot,           &
+         &     xi2_tot, xi2_axi_tot, xi2_ell0_tot, xi2_ell1_tot
+
+         if ( l_save_out ) close(n_extra_dd_file)
+      end if
+
+   end subroutine outDD
 !----------------------------------------------------------------------------------
    subroutine outPhase(time, timePassed, timeNorm, l_stop_time, nLogs, s, ds, phi)
       !

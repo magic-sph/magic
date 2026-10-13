@@ -83,7 +83,7 @@ class MagicPotential(MagicSetup):
     """
 
     def __init__(self, field='V', datadir='.', tag=None, ave=False, ipot=None,
-                 precision=np.float32, verbose=True, ic=False):
+                 precision=np.float32, verbose=True, ic=False, setup_SHT=False):
         """
         :param field: 'B', 'V', 'T' or 'Xi' (magnetic field, velocity field,
                       temperature or chemical composition)
@@ -103,6 +103,8 @@ class MagicPotential(MagicSetup):
         :type verbose: bool
         :param ic: read or don't read the inner core
         :type ic: bool
+        :param setup_SHT: set up the spherical harmonic transforms
+        :type setup_SHT: bool
         """
 
         if field != 'B':
@@ -139,7 +141,7 @@ class MagicPotential(MagicSetup):
                                     nml='log.{}'.format(tag))
         else:
             if ipot is not None:
-                pattern = os.path.join(datadir, '{}{}*'.format(self.name, ipot))
+                pattern = os.path.join(datadir, '{}{}.*'.format(self.name, ipot))
                 files = scanDir(pattern)
                 filename = files[-1]
             else:
@@ -167,26 +169,22 @@ class MagicPotential(MagicSetup):
         if verbose:
             print('Time to read {}: {:.2e}'.format(filename, t2-t1))
 
-        self.n_theta_max = max(int(3*self.l_max/2), 128)
-        self.n_theta_max += self.n_theta_max % 2
-        self.n_phi_max = int(2*self.n_theta_max/self.minc)
-        t1 = time.time()
-        self.sh = SpectralTransforms(l_max=self.l_max, minc=self.minc,
-                                     m_max=self.m_max,
-                                     n_theta_max=self.n_theta_max,
-                                     verbose=verbose)
-        self.lm_max = self.sh.lm_max
-        t2 = time.time()
-        if verbose:
-            print('Time to set up the spectral transforms: {:.2e}'.format(t2-t1))
-        self.colat = self.sh.colat
-
-        self.idx = self.sh.idx
-        self.ell = self.sh.ell
-        self.m = self.sh.m
+        self.idx = np.zeros((self.l_max+1, self.m_max+1), np.int32)
+        self.ell = np.zeros((self.lm_max), np.int32)
+        self.m = np.zeros((self.lm_max), np.int32)
+        lm = 0
+        for m in range(0, self.m_max+1, self.minc):
+            for l in range(m, self.l_max+1):
+                self.idx[l, m] = lm
+                self.ell[self.idx[l,m]] = l
+                self.m[self.idx[l,m]] = m
+                lm += 1
+        # In case m_min > 0: overwrite lm_max
+        if self.m_min > 0:
+            self.lm_max = lm
 
         if self.version == 2 and self.m_min > 0:
-            mask = self.m >= self.m_min
+            mask = (self.m >= self.m_min)
 
             pol = np.zeros([int(self.lm_max), int(self.n_r_max)],
                            dtype=np.dtype(self.pol[0, 0]))
@@ -210,6 +208,23 @@ class MagicPotential(MagicSetup):
 
                 self.pol_ic = pol_ic
                 self.tor_ic = tor_ic
+        
+        if setup_SHT:
+            t1 = time.time()
+            self.n_theta_max = max(int(3*self.l_max/2), 128)
+            self.n_theta_max += self.n_theta_max % 2
+            self.n_phi_max = int(2*self.n_theta_max/self.minc)
+            self.sh = SpectralTransforms(l_max=self.l_max, minc=self.minc,
+                                         m_max=self.m_max,
+                                         n_theta_max=self.n_theta_max,
+                                         verbose=verbose)
+            self.colat = self.sh.colat
+            self.idx = self.sh.idx
+            self.ell = self.sh.ell
+            self.m = self.sh.m
+            t2 = time.time()
+            if verbose:
+                print('Time to set up the spectral transforms: {:.2e}'.format(t2-t1))
 
     def read(self, filename, field, endian, record_marker, ic=False,
              precision=np.float32):
@@ -397,6 +412,9 @@ class MagicPotential(MagicSetup):
         :type normed: bool
         """
 
+        if field in ('temperature', 'entropy', 's', 'S', 'u2', 'b2', 'nrj'):
+            normed = False
+
         phiavg = np.zeros((self.n_theta_max, self.n_r_max), np.float32)
         t1 = time.time()
         if field in ('T', 'temp', 'S', 'entropy'):
@@ -465,9 +483,6 @@ class MagicPotential(MagicSetup):
         t2 = time.time()
         print('Transform time (avg): {:.2f}'.format(t2-t1))
 
-        if field in ('temperature', 'entropy', 's', 'S', 'u2', 'b2', 'nrj'):
-            normed = False
-
         fig, xx, yy, im = merContour(phiavg, self.radius, label, levels, cm,
                                      normed, vmax, vmin, cbar, tit)
 
@@ -506,6 +521,10 @@ class MagicPotential(MagicSetup):
                        Default is True, except for entropy/temperature plots.
         :type normed: bool
         """
+
+        if field in ('temperature', 't', 'T', 'entropy', 's', 'S', 'u2',
+                     'b2', 'nrj'):
+            normed = False
 
         equator = np.zeros((self.n_phi_max, self.n_r_max), np.float32)
         t1 = time.time()
@@ -571,13 +590,9 @@ class MagicPotential(MagicSetup):
 
         equator = symmetrize(equator, self.minc)
 
-        if field in ('temperature', 't', 'T', 'entropy', 's', 'S', 'u2',
-                     'b2', 'nrj'):
-            normed = False
-
-        fig, xx, yy = equatContour(equator, self.radius, self.minc, label,
-                                   levels, cm, normed, vmax, vmin, cbar, tit,
-                                   normRad)
+        fig, xx, yy, im = equatContour(equator, self.radius, self.minc, label,
+                                       levels, cm, normed, vmax, vmin, cbar, tit,
+                                       normRad)
         ax = fig.get_axes()[0]
 
         # Variable conductivity: add a dashed line
@@ -633,6 +648,10 @@ class MagicPotential(MagicSetup):
         :param normed: when set to True, the colormap is centered around zero.
         :type normed: bool
         """
+
+        if field in ('temperature', 't', 'T', 'entropy', 's', 'S', 'u2',
+                     'b2', 'nrj'):
+            normed = False
 
         r /= (1-self.radratio)  # as we give a normalised radius
         ind = np.nonzero(np.where(abs(self.radius-r) ==
@@ -702,12 +721,8 @@ class MagicPotential(MagicSetup):
 
         rprof = symmetrize(rprof, self.minc)
 
-        if field in ('temperature', 't', 'T', 'entropy', 's', 'S', 'u2',
-                     'b2', 'nrj'):
-            normed = False
-
-        radialContour(rprof, rad, label, proj, lon_0, vmax, vmin,
-                      lat_0, levels, cm, normed, cbar, tit, lines)
+        fig, xx, yy, im = radialContour(rprof, rad, label, proj, lon_0, vmax, vmin,
+                                        lat_0, levels, cm, normed, cbar, tit, lines)
 
 
 if __name__ == '__main__':

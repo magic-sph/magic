@@ -186,7 +186,7 @@ class Movie:
                     movieDipLon, movieDipStrength, movieDipStrengthGeo = \
                     infile.fort_read(precision)
             else:
-                t_movieS = infile.fort_read(precision)
+                t_movieS = infile.fort_read(precision)[0]
             for ll in range(self.n_fields):
                 dat = infile.fort_read(precision, shape=self.shape, order='F')
         # then read the remaining requested nvar lines
@@ -196,7 +196,7 @@ class Movie:
                     movieDipLon, movieDipStrength, movieDipStrengthGeo = \
                     infile.fort_read(precision)
             else:
-                t_movieS = infile.fort_read(precision)
+                t_movieS = infile.fort_read(precision)[0]
             self.time[k] = t_movieS
             for ll in range(self.n_fields):
                 dat = infile.fort_read(precision, shape=self.shape, order='F')
@@ -516,7 +516,7 @@ class Movie:
                 elif (new_shape[0] == old_shape[0]) and (new_shape[1] != old_shape[1]):
                     ir = interp1d(self.radius[::-1], self.data[..., ::-1], axis=-1)
                     tmp = ir(new.radius[::-1])
-                    self.data = self.data[..., ::-1]
+                    self.data = tmp[..., ::-1]
             elif self.n_surface == 4:
                 if (new_shape[0] != old_shape[0]) and (new_shape[1] != old_shape[1]):
                     it = interp1d(self.theta, self.data, axis=-2,

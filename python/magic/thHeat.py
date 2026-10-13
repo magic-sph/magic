@@ -52,9 +52,8 @@ class ThetaHeat(MagicSetup):
         angle = angle * np.pi / 180
 
         if os.path.exists('tInitAvg'):
-            f = open('tInitAvg', 'r')
-            tstart = float(f.readline())
-            f.close()
+            with open('tInitAvg', 'r') as f:
+                tstart = float(f.readline())
             logFiles = scanDir('log.*')
             tags = []
             for lg in logFiles:

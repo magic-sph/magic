@@ -19,7 +19,8 @@ module out_coeff
        &                 m_min, m_max
    use communications, only: gather_from_lo_to_rank0, gather_all_from_lo_to_rank0,&
        &                     gt_IC, gt_OC
-   use output_data, only: tag, n_coeff_r, n_r_array, n_r_step, l_max_r, n_coeff_r_max
+   use output_data, only: tag, n_coeff_r, n_r_array, n_r_step, l_max_r, &
+       &                  n_coeff_r_max, l_max_pot
    use constants, only: two, half
 
    implicit none
@@ -544,6 +545,7 @@ contains
       integer :: info, fh, version, istat(MPI_STATUS_SIZE), datatype
       integer :: arr_size(2), arr_loc_size(2), arr_start(2)
       integer(lip) :: disp, offset, size_tmp
+      integer :: lm_max_pot, m_max_pot, l, m, lm_big, lm
       character(80) :: string
       character(:), allocatable :: head
       character(80) :: fileName
@@ -551,7 +553,17 @@ contains
 
       version = 2 ! file version
 
-      allocate( tmp(lm_max,nRstart:nRstop) )
+      l_max_pot=min(l_max_pot,l_max) ! In principle already taken care of in Namelists.f90
+      m_max_pot=(l_max_pot/minc)*minc
+      m_max_pot=min(m_max_pot,m_max)
+      ! number of l/m combinations
+      lm_max_pot=0
+      do m=m_min,m_max_pot,minc
+         do l=m,l_max_pot
+            lm_max_pot=lm_max_pot+1
+         end do
+      end do
+      allocate( tmp(lm_max_pot,nRstart:nRstop) )
 
       head = trim(adjustl(root))
       lVB=.false.
@@ -562,7 +574,6 @@ contains
       else
          write(string, *) nPotSets
          fileName=head(1:len(head)-1)//'_'//trim(adjustl(string))//'.'//tag
-         !         end if
       end if
 
       !--  MPI-IO setup
@@ -594,11 +605,11 @@ contains
               &              istat, ierr)
          call MPI_File_Write(fh, n_r_max, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, n_r_ic_max, 1, MPI_INTEGER, istat, ierr)
-         call MPI_File_Write(fh, l_max, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Write(fh, l_max_pot, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, minc, 1, MPI_INTEGER, istat, ierr)
-         call MPI_File_Write(fh, lm_max, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Write(fh, lm_max_pot, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, m_min, 1, MPI_INTEGER, istat, ierr)
-         call MPI_File_Write(fh, m_max, 1, MPI_INTEGER, istat, ierr)
+         call MPI_File_Write(fh, m_max_pot, 1, MPI_INTEGER, istat, ierr)
          call MPI_File_Write(fh, real(omega_ic,outp), 1, MPI_OUT_REAL, &
               &              istat, ierr)
          call MPI_File_Write(fh, real(omega_ma,outp), 1, MPI_OUT_REAL, &
@@ -617,9 +628,9 @@ contains
       !-- Broadcast the displacement
       call MPI_Bcast(disp, 1, MPI_OFFSET, 0, MPI_COMM_WORLD, ierr)
 
-      arr_size(1) = lm_max
+      arr_size(1) = lm_max_pot
       arr_size(2) = n_r_max
-      arr_loc_size(1) = lm_max
+      arr_loc_size(1) = lm_max_pot
       arr_loc_size(2) = nR_per_rank
       arr_start(1) = 0
       arr_start(2) = nRstart-1
@@ -629,17 +640,24 @@ contains
       call MPI_Type_Commit(datatype, ierr)
 
       !-- Copy into a single precision array
-      tmp(:,:) = cmplx(b(:,:), kind=outp)
+      lm=1
+      do m=m_min,m_max_pot,minc
+         do l=m,l_max_pot
+            lm_big=lm2(l,m)
+            tmp(lm,:)=cmplx(b(lm_big,:), kind=outp)
+            lm=lm+1
+         end do
+      end do
 
       !-- Set the view after the header
       call MPI_File_Set_View(fh, disp, MPI_COMPLEX8, datatype, "native", &
            &                 info, ierr)
 
-      size_tmp=int(lm_max,kind=lip)*int(n_r_max,kind=lip)* &
+      size_tmp=int(lm_max_pot,kind=lip)*int(n_r_max,kind=lip)* &
       &        int(2*SIZEOF_OUT_REAL,kind=lip)
 
       !-- Poloidal potential
-      call MPI_File_Write_all(fh, tmp, lm_max*nR_per_rank, MPI_COMPLEX8, &
+      call MPI_File_Write_all(fh, tmp, lm_max_pot*nR_per_rank, MPI_COMPLEX8, &
            &                  istat, ierr)
       disp = disp+size_tmp
       call MPI_File_Set_View(fh, disp, MPI_COMPLEX8, datatype, "native", &
@@ -647,14 +665,20 @@ contains
 
       !-- Toroidal potential
       if ( lVB ) then
-         tmp(:,:) = cmplx(aj(:,:), kind=outp)
-         call MPI_File_Write_all(fh, tmp, lm_max*nR_per_rank, MPI_COMPLEX8, &
+         lm=1
+         do m=m_min,m_max_pot,minc
+            do l=m,l_max_pot
+               lm_big=lm2(l,m)
+               tmp(lm,:)=cmplx(aj(lm_big,:), kind=outp)
+               lm=lm+1
+            end do
+         end do
+         call MPI_File_Write_all(fh, tmp, lm_max_pot*nR_per_rank, MPI_COMPLEX8, &
               &                  istat, ierr)
          disp = disp+size_tmp
          call MPI_File_Set_View(fh, disp, MPI_COMPLEX8, datatype, "native", &
               &                 info, ierr)
       end if
-
 
       !-- Displacement at the end of the file
       offset = 0
@@ -670,22 +694,36 @@ contains
       if ( root(1:1) == 'B' .and. l_cond_ic ) then
 
          if ( rank == 0 ) then
-            allocate ( work(lm_max, n_r_ic_max), tmp(lm_max, n_r_ic_max) )
+            allocate ( work(lm_max, n_r_ic_max), tmp(lm_max_pot, n_r_ic_max) )
          else
             allocate ( work(1,1), tmp(1,1) )
          end if
 
          call gather_all_from_lo_to_rank0(gt_IC, b_ic, work)
          if ( rank == 0 ) then
-            tmp(:,:)=cmplx(work(:,:), kind=outp)
-            call MPI_File_Write(fh, tmp, lm_max*n_r_ic_max, MPI_COMPLEX8, &
+            lm=1
+            do m=m_min,m_max_pot,minc
+               do l=m,l_max_pot
+                  lm_big=lm2(l,m)
+                  tmp(lm,:)=cmplx(work(lm_big,:), kind=outp)
+                  lm=lm+1
+               end do
+            end do
+            call MPI_File_Write(fh, tmp, lm_max_pot*n_r_ic_max, MPI_COMPLEX8, &
                  &              istat, ierr)
          end if
 
          call gather_all_from_lo_to_rank0(gt_IC, aj_ic, work)
          if ( rank == 0 ) then
-            tmp(:,:)=cmplx(work(:,:), kind=outp)
-            call MPI_File_Write(fh, tmp, lm_max*n_r_ic_max, MPI_COMPLEX8, &
+            lm=1
+            do m=m_min,m_max_pot,minc
+               do l=m,l_max_pot
+                  lm_big=lm2(l,m)
+                  tmp(lm,:)=cmplx(work(lm_big,:), kind=outp)
+                  lm=lm+1
+               end do
+            end do
+            call MPI_File_Write(fh, tmp, lm_max_pot*n_r_ic_max, MPI_COMPLEX8, &
                  &              istat, ierr)
          end if
 
@@ -717,13 +755,25 @@ contains
       !-- Work arrays:
       complex(cp), allocatable :: workA_global(:,:)
       complex(cp), allocatable :: workB_global(:,:)
+      complex(outp), allocatable :: tmp(:,:)
 
       !-- File outputs:
       character(80) :: string
       character(:), allocatable :: head
-      integer :: n_r, lm, version
+      integer :: lm_max_pot, m_max_pot, l, m, lm_big, lm, n_r, version
       character(80) :: fileName
       logical :: lVB
+
+      l_max_pot=min(l_max_pot,l_max) ! In principle already taken care of in Namelists.f90
+      m_max_pot=(l_max_pot/minc)*minc
+      m_max_pot=min(m_max_pot,m_max)
+      ! number of l/m combinations
+      lm_max_pot=0
+      do m=m_min,m_max_pot,minc
+         do l=m,l_max_pot
+            lm_max_pot=lm_max_pot+1
+         end do
+      end do
 
       version = 2 ! file version 2 stores m_min and m_max in the header
 
@@ -731,16 +781,17 @@ contains
       lVB=.false.
       if ( root(1:1) /= 'T' .and. root(1:2) /= 'Xi' ) lVB= .true.
 
-
       ! now gather the fields on rank 0 and write them to file
       ! it would be nicer to write the fields with MPI IO in parallel
       ! but then presumably the file format will change
       if ( rank == 0 ) then
          allocate(workA_global(lm_max,n_r_max))
          allocate(workB_global(lm_max,n_r_max))
+         allocate(tmp(lm_max_pot,n_r_max))
       else
          allocate(workA_global(1,n_r_max))
          allocate(workB_global(1,n_r_max))
+         allocate(tmp(1,1))
       end if
 
       call gather_all_from_lo_to_rank0(gt_OC, b, workA_global)
@@ -759,45 +810,78 @@ contains
          open(newunit=fileHandle, file=fileName, form='unformatted', &
          &    status='unknown', access='stream')
 
+         !-- Header
          write(fileHandle) version, real(time*tScale,kind=outp)
          write(fileHandle) real(ra,kind=outp), real(pr,kind=outp),     &
          &                 real(raxi,kind=outp), real(sc,kind=outp),   &
          &                 real(prmag,kind=outp), real(ek,kind=outp),  &
          &                 real(radratio,kind=outp),                   &
          &                 real(sigma_ratio,kind=outp)
-
-         write(fileHandle) n_r_max,n_r_ic_max,l_max,minc,lm_max
-
-         write(fileHandle) m_min, m_max
-
+         write(fileHandle) n_r_max,n_r_ic_max,l_max_pot,minc,lm_max_pot
+         write(fileHandle) m_min, m_max_pot
          write(fileHandle) real(omega_ic,kind=outp), real(omega_ma,kind=outp)
-
          write(fileHandle) real(r,kind=outp), real(rho0, kind=outp)
 
-         write(fileHandle) ((cmplx(real(workA_global(lm,n_r)),         &
-         &                 aimag(workA_global(lm,n_r)),kind=outp ),    &
-         &                 lm=1,lm_max),n_r=1,n_r_max)
+         !-- Write fields
+         lm=1
+         do m=m_min,m_max_pot,minc
+            do l=m,l_max_pot
+               lm_big=lm2(l,m)
+               tmp(lm,:)=cmplx(workA_global(lm_big,:), kind=outp)
+               lm=lm+1
+            end do
+         end do
+         write(fileHandle) ((tmp(lm,n_r),lm=1,lm_max_pot),n_r=1,n_r_max)
          if ( lVB ) then
-            write(fileHandle) ((cmplx(real(workB_global(lm,n_r)),      &
-            &                 aimag(workB_global(lm,n_r)),kind=outp ), &
-            &                 lm=1,lm_max),n_r=1,n_r_max)
+            lm=1
+            do m=m_min,m_max_pot,minc
+               do l=m,l_max_pot
+                  lm_big=lm2(l,m)
+                  tmp(lm,:)=cmplx(workB_global(lm_big,:), kind=outp)
+                  lm=lm+1
+               end do
+            end do
+            write(fileHandle) ((tmp(lm,n_r),lm=1,lm_max_pot),n_r=1,n_r_max)
          end if
       end if
 
-
       !-- Now inner core field
       if ( root(1:1) == 'B' .and. l_cond_ic ) then
+
+         !-- Reallocate arrays with the right-size
+         deallocate(workA_global, workB_global, tmp)
+         if ( rank == 0 ) then
+            allocate(workA_global(lm_max,n_r_ic_max))
+            allocate(workB_global(lm_max,n_r_ic_max))
+            allocate(tmp(lm_max_pot,n_r_ic_max))
+         else
+            allocate(workA_global(1,n_r_ic_max))
+            allocate(workB_global(1,n_r_ic_max))
+            allocate(tmp(1,1))
+         end if
 
          call gather_all_from_lo_to_rank0(gt_IC, b_ic, workA_global)
          call gather_all_from_lo_to_rank0(gt_IC, aj_ic, workB_global)
 
          if ( rank == 0 ) then
-            write(fileHandle) ( (cmplx( real(workA_global(lm,n_r)),    &
-            &                 aimag(workA_global(lm,n_r)), kind=outp ),&
-            &          lm=1,lm_max),n_r=1,n_r_ic_max )
-            write(fileHandle) ( (cmplx( real(workB_global(lm,n_r)),    &
-            &                 aimag(workB_global(lm,n_r)), kind=outp), &
-            &          lm=1,lm_max),n_r=1,n_r_ic_max )
+            lm=1
+            do m=m_min,m_max_pot,minc
+               do l=m,l_max_pot
+                  lm_big=lm2(l,m)
+                  tmp(lm,:)=cmplx(workA_global(lm_big,:), kind=outp)
+                  lm=lm+1
+               end do
+            end do
+            write(fileHandle) ((tmp(lm,n_r),lm=1,lm_max),n_r=1,n_r_ic_max)
+            lm=1
+            do m=m_min,m_max_pot,minc
+               do l=m,l_max_pot
+                  lm_big=lm2(l,m)
+                  tmp(lm,:)=cmplx(workB_global(lm_big,:), kind=outp)
+                  lm=lm+1
+               end do
+            end do
+            write(fileHandle) ((tmp(lm,n_r),lm=1,lm_max),n_r=1,n_r_ic_max)
          end if
 
       end if
@@ -806,7 +890,7 @@ contains
          close(fileHandle)
       end if
 
-      deallocate( workA_global, workB_global )
+      deallocate( workA_global, workB_global, tmp )
 
    end subroutine write_Pot
 !------------------------------------------------------------------------------

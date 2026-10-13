@@ -40,12 +40,7 @@ module blocking
    type(load), public, allocatable :: lm_balance(:)
    integer, public :: llm, ulm, llmMag, ulmMag
 
-   integer, public, pointer :: nLMBs2(:),sizeLMB2(:,:)
-   integer, public, pointer :: lm22lm(:,:,:)
-   integer, public, pointer :: lm22l(:,:,:)
-   integer, public, pointer :: lm22m(:,:,:)
-
-   type(subblocks_mappings), public, target :: st_sub_map, lo_sub_map
+   type(subblocks_mappings), public, target :: lo_sub_map
 
    public :: initialize_blocking, finalize_blocking
 
@@ -62,12 +57,11 @@ contains
       integer :: l1m0
 
       logical, parameter :: DEBUG_OUTPUT=.false.
-      integer :: lm,l,m,sizeLMB
+      integer :: lm,l,m
 
       local_bytes_used = bytes_allocated
       call allocate_mappings(st_map,l_max,m_min,m_max,lm_max)
       call allocate_mappings(lo_map,l_max,m_min,m_max,lm_max)
-      !call allocate_mappings(sn_map,l_max,lm_max)
 
       if ( rank == 0 ) then
          if ( l_save_out ) then
@@ -79,20 +73,6 @@ contains
          write(n_log_file,'(A,I5)') ' ! Number of OMP threads:', nThreads
          write(output_unit,'(A,I5)') ' ! Number of OMP threads:', nThreads
          if ( l_save_out ) close(n_log_file)
-      end if
-
-      sizeLMB=(lm_max-1)/n_procs+1
-
-      !--- Get radial blocking
-      if ( .not. l_finite_diff ) then
-         if ( mod(n_r_max-1,n_procs) /= 0 ) then
-            if ( rank == 0 ) then
-               write(output_unit,*) 'Number of MPI ranks has to be multiple of n_r_max-1!'
-               write(output_unit,*) 'n_procs :',n_procs
-               write(output_unit,*) 'n_r_max-1:',n_r_max-1
-            end if
-            call abortRun('Stop run in blocking')
-         end if
       end if
 
       !-- Get firt-touch LM blocking
@@ -109,7 +89,6 @@ contains
          call get_lorder_lm_blocking(lo_map,minc)
       end if
       !call logWrite(message)
-
 
       !-- Define llm and ulm
       llm = lm_balance(rank)%nStart
@@ -151,23 +130,13 @@ contains
       lm2lmS(1:lm_max) => st_map%lm2lmS
       lm2lmA(1:lm_max) => st_map%lm2lmA
 
-      call allocate_subblocks_mappings(st_sub_map,st_map,n_procs,l_max, &
-           &                           m_min,m_max,lm_balance)
       call allocate_subblocks_mappings(lo_sub_map,lo_map,n_procs,l_max, &
            &                           m_min,m_max,lm_balance)
 
       !--- Getting lm sub-blocks:
-      call get_subblocks(st_map, st_sub_map)
       !PRINT*," ---------------- Making the lorder subblocks ---------------- "
       call get_subblocks(lo_map, lo_sub_map)
       !PRINT*," ---------------- Making the snake order subblocks ----------- "
-
-      ! default mapping
-      nLMBs2(1:n_procs) => st_sub_map%nLMBs2
-      sizeLMB2(1:,1:) => st_sub_map%sizeLMB2
-      lm22lm(1:,1:,1:) => st_sub_map%lm22lm
-      lm22l(1:,1:,1:) => st_sub_map%lm22l
-      lm22m(1:,1:,1:) => st_sub_map%lm22m
 
       local_bytes_used = bytes_allocated-local_bytes_used
       call memWrite('blocking.f90', local_bytes_used)
@@ -183,7 +152,6 @@ contains
       call deallocate_mappings(lo_map)
 
       deallocate( lm_balance )
-      call deallocate_subblocks_mappings(st_sub_map)
       call deallocate_subblocks_mappings(lo_sub_map)
 
    end subroutine finalize_blocking

@@ -6,7 +6,7 @@ from .setup import labTex
 from .libmagic import symmetrize, thetaderavg, rderavg, phideravg
 import matplotlib.pyplot as plt
 import numpy as np
-from .vtklib import *
+from .vtklib import vtklib as vtk
 
 def sph2cart_scal(scals, radius, nx=96, ny=96, nz=96, minc=1):
     """
@@ -367,14 +367,10 @@ class Graph2Vtk:
                                                         gr.Btheta[..., ::-1]**2+\
                                                         gr.Bphi[..., ::-1]**2)
             elif index == 3 or index == 7: # z-vorticity
-                th3D = np.zeros_like(gr.vphi)
-                rr3D = np.zeros_like(th3D)
-                for i in range(gr.ntheta):
-                    th3D[:, i, :] = gr.colatitude[i]
-                for i in range(gr.nr):
-                    rr3D[:, :, i] = gr.radius[i]
+                th3D = gr.colatitude[None, :, None]
+                rr3D = gr.radius[None, None, :]
                 s3D = rr3D * np.sin(th3D)
-                dtheta = thetaderavg(gr.vphi*s3D)
+                dtheta = thetaderavg(gr.vphi*s3D, colat=gr.colatitude)
                 dr = rderavg(gr.vphi*s3D, gr.radius)
                 vs = gr.vr * np.sin(th3D) + gr.vtheta * np.cos(th3D) # 'vs'
                 ds = np.sin(th3D)*dr + np.cos(th3D)/rr3D*dtheta
@@ -408,15 +404,11 @@ class Graph2Vtk:
                 self.scals[k, ...] = self.scals[k, ...]-\
                                      self.scals[k, ...].mean(axis=0)
             elif index == 8: # r-vorticity
-                th3D = np.zeros_like(gr.vphi)
-                rr3D = np.zeros_like(th3D)
-                for i in range(gr.ntheta):
-                    th3D[:, i, :] = gr.colatitude[i]
-                for i in range(gr.nr):
-                    rr3D[:, :, i] = gr.radius[i]
+                th3D = gr.radius[None, None, :]
+                rr3D = gr.colatitude[None, :, None]
                 s3D = rr3D * np.sin(th3D)
-                vortr = 1./s3D*(thetaderavg(np.sin(th3D)*gr.vphi)-\
-                        phideravg(gr.vtheta, gr.minc))
+                vortr = 1./s3D*(thetaderavg(np.sin(th3D)*gr.vphi, colat=gr.colatitude)-\
+                                phideravg(gr.vtheta, gr.minc))
                 if deminc:
                     self.scals[k, :, :, 0:gr.nr] = symmetrize(vortr[..., ::-1],
                                                               gr.minc)
@@ -608,25 +600,25 @@ class Graph2Vtk:
         """
         if self.nvecs == 0:
             if nFiles == 1 and np.size(self.scals)+3*np.size(self.vecr) < 512**3:
-                vts_scal(filename, self.radius, self.scals, self.scalNames,
-                         self.minc)
+                vtk.vts_scal(filename, self.radius, self.scals, self.scalNames,
+                             self.minc)
             elif nFiles > 1:
-                pvts_scal(filename, self.radius, self.scals, self.scalNames,
-                          nFiles, self.minc)
+                vtk.pvts_scal(filename, self.radius, self.scals, self.scalNames,
+                              nFiles, self.minc)
 
             else:
-                pvts_scal(filename, self.radius, self.scals, self.scalNames,
-                          8, self.minc)
+                vtk.pvts_scal(filename, self.radius, self.scals, self.scalNames,
+                              8, self.minc)
         else:
             if nFiles == 1 and np.size(self.scals)+3*np.size(self.vecr) < 512**3:
-                vts(filename, self.radius, self.vecr, self.vect, self.vecp,
-                    self.scals, self.scalNames, self.vecNames, self.minc)
+                vtk.vts(filename, self.radius, self.vecr, self.vect, self.vecp,
+                        self.scals, self.scalNames, self.vecNames, self.minc)
             elif nFiles > 1:
-                pvts(filename, self.radius, self.vecr, self.vect, self.vecp,
-                     self.scals, self.scalNames, self.vecNames, nFiles, self.minc)
+                vtk.pvts(filename, self.radius, self.vecr, self.vect, self.vecp,
+                         self.scals, self.scalNames, self.vecNames, nFiles, self.minc)
             else:
-                pvts(filename, self.radius, self.vecr, self.vect, self.vecp,
-                     self.scals, self.scalNames, self.vecNames, 8, self.minc)
+                vtk.pvts(filename, self.radius, self.vecr, self.vect, self.vecp,
+                         self.scals, self.scalNames, self.vecNames, 8, self.minc)
 
     def writeVTI(self, filename, nx=96, ny=96, nz=96):
         """
@@ -646,13 +638,13 @@ class Graph2Vtk:
                                                      self.radius, nx, ny, nz,
                                                      self.minc)
         if self.nvecs == 0:
-            vti_scal(filename, scals_cart, self.scalNames, self.minc, \
+            vti_scal(filename, scals_cart, self.scalNames, \
                      gridMax, spacing)
         else:
             vecx, vecy, vecz = sph2cart_vec(self.vecr, self.vect, self.vecp, \
                                         self.radius, nx, ny, nz, self.minc)
             vti(filename, vecx, vecy, vecz, scals_cart, self.scalNames,
-                self.vecNames, self.minc, gridMax, spacing)
+                self.vecNames, gridMax, spacing)
 
 
 if __name__ == '__main__':

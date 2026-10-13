@@ -68,7 +68,7 @@ module readCheckPoints
 contains
 
    subroutine readStartFields_old(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt,phi,   &
-              &                   dphidt,b,dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,   &
+              &                   b,dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,          &
               &                   djdt_ic,omega_ic,omega_ma,domega_ic_dt,     &
               &                   domega_ma_dt,time,tscheme,n_time_step)
       !
@@ -90,7 +90,7 @@ contains
       complex(cp),         intent(out) :: aj(llmMag:ulmMag,n_r_maxMag)
       complex(cp),         intent(out) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp),         intent(out) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt, dphidt
+      type(type_tarray),   intent(inout) :: dwdt, dzdt, dpdt, dsdt, dxidt
       type(type_tarray),   intent(inout) :: dbdt, djdt, dbdt_ic, djdt_ic
       type(type_tscalar),  intent(inout) :: domega_ma_dt, domega_ic_dt
 

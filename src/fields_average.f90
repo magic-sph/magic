@@ -385,7 +385,7 @@ contains
 
             if ( l_mag ) then
                call lo2r_one%transp_lm2r(aj_ave_LMloc, aj_ave_Rloc)
-               call lo2r_one%transp_lm2r(aj_ave_LMloc, b_ave_Rloc)
+               call lo2r_one%transp_lm2r(b_ave_LMloc, b_ave_Rloc)
                call lo2r_one%transp_lm2r(db_ave_LMloc, db_ave_Rloc)
             end if
 
