@@ -312,7 +312,7 @@ contains
 
       if ( l_heat .and. .not. l_single_matrix .and. l_update_s ) then
          PERFON('up_S')
-         call updateS( s_LMloc, ds_LMloc, dsdt, phi_LMloc, tscheme )
+         call updateS( time, s_LMloc, ds_LMloc, dsdt, phi_LMloc, tscheme )
          PERFOFF
       end if
 
@@ -456,7 +456,7 @@ contains
             !$omp target update to(phi_Rloc)
          end if
 #endif
-         call prepareS_FD(tscheme, dsdt, phi_Rloc)
+         call prepareS_FD(tscheme, dsdt, phi_Rloc, time)
 #ifdef WITH_OMP_GPU
          !$omp target update from(dsdt)
          !$omp target update from(s_ghost)
@@ -570,7 +570,7 @@ contains
             !$omp target update to(phi_Rloc)
          end if
 #endif
-         call updateS_FD(s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
+         call updateS_FD(time, s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
 #ifdef WITH_OMP_GPU
          !$omp target update from(s_Rloc, ds_Rloc, dsdt)
 #endif
@@ -951,8 +951,8 @@ contains
                !$omp target update to(phi_LMloc)
             end if
 #endif
-            call assemble_entropy(s_LMloc, ds_LMloc, dsdt, phi_LMloc, &
-                                &                tscheme)
+            call assemble_entropy(time, s_LMloc, ds_LMloc, dsdt, phi_LMloc, &
+                 &                tscheme)
 #ifdef WITH_OMP_GPU
             !$omp target update from(s_LMloc, ds_LMloc, dsdt)
 #endif
@@ -963,9 +963,9 @@ contains
             !$omp target update to(s_LMloc, xi_LMLoc)
             !$omp target update to(dwdt, dpdt, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc)
 #endif
-            call assemble_pol(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, &
-                 &            dp_LMloc, dwdt, dpdt, dpdt%expl(:,:,1), tscheme,          &
-                 &            lPressNext, lRmsNext)
+            call assemble_pol(time, s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc,  &
+                 &            p_LMloc, dp_LMloc, dwdt, dpdt, dpdt%expl(:,:,1),        &
+                 &            tscheme, lPressNext, lRmsNext)
 #ifdef WITH_OMP_GPU
             !$omp target update from(dwdt, dpdt, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, dp_LMloc)
 #endif
@@ -1061,7 +1061,7 @@ contains
             !$omp target update to(phi_Rloc)
          end if
 #endif
-         call assemble_entropy_Rloc(s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
+         call assemble_entropy_Rloc(time, s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
 #ifdef WITH_OMP_GPU
          !$omp target update from(s_Rloc, ds_Rloc, dsdt)
          !$omp target update from(s_ghost)
@@ -1072,9 +1072,9 @@ contains
 #ifdef WITH_OMP_GPU
          !$omp target update to(dwdt, dpdt, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc)
 #endif
-         call assemble_pol_Rloc(block_sze, nblocks, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, &
-              &                 dp_Rloc, dwdt, dpdt%expl(:,:,1), tscheme, lPressNext,  &
-              &                 lRmsNext)
+         call assemble_pol_Rloc(time, block_sze, nblocks, w_Rloc, dw_Rloc, ddw_Rloc,   &
+              &                 p_Rloc, dp_Rloc, dwdt, dpdt%expl(:,:,1), tscheme,      &
+              &                 lPressNext,  lRmsNext)
 #ifdef WITH_OMP_GPU
          !$omp target update from(w_ghost)
          !$omp target update from(dwdt, dpdt, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, dp_Rloc)

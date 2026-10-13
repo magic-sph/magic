@@ -91,7 +91,7 @@ the commonly used form
 
 .. math::
   \dfrac{\partial \vec{B}}{\partial t} = \vec{\nabla} \times \left( \vec{u}\times\vec{B} \right) 
-  + \lambda\,\vec{\Delta}\vec{B}.
+  + \lambda\,\vec{\nabla}^2\vec{B}.
   :label: eqInduction2
   
 The physical properties determining above equations are rotation rate
@@ -225,7 +225,7 @@ The first order Navier-Stokes equation (after to zero order hydrostatic referenc
    + \alpha \tilde{g}_o T' \dfrac{\vec{r}}{r_o}
    + \delta \tilde{g}_o \xi' \dfrac{\vec{r}}{r_o}
    + \dfrac{1}{\mu_0}(\vec{\nabla}\times\vec{B})\times\vec{B} 
-   + \tilde{\rho} \nu \Delta \vec{u}.
+   + \tilde{\rho} \nu \vec{nabla}^2 \vec{u}.
    :label: eqNSB
 
 Here :math:`u` and :math:`B` are understood as first order disturbances and
@@ -246,7 +246,7 @@ The first order energy equation becomes
 
 .. math::
   \tilde{\rho}\left(\dfrac{\partial T'}{\partial t}+\vec{u}\cdot \vec{\nabla} T' \right) = 
-  \kappa \Delta T'  + \epsilon,
+  \kappa \nabla^2 T'  + \epsilon,
   :label: eqEntropyB
 
 where we have assumed a homogeneous :math:`k` and neglected viscous and Ohmic
@@ -266,7 +266,7 @@ for chemical composition becomes
 
 .. math::
   \tilde{\rho}\left(\dfrac{\partial \xi'}{\partial t}+\vec{u}\cdot \vec{\nabla} \xi' \right) = 
-  \kappa_\xi \Delta \xi'  + \epsilon_\xi,
+  \kappa_\xi \nabla^2 \xi'  + \epsilon_\xi,
   :label: eqCompB
 
 where we have assumed a homogeneous :math:`k_\xi` and adjusted the definition of :math:`\epsilon_\xi`.
@@ -296,7 +296,7 @@ form:
    + \dfrac{Ra}{Pr} T' \dfrac{\vec{r}}{r_o}
    + \dfrac{Ra_\xi}{Sc} \xi' \dfrac{\vec{r}}{r_o}
    + \dfrac{1}{E Pm}(\vec{\nabla}\times\vec{B})\times\vec{B} 
-   + \Delta \vec{u},
+   + \vec{\nabla}^2 \vec{u},
    :label: eqNSBoussinesq
 
 where :math:`\vec{e}_z` is the unit vector in the direction of the rotation
@@ -471,6 +471,61 @@ Lorentz force in the Navier-Stokes equation. For small :math:`Di`  both heating
 terms can be neglected compared to entropy changes due to advection, an limit
 that is used in the Boussinesq approximation. 
 
+Equation for phase field model
+==============================
+
+To explore the uneven generation of topography associated with  the
+freezing and melting which occurs at the fluid-solid interface, MagIC can consider
+the evolution of motionless solid phase. To model the phase changes, MagIC relies
+on the phase field 
+formulation by `Beckermann et al. (1999) <https://doi.org/10.1006/jcph.1999.6323>`_ 
+combined with a volume penalization technique
+(`Hester et al. 2021 <https://doi.org/10.1016/j.jcp.2020.110043>`_).
+Practically, this method involves the
+time integration of a continuous scalar quantity :math:`\phi` which
+continuously varies from 0 in the liquid phase to 1 in the solid
+phase. A small dimensionless parameter :math:`\epsilon`, usually
+termed the Cahn number, then defines the ratio between
+the microscopic thickness of the transition between the two
+phases and the macroscopic domain size which is here
+the shell gap. Phase field methods represent a smoothed
+formulation of phase changes which are easier to implement
+numerically, especially when using pseudo-spectral methods,
+and converge to the exact moving boundary formulation
+in the limit of vanishing :math:`\epsilon`. The governing equation
+for the phase field reads
+
+.. math::
+   \frac{5}{6} St Pr \frac{\partial \phi}{\partial t} = a\nabla^2  \phi
+   -\frac{1}{\epsilon^2}\phi(1-\phi)[a(1-2\phi)+T-T_M],
+   :label: eqPhaseField
+
+In the above equation, :math:`T_M` denotes the melting temperature, while :math:`a`
+is an order one parameter of the phase field model which expresses the curvature
+dependence of the melting temperature `Beckermann et al. (1999) <https://doi.org/10.1006/jcph.1999.6323>`_.
+
+To account for the latent heat release during melting/freezing, an additional term
+needs to be added in the temperature equation. In the Boussinesq limit, this would
+yield (in absence of volumetric source terms)
+
+.. math::
+   \frac{\partial T}{\partial t}+\vec{u}\cdot\vec{\nabla} T = \frac{1}{Pr}\nabla^2 T
+   + St \dfrac{\partial \phi}{\partial t}.
+
+A penalty term of the form :math:`-\phi\vec{u}/(\epsilon^2\tau_p)` is also
+added to the r.h.s. of the Navier-Stokes equations :eq:`eqNSNd` to ensure that
+no flow is creeping into the solid. Practically, this term attenuates the
+velocity inside the solid phase, effectively treating it as a porous medium
+using a Darcy-Brinkman model.
+
+Although an optimal value for the parameter :math:`\tau_p` can be derived
+in simple configurations
+(`Hester et al. 2021 <https://doi.org/10.1016/j.jcp.2020.110043>`_),
+the value of :math:`\tau_p` needs to be
+adjusted for each simulation to ensure that the kinetic energy
+density of the solid phase remains smaller than that of the
+fluid phase.
+
 
 Dimensionless control parameters
 ================================
@@ -513,7 +568,15 @@ and the magnetic Prandtl number
    Pm = \frac{\nu_o}{\lambda_i}.
    :label: eqmaPrandtl
 
-In addition to these four numbers, the reference state is controlled by the geometry of
+In case, the phase field model is used, the Stefan number becomes also a control parameter defined by
+
+.. math::
+   St = \frac{{\cal L}}{c_p \Delta T},
+
+where :math:`{\cal L}` is the latent heat per unit mass associated with the solid-liquid
+transition.   
+
+In addition to these numbers, the reference state is controlled by the geometry of
 the spherical shell given by its radius ratio
 
 .. math::

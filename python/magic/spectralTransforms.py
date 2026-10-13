@@ -52,9 +52,9 @@ class SpectralTransforms(object):
 
         self.colat = self._legF90.sinth
 
-        self.idx = np.zeros((self.l_max+1, self.m_max+1), 'i')
-        self.ell = np.zeros((self.lm_max), 'i')
-        self.m = np.zeros((self.lm_max), 'i')
+        self.idx = np.zeros((self.l_max+1, self.m_max+1), np.int32)
+        self.ell = np.zeros((self.lm_max), np.int32)
+        self.m = np.zeros((self.lm_max), np.int32)
 
         k = 0
         for m in range(0, self.m_max+1, self.minc):

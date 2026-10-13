@@ -44,9 +44,10 @@ Welcome
           
      **MagIC** is written in Fortran and designed to be used on supercomputing
      clusters.  It thus relies on a hybrid parallelisation scheme using both `OpenMP
-     <http://openmp.org/wp/>`_ and `MPI <http://www.open-mpi.org/>`_. Postprocessing
-     functions written in python (requiring `matplotlib <http://matplotlib.org/>`_
-     and `scipy <http://www.scipy.org/>`_) are also provided to allow a useful data
+     <http://openmp.org/wp/>`_ and `MPI <https://www.open-mpi.org/>`_. Postprocessing
+     functions written in python (requiring `matplotlib <https://matplotlib.org/>`_,
+     `meson <https://mesonbuild.com/meson-python/>`_,
+     and `scipy <https://www.scipy.org/>`_) are also provided to allow a useful data
      analysis.
 
      .. figure:: figs/magic_occigen.png

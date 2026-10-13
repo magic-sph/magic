@@ -15,9 +15,10 @@ module updateS_mod
    use truncation, only: n_r_max, lm_max, l_max
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: orho1, or1, or2, beta, dentropy0, rscheme_oc,  &
-       &                       kappa, dLkappa, dLtemp0, temp0, r, l_R
-   use physical_parameters, only: opr, kbots, ktops, stef
+       &                       kappa, dLkappa, dLtemp0, temp0, r, l_R, r_cmb
+   use physical_parameters, only: opr, kbots, ktops, stef, radratio
    use num_param, only: dct_counter, solve_counter, up1_counter, up2_counter, up3_counter, up4_counter
+   use special, only: amp_tide, omega_tide, tide_fac20, tide_fac22p, tide_fac22n
    use init_fields, only: tops, bots
    use blocking, only: lo_map, lo_sub_map, llm, ulm, st_map
    use horizontal_data, only: hdif_S
@@ -245,7 +246,7 @@ contains
 
    end subroutine finalize_updateS
 !------------------------------------------------------------------------------
-   subroutine updateS(s, ds, dsdt, phi, tscheme)
+   subroutine updateS(time, s, ds, dsdt, phi, tscheme)
       !
       !  Updates the entropy field s and its radial derivative.
       !
@@ -253,6 +254,7 @@ contains
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
       complex(cp),         intent(in) :: phi(llm:ulm,n_r_max) ! Phase field
+      real(cp),            intent(in) :: time
 
       !-- Input/output of scalar fields:
       complex(cp),       intent(inout) :: s(llm:ulm,n_r_max) ! Entropy
@@ -349,6 +351,25 @@ contains
             rhs1(1,2*lm,0)        =aimag(tops(l1,m1))
             rhs1(n_r_max,2*lm-1,0)= real(bots(l1,m1))
             rhs1(n_r_max,2*lm,0)  =aimag(bots(l1,m1))
+            if (amp_tide /= 0.0_cp) then
+               if (l1 == 2 .and. m1 == 0) then
+                  rhs1(1,2*lm-1,0) = rhs1(1,2*lm-1,0)                      &
+                  & + radratio/omega_tide * tide_fac20 * 6.0_cp/r_cmb**2   &
+                  & * sin(omega_tide * time)
+               end if
+
+               if (l1 == 2 .and. m1 == 2) then
+                  rhs1(1,2*lm-1,0) = rhs1(1,2*lm-1,0)            &
+                  &  + radratio/omega_tide * 6.0_cp/r_cmb**2     &
+                  &  * (tide_fac22p + tide_fac22n)               &
+                  &  * sin(omega_tide * time)
+                  rhs1(1,2*lm,0)   = rhs1(1,2*lm,0)              &
+                  & + radratio/omega_tide * 6.0_cp/r_cmb**2      &
+                  & * (-tide_fac22p + tide_fac22n)               &
+                  & * cos(omega_tide * time)
+               end if
+            end if
+
             do nR=2,n_r_max-1
                rhs1(nR,2*lm-1,0)= real(work_LMloc(lm1,nR))
                rhs1(nR,2*lm,0)  =aimag(work_LMloc(lm1,nR))
@@ -448,6 +469,25 @@ contains
                rhs1(n_r_max,2*lm-1,threadid)= real(bots(l1,m1))
                rhs1(n_r_max,2*lm,threadid)  =aimag(bots(l1,m1))
 
+               if (amp_tide /= 0.0_cp) then
+                  if (l1 == 2 .and. m1 == 0) then
+                     rhs1(1,2*lm-1,threadid) = rhs1(1,2*lm-1,threadid)        &
+                     & + radratio/omega_tide * tide_fac20 * 6.0_cp/r_cmb**2   &
+                     & * sin(omega_tide * time)
+                  end if
+
+                  if (l1 == 2 .and. m1 == 2) then
+                     rhs1(1,2*lm-1,threadid) = rhs1(1,2*lm-1,threadid)       &
+                     &  + radratio/omega_tide * 6.0_cp/r_cmb**2              &
+                     &  * (tide_fac22p + tide_fac22n)                        &
+                     &  * sin(omega_tide * time)
+                     rhs1(1,2*lm,threadid)   = rhs1(1,2*lm,threadid)         &
+                     & + radratio/omega_tide * 6.0_cp/r_cmb**2               &
+                     & * (-tide_fac22p + tide_fac22n)                        &
+                     & * cos(omega_tide * time)
+                  end if
+               end if
+
                do nR=2,n_r_max-1
                   rhs1(nR,2*lm-1,threadid)= real(work_LMloc(lm1,nR))
                   rhs1(nR,2*lm,threadid)  =aimag(work_LMloc(lm1,nR))
@@ -534,7 +574,7 @@ contains
 
    end subroutine updateS
 !------------------------------------------------------------------------------
-   subroutine prepareS_FD(tscheme, dsdt, phi)
+   subroutine prepareS_FD(tscheme, dsdt, phi, time)
       !
       ! This subroutine is used to assemble the r.h.s. of the entropy equation
       ! when parallel F.D solvers are used. Boundary values are set here.
@@ -543,12 +583,14 @@ contains
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
       complex(cp),         intent(in) :: phi(lm_max,nRstart:nRstop)
+      real(cp),            intent(in), optional :: time ! Optional to allow for testLM
 
       !-- Input/output of scalar fields:
       type(type_tarray), intent(inout) :: dsdt
 
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm, l, m
+      complex(cp):: sBC
 
       !-- LU factorisation of the matrix if needed
       if ( .not. lSmat(0) ) then
@@ -593,7 +635,12 @@ contains
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
             if ( ktops == 1 ) then ! Fixed temperature
-               s_ghost(lm,nR)=tops(l,m)
+               if (amp_tide /= 0.0_cp .and. l == 2 .and. present(time)) then ! Check if this is testLM
+                  call get_vr_temp_bc(time, m, sBC)
+               else
+                  sBC = zero
+               end if
+               s_ghost(lm,nR)=tops(l,m) + sBC
             else ! Fixed flux
                !TBD
                s_ghost(lm,nR)=s_ghost(lm,nR)+fd_fac_top(l)*tops(l,m)
@@ -746,7 +793,7 @@ contains
 
    end subroutine fill_ghosts_S
 !------------------------------------------------------------------------------
-   subroutine updateS_FD(s, ds, dsdt, phi, tscheme)
+   subroutine updateS_FD(time, s, ds, dsdt, phi, tscheme)
       !
       ! This subroutine is called after the linear solves have been completed.
       ! This is then assembling the linear terms that will be used in the r.h.s.
@@ -755,6 +802,7 @@ contains
 
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
+      real(cp),            intent(in) :: time
       complex(cp),         intent(in) :: phi(lm_max,nRstart:nRstop) ! Phase field
 
       !-- Input/output of scalar fields:
@@ -1275,7 +1323,7 @@ contains
 
    end subroutine get_entropy_rhs_imp_ghost
 !-----------------------------------------------------------------------------
-   subroutine assemble_entropy_Rloc(s, ds, dsdt, phi, tscheme)
+   subroutine assemble_entropy_Rloc(time, s, ds, dsdt, phi, tscheme)
       !
       ! This subroutine is used when an IMEX Runge-Kutta time scheme with an assembly
       ! stage is used. This is used when R is distributed.
@@ -1284,6 +1332,7 @@ contains
       !-- Input variable
       complex(cp),         intent(in) :: phi(lm_max,nRstart:nRstop)
       class(type_tscheme), intent(in) :: tscheme
+      real(cp),            intent(in) :: time
 
       !-- Output variables
       complex(cp),       intent(inout) :: s(lm_max,nRstart:nRstop)
@@ -1352,6 +1401,11 @@ contains
          do lm=start_lm,stop_lm
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
+
+            if ( amp_tide /= 0.0_cp .and. l==2 ) then
+               call get_vr_temp_bc(time, m, tops(l,m))
+            end if
+
             s(lm,nRstart)=tops(l,m)
          end do
 #ifdef WITH_OMP_GPU
@@ -1403,7 +1457,7 @@ contains
 
    end subroutine assemble_entropy_Rloc
 !-----------------------------------------------------------------------------
-   subroutine assemble_entropy(s, ds, dsdt, phi, tscheme)
+   subroutine assemble_entropy(time, s, ds, dsdt, phi, tscheme)
       !
       ! This subroutine is used to assemble the entropy/temperature at assembly
       ! stages of IMEX-RK time schemes. This is used when LM is distributed.
@@ -1412,6 +1466,7 @@ contains
       !-- Input variable
       class(type_tscheme), intent(in) :: tscheme
       complex(cp),         intent(in) :: phi(llm:ulm,n_r_max)
+      real(cp),            intent(in) :: time
 
       !-- Output variables
       complex(cp),       intent(inout) :: s(llm:ulm,n_r_max)
@@ -1488,6 +1543,10 @@ contains
                   call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
                        &                   bots(l1,m1), s(lm,:))
                else
+                  if (amp_tide /= 0.0_cp .and. l1==2) then
+                     call get_vr_temp_bc(time, m1, tops(l1,m1))
+                  end if
+
                   call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
                        &                   bots(l1,m1), s(lm,:))
                end if
@@ -1531,6 +1590,9 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
+               if (amp_tide /= 0.0_cp .and. l1==2) then
+                  call get_vr_temp_bc(time, m1, tops(l1,m1))
+               end if
                call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
                     &                   bots(l1,m1), s(lm,:))
             end do
@@ -1548,6 +1610,9 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
+               if (amp_tide /= 0.0_cp .and. l1==2) then
+                  call get_vr_temp_bc(time, m1, tops(l1,m1))
+               end if
                call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
                     &                   bots(l1,m1), s(lm,:))
             end do
@@ -1989,5 +2054,36 @@ contains
       call sMat%prepare_mat()
 
    end subroutine get_sMat_Rdist
+!-----------------------------------------------------------------------------
+   subroutine get_vr_temp_bc(time, m, sBC)
+
+      !-- Input variables
+      real(cp), intent(in) :: time
+      integer, intent(in)  :: m
+
+      !-- Output variable
+      complex(cp), intent(out) :: sBC
+
+      !-- Local variable
+      real(cp) :: fac
+
+      fac = 6.0_cp / r_cmb**2  ! l(l+1)/r_o^2 for l=2
+
+      if (m==0) then
+         sBC = radratio/omega_tide * fac * tide_fac20 *        &
+         &     cmplx(sin(omega_tide*time),0.0_cp, cp) ! Complex part in m=0 does not matter
+      end if
+
+      if (m==1) then ! Obliquity tide, yet to implement
+         sBC = zero
+      end if
+
+      if (m==2) then
+         sBC = radratio/omega_tide * fac *                                &
+         &     cmplx((tide_fac22p + tide_fac22n) * sin(omega_tide*time),  &
+         &          (-tide_fac22p + tide_fac22n) * cos(omega_tide*time), cp)
+      end if
+
+   end subroutine get_vr_temp_bc
 !-----------------------------------------------------------------------------
 end module updateS_mod

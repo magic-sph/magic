@@ -62,7 +62,6 @@ module rIter_batched_mod
        &          Advt2LM, Advp2LM, PFt2LM, PFp2LM, LFrLM, LFt2LM, LFp2LM,  &
        &          CFt2LM, CFp2LM
    use probe_mod
-   use special, only: ellip_fac_icb, l_radial_flow_bc
 
 #ifdef WITH_OMP_GPU
    use hipfort_check, only: hipCheck
@@ -702,12 +701,12 @@ contains
 #ifdef WITH_OMP_GPU
          call hipCheck(hipDeviceSynchronize())
 #endif
-         if ( nRstart == n_r_cmb .and. ktopv==2 .and. (.not. l_radial_flow_bc) ) then
+         if ( nRstart == n_r_cmb .and. ktopv==2 ) then
             call v_rigid_boundary_batch(n_r_cmb, omega_ma, .true., this%gsa%vrc,   &
                  &                      this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
                  &                      this%gsa%dvrdtc, this%gsa%dvrdpc,          &
                  &                      this%gsa%dvtdpc,this%gsa%dvpdpc)
-         else if ( nRstop == n_r_icb .and. kbotv==2 .and. ellip_fac_icb == 0.0_cp ) then
+         else if ( nRstop == n_r_icb .and. kbotv==2 ) then
             call v_rigid_boundary_batch(n_r_icb, omega_ic, .true., this%gsa%vrc, &
                  &                      this%gsa%vtc, this%gsa%vpc,              &
                  &                      this%gsa%cvrc, this%gsa%dvrdtc,          &
