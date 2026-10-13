@@ -607,26 +607,6 @@ contains
                      rhs1(nR,2*lm,0)  =aimag(work_LMloc(lm1,nR))
                   end do
 
-                  ! Special BC for free-slip and radial flow
-                  if (l_radial_flow_bc .and. (ktopv == 1 .or. kbotv == 1)) then
-                     if (l1 == 2 .and. m1 == 2) then
-                        if ( (ellipticity_cmb /= 0.0_cp .or. amp_tide /= 0.0_cp) &
-                        &  .and. ktopv == 1 ) then
-                           rhs1(2,2*lm-1,0)=-real(l1*(l1+1),kind=cp)*or2(1)
-                           rhs1(2,2*lm,0)  =-real(l1*(l1+1),kind=cp)*or2(1)
-                        else if (ellipticity_icb /= 0.0_cp .and. kbotv == 1) then
-                           rhs1(n_r_max-1,2*lm-1,0)=-real(l1*(l1+1),kind=cp)*or2(n_r_max)
-                           rhs1(n_r_max-1,2*lm,0)  =-real(l1*(l1+1),kind=cp)*or2(n_r_max)
-                        end if
-                     end if
-
-                     if (l1 == 2 .and. m1 == 0) then
-                        if (amp_tide /= 0.0_cp .and. ktopv == 1) then
-                           rhs1(2,2*lm-1,0)=-real(l1*(l1+1),kind=cp)*or2(1)
-                        end if
-                     end if
-                  end if
-
                   if ( l_heat .and. (.not. l_parallel_solve) ) then
                      do nR=3,n_r_max-2
                         rhs1(nR,2*lm-1,0)=rhs1(nR,2*lm-1,0)+             &
