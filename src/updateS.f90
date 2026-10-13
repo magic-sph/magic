@@ -1020,6 +1020,9 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
+               if (amp_tide /= 0.0_cp .and. l1==2) then
+                  call get_vr_temp_bc(time, m1, tops(l1,m1))
+               end if
                call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
                     &                   bots(l1,m1), s(lm,:))
             end do
@@ -1029,6 +1032,9 @@ contains
             do lm=llm,ulm
                l1 = lm2l(lm)
                m1 = lm2m(lm)
+               if (amp_tide /= 0.0_cp .and. l1==2) then
+                  call get_vr_temp_bc(time, m1, tops(l1,m1))
+               end if
                call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
                     &                   bots(l1,m1), s(lm,:))
             end do
