@@ -555,7 +555,7 @@ contains
          if ( l1m1 >= lm_start .and. l1m1 <= lm_stop ) then
             do nR=nRstart,nRstop
                z_ghost(l1m1,nR)=z_ghost(l1m1,nR)+tscheme%wimp_lin(1)*prec_fac* &
-               &                cmplx(sin(oek*time),cos(oek*time),cp)
+               &                cmplx(sin(oek*time),-cos(oek*time),cp)
             end do
          end if
       end if
