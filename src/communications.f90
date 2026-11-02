@@ -20,11 +20,11 @@ module communications
    use useful, only: abortRun
    use output_data, only: n_log_file, log_file
    use iso_fortran_env, only: output_unit
+   use mpi_transp_mod, only: type_mpitransp
    use mpi_ptop_mod, only: type_mpiptop
    use mpi_alltoall_mod, only: type_mpiatoav, type_mpiatoaw, type_mpiatoap
    use charmanip, only: capitalize
    use num_param, only: mpi_transp, mpi_packing
-   use mpi_transp_mod, only: type_mpitransp
 
    implicit none
 

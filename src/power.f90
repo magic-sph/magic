@@ -21,12 +21,13 @@ module power
    use horizontal_data, only: dLh, gauss, O_sin_theta_E2, cosn_theta_E2
    use logic, only: l_rot_ic, l_SRIC, l_rot_ma, l_SRMA, l_save_out, &
        &            l_conv, l_cond_ic, l_heat, l_mag,               &
-       &            l_chemical_conv, l_anelastic_liquid
+       &            l_chemical_conv, l_anelastic_liquid, l_precession
    use output_data, only: tag
    use mean_sd, only: mean_sd_type
    use useful, only: cc2real, cc22real, round_off
    use integration, only: rInt_R, rIntIC
    use outRot, only: get_viscous_torque
+   use updateZ_mod, only: prec_force
    use constants, only: one, two, half, pi, third
 
    implicit none
@@ -94,6 +95,7 @@ contains
       !  the rotation rates of inner core or mantle are prescribed
       !  and kept fixed.
       !  The losses are due to Ohmic and viscous dissipation.
+      !  With precession, the Poincare force also does work on the fluid.
       !  If inner core and mantel are allowed to change their
       !  rotation rates due to viscous forces this power is not
       !  lost from the system and has to be respected.
@@ -128,7 +130,8 @@ contains
       integer :: n_r,lm,l,m,fileHandle
       real(cp) :: r_ratio
       real(cp) :: viscHeatR_global(n_r_max)
-      real(cp) :: curlB2,buoy,curlB2_IC,buoy_chem,viscHeat
+      real(cp) :: curlB2,buoy,curlB2_IC,buoy_chem,viscHeat,precPower
+      real(cp) :: prec_r(n_r_max),prec_r_global(n_r_max)
       real(cp) :: curlB2_r(n_r_max),curlB2_r_global(n_r_max)
       real(cp) :: buoy_r(n_r_max),buoy_r_global(n_r_max)
       real(cp) :: buoy_chem_r(n_r_max),buoy_chem_r_global(n_r_max)
@@ -141,7 +144,22 @@ contains
       character(len=76) :: fileName
 
 
+      !-- Poincare force for precession: it only acts on z(l=1,m=1) as
+      !-- d/dt(dLh*z/r**2) = prec_force (see updateZ), hence its power is
+      !-- eScale*Int( r**2/rho*cc22real(z11,prec_force) dr )
+      !-- prec_force has been computed in step_time for the current time
+
       do n_r=1,n_r_max
+
+         prec_r(n_r)=0.0_cp
+         if ( l_precession ) then
+            do lm=llm,ulm
+               if ( lo_map%lm2l(lm) == 1 .and. lo_map%lm2m(lm) == 1 ) then
+                  prec_r(n_r)=eScale*orho1(n_r)*r(n_r)*r(n_r)* &
+                  &           cc22real(z(lm,n_r),prec_force,1)
+               end if
+            end do
+         end if
 
          !if ( l_conv ) then
          !   curlU2_r(n_r)=0.0_cp
@@ -196,6 +214,7 @@ contains
 
       if ( l_mag ) call reduce_radial(curlB2_r, curlB2_r_global, 0)
       if ( l_heat ) call reduce_radial(buoy_r, buoy_r_global, 0)
+      if ( l_precession ) call reduce_radial(prec_r, prec_r_global, 0)
       if ( l_chemical_conv ) call reduce_radial(buoy_chem_r, buoy_chem_r_global, 0)
       if ( l_conv ) call gather_from_Rloc(viscASr, viscHeatR_global, 0)
 
@@ -337,8 +356,15 @@ contains
          !--- ohmic dissipation is useful:
          ohmDiss=-curlB2-curlB2_IC
 
+         !--- Work done by the Poincare force
+         if ( l_precession ) then
+            precPower=rInt_R(prec_r_global,r,rscheme_oc)
+         else
+            precPower=0.0_cp
+         end if
+
          powerDiffOld=powerDiff
-         powerDiff   =(buoy+buoy_chem+powerIC+powerMA+viscDiss+ohmDiss)
+         powerDiff   =(buoy+buoy_chem+powerIC+powerMA+viscDiss+ohmDiss+precPower)
 
          if ( abs(powerDiffOld) > 10.0_cp*epsilon(timePassed) ) then
             powerDiffT  =1.5_cp*powerDiff-half*powerDiffOld
@@ -347,12 +373,12 @@ contains
                open(newunit=n_power_file, file=power_file, status='unknown', &
                &    position='append')
             end if
-            write(n_power_file,'(1P,ES20.12,10ES16.8)')   &
+            write(n_power_file,'(1P,ES20.12,11ES16.8)')   &
             &     time*tScale, buoy, buoy_chem,           &
             &     -two*z10ICB*drz10ICB,                   &
             &     two*z10CMB*drz10CMB, viscDiss,          &
             &     ohmDiss, powerMA, powerIC, powerDiff,   &
-            &     eDiffInt/timeNorm
+            &     eDiffInt/timeNorm, precPower
             if ( l_save_out ) close(n_power_file)
          end if
 

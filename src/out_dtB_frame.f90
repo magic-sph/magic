@@ -11,6 +11,7 @@ module out_dtB_frame
    use truncation, only: n_r_max, lm_max, n_r_ic_max, lm_maxMag, n_r_maxMag, &
        &                 n_r_ic_maxMag, l_max, m_max, minc, n_theta_max,     &
        &                 n_r_tot, nlat_padded, n_phi_max, n_cheb_ic_max
+   use mpi_transp_mod, only: type_mpitransp
    use communications, only: lo2r_one, gather_from_lo_to_rank0
    use fields, only: work_LMloc, b_Rloc, db_Rloc, aj_Rloc, dj_Rloc, b_LMloc, &
        &             b_ic_LMloc, aj_ic_LMloc, db_ic_LMloc, dj_ic_LMloc

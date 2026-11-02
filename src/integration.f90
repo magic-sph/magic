@@ -208,7 +208,7 @@ contains
       !$omp private(a01,a12,a23,a012,a123,tot,ait)
       sLoop: do n_s=1,n_s_otc
 
-         zmax = sqrt(r_cmb*r_cmb-s(n_s)*s(n_s)) ! zmax
+         zmax = sqrt((r_cmb-s(n_s))*(r_cmb+s(n_s))) ! zmax
          zmin = 0.0_cp
          nz = 2*int(n_s_max*(zmax-zmin)/(2.0_cp*r_cmb)) ! Number of z points (one HS)
          nz = max(int(zDens*nz), 4)  ! Minimum to 4 for Simpson integration
@@ -391,8 +391,8 @@ contains
       !$omp private(a01,a12,a23,a012,a123,tot1,tot2,n_hs,ait)
       sLoop: do n_s=n_s_otc+1,n_s_max
 
-         zmax = sqrt(r_cmb*r_cmb-s(n_s)*s(n_s)) ! zmax
-         zmin = sqrt(r_icb*r_icb-s(n_s)*s(n_s))
+         zmax = sqrt((r_cmb-s(n_s))*(r_cmb+s(n_s))) ! zmax
+         zmin = sqrt((r_icb-s(n_s))*(r_icb+s(n_s)))
          nz = 2*int(n_s_max*(zmax-zmin)/(2.0_cp*r_cmb)) ! Number of z points (one HS)
          nz = max(int(zDens*nz), 4)  ! Minimum to 4 for Simpson integration
          dz = (zmax-zmin)/real(nz,cp)

@@ -1083,7 +1083,7 @@ class TsLookUpTable:
         elif self.field == 'power':
             self.time = data[:, 0]
             self.buoPower = data[:, 1]
-            if data.shape[1] == 11:
+            if data.shape[1] in (11, 12):
                 self.buoPower_chem = data[:, 2]
                 self.icrotPower = data[:, 3]
                 self.mantlerotPower = data[:, 4]
@@ -1091,6 +1091,10 @@ class TsLookUpTable:
                 self.ohmDiss = data[:, 6]
                 self.mantlePower = data[:, 7]
                 self.icPower = data[:, 8]
+                if data.shape[1] == 12:  # Work done by the Poincare force
+                    self.precPower = data[:, 11]
+                else:
+                    self.precPower = np.zeros_like(self.time)
             elif data.shape[1] == 10:
                 self.buoPower_chem = np.zeros_like(self.time)
                 self.icrotPower = data[:, 2]
@@ -1099,6 +1103,7 @@ class TsLookUpTable:
                 self.ohmDiss = data[:, 5]
                 self.mantlePower = data[:, 6]
                 self.icPower = data[:, 7]
+                self.precPower = np.zeros_like(self.time)
             if abs(self.ohmDiss).max() != 0:
                  self.fohm = -self.ohmDiss/(self.buoPower+self.buoPower_chem)
                  self.fvis = -self.viscDiss/(self.buoPower+self.buoPower_chem)

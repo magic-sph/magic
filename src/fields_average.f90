@@ -6,6 +6,7 @@ module fields_average_mod
    use truncation
    use precision_mod
    use mem_alloc, only: bytes_allocated
+   use mpi_transp_mod, only: type_mpitransp
    use communications, only: lo2r_one
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: chebt_ic, chebt_ic_even, r, dr_fac_ic, &

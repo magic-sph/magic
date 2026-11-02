@@ -60,12 +60,13 @@ module updateZ_mod
    logical, public, allocatable :: lZmat(:)
    type(type_tri_par), public :: zMat_FD, z10Mat_FD
    complex(cp), public, allocatable :: z_ghost(:,:), z10_ghost(:)
+   complex(cp), public, protected :: prec_force=zero ! Poincare force acting on z(l=1,m=1)
 
    integer :: maxThreads
 
    public :: updateZ, initialize_updateZ, finalize_updateZ, get_tor_rhs_imp,  &
    &         assemble_tor, finish_exp_tor, updateZ_FD, get_tor_rhs_imp_ghost, &
-   &         prepareZ_FD, fill_ghosts_Z, assemble_tor_Rloc
+   &         prepareZ_FD, fill_ghosts_Z, assemble_tor_Rloc, update_prec_force
 
 contains
 
@@ -217,7 +218,6 @@ contains
       integer :: nLMB2
       integer :: nR                 ! counts radial grid points
       integer :: n_r_out            ! counts cheb modes
-      real(cp) :: prec_fac
       real(cp) :: dom_ma, dom_ic
       integer :: l1m0          ! position of (l=1,m=0) and (l=1,m=1) in lm.
       integer :: nLMB
@@ -227,12 +227,6 @@ contains
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
-
-      if ( l_precession ) then
-         prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
-      else
-         prec_fac = 0.0_cp
-      end if
 
       nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
@@ -384,11 +378,9 @@ contains
                         rhs1(nR,2*lmB,threadid)  =aimag(work_LMloc(lm1,nR))
                         if ( l_precession .and. l1 == 1 .and. m1 == 1 ) then
                            rhs1(nR,2*lmB-1,threadid)=rhs1(nR,2*lmB-1,threadid)+ &
-                           &                         tscheme%wimp_lin(1)*       &
-                           &                         prec_fac*sin(oek*time)
-                           rhs1(nR,2*lmB,threadid)=rhs1(nR,2*lmB,threadid)-     &
-                           &                       tscheme%wimp_lin(1)*prec_fac*&
-                           &                       cos(oek*time)
+                           &                         tscheme%wimp_lin(1)*real(prec_force)
+                           rhs1(nR,2*lmB,threadid)  =rhs1(nR,2*lmB,threadid)+   &
+                           &                         tscheme%wimp_lin(1)*aimag(prec_force)
                         end if
 
                         if ( ampForce /= 0.0_cp ) then
@@ -503,14 +495,7 @@ contains
       real(cp),           intent(out) :: dom_ic, dom_ma
 
       !-- Local variables
-      real(cp) :: prec_fac
       integer :: nR, lm_start, lm_stop, lm, l, m, l1m1, l1m0
-
-      if ( l_precession ) then
-         prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
-      else
-         prec_fac=0.0_cp
-      end if
 
       !-- LU factorisation of the matrix if needed
       if ( .not. lZmat(1) ) then
@@ -554,8 +539,7 @@ contains
          l1m1=st_map%lm2(1,1)
          if ( l1m1 >= lm_start .and. l1m1 <= lm_stop ) then
             do nR=nRstart,nRstop
-               z_ghost(l1m1,nR)=z_ghost(l1m1,nR)+tscheme%wimp_lin(1)*prec_fac* &
-               &                cmplx(sin(oek*time),-cos(oek*time),cp)
+               z_ghost(l1m1,nR)=z_ghost(l1m1,nR)+tscheme%wimp_lin(1)*prec_force
             end do
          end if
       end if
@@ -788,18 +772,13 @@ contains
       real(cp) :: angular_moment_ma(3)! x,y,z component of mantle angular mom.
       complex(cp) :: z10(n_r_max), z11(n_r_max)
       complex(cp) :: corr_l1m0, corr_l1m1, Dif
-      real(cp) :: r_E_2, nomi, dL, prec_fac
+      real(cp) :: r_E_2, nomi, dL
       logical :: l_in_cheb
       integer :: n_r, lm, start_lm, stop_lm, n_r_bot, n_r_top, i
       integer :: lmStart_00, l1, m1, l1m0, l1m1
       integer, pointer :: lm2l(:),lm2m(:), lm2(:,:)
       real(cp) :: ddzASL_loc(l_max+1,n_r_max)
 
-      if ( l_precession ) then
-         prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
-      else
-         prec_fac = 0.0_cp
-      end if
 
       if ( present(l_in_cheb_space) ) then
          l_in_cheb = l_in_cheb_space
@@ -953,8 +932,7 @@ contains
 
                dzdt%impl(lm,n_r,istage)=Dif
                if ( l_precession .and. l1==1 .and. m1==1 ) then
-                  dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
-                  &                        sin(oek*time),-cos(oek*time),kind=cp)
+                  dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_force
                end if
                if ( ampForce /= 0.0_cp ) then
                   dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage) + &
@@ -1053,16 +1031,11 @@ contains
       real(cp) :: angular_moment_ma(3)! x,y,z component of mantle angular mom.
       complex(cp) :: z10(nRstart:nRstop), z11(nRstart:nRstop)
       complex(cp) :: corr_l1m0, corr_l1m1, Dif
-      real(cp) :: r_E_2, nomi, dL, prec_fac
+      real(cp) :: r_E_2, nomi, dL
       integer :: n_r, lm, start_lm, stop_lm, i
       integer :: l, m, l1m0, l1m1
       complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
 
-      if ( l_precession ) then
-         prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
-      else
-         prec_fac = 0.0_cp
-      end if
 
       !$omp parallel default(shared)  private(start_lm, stop_lm, n_r, lm, l, m)
       start_lm=1; stop_lm=lm_max
@@ -1194,8 +1167,7 @@ contains
 
                dzdt%impl(lm,n_r,istage)=Dif
                if ( l_precession .and. l==1 .and. m==1 ) then
-                  dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_fac*cmplx( &
-                  &                        sin(oek*time),-cos(oek*time),kind=cp)
+                  dzdt%impl(lm,n_r,istage)=dzdt%impl(lm,n_r,istage)+prec_force
                end if
             end do
          end do
@@ -2140,5 +2112,21 @@ contains
       call zMat%prepare_mat()
 
    end subroutine get_zMat_Rdist
+!-------------------------------------------------------------------------------
+   subroutine update_prec_force(time)
+      !
+      ! This subroutine updates the Poincare force due to precession. It only
+      ! acts on z(l=1,m=1) as d/dt(dLh*z/r**2) = prec_force. It is computed
+      ! once per time stage in step_time (and at initialisation) and then
+      ! reused by the time advance of z and by the power budget.
+      !
+
+      !-- Input variable:
+      real(cp), intent(in) :: time
+
+      prec_force=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)* &
+      &          cmplx(sin(oek*time),-cos(oek*time),kind=cp)
+
+   end subroutine update_prec_force
 !-------------------------------------------------------------------------------
 end module updateZ_mod

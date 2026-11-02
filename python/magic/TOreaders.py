@@ -501,7 +501,7 @@ class MagicTOZ(MagicSetup):
             self.CL = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
 
         for nS in range(self.nSmax):
-            nZmaxNS = int(infile.fort_read(precision))
+            nZmaxNS = int(infile.fort_read(precision)[0])
             print(nZmaxNS)
             data = infile.fort_read(precision)
             data = data.reshape((n_fields, nZmaxNS))
@@ -577,7 +577,7 @@ class MagicTOHemi(MagicSetup):
 
         infile = npfile(filename, endian='B')
 
-        self.nSmax = int(infile.fort_read(precision))
+        self.nSmax = int(infile.fort_read(precision)[0])
         self.cylRad = infile.fort_read(precision)
         self.height = np.zeros_like(self.cylRad)
         ro = self.cylRad[0]
@@ -754,7 +754,7 @@ class MagicTaySphere(MagicSetup):
 
         infile = npfile(filename, endian='B')
 
-        self.n_r_max = int(infile.fort_read(precision))
+        self.n_r_max = int(infile.fort_read(precision)[0])
         self.radius = infile.fort_read(precision)
 
         ind = 0

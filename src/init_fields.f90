@@ -8,6 +8,7 @@ module init_fields
    use parallel_mod
    use chebyshev, only: type_cheb_odd
    use finite_differences, only: type_fd
+   use mpi_transp_mod, only: type_mpitransp
    use communications, only: lo2r_one, r2lo_one, transp_R2Phi, transp_Phi2R
    use truncation, only: n_r_max, n_r_maxMag, n_r_ic_max, m_min, l_max, &
        &                 n_phi_max, n_theta_max, n_r_tot, m_max,        &

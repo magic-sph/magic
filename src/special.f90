@@ -44,12 +44,12 @@ module special
    real(cp), public :: ellip_fac_icb      ! d/d\phi (Y22) * d/dt exp(i\omega t) at ICB
    real(cp), public :: amp_tide           ! Amplitude of tide, such that amp_tide = 1 => max ur(2,0) = 1 at boundary
    real(cp), public :: omega_tide         ! Frequency of tide
+   real(cp), public :: l2_h2_ratio        ! Ratio of tidal Love numbers l2/h2 (lateral motion of the outer boundary)
    real(cp), public :: tide_fac20         ! Pre-factor for tidal forcing for (2,0)
    real(cp), public :: tide_fac22p        ! Pre-factor for tidal forcing for (2,2)
    real(cp), public :: tide_fac22n        ! Pre-factor for tidal forcing for (2,-2)
    logical, public  :: l_vr_cmb    ! Radial flow BCs at CMB
    logical, public  :: l_vr_icb    ! Radial flow BCs at ICB
-   logical, public  :: l_vr_bc    ! Radial flow BCs
    real(cp), public :: ampForce           ! Amplitude of external body force
 
 end module special

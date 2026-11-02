@@ -27,33 +27,44 @@ def cleanDir(dir):
         shutil.rmtree('{}/__pycache__'.format(dir))
 
 
-def get_ratios():
+def get_velocities():
     """
-    Get the ratio of the temperature to radial velocity at CMB.
+    Get u/r at all radii and at the outer boundary, normalised by max|u|.
+
+    With l2_h2_ratio=1/l=0.5 the tidal motion of the outer boundary is the
+    one of the potential flow u=grad(chi), chi ~ r^2 Y_2^m, in a full sphere.
+    This is an exact solution of the Navier-Stokes equations (viscous and
+    advection terms are gradients, absorbed by the pressure), such that
+    u is a linear function, i.e. u/r does not depend on r.
     """
     from magic import MagicGraph
     G = MagicGraph(tag='test')
 
-    expr = ( 0.35 * (6/7) * np.sin(G.colatitude)**2 /
-            ( (2/7) * (3 * np.cos(G.colatitude)**2 - 1) +
-             (8/7) * np.sin(G.colatitude)**2) )
+    r = G.radius
+    mask = r > 1e-2*r[0] # Avoid the division by small radii
+    datTmp = []
+    datRef = []
+    # Copy the arrays: the graph reader returns views on a shared buffer
+    for vel in (G.vr, G.vtheta, G.vphi):
+        vel = np.array(vel, copy=True)
+        datTmp.append(vel[..., mask]/r[mask])
+        datRef.append(np.repeat(vel[..., :1]/r[0], mask.sum(), axis=-1))
+    datTmp = np.array(datTmp)
+    datRef = np.array(datRef)
+    umax = np.abs(datRef).max()
 
-    maxratio = np.zeros(G.ntheta)
-    for i in range(G.ntheta):
-        maxratio[i] = G.entropy[:,i,0].max()/G.vr[:,i,0].max()
-
-    return expr, maxratio
+    return datRef/umax, datTmp/umax
 
 class TidesTest(unittest.TestCase):
 
     def __init__(self, testName, dir, execCmd='mpirun -n 8 ../tmp/magic.exe',
-                 precision=1e-8):
+                 precision=2e-7):
         super(TidesTest, self).__init__(testName)
         self.dir = dir
         self.precision = precision
         self.execCmd = execCmd
         self.startDir = os.getcwd()
-        self.description = "Tides: radial velocity"
+        self.description = "Tides: potential flow (lateral tidal motion)"
 
     def list2reason(self, exc_list):
         if exc_list and exc_list[-1][0] is self:
@@ -106,6 +117,7 @@ class TidesTest(unittest.TestCase):
                 print(result.failures[-1][-1])
 
     def outputFileDiff(self):
-        datRef, datTmp = get_ratios()
-        np.testing.assert_allclose(datRef, datTmp, rtol=self.precision,
-                                   atol=1e-7)
+        datRef, datTmp = get_velocities()
+        # Graphic files are single precision: compare in absolute terms
+        np.testing.assert_allclose(datRef, datTmp, rtol=0,
+                                   atol=self.precision)

@@ -31,7 +31,7 @@ import testRMSOutputs.unitTest
 import testGraphMovieOutputs.unitTest
 import testdtBMovieOutputs.unitTest
 import testTOGeosOutputs.unitTest
-import tides_radial_velocity.unitTest
+import tides_potential_flow.unitTest
 
 __version__ = '1.0'
 
@@ -192,12 +192,14 @@ def get_exec_cmd(args, execDir):
     magicExec = '{}/magic.exe'.format(execDir)
 
     if args.use_mpi:  # With MPI
+        # Intel MPI disables pinning by default on hybrid CPUs
+        os.environ['I_MPI_PIN'] = '1'
         if args.use_openmp:
             os.environ['OMP_NUM_THREADS'] = str(args.nthreads)
             os.environ['KMP_STACKSIZE'] = '1g'
             os.environ['KMP_AFFINITY'] = 'noverbose,granularity=core,compact'
             os.environ['MP_BINDPROC'] = 'no'
-            os.environ['I_MPI_PIN_PROCESSOR_LIST'] = 'socket'
+            os.environ['I_MPI_PIN_DOMAIN'] = 'omp'
         else:
             os.environ['I_MPI_PIN_PROCESSOR_LIST'] = 'allcores'
 
@@ -364,11 +366,11 @@ def getSuite(startdir, cmd, precision, args):
                                         'outputFileDiff',
                                         '{}/testdtBMovieOutputs'.format(startdir),
                                         execCmd=cmd))
-        # Tides: radial velocity
-        suite.addTest(tides_radial_velocity.unitTest.TidesTest('outputFileDiff',
-                                         '{}/tides_radial_velocity'.format(startdir),
+        # Tides: potential flow driven by the tidal motion of the boundary
+        suite.addTest(tides_potential_flow.unitTest.TidesTest('outputFileDiff',
+                                         '{}/tides_potential_flow'.format(startdir),
                                          execCmd=cmd,
-                                         precision=precision))
+                                         precision=1e-5))
 
     return suite
 
@@ -415,7 +417,7 @@ def printLevelInfo():
         print("                    Test r.m.s. force balance calculation                          ")
         print("                    Test Graphic and Movie outputs                                 ")
         print("                    Test TO and Geos outputs                                       ")
-        print("                    Test Tides: radial velocity                                    ")
+        print("                    Test Tides: potential flow (lateral tidal motion)              ")
         print("                                                                                   ")
 
 if __name__ == '__main__':

@@ -7,6 +7,7 @@ module readCheckPoints
    use iso_fortran_env, only: output_unit
    use precision_mod
    use parallel_mod
+   use mpi_transp_mod, only: type_mpitransp
    use communications, only: scatter_from_rank0_to_lo, lo2r_one
    use fields, only: dw_LMloc, ddw_LMloc, ds_LMloc, dp_LMloc, dz_LMloc,   &
        &             dxi_LMloc, db_LMloc, ddb_LMloc, dj_LMloc, ddj_LMloc, &
@@ -17,7 +18,7 @@ module readCheckPoints
    use logic, only: l_rot_ma,l_rot_ic,l_SRIC,l_SRMA,l_cond_ic,l_heat,l_mag,    &
        &            l_mag_LF, l_chemical_conv, l_AB1, l_bridge_step,           &
        &            l_double_curl, l_z10Mat, l_single_matrix, l_parallel_solve,&
-       &            l_mag_par_solve, l_phase_field
+       &            l_mag_par_solve, l_phase_field, l_precession
    use blocking, only: lo_map, lm2l, lm2m, lm_balance, llm, ulm, llmMag, &
        &               ulmMag, st_map
    use init_fields, only: start_file,inform,tOmega_ic1,tOmega_ic2,             &
@@ -40,7 +41,7 @@ module readCheckPoints
    use cosine_transform_odd, only: costf_odd_t
    use useful, only: polynomial_interpolation, abortRun
    use updateWP_mod, only: get_pol_rhs_imp
-   use updateZ_mod, only: get_tor_rhs_imp
+   use updateZ_mod, only: get_tor_rhs_imp, update_prec_force
    use updateS_mod, only: get_entropy_rhs_imp
    use updateXI_mod, only: get_comp_rhs_imp
    use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp
@@ -418,6 +419,7 @@ contains
          if ( .not. l_double_curl ) dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
          if ( l_heat ) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
 
+         if ( l_precession ) call update_prec_force(time)
          call get_tor_rhs_imp(time, z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, 1,&
               &               .true., .false.)
@@ -1415,6 +1417,7 @@ contains
          end if
          if ( l_heat) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
 
+         if ( l_precession ) call update_prec_force(time)
          call get_tor_rhs_imp(time, z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, 1,&
               &               .true., .false.)
@@ -2257,6 +2260,7 @@ contains
          if ( .not. l_double_curl ) dpdt%expl(:,:,2)=dpdt%expl(:,:,2)+coex*dpdt%impl(:,:,1)
          if ( l_heat ) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
 
+         if ( l_precession ) call update_prec_force(time)
          call get_tor_rhs_imp(time, z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, 1,&
               &               .true., .false.)

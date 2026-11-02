@@ -135,7 +135,7 @@ contains
       &    omega_ma2,omegaOsz_ma2,tShift_ma2,             &
       &    amp_mode_ma,omega_mode_ma,m_mode_ma,           &
       &    mode_symm_ma,ellipticity_cmb, amp_tide,        &
-      &    omega_tide
+      &    omega_tide, l2_h2_ratio
 
       namelist/inner_core/sigma_ratio,nRotIc,rho_ratio_ic, &
       &    omega_ic1,omegaOsz_ic1,tShift_ic1,              &
@@ -743,14 +743,15 @@ contains
       l_AM=l_AM .or. l_power
 
       ! Radial flow BCs?
-      l_vr_cmb=.false.
-      l_vr_icb=.false.
-      if (ellipticity_cmb /= 0.0_cp .or. amp_tide /=0.0_cp ) l_vr_cmb=.true.
-      if (ellipticity_icb /= 0.0_cp ) l_vr_icb=.true.
-      l_vr_bc = l_vr_cmb .or. l_vr_icb
+      l_vr_cmb=ellipticity_cmb /= 0.0_cp .or. amp_tide /= 0.0_cp
+      l_vr_icb=ellipticity_icb /= 0.0_cp .and. (.not. l_full_sphere)
 
-      if ( l_vr_bc .and. (ktops /= 1 .or. kbots /= 1) ) then
+      if ( (l_vr_cmb .and. ktops /= 1) .or. (l_vr_icb .and. kbots /= 1) ) then
          call abortRun('! Radial flow boundary conditions not yet implemented for ktops /=1 and kbots /= 1')
+      end if
+
+      if ( l2_h2_ratio /= 0.0_cp .and. ktopv == 1 ) then
+         call abortRun('! l2_h2_ratio /= 0 requires a no-slip outer boundary (ktopv=2)')
       end if
 
       !-- Heat boundary condition
@@ -1262,6 +1263,7 @@ contains
       write(n_out,'(''  ellipticity_cmb ='',ES14.6,'','')') ellipticity_cmb
       write(n_out,'(''  amp_tide        ='',ES14.6,'','')') amp_tide
       write(n_out,'(''  omega_tide      ='',ES14.6,'','')') omega_tide
+      write(n_out,'(''  l2_h2_ratio     ='',ES14.6,'','')') l2_h2_ratio
       write(n_out,*) "/"
 
       write(n_out,*) "&inner_core"
@@ -1395,6 +1397,7 @@ contains
       ampForce    =0.0_cp    ! External body force amplitude
       amp_tide    =0.0_cp    ! Amplitude of tide
       omega_tide  =0.0_cp    ! Frequency of tide
+      l2_h2_ratio =0.0_cp    ! Ratio of Love numbers l2/h2: lateral motion of outer boundary
 
       !-- Phase field
       tmelt       =0.0_cp    ! Melting temperature

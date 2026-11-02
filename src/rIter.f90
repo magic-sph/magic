@@ -480,6 +480,12 @@ contains
       logical, intent(in) :: lFluxProfCalc, lPerpParCalc, lHelCalc, l_frame
       logical, intent(in) :: lDeriv, lGeosCalc, lHemiCalc
 
+      !-- Local variables
+      logical :: l_moving_bc ! Boundary with prescribed radial motion
+
+      l_moving_bc = nBc > 0 .and. ( ( nR == n_r_cmb .and. l_vr_cmb ) .or. &
+      &                             ( nR == n_r_icb .and. l_vr_icb ) )
+
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
             call scal_to_spat(s_Rloc(:,nR), this%gsa%sc, l_R(nR))
@@ -511,7 +517,7 @@ contains
          if ( l_HT .or. lViscBcCalc ) then
             call scal_to_spat(ds_Rloc(:,nR), this%gsa%drsc, l_R(nR))
          endif
-         if ( nBc == 0 ) then ! Bulk points
+         if ( nBc == 0 .or. l_moving_bc ) then ! Bulk points or moving rigid boundary
             !-- pol, sph, tor > ur,ut,up
             call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
                  &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
@@ -569,10 +575,6 @@ contains
             end if
          else if ( nBc == 2 ) then
             if ( nR == n_r_cmb ) then
-               if ( l_vr_cmb ) then
-                  call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
-                       &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
-               end if
                call v_rigid_boundary(nR, omega_ma, lDeriv, this%gsa%vrc,      &
                     &              this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
                     &              this%gsa%dvrdtc, this%gsa%dvrdpc,          &
@@ -580,10 +582,6 @@ contains
             end if
 
             if ( nR == n_r_icb ) then
-               if ( l_vr_icb ) then
-                  call torpol_to_spat(w_Rloc(:,nR), dw_Rloc(:,nR),  z_Rloc(:,nR), &
-                       &              this%gsa%vrc, this%gsa%vtc, this%gsa%vpc, l_R(nR))
-               end if
                call v_rigid_boundary(nR, omega_ic, lDeriv, this%gsa%vrc,      &
                     &              this%gsa%vtc, this%gsa%vpc, this%gsa%cvrc, &
                     &              this%gsa%dvrdtc, this%gsa%dvrdpc,          &

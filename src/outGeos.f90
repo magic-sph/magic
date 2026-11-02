@@ -101,9 +101,9 @@ contains
          allocate( h(n_s_max) )
          bytes_allocated=bytes_allocated+n_s_max*SIZEOF_DEF_REAL
          where ( cyl >= r_ICB )
-            h=two*sqrt(r_CMB**2-cyl**2)
+            h=two*sqrt((r_CMB-cyl)*(r_CMB+cyl))
          else where
-            h=sqrt(r_CMB**2-cyl**2)-sqrt(r_ICB**2-cyl**2)
+            h=sqrt((r_CMB-cyl)*(r_CMB+cyl))-sqrt((r_ICB-cyl)*(r_ICB+cyl))
          end where
          n_s_otc=count(cyl>=r_ICB,dim=1)
       end if

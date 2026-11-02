@@ -133,6 +133,9 @@ This file contains the power budget diagnostic. This file is computed by the sub
    +---------------+------------------------------------------------------------------+
    | 11            | Time variation of total power                                    |
    +---------------+------------------------------------------------------------------+
+   | 12            | Work done by the Poincaré force (precession), included in the    |
+   |               | total power                                                      |
+   +---------------+------------------------------------------------------------------+
 
 This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
 

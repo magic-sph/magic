@@ -1,42 +1,43 @@
 &grid
  n_r_max     =33,
  n_cheb_max  =31,
- n_phi_tot   =192,
- n_r_ic_max  =17,
-n_cheb_ic_max=15,
+ n_phi_tot   =48,
  minc        =1,
 /
 &control
  mode        =1,
  tag         ="test",
- n_time_steps=5,
- dtmax       =1.0D-8,
- alpha       =0.6D0,
+ n_time_steps=600,
+ dtmax       =1.0D-3,
+ courfac     =1.0D3,
+ alffac      =1.0D3,
  runHours    =12,
  runMinutes  =00,
- time_scheme ='BPR353',
+ time_scheme ='SBDF3',
  l_non_rot   =.true.,
 /
 &phys_param
- ra          =1.0D5,
+ ra          =0.0D0,
  pr          =1.0D0,
- radratio    =0.35D0,
+ radratio    =0.0D0,
  ktops       =1,
  kbots       =1,
  ktopv       =2,
- kbotv       =2,
 /
 &start_field
  l_start_file=.false.,
+ init_s1     =0,
+ init_v1     =0,
 /
 &output_control
- n_log_step  =5,
+ n_log_step  =100,
  n_graphs    =1,
  n_rsts      =0,
  n_stores    =0,
- runid       ="Tides test",
+ runid       ="Tides: potential flow",
 /
 &mantle
- amp_tide = 1.0d0,
- omega_tide = 1.0d0,
+ amp_tide    =1.0d0,
+ omega_tide  =1.0d1,
+ l2_h2_ratio =0.5d0,
 /

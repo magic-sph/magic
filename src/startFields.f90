@@ -8,6 +8,7 @@ module start_fields
    use precision_mod
    use parallel_mod
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
+   use mpi_transp_mod, only: type_mpitransp
    use communications, only: lo2r_one
    use radial_functions, only: rscheme_oc, r, or1, alpha0, dLtemp0,      &
        &                       dLalpha0, beta, orho1, temp0, rho0, r_cmb,&
@@ -17,14 +18,14 @@ module start_fields
        &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
        &                          ViscHeatFac, impXi
    use num_param, only: dtMax, alpha
-   use special, only: lGrenoble, ampForce
+   use special, only: lGrenoble, ampForce, l_vr_cmb, l_vr_icb
    use output_data, only: log_file, n_log_file
    use blocking, only: lo_map, llm, ulm, ulmMag, llmMag
    use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
        &            l_mag_kin, l_mag_LF, l_temperature_diff, l_onset,    &
        &            l_chemical_conv, l_anelastic_liquid, l_save_out,     &
        &            l_parallel_solve, l_mag_par_solve, l_phase_field,    &
-       &            l_single_matrix, l_non_adia
+       &            l_single_matrix, l_non_adia, l_precession
    use init_fields, only: l_start_file, init_s1, init_b1, tops, pt_cond,  &
        &                  initV, initS, initB, initXi, ps_cond,           &
        &                  start_file, init_xi1, topxi, xi_cond, omega_ic1,&
@@ -42,7 +43,7 @@ module start_fields
 #endif
    use updateWPS_mod, only: get_single_rhs_imp
    use updateWP_mod, only: get_pol_rhs_imp, get_pol_rhs_imp_ghost, w_ghost, &
-       &                   fill_ghosts_W, p0_ghost
+       &                   fill_ghosts_W, p0_ghost, update_boundary_flow
    use updateS_mod, only: get_entropy_rhs_imp, get_entropy_rhs_imp_ghost, s_ghost, &
        &                  fill_ghosts_S
    use updateXI_mod, only: get_comp_rhs_imp, get_comp_rhs_imp_ghost, xi_ghost, &
@@ -50,7 +51,7 @@ module start_fields
    use updatePhi_mod, only: get_phase_rhs_imp, get_phase_rhs_imp_ghost, phi_ghost, &
        &                   fill_ghosts_Phi
    use updateZ_mod, only: get_tor_rhs_imp, get_tor_rhs_imp_ghost, z_ghost, &
-       &                  fill_ghosts_Z
+       &                  fill_ghosts_Z, update_prec_force
    use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp, b_ghost, aj_ghost, &
        &                  get_mag_rhs_imp_ghost, fill_ghosts_B
 
@@ -345,6 +346,10 @@ contains
             call lo2r_one%transp_lm2r(aj_LMloc, aj_Rloc)
          end if
       end if
+
+      !----- Boundary motion and Poincare force at the starting time
+      if ( l_vr_cmb .or. l_vr_icb ) call update_boundary_flow(time)
+      if ( l_precession ) call update_prec_force(time)
 
       !----- Assemble initial implicit terms
       if ( l_chemical_conv ) then

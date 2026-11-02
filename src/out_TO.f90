@@ -110,10 +110,10 @@ contains
       bytes_allocated=bytes_allocated+2*n_s_max*SIZEOF_DEF_REAL
       do n_s=1,n_s_max
          if ( cyl(n_s) >= r_ICB ) then
-            h(n_s)=two*sqrt(r_CMB**2-cyl(n_s)**2)
+            h(n_s)=two*sqrt((r_CMB-cyl(n_s))*(r_CMB+cyl(n_s)))
             n_s_otc=n_s ! Last index outside TC
          else
-            h(n_s)=sqrt(r_CMB**2-cyl(n_s)**2)-sqrt(r_ICB**2-cyl(n_s)**2)
+            h(n_s)=sqrt((r_CMB-cyl(n_s))*(r_CMB+cyl(n_s)))-sqrt((r_ICB-cyl(n_s))*(r_ICB+cyl(n_s)))
          end if
       end do
 

@@ -20,12 +20,13 @@ module step_time_mod
        &                  n_r_icb, n_r_cmb
    use radial_der, only: get_dr_Rloc, get_ddr_Rloc, exch_ghosts, bulk_to_ghost
    use radial_functions, only: rscheme_oc
+   use special, only: l_vr_cmb, l_vr_icb
    use logic, only: l_mag, l_mag_LF, l_dtB, l_RMS, l_hel, l_TO,        &
        &            l_TOmovie, l_r_field, l_cmb_field, l_HTmovie,      &
        &            l_DTrMagSpec, lVerbose, l_b_nl_icb, l_par,         &
        &            l_b_nl_cmb, l_FluxProfs, l_ViscBcCalc, l_perpPar,  &
        &            l_HT, l_dtBmovie, l_heat, l_conv, l_movie,         &
-       &            l_runTimeLimit, l_save_out, l_bridge_step,         &
+       &            l_runTimeLimit, l_save_out, l_bridge_step, l_precession,         &
        &            l_dt_cmb_field, l_chemical_conv, l_mag_kin, l_hemi,&
        &            l_power, l_double_curl, l_PressGraph, l_probe,     &
        &            l_AB1, l_finite_diff, l_cond_ic, l_single_matrix,  &
@@ -54,7 +55,7 @@ module step_time_mod
    use updateB_mod, only: get_mag_rhs_imp, get_mag_ic_rhs_imp, b_ghost, aj_ghost, &
        &                  get_mag_rhs_imp_ghost, fill_ghosts_B
    use updateWP_mod, only: get_pol_rhs_imp, get_pol_rhs_imp_ghost, w_ghost, &
-       &                   fill_ghosts_W, p0_ghost
+       &                   fill_ghosts_W, p0_ghost, update_boundary_flow
    use updateWPS_mod, only: get_single_rhs_imp
    use updateS_mod, only: get_entropy_rhs_imp, get_entropy_rhs_imp_ghost, s_ghost, &
        &                  fill_ghosts_S
@@ -63,10 +64,11 @@ module step_time_mod
    use updatePhi_mod, only: get_phase_rhs_imp, get_phase_rhs_imp_ghost, phi_ghost, &
        &                    fill_ghosts_Phi
    use updateZ_mod, only: get_tor_rhs_imp, get_tor_rhs_imp_ghost, z_ghost, &
-       &                  fill_ghosts_Z
+       &                  fill_ghosts_Z, update_prec_force
    use output_mod, only: output
    use time_schemes, only: type_tscheme
    use useful, only: l_correct_step, logWrite
+   use mpi_transp_mod, only: type_mpitransp
    use communications, only: lo2r_field, lo2r_flow, scatter_from_rank0_to_lo, &
        &                     lo2r_xi,  r2lo_flow, r2lo_s, r2lo_xi,r2lo_field, &
        &                     lo2r_s, lo2r_press, lo2r_one, r2lo_one
@@ -740,6 +742,11 @@ contains
             !-- we have to use a different starting scheme
             call start_from_another_scheme(timeLast, l_bridge_step, n_time_step, tscheme)
 
+            !-- Boundary motion and Poincare force for this stage (they still
+            !-- hold their values at timeLast for start_from_another_scheme above)
+            if ( l_vr_cmb .or. l_vr_icb ) call update_boundary_flow(timeStage)
+            if ( l_precession ) call update_prec_force(timeStage)
+
             !---------------
             !-- LM Loop (update routines)
             !---------------
@@ -774,6 +781,8 @@ contains
          !-- Assembly stage of IMEX-RK (if needed)
          !----------------------------
          if ( tscheme%l_assembly ) then
+            if ( l_vr_cmb .or. l_vr_icb ) call update_boundary_flow(time)
+            if ( l_precession ) call update_prec_force(time)
             if ( l_parallel_solve ) then
                call assemble_stage_Rdist(time, omega_ic, omega_ic1, omega_ma, omega_ma1,&
                     &                    dwdt, dzdt, dpdt, dsdt, dxidt, dphidt, dbdt,   &
