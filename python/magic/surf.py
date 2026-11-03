@@ -60,7 +60,7 @@ class Surf:
             th3D = self.gr.colatitude[None, :, None]
             rr3D = self.gr.radius[None, None, :]
             s3D = rr3D * np.sin(th3D)
-            dtheta = thetaderavg(self.gr.vphi*s3D, colat=gr.colatitude)
+            dtheta = thetaderavg(self.gr.vphi*s3D, colat=self.gr.colatitude)
             dr = rderavg(self.gr.vphi*s3D, self.gr.radius, exclude=False)
             ds = np.sin(th3D)*dr + np.cos(th3D)/rr3D*dtheta
             vs = self.gr.vr * np.sin(th3D) + self.gr.vtheta * np.cos(th3D)
