@@ -8,11 +8,11 @@ module updateS_mod
    use omp_lib
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_r_max, lm_max, l_max
+   use truncation, only: n_r_max, lm_max, l_max, l_axi
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: orho1, or1, or2, beta, dentropy0, rscheme_oc,  &
        &                       kappa, dLkappa, dLtemp0, temp0, r, l_R, r_cmb
-   use physical_parameters, only: opr, kbots, ktops, stef, radratio
+   use physical_parameters, only: opr, kbots, ktops, stef
    use special, only: amp_tide, omega_tide, tide_fac20, tide_fac22p, tide_fac22n
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: tops, bots
@@ -21,10 +21,10 @@ module updateS_mod
    use logic, only: l_anelastic_liquid, l_finite_diff, l_phase_field, &
        &            l_full_sphere, l_parallel_solve
    use parallel_mod
-   use radial_der, only: get_ddr, get_dr, get_dr_Rloc, get_ddr_ghost, &
+   use radial_der, only: get_robin_ghost_coeffs, get_ddr, get_dr, get_dr_Rloc, get_ddr_ghost, &
        &                 exch_ghosts, bulk_to_ghost
-   use fields, only:  work_LMloc
-   use constants, only: zero, one, two, three
+   use fields, only:  work_LMloc, ds_LMloc, ds_Rloc
+   use constants, only: zero, one, two, three, osq4pi
    use useful, only: abortRun
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray
@@ -51,10 +51,15 @@ module updateS_mod
 
    integer :: maxThreads
 
+   !-- Perturbation of the outer boundary value/flux due to the tidal
+   !-- displacement of the boundary (standard lm order, see update_sbc)
+   complex(cp), allocatable :: sbc_cmb(:)
+   logical :: l_sbc_tide ! Tidal perturbation of a fixed entropy at r_cmb (see update_sbc)
+
    public :: initialize_updateS, updateS, finalize_updateS, assemble_entropy,  &
    &         finish_exp_entropy, get_entropy_rhs_imp, finish_exp_entropy_Rdist,&
    &         prepareS_FD, updateS_FD, get_entropy_rhs_imp_ghost, fill_ghosts_S,&
-   &         assemble_entropy_Rloc
+   &         assemble_entropy_Rloc, update_sbc
 
 contains
 
@@ -66,6 +71,7 @@ contains
 
       integer, pointer :: nLMBs2(:)
       integer :: ll,n_bands
+      real(cp) :: a, b
 
       if ( .not. l_parallel_solve ) then
 
@@ -124,6 +130,16 @@ contains
       allocate( lSmat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
+
+      allocate( sbc_cmb(lm_max) )
+      bytes_allocated=bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
+      sbc_cmb(:)=zero
+
+      !-- The tidal correction only applies to a fixed value: for a fixed flux it
+      !-- is O(delta/H) and omitted (see update_sbc)
+      call get_sbc_coeffs(n_r_cmb, 2, a, b)
+      l_sbc_tide=amp_tide /= 0.0_cp .and. a == 0.0_cp
+
    end subroutine initialize_updateS
 !------------------------------------------------------------------------------
    subroutine finalize_updateS
@@ -151,9 +167,11 @@ contains
          call sMat_FD%finalize()
       end if
 
+      deallocate( sbc_cmb )
+
    end subroutine finalize_updateS
 !------------------------------------------------------------------------------
-   subroutine updateS(time, s, ds, dsdt, phi, tscheme)
+   subroutine updateS(s, ds, dsdt, phi, tscheme)
       !
       !  Updates the entropy field s and its radial derivative.
       !
@@ -161,7 +179,6 @@ contains
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
       complex(cp),         intent(in) :: phi(llm:ulm,n_r_max) ! Phase field
-      real(cp),            intent(in) :: time
 
       !-- Input/output of scalar fields:
       complex(cp),       intent(inout) :: s(llm:ulm,n_r_max) ! Entropy
@@ -172,6 +189,7 @@ contains
       !-- Local variables:
       integer :: l1,m1          ! degree and order
       integer :: lm1,lm         ! position of (l,m) in array
+      integer :: lms            ! position of (l,m) in the standard order
       integer :: nLMB2,nLMB
       integer :: nR             ! counts radial grid points
       integer :: n_r_out        ! counts cheb modes
@@ -239,7 +257,7 @@ contains
          do iChunk=1,nChunks
             !$omp task default(shared) &
             !$omp firstprivate(iChunk) &
-            !$omp private(lmB0,lm,lm1,m1,nR,n_r_out) &
+            !$omp private(lmB0,lm,lm1,m1,lms,nR,n_r_out) &
             !$omp private(threadid)
 #ifdef WITHOMP
             threadid = omp_get_thread_num()
@@ -252,29 +270,11 @@ contains
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
 
-               rhs1(1,2*lm-1,threadid)      = real(tops(l1,m1))
-               rhs1(1,2*lm,threadid)        =aimag(tops(l1,m1))
+               lms=st_map%lm2(l1,m1)
+               rhs1(1,2*lm-1,threadid)      = real(tops(l1,m1)+sbc_cmb(lms))
+               rhs1(1,2*lm,threadid)        =aimag(tops(l1,m1)+sbc_cmb(lms))
                rhs1(n_r_max,2*lm-1,threadid)= real(bots(l1,m1))
                rhs1(n_r_max,2*lm,threadid)  =aimag(bots(l1,m1))
-
-               if (amp_tide /= 0.0_cp) then
-                  if (l1 == 2 .and. m1 == 0) then
-                     rhs1(1,2*lm-1,threadid) = rhs1(1,2*lm-1,threadid)        &
-                     & + radratio/omega_tide * tide_fac20 * 6.0_cp/r_cmb**2   &
-                     & * sin(omega_tide * time)
-                  end if
-
-                  if (l1 == 2 .and. m1 == 2) then
-                     rhs1(1,2*lm-1,threadid) = rhs1(1,2*lm-1,threadid)       &
-                     &  + radratio/omega_tide * 6.0_cp/r_cmb**2              &
-                     &  * (tide_fac22p + tide_fac22n)                        &
-                     &  * sin(omega_tide * time)
-                     rhs1(1,2*lm,threadid)   = rhs1(1,2*lm,threadid)         &
-                     & + radratio/omega_tide * 6.0_cp/r_cmb**2               &
-                     & * (-tide_fac22p + tide_fac22n)                        &
-                     & * cos(omega_tide * time)
-                  end if
-               end if
 
                do nR=2,n_r_max-1
                   rhs1(nR,2*lm-1,threadid)= real(work_LMloc(lm1,nR))
@@ -341,7 +341,7 @@ contains
 
    end subroutine updateS
 !------------------------------------------------------------------------------
-   subroutine prepareS_FD(tscheme, dsdt, phi, time)
+   subroutine prepareS_FD(tscheme, dsdt, phi)
       !
       ! This subroutine is used to assemble the r.h.s. of the entropy equation
       ! when parallel F.D solvers are used. Boundary values are set here.
@@ -350,14 +350,13 @@ contains
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
       complex(cp),         intent(in) :: phi(lm_max,nRstart:nRstop)
-      real(cp),            intent(in), optional :: time ! Optional to allow for testLM
 
       !-- Input/output of scalar fields:
       type(type_tarray), intent(inout) :: dsdt
 
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm, l, m
-      complex(cp):: sBC
+      real(cp) :: a, b
 
       !-- LU factorisation of the matrix if needed
       if ( .not. lSmat(0) ) then
@@ -365,7 +364,7 @@ contains
          lSmat(:)=.true.
       end if
 
-      !$omp parallel default(shared) private(lm_start,lm_stop, nR, l, m, lm)
+      !$omp parallel default(shared) private(lm_start,lm_stop, nR, l, m, lm, a, b)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
       !$omp barrier
@@ -382,23 +381,18 @@ contains
          end do
       end if
 
-      !-- Set boundary conditions
+      !-- Set boundary conditions: a fixed value replaces the equation, a flux
+      !-- enters through the ghost point folded into the matrix (get_sMat_Rdist)
       if ( nRstart == n_r_cmb ) then
          nR=n_r_cmb
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
-            if ( ktops == 1 ) then ! Fixed temperature
-               if (amp_tide /= 0.0_cp .and. l == 2 .and. present(time)) then ! Check if this is testLM
-                  call get_vr_temp_bc(time, m, sBC)
-               else
-                  sBC = zero
-               end if
-               s_ghost(lm,nR)=tops(l,m) + sBC
-            else ! Fixed flux
-               !TBD
-               s_ghost(lm,nR)=s_ghost(lm,nR)+fd_fac_top(l)*tops(l,m)
-               !s_ghost(lm,nR)=tops(l,m)
+            call get_sbc_coeffs(nR, l, a, b)
+            if ( a == 0.0_cp ) then
+               s_ghost(lm,nR)=(tops(l,m)+sbc_cmb(lm))
+            else
+               s_ghost(lm,nR)=s_ghost(lm,nR)+fd_fac_top(l)*(tops(l,m)+sbc_cmb(lm))
             end if
             s_ghost(lm,nR-1)=zero ! Set ghost zone to zero
          end do
@@ -409,21 +403,11 @@ contains
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
-
-            if ( l_full_sphere ) then
-               if ( l == 0 ) then
-                  s_ghost(lm,nR)=s_ghost(lm,nR)+fd_fac_bot(l)*bots(l,m)
-               else
-                  ! TBD
-                  s_ghost(lm,nR)=bots(l,m)
-               end if
+            call get_sbc_coeffs(nR, l, a, b)
+            if ( a == 0.0_cp ) then
+               s_ghost(lm,nR)=bots(l,m)
             else
-               if ( kbots == 1 ) then ! Fixed temperature
-                  s_ghost(lm,nR)=bots(l,m)
-               else
-                  ! TBD
-                  s_ghost(lm,nR)=s_ghost(lm,nR)+fd_fac_bot(l)*bots(l,m)
-               end if
+               s_ghost(lm,nR)=s_ghost(lm,nR)+fd_fac_bot(l)*bots(l,m)
             end if
             s_ghost(lm,nR+1)=zero ! Set ghost zone to zero
          end do
@@ -444,53 +428,38 @@ contains
 
       !-- Local variables
       integer :: lm, l, m, lm_start, lm_stop
-      real(cp) :: dr
+      real(cp) :: c_in, c_bc, c_rhs
 
-      !$omp parallel default(shared) private(lm_start, lm_stop, l, m, lm)
+      !$omp parallel default(shared) private(lm_start, lm_stop, l, m, lm, c_in, c_bc, c_rhs)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
       !$omp barrier
 
       !-- Handle upper boundary
-      dr = r(2)-r(1)
       if ( nRstart == n_r_cmb ) then
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
-            if ( ktops == 1 ) then
-               sg(lm,nRstart-1)=two*sg(lm,nRstart)-sg(lm,nRstart+1)
-            else
-               sg(lm,nRstart-1)=sg(lm,nRstart+1)-two*dr*tops(l,m)
-            end if
+            call get_sbc_ghost_coeffs(n_r_cmb, l, c_in, c_bc, c_rhs)
+            sg(lm,nRstart-1)=c_in*sg(lm,nRstart+1)+c_bc*sg(lm,nRstart)+ &
+            &                c_rhs*(tops(l,m)+sbc_cmb(lm))
          end do
       end if
 
       !-- Handle Lower boundary
-      dr = r(n_r_max)-r(n_r_max-1)
       if ( nRstop == n_r_icb ) then
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
-            if ( l_full_sphere ) then
-               if (l == 0 ) then
-                  sg(lm,nRstop+1)=sg(lm,nRstop-1)+two*dr*bots(l,m)
-               else
-                  sg(lm,nRstop+1)=two*sg(lm,nRstop)-sg(lm,nRstop-1)
-               end if
-            else ! Not a full sphere
-               if (kbots == 1) then ! Fixed temperature at bottom
-                  sg(lm,nRstop+1)=two*sg(lm,nRstop)-sg(lm,nRstop-1)
-               else
-                  sg(lm,nRstop+1)=sg(lm,nRstop-1)+two*dr*bots(l,m)
-               end if
-            end if
+            call get_sbc_ghost_coeffs(n_r_icb, l, c_in, c_bc, c_rhs)
+            sg(lm,nRstop+1)=c_in*sg(lm,nRstop-1)+c_bc*sg(lm,nRstop)+c_rhs*bots(l,m)
          end do
       end if
       !$omp end parallel
 
    end subroutine fill_ghosts_S
 !------------------------------------------------------------------------------
-   subroutine updateS_FD(time, s, ds, dsdt, phi, tscheme)
+   subroutine updateS_FD(s, ds, dsdt, phi, tscheme)
       !
       ! This subroutine is called after the linear solves have been completed.
       ! This is then assembling the linear terms that will be used in the r.h.s.
@@ -499,7 +468,6 @@ contains
 
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
-      real(cp),            intent(in) :: time
       complex(cp),         intent(in) :: phi(lm_max,nRstart:nRstop) ! Phase field
 
       !-- Input/output of scalar fields:
@@ -844,7 +812,7 @@ contains
 
    end subroutine get_entropy_rhs_imp_ghost
 !-----------------------------------------------------------------------------
-   subroutine assemble_entropy_Rloc(time, s, ds, dsdt, phi, tscheme)
+   subroutine assemble_entropy_Rloc(s, ds, dsdt, phi, tscheme)
       !
       ! This subroutine is used when an IMEX Runge-Kutta time scheme with an assembly
       ! stage is used. This is used when R is distributed.
@@ -853,7 +821,6 @@ contains
       !-- Input variable
       complex(cp),         intent(in) :: phi(lm_max,nRstart:nRstop)
       class(type_tscheme), intent(in) :: tscheme
-      real(cp),            intent(in) :: time
 
       !-- Output variables
       complex(cp),       intent(inout) :: s(lm_max,nRstart:nRstop)
@@ -862,11 +829,12 @@ contains
 
       !-- Local variables
       integer :: lm, l, m, n_r, start_lm, stop_lm
+      real(cp) :: a, b
       complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
 
       call tscheme%assemble_imex(work_Rloc, dsdt)
 
-      !$omp parallel default(shared) private(start_lm, stop_lm, l, m)
+      !$omp parallel default(shared) private(start_lm, stop_lm, l, m, a, b)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
       !$omp barrier
@@ -892,24 +860,22 @@ contains
          end do
       end do
 
-      if ( ktops == 1 .and. nRstart==n_r_cmb ) then
+      !-- Fixed values at the boundaries (fluxes are handled by the ghost points)
+      if ( nRstart==n_r_cmb ) then
          do lm=start_lm,stop_lm
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
-
-            if ( amp_tide /= 0.0_cp .and. l==2 ) then
-               call get_vr_temp_bc(time, m, tops(l,m))
-            end if
-
-            s(lm,nRstart)=tops(l,m)
+            call get_sbc_coeffs(n_r_cmb, l, a, b)
+            if ( a == 0.0_cp ) s(lm,nRstart)=(tops(l,m)+sbc_cmb(lm))
          end do
       end if
 
-      if ( kbots == 1 .and. nRstop==n_r_icb ) then
+      if ( nRstop==n_r_icb ) then
          do lm=start_lm,stop_lm
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
-            s(lm,nRstop)=bots(l,m)
+            call get_sbc_coeffs(n_r_icb, l, a, b)
+            if ( a == 0.0_cp ) s(lm,nRstop)=bots(l,m)
          end do
       end if
 
@@ -926,7 +892,7 @@ contains
 
    end subroutine assemble_entropy_Rloc
 !-----------------------------------------------------------------------------
-   subroutine assemble_entropy(time, s, ds, dsdt, phi, tscheme)
+   subroutine assemble_entropy(s, ds, dsdt, phi, tscheme)
       !
       ! This subroutine is used to assemble the entropy/temperature at assembly
       ! stages of IMEX-RK time schemes. This is used when LM is distributed.
@@ -935,7 +901,6 @@ contains
       !-- Input variable
       class(type_tscheme), intent(in) :: tscheme
       complex(cp),         intent(in) :: phi(llm:ulm,n_r_max)
-      real(cp),            intent(in) :: time
 
       !-- Output variables
       complex(cp),       intent(inout) :: s(llm:ulm,n_r_max)
@@ -944,6 +909,7 @@ contains
 
       !-- Local variables
       integer :: lm, l1, m1, n_r
+      real(cp) :: a_top, b_top, a_bot, b_bot
       integer, pointer :: lm2l(:), lm2m(:)
 
       lm2l(1:lm_max) => lo_map%lm2l
@@ -979,86 +945,16 @@ contains
       !$omp end do
 
       !-- Get the boundary points using Canuto (1986) approach
-      if ( l_full_sphere) then
-         if ( ktops == 1 ) then ! Fixed entropy at the outer boundary
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               if ( l1 == 0 ) then
-                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
-                       &                   bots(l1,m1), s(lm,:))
-               else
-                  if (amp_tide /= 0.0_cp .and. l1==2) then
-                     call get_vr_temp_bc(time, m1, tops(l1,m1))
-                  end if
-
-                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
-                       &                   bots(l1,m1), s(lm,:))
-               end if
-            end do
-            !$omp end do
-         else ! Fixed flux at the outer boundary
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               if ( l1 == 0 ) then
-                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), one, 0.0_cp, &
-                       &                   bots(l1,m1), s(lm,:))
-               else
-                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
-                       &                   bots(l1,m1), s(lm,:))
-               end if
-            end do
-            !$omp end do
-         end if
-      else ! Spherical shell
-         !-- Boundary conditions
-         if ( ktops==1 .and. kbots==1 ) then ! Dirichlet on both sides
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               if (amp_tide /= 0.0_cp .and. l1==2) then
-                  call get_vr_temp_bc(time, m1, tops(l1,m1))
-               end if
-               call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
-                    &                   bots(l1,m1), s(lm,:))
-            end do
-            !$omp end do
-         else if ( ktops==1 .and. kbots /= 1 ) then ! Dirichlet: top and Neumann: bot
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               if (amp_tide /= 0.0_cp .and. l1==2) then
-                  call get_vr_temp_bc(time, m1, tops(l1,m1))
-               end if
-               call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
-                    &                   bots(l1,m1), s(lm,:))
-            end do
-            !$omp end do
-         else if ( kbots==1 .and. ktops /= 1 ) then ! Dirichlet: bot and Neumann: top
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
-                    &                   bots(l1,m1), s(lm,:))
-            end do
-            !$omp end do
-         else if ( kbots /=1 .and. kbots /= 1 ) then ! Neumann on both sides
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), one, 0.0_cp, &
-                    &                   bots(l1,m1), s(lm,:))
-            end do
-            !$omp end do
-         end if
-      end if
+      !$omp do private(lm,l1,m1,a_top,b_top,a_bot,b_bot)
+      do lm=llm,ulm
+         l1 = lm2l(lm)
+         m1 = lm2m(lm)
+         call get_sbc_coeffs(n_r_cmb, l1, a_top, b_top)
+         call get_sbc_coeffs(n_r_icb, l1, a_bot, b_bot)
+         call rscheme_oc%robin_bc(a_top, b_top, tops(l1,m1)+sbc_cmb(st_map%lm2(l1,m1)), &
+              &                   a_bot, b_bot, bots(l1,m1), s(lm,:))
+      end do
+      !$omp end do
       !$omp end parallel
 
       !-- Finally call the construction of the implicit terms for the first stage
@@ -1090,31 +986,18 @@ contains
 
       !-- Local variables:
       integer :: info,nR_out,nR
-      real(cp) :: dLh
+      real(cp) :: dLh, a_top, b_top, a_bot, b_bot
       real(cp) :: dat(n_r_max,n_r_max)
 
       dLh=real(l*(l+1),kind=cp)
 
       !----- Boundary conditions:
-      if ( ktops == 1 ) then
-         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
-      else
-         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
-      end if
-
-      if ( l_full_sphere ) then
-         if ( l == 0 ) then
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-         else
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-         end if
-      else
-         if ( kbots == 1 ) then
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-         else
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-         end if
-      end if
+      call get_sbc_coeffs(n_r_cmb, l, a_top, b_top)
+      call get_sbc_coeffs(n_r_icb, l, a_bot, b_bot)
+      dat(1,:)      =rscheme_oc%rnorm*(a_top*rscheme_oc%drMat(1,:)+ &
+      &                                b_top*rscheme_oc%rMat(1,:))
+      dat(n_r_max,:)=rscheme_oc%rnorm*(a_bot*rscheme_oc%drMat(n_r_max,:)+ &
+      &                                b_bot*rscheme_oc%rMat(n_r_max,:))
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
          do nR_out=rscheme_oc%n_max+1,n_r_max
@@ -1231,12 +1114,12 @@ contains
       type(type_tri_par), intent(inout) :: sMat
 
       !-- Local variables:
-      real(cp) :: dLh
+      real(cp) :: dLh, a, b, c_in, c_bc, c_rhs
       integer :: nR, l
 
       !-- Bulk points: we fill all the points: this is then easier to handle
       !-- Neumann boundary conditions
-      !$omp parallel default(shared) private(nR,l,dLh)
+      !$omp parallel default(shared) private(nR,l,dLh,a,b,c_in,c_bc,c_rhs)
       !$omp do
       do nR=1,n_r_max
          do l=0,l_max
@@ -1300,39 +1183,32 @@ contains
       end do
       !$omp end do
 
-      !----- Boundary conditions:
+      !----- Boundary conditions: a fixed value replaces the equation, a flux
+      !----- condition gives the ghost point that is folded into the matrix
       !$omp do
       do l=0,l_max
-         if ( ktops == 1 ) then
+         call get_sbc_coeffs(n_r_cmb, l, a, b)
+         if ( a == 0.0_cp ) then
             sMat%diag(l,1)=one
             sMat%up(l,1)  =0.0_cp
             sMat%low(l,1) =0.0_cp
          else
-            sMat%up(l,1)=sMat%up(l,1)+sMat%low(l,1)
-            fd_fac_top(l)=two*(r(2)-r(1))*sMat%low(l,1)
-            !dat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
+            call get_sbc_ghost_coeffs(n_r_cmb, l, c_in, c_bc, c_rhs)
+            sMat%diag(l,1)=sMat%diag(l,1)+c_bc*sMat%low(l,1)
+            sMat%up(l,1)  =sMat%up(l,1)+c_in*sMat%low(l,1)
+            fd_fac_top(l) =-c_rhs*sMat%low(l,1)
          end if
 
-         if ( l_full_sphere ) then
-            if ( l == 0 ) then
-               !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-               sMat%low(l,n_r_max)=sMat%up(l,n_r_max)+sMat%low(l,n_r_max)
-               fd_fac_bot(l)=two*(r(n_r_max-1)-r(n_r_max))*sMat%up(l,n_r_max)
-            else
-               sMat%diag(l,n_r_max)=one
-               sMat%up(l,n_r_max)  =0.0_cp
-               sMat%low(l,n_r_max) =0.0_cp
-            end if
+         call get_sbc_coeffs(n_r_icb, l, a, b)
+         if ( a == 0.0_cp ) then
+            sMat%diag(l,n_r_max)=one
+            sMat%up(l,n_r_max)  =0.0_cp
+            sMat%low(l,n_r_max) =0.0_cp
          else
-            if ( kbots == 1 ) then
-               sMat%diag(l,n_r_max)=one
-               sMat%up(l,n_r_max)  =0.0_cp
-               sMat%low(l,n_r_max) =0.0_cp
-            else
-               !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-               sMat%low(l,n_r_max)=sMat%up(l,n_r_max)+sMat%low(l,n_r_max)
-               fd_fac_bot(l)=two*(r(n_r_max-1)-r(n_r_max))*sMat%up(l,n_r_max)
-            end if
+            call get_sbc_ghost_coeffs(n_r_icb, l, c_in, c_bc, c_rhs)
+            sMat%diag(l,n_r_max)=sMat%diag(l,n_r_max)+c_bc*sMat%up(l,n_r_max)
+            sMat%low(l,n_r_max) =sMat%low(l,n_r_max)+c_in*sMat%up(l,n_r_max)
+            fd_fac_bot(l)       =-c_rhs*sMat%up(l,n_r_max)
          end if
       end do
       !$omp end do
@@ -1343,35 +1219,138 @@ contains
 
    end subroutine get_sMat_Rdist
 !-----------------------------------------------------------------------------
-   subroutine get_vr_temp_bc(time, m, sBC)
+!-----------------------------------------------------------------------------
+   subroutine get_sbc_coeffs(nR, l, a, b)
+      !
+      ! Boundary condition on the entropy at the boundary nR:
+      ! a*ds/dr+b*s=rhs. ktops/kbots=1 means a fixed value, any other
+      ! value a fixed flux. At the centre of a full sphere, regularity requires
+      ! ds/dr=0 for l=0 and s=0 otherwise.
+      ! A fixed value always has (a,b)=(0,1): the finite-difference paths
+      ! replace the boundary row by an identity row and set the value directly.
+      !
 
-      !-- Input variables
+      !-- Input variables:
+      integer, intent(in) :: nR ! n_r_cmb or n_r_icb
+      integer, intent(in) :: l
+
+      !-- Output variables:
+      real(cp), intent(out) :: a, b
+
+      !-- Local variable:
+      integer :: k
+
+      if ( nR == n_r_icb .and. l_full_sphere ) then
+         if ( l == 0 ) then
+            k=2
+         else
+            k=1
+         end if
+      else if ( nR == n_r_cmb ) then
+         k=ktops
+      else
+         k=kbots
+      end if
+
+      if ( k == 1 ) then ! Fixed value
+         a=0.0_cp
+         b=one
+      else ! Fixed flux
+         a=one
+         b=0.0_cp
+      end if
+
+   end subroutine get_sbc_coeffs
+!-----------------------------------------------------------------------------
+   subroutine get_sbc_ghost_coeffs(nR, l, c_in, c_bc, c_rhs)
+      !
+      ! Ghost point beyond the boundary nR for the entropy (see
+      ! get_robin_ghost_coeffs). For a flux condition this enforces the
+      ! condition, for a fixed value the ghost point is only used for outputs.
+      !
+
+      !-- Input variables:
+      integer, intent(in) :: nR ! n_r_cmb or n_r_icb
+      integer, intent(in) :: l
+
+      !-- Output variables:
+      real(cp), intent(out) :: c_in, c_bc, c_rhs
+
+      !-- Local variables:
+      real(cp) :: a, b, h
+
+      call get_sbc_coeffs(nR, l, a, b)
+      if ( nR == n_r_cmb ) then
+         h=r(1)-r(2)
+      else
+         h=r(n_r_max)-r(n_r_max-1)
+      end if
+      call get_robin_ghost_coeffs(a, b, h, c_in, c_bc, c_rhs)
+
+   end subroutine get_sbc_ghost_coeffs
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+   subroutine update_sbc(time)
+      !
+      ! Perturbation of the entropy b.c. at the outer boundary due to its tidal
+      ! displacement delta (Taylor expansion around r_cmb, see the notes on
+      ! tidal forcing). For a fixed value, the condition f=rhs holds on the
+      ! displaced boundary r_cmb+delta, which to first order adds
+      !
+      ! .. code-block:: fortran
+      !
+      !    -delta*df0/dr
+      !
+      ! to its r.h.s. at r_cmb. f0 is the current spherically-symmetric
+      ! entropy (recorded when the implicit terms were last computed), so the
+      ! correction follows the boundary layer (df0/dr ~ Nu times the conducting
+      ! value). For a fixed flux, the corresponding correction -delta*d2f0/dr2
+      ! is omitted: at a no-slip, impermeable wall the l=0 balance gives
+      ! d2f0/dr2 = -2/r*df0/dr + (df0/dt - sources)/kappa, so it is only
+      ! O(delta/H) relative to the flux. It is called once per stage, before
+      ! the boundary values are used.
+      !
+
+      !-- Input variable:
       real(cp), intent(in) :: time
-      integer, intent(in)  :: m
 
-      !-- Output variable
-      complex(cp), intent(out) :: sBC
+      !-- Local variables:
+      complex(cp) :: delta20, delta22
+      real(cp) :: fac, f0_dr
+      integer :: lm20, lm22
+#ifdef WITH_MPI
+      integer :: ierr
+#endif
 
-      !-- Local variable
-      real(cp) :: fac
+      if ( .not. l_sbc_tide ) return
 
-      fac = 6.0_cp / r_cmb**2  ! l(l+1)/r_o^2 for l=2
-
-      if (m==0) then
-         sBC = radratio/omega_tide * fac * tide_fac20 *        &
-         &     cmplx(sin(omega_tide*time),0.0_cp, cp) ! Complex part in m=0 does not matter
+      !-- d(f00)/dr at r_cmb, from the derivatives computed with the implicit
+      !-- terms (only known on the rank that holds l=m=0 at r_cmb)
+      f0_dr=0.0_cp
+      if ( l_parallel_solve ) then
+         if ( nRstart == n_r_cmb ) f0_dr=real(ds_Rloc(st_map%lm2(0,0),n_r_cmb))
+      else
+         if ( llm <= lo_map%lm2(0,0) .and. ulm >= lo_map%lm2(0,0) ) &
+         &    f0_dr=real(ds_LMloc(lo_map%lm2(0,0),n_r_cmb))
       end if
+#ifdef WITH_MPI
+      call MPI_Allreduce(MPI_IN_PLACE, f0_dr, 1, MPI_DEF_REAL, MPI_SUM, &
+           &             MPI_COMM_WORLD, ierr)
+#endif
 
-      if (m==1) then ! Obliquity tide, yet to implement
-         sBC = zero
-      end if
+      !-- Radial displacement of the outer boundary by the tide: time integral
+      !-- of u_r=l(l+1)/r^2*W with W from the tidal flow (see update_wbc)
+      lm20=st_map%lm2(2,0)
+      lm22=st_map%lm2(2,2)
+      fac=6.0_cp/r_cmb**2/omega_tide
+      delta20=fac*tide_fac20*cmplx(sin(omega_tide*time), 0.0_cp, cp)
+      if ( .not. l_axi ) delta22=fac*cmplx( (tide_fac22p+tide_fac22n)*sin(omega_tide*time), &
+      &                                    (-tide_fac22p+tide_fac22n)*cos(omega_tide*time), cp)
 
-      if (m==2) then
-         sBC = radratio/omega_tide * fac *                                &
-         &     cmplx((tide_fac22p + tide_fac22n) * sin(omega_tide*time),  &
-         &          (-tide_fac22p + tide_fac22n) * cos(omega_tide*time), cp)
-      end if
+      fac=-osq4pi*f0_dr ! Physical f0=osq4pi*f00
+      sbc_cmb(lm20)=fac*delta20 ! Other entries stay zero
+      if ( .not. l_axi ) sbc_cmb(lm22)=fac*delta22 ! m=0 tide only if axisymmetric
 
-   end subroutine get_vr_temp_bc
-
+   end subroutine update_sbc
+!-----------------------------------------------------------------------------
 end module updateS_mod

@@ -80,6 +80,10 @@ contains
          if ( l_max == 0 ) then
             n_theta_max=n_theta_axi
             l_max      =(nalias*n_theta_max)/30
+            !-- n_phi_tot is not used by axisymmetric runs
+            if ( l_max == 0 ) then
+               call abortRun('! Axisymmetric run (l_axi): set l_max or n_theta_axi in &grid')
+            end if
          else
             n_theta_max=(30*l_max)/nalias
             n_theta_axi=n_theta_max

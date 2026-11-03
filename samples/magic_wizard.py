@@ -46,6 +46,11 @@ def getParser():
                         help="Show program's version number and exit.")
     parser.add_argument('--level', action='store', dest='test_level', type=int,
                         default=-1, help='Test level, use -2 for more info')
+    parser.add_argument('--test', action='extend', nargs='+', dest='tests',
+                        metavar='DIR', default=None,
+                        help='Only run the tests in these sample directories '
+                             '(e.g. --test dynamo_benchmark testRestart). '
+                             'Combines with --level.')
     parser.add_argument('--use-debug-flags', action='store_true',
                         dest='use_debug_flags',
                         default=False, help='Use compilation debug flags')
@@ -374,6 +379,36 @@ def getSuite(startdir, cmd, precision, args):
 
     return suite
 
+
+def filterSuite(suite, startdir, args):
+    """
+    Only keep the tests whose sample directory is in args.tests
+    """
+    if not args.tests:
+        return suite
+
+    names = [os.path.basename(os.path.normpath(n)) for n in args.tests]
+    level = args.test_level
+    args.test_level = -1
+    known = {os.path.basename(t.dir) for t in getSuite(startdir, '', 0., args)}
+    args.test_level = level
+    unknown = [n for n in names if n not in known]
+    if unknown:
+        print('Unknown test(s): {}'.format(', '.join(unknown)))
+        print('Available: {}'.format(', '.join(sorted(known))))
+        sys.exit(1)
+
+    filtered = unittest.TestSuite()
+    for t in suite:
+        if os.path.basename(t.dir) in names:
+            filtered.addTest(t)
+    if filtered.countTestCases() == 0:
+        print('No test matching {} at level {}'.format(', '.join(names), level))
+        sys.exit(1)
+
+    return filtered
+
+
 def printLevelInfo():
 
         print("Level                               Test Description                               ")
@@ -441,6 +476,9 @@ if __name__ == '__main__':
         printLevelInfo()
         sys.exit()
 
+    # Select the tests before building, so that typos fail early
+    suite = filterSuite(getSuite(startdir, '', precision, args), startdir, args)
+
     # Run cmake
     print('1. cmake configuration')
     print('----------------------')
@@ -457,7 +495,7 @@ if __name__ == '__main__':
     # Run the auto-test suite
     print('3.   Auto-tests       ')
     print('----------------------')
-    suite = getSuite(startdir, cmd, precision, args)
+    suite = filterSuite(getSuite(startdir, cmd, precision, args), startdir, args)
     runner = unittest.TextTestRunner(verbosity=0)
     ret = not runner.run(suite).wasSuccessful()
 

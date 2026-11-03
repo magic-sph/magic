@@ -43,7 +43,8 @@ module start_fields
 #endif
    use updateWPS_mod, only: get_single_rhs_imp
    use updateWP_mod, only: get_pol_rhs_imp, get_pol_rhs_imp_ghost, w_ghost, &
-       &                   fill_ghosts_W, p0_ghost, update_boundary_flow
+       &                   fill_ghosts_W, p0_ghost
+   use LMLoop_mod, only: update_boundary_values
    use updateS_mod, only: get_entropy_rhs_imp, get_entropy_rhs_imp_ghost, s_ghost, &
        &                  fill_ghosts_S
    use updateXI_mod, only: get_comp_rhs_imp, get_comp_rhs_imp_ghost, xi_ghost, &
@@ -348,7 +349,7 @@ contains
       end if
 
       !----- Boundary motion and Poincare force at the starting time
-      if ( l_vr_cmb .or. l_vr_icb ) call update_boundary_flow(time)
+      call update_boundary_values(time)
       if ( l_precession ) call update_prec_force(time)
 
       !----- Assemble initial implicit terms
@@ -408,11 +409,11 @@ contains
          call bulk_to_ghost(z_Rloc, z_ghost, 1, nRstart, nRstop, lm_max, 1, lm_max)
          call exch_ghosts(z_ghost, lm_max, nRstart, nRstop, 1)
          call fill_ghosts_Z(z_ghost)
-         call get_tor_rhs_imp_ghost(time, z_ghost, dz_Rloc, dzdt, domega_ma_dt,  &
+         call get_tor_rhs_imp_ghost(z_ghost, dz_Rloc, dzdt, domega_ma_dt,  &
               &                     domega_ic_dt, omega_ic, omega_ma, omega_ic1, &
               &                     omega_ma1, tscheme, 1, .true., .false.)
       else
-         call get_tor_rhs_imp(time, z_LMloc, dz_LMloc, dzdt, domega_ma_dt, &
+         call get_tor_rhs_imp(z_LMloc, dz_LMloc, dzdt, domega_ma_dt, &
               &               domega_ic_dt, omega_ic, omega_ma, omega_ic1, &
               &               omega_ma1, tscheme, 1, .true., .false.)
       end if
@@ -438,6 +439,10 @@ contains
               &                  aj_ic_LMloc, dj_ic_LMloc, ddj_ic_LMloc,   &
               &                  dbdt_ic, djdt_ic, 1, .true.)
       end if
+
+      !----- Boundary values again: the tidal perturbations of the scalar b.c.
+      !      depend on the spherically-symmetric state recorded above
+      call update_boundary_values(time)
 
       !--- Get symmetry properties of tops excluding l=m=0:
       sES=0.0_cp

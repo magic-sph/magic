@@ -30,7 +30,8 @@ module updateZ_mod
    use parallel_mod
    use outRot, only: get_angular_moment, get_angular_moment_Rloc
    use RMS, only: DifTor2hInt
-   use radial_der, only: get_ddr, get_ddr_ghost, bulk_to_ghost, exch_ghosts
+   use radial_der, only: get_ddr, get_ddr_ghost, bulk_to_ghost, exch_ghosts, &
+       &                 get_robin_ghost_coeffs
    use fields, only: work_LMloc, bodyForce_LMloc, bodyForce_Rloc
    use useful, only: abortRun, cc2real
    use time_schemes, only: type_tscheme
@@ -60,13 +61,21 @@ module updateZ_mod
    logical, public, allocatable :: lZmat(:)
    type(type_tri_par), public :: zMat_FD, z10Mat_FD
    complex(cp), public, allocatable :: z_ghost(:,:), z10_ghost(:)
+   real(cp), allocatable :: fd_fac_top(:), fd_fac_bot(:) ! Weight of zbc in the F.D. r.h.s.
    complex(cp), public, protected :: prec_force=zero ! Poincare force acting on z(l=1,m=1)
+
+   !-- Time-dependent boundary values (see update_zbc), zbc in standard lm order
+   complex(cp), allocatable :: zbc_cmb(:), zbc_icb(:) ! r.h.s. of the b.c. on z
+   real(cp) :: omega_ma_bc=0.0_cp ! Prescribed rotation rate of the mantle (l_SRMA)
+   real(cp) :: omega_ic_bc=0.0_cp ! Prescribed rotation rate of the inner core (l_SRIC)
+   logical :: l_zbc_time_dep      ! Do the boundary values depend on time?
 
    integer :: maxThreads
 
    public :: updateZ, initialize_updateZ, finalize_updateZ, get_tor_rhs_imp,  &
    &         assemble_tor, finish_exp_tor, updateZ_FD, get_tor_rhs_imp_ghost, &
-   &         prepareZ_FD, fill_ghosts_Z, assemble_tor_Rloc, update_prec_force
+   &         prepareZ_FD, fill_ghosts_Z, assemble_tor_Rloc, update_prec_force,&
+   &         update_zbc
 
 contains
 
@@ -143,6 +152,10 @@ contains
          bytes_allocated=bytes_allocated+(lm_max+1)*(nRstop-nRstart+3)*SIZEOF_DEF_COMPLEX
          z_ghost(:,:)=zero
          z10_ghost(:)=zero
+         allocate( fd_fac_top(0:l_max), fd_fac_bot(0:l_max) )
+         bytes_allocated=bytes_allocated+2*(l_max+1)*SIZEOF_DEF_REAL
+         fd_fac_top(:)=0.0_cp
+         fd_fac_bot(:)=0.0_cp
 
          !-- Create matrix
          call zMat_FD%initialize(1,n_r_max,0,l_max)
@@ -152,6 +165,13 @@ contains
       end if
       allocate( lZmat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
+
+      allocate( zbc_cmb(lm_max), zbc_icb(lm_max) )
+      bytes_allocated = bytes_allocated+2*lm_max*SIZEOF_DEF_COMPLEX
+      zbc_cmb(:)=zero
+      zbc_icb(:)=zero
+      l_zbc_time_dep=l_SRMA .or. l_SRIC .or. amp_mode_ma /= 0.0_cp .or. &
+      &              amp_mode_ic /= 0.0_cp
 
       AMstart=0.0_cp
 
@@ -181,15 +201,15 @@ contains
 #endif
          deallocate( rhs1, rhs )
       else
-         deallocate( z_ghost, z10_ghost )
+         deallocate( z_ghost, z10_ghost, fd_fac_top, fd_fac_bot )
          call zMat_FD%finalize()
          call z10Mat_FD%finalize()
       end if
-      deallocate(lZmat)
+      deallocate( lZmat, zbc_cmb, zbc_icb )
 
    end subroutine finalize_updateZ
 !-------------------------------------------------------------------------------
-   subroutine updateZ(time,timeNext,z,dz,dzdt,omega_ma,omega_ic,domega_ma_dt,  &
+   subroutine updateZ(z,dz,dzdt,omega_ma,omega_ic,domega_ma_dt,  &
               &       domega_ic_dt,tscheme,lRmsNext)
       !
       !  Updates the toroidal potential z and its radial derivative dz
@@ -203,8 +223,6 @@ contains
       type(type_tscalar), intent(inout) :: domega_ma_dt
 
       !-- Input of other variables:
-      real(cp),           intent(in) :: time       ! Current stage time
-      real(cp),           intent(in) :: timeNext   ! Next time
       logical,            intent(in) :: lRmsNext   ! Logical for storing update if (l_RMS.and.l_logNext)
 
       !-- Output variables
@@ -215,6 +233,7 @@ contains
       !-- local variables:
       integer :: l1,m1              ! degree and order
       integer :: lm1,lm,lmB         ! position of (l,m) in array
+      integer :: lms                ! position of (l,m) in the standard order
       integer :: nLMB2
       integer :: nR                 ! counts radial grid points
       integer :: n_r_out            ! counts cheb modes
@@ -260,9 +279,7 @@ contains
          !$omp task default(shared) &
          !$omp firstprivate(nLMB2) &
          !$omp private(lmB,lm,lm1,l1,m1,n_r_out,nR) &
-         !$omp private(nChunks,size_of_last_chunk,iChunk) &
-         !$omp private(tOmega_ma1,tOmega_ma2,threadid) &
-         !$omp private(tOmega_ic1,tOmega_ic2)
+         !$omp private(nChunks,size_of_last_chunk,iChunk,threadid)
          nChunks = (sizeLMB2(nLMB2,nLMB)+chunksize-1)/chunksize
          size_of_last_chunk=chunksize+(sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
 
@@ -291,8 +308,7 @@ contains
             do iChunk=1,nChunks
                !$omp task default(shared) &
                !$omp firstprivate(iChunk) &
-               !$omp private(lmB0,lmB,lm,lm1,m1,nR,n_r_out,threadid) &
-               !$omp private(tOmega_ma1,tOmega_ma2,tOmega_ic1,tOmega_ic2)
+               !$omp private(lmB0,lmB,lm,lm1,lms,m1,nR,n_r_out,threadid)
 #ifdef WITHOMP
                threadid = omp_get_thread_num()
 #else
@@ -315,10 +331,7 @@ contains
                      !      Note: no angular momentum correction necessary for this case !
 
                      if ( l_SRMA ) then
-                        tOmega_ma1=time+tShift_ma1
-                        tOmega_ma2=time+tShift_ma2
-                        omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
-                        &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+                        omega_ma=omega_ma_bc
                         rhs(1)=omega_ma
                      else if ( ktopv == 2 .and. l_rot_ma ) then  ! time integration
                         rhs(1)=dom_ma
@@ -327,10 +340,7 @@ contains
                      end if
 
                      if ( l_SRIC ) then
-                        tOmega_ic1=time+tShift_ic1
-                        tOmega_ic2=time+tShift_ic2
-                        omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
-                        &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+                        omega_ic=omega_ic_bc
                         rhs(n_r_max)=omega_ic
                      else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
                         rhs(n_r_max)=dom_ic
@@ -352,26 +362,11 @@ contains
 
                      lmB=lmB+1
 
-                     rhs1(1,2*lmB-1,threadid)      =0.0_cp
-                     rhs1(1,2*lmB,threadid)        =0.0_cp
-                     rhs1(n_r_max,2*lmB-1,threadid)=0.0_cp
-                     rhs1(n_r_max,2*lmB,threadid)  =0.0_cp
-
-                     if (amp_mode_ic /= 0.0_cp) then
-                        if (l1 == (m_mode_ic + mode_symm_ic) .and. m1 == m_mode_ic) then
-                           rhs1(n_r_max,2*lmB-1,threadid)=amp_mode_ic* &
-                           &                              cos(omega_mode_ic*time)
-                           rhs1(n_r_max,2*lmB,threadid)  =amp_mode_ic* &
-                           &                              sin(omega_mode_ic*time)
-                        end if
-                     end if
-
-                     if (amp_mode_ma /= 0.0_cp) then
-                        if (l1 == (m_mode_ma + mode_symm_ma) .and. m1 == m_mode_ma) then
-                           rhs1(1,2*lmB-1,threadid)=amp_mode_ma*cos(omega_mode_ma*time)
-                           rhs1(1,2*lmB,threadid)  =amp_mode_ma*sin(omega_mode_ma*time)
-                        end if
-                     end if
+                     lms=st_map%lm2(l1,m1)
+                     rhs1(1,2*lmB-1,threadid)      = real(zbc_cmb(lms))
+                     rhs1(1,2*lmB,threadid)        =aimag(zbc_cmb(lms))
+                     rhs1(n_r_max,2*lmB-1,threadid)= real(zbc_icb(lms))
+                     rhs1(n_r_max,2*lmB,threadid)  =aimag(zbc_icb(lms))
 
                      do nR=2,n_r_max-1
                         rhs1(nR,2*lmB-1,threadid)=real(work_LMloc(lm1,nR))
@@ -464,14 +459,14 @@ contains
          !-- First update rot rates for possible AM correction in a second step
          call update_rot_rates(z, dom_ma, dom_ic, omega_ma, omega_ma1, omega_ic, &
               &                omega_ic1, tscheme, l_in_cheb_space=.true.)
-         call get_tor_rhs_imp(timeNext, z, dz, dzdt, domega_ma_dt, domega_ic_dt, &
+         call get_tor_rhs_imp(z, dz, dzdt, domega_ma_dt, domega_ic_dt, &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, &
               &               1, tscheme%l_imp_calc_rhs(1), lRmsNext,            &
               &               l_in_cheb_space=.true.)
       else
          call update_rot_rates(z, dom_ma, dom_ic, omega_ma, omega_ma1, omega_ic, &
               &                omega_ic1, tscheme, l_in_cheb_space=.true.)
-         call get_tor_rhs_imp(time, z, dz, dzdt, domega_ma_dt, domega_ic_dt,     &
+         call get_tor_rhs_imp(z, dz, dzdt, domega_ma_dt, domega_ic_dt,     &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, &
               &               tscheme%istage+1, tscheme%l_imp_calc_rhs(          &
               &               tscheme%istage+1), lRmsNext, l_in_cheb_space=.true.)
@@ -479,11 +474,10 @@ contains
 
    end subroutine updateZ
 !------------------------------------------------------------------------------
-   subroutine prepareZ_FD(time, tscheme, dzdt, omega_ma, omega_ic, domega_ma_dt, &
+   subroutine prepareZ_FD(tscheme, dzdt, omega_ma, omega_ic, domega_ma_dt, &
               &           domega_ic_dt, dom_ma, dom_ic)
 
       !-- Input of variables:
-      real(cp),            intent(in) :: time
       class(type_tscheme), intent(in) :: tscheme
 
       !-- Input/output of scalar fields:
@@ -496,6 +490,7 @@ contains
 
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm, l, m, l1m1, l1m0
+      real(cp) :: a, b
 
       !-- LU factorisation of the matrix if needed
       if ( .not. lZmat(1) ) then
@@ -516,7 +511,7 @@ contains
          call tscheme%set_imex_rhs_scalar(dom_ic, domega_ic_dt)
       end if
 
-      !$omp parallel default(shared) private(lm_start,lm_stop,nR, l, m, lm)
+      !$omp parallel default(shared) private(lm_start,lm_stop,nR, l, m, lm, a, b)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
       !$omp barrier
@@ -553,19 +548,20 @@ contains
          end do
       end if
 
-      !-- Boundary conditions
+      !-- Boundary conditions: a fixed value replaces the equation, the
+      !-- stress-free condition enters through the ghost point folded into the
+      !-- matrix (get_zMat_Rdist). The z10 mode of a rotating boundary is
+      !-- handled separately.
       if ( nRstart==n_r_cmb ) then
          nR = n_r_cmb
+         call get_zbc_coeffs(nR, a, b)
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
             if ( l == 0 ) cycle
             m = st_map%lm2m(lm)
             if ( l==1 .and. m==0 .and. l_z10mat ) then
                if ( l_SRMA ) then
-                  tOmega_ma1=time+tShift_ma1
-                  tOmega_ma2=time+tShift_ma2
-                  omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
-                  &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+                  omega_ma=omega_ma_bc
                   z10_ghost(nR)=omega_ma
                else if ( ktopv == 2 .and. l_rot_ma ) then  ! time integration
                   z10_ghost(nR)=dom_ma!/c_dt_z10_ma
@@ -574,19 +570,19 @@ contains
                end if
                z10_ghost(nR-1)=zero ! Set ghost zone to zero
             end if
-            if ( ktopv==2 ) z_ghost(lm,nR)=zero
 
-            if (amp_mode_ma /= 0.0_cp .and. l==(m_mode_ma+mode_symm_ma) .and. m==m_mode_ma) then
-               z_ghost(lm,nR)=cmplx(amp_mode_ma*cos(omega_mode_ma*time), &
-               &                    amp_mode_ma*sin(omega_mode_ma*time),cp)
+            if ( a == 0.0_cp ) then
+               z_ghost(lm,nR)=zbc_cmb(lm)
+            else
+               z_ghost(lm,nR)=z_ghost(lm,nR)+fd_fac_top(l)*zbc_cmb(lm)
             end if
-
             z_ghost(lm,nR-1)=zero ! Set ghost zone to zero
          end do
       end if
 
       if ( nRstop == n_r_icb ) then
          nR=n_r_icb
+         call get_zbc_coeffs(nR, a, b)
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
             if ( l == 0 ) cycle
@@ -597,10 +593,7 @@ contains
                   z10_ghost(nR)=zero
                else
                   if ( l_SRIC ) then
-                     tOmega_ic1=time+tShift_ic1
-                     tOmega_ic2=time+tShift_ic2
-                     omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
-                     &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+                     omega_ic=omega_ic_bc
                      z10_ghost(nR)=omega_ic
                   else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
                      z10_ghost(nR)=dom_ic!/c_dt_z10_ic
@@ -609,17 +602,12 @@ contains
                   end if
                end if
             end if
-            if ( l_full_sphere ) then
-               z_ghost(lm,nR)=zero
+
+            if ( a == 0.0_cp ) then
+               z_ghost(lm,nR)=zbc_icb(lm)
             else
-               if ( kbotv==2 ) z_ghost(lm,nR)=zero
+               z_ghost(lm,nR)=z_ghost(lm,nR)+fd_fac_bot(l)*zbc_icb(lm)
             end if
-
-            if (amp_mode_ic /= 0.0_cp .and. l==(m_mode_ic+mode_symm_ic) .and. m==m_mode_ic) then
-               z_ghost(lm,nR)=cmplx(amp_mode_ic*cos(omega_mode_ic*time),  &
-               &                    amp_mode_ic*sin(omega_mode_ic*time),cp)
-            end if
-
             z_ghost(lm,nR+1)=zero ! Set ghost zone to zero
          end do
       end if
@@ -639,51 +627,37 @@ contains
 
       !-- Local variables
       integer :: lm, lm_start, lm_stop
-      real(cp) :: dr
+      real(cp) :: c_in, c_bc, c_rhs
 
-      !$omp parallel default(shared) private(lm_start, lm_stop, lm)
+      !$omp parallel default(shared) private(lm_start, lm_stop, lm, c_in, c_bc, c_rhs)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
 
       !-- Handle upper boundary
       if ( nRstart == n_r_cmb ) then
-         dr = r(2)-r(1)
+         call get_zbc_ghost_coeffs(n_r_cmb, c_in, c_bc, c_rhs)
          do lm=lm_start,lm_stop
-            if ( ktopv == 2 ) then
-               zg(lm,nRstart-1)=two*zg(lm,nRstart)-zg(lm,nRstart+1)
-            else
-               zg(lm,nRstart-1)=zg(lm,nRstart+1)-two*dr*(two*or1(1)+beta(1))* &
-               &                zg(lm,nRstart)
-            end if
+            zg(lm,nRstart-1)=c_in*zg(lm,nRstart+1)+c_bc*zg(lm,nRstart)+ &
+            &                c_rhs*zbc_cmb(lm)
          end do
       end if
 
       !-- Handle Lower boundary
       if ( nRstop == n_r_icb ) then
-         dr = r(n_r_max)-r(n_r_max-1)
+         call get_zbc_ghost_coeffs(n_r_icb, c_in, c_bc, c_rhs)
          do lm=lm_start,lm_stop
-            if ( l_full_sphere ) then
-               zg(lm,nRstop+1)=two*zg(lm,nRstop)-zg(lm,nRstop-1)
-            else ! Not a full sphere
-               if (kbotv == 2) then ! Rigid boundary
-                  zg(lm,nRstop+1)=two*zg(lm,nRstop)-zg(lm,nRstop-1)
-               else
-                  zg(lm,nRstop+1)=zg(lm,nRstop-1)+two*dr* &
-                  &               (two*or1(n_r_max)+beta(n_r_max))*zg(lm,nRstop)
-               end if
-            end if
+            zg(lm,nRstop+1)=c_in*zg(lm,nRstop-1)+c_bc*zg(lm,nRstop)+ &
+            &               c_rhs*zbc_icb(lm)
          end do
       end if
       !$omp end parallel
 
    end subroutine fill_ghosts_Z
 !------------------------------------------------------------------------------
-   subroutine updateZ_FD(time, timeNext, dom_ma, dom_ic, z, dz, dzdt, omega_ma, &
+   subroutine updateZ_FD(dom_ma, dom_ic, z, dz, dzdt, omega_ma, &
               &          omega_ic, domega_ma_dt, domega_ic_dt, tscheme,lRmsNext)
 
       !-- Input of variables:
-      real(cp),            intent(in) :: time       ! Current stage time
-      real(cp),            intent(in) :: timeNext   ! Next time
       class(type_tscheme), intent(in) :: tscheme
       logical,             intent(in) :: lRmsNext   ! Logical for storing update if (l_RMS.and.l_logNext)
       real(cp),            intent(in) :: dom_ic, dom_ma
@@ -711,14 +685,14 @@ contains
       if (  tscheme%istage == tscheme%nstages ) then
          call update_rot_rates_Rloc(z_ghost, dom_ma, dom_ic, omega_ma, omega_ma1, &
               &                     omega_ic, omega_ic1)
-         call get_tor_rhs_imp_ghost(timeNext, z_ghost, dz, dzdt, domega_ma_dt,       &
+         call get_tor_rhs_imp_ghost(z_ghost, dz, dzdt, domega_ma_dt,       &
               &                     domega_ic_dt, omega_ic, omega_ma, omega_ic1,     &
               &                     omega_ma1, tscheme, 1, tscheme%l_imp_calc_rhs(1),&
               &                     lRmsNext)
       else
          call update_rot_rates_Rloc(z_ghost, dom_ma, dom_ic, omega_ma, omega_ma1, &
               &                     omega_ic, omega_ic1)
-         call get_tor_rhs_imp_ghost(time, z_ghost, dz, dzdt, domega_ma_dt,        &
+         call get_tor_rhs_imp_ghost(z_ghost, dz, dzdt, domega_ma_dt,        &
               &                     domega_ic_dt, omega_ic, omega_ma, omega_ic1,  &
               &                     omega_ma1, tscheme, tscheme%istage+1,         &
               &                     tscheme%l_imp_calc_rhs(tscheme%istage+1), lRmsNext)
@@ -741,13 +715,12 @@ contains
 
    end subroutine updateZ_FD
 !------------------------------------------------------------------------------
-   subroutine get_tor_rhs_imp(time, z, dz, dzdt, domega_ma_dt, domega_ic_dt, &
+   subroutine get_tor_rhs_imp(z, dz, dzdt, domega_ma_dt, domega_ic_dt, &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
               &               tscheme, istage, l_calc_lin, lRmsNext,         &
               &               l_in_cheb_space)
 
       !-- Input variables
-      real(cp),            intent(in) :: time
       integer,             intent(in) :: istage
       class(type_tscheme), intent(in) :: tscheme
       logical,             intent(in) :: lRmsNext
@@ -1002,12 +975,11 @@ contains
 
    end subroutine get_tor_rhs_imp
 !------------------------------------------------------------------------------
-   subroutine get_tor_rhs_imp_ghost(time, zg, dz, dzdt, domega_ma_dt, domega_ic_dt,  &
+   subroutine get_tor_rhs_imp_ghost(zg, dz, dzdt, domega_ma_dt, domega_ic_dt,  &
               &                     omega_ic, omega_ma, omega_ic1, omega_ma1,        &
               &                     tscheme, istage, l_calc_lin, lRmsNext)
 
       !-- Input variables
-      real(cp),            intent(in) :: time
       integer,             intent(in) :: istage
       class(type_tscheme), intent(in) :: tscheme
       logical,             intent(in) :: lRmsNext
@@ -1235,7 +1207,7 @@ contains
 
    end subroutine get_tor_rhs_imp_ghost
 !------------------------------------------------------------------------------
-   subroutine assemble_tor(time, z, dz, dzdt, domega_ic_dt, domega_ma_dt,      &
+   subroutine assemble_tor(z, dz, dzdt, domega_ic_dt, domega_ma_dt,      &
               &            omega_ic, omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
       !
       ! This subroutine is used to assemble the toroidal flow potential when an IMEX
@@ -1244,7 +1216,6 @@ contains
 
       !-- Input variable
       class(type_tscheme), intent(in) :: tscheme
-      real(cp),            intent(in) :: time
       logical,             intent(in) :: lRmsNext
 
       !-- Output variables
@@ -1261,7 +1232,7 @@ contains
       !-- Local variables
       complex(cp) :: top_val(llm:ulm), bot_val(llm:ulm)
       integer :: n_r, lm, l1, m1, lmStart_00, l1m0
-      real(cp) :: fac_top, fac_bot, dom_ma, dom_ic
+      real(cp) :: a_top, b_top, a_bot, b_bot, dom_ma, dom_ic
       integer, pointer :: lm2l(:),lm2(:,:), lm2m(:)
       real(cp) :: dL
 
@@ -1274,10 +1245,6 @@ contains
          lmStart_00=llm
       end if
       l1m0       =lm2(1,0)
-
-      if ( amp_mode_ic /= 0.0_cp .or. amp_mode_ma /= 0.0_cp ) then
-         call abortRun('Not implemented yet in assembly stage of z')
-      end if
 
       if ( l_rot_ma  .and. (.not. l_SRMA) ) then
          call tscheme%assemble_imex_scalar(dom_ma, domega_ma_dt)
@@ -1307,100 +1274,57 @@ contains
       end do
       !$omp end do
 
-      !$omp do private(lm)
+      !-- Boundary values: zbc, except for the z10 mode of a rigid boundary
+      !-- with a prescribed or a freely evolving rotation
+      !$omp do private(lm,l1,m1)
       do lm=llm,ulm
+         l1=lm2l(lm)
+         m1=lm2m(lm)
+         top_val(lm)=zbc_cmb(st_map%lm2(l1,m1))
+         bot_val(lm)=zbc_icb(st_map%lm2(l1,m1))
          if ( lm==l1m0 ) then
-            if ( l_SRMA ) then
-               tOmega_ma1=time+tShift_ma1
-               tOmega_ma2=time+tShift_ma2
-               omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
-               &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
-               top_val(lm)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
-            else if ( ktopv == 2 .and. l_rot_ma ) then  ! time integration
-               top_val(lm)=cmplx(dom_ma/c_dt_z10_ma,0.0_cp,kind=cp)
-            else
-               top_val(lm)=zero
+            if ( l_SRMA ) omega_ma=omega_ma_bc
+            if ( l_SRIC ) omega_ic=omega_ic_bc
+            if ( ktopv /= 1 ) then
+               if ( l_SRMA ) then
+                  top_val(lm)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
+               else if ( l_rot_ma ) then  ! time integration
+                  top_val(lm)=cmplx(dom_ma/c_dt_z10_ma,0.0_cp,kind=cp)
+               end if
             end if
 
-            if ( l_SRIC ) then
-               tOmega_ic1=time+tShift_ic1
-               tOmega_ic2=time+tShift_ic2
-               omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
-               &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
-               bot_val(lm)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
-            else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
-               bot_val(lm)=cmplx(dom_ic/c_dt_z10_ic,0.0_cp,kind=cp)
-            else
-               bot_val(lm)=zero
+            if ( kbotv /= 1 .and. (.not. l_full_sphere) ) then
+               if ( l_SRIC ) then
+                  bot_val(lm)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
+               else if ( l_rot_ic ) then  ! time integration
+                  bot_val(lm)=cmplx(dom_ic/c_dt_z10_ic,0.0_cp,kind=cp)
+               end if
             end if
-         else
-            top_val(lm)=zero
-            bot_val(lm)=zero
          end if
       end do
       !$omp end do
 
       !-- Boundary conditions
-      if ( l_full_sphere ) then
-         if ( ktopv /= 1 ) then ! Rigid outer
-            !$omp do private(lm)
-            do lm=lmStart_00,ulm
-               z(lm,1)      =top_val(lm)
-               z(lm,n_r_max)=bot_val(lm)
-            end do
-            !$omp end do
-         else
-            fac_top=-two*or1(1)-beta(1)
-            !$omp do private(lm)
-            do lm=lmStart_00,ulm
-               call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, bot_val(lm), z(lm,:))
-            end do
-            !$omp end do
-         end if
-      else
-         if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid BCs
-            !$omp do private(lm)
-            do lm=lmStart_00,ulm
-               z(lm,1)      =top_val(lm)
-               z(lm,n_r_max)=bot_val(lm)
-            end do
-            !$omp end do
-         else if ( ktopv == 1 .and. kbotv /= 1 ) then ! Stress-free top and rigid bottom
-            fac_top=-two*or1(1)-beta(1)
-            !$omp do private(lm)
-            do lm=lmStart_00,ulm
-               call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, bot_val(lm), z(lm,:))
-            end do
-            !$omp end do
-         else if ( kbotv == 1 .and. ktopv /= 1 ) then ! Stress-free bot and rigid top
-            fac_bot=-two*or1(n_r_max)-beta(n_r_max)
-            !$omp do private(lm)
-            do lm=lmStart_00,ulm
-               call rscheme_oc%robin_bc(0.0_cp, one, top_val(lm), one, fac_bot, zero, z(lm,:))
-            end do
-            !$omp end do
-         else if ( ktopv == 1 .and. kbotv == 1 ) then ! Stress-free at both boundaries
-            fac_bot=-two*or1(n_r_max)-beta(n_r_max)
-            fac_top=-two*or1(1)-beta(1)
-            !$omp do private(lm)
-            do lm=lmStart_00,ulm
-               call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, zero, z(lm,:))
-            end do
-            !$omp end do
-         end if
-      end if
+      call get_zbc_coeffs(n_r_cmb, a_top, b_top)
+      call get_zbc_coeffs(n_r_icb, a_bot, b_bot)
+      !$omp do private(lm)
+      do lm=lmStart_00,ulm
+         call rscheme_oc%robin_bc(a_top, b_top, top_val(lm), a_bot, b_bot, &
+              &                   bot_val(lm), z(lm,:))
+      end do
+      !$omp end do
       !$omp end parallel
 
       call update_rot_rates(z, dom_ma, dom_ic, omega_ma, omega_ma1, omega_ic, &
            &                omega_ic1, tscheme)
-      call get_tor_rhs_imp(time, z, dz, dzdt, domega_ma_dt, domega_ic_dt, &
+      call get_tor_rhs_imp(z, dz, dzdt, domega_ma_dt, domega_ic_dt, &
            &               omega_ic, omega_ma, omega_ic1, omega_ma1,      &
            &               tscheme, 1, tscheme%l_imp_calc_rhs(1),         &
            &               lRmsNext, .false.)
 
    end subroutine assemble_tor
 !------------------------------------------------------------------------------
-   subroutine assemble_tor_Rloc(time, z, dz, dzdt, domega_ic_dt, domega_ma_dt, &
+   subroutine assemble_tor_Rloc(z, dz, dzdt, domega_ic_dt, domega_ma_dt, &
               &                 omega_ic, omega_ma, omega_ic1, omega_ma1,      &
               &                 lRmsNext, tscheme)
       !
@@ -1410,7 +1334,6 @@ contains
 
       !-- Input variables
       class(type_tscheme), intent(in) :: tscheme
-      real(cp),            intent(in) :: time
       logical,             intent(in) :: lRmsNext
 
       !-- Output variables
@@ -1427,12 +1350,9 @@ contains
       !-- Local variables
       complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
       integer :: start_lm, stop_lm, lm, n_r, l, m
-      real(cp) :: dLh, dom_ma, dom_ic, r2
+      real(cp) :: dLh, dom_ma, dom_ic, r2, a, b
 
       call tscheme%assemble_imex(work_Rloc, dzdt)
-      if ( amp_mode_ic /= 0.0_cp .or. amp_mode_ma /= 0.0_cp ) then
-         call abortRun('Not implemented yet in assembly stage of z')
-      end if
 
       if ( l_rot_ma  .and. (.not. l_SRMA) ) then
          call tscheme%assemble_imex_scalar(dom_ma, domega_ma_dt)
@@ -1442,7 +1362,7 @@ contains
          call tscheme%assemble_imex_scalar(dom_ic, domega_ic_dt)
       end if
 
-      !$omp parallel default(shared) private(start_lm, stop_lm, l, m, dLh, n_r, r2)
+      !$omp parallel default(shared) private(start_lm, stop_lm, l, m, dLh, n_r, r2, a, b)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
       !$omp barrier
@@ -1462,57 +1382,47 @@ contains
          end do
       end do
 
-      !-- Boundary points
+      !-- Fixed values at the boundaries (the stress-free condition is handled
+      !-- by the ghost points). The z10 mode of a rigid boundary with a
+      !-- prescribed or a freely evolving rotation is handled separately.
       if ( nRstart == n_r_cmb ) then
          n_r=n_r_cmb
-         do lm=start_lm,stop_lm
-            l=st_map%lm2l(lm)
-            if ( l == 0 ) cycle
-            m=st_map%lm2m(lm)
-            if ( l == 1 .and. m == 0 ) then
-               if ( l_SRMA ) then
-                  tOmega_ma1=time+tShift_ma1
-                  tOmega_ma2=time+tShift_ma2
-                  omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
-                  &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+         if ( l_SRMA ) omega_ma=omega_ma_bc
+         call get_zbc_coeffs(n_r, a, b)
+         if ( a == 0.0_cp ) then
+            do lm=start_lm,stop_lm
+               l=st_map%lm2l(lm)
+               if ( l == 0 ) cycle
+               m=st_map%lm2m(lm)
+               if ( l == 1 .and. m == 0 .and. l_SRMA ) then
                   z(lm,n_r)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
-               else if ( ktopv == 2 .and. l_rot_ma ) then
+               else if ( l == 1 .and. m == 0 .and. l_rot_ma ) then
                   z(lm,n_r)=cmplx(dom_ma/c_dt_z10_ma,0.0_cp,kind=cp)
                else
-                  if ( ktopv == 2 ) z(lm,n_r)=zero
+                  z(lm,n_r)=zbc_cmb(lm)
                end if
-            else
-               if ( ktopv == 2 ) z(lm,n_r)=zero
-            end if
-         end do
+            end do
+         end if
       end if
 
       if ( nRstop == n_r_icb ) then
          n_r=n_r_icb
-         do lm=start_lm,stop_lm
-            l=st_map%lm2l(lm)
-            if ( l == 0 ) cycle
-            m=st_map%lm2m(lm)
-            if ( l_full_sphere ) then
-               z(lm,n_r)=zero
-            else
-               if ( l == 1 .and. m == 0 ) then
-                  if ( l_SRIC ) then
-                     tOmega_ic1=time+tShift_ic1
-                     tOmega_ic2=time+tShift_ic2
-                     omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
-                     &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
-                     z(lm,n_r)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
-                  else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
-                     z(lm,n_r)=cmplx(dom_ic/c_dt_z10_ic,0.0_cp,kind=cp)
-                  else
-                     if ( kbotv == 2 ) z(lm,n_r)=zero
-                  end if
+         if ( l_SRIC .and. .not. l_full_sphere ) omega_ic=omega_ic_bc
+         call get_zbc_coeffs(n_r, a, b)
+         if ( a == 0.0_cp ) then
+            do lm=start_lm,stop_lm
+               l=st_map%lm2l(lm)
+               if ( l == 0 ) cycle
+               m=st_map%lm2m(lm)
+               if ( l == 1 .and. m == 0 .and. l_SRIC .and. .not. l_full_sphere ) then
+                  z(lm,n_r)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
+               else if ( l == 1 .and. m == 0 .and. l_rot_ic .and. .not. l_full_sphere ) then
+                  z(lm,n_r)=cmplx(dom_ic/c_dt_z10_ic,0.0_cp,kind=cp)
                else
-                  if ( kbotv == 2 ) z(lm,n_r)=zero
+                  z(lm,n_r)=zbc_icb(lm)
                end if
-            end if
-         end do
+            end do
+         end if
       end if
 
       call bulk_to_ghost(z, z_ghost, 1, nRstart, nRstop, lm_max, start_lm, stop_lm)
@@ -1525,7 +1435,7 @@ contains
       !-- of next iteration
       call update_rot_rates_Rloc(z_ghost, dom_ma, dom_ic, omega_ma, omega_ma1, &
            &                     omega_ic, omega_ic1)
-      call get_tor_rhs_imp_ghost(time, z_ghost, dz, dzdt, domega_ma_dt,           &
+      call get_tor_rhs_imp_ghost(z_ghost, dz, dzdt, domega_ma_dt,           &
            &                     domega_ic_dt, omega_ic, omega_ma, omega_ic1,     &
            &                     omega_ma1, tscheme, 1, tscheme%l_imp_calc_rhs(1),&
            &                     lRmsNext)
@@ -1812,34 +1722,21 @@ contains
       !-- local variables:
       integer :: nR,nR_out
       integer :: info
-      real(cp) :: dLh
+      real(cp) :: dLh, a_top, b_top, a_bot, b_bot
       real(cp) :: dat(n_r_max,n_r_max)
       character(len=80) :: message
       character(len=14) :: str, str_1
 
       dLh=real(l*(l+1),kind=cp)
 
-      !----- Boundary conditions, see above:
-      if ( ktopv == 1 ) then  ! free slip !
-         dat(1,:)=rscheme_oc%rnorm *             (      &
-         &                     rscheme_oc%drMat(1,:) -  &
-         & (two*or1(1)+beta(1))*rscheme_oc%rMat(1,:) )
-      else                    ! no slip, note exception for l=1,m=0
-         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
-      end if
-
-      if ( l_full_sphere ) then
-         dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-      else
-         if ( kbotv == 1 ) then  ! free slip !
-            dat(n_r_max,:)=rscheme_oc%rnorm *            (   &
-            &                  rscheme_oc%drMat(n_r_max,:) - &
-            &    (two*or1(n_r_max)+beta(n_r_max))*           &
-            &                   rscheme_oc%rMat(n_r_max,:) )
-         else                    ! no slip, note exception for l=1,m=0
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-         end if
-      end if
+      !----- Boundary conditions (see get_zbc_coeffs), note the exception
+      !----- for l=1,m=0 handled in get_z10Mat
+      call get_zbc_coeffs(n_r_cmb, a_top, b_top)
+      call get_zbc_coeffs(n_r_icb, a_bot, b_bot)
+      dat(1,:)      =rscheme_oc%rnorm*(a_top*rscheme_oc%drMat(1,:)+ &
+      &                                b_top*rscheme_oc%rMat(1,:))
+      dat(n_r_max,:)=rscheme_oc%rnorm*(a_bot*rscheme_oc%drMat(n_r_max,:)+ &
+      &                                b_bot*rscheme_oc%rMat(n_r_max,:))
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
          do nR_out=rscheme_oc%n_max+1,n_r_max
@@ -2052,12 +1949,11 @@ contains
 
       !-- local variables:
       integer :: nR, l
-      real(cp) :: dLh
-
+      real(cp) :: dLh, a, b, c_in, c_bc, c_rhs
 
       !-- Bulk points: we fill all the points: this is then easier to handle
       !-- Neumann boundary conditions
-      !$omp parallel default(shared) private(nR,l,dLh)
+      !$omp parallel default(shared) private(nR,l,dLh,a,b,c_in,c_bc,c_rhs)
       !$omp do
       do nR=1,n_r_max
          do l=1,l_max
@@ -2076,33 +1972,33 @@ contains
       end do
       !$omp end do
 
-      !----- Boundary conditions, see above:
+      !----- Boundary conditions: a fixed value replaces the equation, the
+      !----- stress-free condition gives the ghost point that is folded into
+      !----- the matrix. Note the exception for l=1,m=0 (get_z10Mat_Rdist).
       !$omp do
       do l=1,l_max
-         if ( ktopv == 1 ) then  ! free slip !
-            zMat%up(l,1)  =zMat%up(l,1)+zMat%low(l,1)
-            zMat%diag(l,1)=zMat%diag(l,1)-two*(r(2)-r(1))*(two*or1(1)+beta(1))* &
-            &              zMat%low(l,1)
-         else                    ! no slip, note exception for l=1,m=0
+         call get_zbc_coeffs(n_r_cmb, a, b)
+         if ( a == 0.0_cp ) then
             zMat%diag(l,1)=one
             zMat%up(l,1)  =0.0_cp
             zMat%low(l,1) =0.0_cp
+         else
+            call get_zbc_ghost_coeffs(n_r_cmb, c_in, c_bc, c_rhs)
+            zMat%diag(l,1)=zMat%diag(l,1)+c_bc*zMat%low(l,1)
+            zMat%up(l,1)  =zMat%up(l,1)+c_in*zMat%low(l,1)
+            fd_fac_top(l) =-c_rhs*zMat%low(l,1)
          end if
 
-         if ( l_full_sphere ) then
+         call get_zbc_coeffs(n_r_icb, a, b)
+         if ( a == 0.0_cp ) then
             zMat%diag(l,n_r_max)=one
             zMat%low(l,n_r_max) =0.0_cp
             zMat%up(l,n_r_max)  =0.0_cp
          else
-            if ( kbotv == 1 ) then  ! free slip !
-               zMat%low(l,n_r_max)=zMat%low(l,n_r_max)+zMat%up(l,n_r_max)
-               zMat%diag(l,n_r_max)=zMat%diag(l,n_r_max)+two*(r(n_r_max)-r(n_r_max-1))*&
-               &                    (two*or1(n_r_max)+beta(n_r_max))*zMat%up(l,n_r_max)
-            else
-               zMat%diag(l,n_r_max)=one
-               zMat%low(l,n_r_max) =0.0_cp
-               zMat%up(l,n_r_max)  =0.0_cp
-            end if
+            call get_zbc_ghost_coeffs(n_r_icb, c_in, c_bc, c_rhs)
+            zMat%diag(l,n_r_max)=zMat%diag(l,n_r_max)+c_bc*zMat%up(l,n_r_max)
+            zMat%low(l,n_r_max) =zMat%low(l,n_r_max)+c_in*zMat%up(l,n_r_max)
+            fd_fac_bot(l)       =-c_rhs*zMat%up(l,n_r_max)
          end if
       end do
       !$omp end do
@@ -2129,4 +2025,121 @@ contains
 
    end subroutine update_prec_force
 !-------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+   subroutine update_zbc(time)
+      !
+      ! Time-dependent boundary values of the toroidal flow: the r.h.s. of
+      ! the b.c. on z (forcing of a single mode, amp_mode) and the prescribed
+      ! rotation rates of the mantle and the inner core (l_SRMA, l_SRIC,
+      ! including librations). It is called once per stage, before the
+      ! boundary values are used.
+      !
+
+      !-- Input variable:
+      real(cp), intent(in) :: time
+
+      if ( .not. l_zbc_time_dep ) return
+
+      !-- Prescribed rotation of the boundaries
+      if ( l_SRMA ) then
+         tOmega_ma1=time+tShift_ma1
+         tOmega_ma2=time+tShift_ma2
+         omega_ma_bc=omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
+         &           omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+      end if
+      if ( l_SRIC ) then
+         tOmega_ic1=time+tShift_ic1
+         tOmega_ic2=time+tShift_ic2
+         omega_ic_bc=omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
+         &           omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+      end if
+
+      !-- Forcing of a single toroidal mode at the boundaries
+      zbc_cmb(:)=zero
+      zbc_icb(:)=zero
+      if ( amp_mode_ma /= 0.0_cp ) call set_mode_forcing(zbc_cmb, amp_mode_ma, &
+                                   &    omega_mode_ma, m_mode_ma, mode_symm_ma, time)
+      if ( amp_mode_ic /= 0.0_cp ) call set_mode_forcing(zbc_icb, amp_mode_ic, &
+                                   &    omega_mode_ic, m_mode_ic, mode_symm_ic, time)
+
+   end subroutine update_zbc
+!-----------------------------------------------------------------------------
+   subroutine set_mode_forcing(zbc, amp, omega, m, symm, time)
+      !
+      ! Boundary value amp*exp(i*omega*t) of the toroidal mode (l=m+symm,m)
+      !
+
+      !-- Input variables:
+      real(cp), intent(in) :: amp, omega, time
+      integer,  intent(in) :: m, symm
+
+      !-- In/out variable:
+      complex(cp), intent(inout) :: zbc(lm_max)
+
+      !-- Local variables:
+      integer :: l, lm
+
+      l=m+symm
+      if ( l < 1 .or. l > l_max .or. m < 0 .or. m > l ) return
+      lm=st_map%lm2(l,m)
+      if ( lm > 0 ) zbc(lm)=cmplx(amp*cos(omega*time), amp*sin(omega*time), cp)
+
+   end subroutine set_mode_forcing
+!-----------------------------------------------------------------------------
+   subroutine get_zbc_coeffs(nR, a, b)
+      !
+      ! Boundary condition on the toroidal potential z at the boundary nR:
+      ! a*dz/dr+b*z=zbc. Rigid (ktopv/kbotv=2): z=zbc; stress-free
+      ! (ktopv/kbotv=1): dz/dr-(2/r+beta)*z=zbc. The centre of a full sphere
+      ! requires z=0. The (l=1,m=0) mode of a rotating mantle or inner core is
+      ! treated separately.
+      ! A fixed value always has (a,b)=(0,1): the finite-difference paths
+      ! replace the boundary row by an identity row and set the value directly.
+      !
+
+      !-- Input variable:
+      integer, intent(in) :: nR ! n_r_cmb or n_r_icb
+
+      !-- Output variables:
+      real(cp), intent(out) :: a, b
+
+      !-- Local variable:
+      integer :: kv
+
+      kv=ktopv
+      if ( nR == n_r_icb ) kv=kbotv
+      if ( kv == 1 .and. .not. (nR == n_r_icb .and. l_full_sphere) ) then
+         a=one
+         b=-(two*or1(nR)+beta(nR))
+      else
+         a=0.0_cp
+         b=one
+      end if
+
+   end subroutine get_zbc_coeffs
+!-----------------------------------------------------------------------------
+   subroutine get_zbc_ghost_coeffs(nR, c_in, c_bc, c_rhs)
+      !
+      ! Ghost point beyond the boundary nR for z (see get_robin_ghost_coeffs)
+      !
+
+      !-- Input variable:
+      integer, intent(in) :: nR ! n_r_cmb or n_r_icb
+
+      !-- Output variables:
+      real(cp), intent(out) :: c_in, c_bc, c_rhs
+
+      !-- Local variables:
+      real(cp) :: a, b, h
+
+      call get_zbc_coeffs(nR, a, b)
+      if ( nR == n_r_cmb ) then
+         h=r(1)-r(2)
+      else
+         h=r(n_r_max)-r(n_r_max-1)
+      end if
+      call get_robin_ghost_coeffs(a, b, h, c_in, c_bc, c_rhs)
+
+   end subroutine get_zbc_ghost_coeffs
+!-----------------------------------------------------------------------------
 end module updateZ_mod

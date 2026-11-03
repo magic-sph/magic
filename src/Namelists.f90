@@ -746,8 +746,11 @@ contains
       l_vr_cmb=ellipticity_cmb /= 0.0_cp .or. amp_tide /= 0.0_cp
       l_vr_icb=ellipticity_icb /= 0.0_cp .and. (.not. l_full_sphere)
 
-      if ( (l_vr_cmb .and. ktops /= 1) .or. (l_vr_icb .and. kbots /= 1) ) then
-         call abortRun('! Radial flow boundary conditions not yet implemented for ktops /=1 and kbots /= 1')
+      !-- The tidal displacement of the outer boundary perturbs a fixed entropy or
+      !-- composition (a fixed flux needs no correction, see update_sbc). The
+      !-- motion due to the ellipticity does not, hence a fixed value is needed.
+      if ( (ellipticity_cmb /= 0.0_cp .and. ktops /= 1) .or. (l_vr_icb .and. kbots /= 1) ) then
+         call abortRun('! Ellipticity of the boundaries not yet implemented for ktops /=1 and kbots /= 1')
       end if
 
       if ( l2_h2_ratio /= 0.0_cp .and. ktopv == 1 ) then
@@ -796,6 +799,24 @@ contains
 
       ! Setting up truncation is required to set up ldif and l_max_r
       call initialize_truncation()
+
+      !-- The prescribed radial flow at the boundaries (tides, ellipticity) and
+      !-- the tidal perturbations of the scalar b.c. force the (l=2,m=0) and
+      !-- (l=2,m=2) modes. An axisymmetric run only keeps the m=0 part of the
+      !-- tide, otherwise both modes must be in the truncation.
+      if ( l_vr_cmb .or. l_vr_icb ) then
+         if ( l_max < 2 ) call abortRun('! Tides and ellipticity need l_max>=2')
+         if ( l_axi ) then
+            if ( ellipticity_cmb /= 0.0_cp .or. l_vr_icb ) then
+               call abortRun('! Ellipticity of the boundaries (m=2) is incompatible with l_axi')
+            end if
+            if ( rank == 0 ) write(output_unit,*) &
+            &    '! Axisymmetric run: only the (l=2,m=0) part of the tide is applied'
+         else if ( m_min /= 0 .or. m_max < 2 .or. mod(2,minc) /= 0 ) then
+            call abortRun('! Tides and ellipticity need the (l=2,m=0) and (l=2,m=2) modes: '// &
+                 &        'm_max>=2, minc=1 or 2 and m_min=0')
+         end if
+      end if
 
       !-- Coeffs at radial levels:
       if ( l_r_fieldT .or. l_r_fieldXi) l_r_field=.true.

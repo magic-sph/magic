@@ -7,18 +7,16 @@ module updateWP_mod
    use omp_lib
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, n_r_max, l_max, m_min
+   use truncation, only: lm_max, n_r_max, l_max, m_min, l_axi
    use radial_data, only: n_r_cmb, n_r_icb, nRstart, nRstop
-   use radial_functions, only: or1, or2, rho0, rgrav, visc, dLvisc, r, &
+   use radial_functions, only: r_cmb, or1, or2, rho0, rgrav, visc, dLvisc, r, &
        &                       alpha0, temp0, beta, dbeta, ogrun, l_R, &
-       &                       rscheme_oc, ddLvisc, ddbeta, orho1, r_cmb
+       &                       rscheme_oc, ddLvisc, ddbeta, orho1
    use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,   &
        &                          ViscHeatFac, ThExpNb, ktopp
-   use special, only:  ellipticity_cmb, ellipticity_icb,               &
-       &               ellip_fac_cmb, ellip_fac_icb,                   &
-       &               tide_fac20, tide_fac22p, tide_fac22n,           &
-       &               omega_tide, l_vr_cmb, l_vr_icb, l2_h2_ratio
    use num_param, only: dct_counter, solve_counter
+   use special, only: ellip_fac_cmb, ellip_fac_icb, tide_fac20, tide_fac22p, &
+       &              tide_fac22n, omega_tide, l_vr_cmb, l_vr_icb, l2_h2_ratio
    use init_fields, only: omegaOsz_ma1, tShift_ma1, omegaOsz_ic1, tShift_ic1
    use blocking, only: lo_sub_map, lo_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V
@@ -59,14 +57,16 @@ module updateWP_mod
    type(type_tri_par), public :: ellMat_FD, p0Mat_FD
    complex(cp), public, allocatable :: w_ghost(:,:), p0_ghost(:)
    real(cp), allocatable :: wbc2_fac_cmb(:), wbc2_fac_icb(:) ! Ghost r.h.s. factors (FD, before LU)
-   complex(cp), allocatable :: wbc_cmb(:), wbc_icb(:)   ! W at the boundaries (standard lm order)
+
+   !-- Boundary values due to the prescribed motion of the boundaries (standard lm order)
+   complex(cp), allocatable :: wbc_cmb(:), wbc_icb(:)   ! W at the boundaries
    complex(cp), allocatable :: wbc2_cmb(:), wbc2_icb(:) ! r.h.s. of the second b.c. on W
    integer :: maxThreads, size_rhs1
 
    public :: initialize_updateWP, finalize_updateWP, updateWP, assemble_pol,       &
    &         finish_exp_pol, get_pol_rhs_imp, finish_exp_pol_Rdist, fill_ghosts_W, &
-   &         prepareW_FD, updateW_FD, get_pol_rhs_imp_ghost, assemble_pol_Rloc,    &
-   &         update_boundary_flow
+   &         prepareW_FD, updateW_FD, get_pol_rhs_imp_ghost, assemble_pol_Rloc,   &
+   &         update_wbc
 
 contains
 
@@ -83,13 +83,6 @@ contains
       !-- Local variables:
       integer, pointer :: nLMBs2(:)
       integer :: ll, n_bands
-
-      allocate( wbc_cmb(lm_max), wbc_icb(lm_max), wbc2_cmb(lm_max), wbc2_icb(lm_max) )
-      bytes_allocated=bytes_allocated+4*lm_max*SIZEOF_DEF_COMPLEX
-      wbc_cmb(:) =zero
-      wbc_icb(:) =zero
-      wbc2_cmb(:)=zero
-      wbc2_icb(:)=zero
 
       if ( .not. l_parallel_solve ) then
          nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
@@ -220,6 +213,14 @@ contains
       allocate( lWPmat(0:l_max) )
       bytes_allocated=bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
+
+      allocate( wbc_cmb(lm_max), wbc_icb(lm_max), wbc2_cmb(lm_max), wbc2_icb(lm_max) )
+      bytes_allocated=bytes_allocated+4*lm_max*SIZEOF_DEF_COMPLEX
+      wbc_cmb(:) =zero
+      wbc_icb(:) =zero
+      wbc2_cmb(:)=zero
+      wbc2_icb(:)=zero
+
    end subroutine initialize_updateWP
 !-----------------------------------------------------------------------------
    subroutine finalize_updateWP(tscheme)
@@ -263,11 +264,13 @@ contains
          if ( tscheme%l_assembly .and. l_double_curl ) call ellMat_FD%finalize()
       end if
       if ( tscheme%l_assembly .and. l_double_curl ) deallocate(l_ellMat)
-      deallocate( lWPmat, wbc_cmb, wbc_icb, wbc2_cmb, wbc2_icb )
+      deallocate( lWPmat )
+
+      deallocate( wbc_cmb, wbc_icb, wbc2_cmb, wbc2_icb )
 
    end subroutine finalize_updateWP
 !-----------------------------------------------------------------------------
-   subroutine updateWP(time, s, xi, w, dw, ddw, dwdt, p, dp, dpdt, tscheme, &
+   subroutine updateWP(s, xi, w, dw, ddw, dwdt, p, dp, dpdt, tscheme, &
               &        lRmsNext, lPressNext)
       !
       !  updates the poloidal velocity potential w, the pressure p, and
@@ -278,7 +281,6 @@ contains
       class(type_tscheme), intent(in) :: tscheme
       logical,             intent(in) :: lRmsNext
       logical,             intent(in) :: lPressNext
-      real(cp),            intent(in) :: time
       type(type_tarray), intent(inout) :: dpdt
       type(type_tarray), intent(inout) :: dwdt
       complex(cp),       intent(inout) :: s(llm:ulm,n_r_max)
@@ -596,11 +598,10 @@ contains
 
    end subroutine updateWP
 !------------------------------------------------------------------------------
-   subroutine prepareW_FD(time, tscheme, dwdt, lPressNext)
+   subroutine prepareW_FD(tscheme, dwdt, lPressNext)
 
       !-- Input of variable
       logical,             intent(in) :: lPressNext
-      real(cp),            intent(in) :: time
       class(type_tscheme), intent(in) :: tscheme
 
       !-- Input/output of scalar fields:
@@ -1430,7 +1431,7 @@ contains
 
    end subroutine get_pol_rhs_imp_ghost
 !------------------------------------------------------------------------------
-   subroutine assemble_pol(time, s, xi, w, dw, ddw, p, dp, dwdt, dpdt, dp_expl, &
+   subroutine assemble_pol(s, xi, w, dw, ddw, p, dp, dwdt, dpdt, dp_expl, &
               &            tscheme, lPressNext, lRmsNext)
       !
       ! This subroutine is used to assemble w and dw/dr when IMEX RK time schemes
@@ -1443,7 +1444,6 @@ contains
       complex(cp),         intent(in) :: xi(llm:ulm,n_r_max)
       complex(cp),         intent(in) :: dp_expl(llm:ulm,n_r_max)
       class(type_tscheme), intent(in) :: tscheme
-      real(cp),            intent(in) :: time
       logical,             intent(in) :: lPressNext
       logical,             intent(in) :: lRmsNext
 
@@ -1720,7 +1720,7 @@ contains
 
    end subroutine assemble_pol
 !------------------------------------------------------------------------------
-   subroutine assemble_pol_Rloc(time, block_sze, nblocks, w, dw, ddw, p, dp, dwdt, dp_expl, &
+   subroutine assemble_pol_Rloc(block_sze, nblocks, w, dw, ddw, p, dp, dwdt, dp_expl, &
               &                 tscheme, lPressNext, lRmsNext)
       !
       ! This subroutine is used to assemble w and dw/dr when IMEX RK time schemes
@@ -1734,7 +1734,6 @@ contains
       class(type_tscheme), intent(in) :: tscheme
       logical,             intent(in) :: lPressNext
       logical,             intent(in) :: lRmsNext
-      real(cp),            intent(in) :: time
 
       !-- Output variables
       type(type_tarray), intent(inout) :: dwdt
@@ -2512,55 +2511,11 @@ contains
 
    end subroutine get_p0Mat_Rdist
 !-----------------------------------------------------------------------------
-   subroutine update_boundary_flow(time)
-      !
-      ! Prescribed motion of the boundaries (ellipticity, tides) at a given
-      ! time: W and the r.h.s. of the second b.c. on W (see get_bc2_coeffs).
-      ! It is called once per stage, before the boundary values are used.
-      !
-
-      !-- Input variable:
-      real(cp), intent(in) :: time
-
-      !-- Local variables:
-      complex(cp) :: wtide, eiwt
-      integer :: lm20, lm22
-
-      wbc_cmb(:) =zero
-      wbc_icb(:) =zero
-      wbc2_cmb(:)=zero
-      wbc2_icb(:)=zero
-      if ( l_max < 2 ) return
-      lm20=st_map%lm2(2,0)
-      lm22=st_map%lm2(2,2)
-
-      if ( l_vr_cmb ) then
-         eiwt=cmplx(cos(omega_tide*time), sin(omega_tide*time), cp)
-         if ( lm20 > 0 ) then
-            wtide=tide_fac20*real(eiwt)
-            wbc_cmb(lm20)=wtide
-            if ( ktopv /= 1 ) wbc2_cmb(lm20)=6.0_cp*l2_h2_ratio/r_cmb*wtide
-         end if
-         if ( lm22 > 0 ) then
-            wtide=tide_fac22p*eiwt+tide_fac22n*conjg(eiwt)
-            wbc_cmb(lm22)=wtide+ellip_fac_cmb*                          &
-            &             cmplx(cos(omegaOsz_ma1*(time+tShift_ma1)),    &
-            &                   sin(omegaOsz_ma1*(time+tShift_ma1)), cp)
-            if ( ktopv /= 1 ) wbc2_cmb(lm22)=6.0_cp*l2_h2_ratio/r_cmb*wtide
-         end if
-      end if
-
-      if ( l_vr_icb .and. lm22 > 0 ) then
-         wbc_icb(lm22)=ellip_fac_icb*cmplx(cos(omegaOsz_ic1*(time+tShift_ic1)), &
-         &                                 sin(omegaOsz_ic1*(time+tShift_ic1)), cp)
-      end if
-
-   end subroutine update_boundary_flow
 !-----------------------------------------------------------------------------
    subroutine get_bc2_coeffs(nR, l, a2, a1, a0)
       !
       ! Second b.c. on W at the boundary nR: a2*d2W/dr2+a1*dW/dr+a0*W=wbc2
-      ! (rigid, stress-free with a moving boundary, or regularity at r=0)
+      ! (rigid, stress-free with a moving boundary, or regularity at r=0).
       !
 
       !-- Input variables:
@@ -2573,12 +2528,10 @@ contains
       !-- Local variable:
       integer :: kv
 
-      ! No-slip, no/prescribed horizontal motion, dW/dr=RHS
       a2=0.0_cp
       a1=one
       a0=0.0_cp
       if ( nR == n_r_icb .and. l_full_sphere ) then
-         ! For the ICB with a full sphere, we need to handle the case where l=1
          if ( l /= 1 ) then ! d2W/dr2=0, dW/dr=0 for l=1
             a2=one
             a1=0.0_cp
@@ -2588,9 +2541,7 @@ contains
 
       kv=ktopv
       if ( nR == n_r_icb ) kv=kbotv
-      if ( kv == 1 ) then
-         ! Stress-free, no/prescribed radial motion, free horizontal motion
-         ! d2W/dr2-(2/r+\beta)*dW/dr+l(l+1)/r^2*W=RHS
+      if ( kv == 1 ) then ! Stress-free
          a2=one
          a1=-(two*or1(nR)+beta(nR))
          a0=real(l*(l+1),cp)*or2(nR)
@@ -2629,5 +2580,49 @@ contains
       c_rhs=dr*dr/den
 
    end subroutine get_ghost_coeffs
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+   subroutine update_wbc(time)
+      !
+      ! Prescribed motion of the boundaries (ellipticity, tides) at a given
+      ! time: W and the r.h.s. of the second b.c. on W (see get_bc2_coeffs).
+      ! It is called once per stage, before the boundary values are used.
+      !
+
+      !-- Input variable:
+      real(cp), intent(in) :: time
+
+      !-- Local variables:
+      complex(cp) :: wtide, eiwt
+      integer :: lm20, lm22
+
+      if ( .not. (l_vr_cmb .or. l_vr_icb) ) return
+
+      !-- Only the (l=2,m=0) and (l=2,m=2) modes are forced, the other entries
+      !-- stay zero. Both modes are in the truncation, except for an
+      !-- axisymmetric run which keeps the m=0 tide only (see readNamelists).
+      lm20=st_map%lm2(2,0)
+      lm22=st_map%lm2(2,2)
+
+      if ( l_vr_cmb ) then
+         eiwt=cmplx(cos(omega_tide*time), sin(omega_tide*time), cp)
+         wtide=tide_fac20*real(eiwt)
+         wbc_cmb(lm20)=wtide
+         if ( ktopv /= 1 ) wbc2_cmb(lm20)=6.0_cp*l2_h2_ratio/r_cmb*wtide
+         if ( .not. l_axi ) then
+            wtide=tide_fac22p*eiwt+tide_fac22n*conjg(eiwt)
+            wbc_cmb(lm22)=wtide+ellip_fac_cmb*                          &
+            &             cmplx(cos(omegaOsz_ma1*(time+tShift_ma1)),    &
+            &                   sin(omegaOsz_ma1*(time+tShift_ma1)), cp)
+            if ( ktopv /= 1 ) wbc2_cmb(lm22)=6.0_cp*l2_h2_ratio/r_cmb*wtide
+         end if
+      end if
+
+      if ( l_vr_icb ) then
+         wbc_icb(lm22)=ellip_fac_icb*cmplx(cos(omegaOsz_ic1*(time+tShift_ic1)), &
+         &                                 sin(omegaOsz_ic1*(time+tShift_ic1)), cp)
+      end if
+
+   end subroutine update_wbc
 !-----------------------------------------------------------------------------
 end module updateWP_mod

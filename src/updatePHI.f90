@@ -16,7 +16,7 @@ module updatePhi_mod
    use blocking, only: lo_map, lo_sub_map, llm, ulm, st_map
    use logic, only: l_finite_diff, l_full_sphere, l_parallel_solve
    use parallel_mod, only: rank, chunksize, n_procs, get_openmp_blocks
-   use radial_der, only: get_ddr, get_ddr_ghost, exch_ghosts, bulk_to_ghost
+   use radial_der, only: get_robin_ghost_coeffs, get_ddr, get_ddr_ghost, exch_ghosts, bulk_to_ghost
    use constants, only: zero, one, two, three
    use fields, only: work_LMloc
    use mem_alloc, only: bytes_allocated
@@ -310,6 +310,7 @@ contains
 
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm, l
+      real(cp) :: a, b
 
       !-- LU factorisation of the matrix if needed
       if ( .not. lPhimat(0) ) then
@@ -317,7 +318,7 @@ contains
          lPhimat(:)=.true.
       end if
 
-      !$omp parallel default(shared) private(lm_start,lm_stop, nR, l, lm)
+      !$omp parallel default(shared) private(lm_start,lm_stop, nR, l, lm, a, b)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
       !$omp barrier
@@ -325,19 +326,14 @@ contains
       !-- Now assemble the right hand side
       call tscheme%set_imex_rhs_ghost(phi_ghost, dphidt, lm_start, lm_stop, 1)
 
-      !-- Set boundary conditions
+      !-- Set boundary conditions: a fixed value replaces the equation, a
+      !-- (zero) flux enters through the ghost point folded into the matrix
       if ( nRstart == n_r_cmb ) then
          nR=n_r_cmb
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
-            if ( ktopphi == 1 ) then ! Dirichlet
-               if ( l == 0 ) then
-                  phi_ghost(lm,nR)=phi_top
-               else
-                  phi_ghost(lm,nR)=zero
-               end if
-            !else ! Neuman
-            end if
+            call get_phibc_coeffs(nR, l, a, b)
+            if ( a == 0.0_cp ) phi_ghost(lm,nR)=get_phi_bc(nR,l)
             phi_ghost(lm,nR-1)=zero ! Set ghost zone to zero
          end do
       end if
@@ -346,20 +342,8 @@ contains
          nR=n_r_icb
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
-
-            if ( l_full_sphere ) then
-               if ( l > 0 ) then
-                  phi_ghost(lm,nR)=0.0_cp
-               end if
-            else
-               if ( kbotphi == 1 ) then
-                  if ( l == 0 ) then
-                     phi_ghost(lm,nR)=phi_bot
-                  else
-                     phi_ghost(lm,nR)=zero
-                  end if
-               end if
-            end if
+            call get_phibc_coeffs(nR, l, a, b)
+            if ( a == 0.0_cp ) phi_ghost(lm,nR)=get_phi_bc(nR,l)
             phi_ghost(lm,nR+1)=zero ! Set ghost zone to zero
          end do
       end if
@@ -380,43 +364,30 @@ contains
 
       !-- Local variables
       integer :: lm, l, lm_start, lm_stop
-      real(cp) :: dr
+      real(cp) :: c_in, c_bc, c_rhs
 
-      !$omp parallel default(shared) private(lm_start, lm_stop, l, lm)
+      !$omp parallel default(shared) private(lm_start, lm_stop, l, lm, c_in, c_bc, c_rhs)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
       !$omp barrier
 
       !-- Handle upper boundary
-      dr = r(2)-r(1)
       if ( nRstart == n_r_cmb ) then
          do lm=lm_start,lm_stop
-            if ( ktopphi == 1 ) then
-               phig(lm,nRstart-1)=two*phig(lm,nRstart)-phig(lm,nRstart+1)
-            else
-               phig(lm,nRstart-1)=phig(lm,nRstart+1)
-            end if
+            l = st_map%lm2l(lm)
+            call get_phibc_ghost_coeffs(n_r_cmb, l, c_in, c_bc, c_rhs)
+            phig(lm,nRstart-1)=c_in*phig(lm,nRstart+1)+c_bc*phig(lm,nRstart)+ &
+            &                  c_rhs*get_phi_bc(n_r_cmb,l)
          end do
       end if
 
       !-- Handle Lower boundary
-      dr = r(n_r_max)-r(n_r_max-1)
       if ( nRstop == n_r_icb ) then
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
-            if ( l_full_sphere ) then
-               if ( l == 0 ) then
-                  phig(lm,nRstop+1)=phig(lm,nRstop-1)
-               else
-                  phig(lm,nRstop+1)=two*phig(lm,nRstop)-phig(lm,nRstop-1)
-               end if
-            else ! Not a full sphere
-               if ( kbotphi == 1 ) then
-                  phig(lm,nRstop+1)=two*phig(lm,nRstop)-phig(lm,nRstop-1)
-               else
-                  phig(lm,nRstop+1)=phig(lm,nRstop-1)
-               end if
-            end if
+            call get_phibc_ghost_coeffs(n_r_icb, l, c_in, c_bc, c_rhs)
+            phig(lm,nRstop+1)=c_in*phig(lm,nRstop-1)+c_bc*phig(lm,nRstop)+ &
+            &                 c_rhs*get_phi_bc(n_r_icb,l)
          end do
       end if
       !$omp end parallel
@@ -619,6 +590,7 @@ contains
 
       !-- Local variables
       integer :: lm, l, m, n_r
+      real(cp) :: a_top, b_top, a_bot, b_bot
       integer, pointer :: lm2l(:), lm2m(:)
 
       lm2l(1:lm_max) => lo_map%lm2l
@@ -642,89 +614,17 @@ contains
       !$omp end do
 
       !-- Boundary conditions
-      if ( l_full_sphere) then
-         if ( ktopphi == 1 ) then ! Dirichlet
-            !$omp do private(lm,l)
-            do lm=llm,ulm
-               l = lm2l(lm)
-               if ( l == 0 ) then
-                  call rscheme_oc%robin_bc(0.0_cp, one, cmplx(phi_top,0.0_cp,cp), &
-                       &                   one, 0.0_cp, cmplx(phi_bot,0.0_cp,cp), &
-                       &                   phi(lm,:))
-               else
-                  call rscheme_oc%robin_bc(0.0_cp, one, zero, 0.0_cp, one, &
-                       &                   zero, phi(lm,:))
-               end if
-            end do
-            !$omp end do
-         else ! Neummann
-            !$omp do private(lm,l)
-            do lm=llm,ulm
-               l = lm2l(lm)
-               if ( l == 0 ) then
-                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, one, 0.0_cp, &
-                       &                   zero, phi(lm,:))
-               else
-                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, 0.0_cp, one, &
-                       &                   zero, phi(lm,:))
-               end if
-            end do
-            !$omp end do
-         end if
+      !$omp do private(lm,l,a_top,b_top,a_bot,b_bot)
+      do lm=llm,ulm
+         l = lm2l(lm)
+         call get_phibc_coeffs(n_r_cmb, l, a_top, b_top)
+         call get_phibc_coeffs(n_r_icb, l, a_bot, b_bot)
+         call rscheme_oc%robin_bc(a_top, b_top, cmplx(get_phi_bc(n_r_cmb,l),0.0_cp,cp), &
+              &                   a_bot, b_bot, cmplx(get_phi_bc(n_r_icb,l),0.0_cp,cp), &
+              &                   phi(lm,:))
+      end do
+      !$omp end do
 
-      else ! Spherical shell
-
-         if ( ktopphi==1 .and. kbotphi==1 ) then
-            !-- Boundary conditions: Dirichlet on both sides
-            !$omp do private(lm,l)
-            do lm=llm,ulm
-               l = lm2l(lm)
-               if ( l == 0 ) then
-                  call rscheme_oc%robin_bc(0.0_cp, one, cmplx(phi_top,0.0_cp,cp), &
-                       &                   0.0_cp, one, cmplx(phi_bot,0.0_cp,cp), &
-                       &                   phi(lm,:))
-               else
-                  call rscheme_oc%robin_bc(0.0_cp, one, zero, 0.0_cp, one, &
-                       &                   zero, phi(lm,:))
-               end if
-            end do
-            !$omp end do
-         else if ( ktopphi==1 .and. kbotphi /= 1 ) then
-            !$omp do private(lm,l)
-            do lm=llm,ulm
-               l = lm2l(lm)
-               if ( l == 0 ) then
-                  call rscheme_oc%robin_bc(0.0_cp, one, cmplx(phi_top,0.0_cp,cp), &
-                       &                   one, 0.0_cp, zero, phi(lm,:))
-               else
-                  call rscheme_oc%robin_bc(0.0_cp, one, zero, one, 0.0_cp, &
-                       &                   zero, phi(lm,:))
-               end if
-            end do
-            !$omp end do
-         else if ( ktopphi/=1 .and. kbotphi == 1 ) then
-            !$omp do private(lm,l)
-            do lm=llm,ulm
-               l = lm2l(lm)
-               if ( l == 0 ) then
-                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, 0.0_cp, one, &
-                       &                   cmplx(phi_bot,0.0_cp,cp), phi(lm,:))
-               else
-                  call rscheme_oc%robin_bc(one, 0.0_cp, zero, 0.0_cp, one, &
-                       &                   zero, phi(lm,:))
-               end if
-            end do
-            !$omp end do
-         else if ( ktopphi/=1 .and. kbotphi /= 1 ) then
-            !-- Boundary conditions: Neuman on both sides
-            !$omp do private(lm)
-            do lm=llm,ulm
-               call rscheme_oc%robin_bc(one, 0.0_cp, zero, one, 0.0_cp, zero, phi(lm,:))
-            end do
-            !$omp end do
-         end if
-
-      end if
       !$omp end parallel
 
       call get_phase_rhs_imp(phi, dphidt, 1, tscheme%l_imp_calc_rhs(1), .false.)
@@ -746,11 +646,12 @@ contains
 
       !-- Local variables
       integer :: lm, l, m, n_r, start_lm, stop_lm
+      real(cp) :: a, b
       complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
 
       call tscheme%assemble_imex(work_Rloc, dphidt)
 
-      !$omp parallel default(shared) private(start_lm, stop_lm, l, m)
+      !$omp parallel default(shared) private(start_lm, stop_lm, l, m, a, b)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
       !$omp barrier
@@ -767,25 +668,20 @@ contains
          end do
       end do
 
-      if ( ktopphi==1 .and. nRstart==n_r_cmb ) then
+      !-- Fixed values at the boundaries (fluxes are handled by the ghost points)
+      if ( nRstart==n_r_cmb ) then
          do lm=start_lm,stop_lm
             l = st_map%lm2l(lm)
-            if ( l == 0 ) then
-               phi(lm,nRstart)=phi_top
-            else
-               phi(lm,nRstart)=zero
-            end if
+            call get_phibc_coeffs(n_r_cmb, l, a, b)
+            if ( a == 0.0_cp ) phi(lm,nRstart)=get_phi_bc(n_r_cmb,l)
          end do
       end if
 
-      if ( kbotphi==1 .and. nRstop==n_r_icb ) then
+      if ( nRstop==n_r_icb ) then
          do lm=start_lm,stop_lm
             l = st_map%lm2l(lm)
-            if ( l == 0 ) then
-               phi(lm,nRstop)=phi_bot
-            else
-               phi(lm,nRstop)=zero
-            end if
+            call get_phibc_coeffs(n_r_icb, l, a, b)
+            if ( a == 0.0_cp ) phi(lm,nRstop)=get_phi_bc(n_r_icb,l)
          end do
       end if
 
@@ -823,32 +719,18 @@ contains
 
       !-- Local variables:
       integer :: info, nR_out, nR
-      real(cp) :: dLh
+      real(cp) :: dLh, a_top, b_top, a_bot, b_bot
       real(cp) :: dat(n_r_max,n_r_max)
 
       dLh=real(l*(l+1),kind=cp)
 
       !----- Boundary conditions:
-      if ( ktopphi == 1 ) then ! Dirichlet
-         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
-      else ! Neumann
-         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
-      end if
-
-      if ( l_full_sphere ) then
-         !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-         if ( l == 0 ) then
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-         else
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-         end if
-      else
-         if ( kbotphi == 1 ) then ! Dirichlet
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-         else
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-         end if
-      end if
+      call get_phibc_coeffs(n_r_cmb, l, a_top, b_top)
+      call get_phibc_coeffs(n_r_icb, l, a_bot, b_bot)
+      dat(1,:)      =rscheme_oc%rnorm*(a_top*rscheme_oc%drMat(1,:)+ &
+      &                                b_top*rscheme_oc%rMat(1,:))
+      dat(n_r_max,:)=rscheme_oc%rnorm*(a_bot*rscheme_oc%drMat(n_r_max,:)+ &
+      &                                b_bot*rscheme_oc%rMat(n_r_max,:))
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
          do nR_out=rscheme_oc%n_max+1,n_r_max
@@ -909,10 +791,10 @@ contains
 
       !-- Local variables:
       integer :: nR, l
-      real(cp) :: dLh
+      real(cp) :: dLh, a, b, c_in, c_bc, c_rhs
 
       !----- Bulk points
-      !$omp parallel default(shared) private(nR,l,dLh)
+      !$omp parallel default(shared) private(nR,l,dLh,a,b,c_in,c_bc,c_rhs)
       !$omp do
       do nR=1,n_r_max
          do l=0,l_max
@@ -944,35 +826,31 @@ contains
       end do
       !$omp end do
 
-      !----- Boundary conditions:
+      !----- Boundary conditions: a fixed value replaces the equation, a flux
+      !----- condition gives the ghost point that is folded into the matrix.
+      !----- The flux of the phase field is always zero: no r.h.s. term.
       !$omp do
       do l=0,l_max
-         if ( ktopphi == 1 ) then ! Dirichlet
+         call get_phibc_coeffs(n_r_cmb, l, a, b)
+         if ( a == 0.0_cp ) then
             phiMat%diag(l,1)=one
             phiMat%up(l,1)  =0.0_cp
             phiMat%low(l,1) =0.0_cp
          else
-            phiMat%up(l,1)=phiMat%up(l,1)+phiMat%low(l,1)
+            call get_phibc_ghost_coeffs(n_r_cmb, l, c_in, c_bc, c_rhs)
+            phiMat%diag(l,1)=phiMat%diag(l,1)+c_bc*phiMat%low(l,1)
+            phiMat%up(l,1)  =phiMat%up(l,1)+c_in*phiMat%low(l,1)
          end if
 
-         if ( l_full_sphere ) then
-            !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-            if ( l == 0 ) then
-               phiMat%low(l,n_r_max)=phiMat%up(l,n_r_max)+phiMat%low(l,n_r_max)
-            else
-               phiMat%diag(l,n_r_max)=one
-               phiMat%up(l,n_r_max)  =0.0_cp
-               phiMat%low(l,n_r_max) =0.0_cp
-               !fd_fac_bot(l)=two*(r(n_r_max-1)-r(n_r_max))*phiMat%up(l,n_r_max)
-            end if
+         call get_phibc_coeffs(n_r_icb, l, a, b)
+         if ( a == 0.0_cp ) then
+            phiMat%diag(l,n_r_max)=one
+            phiMat%up(l,n_r_max)  =0.0_cp
+            phiMat%low(l,n_r_max) =0.0_cp
          else
-            if ( kbotphi == 1 ) then ! Dirichlet
-               phiMat%diag(l,n_r_max)=one
-               phiMat%up(l,n_r_max)  =0.0_cp
-               phiMat%low(l,n_r_max) =0.0_cp
-            else
-               phiMat%low(l,n_r_max)=phiMat%up(l,n_r_max)+phiMat%low(l,n_r_max)
-            end if
+            call get_phibc_ghost_coeffs(n_r_icb, l, c_in, c_bc, c_rhs)
+            phiMat%diag(l,n_r_max)=phiMat%diag(l,n_r_max)+c_bc*phiMat%up(l,n_r_max)
+            phiMat%low(l,n_r_max) =phiMat%low(l,n_r_max)+c_in*phiMat%up(l,n_r_max)
          end if
       end do
       !$omp end do
@@ -982,5 +860,95 @@ contains
       call phiMat%prepare_mat()
 
    end subroutine get_phiMat_Rdist
+!-----------------------------------------------------------------------------
+   real(cp) function get_phi_bc(nR, l)
+      !
+      ! Boundary value of the phase field: only the l=0 mode is non-zero
+      !
+
+      !-- Input variables:
+      integer, intent(in) :: nR ! n_r_cmb or n_r_icb
+      integer, intent(in) :: l
+
+      get_phi_bc=0.0_cp
+      if ( l == 0 ) then
+         if ( nR == n_r_cmb ) then
+            get_phi_bc=phi_top
+         else
+            get_phi_bc=phi_bot
+         end if
+      end if
+
+   end function get_phi_bc
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+   subroutine get_phibc_coeffs(nR, l, a, b)
+      !
+      ! Boundary condition on the phase field at the boundary nR:
+      ! a*dphi/dr+b*phi=rhs. ktopphi/kbotphi=1 means a fixed value, any other
+      ! value a fixed flux. At the centre of a full sphere, regularity requires
+      ! dphi/dr=0 for l=0 and phi=0 otherwise.
+      ! A fixed value always has (a,b)=(0,1): the finite-difference paths
+      ! replace the boundary row by an identity row and set the value directly.
+      !
+
+      !-- Input variables:
+      integer, intent(in) :: nR ! n_r_cmb or n_r_icb
+      integer, intent(in) :: l
+
+      !-- Output variables:
+      real(cp), intent(out) :: a, b
+
+      !-- Local variable:
+      integer :: k
+
+      if ( nR == n_r_icb .and. l_full_sphere ) then
+         if ( l == 0 ) then
+            k=2
+         else
+            k=1
+         end if
+      else if ( nR == n_r_cmb ) then
+         k=ktopphi
+      else
+         k=kbotphi
+      end if
+
+      if ( k == 1 ) then ! Fixed value
+         a=0.0_cp
+         b=one
+      else ! Fixed flux
+         a=one
+         b=0.0_cp
+      end if
+
+   end subroutine get_phibc_coeffs
+!-----------------------------------------------------------------------------
+   subroutine get_phibc_ghost_coeffs(nR, l, c_in, c_bc, c_rhs)
+      !
+      ! Ghost point beyond the boundary nR for the phase field (see
+      ! get_robin_ghost_coeffs). For a flux condition this enforces the
+      ! condition, for a fixed value the ghost point is only used for outputs.
+      !
+
+      !-- Input variables:
+      integer, intent(in) :: nR ! n_r_cmb or n_r_icb
+      integer, intent(in) :: l
+
+      !-- Output variables:
+      real(cp), intent(out) :: c_in, c_bc, c_rhs
+
+      !-- Local variables:
+      real(cp) :: a, b, h
+
+      call get_phibc_coeffs(nR, l, a, b)
+      if ( nR == n_r_cmb ) then
+         h=r(1)-r(2)
+      else
+         h=r(n_r_max)-r(n_r_max-1)
+      end if
+      call get_robin_ghost_coeffs(a, b, h, c_in, c_bc, c_rhs)
+
+   end subroutine get_phibc_ghost_coeffs
 !-----------------------------------------------------------------------------
 end module updatePhi_mod

@@ -39,7 +39,7 @@ module LMLoop_mod
 
    public :: LMLoop, initialize_LMLoop, finalize_LMLoop, finish_explicit_assembly, &
    &         assemble_stage, finish_explicit_assembly_Rdist, LMLoop_Rdist,         &
-   &         test_LMLoop, assemble_stage_Rdist
+   &         test_LMLoop, assemble_stage_Rdist, update_boundary_values
 
 contains
 
@@ -126,9 +126,9 @@ contains
       if ( l_heat ) call prepareS_FD(tscheme, dummy, phi_Rloc)
       if ( l_chemical_conv ) call prepareXi_FD(tscheme, dummy)
       if ( l_conv ) then
-         call prepareZ_FD(0.0_cp, tscheme, dummy, omega_ma, omega_ic, dum_scal, &
+         call prepareZ_FD(tscheme, dummy, omega_ma, omega_ic, dum_scal, &
               &           dum_scal, dum1, dum2)
-         call prepareW_FD(0.0_cp, tscheme, dummy, .false.)
+         call prepareW_FD(tscheme, dummy, .false.)
       end if
       if ( l_mag_par_solve ) call prepareB_FD(0.0_cp, tscheme, dummy, dummy)
 
@@ -171,7 +171,30 @@ contains
 
    end subroutine finalize_LMLoop
 !----------------------------------------------------------------------------
-   subroutine LMLoop(time,timeNext,tscheme,lMat,lRmsNext,lPressNext,     &
+   subroutine update_boundary_values(time)
+      !
+      ! Time-dependent boundary values of all fields at a given time. Each
+      ! update module computes its own (prescribed motion of the boundaries,
+      ! tidal perturbations of the scalar b.c., forcing of the toroidal
+      ! flow, prescribed rotation). It is called once per stage, before the
+      ! boundary values are used.
+      !
+
+      !-- Input variable:
+      real(cp), intent(in) :: time
+
+      if ( l_single_matrix ) then
+         call update_wps_bc(time)
+      else
+         call update_wbc(time)
+         if ( l_heat ) call update_sbc(time)
+      end if
+      if ( l_chemical_conv ) call update_xibc(time)
+      call update_zbc(time)
+
+   end subroutine update_boundary_values
+!----------------------------------------------------------------------------
+   subroutine LMLoop(time,tscheme,lMat,lRmsNext,lPressNext,     &
               &      dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,djdt,dbdt_ic, &
               &      djdt_ic,domega_ma_dt,domega_ic_dt,                  &
               &      b_nl_cmb,aj_nl_cmb,aj_nl_icb)
@@ -183,7 +206,6 @@ contains
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
       real(cp),            intent(in) :: time
-      real(cp),            intent(in) :: timeNext
       logical,             intent(in) :: lMat
       logical,             intent(in) :: lRmsNext
       logical,             intent(in) :: lPressNext
@@ -224,7 +246,7 @@ contains
 
       if ( l_heat .and. .not. l_single_matrix .and. l_update_s ) then
          PERFON('up_S')
-         call updateS( time, s_LMloc, ds_LMloc, dsdt, phi_LMloc, tscheme )
+         call updateS( s_LMloc, ds_LMloc, dsdt, phi_LMloc, tscheme )
          PERFOFF
       end if
 
@@ -234,7 +256,7 @@ contains
 
       if ( l_conv .and. l_update_v ) then
          PERFON('up_Z')
-         call updateZ( time, timeNext, z_LMloc, dz_LMloc, dzdt, omega_ma,  &
+         call updateZ( z_LMloc, dz_LMloc, dzdt, omega_ma,  &
               &        omega_ic, domega_ma_dt,domega_ic_dt, tscheme, lRmsNext)
          PERFOFF
 
@@ -248,12 +270,12 @@ contains
                     &         MPI_COMM_WORLD,ierr)
             end if
 #endif
-            call updateWPS( time, w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt, &
+            call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt, &
                  &          p_LMloc, dp_LMloc, dpdt, s_LMloc, ds_LMloc,    &
                  &          dsdt, tscheme, lRmsNext )
          else
             PERFON('up_WP')
-            call updateWP( time, s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc,       &
+            call updateWP( s_LMloc, xi_LMLoc, w_LMloc, dw_LMloc,       &
                  &         ddw_LMloc,dwdt, p_LMloc, dp_LMloc, dpdt, tscheme, &
                  &         lRmsNext, lPressNext )
             PERFOFF
@@ -272,7 +294,7 @@ contains
       PERFOFF
    end subroutine LMLoop
 !--------------------------------------------------------------------------------
-   subroutine LMLoop_Rdist(time,timeNext,tscheme,lMat,lRmsNext,lPressNext,    &
+   subroutine LMLoop_Rdist(time,tscheme,lMat,lRmsNext,lPressNext,    &
               &            lP00Next,dsdt,dwdt,dzdt,dpdt,dxidt,dphidt,dbdt,    &
               &            djdt,dbdt_ic,djdt_ic,domega_ma_dt,domega_ic_dt,    &
               &            b_nl_cmb,aj_nl_cmb,aj_nl_icb)
@@ -285,7 +307,6 @@ contains
       !-- Input of variables:
       class(type_tscheme), intent(in) :: tscheme
       real(cp),            intent(in) :: time
-      real(cp),            intent(in) :: timeNext
       logical,             intent(in) :: lMat
       logical,             intent(in) :: lRmsNext
       logical,             intent(in) :: lPressNext
@@ -324,13 +345,13 @@ contains
       end if
 
       !-- Mainly assemble the r.h.s. and rebuild the matrices if required
-      if ( l_heat .and. l_update_s ) call prepareS_FD(tscheme, dsdt, phi_Rloc, time)
+      if ( l_heat .and. l_update_s ) call prepareS_FD(tscheme, dsdt, phi_Rloc)
       if ( l_chemical_conv .and. l_update_xi ) call prepareXi_FD(tscheme, dxidt)
       if ( l_conv .and. l_update_v ) then
-         call prepareZ_FD(time, tscheme, dzdt, omega_ma, omega_ic, domega_ma_dt, &
+         call prepareZ_FD(tscheme, dzdt, omega_ma, omega_ic, domega_ma_dt, &
               &           domega_ic_dt, dom_ma, dom_ic)
          if ( l_z10mat ) call z10Mat_FD%solver_single(z10_ghost, nRstart, nRstop)
-         call prepareW_FD(time, tscheme, dwdt, lPress)
+         call prepareW_FD(tscheme, dwdt, lPress)
          if ( lPress ) call p0Mat_FD%solver_single(p0_ghost, nRstart, nRstop)
       end if
       if ( l_mag_par_solve .and. l_update_b ) call prepareB_FD(time, tscheme, dbdt, djdt)
@@ -357,14 +378,14 @@ contains
 
       !-- Finally build the radial derivatives and the arrays for next iteration
       if ( l_heat .and. l_update_s ) then
-         call updateS_FD(time, s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
+         call updateS_FD(s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
       end if
       if ( l_chemical_conv .and. l_update_xi ) then
          call updateXi_FD(xi_Rloc, dxidt, tscheme)
       end if
 
       if ( l_update_v ) then
-         call updateZ_FD(time, timeNext, dom_ma, dom_ic, z_Rloc, dz_Rloc, dzdt, &
+         call updateZ_FD(dom_ma, dom_ic, z_Rloc, dz_Rloc, dzdt, &
               &          omega_ma, omega_ic, domega_ma_dt, domega_ic_dt,        &
               &          tscheme, lRmsNext)
          call updateW_FD(w_Rloc, dw_Rloc, ddw_Rloc, dwdt, p_Rloc, dp_Rloc, dpdt,&
@@ -512,7 +533,7 @@ contains
 
    end subroutine finish_explicit_assembly_Rdist
 !--------------------------------------------------------------------------------
-   subroutine assemble_stage(time, omega_ic, omega_ic1, omega_ma, omega_ma1,        &
+   subroutine assemble_stage(omega_ic, omega_ic1, omega_ma, omega_ma1,        &
               &              dwdt, dzdt, dpdt, dsdt, dxidt, dphidt, dbdt, djdt,     &
               &              dbdt_ic, djdt_ic, domega_ic_dt, domega_ma_dt,          &
               &              lPressNext, lRmsNext, tscheme)
@@ -526,7 +547,6 @@ contains
       logical,             intent(in) :: lPressNext
       logical,             intent(in) :: lRmsNext
       class(type_tscheme), intent(in) :: tscheme
-      real(cp),            intent(in) :: time
 
       !-- Output variables
       type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
@@ -547,18 +567,18 @@ contains
               &               dsdt, dwdt, dpdt, tscheme,lRmsNext)
       else
          if ( l_heat .and. l_update_s) then
-            call assemble_entropy(time, s_LMloc, ds_LMloc, dsdt, phi_LMloc, &
+            call assemble_entropy(s_LMloc, ds_LMloc, dsdt, phi_LMloc, &
                  &                tscheme)
          end if
          if ( l_update_v ) then
-            call assemble_pol(time, s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, &
+            call assemble_pol(s_LMloc, xi_LMloc, w_LMloc, dw_LMloc, ddw_LMloc, &
                  &            p_LMloc, dp_LMloc, dwdt, dpdt, dpdt%expl(:,:,1),       &
                  &            tscheme, lPressNext, lRmsNext)
          end if
       end if
 
       if ( l_update_v ) then
-         call assemble_tor(time, z_LMloc, dz_LMloc, dzdt, domega_ic_dt, domega_ma_dt, &
+         call assemble_tor(z_LMloc, dz_LMloc, dzdt, domega_ic_dt, domega_ma_dt, &
               &            omega_ic, omega_ma, omega_ic1, omega_ma1, lRmsNext, tscheme)
       end if
 
@@ -571,7 +591,7 @@ contains
 
    end subroutine assemble_stage
 !--------------------------------------------------------------------------------
-   subroutine assemble_stage_Rdist(time, omega_ic, omega_ic1, omega_ma, omega_ma1,    &
+   subroutine assemble_stage_Rdist(omega_ic, omega_ic1, omega_ma, omega_ma1,    &
               &                    dwdt, dzdt, dpdt, dsdt, dxidt, dphidt, dbdt,       &
               &                    djdt, dbdt_ic, djdt_ic, domega_ic_dt, domega_ma_dt,&
               &                    lPressNext, lRmsNext, tscheme)
@@ -585,7 +605,6 @@ contains
       logical,             intent(in) :: lPressNext
       logical,             intent(in) :: lRmsNext
       class(type_tscheme), intent(in) :: tscheme
-      real(cp),            intent(in) :: time
 
       !-- Output variables
       type(type_tscalar),  intent(inout) :: domega_ic_dt, domega_ma_dt
@@ -600,15 +619,15 @@ contains
          call assemble_comp_Rloc(xi_Rloc, dxidt, tscheme)
       end if
       if ( l_heat .and. l_update_s ) then
-         call assemble_entropy_Rloc(time, s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
+         call assemble_entropy_Rloc(s_Rloc, ds_Rloc, dsdt, phi_Rloc, tscheme)
       end if
 
       if ( l_update_v ) then
-         call assemble_pol_Rloc(time, block_sze, nblocks, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, &
+         call assemble_pol_Rloc(block_sze, nblocks, w_Rloc, dw_Rloc, ddw_Rloc, p_Rloc, &
               &                 dp_Rloc, dwdt, dpdt%expl(:,:,1), tscheme, lPressNext,        &
               &                 lRmsNext)
 
-         call assemble_tor_Rloc(time, z_Rloc, dz_Rloc, dzdt, domega_ic_dt,    &
+         call assemble_tor_Rloc(z_Rloc, dz_Rloc, dzdt, domega_ic_dt,    &
               &                 domega_ma_dt, omega_ic, omega_ma, omega_ic1,  &
               &                 omega_ma1, lRmsNext, tscheme)
       end if

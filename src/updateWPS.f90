@@ -9,20 +9,21 @@ module updateWPS_mod
    use omp_lib
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, n_r_max, l_max, m_min
+   use truncation, only: lm_max, n_r_max, l_max, m_min, l_axi
    use radial_data, only: n_r_cmb,n_r_icb, nRstart, nRstop
-   use radial_functions, only: or1, or2, rho0, rgrav, r, visc, dLvisc,    &
+   use radial_functions, only: r_cmb, or1, or2, rho0, rgrav, r, visc, dLvisc,    &
        &                       rscheme_oc, beta, dbeta, dLkappa, dLtemp0, &
        &                       ddLtemp0, alpha0, dLalpha0, ddLalpha0,     &
        &                       ogrun, kappa, orho1, dentropy0, temp0, l_R
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
        &                          ViscHeatFac, ThExpNb, BuoFac,        &
        &                          CorFac, ktopp
-   use special, only: ellipticity_cmb, ellipticity_icb, ellip_fac_cmb, &
-       &              ellip_fac_icb
    use num_param, only: dct_counter, solve_counter
-   use init_fields, only: tops, bots, omegaOsz_ma1, tShift_ma1,        &
-       &                  omegaOsz_ic1, tShift_ic1
+   use init_fields, only: tops, bots
+   use special, only: ellip_fac_cmb, ellip_fac_icb, tide_fac20, tide_fac22p, &
+       &              tide_fac22n, omega_tide, amp_tide, l_vr_cmb, l_vr_icb, &
+       &              l2_h2_ratio
+   use init_fields, only: omegaOsz_ma1, tShift_ma1, omegaOsz_ic1, tShift_ic1
    use blocking, only: lo_sub_map, lo_map, llm, ulm, st_map
    use horizontal_data, only: hdif_V, hdif_S
    use logic, only: l_temperature_diff, l_RMS, l_full_sphere
@@ -30,9 +31,12 @@ module updateWPS_mod
    use algebra, only: prepare_mat, solve_mat
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize, rank, n_procs, get_openmp_blocks
+#ifdef WITH_MPI
+   use mpimod
+#endif
    use radial_der, only: get_dddr, get_ddr, get_dr, get_dr_Rloc
    use constants, only: zero, one, two, three, four, third, half, pi, osq4pi
-   use fields, only: work_LMloc
+   use fields, only: work_LMloc, s_LMloc, ds_LMloc, p_LMloc, dp_LMloc
    use useful, only: abortRun, cc2real
    use time_schemes, only: type_tscheme
    use time_array, only: type_tarray
@@ -52,10 +56,18 @@ module updateWPS_mod
    real(cp) :: Cor00_fac
    logical, public, allocatable :: lWPSmat(:)
 
+   !-- Boundary values due to the prescribed motion of the boundaries (standard
+   !-- lm order, see update_wps_bc)
+   complex(cp), allocatable :: wbc_cmb(:), wbc_icb(:)   ! W at the boundaries
+   complex(cp), allocatable :: wbc2_cmb(:), wbc2_icb(:) ! r.h.s. of the second b.c. on W
+   complex(cp), allocatable :: sbc_cmb(:) ! Tidal perturbation of the outer entropy/temperature b.c.
+   logical :: l_sbc_tide ! Tidal perturbation of a fixed entropy/temperature at r_cmb (see update_wps_sbc)
+
    integer :: maxThreads
 
    public :: initialize_updateWPS, finalize_updateWPS, updateWPS, finish_exp_smat,&
-   &         get_single_rhs_imp, assemble_single, finish_exp_smat_Rdist
+   &         get_single_rhs_imp, assemble_single, finish_exp_smat_Rdist, &
+   &         update_wps_bc
 
 contains
 
@@ -95,6 +107,20 @@ contains
 
       Cor00_fac=four/sqrt(three)
 
+
+      allocate( wbc_cmb(lm_max), wbc_icb(lm_max), wbc2_cmb(lm_max), wbc2_icb(lm_max) )
+      allocate( sbc_cmb(lm_max) )
+      bytes_allocated=bytes_allocated+5*lm_max*SIZEOF_DEF_COMPLEX
+      wbc_cmb(:) =zero
+      wbc_icb(:) =zero
+      wbc2_cmb(:)=zero
+      wbc2_icb(:)=zero
+      sbc_cmb(:) =zero
+
+      !-- The tidal correction only applies to a fixed value (ktops=1,3): for a
+      !-- fixed flux it is O(delta/H) and omitted (see update_wps_sbc)
+      l_sbc_tide=amp_tide /= 0.0_cp .and. mod(ktops,2) == 1
+
    end subroutine initialize_updateWPS
 !-----------------------------------------------------------------------------
    subroutine finalize_updateWPS
@@ -103,9 +129,11 @@ contains
       deallocate( wpsMat, wpsMat_fac, wpsPivot, lWPSmat )
       deallocate( workB, workC, rhs1)
 
+      deallocate( wbc_cmb, wbc_icb, wbc2_cmb, wbc2_icb, sbc_cmb )
+
    end subroutine finalize_updateWPS
 !-----------------------------------------------------------------------------
-   subroutine updateWPS(time,w,dw,ddw,z10,dwdt,p,dp,dpdt,s,ds,dsdt,tscheme,lRmsNext)
+   subroutine updateWPS(w,dw,ddw,z10,dwdt,p,dp,dpdt,s,ds,dsdt,tscheme,lRmsNext)
       !
       !  updates the poloidal velocity potential w, the pressure p, the entropy
       !  and their radial derivatives.
@@ -115,7 +143,6 @@ contains
       class(type_tscheme), intent(in) :: tscheme
       real(cp),            intent(in) :: z10(n_r_max)
       logical,             intent(in) :: lRmsNext
-      real(cp),            intent(in) :: time
 
       !-- Output variables
       type(type_tarray), intent(inout) :: dwdt
@@ -132,6 +159,7 @@ contains
       !-- Local variables:
       integer :: l1,m1          ! degree and order
       integer :: lm1,lm         ! position of (l,m) in array
+      integer :: lms            ! position of (l,m) in the standard order
       integer :: nLMB2, nLMB
       integer :: nR             ! counts radial grid points
       integer :: n_r_out        ! counts cheb modes
@@ -223,7 +251,7 @@ contains
             do iChunk=1,nChunks
                !$omp task default(shared) &
                !$omp firstprivate(iChunk) &
-               !$omp private(lmB0,lm,lm1,m1,nR,n_r_out) &
+               !$omp private(lmB0,lm,lm1,m1,lms,nR,n_r_out) &
                !$omp private(threadid)
 
 #ifdef WITHOMP
@@ -236,34 +264,19 @@ contains
                   lm1=lm22lm(lm,nLMB2,nLMB)
                   m1 =lm22m(lm,nLMB2,nLMB)
 
-                  rhs1(1,2*lm-1,threadid)          =0.0_cp
-                  rhs1(1,2*lm,threadid)            =0.0_cp
-                  rhs1(n_r_max,2*lm-1,threadid)    =0.0_cp
-                  rhs1(n_r_max,2*lm,threadid)      =0.0_cp
-                  rhs1(n_r_max+1,2*lm-1,threadid)  =0.0_cp
-                  rhs1(n_r_max+1,2*lm,threadid)    =0.0_cp
-                  rhs1(2*n_r_max,2*lm-1,threadid)  =0.0_cp
-                  rhs1(2*n_r_max,2*lm,threadid)    =0.0_cp
-                  rhs1(2*n_r_max+1,2*lm-1,threadid)= real(tops(l1,m1))
-                  rhs1(2*n_r_max+1,2*lm,threadid)  =aimag(tops(l1,m1))
+                  lms=st_map%lm2(l1,m1)
+                  rhs1(1,2*lm-1,threadid)          = real(wbc_cmb(lms))
+                  rhs1(1,2*lm,threadid)            =aimag(wbc_cmb(lms))
+                  rhs1(n_r_max,2*lm-1,threadid)    = real(wbc_icb(lms))
+                  rhs1(n_r_max,2*lm,threadid)      =aimag(wbc_icb(lms))
+                  rhs1(n_r_max+1,2*lm-1,threadid)  = real(wbc2_cmb(lms))
+                  rhs1(n_r_max+1,2*lm,threadid)    =aimag(wbc2_cmb(lms))
+                  rhs1(2*n_r_max,2*lm-1,threadid)  = real(wbc2_icb(lms))
+                  rhs1(2*n_r_max,2*lm,threadid)    =aimag(wbc2_icb(lms))
+                  rhs1(2*n_r_max+1,2*lm-1,threadid)= real(tops(l1,m1)+sbc_cmb(lms))
+                  rhs1(2*n_r_max+1,2*lm,threadid)  =aimag(tops(l1,m1)+sbc_cmb(lms))
                   rhs1(3*n_r_max,2*lm-1,threadid)  = real(bots(l1,m1))
                   rhs1(3*n_r_max,2*lm,threadid)    =aimag(bots(l1,m1))
-
-                  if ( l1 == 2 .and. m1 == 2 ) then
-                     if ( ellipticity_cmb /= 0.0_cp ) then
-                        rhs1(1,2*lm-1,threadid)=ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
-                        &                       *cos(omegaOsz_ma1*(time+tShift_ma1))
-                        rhs1(1,2*lm,threadid)  =ellip_fac_cmb/real(l1*(l1+1),kind=cp) &
-                        &                       *sin(omegaOsz_ma1*(time+tShift_ma1))
-                     end if
-
-                     if ( ellipticity_icb /= 0.0_cp ) then
-                        rhs1(n_r_max,2*lm-1,threadid)=ellip_fac_icb/real(l1*(l1+1),kind=cp) &
-                        &                             *cos(omegaOsz_ic1*(time+tShift_ic1))
-                        rhs1(n_r_max,2*lm,threadid)  =ellip_fac_icb/real(l1*(l1+1),kind=cp) &
-                        &                             *sin(omegaOsz_ic1*(time+tShift_ic1))
-                     end if
-                  end if
 
                   do nR=2,n_r_max-1
                      !-- dp and ds used as work arrays here
@@ -439,9 +452,10 @@ contains
 
       !-- Local variables:
       complex(cp) :: Dif, Buo
-      integer :: n_r, lm, l1, m1, start_lm,stop_lm, lmStart_00
+      integer :: n_r, lm, l1, m1, lms, start_lm,stop_lm, lmStart_00
       integer :: n_r_top, n_r_bot
-      real(cp) :: dL, fac_bot, fac_top
+      real(cp) :: dL, a_top, b_top, a_bot, b_bot
+      real(cp) :: a2_cmb, a1_cmb, a0_cmb, a2_icb, a1_icb, a0_icb ! Second b.c. on W
       integer, pointer :: lm2l(:), lm2m(:)
 
       lm2l(1:lm_max) => lo_map%lm2l
@@ -454,6 +468,11 @@ contains
 
       if ( l_temperature_diff ) then
          call abortRun('Temperature diff + assembly stage not supported!')
+      end if
+
+      !-- The pressure is not assembled here
+      if ( ktops > 2 .or. kbots > 2 ) then
+         call abortRun('Temperature boundary conditions + assembly stage not supported!')
       end if
 
       !-- First assemble and store in temporary arrays
@@ -490,145 +509,31 @@ contains
       !$omp end do
 
       !-- Get the entropy boundary points using Canuto (1986) approach
-      if ( l_full_sphere) then
-         if ( ktops == 1 ) then ! Fixed entropy at the outer boundary
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               if ( l1 == 0 ) then
-                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
-                       &                   bots(l1,m1), s(lm,:))
-               else
-                  call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
-                       &                   bots(l1,m1), s(lm,:))
-               end if
-            end do
-            !$omp end do
-         else ! Fixed flux at the outer boundary
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               if ( l1 == 0 ) then
-                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), one, 0.0_cp, &
-                       &                   bots(l1,m1), s(lm,:))
-               else
-                  call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
-                       &                   bots(l1,m1), s(lm,:))
-               end if
-            end do
-            !$omp end do
-         end if
-      else ! Spherical shell
-         !-- Boundary conditions
-         if ( ktops==1 .and. kbots==1 ) then ! Dirichlet on both sides
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), 0.0_cp, one, &
-                    &                   bots(l1,m1), s(lm,:))
-            end do
-            !$omp end do
-         else if ( ktops==1 .and. kbots /= 1 ) then ! Dirichlet: top and Neumann: bot
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               call rscheme_oc%robin_bc(0.0_cp, one, tops(l1,m1), one, 0.0_cp, &
-                    &                   bots(l1,m1), s(lm,:))
-            end do
-            !$omp end do
-         else if ( kbots==1 .and. ktops /= 1 ) then ! Dirichlet: bot and Neumann: top
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), 0.0_cp, one, &
-                    &                   bots(l1,m1), s(lm,:))
-            end do
-            !$omp end do
-         else if ( kbots /=1 .and. kbots /= 1 ) then ! Neumann on both sides
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               call rscheme_oc%robin_bc(one, 0.0_cp, tops(l1,m1), one, 0.0_cp, &
-                    &                   bots(l1,m1), s(lm,:))
-            end do
-            !$omp end do
-         end if
-      end if
-
-      !-- Boundary conditions for the poloidal
-      !-- Non-penetration: u_r=0 -> w_lm=0 on both boundaries
-      !$omp do
-      do lm=lmStart_00,ulm
-         w(lm,1)      =zero
-         w(lm,n_r_max)=zero
+      !$omp do private(lm,l1,m1,a_top,b_top,a_bot,b_bot)
+      do lm=llm,ulm
+         l1 = lm2l(lm)
+         m1 = lm2m(lm)
+         call get_wps_sbc_coeffs(n_r_cmb, l1, a_top, b_top)
+         call get_wps_sbc_coeffs(n_r_icb, l1, a_bot, b_bot)
+         call rscheme_oc%robin_bc(a_top, b_top, tops(l1,m1)+sbc_cmb(st_map%lm2(l1,m1)), &
+              &                   a_bot, b_bot, bots(l1,m1), s(lm,:))
       end do
       !$omp end do
 
-      !-- Other boundary condition: stress-free or rigid
-      if ( l_full_sphere ) then
-         if ( ktopv == 1 ) then ! Stress-free
-            fac_top=-two*or1(1)-beta(1)
-            !$omp do private(lm,l1)
-            do lm=lmStart_00,ulm
-               l1 = lm2l(lm)
-               if ( l1 == 1 ) then
-                  call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, zero, dw(lm,:))
-               else
-                  call rscheme_oc%robin_bc(one, fac_top, zero, one, 0.0_cp, zero, dw(lm,:))
-               end if
-            end do
-            !$omp end do
-         else
-            !$omp do private(lm,l1)
-            do lm=lmStart_00,ulm
-               l1 = lm2l(lm)
-               if ( l1 == 1 ) then
-                  dw(lm,1)      =zero
-                  dw(lm,n_r_max)=zero
-               else
-                  call rscheme_oc%robin_bc(0.0_cp, one, zero, one, 0.0_cp, zero, dw(lm,:))
-               end if
-            end do
-            !$omp end do
-         end if
-      else ! Spherical shell
-         if ( ktopv /= 1 .and. kbotv /= 1 ) then ! Rigid at both boundaries
-            !$omp do
-            do lm=lmStart_00,ulm
-               dw(lm,1)      =zero
-               dw(lm,n_r_max)=zero
-            end do
-            !$omp end do
-         else if ( ktopv /= 1 .and. kbotv == 1 ) then ! Rigid top/Stress-free bottom
-            fac_bot=-two*or1(n_r_max)-beta(n_r_max)
-            !$omp do
-            do lm=lmStart_00,ulm
-               call rscheme_oc%robin_bc(0.0_cp, one, zero, one, fac_bot, zero, dw(lm,:))
-            end do
-            !$omp end do
-         else if ( ktopv == 1 .and. kbotv /= 1 ) then ! Rigid bottom/Stress-free top
-            fac_top=-two*or1(1)-beta(1)
-            !$omp do
-            do lm=lmStart_00,ulm
-               call rscheme_oc%robin_bc(one, fac_top, zero, 0.0_cp, one, zero, dw(lm,:))
-            end do
-            !$omp end do
-         else if ( ktopv == 1 .and. kbotv == 1 ) then ! Stress-free at both boundaries
-            fac_bot=-two*or1(n_r_max)-beta(n_r_max)
-            fac_top=-two*or1(1)-beta(1)
-            !$omp do
-            do lm=lmStart_00,ulm
-               call rscheme_oc%robin_bc(one, fac_top, zero, one, fac_bot, zero, dw(lm,:))
-            end do
-            !$omp end do
-         end if
-      end if
+      !-- Boundary conditions on W: W and a2*ddW+a1*dW+a0*W at both boundaries
+      !$omp do private(lm,l1,lms,a2_cmb,a1_cmb,a0_cmb,a2_icb,a1_icb,a0_icb)
+      do lm=lmStart_00,ulm
+         l1 =lm2l(lm)
+         lms=st_map%lm2(l1,lm2m(lm))
+         w(lm,1)      =wbc_cmb(lms)
+         w(lm,n_r_max)=wbc_icb(lms)
+         call get_bc2_coeffs(n_r_cmb, l1, a2_cmb, a1_cmb, a0_cmb)
+         call get_bc2_coeffs(n_r_icb, l1, a2_icb, a1_icb, a0_icb)
+         call rscheme_oc%robin_bc(a2_cmb, a1_cmb, wbc2_cmb(lms)-a0_cmb*w(lm,1),     &
+              &                   a2_icb, a1_icb, wbc2_icb(lms)-a0_icb*w(lm,n_r_max), &
+              &                   dw(lm,:))
+      end do
+      !$omp end do
 
       !$omp single
       call dct_counter%start_count()
@@ -913,8 +818,14 @@ contains
       !-- local variables:
       integer :: nR,nR_out,nR_p,nR_s,nR_out_p,nR_out_s,info
       real(cp) :: dLh
+      real(cp) :: a2_cmb, a1_cmb, a0_cmb, a2_icb, a1_icb, a0_icb ! Second b.c. on W
+      real(cp) :: as_cmb, bs_cmb, ap_cmb, bp_cmb, as_icb, bs_icb, ap_icb, bp_icb ! b.c. on s
 
       dLh =real(l*(l+1),kind=cp)
+      call get_bc2_coeffs(n_r_cmb, l, a2_cmb, a1_cmb, a0_cmb)
+      call get_bc2_coeffs(n_r_icb, l, a2_icb, a1_icb, a0_icb)
+      call get_entropy_bc_coeffs(n_r_cmb, l, as_cmb, bs_cmb, ap_cmb, bp_cmb)
+      call get_entropy_bc_coeffs(n_r_icb, l, as_icb, bs_icb, ap_icb, bp_icb)
 
       !-- Now mode l>0
 
@@ -930,92 +841,34 @@ contains
          wpsMat(n_r_max,nR_out_p)=0.0_cp
          wpsMat(n_r_max,nR_out_s)=0.0_cp
 
-         if ( ktopv == 1 ) then  ! free slip !
-            wpsMat(n_r_max+1,nR_out)=rscheme_oc%rnorm * (          &
-            &                        rscheme_oc%d2rMat(1,nR_out) - &
-            &    (two*or1(1)+beta(1))*rscheme_oc%drMat(1,nR_out) )
-         else                    ! no slip, note exception for l=1,m=0
-            wpsMat(n_r_max+1,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(1,nR_out)
-         end if
+         wpsMat(n_r_max+1,nR_out)=rscheme_oc%rnorm*(                &
+         &                  a2_cmb*rscheme_oc%d2rMat(1,nR_out)+     &
+         &                  a1_cmb*rscheme_oc%drMat(1,nR_out)+      &
+         &                  a0_cmb*rscheme_oc%rMat(1,nR_out))
          wpsMat(n_r_max+1,nR_out_p)=0.0_cp
          wpsMat(n_r_max+1,nR_out_s)=0.0_cp
 
-         if ( l_full_sphere ) then
-            if ( l == 1 ) then
-               wpsMat(2*n_r_max,nR_out)=rscheme_oc%rnorm* &
-               &                        rscheme_oc%drMat(n_r_max,nR_out)
-            else
-               wpsMat(2*n_r_max,nR_out)=rscheme_oc%rnorm* &
-               &                        rscheme_oc%d2rMat(n_r_max,nR_out)
-            end if
-         else
-            if ( kbotv == 1 ) then  ! free slip !
-               wpsMat(2*n_r_max,nR_out)=rscheme_oc%rnorm * (               &
-               &                       rscheme_oc%d2rMat(n_r_max,nR_out) - &
-               &                      (two*or1(n_r_max)+beta(n_r_max))*    &
-               &                        rscheme_oc%drMat(n_r_max,nR_out) )
-            else                 ! no slip, note exception for l=1,m=0
-               wpsMat(2*n_r_max,nR_out)=rscheme_oc%rnorm* &
-               &                        rscheme_oc%drMat(n_r_max,nR_out)
-            end if
-         end if
+         wpsMat(2*n_r_max,nR_out)=rscheme_oc%rnorm*(                &
+         &                  a2_icb*rscheme_oc%d2rMat(n_r_max,nR_out)+ &
+         &                  a1_icb*rscheme_oc%drMat(n_r_max,nR_out)+  &
+         &                  a0_icb*rscheme_oc%rMat(n_r_max,nR_out))
          wpsMat(2*n_r_max,nR_out_p)=0.0_cp
          wpsMat(2*n_r_max,nR_out_s)=0.0_cp
 
-         if ( ktops == 1 ) then ! fixed entropy
-            wpsMat(2*n_r_max+1,nR_out_s)=rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
-            wpsMat(2*n_r_max+1,nR_out_p)=0.0_cp
-         else if ( ktops == 2 ) then ! fixed entropy flux
-            wpsMat(2*n_r_max+1,nR_out_s)=rscheme_oc%rnorm*rscheme_oc%drMat(1,nR_out)
-            wpsMat(2*n_r_max+1,nR_out_p)=0.0_cp
-         else if ( ktops == 3 ) then ! fixed temperature
-            wpsMat(2*n_r_max+1,nR_out_s)=rscheme_oc%rnorm*temp0(1)*  &
-            &                            rscheme_oc%rMat(1,nR_out)
-            wpsMat(2*n_r_max+1,nR_out_p)=rscheme_oc%rnorm*orho1(1)*alpha0(1)* &
-            &                            temp0(1)*ViscHeatFac*ThExpNb*        &
-            &                            rscheme_oc%rMat(1,nR_out)
-         else if ( ktops == 4 ) then ! fixed temperature flux
-            wpsMat(2*n_r_max+1,nR_out_s)=rscheme_oc%rnorm*temp0(1)*(           &
-            &                                      rscheme_oc%drMat(1,nR_out)+ &
-            &                            dLtemp0(1)*rscheme_oc%rMat(1,nR_out) )
-            wpsMat(2*n_r_max+1,nR_out_p)=rscheme_oc%rnorm*orho1(1)*alpha0(1)*     &
-            &                           temp0(1)*ViscHeatFac*ThExpNb*(            &
-            &                           rscheme_oc%drMat(1,nR_out)+(dLalpha0(1)+  &
-            &                           dLtemp0(1)-beta(1))*rscheme_oc%rMat(1,nR_out) )
-         end if
+         wpsMat(2*n_r_max+1,nR_out_s)=rscheme_oc%rnorm*(                    &
+         &                            as_cmb*rscheme_oc%drMat(1,nR_out)+ &
+         &                            bs_cmb*rscheme_oc%rMat(1,nR_out))
+         wpsMat(2*n_r_max+1,nR_out_p)=rscheme_oc%rnorm*(                    &
+         &                            ap_cmb*rscheme_oc%drMat(1,nR_out)+ &
+         &                            bp_cmb*rscheme_oc%rMat(1,nR_out))
          wpsMat(2*n_r_max+1,nR_out)  =0.0_cp
 
-         if ( l_full_sphere ) then
-            wpsMat(3*n_r_max,nR_out_s)=rscheme_oc%rnorm* &
-            &                          rscheme_oc%rMat(n_r_max,nR_out)
-            wpsMat(3*n_r_max,nR_out_p)=0.0_cp
-         else
-            if ( kbots == 1 ) then ! fixed entropy
-               wpsMat(3*n_r_max,nR_out_s)=rscheme_oc%rnorm*                &
-               &                          rscheme_oc%rMat(n_r_max,nR_out)
-               wpsMat(3*n_r_max,nR_out_p)=0.0_cp
-            else if ( kbots == 2) then ! fixed entropy flux
-               wpsMat(3*n_r_max,nR_out_s)=rscheme_oc%rnorm*                &
-               &                          rscheme_oc%drMat(n_r_max,nR_out)
-               wpsMat(3*n_r_max,nR_out_p)=0.0_cp
-            else if ( kbots == 3) then ! fixed temperature
-               wpsMat(3*n_r_max,nR_out_s)=rscheme_oc%rnorm*temp0(n_r_max)*      &
-               &                          rscheme_oc%rMat(n_r_max,nR_out)
-               wpsMat(3*n_r_max,nR_out_p)=rscheme_oc%rnorm*                     &
-               &                          rscheme_oc%rMat(n_r_max,nR_out)*      &
-               &                          orho1(n_r_max)*alpha0(n_r_max)*       &
-               &                          temp0(n_r_max)*ViscHeatFac*ThExpNb
-            else if ( kbots == 4) then ! fixed temperature flux
-               wpsMat(3*n_r_max,nR_out_s)=rscheme_oc%rnorm*temp0(n_r_max)*(     &
-               &                              rscheme_oc%drMat(n_r_max,nR_out)+ &
-               &              dLtemp0(n_r_max)*rscheme_oc%rMat(n_r_max,nR_out) )
-               wpsMat(3*n_r_max,nR_out_p)=rscheme_oc%rnorm*orho1(n_r_max)*      &
-               &         alpha0(n_r_max)*temp0(n_r_max)*ViscHeatFac*ThExpNb*(   &
-               &                           rscheme_oc%drMat(n_r_max,nR_out)+    &
-               &         (dLalpha0(n_r_max)+dLtemp0(n_r_max)-                   &
-               &             beta(n_r_max))*rscheme_oc%rMat(n_r_max,nR_out) )
-            end if
-         end if
+         wpsMat(3*n_r_max,nR_out_s)=rscheme_oc%rnorm*(                          &
+         &                          as_icb*rscheme_oc%drMat(n_r_max,nR_out)+ &
+         &                          bs_icb*rscheme_oc%rMat(n_r_max,nR_out))
+         wpsMat(3*n_r_max,nR_out_p)=rscheme_oc%rnorm*(                          &
+         &                          ap_icb*rscheme_oc%drMat(n_r_max,nR_out)+ &
+         &                          bp_icb*rscheme_oc%rMat(n_r_max,nR_out))
          wpsMat(3*n_r_max,nR_out)  =0.0_cp
 
 
@@ -1249,6 +1102,7 @@ contains
       !-- Local variables:
       integer :: info,nCheb,nR_out,nR_out_p,nR,nR_p,n_cheb_in
       real(cp) :: work(n_r_max),work2(n_r_max)
+      real(cp) :: as_cmb, bs_cmb, ap_cmb, bp_cmb, as_icb, bs_icb, ap_icb, bp_icb ! b.c. on s
 
       if ( l_temperature_diff ) then ! temperature diffusion
 
@@ -1311,64 +1165,21 @@ contains
 
 
       !----- Boundary condition:
+      call get_entropy_bc_coeffs(n_r_cmb, 0, as_cmb, bs_cmb, ap_cmb, bp_cmb)
+      call get_entropy_bc_coeffs(n_r_icb, 0, as_icb, bs_icb, ap_icb, bp_icb)
       do nR_out=1,rscheme_oc%n_max
          nR_out_p=nR_out+n_r_max
 
-         if ( ktops == 1 ) then
-            !--------- Constant entropy at CMB:
-            psMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
-            psMat(1,nR_out_p)=0.0_cp
-         else if ( ktops == 2) then
-            !--------- Constant entropy flux at CMB:
-            psMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(1,nR_out)
-            psMat(1,nR_out_p)=0.0_cp
-         else if ( ktops == 3) then
-            !--------- Constant temperature at CMB:
-            psMat(1,nR_out)  =rscheme_oc%rnorm*temp0(1)*rscheme_oc%rMat(1,nR_out)
-            psMat(1,nR_out_p)=rscheme_oc%rnorm*orho1(1)*alpha0(1)*temp0(1)* &
-            &                ViscHeatFac*ThExpNb*rscheme_oc%rMat(1,nR_out)
-         else if ( ktops == 4) then
-            !--------- Constant temperature flux at CMB:
-            psMat(1,nR_out)  =rscheme_oc%rnorm*temp0(1)*( rscheme_oc%drMat(1,nR_out)+ &
-            &                           dLtemp0(1)*rscheme_oc%rMat(1,nR_out) )
-            psMat(1,nR_out_p)=rscheme_oc%rnorm*orho1(1)*alpha0(1)*            &
-            &                temp0(1)*ViscHeatFac*ThExpNb*(                   &
-            &                     rscheme_oc%drMat(1,nR_out)+(dLalpha0(1)+    &
-            &                dLtemp0(1)-beta(1))*rscheme_oc%rMat(1,nR_out) )
-         end if
-
-         if ( l_full_sphere ) then
-            psMat(n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,nR_out)
-            psMat(n_r_max,nR_out_p)=0.0_cp
-         else
-            if ( kbots == 1 ) then
-               !--------- Constant entropy at ICB:
-               psMat(n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR_out)
-               psMat(n_r_max,nR_out_p)=0.0_cp
-            else if ( kbots == 2) then
-               !--------- Constant entropy flux at ICB:
-               psMat(n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,nR_out)
-               psMat(n_r_max,nR_out_p)=0.0_cp
-            else if ( kbots == 3) then
-               !--------- Constant temperature at ICB:
-               psMat(n_r_max,nR_out)  =rscheme_oc%rnorm*          &
-               &                       rscheme_oc%rMat(n_r_max,nR_out)*temp0(n_r_max)
-               psMat(n_r_max,nR_out_p)=rscheme_oc%rnorm*                      &
-               &                           rscheme_oc%rMat(n_r_max,nR_out)*   &
-               &                      alpha0(n_r_max)*temp0(n_r_max)*         &
-               &                      orho1(n_r_max)*ViscHeatFac*ThExpNb
-            else if ( kbots == 4) then
-               !--------- Constant temperature flux at ICB:
-               psMat(n_r_max,nR_out)  =rscheme_oc%rnorm*temp0(n_r_max)*(           &
-               &                                 rscheme_oc%drMat(n_r_max,nR_out)+ &
-               &             dLtemp0(n_r_max)*rscheme_oc%rMat(n_r_max,nR_out) )
-               psMat(n_r_max,nR_out_p)=rscheme_oc%rnorm*orho1(n_r_max)*        &
-               &        alpha0(n_r_max)*temp0(n_r_max)*ViscHeatFac*ThExpNb*(   &
-               &                          rscheme_oc%drMat(n_r_max,nR_out)+    &
-               &              (dLalpha0(n_r_max)+dLtemp0(n_r_max)-             &
-               &            beta(n_r_max))*rscheme_oc%rMat(n_r_max,nR_out) )
-            end if
-         end if
+         psMat(1,nR_out)        =rscheme_oc%rnorm*(as_cmb*rscheme_oc%drMat(1,nR_out)+ &
+         &                                         bs_cmb*rscheme_oc%rMat(1,nR_out))
+         psMat(1,nR_out_p)      =rscheme_oc%rnorm*(ap_cmb*rscheme_oc%drMat(1,nR_out)+ &
+         &                                         bp_cmb*rscheme_oc%rMat(1,nR_out))
+         psMat(n_r_max,nR_out)  =rscheme_oc%rnorm*(                         &
+         &                       as_icb*rscheme_oc%drMat(n_r_max,nR_out)+   &
+         &                       bs_icb*rscheme_oc%rMat(n_r_max,nR_out))
+         psMat(n_r_max,nR_out_p)=rscheme_oc%rnorm*(                         &
+         &                       ap_icb*rscheme_oc%drMat(n_r_max,nR_out)+   &
+         &                       bp_icb*rscheme_oc%rMat(n_r_max,nR_out))
 
       end do
 
@@ -1486,5 +1297,247 @@ contains
       end if
 
    end subroutine get_ps0Mat
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+   subroutine get_entropy_bc_coeffs(nR, l, a_s, b_s, a_p, b_p)
+      !
+      ! Boundary condition on the entropy when it is solved together with
+      ! W and P (single matrix): a_s*ds/dr+b_s*s+a_p*dp/dr+b_p*p=rhs.
+      ! ktops/kbots: 1 fixed entropy, 2 fixed entropy flux (see
+      ! get_wps_sbc_coeffs), 3 fixed temperature, 4 fixed temperature flux.
+      ! Temperature conditions involve the pressure.
+      !
+
+      !-- Input variables:
+      integer, intent(in) :: nR         ! n_r_cmb or n_r_icb
+      integer, intent(in) :: l
+
+      !-- Output variables:
+      real(cp), intent(out) :: a_s, b_s, a_p, b_p
+
+      !-- Local variables:
+      integer :: k
+      real(cp) :: fac_p
+
+      a_p=0.0_cp
+      b_p=0.0_cp
+      k=ktops
+      if ( nR == n_r_icb ) k=kbots
+      if ( k <= 2 .or. (nR == n_r_icb .and. l_full_sphere) ) then
+         call get_wps_sbc_coeffs(nR, l, a_s, b_s)
+         return
+      end if
+
+      fac_p=orho1(nR)*alpha0(nR)*temp0(nR)*ViscHeatFac*ThExpNb
+      if ( k == 3 ) then ! Fixed temperature
+         a_s=0.0_cp
+         b_s=temp0(nR)
+         b_p=fac_p
+      else ! Fixed temperature flux
+         a_s=temp0(nR)
+         b_s=temp0(nR)*dLtemp0(nR)
+         a_p=fac_p
+         b_p=fac_p*(dLalpha0(nR)+dLtemp0(nR)-beta(nR))
+      end if
+
+   end subroutine get_entropy_bc_coeffs
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+   subroutine update_wps_bc(time)
+      !
+      ! Boundary values of the single-matrix solver at a given time
+      ! (see update_wps_wbc and update_wps_sbc). It is called once per
+      ! stage, before the boundary values are used.
+      !
+
+      !-- Input variable:
+      real(cp), intent(in) :: time
+
+      call update_wps_wbc(time)
+      call update_wps_sbc(time)
+
+   end subroutine update_wps_bc
+!-----------------------------------------------------------------------------
+   subroutine update_wps_wbc(time)
+      !
+      ! W and the r.h.s. of the second b.c. on W due to the prescribed motion
+      ! of the boundaries (ellipticity, tides, see get_bc2_coeffs).
+      !
+
+      !-- Input variable:
+      real(cp), intent(in) :: time
+
+      !-- Local variables:
+      complex(cp) :: wtide, eiwt
+      integer :: lm20, lm22
+
+      if ( .not. (l_vr_cmb .or. l_vr_icb) ) return
+
+      !-- Only the (l=2,m=0) and (l=2,m=2) modes are forced, the other entries
+      !-- stay zero. Both modes are in the truncation, except for an
+      !-- axisymmetric run which keeps the m=0 tide only (see readNamelists).
+      lm20=st_map%lm2(2,0)
+      lm22=st_map%lm2(2,2)
+
+      if ( l_vr_cmb ) then
+         eiwt=cmplx(cos(omega_tide*time), sin(omega_tide*time), cp)
+         wtide=tide_fac20*real(eiwt)
+         wbc_cmb(lm20)=wtide
+         if ( ktopv /= 1 ) wbc2_cmb(lm20)=6.0_cp*l2_h2_ratio/r_cmb*wtide
+         if ( .not. l_axi ) then
+            wtide=tide_fac22p*eiwt+tide_fac22n*conjg(eiwt)
+            wbc_cmb(lm22)=wtide+ellip_fac_cmb*                          &
+            &             cmplx(cos(omegaOsz_ma1*(time+tShift_ma1)),    &
+            &                   sin(omegaOsz_ma1*(time+tShift_ma1)), cp)
+            if ( ktopv /= 1 ) wbc2_cmb(lm22)=6.0_cp*l2_h2_ratio/r_cmb*wtide
+         end if
+      end if
+
+      if ( l_vr_icb ) then
+         wbc_icb(lm22)=ellip_fac_icb*cmplx(cos(omegaOsz_ic1*(time+tShift_ic1)), &
+         &                                 sin(omegaOsz_ic1*(time+tShift_ic1)), cp)
+      end if
+
+   end subroutine update_wps_wbc
+!-----------------------------------------------------------------------------
+   subroutine update_wps_sbc(time)
+      !
+      ! Perturbation of the outer entropy/temperature b.c. due to the tidal
+      ! displacement delta of the boundary: a fixed value (ktops=1,3) holds on
+      ! r_cmb+delta, which to first order adds -delta*df0/dr to its r.h.s. at
+      ! r_cmb (Taylor expansion, see the notes on tidal forcing). f0 is the
+      ! current spherically-symmetric entropy (ktops=1) or temperature
+      ! (ktops=3). For a fixed flux (ktops=2,4), the correction -delta*d2f0/dr2
+      ! is only O(delta/H) at a no-slip wall (see update_sbc) and is omitted.
+      !
+
+      !-- Input variable:
+      real(cp), intent(in) :: time
+
+      !-- Local variables:
+      complex(cp) :: delta20, delta22
+      real(cp) :: fac, f0_dr, fac_p, s00, ds00, p00, dp00, dT_s, dT_p
+      integer :: lm20, lm22, lm00, nR
+#ifdef WITH_MPI
+      integer :: ierr
+#endif
+
+      if ( .not. l_sbc_tide ) return
+
+      !-- d(f00)/dr at r_cmb, from the derivatives computed with the implicit
+      !-- terms (only known on the rank that holds l=m=0)
+      f0_dr=0.0_cp
+      lm00=lo_map%lm2(0,0)
+      if ( llm <= lm00 .and. ulm >= lm00 ) then
+         nR=n_r_cmb
+         s00 =real(s_LMloc(lm00,nR))
+         ds00=real(ds_LMloc(lm00,nR))
+         if ( ktops == 1 ) then ! Fixed entropy: f0=s
+            f0_dr=ds00
+         else ! Fixed temperature: f0=T=temp0*s+fac_p*p (see get_entropy_bc_coeffs)
+            p00 =real(p_LMloc(lm00,nR))
+            dp00=real(dp_LMloc(lm00,nR))
+            fac_p=orho1(nR)*alpha0(nR)*temp0(nR)*ViscHeatFac*ThExpNb
+            !-- d(temp0)/dr=temp0*dLtemp0, d(fac_p)/dr=fac_p*(dLalpha0+dLtemp0-beta)
+            dT_s=temp0(nR)*(ds00+dLtemp0(nR)*s00)                    ! d(temp0*s)/dr
+            dT_p=fac_p*(dp00+(dLalpha0(nR)+dLtemp0(nR)-beta(nR))*p00) ! d(fac_p*p)/dr
+            f0_dr=dT_s+dT_p ! dT_p=0 for Boussinesq (fac_p=0)
+         end if
+      end if
+#ifdef WITH_MPI
+      call MPI_Allreduce(MPI_IN_PLACE, f0_dr, 1, MPI_DEF_REAL, MPI_SUM, &
+           &             MPI_COMM_WORLD, ierr)
+#endif
+
+      !-- Radial displacement of the outer boundary by the tide: time
+      !-- integral of u_r=l(l+1)/r^2*W
+      lm20=st_map%lm2(2,0)
+      lm22=st_map%lm2(2,2)
+      fac=6.0_cp/r_cmb**2/omega_tide
+      delta20=fac*tide_fac20*cmplx(sin(omega_tide*time), 0.0_cp, cp)
+      if ( .not. l_axi ) delta22=fac*cmplx( (tide_fac22p+tide_fac22n)*sin(omega_tide*time), &
+      &                                    (-tide_fac22p+tide_fac22n)*cos(omega_tide*time), cp)
+      fac=-osq4pi*f0_dr
+      sbc_cmb(lm20)=fac*delta20 ! Other entries stay zero
+      if ( .not. l_axi ) sbc_cmb(lm22)=fac*delta22 ! m=0 tide only if axisymmetric
+
+   end subroutine update_wps_sbc
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+   subroutine get_wps_sbc_coeffs(nR, l, a, b)
+      !
+      ! Boundary condition on the entropy for ktops/kbots=1 (fixed entropy) or
+      ! 2 (fixed flux): a*ds/dr+b*s=rhs. At the centre of a full sphere,
+      ! regularity requires ds/dr=0 for l=0 and s=0 otherwise.
+      !
+
+      !-- Input variables:
+      integer, intent(in) :: nR ! n_r_cmb or n_r_icb
+      integer, intent(in) :: l
+
+      !-- Output variables:
+      real(cp), intent(out) :: a, b
+
+      !-- Local variable:
+      integer :: k
+
+      if ( nR == n_r_icb .and. l_full_sphere ) then
+         if ( l == 0 ) then
+            k=2
+         else
+            k=1
+         end if
+      else if ( nR == n_r_cmb ) then
+         k=ktops
+      else
+         k=kbots
+      end if
+
+      if ( k == 1 ) then ! Fixed value
+         a=0.0_cp
+         b=one
+      else ! Fixed flux
+         a=one
+         b=0.0_cp
+      end if
+
+   end subroutine get_wps_sbc_coeffs
+!-----------------------------------------------------------------------------
+   subroutine get_bc2_coeffs(nR, l, a2, a1, a0)
+      !
+      ! Second b.c. on W at the boundary nR: a2*d2W/dr2+a1*dW/dr+a0*W=wbc2
+      ! (rigid, stress-free with a moving boundary, or regularity at r=0).
+      !
+
+      !-- Input variables:
+      integer, intent(in) :: nR ! n_r_cmb or n_r_icb
+      integer, intent(in) :: l
+
+      !-- Output variables:
+      real(cp), intent(out) :: a2, a1, a0
+
+      !-- Local variable:
+      integer :: kv
+
+      a2=0.0_cp
+      a1=one
+      a0=0.0_cp
+      if ( nR == n_r_icb .and. l_full_sphere ) then
+         if ( l /= 1 ) then ! d2W/dr2=0, dW/dr=0 for l=1
+            a2=one
+            a1=0.0_cp
+         end if
+         return
+      end if
+
+      kv=ktopv
+      if ( nR == n_r_icb ) kv=kbotv
+      if ( kv == 1 ) then ! Stress-free
+         a2=one
+         a1=-(two*or1(nR)+beta(nR))
+         a0=real(l*(l+1),cp)*or2(nR)
+      end if
+
+   end subroutine get_bc2_coeffs
 !-----------------------------------------------------------------------------
 end module updateWPS_mod

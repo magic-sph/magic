@@ -420,7 +420,7 @@ contains
          if ( l_heat ) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
 
          if ( l_precession ) call update_prec_force(time)
-         call get_tor_rhs_imp(time, z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
+         call get_tor_rhs_imp(z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, 1,&
               &               .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
@@ -1418,7 +1418,7 @@ contains
          if ( l_heat) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
 
          if ( l_precession ) call update_prec_force(time)
-         call get_tor_rhs_imp(time, z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
+         call get_tor_rhs_imp(z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, 1,&
               &               .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)
@@ -2261,7 +2261,7 @@ contains
          if ( l_heat ) dsdt%expl(:,:,2)=dsdt%expl(:,:,2)+coex*dsdt%impl(:,:,1)
 
          if ( l_precession ) call update_prec_force(time)
-         call get_tor_rhs_imp(time, z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
+         call get_tor_rhs_imp(z, dz_LMloc, dzdt, domega_ma_dt, domega_ic_dt, &
               &               omega_ic, omega_ma, omega_ic1, omega_ma1, tscheme, 1,&
               &               .true., .false.)
          dzdt%expl(:,:,2)=dzdt%expl(:,:,2)+coex*dzdt%impl(:,:,1)

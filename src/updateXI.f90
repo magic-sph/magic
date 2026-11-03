@@ -7,9 +7,9 @@ module updateXi_mod
 
    use omp_lib
    use precision_mod
-   use truncation, only: n_r_max, lm_max, l_max
+   use truncation, only: n_r_max, lm_max, l_max, l_axi
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
-   use radial_functions, only: orho1, or1, or2, beta, rscheme_oc, r, dxicond, l_R
+   use radial_functions, only: orho1, or1, or2, beta, rscheme_oc, r, dxicond, l_R, r_cmb
    use physical_parameters, only: osc, kbotxi, ktopxi
    use num_param, only: dct_counter, solve_counter
    use init_fields, only: topxi, botxi
@@ -17,10 +17,14 @@ module updateXi_mod
    use horizontal_data, only: hdif_Xi
    use logic, only: l_finite_diff, l_full_sphere, l_parallel_solve, l_onset
    use parallel_mod, only: rank, chunksize, n_procs, get_openmp_blocks
-   use radial_der, only: get_ddr, get_dr, get_dr_Rloc, get_ddr_ghost, exch_ghosts,&
+#ifdef WITH_MPI
+   use mpimod
+#endif
+   use special, only: amp_tide, omega_tide, tide_fac20, tide_fac22p, tide_fac22n
+   use radial_der, only: get_robin_ghost_coeffs, get_ddr, get_dr, get_dr_Rloc, get_ddr_ghost, exch_ghosts,&
        &                 bulk_to_ghost
-   use constants, only: zero, one, two, three
-   use fields, only: work_LMloc
+   use constants, only: zero, one, two, three, osq4pi
+   use fields, only: work_LMloc, dxi_LMloc, dxi_Rloc
    use mem_alloc, only: bytes_allocated
    use useful, only: abortRun
    use time_schemes, only: type_tscheme
@@ -46,10 +50,16 @@ module updateXi_mod
    complex(cp), allocatable :: fd_fac_top(:), fd_fac_bot(:)
    complex(cp), public, allocatable :: xi_ghost(:,:)
 
+   !-- Perturbation of the outer boundary value/flux due to the tidal
+   !-- displacement of the boundary (standard lm order, see update_xibc)
+   complex(cp), allocatable :: xibc_cmb(:)
+   logical :: l_xibc_tide ! Tidal perturbation of a fixed composition at r_cmb (see update_xibc)
+
    public :: initialize_updateXi, finalize_updateXi, updateXi, assemble_comp,  &
    &         finish_exp_comp, get_comp_rhs_imp, finish_exp_comp_Rdist,         &
    &         get_comp_rhs_imp_ghost, updateXi_FD, prepareXi_FD, fill_ghosts_Xi,&
-   &         assemble_comp_Rloc
+   &         assemble_comp_Rloc, &
+   &         update_xibc
 
 contains
 
@@ -57,6 +67,7 @@ contains
 
       integer :: ll, n_bands
       integer, pointer :: nLMBs2(:)
+      real(cp) :: a, b
 
       if ( .not. l_parallel_solve ) then
          nLMBs2(1:n_procs) => lo_sub_map%nLMBs2
@@ -116,6 +127,16 @@ contains
       allocate( lXimat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
+
+      allocate( xibc_cmb(lm_max) )
+      bytes_allocated=bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
+      xibc_cmb(:)=zero
+
+      !-- The tidal correction only applies to a fixed value: for a fixed flux it
+      !-- is O(delta/H) and omitted (see update_xibc)
+      call get_xibc_coeffs(n_r_cmb, 2, a, b)
+      l_xibc_tide=amp_tide /= 0.0_cp .and. a == 0.0_cp
+
    end subroutine initialize_updateXi
 !------------------------------------------------------------------------------
    subroutine finalize_updateXI
@@ -143,6 +164,8 @@ contains
          call xiMat_FD%finalize()
          deallocate( fd_fac_top, fd_fac_bot, xi_ghost )
       end if
+
+      deallocate( xibc_cmb )
 
    end subroutine finalize_updateXI
 !------------------------------------------------------------------------------
@@ -232,8 +255,8 @@ contains
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
 
-               rhs1(1,2*lm-1,threadid)      = real(topxi(l1,m1))
-               rhs1(1,2*lm,threadid)        =aimag(topxi(l1,m1))
+               rhs1(1,2*lm-1,threadid)      = real(topxi(l1,m1)+xibc_cmb(st_map%lm2(l1,m1)))
+               rhs1(1,2*lm,threadid)        =aimag(topxi(l1,m1)+xibc_cmb(st_map%lm2(l1,m1)))
                rhs1(n_r_max,2*lm-1,threadid)= real(botxi(l1,m1))
                rhs1(n_r_max,2*lm,threadid)  =aimag(botxi(l1,m1))
                do nR=2,n_r_max-1
@@ -317,6 +340,7 @@ contains
 
       !-- Local variables
       integer :: nR, lm_start, lm_stop, lm, l, m
+      real(cp) :: a, b
 
       !-- LU factorisation of the matrix if needed
       if ( .not. lXimat(0) ) then
@@ -324,7 +348,7 @@ contains
          lXimat(:)=.true.
       end if
 
-      !$omp parallel default(shared) private(lm_start,lm_stop, nR, l, m, lm)
+      !$omp parallel default(shared) private(lm_start,lm_stop, nR, l, m, lm, a, b)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
       !$omp barrier
@@ -332,16 +356,18 @@ contains
       !-- Now assemble the right hand side
       call tscheme%set_imex_rhs_ghost(xi_ghost, dxidt, lm_start, lm_stop, 1)
 
-      !-- Set boundary conditions
+      !-- Set boundary conditions: a fixed value replaces the equation, a flux
+      !-- enters through the ghost point folded into the matrix (get_xiMat_Rdist)
       if ( nRstart == n_r_cmb ) then
          nR=n_r_cmb
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
-            if ( ktopxi == 1 ) then ! Fixed composition
-               xi_ghost(lm,nR)=topxi(l,m)
-            else ! Fixed flux
-               xi_ghost(lm,nR)=xi_ghost(lm,nR)+fd_fac_top(l)*topxi(l,m)
+            call get_xibc_coeffs(nR, l, a, b)
+            if ( a == 0.0_cp ) then
+               xi_ghost(lm,nR)=(topxi(l,m)+xibc_cmb(lm))
+            else
+               xi_ghost(lm,nR)=xi_ghost(lm,nR)+fd_fac_top(l)*(topxi(l,m)+xibc_cmb(lm))
             end if
             xi_ghost(lm,nR-1)=zero ! Set ghost zone to zero
          end do
@@ -352,19 +378,11 @@ contains
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
-
-            if ( l_full_sphere ) then
-               if ( l == 0 ) then
-                  xi_ghost(lm,nR)=xi_ghost(lm,nR)+fd_fac_bot(l)*botxi(l,m)
-               else
-                  xi_ghost(lm,nR)=botxi(l,m)
-               end if
+            call get_xibc_coeffs(nR, l, a, b)
+            if ( a == 0.0_cp ) then
+               xi_ghost(lm,nR)=botxi(l,m)
             else
-               if ( kbotxi == 1 ) then ! Fixed composition
-                  xi_ghost(lm,nR)=botxi(l,m)
-               else
-                 xi_ghost(lm,nR)=xi_ghost(lm,nR)+fd_fac_bot(l)*botxi(l,m)
-               end if
+               xi_ghost(lm,nR)=xi_ghost(lm,nR)+fd_fac_bot(l)*botxi(l,m)
             end if
             xi_ghost(lm,nR+1)=zero ! Set ghost zone to zero
          end do
@@ -385,46 +403,32 @@ contains
 
       !-- Local variables
       integer :: lm, l, m, lm_start, lm_stop
-      real(cp) :: dr
+      real(cp) :: c_in, c_bc, c_rhs
 
-      !$omp parallel default(shared) private(lm_start, lm_stop, l, m, lm)
+      !$omp parallel default(shared) private(lm_start, lm_stop, l, m, lm, c_in, c_bc, c_rhs)
       lm_start=1; lm_stop=lm_max
       call get_openmp_blocks(lm_start,lm_stop)
       !$omp barrier
 
       !-- Handle upper boundary
-      dr = r(2)-r(1)
       if ( nRstart == n_r_cmb ) then
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
-            if ( ktopxi == 1 ) then
-               xig(lm,nRstart-1)=two*xig(lm,nRstart)-xig(lm,nRstart+1)
-            else
-               xig(lm,nRstart-1)=xig(lm,nRstart+1)-two*dr*topxi(l,m)
-            end if
+            call get_xibc_ghost_coeffs(n_r_cmb, l, c_in, c_bc, c_rhs)
+            xig(lm,nRstart-1)=c_in*xig(lm,nRstart+1)+c_bc*xig(lm,nRstart)+ &
+            &                 c_rhs*(topxi(l,m)+xibc_cmb(lm))
          end do
       end if
 
       !-- Handle Lower boundary
-      dr = r(n_r_max)-r(n_r_max-1)
       if ( nRstop == n_r_icb ) then
          do lm=lm_start,lm_stop
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
-            if ( l_full_sphere ) then
-               if (l == 0 ) then
-                  xig(lm,nRstop+1)=xig(lm,nRstop-1)+two*dr*botxi(l,m)
-               else
-                  xig(lm,nRstop+1)=two*xig(lm,nRstop)-xig(lm,nRstop-1)
-               end if
-            else ! Not a full sphere
-               if (kbotxi == 1) then ! Fixed temperature at bottom
-                  xig(lm,nRstop+1)=two*xig(lm,nRstop)-xig(lm,nRstop-1)
-               else
-                  xig(lm,nRstop+1)=xig(lm,nRstop-1)+two*dr*botxi(l,m)
-               end if
-            end if
+            call get_xibc_ghost_coeffs(n_r_icb, l, c_in, c_bc, c_rhs)
+            xig(lm,nRstop+1)=c_in*xig(lm,nRstop-1)+c_bc*xig(lm,nRstop)+ &
+            &                c_rhs*botxi(l,m)
          end do
       end if
       !$omp end parallel
@@ -666,7 +670,6 @@ contains
       type(type_tarray), intent(inout) :: dxidt
 
       !-- Local variables
-      complex(cp) :: dxi(lm_max,nRstart:nRstop) ! Radial derivative of comp
       complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
       integer :: n_r, lm, start_lm, stop_lm, l
       real(cp) :: dL
@@ -681,7 +684,8 @@ contains
       !$omp single
       call dct_counter%start_count()
       !$omp end single
-      call get_ddr_ghost(xig, dxi, work_Rloc, lm_max, start_lm, stop_lm,  nRstart, &
+      !-- The radial derivative is kept in dxi_Rloc (used by update_xibc)
+      call get_ddr_ghost(xig, dxi_Rloc, work_Rloc, lm_max, start_lm, stop_lm,  nRstart, &
            &             nRstop, rscheme_oc)
       !$omp single
       call dct_counter%stop_count(l_increment=.false.)
@@ -702,12 +706,12 @@ contains
                l = lm2l(lm)
                dL = real(l*(l+1),cp)
                dxidt%impl(lm,n_r,istage)=                     osc*hdif_Xi(l) *   &
-               &     ( work_Rloc(lm,n_r)+(beta(n_r)+two*or1(n_r)) *  dxi(lm,n_r) &
+               &     ( work_Rloc(lm,n_r)+(beta(n_r)+two*or1(n_r)) *  dxi_Rloc(lm,n_r) &
                &                                       - dL*or2(n_r)* xig(lm,n_r) )
 
                if ( l==0 .and. l_full_sphere .and. n_r==n_r_icb ) then
                   dxidt%impl(lm,n_r,istage)= osc*hdif_Xi(l) *   &
-                  &               ( three*work_Rloc(lm,n_r)+beta(n_r)*dxi(lm,n_r) )
+                  &               ( three*work_Rloc(lm,n_r)+beta(n_r)*dxi_Rloc(lm,n_r) )
                end if
             end do
          end do
@@ -734,6 +738,7 @@ contains
 
       !-- Local variables
       integer :: lm, l1, m1, n_r
+      real(cp) :: a_top, b_top, a_bot, b_bot
       integer, pointer :: lm2l(:), lm2m(:)
 
       lm2l(1:lm_max) => lo_map%lm2l
@@ -756,78 +761,17 @@ contains
       !$omp end do
 
       !-- Boundary conditions
-      if ( l_full_sphere) then
-         if ( ktopxi == 1 ) then ! Fixed entropy at the outer boundary
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               if ( l1 == 0 ) then
-                  call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), one, 0.0_cp, &
-                       &                   botxi(l1,m1), xi(lm,:))
-               else
-                  call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), 0.0_cp, one, &
-                       &                   botxi(l1,m1), xi(lm,:))
-               end if
-            end do
-            !$omp end do
-         else ! Fixed flux at the outer boundary
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               if ( l1 == 0 ) then
-                  call rscheme_oc%robin_bc(one, 0.0_cp, topxi(l1,m1), one, 0.0_cp, &
-                       &                   botxi(l1,m1), xi(lm,:))
-               else
-                  call rscheme_oc%robin_bc(one, 0.0_cp, topxi(l1,m1), 0.0_cp, one, &
-                       &                   botxi(l1,m1), xi(lm,:))
-               end if
-            end do
-            !$omp end do
-         end if
-
-      else ! Spherical shell
-
-         !-- Boundary conditions
-         if ( ktopxi==1 .and. kbotxi==1 ) then ! Dirichlet on both sides
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), 0.0_cp, one, &
-                    &                   botxi(l1,m1), xi(lm,:))
-            end do
-            !$omp end do
-         else if ( ktopxi==1 .and. kbotxi /= 1 ) then ! Dirichlet: top and Neumann: bot
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               call rscheme_oc%robin_bc(0.0_cp, one, topxi(l1,m1), one, 0.0_cp, &
-                    &                   botxi(l1,m1), xi(lm,:))
-            end do
-            !$omp end do
-         else if ( kbotxi==1 .and. ktopxi /= 1 ) then ! Dirichlet: bot and Neumann: top
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               call rscheme_oc%robin_bc(one, 0.0_cp, topxi(l1,m1), 0.0_cp, one, &
-                    &                   botxi(l1,m1), xi(lm,:))
-            end do
-            !$omp end do
-         else if ( kbotxi /=1 .and. kbotxi /= 1 ) then ! Neumann on both sides
-            !$omp do private(lm,l1,m1)
-            do lm=llm,ulm
-               l1 = lm2l(lm)
-               m1 = lm2m(lm)
-               call rscheme_oc%robin_bc(one, 0.0_cp, topxi(l1,m1), one, 0.0_cp, &
-                    &                   botxi(l1,m1), xi(lm,:))
-            end do
-            !$omp end do
-         end if
-      end if
+      !$omp do private(lm,l1,m1,a_top,b_top,a_bot,b_bot)
+      do lm=llm,ulm
+         l1 = lm2l(lm)
+         m1 = lm2m(lm)
+         call get_xibc_coeffs(n_r_cmb, l1, a_top, b_top)
+         call get_xibc_coeffs(n_r_icb, l1, a_bot, b_bot)
+         call rscheme_oc%robin_bc(a_top, b_top, topxi(l1,m1)+xibc_cmb(st_map%lm2(l1,m1)), &
+              &                   a_bot, b_bot, &
+              &                   botxi(l1,m1), xi(lm,:))
+      end do
+      !$omp end do
       !$omp end parallel
 
       call get_comp_rhs_imp(xi, dxi, dxidt, 1, tscheme%l_imp_calc_rhs(1), .false.)
@@ -849,11 +793,12 @@ contains
 
       !-- Local variables
       integer :: lm, l, m, n_r, start_lm, stop_lm
+      real(cp) :: a, b
       complex(cp) :: work_Rloc(lm_max,nRstart:nRstop)
 
       call tscheme%assemble_imex(work_Rloc, dxidt)
 
-      !$omp parallel default(shared) private(start_lm, stop_lm, l, m)
+      !$omp parallel default(shared) private(start_lm, stop_lm, l, m, a, b)
       start_lm=1; stop_lm=lm_max
       call get_openmp_blocks(start_lm,stop_lm)
       !$omp barrier
@@ -869,19 +814,22 @@ contains
          end do
       end do
 
-      if ( ktopxi == 1 .and. nRstart==n_r_cmb ) then
+      !-- Fixed values at the boundaries (fluxes are handled by the ghost points)
+      if ( nRstart==n_r_cmb ) then
          do lm=start_lm,stop_lm
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
-            xi(lm,nRstart)=topxi(l,m)
+            call get_xibc_coeffs(n_r_cmb, l, a, b)
+            if ( a == 0.0_cp ) xi(lm,nRstart)=(topxi(l,m)+xibc_cmb(lm))
          end do
       end if
 
-      if ( kbotxi == 1 .and. nRstop==n_r_icb ) then
+      if ( nRstop==n_r_icb ) then
          do lm=start_lm,stop_lm
             l = st_map%lm2l(lm)
             m = st_map%lm2m(lm)
-            xi(lm,nRstop)=botxi(l,m)
+            call get_xibc_coeffs(n_r_icb, l, a, b)
+            if ( a == 0.0_cp ) xi(lm,nRstop)=botxi(l,m)
          end do
       end if
 
@@ -920,32 +868,18 @@ contains
 
       !-- Local variables:
       integer :: info, nR_out, nR
-      real(cp) :: dLh
+      real(cp) :: dLh, a_top, b_top, a_bot, b_bot
       real(cp) :: dat(n_r_max,n_r_max)
 
       dLh=real(l*(l+1),kind=cp)
 
       !----- Boundary conditions:
-      if ( ktopxi == 1 ) then
-         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%rMat(1,:)
-      else
-         dat(1,:)=rscheme_oc%rnorm*rscheme_oc%drMat(1,:)
-      end if
-
-      if ( l_full_sphere ) then
-         !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-         if ( l == 0 ) then
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-         else
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-         end if
-      else
-         if ( kbotxi == 1 ) then
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,:)
-         else
-            dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-         end if
-      end if
+      call get_xibc_coeffs(n_r_cmb, l, a_top, b_top)
+      call get_xibc_coeffs(n_r_icb, l, a_bot, b_bot)
+      dat(1,:)      =rscheme_oc%rnorm*(a_top*rscheme_oc%drMat(1,:)+ &
+      &                                b_top*rscheme_oc%rMat(1,:))
+      dat(n_r_max,:)=rscheme_oc%rnorm*(a_bot*rscheme_oc%drMat(n_r_max,:)+ &
+      &                                b_bot*rscheme_oc%rMat(n_r_max,:))
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
          do nR_out=rscheme_oc%n_max+1,n_r_max
@@ -1007,10 +941,10 @@ contains
 
       !-- Local variables:
       integer :: nR, l
-      real(cp) :: dLh
+      real(cp) :: dLh, a, b, c_in, c_bc, c_rhs
 
       !----- Bulk points
-      !$omp parallel default(shared) private(nR,l,dLh)
+      !$omp parallel default(shared) private(nR,l,dLh,a,b,c_in,c_bc,c_rhs)
       !$omp do
       do nR=1,n_r_max
          do l=0,l_max
@@ -1043,37 +977,32 @@ contains
       end do
       !$omp end do
 
-      !----- Boundary conditions:
+      !----- Boundary conditions: a fixed value replaces the equation, a flux
+      !----- condition gives the ghost point that is folded into the matrix
       !$omp do
       do l=0,l_max
-         if ( ktopxi == 1 ) then
+         call get_xibc_coeffs(n_r_cmb, l, a, b)
+         if ( a == 0.0_cp ) then
             xiMat%diag(l,1)=one
             xiMat%up(l,1)  =0.0_cp
             xiMat%low(l,1) =0.0_cp
          else
-            xiMat%up(l,1)=xiMat%up(l,1)+xiMat%low(l,1)
-            fd_fac_top(l)=two*(r(2)-r(1))*xiMat%low(l,1)
+            call get_xibc_ghost_coeffs(n_r_cmb, l, c_in, c_bc, c_rhs)
+            xiMat%diag(l,1)=xiMat%diag(l,1)+c_bc*xiMat%low(l,1)
+            xiMat%up(l,1)  =xiMat%up(l,1)+c_in*xiMat%low(l,1)
+            fd_fac_top(l)  =-c_rhs*xiMat%low(l,1)
          end if
 
-         if ( l_full_sphere ) then
-            !dat(n_r_max,:)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,:)
-            if ( l == 0 ) then
-               xiMat%low(l,n_r_max)=xiMat%up(l,n_r_max)+xiMat%low(l,n_r_max)
-               fd_fac_bot(l)=two*(r(n_r_max-1)-r(n_r_max))*xiMat%up(l,n_r_max)
-            else
-               xiMat%diag(l,n_r_max)=one
-               xiMat%up(l,n_r_max)  =0.0_cp
-               xiMat%low(l,n_r_max) =0.0_cp
-            end if
+         call get_xibc_coeffs(n_r_icb, l, a, b)
+         if ( a == 0.0_cp ) then
+            xiMat%diag(l,n_r_max)=one
+            xiMat%up(l,n_r_max)  =0.0_cp
+            xiMat%low(l,n_r_max) =0.0_cp
          else
-            if ( kbotxi == 1 ) then
-               xiMat%diag(l,n_r_max)=one
-               xiMat%up(l,n_r_max)  =0.0_cp
-               xiMat%low(l,n_r_max) =0.0_cp
-            else
-               xiMat%low(l,n_r_max)=xiMat%up(l,n_r_max)+xiMat%low(l,n_r_max)
-               fd_fac_bot(l)=two*(r(n_r_max-1)-r(n_r_max))*xiMat%up(l,n_r_max)
-            end if
+            call get_xibc_ghost_coeffs(n_r_icb, l, c_in, c_bc, c_rhs)
+            xiMat%diag(l,n_r_max)=xiMat%diag(l,n_r_max)+c_bc*xiMat%up(l,n_r_max)
+            xiMat%low(l,n_r_max) =xiMat%low(l,n_r_max)+c_in*xiMat%up(l,n_r_max)
+            fd_fac_bot(l)        =-c_rhs*xiMat%up(l,n_r_max)
          end if
       end do
       !$omp end do
@@ -1083,5 +1012,139 @@ contains
       call xiMat%prepare_mat()
 
    end subroutine get_xiMat_Rdist
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+   subroutine get_xibc_coeffs(nR, l, a, b)
+      !
+      ! Boundary condition on the composition at the boundary nR:
+      ! a*dxi/dr+b*xi=rhs. ktopxi/kbotxi=1 means a fixed value, any other
+      ! value a fixed flux. At the centre of a full sphere, regularity requires
+      ! dxi/dr=0 for l=0 and xi=0 otherwise.
+      ! A fixed value always has (a,b)=(0,1): the finite-difference paths
+      ! replace the boundary row by an identity row and set the value directly.
+      !
+
+      !-- Input variables:
+      integer, intent(in) :: nR ! n_r_cmb or n_r_icb
+      integer, intent(in) :: l
+
+      !-- Output variables:
+      real(cp), intent(out) :: a, b
+
+      !-- Local variable:
+      integer :: k
+
+      if ( nR == n_r_icb .and. l_full_sphere ) then
+         if ( l == 0 ) then
+            k=2
+         else
+            k=1
+         end if
+      else if ( nR == n_r_cmb ) then
+         k=ktopxi
+      else
+         k=kbotxi
+      end if
+
+      if ( k == 1 ) then ! Fixed value
+         a=0.0_cp
+         b=one
+      else ! Fixed flux
+         a=one
+         b=0.0_cp
+      end if
+
+   end subroutine get_xibc_coeffs
+!-----------------------------------------------------------------------------
+   subroutine get_xibc_ghost_coeffs(nR, l, c_in, c_bc, c_rhs)
+      !
+      ! Ghost point beyond the boundary nR for the composition (see
+      ! get_robin_ghost_coeffs). For a flux condition this enforces the
+      ! condition, for a fixed value the ghost point is only used for outputs.
+      !
+
+      !-- Input variables:
+      integer, intent(in) :: nR ! n_r_cmb or n_r_icb
+      integer, intent(in) :: l
+
+      !-- Output variables:
+      real(cp), intent(out) :: c_in, c_bc, c_rhs
+
+      !-- Local variables:
+      real(cp) :: a, b, h
+
+      call get_xibc_coeffs(nR, l, a, b)
+      if ( nR == n_r_cmb ) then
+         h=r(1)-r(2)
+      else
+         h=r(n_r_max)-r(n_r_max-1)
+      end if
+      call get_robin_ghost_coeffs(a, b, h, c_in, c_bc, c_rhs)
+
+   end subroutine get_xibc_ghost_coeffs
+!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+   subroutine update_xibc(time)
+      !
+      ! Perturbation of the composition b.c. at the outer boundary due to its tidal
+      ! displacement delta (Taylor expansion around r_cmb, see the notes on
+      ! tidal forcing). For a fixed value, the condition f=rhs holds on the
+      ! displaced boundary r_cmb+delta, which to first order adds
+      !
+      ! .. code-block:: fortran
+      !
+      !    -delta*df0/dr
+      !
+      ! to its r.h.s. at r_cmb. f0 is the current spherically-symmetric
+      ! composition (recorded when the implicit terms were last computed), so the
+      ! correction follows the boundary layer (df0/dr ~ Nu times the conducting
+      ! value). For a fixed flux, the corresponding correction -delta*d2f0/dr2
+      ! is omitted: at a no-slip, impermeable wall the l=0 balance gives
+      ! d2f0/dr2 = -2/r*df0/dr + (df0/dt - sources)/kappa, so it is only
+      ! O(delta/H) relative to the flux. It is called once per stage, before
+      ! the boundary values are used.
+      !
+
+      !-- Input variable:
+      real(cp), intent(in) :: time
+
+      !-- Local variables:
+      complex(cp) :: delta20, delta22
+      real(cp) :: fac, f0_dr
+      integer :: lm20, lm22
+#ifdef WITH_MPI
+      integer :: ierr
+#endif
+
+      if ( .not. l_xibc_tide ) return
+
+      !-- d(f00)/dr at r_cmb, from the derivatives computed with the implicit
+      !-- terms (only known on the rank that holds l=m=0 at r_cmb)
+      f0_dr=0.0_cp
+      if ( l_parallel_solve ) then
+         if ( nRstart == n_r_cmb ) f0_dr=real(dxi_Rloc(st_map%lm2(0,0),n_r_cmb))
+      else
+         if ( llm <= lo_map%lm2(0,0) .and. ulm >= lo_map%lm2(0,0) ) &
+         &    f0_dr=real(dxi_LMloc(lo_map%lm2(0,0),n_r_cmb))
+      end if
+#ifdef WITH_MPI
+      call MPI_Allreduce(MPI_IN_PLACE, f0_dr, 1, MPI_DEF_REAL, MPI_SUM, &
+           &             MPI_COMM_WORLD, ierr)
+#endif
+
+      !-- Radial displacement of the outer boundary by the tide: time integral
+      !-- of u_r=l(l+1)/r^2*W with W from the tidal flow (see update_wbc)
+      lm20=st_map%lm2(2,0)
+      lm22=st_map%lm2(2,2)
+      fac=6.0_cp/r_cmb**2/omega_tide
+      delta20=fac*tide_fac20*cmplx(sin(omega_tide*time), 0.0_cp, cp)
+      if ( .not. l_axi ) delta22=fac*cmplx( (tide_fac22p+tide_fac22n)*sin(omega_tide*time), &
+      &                                    (-tide_fac22p+tide_fac22n)*cos(omega_tide*time), cp)
+
+      fac=-osq4pi*f0_dr ! Physical f0=osq4pi*f00
+      xibc_cmb(lm20)=fac*delta20 ! Other entries stay zero
+      if ( .not. l_axi ) xibc_cmb(lm22)=fac*delta22 ! m=0 tide only if axisymmetric
+
+   end subroutine update_xibc
 !-----------------------------------------------------------------------------
 end module updateXi_mod

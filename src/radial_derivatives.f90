@@ -3,7 +3,7 @@ module radial_der
    ! Radial derivatives functions
    !
 
-   use constants, only: zero, one, three
+   use constants, only: zero, one, two, three
    use chebyshev, only: type_cheb_odd
    use finite_differences, only: type_fd
    use precision_mod
@@ -29,6 +29,7 @@ module radial_der
    end interface get_dcheb
 
    public :: get_ddr, get_dddr, get_dr, initialize_der_arrays, bulk_to_ghost, &
+   &         get_robin_ghost_coeffs, &
    &         finalize_der_arrays, get_dr_Rloc, get_ddr_Rloc, get_ddr_ghost,   &
    &         exch_ghosts, get_ddddr_ghost
 
@@ -1124,4 +1125,38 @@ contains
 
    end subroutine bulk_to_ghost
 !------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+   subroutine get_robin_ghost_coeffs(a, b, h, c_in, c_bc, c_rhs)
+      !
+      ! Ghost point beyond a boundary for a field f subject to the Robin
+      ! condition a*df/dr+b*f=rhs, using centred differences:
+      !
+      ! .. code-block:: fortran
+      !
+      !    f_ghost = c_in*f(first point inside)+c_bc*f(boundary)+c_rhs*rhs
+      !
+      ! h=r(boundary)-r(first point inside). For a=0 the boundary value is set
+      ! directly and the ghost point is a linear extrapolation (only used for
+      ! the outputs).
+      !
+
+      !-- Input variables:
+      real(cp), intent(in) :: a, b
+      real(cp), intent(in) :: h
+
+      !-- Output variables:
+      real(cp), intent(out) :: c_in, c_bc, c_rhs
+
+      if ( a == 0.0_cp ) then
+         c_in =-one
+         c_bc =two
+         c_rhs=0.0_cp
+      else
+         c_in =one
+         c_bc =-two*h*b/a
+         c_rhs=two*h/a
+      end if
+
+   end subroutine get_robin_ghost_coeffs
+!-----------------------------------------------------------------------------
 end module radial_der
