@@ -2610,7 +2610,9 @@ contains
          wbc_cmb(lm20)=wtide
          if ( ktopv /= 1 ) wbc2_cmb(lm20)=6.0_cp*l2_h2_ratio/r_cmb*wtide
          if ( .not. l_axi ) then
-            wtide=tide_fac22p*eiwt+tide_fac22n*conjg(eiwt)
+            !-- Relative sign from dPhi_2^-2 < 0: with the time origin chosen so that
+            !-- the (2,0) flow goes as cos(wt), the sub-main body point stays at phi=0
+            wtide=tide_fac22p*eiwt-tide_fac22n*conjg(eiwt)
             wbc_cmb(lm22)=wtide+ellip_fac_cmb*                          &
             &             cmplx(cos(omegaOsz_ma1*(time+tShift_ma1)),    &
             &                   sin(omegaOsz_ma1*(time+tShift_ma1)), cp)

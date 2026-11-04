@@ -1344,8 +1344,8 @@ contains
       lm22=st_map%lm2(2,2)
       fac=6.0_cp/r_cmb**2/omega_tide
       delta20=fac*tide_fac20*cmplx(sin(omega_tide*time), 0.0_cp, cp)
-      if ( .not. l_axi ) delta22=fac*cmplx( (tide_fac22p+tide_fac22n)*sin(omega_tide*time), &
-      &                                    (-tide_fac22p+tide_fac22n)*cos(omega_tide*time), cp)
+      if ( .not. l_axi ) delta22=fac*cmplx( (tide_fac22p-tide_fac22n)*sin(omega_tide*time), &
+      &                                    -(tide_fac22p+tide_fac22n)*cos(omega_tide*time), cp)
 
       fac=-osq4pi*f0_dr ! Physical f0=osq4pi*f00
       sbc_cmb(lm20)=fac*delta20 ! Other entries stay zero
