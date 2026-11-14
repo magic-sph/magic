@@ -20,6 +20,46 @@
 
 # Quickly start using MagIC
 
+## Docker
+
+We provide a [Dockerfile](Dockerfile) for a quick environment you can use magic! It 
+comes with an ubuntu base, mpich (mpif90), and installs SHTns.
+
+```bash
+$ docker build -t magic .
+```
+
+Note that we build samples and run them (for testing) so the build takes a bit of time.
+When it's done, let's now try interacting with the container. Note that the [entrypoint.sh](entrypoint.sh) script sources [sourceme.sh](sourceme.sh)
+before executing your command, and thus will ensure the environment is ready.
+
+```bash
+# Ensure that the file is sourced
+$ docker run --rm -it magic env | grep MAGIC_HOME
+```
+```console
+MAGIC_HOME = </code>
+MAGIC_HOME=/code
+```
+
+To shell inside and interact:
+
+```bash
+$ docker run -it magic bash
+```
+
+And the environment should be ready, e.g.,
+
+```bash
+cd /code/samples
+./magic_wizard.py --use-mpi --nranks 4 --mpicmd mpiexec
+```
+
+And that's it! This container is also available via an automated build `ghcr.io/magic-sph/magic` if you want to
+pull it directly. For a customized or local install, continue to the next section.
+
+## Local Install
+
 ### 1) In order to check out the code, use the command
 
 ```sh
