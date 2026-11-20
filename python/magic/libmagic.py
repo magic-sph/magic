@@ -72,6 +72,16 @@ def selectField(obj, field, labTex=True, ic=False):
         else:
             label = 'xi'
         data_ic = None
+    elif field in ('density', 'rho', 'Rho'):
+        data = -obj.entropy
+        if obj.xi is not None:
+            Rinv = obj.raxi/obj.ra * obj.pr/obj.sc
+            data -= Rinv*obj.xi
+        if labTex:
+            label = r'$\rho$'
+        else:
+            label = 'rho'
+        data_ic = None
     elif field in ('phase', 'Phase'):
         data = obj.phase
         if labTex:
@@ -195,6 +205,17 @@ def selectField(obj, field, labTex=True, ic=False):
             label = r"$\xi'$"
         else:
             label = "xi'"
+        data_ic = None
+    elif field == 'rhofluct':
+        data = -obj.entropy
+        if obj.xi is not None:
+            Rinv = obj.raxi/obj.ra * obj.pr/obj.sc
+            data -= Rinv*obj.xi
+        data -= data.mean(axis=0)
+        if labTex:
+            label = r"$\rho'$"
+        else:
+            label = "rho'"
         data_ic = None
     elif field == 'prefluct':
         data = obj.pre-obj.pre.mean(axis=0)
@@ -970,7 +991,7 @@ def zderavg(data, rad, colat=None, exclude=False):
     if len(data.shape) == 3:  # 3-D
         thmD = th[None, :, None]
     elif len(data.shape) == 2:  # 2-D
-        thmD = th[None, :]
+        thmD = th[:, None]
 
     dtheta = thetaderavg(data, colat=colat)
     dr = rderavg(data, rad, exclude)
